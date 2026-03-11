@@ -1,0 +1,72 @@
+.admin-wrapper {
+  display: flex;
+  min-height: 100vh;
+}
+
+.admin-sidebar {
+  width: 240px;
+  background: #111;
+  color: #fff;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+}
+
+.admin-brand {
+  font-size: 1.25rem;
+  font-weight: 700;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #333;
+  margin-bottom: 1rem;
+}
+
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.admin-link {
+  color: #999;
+  text-decoration: none;
+  padding: 0.65rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.admin-link:hover { color: #fff; background: #222; }
+.admin-link.active { color: #fff; background: #333; }
+
+.admin-logout {
+  background: none;
+  border: 1px solid #444;
+  color: #999;
+  padding: 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.admin-logout:hover { color: #fff; border-color: #666; }
+
+.admin-main {
+  flex: 1;
+  margin-left: 240px;
+  padding: 2rem;
+  background: #f9fafb;
+}
+
+.admin-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: #888;
+}
