@@ -27,22 +27,32 @@ export default function AdminLogin() {
 
   return (
     <div className="admin-login-page">
-      <div className="admin-login-card">
-        <h1>Admin Login</h1>
-        {error && <div className="login-error">{error}</div>}
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
-          </div>
-          <div className="form-group">
-            <label>Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
-          </div>
-          <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
+      <div className="admin-login-container">
+        <div className="admin-login-logo">
+          <span className="admin-login-logo-icon">P</span>
+          <span className="admin-login-logo-text">Admin</span>
+        </div>
+
+        <div className="admin-login-card">
+          <h1 className="admin-login-title">Admin Login</h1>
+          <p className="admin-login-subtitle">Sign in to the admin panel</p>
+
+          {error && <div className="admin-login-error">{error}</div>}
+
+          <form onSubmit={handleSubmit} className="admin-login-form">
+            <div className="admin-form-group">
+              <label>Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@example.com" required />
+            </div>
+            <div className="admin-form-group">
+              <label>Password</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Your password" required />
+            </div>
+            <button type="submit" className="admin-login-btn" disabled={loading}>
+              {loading ? 'Signing in...' : 'Sign In'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

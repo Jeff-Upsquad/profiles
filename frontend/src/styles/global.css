@@ -1,10 +1,22 @@
-/* Hashnode Design System */
+/* Hashnode Design System — exact match */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 :root {
+  /* Primary */
   --blue-600: #2563EB;
   --blue-700: #1D4ED8;
+  --blue-500: #3B82F6;
+  --blue-400: #60A5FA;
   --blue-50: #EFF6FF;
   --blue-100: #DBEAFE;
 
+  /* Purple (Hashnode accent) */
+  --purple-400: #C084FC;
+  --purple-500: #A855F7;
+  --purple-600: #9333EA;
+  --purple-50: #FAF5FF;
+
+  /* Slate */
   --slate-50: #F8FAFC;
   --slate-100: #F1F5F9;
   --slate-200: #E2E8F0;
@@ -17,6 +29,7 @@
   --slate-900: #0F172A;
   --slate-950: #020617;
 
+  /* Utility colors */
   --white: #FFFFFF;
   --red-500: #EF4444;
   --red-50: #FEF2F2;
@@ -25,17 +38,23 @@
   --green-700: #15803D;
   --yellow-50: #FEFCE8;
   --yellow-700: #A16207;
-  --purple-50: #FAF5FF;
-  --purple-600: #9333EA;
 
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* Radius — Hashnode uses rounded-lg (8px) and rounded-xl (12px) primarily */
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
+  --radius-2xl: 20px;
   --radius-full: 9999px;
+
+  /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
 }
 
 * {
@@ -63,6 +82,7 @@ input, textarea, select { font-family: inherit; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--slate-300); border-radius: var(--radius-full); }
 
+/* Buttons — Hashnode style */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -70,7 +90,7 @@ input, textarea, select { font-family: inherit; }
   gap: 0.5rem;
   padding: 0.55rem 1.25rem;
   border-radius: var(--radius-lg);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 500;
   border: none;
   transition: all 0.15s ease;
@@ -97,12 +117,13 @@ input, textarea, select { font-family: inherit; }
   border-radius: var(--radius-md);
 }
 
+/* Input — Hashnode style */
 .input {
   width: 100%;
   padding: 0.6rem 0.85rem;
   border: 1px solid var(--slate-200);
   border-radius: var(--radius-md);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
   background: var(--white);
@@ -116,6 +137,7 @@ input, textarea, select { font-family: inherit; }
 
 .input::placeholder { color: var(--slate-400); }
 
+/* Badge */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -123,4 +145,10 @@ input, textarea, select { font-family: inherit; }
   border-radius: var(--radius-sm);
   font-size: 0.75rem;
   font-weight: 500;
+}
+
+/* Dot pattern background utility (Hashnode uses this) */
+.dot-pattern {
+  background-image: radial-gradient(currentColor 1.25px, transparent 1.25px);
+  background-size: 16px 16px;
 }

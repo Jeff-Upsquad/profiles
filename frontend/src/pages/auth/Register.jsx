@@ -36,65 +36,77 @@ export default function Register() {
 
   return (
     <div className="auth-page">
-      <div className="auth-card">
-        <h1 className="auth-title">Create your account</h1>
-        <p className="auth-subtitle">Start showcasing your work</p>
+      <div className="auth-container">
+        <Link to="/" className="auth-logo">
+          <span className="auth-logo-icon">P</span>
+          <span className="auth-logo-text">Profiles</span>
+        </Link>
 
-        {error && <div className="auth-error">{error}</div>}
+        <div className="auth-card">
+          <h1 className="auth-title">Create your account</h1>
+          <p className="auth-subtitle">Start showcasing your work</p>
 
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="username">Username</label>
-            <input
-              id="username"
-              name="username"
-              type="text"
-              value={form.username}
-              onChange={handleChange}
-              placeholder="yourname"
-              required
-              minLength={3}
-              maxLength={30}
-              pattern="^[a-zA-Z0-9_-]+$"
-              title="Letters, numbers, hyphens, and underscores only"
-            />
-          </div>
+          {error && <div className="auth-error">{error}</div>}
 
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              value={form.email}
-              onChange={handleChange}
-              placeholder="you@example.com"
-              required
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="auth-form">
+            <div className="form-group">
+              <label htmlFor="username">Username</label>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                value={form.username}
+                onChange={handleChange}
+                placeholder="yourname"
+                required
+                minLength={3}
+                maxLength={30}
+                pattern="^[a-zA-Z0-9_-]+$"
+                title="Letters, numbers, hyphens, and underscores only"
+              />
+            </div>
 
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              value={form.password}
-              onChange={handleChange}
-              placeholder="At least 6 characters"
-              required
-              minLength={6}
-            />
-          </div>
+            <div className="form-group">
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+                placeholder="you@example.com"
+                required
+              />
+            </div>
 
-          <button type="submit" className="auth-btn" disabled={loading}>
-            {loading ? 'Creating account...' : 'Create Account'}
-          </button>
-        </form>
+            <div className="form-group">
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                value={form.password}
+                onChange={handleChange}
+                placeholder="At least 6 characters"
+                required
+                minLength={6}
+              />
+            </div>
 
-        <p className="auth-footer">
-          Already have an account? <Link to="/login">Sign in</Link>
-        </p>
+            <button type="submit" className="auth-btn" disabled={loading}>
+              {loading ? 'Creating account...' : 'Create Account'}
+            </button>
+          </form>
+
+          <p className="auth-footer">
+            Already have an account? <Link to="/login">Sign in</Link>
+          </p>
+        </div>
+
+        <div className="auth-testimonial">
+          <p>"Join thousands of creatives who showcase their best work on Profiles."</p>
+          <cite>Free to use, forever</cite>
+        </div>
       </div>
     </div>
   );
