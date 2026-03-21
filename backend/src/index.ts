@@ -25,7 +25,7 @@ app.use(helmet({
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
       connectSrc: ["'self'", "https:", "http:"],
-      upgradeInsecureRequests: [],
+      upgradeInsecureRequests: null,
     },
   } : false,
 }));
