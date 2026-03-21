@@ -1,224 +1,148 @@
-# Profiles — Portfolio Platform
+# SquadHire — Talent Marketplace Platform
 
-A portfolio platform for designers and video editors. Users create profiles, upload images/videos, and showcase their work.
+A full-stack talent marketplace where job seekers create professional profiles and businesses discover and hire them. Supports multiple job categories with dynamic profile schemas managed from an admin panel.
+
+## Architecture
+
+```
+├── supabase/migrations/   # PostgreSQL schema (7 migration files)
+├── shared/                # Shared TypeScript types
+├── backend/               # Node.js + Express API (TypeScript)
+├── frontend/              # React + Vite main app (Talent & Business)
+├── admin/                 # React + Vite admin panel
+```
 
 ## Tech Stack
 
-- **Frontend**: React + Vite
-- **Admin**: React + Vite (separate app)
-- **Backend**: Node.js + Express
-- **Database**: MongoDB + Mongoose
-- **File Storage**: Local (switchable to cloud)
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19, Vite, TypeScript, TailwindCSS v4, TanStack Query |
+| Backend | Node.js, Express, TypeScript, Zod validation |
+| Database | Supabase (PostgreSQL + Auth + RLS) |
+| File Storage | Cloudflare R2 (S3-compatible) |
+| Auth | Supabase Auth (JWT + email/password) |
 
-## Project Structure
+## Prerequisites
 
-```
-/frontend    → User-facing React app
-/admin       → Admin panel React app
-/backend     → Express API server
-/deploy      → Nginx config & setup scripts
-```
+- Node.js 20+
+- A Supabase project (free tier works)
+- (Optional) Cloudflare R2 bucket for file uploads
 
----
+## Setup
 
-## Local Development Setup
+### 1. Database
 
-### Prerequisites
-
-- Node.js 18+ installed
-- MongoDB running locally (or use MongoDB Atlas)
-
-### 1. Clone and install
+Run the migration files in order against your Supabase project:
 
 ```bash
-git clone YOUR_REPO_URL
-cd Profiles
+# Using Supabase CLI
+supabase db push
 
-# Install all dependencies
-cd backend && npm install && cd ..
-cd frontend && npm install && cd ..
-cd admin && npm install && cd ..
+# Or manually run each file in supabase/migrations/ via the SQL editor
 ```
 
-### 2. Configure environment
+### 2. Backend
 
 ```bash
 cd backend
 cp .env.example .env
-# Edit .env if needed (defaults work for local development)
+# Fill in your Supabase URL, keys, etc.
+npm install
+npm run dev    # Starts on port 5000
 ```
 
-### 3. Seed the database
+**Required environment variables:**
+- `SUPABASE_URL` — Your Supabase project URL
+- `SUPABASE_ANON_KEY` — Supabase anon/public key
+- `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role key (server-side only)
+- `PORT` — Server port (default: 5000)
+- `CORS_ORIGIN` — Allowed origins (e.g., `http://localhost:5173,http://localhost:5174`)
+
+**Optional (for file uploads):**
+- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`
+
+### 3. Frontend (Main App)
 
 ```bash
-cd backend
-npm run seed
+cd frontend
+npm install
+npm run dev    # Starts on port 5173
 ```
 
-This creates:
-- Admin user: `admin@profiles.com` / `admin123456`
-- Default categories and types
-
-### 4. Start development servers
-
-Open 3 terminal windows:
+### 4. Admin Panel
 
 ```bash
-# Terminal 1 — Backend API (port 5000)
+cd admin
+npm install
+npm run dev    # Starts on port 5174
+```
+
+## User Roles
+
+| Role | Description |
+|------|-------------|
+| **Talent** | Create profiles per job category, upload resumes, track approval status |
+| **Business** | Browse approved profiles, shortlist, send interest requests |
+| **Admin** | Manage categories/fields, review profiles, manage users, recycle bin |
+
+## Key Features
+
+### Dynamic Profile Schema
+- Admins create job categories (Accountant, Video Editor, etc.)
+- Each category has custom fields (text, select, multi-select, file upload, etc.)
+- Talent profiles use JSONB to store dynamic field data — no migrations needed for new categories
+
+### Profile Lifecycle
+```
+Draft → Pending Review → Approved (Active)
+                       → Rejected → Edit & Resubmit
+Active → Deactivated → Reactivated (Pending Review)
+Active → Deleted (Soft) → Restored (Pending Review) / Permanently Deleted
+```
+
+### Security
+- JWT auth via Supabase Auth
+- Row Level Security (RLS) on all tables
+- Zod validation on all API endpoints
+- RBAC middleware (talent/business/admin)
+- Presigned URLs for file uploads (5-min expiry)
+
+## API Endpoints
+
+### Auth
+- `POST /api/auth/signup/talent` — Register as talent
+- `POST /api/auth/signup/business` — Register as business
+- `POST /api/auth/login` — Login
+- `GET /api/auth/me` — Get current user
+
+### Talent
+- `GET/PUT /api/talent/me` — Talent user info
+- `GET/POST /api/talent/profiles` — List/create profiles
+- `PUT /api/talent/profiles/:id` — Update profile
+- `PATCH /api/talent/profiles/:id/submit` — Submit for review
+- `PATCH /api/talent/profiles/:id/deactivate` — Deactivate
+- `PATCH /api/talent/profiles/:id/reactivate` — Reactivate
+- `DELETE /api/talent/profiles/:id` — Soft delete
+
+### Business
+- `GET /api/business/discover/:categorySlug` — Browse profiles
+- `POST /api/business/shortlist/:profileId` — Add to shortlist
+- `POST /api/business/interest/:profileId` — Send interest request
+
+### Admin
+- `GET /api/admin/dashboard/stats` — Dashboard stats
+- CRUD for categories, fields, field options
+- `GET/PATCH /api/admin/reviews` — Profile review queue
+- `GET /api/admin/users/talent|business` — User management
+- `GET/PATCH/DELETE /api/admin/recycle-bin` — Deleted profiles
+
+## Development
+
+```bash
+# Run all three in separate terminals:
 cd backend && npm run dev
-
-# Terminal 2 — Frontend (port 5173)
 cd frontend && npm run dev
-
-# Terminal 3 — Admin (port 5174)
 cd admin && npm run dev
 ```
 
-### 5. Open in browser
-
-- Frontend: http://localhost:5173
-- Admin: http://localhost:5174
-- API: http://localhost:5000/api/health
-
----
-
-## Deployment to Hostinger VPS
-
-### Step 1: Initial VPS Setup
-
-SSH into your VPS and run the setup script:
-
-```bash
-ssh root@YOUR_VPS_IP
-# Upload and run setup script, or run commands manually:
-```
-
-The setup script installs: Node.js 20, MongoDB 7, Nginx, PM2
-
-### Step 2: Clone Your Project
-
-```bash
-cd /var/www/profiles
-git clone YOUR_REPO_URL .
-```
-
-### Step 3: Install Dependencies & Build
-
-```bash
-# Backend
-cd /var/www/profiles/backend
-npm install
-cp .env.example .env
-nano .env  # Set production values (change JWT_SECRET!)
-
-# Seed database
-npm run seed
-
-# Frontend
-cd /var/www/profiles/frontend
-npm install
-echo "VITE_API_URL=/api" > .env
-npm run build
-
-# Admin
-cd /var/www/profiles/admin
-npm install
-echo "VITE_API_URL=/api" > .env
-npm run build
-```
-
-### Step 4: Configure Nginx
-
-```bash
-sudo cp /var/www/profiles/deploy/nginx.conf /etc/nginx/sites-available/profiles
-sudo ln -sf /etc/nginx/sites-available/profiles /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl restart nginx
-```
-
-### Step 5: Start Backend with PM2
-
-```bash
-cd /var/www/profiles/backend
-pm2 start src/app.js --name profiles-api
-pm2 save
-pm2 startup  # Follow the output command to enable auto-start
-```
-
-### Step 6: Verify
-
-- Frontend: http://YOUR_VPS_IP
-- Admin: http://YOUR_VPS_IP/admin
-- API: http://YOUR_VPS_IP/api/health
-
----
-
-## Deploying Updates
-
-After pushing changes to GitHub:
-
-```bash
-ssh root@YOUR_VPS_IP
-cd /var/www/profiles
-
-# Pull latest code
-git pull
-
-# If backend changed:
-cd backend && npm install
-pm2 restart profiles-api
-
-# If frontend changed:
-cd frontend && npm install && npm run build
-
-# If admin changed:
-cd admin && npm install && npm run build
-```
-
----
-
-## Environment Variables
-
-### Backend (.env)
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| PORT | API server port | 5000 |
-| MONGODB_URI | MongoDB connection string | mongodb://localhost:27017/profiles |
-| JWT_SECRET | Secret for signing tokens | (change this!) |
-| JWT_EXPIRES_IN | Token expiry | 7d |
-| STORAGE_PROVIDER | File storage: local, cloudinary, s3 | local |
-| UPLOAD_DIR | Upload directory name | uploads |
-| MAX_FILE_SIZE | Max upload size in bytes | 104857600 (100MB) |
-| CORS_ORIGIN | Allowed origins (comma-separated) | http://localhost:5173,http://localhost:5174 |
-
-### Frontend & Admin (.env)
-
-| Variable | Description |
-|----------|-------------|
-| VITE_API_URL | Backend API URL (`http://localhost:5000/api` locally, `/api` in production) |
-
----
-
-## Default Admin Credentials
-
-After running `npm run seed`:
-
-- **Email**: admin@profiles.com
-- **Password**: admin123456
-
-Change these immediately in production!
-
----
-
-## Switching to Cloud Storage
-
-The storage system uses an abstraction layer. To switch from local to cloud:
-
-1. Install the cloud provider package (e.g., `npm install cloudinary`)
-2. Create a new provider in `backend/src/services/storage/`
-3. Set `STORAGE_PROVIDER=cloudinary` in `.env`
-4. Add cloud credentials to `.env`
-
-No other code changes needed.
+Frontend proxies `/api` to `http://localhost:5000` via Vite config.

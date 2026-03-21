@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": "..",
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["../shared/src/*"]
+    }
+  },
+  "include": ["src/**/*", "../shared/src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
