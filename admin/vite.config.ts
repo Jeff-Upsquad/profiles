@@ -13,6 +13,7 @@ export default defineConfig({
   },
   server: {
     port: 5174,
+    allowedHosts: ['upsquadconnect.com', 'www.upsquadconnect.com'],
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
