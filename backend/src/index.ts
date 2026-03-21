@@ -64,6 +64,15 @@ app.use(errorHandler);
 // ---------------------------------------------------------------------------
 if (process.env.NODE_ENV === 'production') {
   const frontendDist = path.resolve(process.cwd(), '../frontend/dist');
+  const adminDist = path.resolve(process.cwd(), '../admin/dist');
+
+  // Serve admin panel at /admin
+  app.use('/admin', express.static(adminDist));
+  app.get('/admin/{*path}', (_req, res) => {
+    res.sendFile(path.join(adminDist, 'index.html'));
+  });
+
+  // Serve main frontend (must come after admin routes)
   app.use(express.static(frontendDist));
   app.get('/{*path}', (_req, res) => {
     res.sendFile(path.join(frontendDist, 'index.html'));
