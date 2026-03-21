@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { env } from './config/env.js';
 import { errorHandler } from './middleware/errorHandler.middleware.js';
 import authRouter from './routes/auth.routes.js';
@@ -9,6 +11,9 @@ import uploadRouter from './routes/upload.routes.js';
 import talentRouter from './routes/talent.routes.js';
 import publicRouter from './routes/public.routes.js';
 import businessRouter from './routes/business.routes.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -45,6 +50,17 @@ app.use('/api/business', businessRouter);
 // Global error handler (must be registered after all routes)
 // ---------------------------------------------------------------------------
 app.use(errorHandler);
+
+// ---------------------------------------------------------------------------
+// Serve frontend static files in production
+// ---------------------------------------------------------------------------
+if (process.env.NODE_ENV === 'production') {
+  const frontendDist = path.resolve(process.cwd(), '../frontend/dist');
+  app.use(express.static(frontendDist));
+  app.get('/{*path}', (_req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Start server
