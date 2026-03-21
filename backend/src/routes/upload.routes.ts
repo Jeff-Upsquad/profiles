@@ -15,7 +15,7 @@ router.post(
   uploadController.presign
 );
 
-// Key can contain slashes, so use a named wildcard parameter
-router.delete('/:key{.*}', uploadController.deleteFile);
+// Key can contain slashes, so use a wildcard parameter (path-to-regexp v8 syntax)
+router.delete('/*key', uploadController.deleteFile);
 
 export default router;
