@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const { data } = await api.post('/auth/login', { email, password });
     const userData = data.user || data;
-    const accessToken = data.token || data.accessToken;
+    const accessToken = data.access_token || data.token || data.accessToken;
 
     if (userData.role !== 'admin') {
       throw new Error('Access denied. Admin privileges required.');
