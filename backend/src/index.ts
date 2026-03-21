@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { env } from './config/env.js';
 import { errorHandler } from './middleware/errorHandler.middleware.js';
 import authRouter from './routes/auth.routes.js';
@@ -11,9 +10,6 @@ import uploadRouter from './routes/upload.routes.js';
 import talentRouter from './routes/talent.routes.js';
 import publicRouter from './routes/public.routes.js';
 import businessRouter from './routes/business.routes.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 

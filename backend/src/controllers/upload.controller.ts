@@ -18,7 +18,7 @@ export async function presign(req: Request, res: Response, next: NextFunction) {
 
 export async function deleteFile(req: Request, res: Response, next: NextFunction) {
   try {
-    const key = req.params.key; // Capture the named wildcard portion
+    const key = req.params.key as string;
     const result = await storageService.deleteFile(key);
     res.json(result);
   } catch (err) {
