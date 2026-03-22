@@ -420,6 +420,12 @@ export async function suspendUser(userId: string, suspend: boolean) {
   return { message: suspend ? 'User suspended' : 'User unsuspended' };
 }
 
+export async function deleteUser(userId: string) {
+  const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
+  if (error) throw new AppError(400, error.message);
+  return { message: 'User permanently deleted' };
+}
+
 // ---------------------------------------------------------------------------
 // Recycle Bin
 // ---------------------------------------------------------------------------

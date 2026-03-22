@@ -68,6 +68,26 @@ export default function UserManagement() {
     },
   });
 
+  const deleteUser = useMutation({
+    mutationFn: async (userId: string) => {
+      await api.delete(`/admin/users/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users-talent'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users-business'] });
+      toast.success('User permanently deleted');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to delete user');
+    },
+  });
+
+  const handleDelete = (userId: string) => {
+    if (window.confirm('Are you sure you want to permanently delete this user? This action cannot be undone.')) {
+      deleteUser.mutate(userId);
+    }
+  };
+
   const filteredTalent = (talentUsers ?? []).filter(
     (u) =>
       !search ||
@@ -157,16 +177,26 @@ export default function UserManagement() {
                       {new Date(user.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Button
-                        variant={user.suspended ? 'primary' : 'danger'}
-                        size="sm"
-                        loading={suspendUser.isPending}
-                        onClick={() =>
-                          suspendUser.mutate({ userId: user.id, suspend: !user.suspended })
-                        }
-                      >
-                        {user.suspended ? 'Unsuspend' : 'Suspend'}
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant={user.suspended ? 'primary' : 'secondary'}
+                          size="sm"
+                          loading={suspendUser.isPending}
+                          onClick={() =>
+                            suspendUser.mutate({ userId: user.id, suspend: !user.suspended })
+                          }
+                        >
+                          {user.suspended ? 'Unsuspend' : 'Suspend'}
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          loading={deleteUser.isPending}
+                          onClick={() => handleDelete(user.id)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -220,16 +250,26 @@ export default function UserManagement() {
                       {new Date(user.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Button
-                        variant={user.suspended ? 'primary' : 'danger'}
-                        size="sm"
-                        loading={suspendUser.isPending}
-                        onClick={() =>
-                          suspendUser.mutate({ userId: user.id, suspend: !user.suspended })
-                        }
-                      >
-                        {user.suspended ? 'Unsuspend' : 'Suspend'}
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant={user.suspended ? 'primary' : 'secondary'}
+                          size="sm"
+                          loading={suspendUser.isPending}
+                          onClick={() =>
+                            suspendUser.mutate({ userId: user.id, suspend: !user.suspended })
+                          }
+                        >
+                          {user.suspended ? 'Unsuspend' : 'Suspend'}
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          loading={deleteUser.isPending}
+                          onClick={() => handleDelete(user.id)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

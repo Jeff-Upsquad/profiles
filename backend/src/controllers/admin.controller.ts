@@ -241,6 +241,15 @@ export async function suspendUser(req: Request, res: Response, next: NextFunctio
   }
 }
 
+export async function deleteUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.deleteUser(req.params.id as string);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Recycle Bin
 // ---------------------------------------------------------------------------

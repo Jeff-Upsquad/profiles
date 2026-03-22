@@ -113,6 +113,7 @@ router.patch('/reviews/bulk-approve', adminController.bulkApproveProfiles);
 router.get('/users/talent', adminController.getTalentUsers);
 router.get('/users/business', adminController.getBusinessUsers);
 router.patch('/users/:id/suspend', adminController.suspendUser);
+router.delete('/users/:id', adminController.deleteUser);
 
 // ---------------------------------------------------------------------------
 // Recycle Bin
