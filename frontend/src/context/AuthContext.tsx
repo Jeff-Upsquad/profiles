@@ -48,6 +48,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
         return;
       }
+      // Skip verification if user is already set (e.g. after signup/login)
+      // Only verify when recovering a token from localStorage on page load
+      if (user) {
+        setIsLoading(false);
+        return;
+      }
       try {
         const { data } = await api.get('/auth/me');
         setUser(data.user ?? data);
@@ -58,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
     verifyToken();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, clearAuth]);
 
   const login = useCallback(
