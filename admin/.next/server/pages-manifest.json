@@ -1,0 +1,15 @@
+{
+  "/_app": "pages/_app.js",
+  "/_error": "pages/_error.js",
+  "/Dashboard": "pages/Dashboard.js",
+  "/auth/AdminLogin": "pages/auth/AdminLogin.js",
+  "/categories/CategoryList": "pages/categories/CategoryList.js",
+  "/categories/FieldOptionManager": "pages/categories/FieldOptionManager.js",
+  "/categories/CategoryForm": "pages/categories/CategoryForm.js",
+  "/RecycleBin": "pages/RecycleBin.js",
+  "/categories/FieldManager": "pages/categories/FieldManager.js",
+  "/users/UserManagement": "pages/users/UserManagement.js",
+  "/profiles/ProfileReview": "pages/profiles/ProfileReview.js",
+  "/profiles/ReviewQueue": "pages/profiles/ReviewQueue.js",
+  "/_document": "pages/_document.js"
+}

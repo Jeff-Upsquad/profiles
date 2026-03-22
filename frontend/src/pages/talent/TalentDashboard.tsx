@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useMyProfiles } from '@/hooks/useProfiles';
 import Card from '@/components/ui/Card';
@@ -63,10 +63,10 @@ export default function TalentDashboard() {
       <Card>
         <h2 className="mb-4 text-lg font-semibold text-gray-900">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
-          <Link to="/talent/profiles/new">
+          <Link href="/talent/profiles/new">
             <Button>Create New Profile</Button>
           </Link>
-          <Link to="/talent/profiles">
+          <Link href="/talent/profiles">
             <Button variant="outline">View All Profiles</Button>
           </Link>
         </div>
@@ -78,7 +78,7 @@ export default function TalentDashboard() {
         {recentProfiles.length === 0 ? (
           <p className="text-sm text-gray-500">
             No profiles yet.{' '}
-            <Link to="/talent/profiles/new" className="text-indigo-600 hover:underline">
+            <Link href="/talent/profiles/new" className="text-indigo-600 hover:underline">
               Create your first profile
             </Link>
           </p>
@@ -102,7 +102,7 @@ export default function TalentDashboard() {
                     {profile.status.replace('_', ' ')}
                   </Badge>
                   <Link
-                    to={`/talent/profiles/${profile.id}`}
+                    href={`/talent/profiles/${profile.id}`}
                     className="text-sm text-indigo-600 hover:underline"
                   >
                     View

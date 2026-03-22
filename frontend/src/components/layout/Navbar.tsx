@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';

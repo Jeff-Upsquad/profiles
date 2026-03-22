@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import Button from '@/components/ui/Button';
 import Navbar from '@/components/layout/Navbar';
@@ -29,15 +29,15 @@ export default function Landing() {
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
               {user ? (
-                <Link to={user.role === 'business' ? '/business/dashboard' : '/talent/dashboard'}>
+                <Link href="/dashboard">
                   <Button size="lg">Go to Dashboard</Button>
                 </Link>
               ) : (
                 <>
-                  <Link to="/signup/talent">
+                  <Link href="/signup/talent">
                     <Button size="lg">Join as Talent</Button>
                   </Link>
-                  <Link to="/signup/business">
+                  <Link href="/signup/business">
                     <Button variant="outline" size="lg">
                       Hire Talent
                     </Button>

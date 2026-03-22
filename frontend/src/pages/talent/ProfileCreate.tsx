@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useCategories, useCategoryWithFields } from '@/hooks/useCategories';
 import { useMyProfiles, useCreateProfile, useSubmitProfile } from '@/hooks/useProfiles';
 import DynamicFormRenderer from '@/components/forms/DynamicFormRenderer';
@@ -9,7 +9,7 @@ import { SkeletonCard } from '@/components/ui/Skeleton';
 import type { Category } from '@/types';
 
 export default function ProfileCreate() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data: categories, isLoading: catLoading } = useCategories();
   const { data: profiles } = useMyProfiles();
   const createProfile = useCreateProfile();
@@ -67,7 +67,7 @@ export default function ProfileCreate() {
         category_id: selectedCategory.id,
         field_data: values,
       });
-      navigate(`/talent/profiles/${result.id}`);
+      router.push(`/profiles/${result.id}`);
     } catch {
       // error handled in hook
     }
@@ -82,7 +82,7 @@ export default function ProfileCreate() {
         field_data: values,
       });
       await submitProfile.mutateAsync(result.id);
-      navigate(`/talent/profiles/${result.id}`);
+      router.push(`/profiles/${result.id}`);
     } catch {
       // error handled in hook
     }

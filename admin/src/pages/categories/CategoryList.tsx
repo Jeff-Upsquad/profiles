@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
@@ -77,7 +77,7 @@ export default function CategoryList() {
                       >
                         Edit
                       </Button>
-                      <Link to={`/admin/categories/${cat.id}/fields`}>
+                      <Link href={`/categories/${cat.id}/fields`}>
                         <Button variant="ghost" size="sm">
                           Fields
                         </Button>

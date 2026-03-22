@@ -6,7 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import api from '@/services/api';
 
 interface User {
@@ -27,18 +27,22 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(
-    localStorage.getItem('squadhire_admin_token'),
-  );
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
+  const router = useRouter();
+
+  // Initialize token from localStorage
+  useEffect(() => {
+    const savedToken = localStorage.getItem('squadhire_admin_token');
+    setToken(savedToken);
+  }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem('squadhire_admin_token');
     setToken(null);
     setUser(null);
-    navigate('/admin/login');
-  }, [navigate]);
+    router.push('/login');
+  }, [router]);
 
   useEffect(() => {
     const verifyAuth = async () => {
@@ -77,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('squadhire_admin_token', accessToken);
     setToken(accessToken);
     setUser(userData);
-    navigate('/admin/');
+    router.push('/');
   };
 
   return (

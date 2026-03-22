@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
@@ -192,8 +192,7 @@ function FieldForm({
   );
 }
 
-export default function FieldManager() {
-  const { id: categoryId } = useParams<{ id: string }>();
+export default function FieldManager({ categoryId }: { categoryId: string }) {
   const { data: fields, isLoading } = useCategoryFields(categoryId);
   const deleteMutation = useDeleteField();
 

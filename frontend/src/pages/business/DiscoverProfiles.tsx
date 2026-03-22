@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import Link from 'next/link';
 import { useDiscoverProfiles, useAddToShortlist } from '@/hooks/useBusiness';
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import Card from '@/components/ui/Card';
@@ -8,16 +8,15 @@ import Input from '@/components/ui/Input';
 import Badge from '@/components/ui/Badge';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 
-export default function DiscoverProfiles() {
-  const { slug } = useParams<{ slug: string }>();
+export default function DiscoverProfiles({ categorySlug }: { categorySlug: string }) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [sortBy, setSortBy] = useState<string>('newest');
 
-  const { data: category } = useCategoryWithFields(slug);
+  const { data: category } = useCategoryWithFields(categorySlug);
   const { data, isLoading } = useDiscoverProfiles({
-    categorySlug: slug!,
+    categorySlug,
     page,
     search,
     sort_by: sortBy as any,
@@ -39,11 +38,11 @@ export default function DiscoverProfiles() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Link to="/business/discover" className="hover:text-indigo-600">
+          <Link href="/discover" className="hover:text-indigo-600">
             Discover
           </Link>
           <span>/</span>
-          <span className="text-gray-900">{category?.name ?? slug}</span>
+          <span className="text-gray-900">{category?.name ?? categorySlug}</span>
         </div>
         <h1 className="mt-2 text-2xl font-bold text-gray-900">
           {category?.name ?? 'Profiles'}
@@ -141,7 +140,7 @@ export default function DiscoverProfiles() {
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
-                  <Link to={`/business/discover/${slug}/${profile.id}`}>
+                  <Link href={`/discover/${categorySlug}/${profile.id}`}>
                     <Button variant="outline" size="sm">
                       View Profile
                     </Button>

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { useBusinessCategories } from '@/hooks/useBusiness';
 import Card from '@/components/ui/Card';
 import { SkeletonCard } from '@/components/ui/Skeleton';
@@ -29,7 +29,7 @@ export default function DiscoverCategories() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {(categories ?? []).map((cat) => (
-            <Link key={cat.id} to={`/business/discover/${cat.slug}`}>
+            <Link key={cat.id} href={`/discover/${cat.slug}`}>
               <Card className="cursor-pointer transition-all hover:border-indigo-300 hover:shadow-md">
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import {
   useMyProfiles,
   useDeactivateProfile,
@@ -35,7 +35,7 @@ export default function ProfileList() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">My Profiles</h1>
-        <Link to="/talent/profiles/new">
+        <Link href="/profiles/new">
           <Button>Create New Profile</Button>
         </Link>
       </div>
@@ -51,7 +51,7 @@ export default function ProfileList() {
           <p className="mb-4 text-sm text-gray-500">
             Create your first profile to get discovered by businesses.
           </p>
-          <Link to="/talent/profiles/new">
+          <Link href="/profiles/new">
             <Button>Create Your First Profile</Button>
           </Link>
         </Card>
@@ -79,13 +79,13 @@ export default function ProfileList() {
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <Link to={`/talent/profiles/${profile.id}`}>
+                <Link href={`/profiles/${profile.id}`}>
                   <Button variant="outline" size="sm">
                     View
                   </Button>
                 </Link>
                 {(profile.status === 'draft' || profile.status === 'rejected') && (
-                  <Link to={`/talent/profiles/${profile.id}/edit`}>
+                  <Link href={`/profiles/${profile.id}`}>
                     <Button variant="secondary" size="sm">
                       Edit
                     </Button>

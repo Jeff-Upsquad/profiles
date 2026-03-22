@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useShortlist, useMyInterests, useBusinessCategories } from '@/hooks/useBusiness';
 import Card from '@/components/ui/Card';
@@ -64,13 +64,13 @@ export default function BusinessDashboard() {
       <Card>
         <h2 className="mb-4 text-lg font-semibold text-gray-900">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
-          <Link to="/business/discover">
+          <Link href="/business/discover">
             <Button>Discover Talent</Button>
           </Link>
-          <Link to="/business/shortlist">
+          <Link href="/business/shortlist">
             <Button variant="outline">View Shortlist</Button>
           </Link>
-          <Link to="/business/interests">
+          <Link href="/business/interests">
             <Button variant="outline">View Requests</Button>
           </Link>
         </div>
@@ -90,7 +90,7 @@ export default function BusinessDashboard() {
             {(categories ?? []).map((cat) => (
               <Link
                 key={cat.id}
-                to={`/business/discover/${cat.slug}`}
+                href={`/business/discover/${cat.slug}`}
                 className="flex items-center gap-3 rounded-lg border border-gray-200 p-4 transition-all hover:border-indigo-300 hover:shadow-sm"
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">

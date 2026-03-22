@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { useMyInterests } from '@/hooks/useBusiness';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -52,7 +52,7 @@ export default function Interests() {
           <p className="mb-4 text-sm text-gray-500">
             Browse talent profiles and send interest requests to connect.
           </p>
-          <Link to="/business/discover">
+          <Link href="/business/discover">
             <Button>Discover Talent</Button>
           </Link>
         </Card>
@@ -88,7 +88,7 @@ export default function Interests() {
                 </div>
                 {interest.profile && (
                   <Link
-                    to={`/business/discover/${interest.profile.category?.slug ?? 'profile'}/${interest.talent_profile_id}`}
+                    href={`/business/discover/${interest.profile.category?.slug ?? 'profile'}/${interest.talent_profile_id}`}
                   >
                     <Button variant="outline" size="sm">
                       View Profile

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import Navbar from './Navbar';
 
 export interface SidebarItem {
@@ -10,10 +11,16 @@ export interface SidebarItem {
 
 interface DashboardLayoutProps {
   sidebarItems: SidebarItem[];
+  children: React.ReactNode;
 }
 
-export default function DashboardLayout({ sidebarItems }: DashboardLayoutProps) {
+export default function DashboardLayout({ sidebarItems, children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pathname = usePathname();
+
+  const isActive = (href: string) => {
+    return pathname === href || pathname.startsWith(href + '/');
+  };
 
   return (
     <div className="flex h-screen flex-col">
@@ -45,28 +52,26 @@ export default function DashboardLayout({ sidebarItems }: DashboardLayoutProps) 
         >
           <nav className="flex flex-col gap-1 p-4">
             {sidebarItems.map((item) => (
-              <NavLink
+              <Link
                 key={item.to}
-                to={item.to}
+                href={item.to}
                 onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-indigo-50 text-indigo-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`
-                }
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  isActive(item.to)
+                    ? 'bg-indigo-50 text-indigo-700'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
               >
                 {item.icon}
                 {item.label}
-              </NavLink>
+              </Link>
             ))}
           </nav>
         </aside>
 
         {/* Main content */}
         <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
-          <Outlet />
+          {children}
         </main>
       </div>
     </div>

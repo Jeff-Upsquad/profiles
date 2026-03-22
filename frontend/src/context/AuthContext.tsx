@@ -6,7 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import api from '@/services/api';
 import type { User, TalentSignupData, BusinessSignupData } from '@/types';
 
@@ -24,11 +24,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(
-    () => localStorage.getItem('squadhire_token')
-  );
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
+  const router = useRouter();
+
+  // Initialize token from localStorage
+  useEffect(() => {
+    const savedToken = localStorage.getItem('squadhire_token');
+    setToken(savedToken);
+  }, []);
 
   const storeAuth = useCallback((authToken: string, authUser: User) => {
     localStorage.setItem('squadhire_token', authToken);
@@ -64,40 +68,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
     verifyToken();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, clearAuth]);
+  }, [token, user, clearAuth]);
 
   const login = useCallback(
     async (email: string, password: string) => {
       const { data } = await api.post('/auth/login', { email, password });
       storeAuth(data.access_token || data.token, data.user);
-      navigate(data.user.role === 'business' ? '/business/dashboard' : '/talent/dashboard');
+      router.push(data.user.role === 'business' ? '/dashboard' : '/dashboard');
     },
-    [storeAuth, navigate]
+    [storeAuth, router]
   );
 
   const signupTalent = useCallback(
     async (signupData: TalentSignupData) => {
       const { data } = await api.post('/auth/signup/talent', signupData);
       storeAuth(data.access_token || data.token, data.user);
-      navigate('/talent/dashboard');
+      router.push('/dashboard');
     },
-    [storeAuth, navigate]
+    [storeAuth, router]
   );
 
   const signupBusiness = useCallback(
     async (signupData: BusinessSignupData) => {
       const { data } = await api.post('/auth/signup/business', signupData);
       storeAuth(data.access_token || data.token, data.user);
-      navigate('/business/dashboard');
+      router.push('/dashboard');
     },
-    [storeAuth, navigate]
+    [storeAuth, router]
   );
 
   const logout = useCallback(() => {
     clearAuth();
-    navigate('/');
-  }, [clearAuth, navigate]);
+    router.push('/');
+  }, [clearAuth, router]);
 
   return (
     <AuthContext.Provider

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
@@ -56,7 +56,7 @@ export default function SignupTalent() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4 py-12">
       <div className="w-full max-w-lg">
         <div className="mb-8 text-center">
-          <Link to="/" className="inline-flex items-center gap-2">
+          <Link href="/" className="inline-flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-lg font-bold text-white">
               S
             </div>
@@ -165,13 +165,13 @@ export default function SignupTalent() {
 
           <div className="mt-6 text-center text-sm text-gray-500">
             Already have an account?{' '}
-            <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-800">
+            <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-800">
               Sign in
             </Link>
           </div>
           <div className="mt-2 text-center text-sm text-gray-500">
             Are you a business?{' '}
-            <Link to="/signup/business" className="font-medium text-indigo-600 hover:text-indigo-800">
+            <Link href="/signup/business" className="font-medium text-indigo-600 hover:text-indigo-800">
               Sign up as Business
             </Link>
           </div>

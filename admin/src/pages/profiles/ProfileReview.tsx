@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import Button from '@/components/ui/Button';
@@ -39,20 +39,19 @@ interface CategoryField {
   options?: { label: string; value: string }[];
 }
 
-export default function ProfileReview() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+export default function ProfileReview({ profileId }: { profileId: string }) {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
 
   const { data: profile, isLoading } = useQuery<ReviewProfile>({
-    queryKey: ['review', id],
+    queryKey: ['review', profileId],
     queryFn: async () => {
-      const { data } = await api.get(`/admin/reviews/${id}`);
+      const { data } = await api.get(`/admin/reviews/${profileId}`);
       return data.profile ?? data;
     },
-    enabled: !!id,
+    enabled: !!profileId,
   });
 
   const { data: fields } = useQuery<CategoryField[]>({
@@ -66,12 +65,12 @@ export default function ProfileReview() {
 
   const approve = useMutation({
     mutationFn: async () => {
-      await api.patch(`/admin/reviews/${id}/approve`);
+      await api.patch(`/admin/reviews/${profileId}/approve`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reviews'] });
       toast.success('Profile approved');
-      navigate('/admin/reviews');
+      router.push('/reviews');
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to approve');
@@ -80,12 +79,12 @@ export default function ProfileReview() {
 
   const reject = useMutation({
     mutationFn: async (reason: string) => {
-      await api.patch(`/admin/reviews/${id}/reject`, { reason });
+      await api.patch(`/admin/reviews/${profileId}/reject`, { reason });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reviews'] });
       toast.success('Profile rejected');
-      navigate('/admin/reviews');
+      router.push('/reviews');
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to reject');
@@ -161,7 +160,7 @@ export default function ProfileReview() {
       <div className="flex items-center justify-between">
         <div>
           <button
-            onClick={() => navigate('/admin/reviews')}
+            onClick={() => router.push('/reviews')}
             className="mb-2 text-sm text-gray-500 hover:text-indigo-600"
           >
             &larr; Back to Queue

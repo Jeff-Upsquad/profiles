@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { useShortlist, useRemoveFromShortlist } from '@/hooks/useBusiness';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -40,7 +40,7 @@ export default function Shortlist() {
           <p className="mb-4 text-sm text-gray-500">
             Browse talent and save profiles to your shortlist.
           </p>
-          <Link to="/business/discover">
+          <Link href="/business/discover">
             <Button>Discover Talent</Button>
           </Link>
         </Card>
@@ -65,7 +65,7 @@ export default function Shortlist() {
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
-                <Link to={`/business/discover/${profile.category?.slug ?? 'profile'}/${profile.id}`}>
+                <Link href={`/business/discover/${profile.category?.slug ?? 'profile'}/${profile.id}`}>
                   <Button variant="outline" size="sm">
                     View
                   </Button>

@@ -1,15 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 
 export default function AdminLogin() {
+  const router = useRouter();
   const { user, login, isLoading: authLoading } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (authLoading) {
     return (
@@ -20,7 +17,8 @@ export default function AdminLogin() {
   }
 
   if (user) {
-    return <Navigate to="/admin/" replace />;
+    router.push('/');
+    return null;
   }
 
   const handleSubmit = async (e: FormEvent) => {

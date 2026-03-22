@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import Link from 'next/link';
 import { useDiscoverProfile, useAddToShortlist, useSendInterest } from '@/hooks/useBusiness';
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import Card from '@/components/ui/Card';
@@ -54,10 +54,9 @@ function FieldValue({ field, value }: { field: CategoryField; value: any }) {
   }
 }
 
-export default function ViewProfile() {
-  const { slug, id } = useParams<{ slug: string; id: string }>();
-  const { data: profile, isLoading: profileLoading } = useDiscoverProfile(slug!, id);
-  const { data: category } = useCategoryWithFields(slug);
+export default function ViewProfile({ profileId, categorySlug }: { profileId: string; categorySlug: string }) {
+  const { data: profile, isLoading: profileLoading } = useDiscoverProfile(categorySlug, profileId);
+  const { data: category } = useCategoryWithFields(categorySlug);
   const addToShortlist = useAddToShortlist();
   const sendInterest = useSendInterest();
 
@@ -65,9 +64,9 @@ export default function ViewProfile() {
   const [interestMessage, setInterestMessage] = useState('');
 
   const handleSendInterest = () => {
-    if (!id) return;
+    if (!profileId) return;
     sendInterest.mutate(
-      { profileId: id, message: interestMessage },
+      { profileId, message: interestMessage },
       {
         onSuccess: () => {
           setShowInterestModal(false);
@@ -101,12 +100,12 @@ export default function ViewProfile() {
     <div className="space-y-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-500">
-        <Link to="/business/discover" className="hover:text-indigo-600">
+        <Link href="/discover" className="hover:text-indigo-600">
           Discover
         </Link>
         <span>/</span>
-        <Link to={`/business/discover/${slug}`} className="hover:text-indigo-600">
-          {category?.name ?? slug}
+        <Link href={`/discover/${categorySlug}`} className="hover:text-indigo-600">
+          {category?.name ?? categorySlug}
         </Link>
         <span>/</span>
         <span className="text-gray-900">Profile</span>

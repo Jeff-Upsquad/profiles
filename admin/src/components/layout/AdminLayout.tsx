@@ -1,4 +1,5 @@
-import { NavLink, Outlet, Navigate } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
 const navItems = [
@@ -49,8 +50,16 @@ const navItems = [
   },
 ];
 
-export default function AdminLayout() {
+  const router = useRouter();
   const { user, isLoading, logout } = useAuth();
+
+  const handleNavigation = (path: string) => {
+    router.push(path);
+  };
+
+  const isActive = (path: string) => {
+    return typeof window !== 'undefined' && window.location.pathname === path;
+  };
 
   if (isLoading) {
     return (
@@ -61,7 +70,8 @@ export default function AdminLayout() {
   }
 
   if (!user) {
-    return <Navigate to="/admin/login" replace />;
+    router.push('/login');
+    return null;
   }
 
   return (
@@ -74,21 +84,18 @@ export default function AdminLayout() {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => (
-            <NavLink
+          {naLink
               key={item.to}
-              to={item.to}
-              end={item.to === '/admin/'}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                }`
-              }
+              href={item.to}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive(item.to)
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+              }`}
             >
               {item.icon}
               {item.label}
+            </em.label}
             </NavLink>
           ))}
         </nav>
@@ -121,6 +128,6 @@ export default function AdminLayout() {
           <Outlet />
         </main>
       </div>
-    </div>
+    </div>{/* Content would be shown in Next.js router outlet */}
   );
 }

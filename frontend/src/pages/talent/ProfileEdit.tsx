@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useProfile, useUpdateProfile, useSubmitProfile } from '@/hooks/useProfiles';
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import DynamicFormRenderer from '@/components/forms/DynamicFormRenderer';
@@ -7,10 +7,9 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
 
-export default function ProfileEdit() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { data: profile, isLoading: profileLoading } = useProfile(id);
+export default function ProfileEdit({ profileId }: { profileId: string }) {
+  const router = useRouter();
+  const { data: profile, isLoading: profileLoading } = useProfile(profileId);
   const updateProfile = useUpdateProfile();
   const submitProfile = useSubmitProfile();
 
@@ -55,21 +54,21 @@ export default function ProfileEdit() {
   };
 
   const handleSave = async () => {
-    if (!id) return;
+    if (!profileId) return;
     try {
-      await updateProfile.mutateAsync({ id, field_data: values });
-      navigate(`/talent/profiles/${id}`);
+      await updateProfile.mutateAsync({ id: profileId, field_data: values });
+      router.push(`/profiles/${profileId}`);
     } catch {
       // handled in hook
     }
   };
 
   const handleSaveAndSubmit = async () => {
-    if (!validate() || !id) return;
+    if (!validate() || !profileId) return;
     try {
-      await updateProfile.mutateAsync({ id, field_data: values });
-      await submitProfile.mutateAsync(id);
-      navigate(`/talent/profiles/${id}`);
+      await updateProfile.mutateAsync({ id: profileId, field_data: values });
+      await submitProfile.mutateAsync(profileId);
+      router.push(`/profiles/${profileId}`);
     } catch {
       // handled in hook
     }
