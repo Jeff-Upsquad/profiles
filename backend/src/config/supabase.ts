@@ -17,6 +17,21 @@ export const supabaseAdmin: SupabaseClient = createClient(
 );
 
 /**
+ * Anon client — for user-facing auth operations (signInWithPassword, refreshSession).
+ * The service-role (admin) client does not reliably support user session flows.
+ */
+export const supabaseAnon: SupabaseClient = createClient(
+  env.SUPABASE_URL,
+  env.SUPABASE_ANON_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  }
+);
+
+/**
  * Creates a Supabase client scoped to a specific user's JWT.
  * All queries through this client respect Row Level Security policies.
  */

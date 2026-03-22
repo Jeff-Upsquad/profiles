@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../config/supabase.js';
+import { supabaseAdmin, supabaseAnon } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import type { SignupTalentInput, SignupBusinessInput, LoginInput } from '../validators/auth.validators.js';
 import type { UserRole } from '../../../shared/src/types/auth.js';
@@ -44,8 +44,8 @@ export async function signupTalent(input: SignupTalentInput) {
     throw new AppError(500, 'Failed to create talent profile');
   }
 
-  // Sign in to get tokens
-  const { data: session, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+  // Sign in to get tokens — use anon client (service-role client doesn't support user sessions)
+  const { data: session, error: signInError } = await supabaseAnon.auth.signInWithPassword({
     email,
     password,
   });
@@ -102,7 +102,8 @@ export async function signupBusiness(input: SignupBusinessInput) {
     throw new AppError(500, 'Failed to create business profile');
   }
 
-  const { data: session, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+  // Use anon client for user sign-in (service-role client doesn't support user sessions)
+  const { data: session, error: signInError } = await supabaseAnon.auth.signInWithPassword({
     email,
     password,
   });
@@ -123,7 +124,8 @@ export async function signupBusiness(input: SignupBusinessInput) {
 }
 
 export async function login(input: LoginInput) {
-  const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+  // Use anon client for user sign-in (service-role client doesn't support user sessions)
+  const { data, error } = await supabaseAnon.auth.signInWithPassword({
     email: input.email,
     password: input.password,
   });
@@ -146,7 +148,8 @@ export async function login(input: LoginInput) {
 }
 
 export async function refreshToken(refresh_token: string) {
-  const { data, error } = await supabaseAdmin.auth.refreshSession({ refresh_token });
+  // Use anon client for session refresh
+  const { data, error } = await supabaseAnon.auth.refreshSession({ refresh_token });
 
   if (error || !data.session) {
     throw new AppError(401, 'Invalid or expired refresh token');

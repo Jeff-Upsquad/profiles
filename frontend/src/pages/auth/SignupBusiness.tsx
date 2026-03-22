@@ -36,7 +36,7 @@ export default function SignupBusiness() {
         industry: form.industry || undefined,
         company_size: form.company_size || undefined,
         contact_person_name: form.contact_person_name,
-        contact_email: form.contact_email || undefined,
+        contact_email: form.contact_email,
         contact_phone: form.contact_phone || undefined,
       });
     } catch (err: any) {
@@ -138,6 +138,7 @@ export default function SignupBusiness() {
                     value={form.contact_email}
                     onChange={set('contact_email')}
                     placeholder="john@company.com"
+                    required
                   />
                   <Input
                     label="Contact Phone"

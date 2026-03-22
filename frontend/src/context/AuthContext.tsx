@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (email: string, password: string) => {
       const { data } = await api.post('/auth/login', { email, password });
-      storeAuth(data.token, data.user);
+      storeAuth(data.access_token || data.token, data.user);
       navigate(data.user.role === 'business' ? '/business/dashboard' : '/talent/dashboard');
     },
     [storeAuth, navigate]
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signupTalent = useCallback(
     async (signupData: TalentSignupData) => {
       const { data } = await api.post('/auth/signup/talent', signupData);
-      storeAuth(data.token, data.user);
+      storeAuth(data.access_token || data.token, data.user);
       navigate('/talent/dashboard');
     },
     [storeAuth, navigate]
@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signupBusiness = useCallback(
     async (signupData: BusinessSignupData) => {
       const { data } = await api.post('/auth/signup/business', signupData);
-      storeAuth(data.token, data.user);
+      storeAuth(data.access_token || data.token, data.user);
       navigate('/business/dashboard');
     },
     [storeAuth, navigate]
