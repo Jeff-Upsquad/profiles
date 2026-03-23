@@ -50,6 +50,7 @@ const navItems = [
   },
 ];
 
+export default function AdminLayout() {
   const router = useRouter();
   const { user, isLoading, logout } = useAuth();
 
@@ -84,7 +85,8 @@ const navItems = [
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {naLink
+          {navItems.map((item) => (
+            <Link
               key={item.to}
               href={item.to}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
@@ -95,8 +97,7 @@ const navItems = [
             >
               {item.icon}
               {item.label}
-            </em.label}
-            </NavLink>
+            </Link>
           ))}
         </nav>
 
@@ -125,9 +126,9 @@ const navItems = [
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6">
-          <Outlet />
+          {/* Content would be shown in Next.js router outlet */}
         </main>
       </div>
-    </div>{/* Content would be shown in Next.js router outlet */}
+    </div>
   );
 }
