@@ -7,6 +7,10 @@ import Input from '@/components/ui/Input';
 export default function AdminLogin() {
   const router = useRouter();
   const { user, login, isLoading: authLoading } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (authLoading) {
     return (
