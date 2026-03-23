@@ -19,7 +19,7 @@ export default function DashboardLayout({ sidebarItems, children }: DashboardLay
   const pathname = usePathname();
 
   const isActive = (href: string) => {
-    return pathname === href || pathname.startsWith(href + '/');
+    return pathname === href || pathname?.startsWith(href + '/') === true;
   };
 
   return (

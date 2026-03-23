@@ -13,7 +13,7 @@ export default function Navbar() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
               S
             </div>
@@ -33,12 +33,12 @@ export default function Navbar() {
             ) : (
               <>
                 <Link
-                  to="/login"
+                  href="/login"
                   className="text-sm font-medium text-gray-600 hover:text-gray-900"
                 >
                   Login
                 </Link>
-                <Link to="/signup/talent">
+                <Link href="/signup/talent">
                   <Button size="sm">Sign Up</Button>
                 </Link>
               </>
@@ -79,14 +79,14 @@ export default function Navbar() {
             ) : (
               <div className="space-y-2">
                 <Link
-                  to="/login"
+                  href="/login"
                   onClick={() => setMobileOpen(false)}
                   className="block text-sm font-medium text-gray-600 hover:text-gray-900"
                 >
                   Login
                 </Link>
                 <Link
-                  to="/signup/talent"
+                  href="/signup/talent"
                   onClick={() => setMobileOpen(false)}
                   className="block text-sm font-medium text-indigo-600"
                 >
