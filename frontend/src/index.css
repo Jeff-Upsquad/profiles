@@ -1,3 +1,35 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+html {
+  color-scheme: light;
+  background-color: #F7F6F3;
+}
+
+body {
+  background-color: #F7F6F3;
+}
+
+@source "../src/**/*.{js,ts,jsx,tsx,mdx}";
+
+@theme {
+  --color-primary-50: #faf9f7;
+  --color-primary-100: #f5f3ef;
+  --color-primary-200: #e8e5de;
+  --color-primary-300: #d4cfc5;
+  --color-primary-400: #b8b0a2;
+  --color-primary-500: #9c9283;
+  --color-primary-600: #7a6f5f;
+  --color-primary-700: #5c5347;
+  --color-primary-800: #3d3730;
+  --color-primary-900: #1f1b17;
+
+  --color-warm-bg: #F7F6F3;
+  --color-warm-card: #FFFFFF;
+  --color-warm-border: #E8E5DE;
+
+  --color-accent: #1a1a1a;
+  --color-accent-soft: #4a4a4a;
+  --color-accent-muted: #8a8a8a;
+
+  --color-dark-900: #0f172a;
+}

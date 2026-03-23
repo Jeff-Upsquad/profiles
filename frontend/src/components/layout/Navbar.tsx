@@ -9,22 +9,34 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <nav className="sticky top-0 z-40 border-b border-gray-200 bg-white shadow-sm">
+    <nav className="sticky top-0 z-40 bg-[#F7F6F3]/90 backdrop-blur-md">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
-              S
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-900 text-xs font-bold text-white">
+              SH
             </div>
-            <span className="text-xl font-bold text-gray-900">SquadHire</span>
+            <span className="text-lg font-semibold text-neutral-900 tracking-tight">SquadHire</span>
           </Link>
 
           {/* Desktop nav */}
-          <div className="hidden items-center gap-4 md:flex">
+          <div className="hidden items-center gap-8 md:flex">
+            <Link
+              href="#how-it-works"
+              className="text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
+            >
+              How it Works
+            </Link>
+            <Link
+              href="#categories"
+              className="text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
+            >
+              Categories
+            </Link>
             {user ? (
               <>
-                <span className="text-sm text-gray-600">{user.email}</span>
+                <span className="text-sm text-neutral-500">{user.email}</span>
                 <Badge variant="indigo">{user.role}</Badge>
                 <Button variant="ghost" size="sm" onClick={logout}>
                   Logout
@@ -34,12 +46,12 @@ export default function Navbar() {
               <>
                 <Link
                   href="/login"
-                  className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                  className="text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
                 >
                   Login
                 </Link>
                 <Link href="/signup/talent">
-                  <Button size="sm">Sign Up</Button>
+                  <Button size="sm">Get Started</Button>
                 </Link>
               </>
             )}
@@ -47,7 +59,7 @@ export default function Navbar() {
 
           {/* Mobile hamburger */}
           <button
-            className="md:hidden rounded-lg p-2 text-gray-600 hover:bg-gray-100"
+            className="md:hidden rounded-lg p-2 text-neutral-600 hover:bg-neutral-200/50"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -62,16 +74,16 @@ export default function Navbar() {
 
         {/* Mobile menu */}
         {mobileOpen && (
-          <div className="border-t border-gray-200 py-3 md:hidden">
+          <div className="border-t border-neutral-200/60 py-3 md:hidden">
             {user ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2 px-1">
-                  <span className="text-sm text-gray-600">{user.email}</span>
+                  <span className="text-sm text-neutral-500">{user.email}</span>
                   <Badge variant="indigo">{user.role}</Badge>
                 </div>
                 <button
                   onClick={() => { logout(); setMobileOpen(false); }}
-                  className="block w-full text-left text-sm font-medium text-gray-600 hover:text-gray-900"
+                  className="block w-full text-left text-sm text-neutral-600 hover:text-neutral-900"
                 >
                   Logout
                 </button>
@@ -81,16 +93,14 @@ export default function Navbar() {
                 <Link
                   href="/login"
                   onClick={() => setMobileOpen(false)}
-                  className="block text-sm font-medium text-gray-600 hover:text-gray-900"
+                  className="block text-sm text-neutral-600 hover:text-neutral-900"
                 >
                   Login
                 </Link>
-                <Link
-                  href="/signup/talent"
-                  onClick={() => setMobileOpen(false)}
-                  className="block text-sm font-medium text-indigo-600"
-                >
-                  Sign Up
+                <Link href="/signup/talent">
+                  <Button size="sm" className="w-full" onClick={() => setMobileOpen(false)}>
+                    Get Started
+                  </Button>
                 </Link>
               </div>
             )}
