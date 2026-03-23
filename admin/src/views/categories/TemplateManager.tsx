@@ -121,7 +121,7 @@ function ItemList({
                   <Button size="sm" onClick={() => editName.trim() && updateMutation.mutate({ id: item.id, name: editName.trim() })}>
                     Save
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
                     Cancel
                   </Button>
                 </div>
