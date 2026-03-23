@@ -1,6 +1,6 @@
 'use client';
 
-import RecycleBin from '@/pages/RecycleBin';
+import RecycleBin from '@/views/RecycleBin';
 
 export default function RecycleBinPage() {
   return <RecycleBin />;

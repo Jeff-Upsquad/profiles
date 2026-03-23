@@ -1,6 +1,6 @@
 'use client';
 
-import ReviewQueue from '@/pages/profiles/ReviewQueue';
+import ReviewQueue from '@/views/profiles/ReviewQueue';
 
 export default function ReviewsPage() {
   return <ReviewQueue />;

@@ -1,7 +1,7 @@
 'use client';
 
 import { use } from 'react';
-import ProfileReview from '@/pages/profiles/ProfileReview';
+import ProfileReview from '@/views/profiles/ProfileReview';
 
 interface Params {
   id: string;

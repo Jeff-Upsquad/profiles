@@ -1,7 +1,7 @@
 'use client';
 
 import { use } from 'react';
-import FieldManager from '@/pages/categories/FieldManager';
+import FieldManager from '@/views/categories/FieldManager';
 
 interface Params {
   id: string;
