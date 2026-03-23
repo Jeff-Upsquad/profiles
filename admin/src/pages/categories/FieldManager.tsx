@@ -233,7 +233,7 @@ export default function FieldManager({ categoryId }: { categoryId: string }) {
     <div>
       <div className="flex items-center gap-4 mb-6">
         <Link
-          to="/admin/categories"
+          href="/admin/categories"
           className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
         >
           &larr; Back to Categories
