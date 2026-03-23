@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useProfile, useUpdateProfile, useSubmitProfile } from '@/hooks/useProfiles';
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import DynamicFormRenderer from '@/components/forms/DynamicFormRenderer';
+import DesignerExtras from '@/components/forms/DesignerExtras';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
@@ -35,16 +36,33 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
     });
   };
 
+  const isDesignerCategory = profile?.category?.slug === 'designer' || profile?.category?.name?.toLowerCase() === 'designer';
+
   const validate = (): boolean => {
     if (!categoryWithFields?.fields) return false;
     const newErrors: Record<string, string> = {};
 
     for (const field of categoryWithFields.fields) {
       if (!field.is_active) continue;
+      const val = values[field.field_key];
+
       if (field.is_required) {
-        const val = values[field.field_key];
         if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
           newErrors[field.field_key] = `${field.field_label} is required`;
+          continue;
+        }
+      }
+
+      // Portfolio link validation: reject Dribbble and Behance
+      if (field.field_key === 'portfolio_link' && val && typeof val === 'string') {
+        try {
+          const url = new URL(val);
+          const host = url.hostname.toLowerCase();
+          if (host.includes('dribbble.com') || host.includes('behance.net')) {
+            newErrors[field.field_key] = 'Dribbble and Behance links are not accepted. Please use a cloud drive link (Google Drive, OneDrive, etc.).';
+          }
+        } catch {
+          newErrors[field.field_key] = 'Please enter a valid URL';
         }
       }
     }
@@ -127,6 +145,19 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
           onChange={handleChange}
           errors={errors}
         />
+
+        {/* Designer-specific: Skills with proficiency & Tools */}
+        {isDesignerCategory && profile && (
+          <div className="mt-6 border-t border-gray-200 pt-6">
+            <DesignerExtras
+              categoryId={profile.category_id}
+              skills={values._skills ?? []}
+              tools={values._tools ?? []}
+              onSkillsChange={(s) => handleChange('_skills', s)}
+              onToolsChange={(t) => handleChange('_tools', t)}
+            />
+          </div>
+        )}
 
         <div className="mt-6 flex flex-wrap gap-3 border-t border-gray-200 pt-6">
           <Button

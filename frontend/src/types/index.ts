@@ -1,9 +1,12 @@
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
 export interface User {
   id: string;
   email: string;
   role: 'talent' | 'business' | 'admin';
   full_name?: string;
   company_name?: string;
+  approval_status?: ApprovalStatus;
 }
 
 export interface AuthResponse {
@@ -84,7 +87,6 @@ export interface TalentSignupData {
   native_place?: string;
   current_location?: string;
   languages_spoken?: string[];
-  preferred_districts?: string[];
 }
 
 export interface BusinessSignupData {

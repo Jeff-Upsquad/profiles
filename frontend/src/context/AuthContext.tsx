@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (signupData: TalentSignupData) => {
       const { data } = await api.post('/auth/signup/talent', signupData);
       storeAuth(data.access_token || data.token, data.user);
-      router.push('/dashboard');
+      router.push('/talent/basic-profile');
     },
     [storeAuth, router]
   );

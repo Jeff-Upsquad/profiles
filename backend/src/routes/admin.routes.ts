@@ -107,6 +107,28 @@ router.patch('/reviews/:profileId/reject', adminController.rejectProfile);
 router.patch('/reviews/bulk-approve', adminController.bulkApproveProfiles);
 
 // ---------------------------------------------------------------------------
+// User Approvals
+// ---------------------------------------------------------------------------
+
+router.get('/user-approvals', adminController.getPendingApprovals);
+router.patch('/user-approvals/:userId/approve', adminController.approveUser);
+router.patch('/user-approvals/:userId/reject', adminController.rejectUser);
+
+// ---------------------------------------------------------------------------
+// Template Skill Sets & Tools
+// ---------------------------------------------------------------------------
+
+router.get('/categories/:categoryId/skills', adminController.getTemplateSkills);
+router.post('/categories/:categoryId/skills', adminController.createTemplateSkill);
+router.put('/skills/:skillId', adminController.updateTemplateSkill);
+router.delete('/skills/:skillId', adminController.deleteTemplateSkill);
+
+router.get('/categories/:categoryId/tools', adminController.getTemplateTools);
+router.post('/categories/:categoryId/tools', adminController.createTemplateTool);
+router.put('/tools/:toolId', adminController.updateTemplateTool);
+router.delete('/tools/:toolId', adminController.deleteTemplateTool);
+
+// ---------------------------------------------------------------------------
 // User Management
 // ---------------------------------------------------------------------------
 

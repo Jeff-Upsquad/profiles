@@ -5,22 +5,44 @@ import {
   useReactivateProfile,
   useDeleteProfile,
 } from '@/hooks/useProfiles';
+import { useAuth } from '@/context/AuthContext';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 
 export default function ProfileList() {
+  const { user } = useAuth();
+  const isApproved = user?.approval_status === 'approved';
   const { data: profiles, isLoading } = useMyProfiles();
   const deactivate = useDeactivateProfile();
   const reactivate = useReactivateProfile();
   const deleteProfile = useDeleteProfile();
 
+  if (!isApproved) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900">Job Profiles</h1>
+        <Card className="py-12 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+            <svg className="h-8 w-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h3 className="mb-2 text-lg font-semibold text-gray-900">This module is locked</h3>
+          <p className="text-sm text-gray-500">
+            This will be opened once your account is approved.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">My Profiles</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Job Profiles</h1>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -34,7 +56,7 @@ export default function ProfileList() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">My Profiles</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Job Profiles</h1>
         <Link href="/profiles/new">
           <Button>Create New Profile</Button>
         </Link>

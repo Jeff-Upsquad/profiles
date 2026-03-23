@@ -8,7 +8,6 @@ export interface SignupTalentPayload {
   age?: number;
   gender?: Gender;
   native_place?: string;
-  preferred_districts?: string[];
   current_location?: string;
   languages_spoken?: string[];
 }

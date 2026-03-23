@@ -6,6 +6,8 @@ export type ProfileStatus =
   | 'inactive'
   | 'deleted';
 
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
 export interface TalentUser {
   id: string;
   full_name: string;
@@ -13,10 +15,12 @@ export interface TalentUser {
   age?: number;
   gender?: string;
   native_place?: string;
-  preferred_districts?: string[];
   current_location?: string;
   languages_spoken?: string[];
   profile_photo_url?: string;
+  approval_status: ApprovalStatus;
+  approved_at?: string;
+  approved_by?: string;
   created_at: string;
   updated_at: string;
 }

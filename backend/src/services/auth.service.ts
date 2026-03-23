@@ -33,7 +33,6 @@ export async function signupTalent(input: SignupTalentInput) {
       age: profileData.age ?? null,
       gender: profileData.gender ?? null,
       native_place: profileData.native_place ?? null,
-      preferred_districts: profileData.preferred_districts ?? [],
       current_location: profileData.current_location ?? null,
       languages_spoken: profileData.languages_spoken ?? [],
     });
@@ -61,6 +60,7 @@ export async function signupTalent(input: SignupTalentInput) {
       id: userId,
       email,
       role: 'talent' as UserRole,
+      approval_status: 'pending' as const,
     },
   };
 }

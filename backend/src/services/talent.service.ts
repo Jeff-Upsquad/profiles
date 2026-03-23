@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
-import type { UpdateProfileInput, UpdateTalentUserInput } from '../validators/talent.validators.js';
+import type { UpdateProfileInput, UpdateTalentUserInput, UpdateBasicProfileInput } from '../validators/talent.validators.js';
 
 // ---------------------------------------------------------------------------
 // Talent User
@@ -26,6 +26,36 @@ export async function updateTalentUser(userId: string, input: UpdateTalentUserIn
     .single();
 
   if (error || !data) throw new AppError(404, 'Talent user not found');
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Basic Profile
+// ---------------------------------------------------------------------------
+
+export async function getBasicProfile(userId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('talent_profiles_basic')
+    .select('*')
+    .eq('talent_user_id', userId)
+    .maybeSingle();
+
+  if (error) throw new AppError(500, 'Failed to fetch basic profile');
+  return data;
+}
+
+export async function updateBasicProfile(userId: string, input: UpdateBasicProfileInput) {
+  // Upsert: insert if not exists, update if exists
+  const { data, error } = await supabaseAdmin
+    .from('talent_profiles_basic')
+    .upsert(
+      { ...input, talent_user_id: userId },
+      { onConflict: 'talent_user_id' }
+    )
+    .select('*')
+    .single();
+
+  if (error) throw new AppError(500, `Failed to save basic profile: ${error.message}`);
   return data;
 }
 

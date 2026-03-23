@@ -19,7 +19,6 @@ export default function SignupTalent() {
     native_place: '',
     current_location: '',
     languages_spoken: '',
-    preferred_districts: '',
   });
 
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -40,9 +39,6 @@ export default function SignupTalent() {
         current_location: form.current_location || undefined,
         languages_spoken: form.languages_spoken
           ? form.languages_spoken.split(',').map((s) => s.trim())
-          : undefined,
-        preferred_districts: form.preferred_districts
-          ? form.preferred_districts.split(',').map((s) => s.trim())
           : undefined,
       });
     } catch (err: any) {
@@ -148,14 +144,6 @@ export default function SignupTalent() {
               onChange={set('languages_spoken')}
               placeholder="English, Hindi, Malayalam"
               helperText="Separate multiple languages with commas"
-            />
-
-            <Input
-              label="Preferred Districts"
-              value={form.preferred_districts}
-              onChange={set('preferred_districts')}
-              placeholder="Ernakulam, Thiruvananthapuram"
-              helperText="Separate multiple districts with commas"
             />
 
             <Button type="submit" loading={loading} className="w-full">

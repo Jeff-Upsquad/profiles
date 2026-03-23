@@ -7,7 +7,9 @@ import {
   createProfileSchema,
   updateProfileSchema,
   updateTalentUserSchema,
+  updateBasicProfileSchema,
 } from '../validators/talent.validators.js';
+import { requireApproval } from '../middleware/approval.middleware.js';
 
 const router = Router();
 
@@ -18,9 +20,13 @@ router.use(authenticate, requireRole('talent'));
 router.get('/me', talentController.getMe);
 router.put('/me', validate({ body: updateTalentUserSchema }), talentController.updateMe);
 
-// Talent profiles
+// Basic profile
+router.get('/me/basic-profile', talentController.getBasicProfile);
+router.put('/me/basic-profile', validate({ body: updateBasicProfileSchema }), talentController.updateBasicProfile);
+
+// Talent profiles (require approval for creation)
 router.get('/profiles', talentController.getProfiles);
-router.post('/profiles', validate({ body: createProfileSchema }), talentController.createProfile);
+router.post('/profiles', requireApproval, validate({ body: createProfileSchema }), talentController.createProfile);
 router.get('/profiles/:id', talentController.getProfile);
 router.put('/profiles/:id', validate({ body: updateProfileSchema }), talentController.updateProfile);
 router.patch('/profiles/:id/submit', talentController.submitProfile);

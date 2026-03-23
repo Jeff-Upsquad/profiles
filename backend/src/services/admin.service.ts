@@ -387,6 +387,153 @@ export async function bulkApproveProfiles(profileIds: string[], adminId: string)
 }
 
 // ---------------------------------------------------------------------------
+// User Approvals
+// ---------------------------------------------------------------------------
+
+export async function getPendingApprovals() {
+  const { data, error } = await supabaseAdmin
+    .from('talent_users')
+    .select('*')
+    .eq('approval_status', 'pending')
+    .order('created_at', { ascending: false });
+
+  if (error) throw new AppError(500, error.message);
+  return data;
+}
+
+export async function approveUser(userId: string, adminId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('talent_users')
+    .update({
+      approval_status: 'approved',
+      approved_at: new Date().toISOString(),
+      approved_by: adminId,
+    })
+    .eq('id', userId)
+    .eq('approval_status', 'pending')
+    .select()
+    .single();
+
+  if (error) throw new AppError(400, `Failed to approve user: ${error.message}`);
+  return data;
+}
+
+export async function rejectUser(userId: string, adminId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('talent_users')
+    .update({
+      approval_status: 'rejected',
+      approved_at: new Date().toISOString(),
+      approved_by: adminId,
+    })
+    .eq('id', userId)
+    .eq('approval_status', 'pending')
+    .select()
+    .single();
+
+  if (error) throw new AppError(400, `Failed to reject user: ${error.message}`);
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Template Skill Sets & Tools
+// ---------------------------------------------------------------------------
+
+export async function getTemplateSkills(categoryId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('template_skill_sets')
+    .select('*')
+    .eq('category_id', categoryId)
+    .order('sort_order', { ascending: true });
+
+  if (error) throw new AppError(500, error.message);
+  return data;
+}
+
+export async function createTemplateSkill(categoryId: string, name: string) {
+  const { data, error } = await supabaseAdmin
+    .from('template_skill_sets')
+    .insert({ category_id: categoryId, name })
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === '23505') throw new AppError(409, 'Skill already exists for this category');
+    throw new AppError(500, error.message);
+  }
+  return data;
+}
+
+export async function updateTemplateSkill(skillId: string, name: string) {
+  const { data, error } = await supabaseAdmin
+    .from('template_skill_sets')
+    .update({ name })
+    .eq('id', skillId)
+    .select()
+    .single();
+
+  if (error) throw new AppError(400, error.message);
+  return data;
+}
+
+export async function deleteTemplateSkill(skillId: string) {
+  const { error } = await supabaseAdmin
+    .from('template_skill_sets')
+    .delete()
+    .eq('id', skillId);
+
+  if (error) throw new AppError(400, error.message);
+  return { message: 'Skill deleted' };
+}
+
+export async function getTemplateTools(categoryId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('template_tools')
+    .select('*')
+    .eq('category_id', categoryId)
+    .order('sort_order', { ascending: true });
+
+  if (error) throw new AppError(500, error.message);
+  return data;
+}
+
+export async function createTemplateTool(categoryId: string, name: string) {
+  const { data, error } = await supabaseAdmin
+    .from('template_tools')
+    .insert({ category_id: categoryId, name })
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === '23505') throw new AppError(409, 'Tool already exists for this category');
+    throw new AppError(500, error.message);
+  }
+  return data;
+}
+
+export async function updateTemplateTool(toolId: string, name: string) {
+  const { data, error } = await supabaseAdmin
+    .from('template_tools')
+    .update({ name })
+    .eq('id', toolId)
+    .select()
+    .single();
+
+  if (error) throw new AppError(400, error.message);
+  return data;
+}
+
+export async function deleteTemplateTool(toolId: string) {
+  const { error } = await supabaseAdmin
+    .from('template_tools')
+    .delete()
+    .eq('id', toolId);
+
+  if (error) throw new AppError(400, error.message);
+  return { message: 'Tool deleted' };
+}
+
+// ---------------------------------------------------------------------------
 // User Management
 // ---------------------------------------------------------------------------
 

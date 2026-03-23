@@ -23,6 +23,24 @@ export async function updateMe(req: Request, res: Response, next: NextFunction) 
   }
 }
 
+export async function getBasicProfile(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await talentService.getBasicProfile(req.user!.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateBasicProfile(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await talentService.updateBasicProfile(req.user!.id, req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getProfiles(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await talentService.getMyProfiles(req.user!.id);

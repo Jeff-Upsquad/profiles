@@ -210,6 +210,113 @@ export async function bulkApproveProfiles(req: Request, res: Response, next: Nex
 }
 
 // ---------------------------------------------------------------------------
+// User Approvals
+// ---------------------------------------------------------------------------
+
+export async function getPendingApprovals(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.getPendingApprovals();
+    res.json({ users: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function approveUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.approveUser(req.params.userId as string, req.user!.id);
+    res.json({ user: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function rejectUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.rejectUser(req.params.userId as string, req.user!.id);
+    res.json({ user: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Template Skill Sets & Tools
+// ---------------------------------------------------------------------------
+
+export async function getTemplateSkills(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.getTemplateSkills(req.params.categoryId as string);
+    res.json({ skills: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createTemplateSkill(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.createTemplateSkill(req.params.categoryId as string, req.body.name);
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateTemplateSkill(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.updateTemplateSkill(req.params.skillId as string, req.body.name);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteTemplateSkill(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.deleteTemplateSkill(req.params.skillId as string);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getTemplateTools(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.getTemplateTools(req.params.categoryId as string);
+    res.json({ tools: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createTemplateTool(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.createTemplateTool(req.params.categoryId as string, req.body.name);
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateTemplateTool(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.updateTemplateTool(req.params.toolId as string, req.body.name);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteTemplateTool(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.deleteTemplateTool(req.params.toolId as string);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // User Management
 // ---------------------------------------------------------------------------
 
