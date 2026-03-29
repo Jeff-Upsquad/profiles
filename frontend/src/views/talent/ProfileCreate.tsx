@@ -46,10 +46,9 @@ export default function ProfileCreate() {
   };
 
   const validate = (): boolean => {
-    if (!categoryWithFields?.fields) return false;
     const newErrors: Record<string, string> = {};
 
-    for (const field of categoryWithFields.fields) {
+    for (const field of categoryWithFields?.fields ?? []) {
       if (!field.is_active) continue;
       const val = values[field.field_key];
 
