@@ -46,15 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  // On mount (or token change), always fetch the latest user from the server.
+  // This ensures approval_status and other fields stay current.
   useEffect(() => {
     const verifyToken = async () => {
       if (!token) {
-        setIsLoading(false);
-        return;
-      }
-      // Skip verification if user is already set (e.g. after signup/login)
-      // Only verify when recovering a token from localStorage on page load
-      if (user) {
         setIsLoading(false);
         return;
       }
@@ -68,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
     verifyToken();
-  }, [token, user, clearAuth]);
+  }, [token, clearAuth]);
 
   const login = useCallback(
     async (email: string, password: string) => {
