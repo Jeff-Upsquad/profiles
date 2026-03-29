@@ -227,6 +227,48 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
         </dl>
       </div>
 
+      {/* Skills & Tools */}
+      {(profile.field_data?._skills?.length > 0 || profile.field_data?._tools?.length > 0) && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          {profile.field_data?._skills?.length > 0 && (
+            <div className="mb-6">
+              <h2 className="mb-3 text-lg font-semibold text-gray-900">Skill Sets</h2>
+              <div className="space-y-2">
+                {profile.field_data._skills.map((s: { skill: string; level: number }) => (
+                  <div key={s.skill} className="flex items-center gap-3">
+                    <span className="w-40 text-sm font-medium text-gray-700">{s.skill}</span>
+                    <div className="flex-1">
+                      <div className="h-2 rounded-full bg-gray-200">
+                        <div
+                          className="h-2 rounded-full bg-indigo-600"
+                          style={{ width: `${(s.level / 10) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                    <span className="w-8 text-center text-sm font-semibold text-indigo-600">{s.level}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {profile.field_data?._tools?.length > 0 && (
+            <div>
+              <h2 className="mb-3 text-lg font-semibold text-gray-900">Tools</h2>
+              <div className="flex flex-wrap gap-2">
+                {profile.field_data._tools.map((tool: string) => (
+                  <span
+                    key={tool}
+                    className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700"
+                  >
+                    {tool}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Metadata */}
       <div className="rounded-xl border border-gray-200 bg-white p-6">
         <h2 className="mb-4 text-lg font-semibold text-gray-900">Metadata</h2>
