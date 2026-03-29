@@ -24,15 +24,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('squadhire_token');
+    }
+    return null;
+  });
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-
-  // Initialize token from localStorage
-  useEffect(() => {
-    const savedToken = localStorage.getItem('squadhire_token');
-    setToken(savedToken);
-  }, []);
 
   const storeAuth = useCallback((authToken: string, authUser: User) => {
     localStorage.setItem('squadhire_token', authToken);
