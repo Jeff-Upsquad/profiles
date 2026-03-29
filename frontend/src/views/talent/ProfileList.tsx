@@ -57,7 +57,7 @@ export default function ProfileList() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Job Profiles</h1>
-        <Link href="/profiles/new">
+        <Link href="/talent/profiles/new">
           <Button>Create New Profile</Button>
         </Link>
       </div>
@@ -73,7 +73,7 @@ export default function ProfileList() {
           <p className="mb-4 text-sm text-gray-500">
             Create your first profile to get discovered by businesses.
           </p>
-          <Link href="/profiles/new">
+          <Link href="/talent/profiles/new">
             <Button>Create Your First Profile</Button>
           </Link>
         </Card>
@@ -101,13 +101,13 @@ export default function ProfileList() {
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <Link href={`/profiles/${profile.id}`}>
+                <Link href={`/talent/profiles/${profile.id}`}>
                   <Button variant="outline" size="sm">
                     View
                   </Button>
                 </Link>
                 {(profile.status === 'draft' || profile.status === 'rejected') && (
-                  <Link href={`/profiles/${profile.id}`}>
+                  <Link href={`/talent/profiles/${profile.id}`}>
                     <Button variant="secondary" size="sm">
                       Edit
                     </Button>

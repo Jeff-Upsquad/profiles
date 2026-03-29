@@ -75,7 +75,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
     if (!profileId) return;
     try {
       await updateProfile.mutateAsync({ id: profileId, field_data: values });
-      router.push(`/profiles/${profileId}`);
+      router.push(`/talent/profiles/${profileId}`);
     } catch {
       // handled in hook
     }
@@ -86,7 +86,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
     try {
       await updateProfile.mutateAsync({ id: profileId, field_data: values });
       await submitProfile.mutateAsync(profileId);
-      router.push(`/profiles/${profileId}`);
+      router.push(`/talent/profiles/${profileId}`);
     } catch {
       // handled in hook
     }

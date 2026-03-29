@@ -87,7 +87,7 @@ export default function ProfileCreate() {
         category_id: selectedCategory.id,
         field_data: values,
       });
-      router.push(`/profiles/${result.id}`);
+      router.push(`/talent/profiles/${result.id}`);
     } catch {
       // error handled in hook
     }
@@ -102,7 +102,7 @@ export default function ProfileCreate() {
         field_data: values,
       });
       await submitProfile.mutateAsync(result.id);
-      router.push(`/profiles/${result.id}`);
+      router.push(`/talent/profiles/${result.id}`);
     } catch {
       // error handled in hook
     }
