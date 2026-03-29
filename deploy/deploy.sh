@@ -12,9 +12,10 @@ echo "=== Pulling latest code ==="
 cd "$REPO_DIR"
 git pull origin main
 
-echo "=== Installing backend dependencies ==="
+echo "=== Installing and building backend ==="
 cd "$REPO_DIR/backend"
-npm install --omit=dev
+npm install
+npm run build
 
 echo "=== Building frontend ==="
 cd "$REPO_DIR/frontend"

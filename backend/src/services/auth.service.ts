@@ -38,6 +38,7 @@ export async function signupTalent(input: SignupTalentInput) {
     });
 
   if (profileError) {
+    console.error('Talent profile insert error:', profileError);
     // Rollback: delete the auth user
     await supabaseAdmin.auth.admin.deleteUser(userId);
     throw new AppError(500, 'Failed to create talent profile');
