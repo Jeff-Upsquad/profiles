@@ -1,28 +1,28 @@
 #!/bin/bash
 # ============================================
 # Profiles Platform — Deploy / Update Script
-# Run this on the VPS to pull latest changes
+# Run this on the VPS: bash /root/Profiles/deploy/deploy.sh
 # ============================================
 
 set -e
 
-APP_DIR="/var/www/profiles"
+REPO_DIR="/root/Profiles"
 
 echo "=== Pulling latest code ==="
-cd "$APP_DIR"
+cd "$REPO_DIR"
 git pull origin main
 
 echo "=== Installing backend dependencies ==="
-cd "$APP_DIR/backend"
+cd "$REPO_DIR/backend"
 npm install --omit=dev
 
 echo "=== Building frontend ==="
-cd "$APP_DIR/frontend"
+cd "$REPO_DIR/frontend"
 npm install
 npm run build
 
 echo "=== Building admin ==="
-cd "$APP_DIR/admin"
+cd "$REPO_DIR/admin"
 npm install
 npm run build
 
@@ -30,7 +30,7 @@ echo "=== Restarting services ==="
 pm2 restart profiles-api profiles-frontend profiles-admin
 
 echo "=== Reloading nginx ==="
-sudo nginx -t && sudo systemctl reload nginx
+nginx -t && nginx -s reload
 
 echo ""
 echo "✓ Deploy complete!"
