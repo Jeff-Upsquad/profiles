@@ -20,7 +20,8 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('squadhire_token');
-      if (window.location.pathname !== '/login') {
+      const publicPaths = ['/', '/login', '/signup/talent', '/signup/business', '/forgot-password'];
+      if (!publicPaths.includes(window.location.pathname)) {
         window.location.href = '/login';
       }
     }
