@@ -14,6 +14,8 @@ export default function DashboardPage() {
         router.push('/business/dashboard');
       } else if (user.role === 'talent') {
         router.push('/talent/dashboard');
+      } else if (user.role === 'admin') {
+        router.push('/admin/');
       } else {
         router.push('/');
       }
