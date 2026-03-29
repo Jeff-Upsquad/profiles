@@ -171,7 +171,7 @@ export default function ReviewQueue() {
                     <Badge variant="yellow">Pending</Badge>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link href={`/admin/reviews/${profile.id}`}>
+                    <Link href={`/reviews/${profile.id}`}>
                       <Button variant="ghost" size="sm">
                         Review
                       </Button>
