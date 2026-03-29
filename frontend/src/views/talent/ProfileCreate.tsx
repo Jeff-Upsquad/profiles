@@ -45,8 +45,6 @@ export default function ProfileCreate() {
     });
   };
 
-  const isDesignerCategory = selectedCategory?.slug === 'designer' || selectedCategory?.name?.toLowerCase() === 'designer';
-
   const validate = (): boolean => {
     if (!categoryWithFields?.fields) return false;
     const newErrors: Record<string, string> = {};
@@ -219,8 +217,8 @@ export default function ProfileCreate() {
               errors={errors}
             />
 
-            {/* Designer-specific: Skills with proficiency & Tools */}
-            {isDesignerCategory && selectedCategory && (
+            {/* Skills with proficiency & Tools */}
+            {selectedCategory && (
               <div className="mt-6 border-t border-gray-200 pt-6">
                 <DesignerExtras
                   categoryId={selectedCategory.id}
