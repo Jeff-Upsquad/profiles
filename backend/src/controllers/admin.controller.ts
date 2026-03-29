@@ -317,6 +317,100 @@ export async function deleteTemplateTool(req: Request, res: Response, next: Next
 }
 
 // ---------------------------------------------------------------------------
+// Template AI Tools
+// ---------------------------------------------------------------------------
+
+export async function getTemplateAiTools(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.getTemplateAiTools(req.params.categoryId as string);
+    res.json({ ai_tools: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createTemplateAiTool(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.createTemplateAiTool(req.params.categoryId as string, req.body.name);
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateTemplateAiTool(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.updateTemplateAiTool(req.params.toolId as string, req.body.name);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteTemplateAiTool(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.deleteTemplateAiTool(req.params.toolId as string);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Talents Module
+// ---------------------------------------------------------------------------
+
+export async function getTalentCategories(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.getTalentCategories();
+    res.json({ categories: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getTalentProfilesByCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const search = req.query.search as string | undefined;
+    const result = await adminService.getTalentProfilesByCategory(req.params.categoryId as string, search);
+    res.json({ profiles: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getTalentProfile(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.getTalentProfile(req.params.profileId as string);
+    res.json({ profile: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Share Links
+// ---------------------------------------------------------------------------
+
+export async function createShareLink(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.createShareLink(req.params.profileId as string, req.user!.id);
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getShareLinks(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.getShareLinksByProfile(req.params.profileId as string);
+    res.json({ links: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // User Management
 // ---------------------------------------------------------------------------
 

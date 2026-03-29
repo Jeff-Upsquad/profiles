@@ -269,6 +269,94 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
         </div>
       )}
 
+      {/* AI Tools */}
+      {profile.field_data?._ai_tools?.length > 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <h2 className="mb-3 text-lg font-semibold text-gray-900">AI Tools</h2>
+          <div className="flex flex-wrap gap-2">
+            {profile.field_data._ai_tools.map((tool: string) => (
+              <span
+                key={tool}
+                className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700"
+              >
+                {tool}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Plan Wages */}
+      {profile.field_data?._plan_wages && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <h2 className="mb-3 text-lg font-semibold text-gray-900">Plan Wages</h2>
+          <dl className="grid gap-4 sm:grid-cols-3">
+            {profile.field_data._plan_wages.hourly != null && (
+              <div>
+                <dt className="text-xs font-medium uppercase text-gray-500">Hourly Rate</dt>
+                <dd className="mt-1 text-lg font-semibold text-gray-900">${profile.field_data._plan_wages.hourly}</dd>
+              </div>
+            )}
+            {profile.field_data._plan_wages.daily != null && (
+              <div>
+                <dt className="text-xs font-medium uppercase text-gray-500">Daily Rate</dt>
+                <dd className="mt-1 text-lg font-semibold text-gray-900">${profile.field_data._plan_wages.daily}</dd>
+              </div>
+            )}
+            {profile.field_data._plan_wages.monthly != null && (
+              <div>
+                <dt className="text-xs font-medium uppercase text-gray-500">Monthly Rate</dt>
+                <dd className="mt-1 text-lg font-semibold text-gray-900">${profile.field_data._plan_wages.monthly}</dd>
+              </div>
+            )}
+          </dl>
+        </div>
+      )}
+
+      {/* Portfolio */}
+      {(profile as any).portfolio_items?.length > 0 && (() => {
+        const portfolioBySkill: Record<string, any[]> = {};
+        for (const item of (profile as any).portfolio_items) {
+          if (!portfolioBySkill[item.skill_name]) portfolioBySkill[item.skill_name] = [];
+          portfolioBySkill[item.skill_name].push(item);
+        }
+        return (
+          <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">Portfolio</h2>
+            <div className="space-y-6">
+              {Object.entries(portfolioBySkill).map(([skillName, items]) => (
+                <div key={skillName}>
+                  <h3 className="mb-3 text-sm font-semibold text-gray-700">{skillName}</h3>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {items.map((item: any) => (
+                      <div key={item.id} className="rounded-lg border border-gray-200 p-3">
+                        {item.file_type === 'image' && (
+                          <img src={item.file_url} alt={item.file_name} className="mb-2 h-32 w-full rounded-md object-cover" />
+                        )}
+                        {item.file_type === 'video' && (
+                          <video src={item.file_url} controls className="mb-2 h-32 w-full rounded-md object-cover" />
+                        )}
+                        {item.file_type === 'pdf' && (
+                          <div className="mb-2 flex h-32 items-center justify-center rounded-md bg-red-50">
+                            <svg className="h-10 w-10 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                        )}
+                        <p className="truncate text-sm text-gray-700">{item.file_name}</p>
+                        <a href={item.file_url} target="_blank" rel="noopener noreferrer" className="mt-1 text-xs text-indigo-600 hover:underline">
+                          View
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Metadata */}
       <div className="rounded-xl border border-gray-200 bg-white p-6">
         <h2 className="mb-4 text-lg font-semibold text-gray-900">Metadata</h2>

@@ -340,7 +340,16 @@ export async function getReviewProfile(profileId: string) {
     .single();
 
   if (error) throw new AppError(404, 'Profile not found');
-  return data;
+
+  // Also fetch portfolio items
+  const { data: portfolio } = await supabaseAdmin
+    .from('portfolio_items')
+    .select('*')
+    .eq('profile_id', profileId)
+    .order('skill_name', { ascending: true })
+    .order('sort_order', { ascending: true });
+
+  return { ...data, portfolio_items: portfolio ?? [] };
 }
 
 export async function approveProfile(profileId: string, adminId: string) {
@@ -613,6 +622,186 @@ export async function permanentlyDeleteProfile(profileId: string) {
 
   if (error) throw new AppError(400, error.message);
   return { message: 'Profile permanently deleted' };
+}
+
+// ---------------------------------------------------------------------------
+// Template AI Tools
+// ---------------------------------------------------------------------------
+
+export async function getTemplateAiTools(categoryId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('template_ai_tools')
+    .select('*')
+    .eq('category_id', categoryId)
+    .order('sort_order', { ascending: true });
+
+  if (error) throw new AppError(500, error.message);
+  return data;
+}
+
+export async function createTemplateAiTool(categoryId: string, name: string) {
+  const { data, error } = await supabaseAdmin
+    .from('template_ai_tools')
+    .insert({ category_id: categoryId, name })
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === '23505') throw new AppError(409, 'AI tool already exists for this category');
+    throw new AppError(500, error.message);
+  }
+  return data;
+}
+
+export async function updateTemplateAiTool(toolId: string, name: string) {
+  const { data, error } = await supabaseAdmin
+    .from('template_ai_tools')
+    .update({ name })
+    .eq('id', toolId)
+    .select()
+    .single();
+
+  if (error) throw new AppError(400, error.message);
+  return data;
+}
+
+export async function deleteTemplateAiTool(toolId: string) {
+  const { error } = await supabaseAdmin
+    .from('template_ai_tools')
+    .delete()
+    .eq('id', toolId);
+
+  if (error) throw new AppError(400, error.message);
+  return { message: 'AI tool deleted' };
+}
+
+// ---------------------------------------------------------------------------
+// Talents Module (browse approved profiles by category)
+// ---------------------------------------------------------------------------
+
+export async function getTalentCategories() {
+  const { data: categories, error: catErr } = await supabaseAdmin
+    .from('categories')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true });
+
+  if (catErr) throw new AppError(500, catErr.message);
+
+  // Get profile counts per category (non-deleted only)
+  const { data: profiles, error: profErr } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('category_id, status')
+    .is('deleted_at', null);
+
+  if (profErr) throw new AppError(500, profErr.message);
+
+  const countMap: Record<string, { total: number; approved: number }> = {};
+  for (const p of profiles ?? []) {
+    if (!countMap[p.category_id]) countMap[p.category_id] = { total: 0, approved: 0 };
+    countMap[p.category_id].total++;
+    if (p.status === 'approved') countMap[p.category_id].approved++;
+  }
+
+  return (categories ?? []).map((cat) => ({
+    ...cat,
+    profile_count: countMap[cat.id]?.total ?? 0,
+    approved_count: countMap[cat.id]?.approved ?? 0,
+  }));
+}
+
+export async function getTalentProfilesByCategory(categoryId: string, search?: string) {
+  let qb = supabaseAdmin
+    .from('talent_profiles')
+    .select('*, talent_users!inner(full_name, profile_photo_url, current_location), categories!inner(name, slug)')
+    .eq('category_id', categoryId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false });
+
+  if (search) {
+    qb = qb.ilike('talent_users.full_name', `%${search}%`);
+  }
+
+  const { data, error } = await qb;
+  if (error) throw new AppError(500, error.message);
+  return data;
+}
+
+export async function getTalentProfile(profileId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('*, talent_users!inner(*), categories!inner(name, slug)')
+    .eq('id', profileId)
+    .single();
+
+  if (error) throw new AppError(404, 'Profile not found');
+
+  // Also fetch portfolio items
+  const { data: portfolio } = await supabaseAdmin
+    .from('portfolio_items')
+    .select('*')
+    .eq('profile_id', profileId)
+    .order('skill_name', { ascending: true })
+    .order('sort_order', { ascending: true });
+
+  return { ...data, portfolio_items: portfolio ?? [] };
+}
+
+// ---------------------------------------------------------------------------
+// Profile Share Links
+// ---------------------------------------------------------------------------
+
+export async function createShareLink(profileId: string, adminId: string) {
+  const crypto = await import('node:crypto');
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabaseAdmin
+    .from('profile_share_links')
+    .insert({
+      profile_id: profileId,
+      token,
+      expires_at: expiresAt,
+      created_by: adminId,
+    })
+    .select()
+    .single();
+
+  if (error) throw new AppError(500, `Failed to create share link: ${error.message}`);
+  return data;
+}
+
+export async function getShareLinksByProfile(profileId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('profile_share_links')
+    .select('*')
+    .eq('profile_id', profileId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new AppError(500, error.message);
+  return data;
+}
+
+export async function getProfileByShareToken(token: string) {
+  const { data: link, error: linkErr } = await supabaseAdmin
+    .from('profile_share_links')
+    .select('*')
+    .eq('token', token)
+    .single();
+
+  if (linkErr || !link) throw new AppError(404, 'Share link not found');
+
+  if (new Date(link.expires_at) < new Date()) {
+    throw new AppError(410, 'This share link has expired');
+  }
+
+  // Fetch the full profile
+  const profile = await getTalentProfile(link.profile_id);
+
+  // Also fetch category fields for display
+  const fields = await getCategoryFields(profile.category_id);
+
+  return { profile, fields };
 }
 
 export async function reorderOptions(input: ReorderInput) {

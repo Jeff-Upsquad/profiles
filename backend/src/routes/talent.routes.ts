@@ -34,4 +34,10 @@ router.patch('/profiles/:id/deactivate', talentController.deactivateProfile);
 router.patch('/profiles/:id/reactivate', talentController.reactivateProfile);
 router.delete('/profiles/:id', talentController.deleteProfile);
 
+// Portfolio items
+router.get('/profiles/:id/portfolio', talentController.getPortfolioItems);
+router.post('/profiles/:id/portfolio', talentController.addPortfolioItem);
+router.delete('/profiles/:id/portfolio/:itemId', talentController.deletePortfolioItem);
+router.patch('/profiles/:id/portfolio/reorder', talentController.reorderPortfolioItems);
+
 export default router;

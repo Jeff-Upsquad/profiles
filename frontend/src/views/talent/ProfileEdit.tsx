@@ -4,6 +4,7 @@ import { useProfile, useUpdateProfile, useSubmitProfile } from '@/hooks/useProfi
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import DynamicFormRenderer from '@/components/forms/DynamicFormRenderer';
 import DesignerExtras from '@/components/forms/DesignerExtras';
+import PortfolioUploader from '@/components/forms/PortfolioUploader';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
@@ -150,8 +151,22 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
               categoryId={profile.category_id}
               skills={values._skills ?? []}
               tools={values._tools ?? []}
+              aiTools={values._ai_tools ?? []}
+              planWages={values._plan_wages ?? {}}
               onSkillsChange={(s) => handleChange('_skills', s)}
               onToolsChange={(t) => handleChange('_tools', t)}
+              onAiToolsChange={(at) => handleChange('_ai_tools', at)}
+              onPlanWagesChange={(pw) => handleChange('_plan_wages', pw)}
+            />
+          </div>
+        )}
+
+        {/* Portfolio */}
+        {profile && (values._skills ?? []).length > 0 && (
+          <div className="mt-6 border-t border-gray-200 pt-6">
+            <PortfolioUploader
+              profileId={profileId}
+              skills={values._skills ?? []}
             />
           </div>
         )}

@@ -107,7 +107,7 @@ export default function ProfileList() {
                   </Button>
                 </Link>
                 {(profile.status === 'draft' || profile.status === 'rejected') && (
-                  <Link href={`/talent/profiles/${profile.id}`}>
+                  <Link href={`/talent/profiles/${profile.id}/edit`}>
                     <Button variant="secondary" size="sm">
                       Edit
                     </Button>

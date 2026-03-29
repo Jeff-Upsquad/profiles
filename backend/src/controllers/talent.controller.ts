@@ -114,6 +114,54 @@ export async function deleteProfile(req: Request, res: Response, next: NextFunct
 }
 
 // ---------------------------------------------------------------------------
+// Portfolio Items
+// ---------------------------------------------------------------------------
+
+export async function getPortfolioItems(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await talentService.getPortfolioItems(paramStr(req.params.id), req.user!.id);
+    res.json({ items: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function addPortfolioItem(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await talentService.addPortfolioItem(paramStr(req.params.id), req.user!.id, req.body);
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deletePortfolioItem(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await talentService.deletePortfolioItem(
+      paramStr(req.params.id),
+      req.user!.id,
+      paramStr(req.params.itemId)
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function reorderPortfolioItems(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await talentService.reorderPortfolioItems(
+      paramStr(req.params.id),
+      req.user!.id,
+      req.body.items
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Public: Categories
 // ---------------------------------------------------------------------------
 

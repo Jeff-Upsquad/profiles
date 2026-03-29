@@ -129,6 +129,30 @@ router.put('/tools/:toolId', adminController.updateTemplateTool);
 router.delete('/tools/:toolId', adminController.deleteTemplateTool);
 
 // ---------------------------------------------------------------------------
+// Template AI Tools
+// ---------------------------------------------------------------------------
+
+router.get('/categories/:categoryId/ai-tools', adminController.getTemplateAiTools);
+router.post('/categories/:categoryId/ai-tools', adminController.createTemplateAiTool);
+router.put('/ai-tools/:toolId', adminController.updateTemplateAiTool);
+router.delete('/ai-tools/:toolId', adminController.deleteTemplateAiTool);
+
+// ---------------------------------------------------------------------------
+// Talents Module (browse profiles by category)
+// ---------------------------------------------------------------------------
+
+router.get('/talents/categories', adminController.getTalentCategories);
+router.get('/talents/categories/:categoryId/profiles', adminController.getTalentProfilesByCategory);
+router.get('/talents/profiles/:profileId', adminController.getTalentProfile);
+
+// ---------------------------------------------------------------------------
+// Share Links
+// ---------------------------------------------------------------------------
+
+router.post('/talents/profiles/:profileId/share-link', adminController.createShareLink);
+router.get('/talents/profiles/:profileId/share-links', adminController.getShareLinks);
+
+// ---------------------------------------------------------------------------
 // User Management
 // ---------------------------------------------------------------------------
 

@@ -272,6 +272,102 @@ export async function softDeleteProfile(profileId: string, userId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Portfolio Items
+// ---------------------------------------------------------------------------
+
+export async function getPortfolioItems(profileId: string, userId: string) {
+  // Verify ownership
+  const { data: profile } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('id')
+    .eq('id', profileId)
+    .eq('talent_user_id', userId)
+    .is('deleted_at', null)
+    .single();
+
+  if (!profile) throw new AppError(404, 'Profile not found');
+
+  const { data, error } = await supabaseAdmin
+    .from('portfolio_items')
+    .select('*')
+    .eq('profile_id', profileId)
+    .order('skill_name', { ascending: true })
+    .order('sort_order', { ascending: true });
+
+  if (error) throw new AppError(500, 'Failed to fetch portfolio items');
+  return data;
+}
+
+export async function addPortfolioItem(
+  profileId: string,
+  userId: string,
+  input: { skill_name: string; file_url: string; file_type: string; file_name: string }
+) {
+  const { data: profile } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('id')
+    .eq('id', profileId)
+    .eq('talent_user_id', userId)
+    .is('deleted_at', null)
+    .single();
+
+  if (!profile) throw new AppError(404, 'Profile not found');
+
+  const { data, error } = await supabaseAdmin
+    .from('portfolio_items')
+    .insert({ profile_id: profileId, ...input })
+    .select()
+    .single();
+
+  if (error) throw new AppError(500, `Failed to add portfolio item: ${error.message}`);
+  return data;
+}
+
+export async function deletePortfolioItem(profileId: string, userId: string, itemId: string) {
+  const { data: profile } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('id')
+    .eq('id', profileId)
+    .eq('talent_user_id', userId)
+    .is('deleted_at', null)
+    .single();
+
+  if (!profile) throw new AppError(404, 'Profile not found');
+
+  const { error } = await supabaseAdmin
+    .from('portfolio_items')
+    .delete()
+    .eq('id', itemId)
+    .eq('profile_id', profileId);
+
+  if (error) throw new AppError(500, 'Failed to delete portfolio item');
+  return { message: 'Portfolio item deleted' };
+}
+
+export async function reorderPortfolioItems(profileId: string, userId: string, items: { id: string; sort_order: number }[]) {
+  const { data: profile } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('id')
+    .eq('id', profileId)
+    .eq('talent_user_id', userId)
+    .is('deleted_at', null)
+    .single();
+
+  if (!profile) throw new AppError(404, 'Profile not found');
+
+  const updates = items.map((item) =>
+    supabaseAdmin
+      .from('portfolio_items')
+      .update({ sort_order: item.sort_order })
+      .eq('id', item.id)
+      .eq('profile_id', profileId)
+  );
+
+  await Promise.all(updates);
+  return { message: 'Portfolio items reordered' };
+}
+
+// ---------------------------------------------------------------------------
 // Dynamic field validation helpers
 // ---------------------------------------------------------------------------
 

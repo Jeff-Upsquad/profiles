@@ -1,13 +1,13 @@
 'use client';
 
 import { use } from 'react';
-import ProfileEdit from '@/views/talent/ProfileEdit';
+import ProfileView from '@/views/talent/ProfileView';
 
 interface Params {
   id: string;
 }
 
-export default function EditProfilePage(props: { params: Promise<Params> }) {
+export default function ViewProfilePage(props: { params: Promise<Params> }) {
   const params = use(props.params);
-  return <ProfileEdit profileId={params.id} />;
+  return <ProfileView profileId={params.id} />;
 }
