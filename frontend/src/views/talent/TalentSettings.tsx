@@ -16,7 +16,6 @@ export default function TalentSettings() {
     current_location: '',
     native_place: '',
     languages_spoken: '',
-    preferred_districts: '',
   });
 
   useEffect(() => {
@@ -31,7 +30,6 @@ export default function TalentSettings() {
           current_location: info.current_location ?? '',
           native_place: info.native_place ?? '',
           languages_spoken: (info.languages_spoken ?? []).join(', '),
-          preferred_districts: (info.preferred_districts ?? []).join(', '),
         });
       } catch {
         // ignore
@@ -51,10 +49,6 @@ export default function TalentSettings() {
         current_location: form.current_location,
         native_place: form.native_place,
         languages_spoken: form.languages_spoken
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
-        preferred_districts: form.preferred_districts
           .split(',')
           .map((s) => s.trim())
           .filter(Boolean),
@@ -120,13 +114,6 @@ export default function TalentSettings() {
             onChange={(e) => setForm((p) => ({ ...p, languages_spoken: e.target.value }))}
             placeholder="English, Hindi, Tamil"
           />
-          <Input
-            label="Preferred Districts (comma-separated)"
-            value={form.preferred_districts}
-            onChange={(e) => setForm((p) => ({ ...p, preferred_districts: e.target.value }))}
-            placeholder="Chennai, Bangalore, Mumbai"
-          />
-
           <div className="pt-4">
             <Button type="submit" loading={loading}>
               Save Changes

@@ -176,7 +176,6 @@ export default function ViewProfile({ profileId, categorySlug }: { profileId: st
             {[
               ['Location', (profile as any).talent_user.current_location],
               ['Languages', ((profile as any).talent_user.languages_spoken ?? []).join(', ')],
-              ['Preferred Districts', ((profile as any).talent_user.preferred_districts ?? []).join(', ')],
             ]
               .filter(([, val]) => val)
               .map(([label, val]) => (

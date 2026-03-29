@@ -24,7 +24,6 @@ interface ReviewProfile {
     current_location: string;
     native_place: string;
     languages_spoken: string[];
-    preferred_districts: string[];
   };
   categories?: { name: string; slug: string };
 }
@@ -201,7 +200,6 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
               ['Location', talentUser.current_location],
               ['Native Place', talentUser.native_place],
               ['Languages', (talentUser.languages_spoken ?? []).join(', ')],
-              ['Preferred Districts', (talentUser.preferred_districts ?? []).join(', ')],
             ]
               .filter(([, val]) => val)
               .map(([label, val]) => (

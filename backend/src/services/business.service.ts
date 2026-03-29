@@ -44,7 +44,7 @@ export async function discoverProfiles(categorySlug: string, query: DiscoverQuer
 
   let qb = supabaseAdmin
     .from('talent_profiles')
-    .select('*, talent_users!inner(full_name, current_location, languages_spoken, preferred_districts, profile_photo_url), categories!inner(id, name, slug)', { count: 'exact' })
+    .select('*, talent_users!inner(full_name, current_location, languages_spoken, profile_photo_url), categories!inner(id, name, slug)', { count: 'exact' })
     .eq('category_id', category.id)
     .eq('status', 'approved')
     .is('deleted_at', null);
@@ -137,7 +137,7 @@ export async function getApprovedProfile(categorySlug: string, profileId: string
 
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')
-    .select('*, talent_users!inner(full_name, current_location, languages_spoken, preferred_districts, profile_photo_url, phone), categories!inner(id, name, slug)')
+    .select('*, talent_users!inner(full_name, current_location, languages_spoken, profile_photo_url, phone), categories!inner(id, name, slug)')
     .eq('id', profileId)
     .eq('category_id', category.id)
     .eq('status', 'approved')
