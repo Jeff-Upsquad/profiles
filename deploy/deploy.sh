@@ -8,6 +8,13 @@ set -e
 
 REPO_DIR="/root/Profiles"
 
+# ---------------------------------------------------------------------------
+# Port configuration (must match nginx sites-enabled/profiles)
+# ---------------------------------------------------------------------------
+API_PORT=5000
+FRONTEND_PORT=3002
+ADMIN_PORT=3003
+
 echo "=== Pulling latest code ==="
 cd "$REPO_DIR"
 git pull origin main
@@ -28,11 +35,26 @@ npm install
 npm run build
 
 echo "=== Restarting services ==="
-pm2 restart profiles-api profiles-frontend profiles-admin
+# Delete and recreate processes with explicit ports to avoid port drift
+pm2 delete profiles-api profiles-frontend profiles-admin 2>/dev/null || true
+
+cd "$REPO_DIR/backend"
+pm2 start "npm run start" --name profiles-api
+
+cd "$REPO_DIR/frontend"
+pm2 start "npm run start -- -p $FRONTEND_PORT" --name profiles-frontend
+
+cd "$REPO_DIR/admin"
+pm2 start "npm run start -- -p $ADMIN_PORT" --name profiles-admin
+
+pm2 save
 
 echo "=== Reloading nginx ==="
 nginx -t && nginx -s reload
 
 echo ""
 echo "✓ Deploy complete!"
+echo "  API:      http://localhost:$API_PORT"
+echo "  Frontend: http://localhost:$FRONTEND_PORT"
+echo "  Admin:    http://localhost:$ADMIN_PORT"
 pm2 status
