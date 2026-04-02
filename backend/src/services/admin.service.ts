@@ -756,38 +756,30 @@ export async function createShareLink(profileId: string, adminId: string) {
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data, error } = await supabaseAdmin
-    .from('profile_share_links')
-    .insert({
-      profile_id: profileId,
-      token,
-      expires_at: expiresAt,
-      created_by: adminId,
-    })
-    .select()
-    .single();
+  const { data, error } = await supabaseAdmin.rpc('create_share_link', {
+    p_profile_id: profileId,
+    p_token: token,
+    p_expires_at: expiresAt,
+    p_created_by: adminId,
+  });
 
   if (error) throw new AppError(500, `Failed to create share link: ${error.message}`);
   return data;
 }
 
 export async function getShareLinksByProfile(profileId: string) {
-  const { data, error } = await supabaseAdmin
-    .from('profile_share_links')
-    .select('*')
-    .eq('profile_id', profileId)
-    .order('created_at', { ascending: false });
+  const { data, error } = await supabaseAdmin.rpc('get_share_links_by_profile', {
+    p_profile_id: profileId,
+  });
 
   if (error) throw new AppError(500, error.message);
-  return data;
+  return data ?? [];
 }
 
 export async function getProfileByShareToken(token: string) {
-  const { data: link, error: linkErr } = await supabaseAdmin
-    .from('profile_share_links')
-    .select('*')
-    .eq('token', token)
-    .single();
+  const { data: link, error: linkErr } = await supabaseAdmin.rpc('get_profile_share_link_by_token', {
+    p_token: token,
+  });
 
   if (linkErr || !link) throw new AppError(404, 'Share link not found');
 
