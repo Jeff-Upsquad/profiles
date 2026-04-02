@@ -20,6 +20,7 @@ export function errorHandler(
   if (err instanceof AppError) {
     res.status(err.statusCode).json({
       error: err.message,
+      message: err.message,
     });
     return;
   }
@@ -27,5 +28,6 @@ export function errorHandler(
   console.error('Unexpected error:', err);
   res.status(500).json({
     error: 'Internal server error',
+    message: 'Internal server error',
   });
 }
