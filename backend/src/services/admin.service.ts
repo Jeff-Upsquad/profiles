@@ -1,5 +1,7 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
+import pg from 'pg';
+import { env } from '../config/env.js';
 import type {
   CreateCategoryInput,
   UpdateCategoryInput,
@@ -751,37 +753,48 @@ export async function getTalentProfile(profileId: string) {
 // Profile Share Links
 // ---------------------------------------------------------------------------
 
+async function queryPg<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+  const client = new pg.Client({ connectionString: env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  await client.connect();
+  try {
+    const result = await client.query(sql, params);
+    return result.rows as T[];
+  } finally {
+    await client.end();
+  }
+}
+
 export async function createShareLink(profileId: string, adminId: string) {
   const crypto = await import('node:crypto');
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data, error } = await supabaseAdmin.rpc('create_share_link', {
-    p_profile_id: profileId,
-    p_token: token,
-    p_expires_at: expiresAt,
-    p_created_by: adminId,
-  });
+  const rows = await queryPg(
+    `INSERT INTO profile_share_links (profile_id, token, expires_at, created_by)
+     VALUES ($1, $2, $3, $4)
+     RETURNING *`,
+    [profileId, token, expiresAt, adminId]
+  );
 
-  if (error) throw new AppError(500, `Failed to create share link: ${error.message}`);
-  return data;
+  if (!rows[0]) throw new AppError(500, 'Failed to create share link');
+  return rows[0];
 }
 
 export async function getShareLinksByProfile(profileId: string) {
-  const { data, error } = await supabaseAdmin.rpc('get_share_links_by_profile', {
-    p_profile_id: profileId,
-  });
-
-  if (error) throw new AppError(500, error.message);
-  return data ?? [];
+  return queryPg(
+    `SELECT * FROM profile_share_links WHERE profile_id = $1 ORDER BY created_at DESC`,
+    [profileId]
+  );
 }
 
 export async function getProfileByShareToken(token: string) {
-  const { data: link, error: linkErr } = await supabaseAdmin.rpc('get_profile_share_link_by_token', {
-    p_token: token,
-  });
+  const rows = await queryPg(
+    `SELECT * FROM profile_share_links WHERE token = $1`,
+    [token]
+  );
 
-  if (linkErr || !link) throw new AppError(404, 'Share link not found');
+  const link = rows[0];
+  if (!link) throw new AppError(404, 'Share link not found');
 
   if (new Date(link.expires_at) < new Date()) {
     throw new AppError(410, 'This share link has expired');
