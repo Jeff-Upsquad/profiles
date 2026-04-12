@@ -66,7 +66,7 @@ export async function updateBasicProfile(userId: string, input: UpdateBasicProfi
 export async function getMyProfiles(userId: string) {
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')
-    .select('*, categories:category_id(id, name, slug)')
+    .select('*, category:category_id(id, name, slug)')
     .eq('talent_user_id', userId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
@@ -78,7 +78,7 @@ export async function getMyProfiles(userId: string) {
 export async function getProfile(profileId: string, userId: string) {
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')
-    .select('*, categories:category_id(id, name, slug)')
+    .select('*, category:category_id(id, name, slug)')
     .eq('id', profileId)
     .eq('talent_user_id', userId)
     .is('deleted_at', null)

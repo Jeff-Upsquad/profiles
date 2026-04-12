@@ -27,6 +27,8 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   const [languages, setLanguages] = useState<LanguageEntry[]>([]);
   const initialValues = useRef<string>('');
   const initialLanguages = useRef<string>('');
+  const hasInitializedValues = useRef(false);
+  const hasInitializedLangs = useRef(false);
   const [dirty, setDirty] = useState(false);
 
   const { data: categoryWithFields, isLoading: fieldsLoading } = useCategoryWithFields(
@@ -34,17 +36,19 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   );
 
   useEffect(() => {
-    if (profile?.field_data) {
+    if (profile?.field_data && !hasInitializedValues.current) {
       setValues(profile.field_data);
+      initialValues.current = JSON.stringify(profile.field_data);
+      hasInitializedValues.current = true;
     }
-    initialValues.current = JSON.stringify(profile?.field_data ?? {});
   }, [profile]);
 
   useEffect(() => {
-    if (talentMe?.languages_spoken) {
+    if (talentMe?.languages_spoken && !hasInitializedLangs.current) {
       setLanguages(talentMe.languages_spoken);
+      initialLanguages.current = JSON.stringify(talentMe.languages_spoken);
+      hasInitializedLangs.current = true;
     }
-    initialLanguages.current = JSON.stringify(talentMe?.languages_spoken ?? []);
   }, [talentMe]);
 
   // Track dirty state
@@ -116,12 +120,6 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
   const handleSave = async () => {
     if (!profileId) return;
-    if (profile?.status === 'approved') {
-      const confirmed = confirm(
-        'Saving will change your profile status from approved to pending review. Your profile will go offline until re-approved. Continue?'
-      );
-      if (!confirmed) return;
-    }
     try {
       await updateProfile.mutateAsync({ id: profileId, field_data: values });
     } catch {
