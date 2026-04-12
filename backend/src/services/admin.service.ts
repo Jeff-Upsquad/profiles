@@ -754,6 +754,9 @@ export async function getTalentProfile(profileId: string) {
 // ---------------------------------------------------------------------------
 
 async function queryPg<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+  if (!env.DB_HOST || !env.DB_PASSWORD) {
+    throw new AppError(500, 'DB_HOST and DB_PASSWORD environment variables are required for share links');
+  }
   const client = new pg.Client({
     host: env.DB_HOST,
     port: 5432,
