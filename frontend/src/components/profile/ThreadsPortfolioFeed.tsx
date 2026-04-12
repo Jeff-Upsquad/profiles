@@ -1,15 +1,17 @@
+'use client';
+
+import { useState } from 'react';
 import type { PortfolioItem } from '@/types';
 import ThreadsPortfolioCard from './ThreadsPortfolioCard';
 
 interface ThreadsPortfolioFeedProps {
   items: PortfolioItem[];
   activeTab: string;
-  talentName: string;
-  avatarUrl?: string;
-  isVerified: boolean;
 }
 
-export default function ThreadsPortfolioFeed({ items, activeTab, talentName, avatarUrl, isVerified }: ThreadsPortfolioFeedProps) {
+export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfolioFeedProps) {
+  const [selectedItem, setSelectedItem] = useState<PortfolioItem | null>(null);
+
   const filtered = activeTab === 'All' ? items : items.filter((i) => i.skill_name === activeTab);
 
   if (filtered.length === 0) {
@@ -28,16 +30,82 @@ export default function ThreadsPortfolioFeed({ items, activeTab, talentName, ava
   }
 
   return (
-    <div>
-      {filtered.map((item) => (
-        <ThreadsPortfolioCard
-          key={item.id}
-          item={item}
-          talentName={talentName}
-          avatarUrl={avatarUrl}
-          isVerified={isVerified}
-        />
-      ))}
-    </div>
+    <>
+      {/* Instagram-style 3-column grid */}
+      <div className="grid grid-cols-3 gap-[1px] bg-[var(--threads-border-light)]">
+        {filtered.map((item) => (
+          <ThreadsPortfolioCard
+            key={item.id}
+            item={item}
+            onClick={() => setSelectedItem(item)}
+          />
+        ))}
+      </div>
+
+      {/* Lightbox modal */}
+      {selectedItem && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80"
+          onClick={() => setSelectedItem(null)}
+        >
+          {/* Close button */}
+          <button
+            onClick={() => setSelectedItem(null)}
+            className="absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+
+          {/* Content */}
+          <div
+            className="relative max-h-[90vh] max-w-[90vw]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {selectedItem.file_type === 'image' && (
+              <img
+                src={selectedItem.file_url}
+                alt={selectedItem.file_name}
+                className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+              />
+            )}
+            {selectedItem.file_type === 'video' && (
+              <video
+                src={selectedItem.file_url}
+                controls
+                autoPlay
+                className="max-h-[90vh] max-w-[90vw] rounded-lg"
+              />
+            )}
+            {selectedItem.file_type === 'pdf' && (
+              <div className="flex flex-col items-center gap-4 rounded-lg bg-white p-8">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+                <p className="text-sm font-medium text-gray-900">{selectedItem.file_name}</p>
+                <a
+                  href={selectedItem.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg bg-[var(--threads-accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                >
+                  Open PDF
+                </a>
+              </div>
+            )}
+
+            {/* File name caption */}
+            <p className="mt-3 text-center text-sm text-white/80">
+              {selectedItem.file_name}
+            </p>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

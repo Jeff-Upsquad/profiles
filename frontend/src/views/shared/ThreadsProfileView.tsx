@@ -161,9 +161,6 @@ export default function ThreadsProfileView({
             <ThreadsPortfolioFeed
               items={portfolioItems!}
               activeTab={activeTab}
-              talentName={talentUser.full_name}
-              avatarUrl={talentUser.profile_photo_url}
-              isVerified={profile.status === 'approved'}
             />
           </>
         )}

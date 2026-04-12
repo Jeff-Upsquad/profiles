@@ -65,22 +65,14 @@ export default function ThreadsProfileSkeleton() {
         ))}
       </div>
 
-      {/* Portfolio card skeletons */}
-      {[1, 2].map((i) => (
-        <div key={i} className="border-b border-[var(--threads-border-light)] px-5 py-4">
-          <div className="flex items-center gap-3">
-            <Skeleton variant="circle" width="40px" height="40px" />
-            <div className="space-y-1">
-              <Skeleton width="120px" height="14px" />
-              <Skeleton width="80px" height="12px" />
-            </div>
+      {/* Portfolio grid skeleton */}
+      <div className="grid grid-cols-3 gap-[1px] bg-[var(--threads-border-light)]">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="aspect-square">
+            <Skeleton width="100%" height="100%" className="!rounded-none" />
           </div>
-          <div className="ml-[52px] mt-3">
-            <Skeleton width="70%" height="15px" className="mb-2" />
-            <Skeleton width="100%" height="200px" className="rounded-[10px]" />
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </ThreadsProfileShell>
   );
 }
