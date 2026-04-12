@@ -754,7 +754,14 @@ export async function getTalentProfile(profileId: string) {
 // ---------------------------------------------------------------------------
 
 async function queryPg<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-  const client = new pg.Client({ connectionString: env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  const client = new pg.Client({
+    host: env.DB_HOST,
+    port: 5432,
+    database: 'postgres',
+    user: 'postgres',
+    password: env.DB_PASSWORD,
+    ssl: { rejectUnauthorized: false },
+  });
   await client.connect();
   try {
     const result = await client.query(sql, params);
