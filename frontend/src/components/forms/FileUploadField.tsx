@@ -1,6 +1,5 @@
 import { useState, useRef, type ChangeEvent } from 'react';
 import api from '@/services/api';
-import type { PresignedUrlResponse } from '@/types';
 
 interface FileUploadFieldProps {
   value: string | undefined;
@@ -30,19 +29,14 @@ export default function FileUploadField({
     setProgress(0);
 
     try {
-      const { data } = await api.post<PresignedUrlResponse>('/upload/presigned-url', {
-        filename: file.name,
-        content_type: file.type,
-      });
-
-      await fetch(data.upload_url, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type },
-        body: file,
-      });
+      const { data } = await api.post(
+        `/upload/file?fileName=${encodeURIComponent(file.name)}&folder=profile`,
+        file,
+        { headers: { 'Content-Type': file.type } }
+      );
 
       setProgress(100);
-      onChange(data.file_url);
+      onChange(data.fileUrl);
     } catch (err) {
       console.error('Upload failed:', err);
     } finally {

@@ -47,32 +47,18 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
 
     startUpload(skillName);
     try {
-      // Get presigned URL
-      const { data: presigned } = await api.post('/upload/presigned-url', {
-        fileName: file.name,
-        contentType: file.type,
-        folder: 'portfolio',
-      });
-
-      // Upload to storage
-      const uploadResponse = await fetch(presigned.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type },
-        body: file,
-      });
-
-      if (!uploadResponse.ok) {
-        const errorBody = await uploadResponse.text().catch(() => '');
-        throw new Error(
-          `Storage upload failed (${uploadResponse.status})${errorBody ? `: ${errorBody}` : ''}`
-        );
-      }
+      // Upload file through backend
+      const { data: uploaded } = await api.post(
+        `/upload/file?fileName=${encodeURIComponent(file.name)}&folder=portfolio`,
+        file,
+        { headers: { 'Content-Type': file.type } }
+      );
 
       // Add portfolio item
       await addItem.mutateAsync({
         profileId,
         skill_name: skillName,
-        file_url: presigned.fileUrl,
+        file_url: uploaded.fileUrl,
         file_type: fileType,
         file_name: file.name,
       });

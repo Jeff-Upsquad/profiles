@@ -102,6 +102,42 @@ export async function getPresignedUploadUrl(params: PresignedUploadParams) {
   };
 }
 
+export async function uploadFile(params: {
+  userId: string;
+  fileName: string;
+  contentType: string;
+  folder?: string;
+  body: Buffer;
+}) {
+  const { userId, fileName, contentType, folder, body } = params;
+
+  if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
+    throw new AppError(
+      400,
+      `Content type "${contentType}" is not allowed. Allowed types: ${[...ALLOWED_CONTENT_TYPES].join(', ')}`
+    );
+  }
+
+  const client = getS3Client();
+  const sanitized = sanitizeFileName(fileName);
+  const key = `uploads/${userId}/${folder || 'general'}/${crypto.randomUUID()}-${sanitized}`;
+
+  await client.send(
+    new PutObjectCommand({
+      Bucket: env.R2_BUCKET_NAME,
+      Key: key,
+      ContentType: contentType,
+      Body: body,
+    })
+  );
+
+  const publicUrl = env.R2_PUBLIC_URL
+    ? `${env.R2_PUBLIC_URL}/${key}`
+    : key;
+
+  return { fileUrl: publicUrl, key };
+}
+
 export async function deleteFile(key: string) {
   const client = getS3Client();
 
