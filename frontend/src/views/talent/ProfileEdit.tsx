@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProfile, useUpdateProfile, useSubmitProfile } from '@/hooks/useProfiles';
 import { useCategoryWithFields } from '@/hooks/useCategories';
@@ -22,6 +22,9 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   const [values, setValues] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [languages, setLanguages] = useState<LanguageEntry[]>([]);
+  const initialValues = useRef<string>('');
+  const initialLanguages = useRef<string>('');
+  const [dirty, setDirty] = useState(false);
 
   const { data: categoryWithFields, isLoading: fieldsLoading } = useCategoryWithFields(
     profile?.category?.slug
@@ -30,14 +33,37 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   useEffect(() => {
     if (profile?.field_data) {
       setValues(profile.field_data);
+      initialValues.current = JSON.stringify(profile.field_data);
     }
   }, [profile]);
 
   useEffect(() => {
     if (talentMe?.languages_spoken) {
       setLanguages(talentMe.languages_spoken);
+      initialLanguages.current = JSON.stringify(talentMe.languages_spoken);
     }
   }, [talentMe]);
+
+  // Track dirty state
+  useEffect(() => {
+    const valuesDirty = initialValues.current && JSON.stringify(values) !== initialValues.current;
+    const langDirty = initialLanguages.current && JSON.stringify(languages) !== initialLanguages.current;
+    setDirty(!!(valuesDirty || langDirty));
+  }, [values, languages]);
+
+  // Warn on browser close / refresh
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirty) { e.preventDefault(); }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
+  const confirmDiscard = useCallback(() => {
+    if (!dirty) return true;
+    return window.confirm('You have unsaved changes. Discard and leave this page?');
+  }, [dirty]);
 
   const handleChange = (key: string, value: any) => {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -138,14 +164,14 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <button
-          onClick={() => router.back()}
+          onClick={() => { if (confirmDiscard()) router.back(); }}
           className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">
             Edit {profile.category?.name} Profile
           </h1>
@@ -154,6 +180,23 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
               {profile.status.replace('_', ' ')}
             </Badge>
           </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={handleSave}
+            loading={updateProfile.isPending}
+          >
+            Save Changes
+          </Button>
+          {(profile.status === 'draft' || profile.status === 'rejected') && (
+            <Button
+              onClick={handleSaveAndSubmit}
+              loading={updateProfile.isPending || submitProfile.isPending}
+            >
+              Save & Submit
+            </Button>
+          )}
         </div>
       </div>
 
@@ -212,23 +255,6 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
           </div>
         )}
 
-        <div className="mt-6 flex flex-wrap gap-3 border-t border-gray-200 pt-6">
-          <Button
-            variant="outline"
-            onClick={handleSave}
-            loading={updateProfile.isPending}
-          >
-            Save Changes
-          </Button>
-          {(profile.status === 'draft' || profile.status === 'rejected') && (
-            <Button
-              onClick={handleSaveAndSubmit}
-              loading={updateProfile.isPending || submitProfile.isPending}
-            >
-              Save & Submit for Review
-            </Button>
-          )}
-        </div>
       </Card>
     </div>
   );
