@@ -143,3 +143,26 @@ export function useBusinessCategories() {
     },
   });
 }
+
+// ─── Invite-Only: Subscribed Categories & Shared Profiles ──────────────────
+
+export function useMyCategories() {
+  return useQuery<Category[]>({
+    queryKey: ['my-categories'],
+    queryFn: async () => {
+      const { data } = await api.get('/business/my-categories');
+      return data.categories ?? data;
+    },
+  });
+}
+
+export function useSharedProfiles(categoryId: string | undefined) {
+  return useQuery<Profile[]>({
+    queryKey: ['shared-profiles', categoryId],
+    queryFn: async () => {
+      const { data } = await api.get(`/business/my-categories/${categoryId}/profiles`);
+      return data.profiles ?? data;
+    },
+    enabled: !!categoryId,
+  });
+}

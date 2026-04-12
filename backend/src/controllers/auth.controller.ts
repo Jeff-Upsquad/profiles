@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/auth.service.js';
+import * as businessAuthService from '../services/business-auth.service.js';
 
 export async function signupTalent(req: Request, res: Response, next: NextFunction) {
   try {
@@ -10,10 +11,10 @@ export async function signupTalent(req: Request, res: Response, next: NextFuncti
   }
 }
 
-export async function signupBusiness(req: Request, res: Response, next: NextFunction) {
+export async function businessLogin(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await authService.signupBusiness(req.body);
-    res.status(201).json(result);
+    const result = await businessAuthService.businessLogin(req.body.email);
+    res.json(result);
   } catch (err) {
     next(err);
   }
@@ -60,9 +61,18 @@ export async function resetPassword(req: Request, res: Response, next: NextFunct
   }
 }
 
-export async function logout(_req: Request, res: Response) {
-  // JWT-based — client just discards the token. No server-side action needed.
-  res.json({ message: 'Logged out successfully' });
+export async function logout(req: Request, res: Response, next: NextFunction) {
+  try {
+    // For business users, invalidate the session server-side
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7);
+      await businessAuthService.businessLogout(token);
+    }
+    res.json({ message: 'Logged out successfully' });
+  } catch {
+    res.json({ message: 'Logged out successfully' });
+  }
 }
 
 export async function getMe(req: Request, res: Response, next: NextFunction) {

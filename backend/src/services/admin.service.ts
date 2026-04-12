@@ -819,6 +819,158 @@ export async function getProfileByShareToken(token: string) {
   return { profile, fields };
 }
 
+// ---------------------------------------------------------------------------
+// Business Subscriptions (Category Assignments)
+// ---------------------------------------------------------------------------
+
+export async function getBusinessSubscriptions(businessUserId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('business_category_subscriptions')
+    .select('*, categories(id, name, slug, description, icon_url)')
+    .eq('business_user_id', businessUserId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw new AppError(500, error.message);
+  return (data ?? []).map((s: any) => ({
+    id: s.id,
+    business_user_id: s.business_user_id,
+    category_id: s.category_id,
+    assigned_by: s.assigned_by,
+    created_at: s.created_at,
+    category: s.categories,
+  }));
+}
+
+export async function assignCategories(
+  businessUserId: string,
+  categoryIds: string[],
+  adminId: string
+) {
+  // Remove existing subscriptions first
+  await supabaseAdmin
+    .from('business_category_subscriptions')
+    .delete()
+    .eq('business_user_id', businessUserId);
+
+  if (categoryIds.length === 0) return [];
+
+  // Insert new subscriptions
+  const rows = categoryIds.map((categoryId) => ({
+    business_user_id: businessUserId,
+    category_id: categoryId,
+    assigned_by: adminId,
+  }));
+
+  const { data, error } = await supabaseAdmin
+    .from('business_category_subscriptions')
+    .insert(rows)
+    .select('*, categories(id, name, slug, description, icon_url)');
+
+  if (error) throw new AppError(400, error.message);
+
+  return (data ?? []).map((s: any) => ({
+    id: s.id,
+    business_user_id: s.business_user_id,
+    category_id: s.category_id,
+    assigned_by: s.assigned_by,
+    created_at: s.created_at,
+    category: s.categories,
+  }));
+}
+
+export async function removeCategory(businessUserId: string, categoryId: string) {
+  const { error } = await supabaseAdmin
+    .from('business_category_subscriptions')
+    .delete()
+    .eq('business_user_id', businessUserId)
+    .eq('category_id', categoryId);
+
+  if (error) throw new AppError(400, error.message);
+}
+
+// ---------------------------------------------------------------------------
+// Business Shared Profiles
+// ---------------------------------------------------------------------------
+
+export async function getBusinessSharedProfiles(businessUserId: string, categoryId?: string) {
+  let qb = supabaseAdmin
+    .from('business_shared_profiles')
+    .select('*, talent_profiles(*, talent_users(full_name, current_location, languages_spoken, profile_photo_url), categories(id, name, slug))')
+    .eq('business_user_id', businessUserId)
+    .order('created_at', { ascending: false });
+
+  if (categoryId) {
+    qb = qb.eq('category_id', categoryId);
+  }
+
+  const { data, error } = await qb;
+  if (error) throw new AppError(500, error.message);
+
+  return (data ?? []).map((sp: any) => ({
+    id: sp.id,
+    business_user_id: sp.business_user_id,
+    talent_profile_id: sp.talent_profile_id,
+    category_id: sp.category_id,
+    shared_by: sp.shared_by,
+    created_at: sp.created_at,
+    profile: sp.talent_profiles ? {
+      id: sp.talent_profiles.id,
+      talent_user_id: sp.talent_profiles.talent_user_id,
+      category_id: sp.talent_profiles.category_id,
+      category: sp.talent_profiles.categories,
+      status: sp.talent_profiles.status,
+      field_data: sp.talent_profiles.field_data,
+      talent_user: sp.talent_profiles.talent_users,
+      created_at: sp.talent_profiles.created_at,
+    } : null,
+  }));
+}
+
+export async function shareProfiles(
+  businessUserId: string,
+  profileIds: string[],
+  categoryId: string,
+  adminId: string
+) {
+  // Remove existing shares for this business+category first
+  await supabaseAdmin
+    .from('business_shared_profiles')
+    .delete()
+    .eq('business_user_id', businessUserId)
+    .eq('category_id', categoryId);
+
+  if (profileIds.length === 0) return [];
+
+  const rows = profileIds.map((profileId) => ({
+    business_user_id: businessUserId,
+    talent_profile_id: profileId,
+    category_id: categoryId,
+    shared_by: adminId,
+  }));
+
+  const { data, error } = await supabaseAdmin
+    .from('business_shared_profiles')
+    .insert(rows)
+    .select();
+
+  if (error) throw new AppError(400, error.message);
+  return data ?? [];
+}
+
+export async function unshareProfile(businessUserId: string, profileId: string) {
+  const { error } = await supabaseAdmin
+    .from('business_shared_profiles')
+    .delete()
+    .eq('business_user_id', businessUserId)
+    .eq('talent_profile_id', profileId);
+
+  if (error) throw new AppError(400, error.message);
+}
+
+// ---------------------------------------------------------------------------
+// Reorder Options
+// ---------------------------------------------------------------------------
+
 export async function reorderOptions(input: ReorderInput) {
   const updates = input.items.map((item) =>
     supabaseAdmin

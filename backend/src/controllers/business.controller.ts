@@ -91,3 +91,26 @@ export async function getInterests(req: Request, res: Response, next: NextFuncti
     next(err);
   }
 }
+
+// ─── Subscribed Categories & Shared Profiles ────────────────────────────────
+
+export async function getMyCategories(req: Request, res: Response, next: NextFunction) {
+  try {
+    const categories = await businessService.getSubscribedCategories(req.user!.id);
+    res.json({ categories });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getSharedProfiles(req: Request, res: Response, next: NextFunction) {
+  try {
+    const profiles = await businessService.getSharedProfiles(
+      req.user!.id,
+      req.params.categoryId as string
+    );
+    res.json({ profiles });
+  } catch (err) {
+    next(err);
+  }
+}

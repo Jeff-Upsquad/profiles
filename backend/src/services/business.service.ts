@@ -27,6 +27,46 @@ export async function updateBusinessUser(userId: string, input: UpdateBusinessUs
   return data;
 }
 
+// ─── Subscribed Categories & Shared Profiles ────────────────────────────────
+
+export async function getSubscribedCategories(businessUserId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('business_category_subscriptions')
+    .select('category_id, categories(id, name, slug, description, icon_url)')
+    .eq('business_user_id', businessUserId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw new AppError(500, error.message);
+  return (data ?? []).map((s: any) => s.categories);
+}
+
+export async function getSharedProfiles(businessUserId: string, categoryId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('business_shared_profiles')
+    .select('talent_profile_id, talent_profiles(*, talent_users(full_name, current_location, languages_spoken, profile_photo_url), categories(id, name, slug))')
+    .eq('business_user_id', businessUserId)
+    .eq('category_id', categoryId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new AppError(500, error.message);
+
+  return (data ?? []).map((sp: any) => {
+    const p = sp.talent_profiles;
+    if (!p) return null;
+    return {
+      id: p.id,
+      user_id: p.talent_user_id,
+      category_id: p.category_id,
+      category: p.categories,
+      status: p.status,
+      field_data: p.field_data,
+      talent_user: p.talent_users,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
+    };
+  }).filter(Boolean);
+}
+
 // ─── Discover Profiles ──────────────────────────────────────────────────────
 
 export async function discoverProfiles(categorySlug: string, query: DiscoverQueryInput) {

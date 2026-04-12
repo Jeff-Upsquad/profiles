@@ -8,15 +8,15 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/services/api';
-import type { User, TalentSignupData, BusinessSignupData } from '@/types';
+import type { User, TalentSignupData } from '@/types';
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  businessLogin: (email: string) => Promise<void>;
   signupTalent: (data: TalentSignupData) => Promise<void>;
-  signupBusiness: (data: BusinessSignupData) => Promise<void>;
   logout: () => void;
 }
 
@@ -69,7 +69,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       const { data } = await api.post('/auth/login', { email, password });
       storeAuth(data.access_token || data.token, data.user);
-      router.push(data.user.role === 'business' ? '/dashboard' : '/dashboard');
+      router.push('/dashboard');
+    },
+    [storeAuth, router]
+  );
+
+  const businessLogin = useCallback(
+    async (email: string) => {
+      const { data } = await api.post('/auth/business-login', { email });
+      storeAuth(data.access_token || data.token, data.user);
+      router.push('/business/dashboard');
     },
     [storeAuth, router]
   );
@@ -83,15 +92,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [storeAuth, router]
   );
 
-  const signupBusiness = useCallback(
-    async (signupData: BusinessSignupData) => {
-      const { data } = await api.post('/auth/signup/business', signupData);
-      storeAuth(data.access_token || data.token, data.user);
-      router.push('/dashboard');
-    },
-    [storeAuth, router]
-  );
-
   const logout = useCallback(() => {
     clearAuth();
     router.push('/');
@@ -99,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, isLoading, login, signupTalent, signupBusiness, logout }}
+      value={{ user, token, isLoading, login, businessLogin, signupTalent, logout }}
     >
       {children}
     </AuthContext.Provider>

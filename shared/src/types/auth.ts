@@ -29,6 +29,18 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface BusinessLoginPayload {
+  email: string;
+}
+
+export interface BusinessAuthResponse {
+  access_token: string;
+  user: AuthUser & {
+    company_name?: string;
+    access_expires_at?: string;
+  };
+}
+
 export interface AuthResponse {
   access_token: string;
   refresh_token: string;

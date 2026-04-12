@@ -1,16 +1,23 @@
 import { supabaseAdmin, supabaseAnon } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
-import type { SignupTalentInput, SignupBusinessInput, LoginInput } from '../validators/auth.validators.js';
+import { checkInvitation, markInvitationAccepted } from './invite.service.js';
+import type { SignupTalentInput, LoginInput } from '../validators/auth.validators.js';
 import type { UserRole } from '../../../shared/src/types/auth.js';
 
 export async function signupTalent(input: SignupTalentInput) {
   const { email, password, full_name, ...profileData } = input;
 
+  // Gate: check for valid invitation
+  const invitation = await checkInvitation(email, 'talent');
+  if (!invitation) {
+    throw new AppError(403, 'Signup requires an invitation. Please contact the administrator.');
+  }
+
   // Create auth user with role metadata
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
-    email_confirm: true, // Auto-confirm for now; switch to false for email verification
+    email_confirm: true,
     user_metadata: { role: 'talent' as UserRole, full_name },
   });
 
@@ -39,12 +46,14 @@ export async function signupTalent(input: SignupTalentInput) {
 
   if (profileError) {
     console.error('Talent profile insert error:', profileError);
-    // Rollback: delete the auth user
     await supabaseAdmin.auth.admin.deleteUser(userId);
     throw new AppError(500, 'Failed to create talent profile');
   }
 
-  // Sign in to get tokens — use anon client (service-role client doesn't support user sessions)
+  // Mark invitation as accepted
+  await markInvitationAccepted(invitation.id);
+
+  // Sign in to get tokens
   const { data: session, error: signInError } = await supabaseAnon.auth.signInWithPassword({
     email,
     password,
@@ -62,64 +71,6 @@ export async function signupTalent(input: SignupTalentInput) {
       email,
       role: 'talent' as UserRole,
       approval_status: 'pending' as const,
-    },
-  };
-}
-
-export async function signupBusiness(input: SignupBusinessInput) {
-  const { email, password, company_name, contact_person_name, contact_email, ...rest } = input;
-
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { role: 'business' as UserRole, company_name },
-  });
-
-  if (authError) {
-    if (authError.message.includes('already')) {
-      throw new AppError(409, 'An account with this email already exists');
-    }
-    throw new AppError(400, authError.message);
-  }
-
-  const userId = authData.user.id;
-
-  const { error: profileError } = await supabaseAdmin
-    .from('business_users')
-    .insert({
-      id: userId,
-      company_name,
-      company_website: rest.company_website || null,
-      industry: rest.industry || null,
-      company_size: rest.company_size || null,
-      contact_person_name,
-      contact_email,
-      contact_phone: rest.contact_phone || null,
-    });
-
-  if (profileError) {
-    await supabaseAdmin.auth.admin.deleteUser(userId);
-    throw new AppError(500, 'Failed to create business profile');
-  }
-
-  // Use anon client for user sign-in (service-role client doesn't support user sessions)
-  const { data: session, error: signInError } = await supabaseAnon.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  if (signInError || !session.session) {
-    throw new AppError(500, 'Account created but failed to sign in');
-  }
-
-  return {
-    access_token: session.session.access_token,
-    refresh_token: session.session.refresh_token,
-    user: {
-      id: userId,
-      email,
-      role: 'business' as UserRole,
     },
   };
 }
@@ -217,6 +168,12 @@ export async function getMe(userId: string, role: UserRole) {
       .single();
 
     if (error || !data) throw new AppError(404, 'Business user not found');
+
+    // Check if access has expired
+    if (data.access_expires_at && new Date(data.access_expires_at) < new Date()) {
+      throw new AppError(403, 'Your access has expired. Please contact the administrator.');
+    }
+
     return { ...data, role };
   }
 

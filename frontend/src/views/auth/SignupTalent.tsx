@@ -62,9 +62,14 @@ export default function SignupTalent() {
 
         <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-lg">
           <h2 className="mb-1 text-2xl font-bold text-gray-900">Create Talent Account</h2>
-          <p className="mb-6 text-sm text-gray-500">
+          <p className="mb-4 text-sm text-gray-500">
             Showcase your skills and get discovered by businesses
           </p>
+          <div className="mb-6 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
+            <p className="text-sm text-amber-800">
+              Signup is by invitation only. Use the email address your invitation was sent to.
+            </p>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">

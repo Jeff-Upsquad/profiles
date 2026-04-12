@@ -11,6 +11,9 @@ export interface BusinessUser {
   contact_phone?: string;
   company_logo_url?: string;
   verified: boolean;
+  access_expires_at?: string;
+  invitation_id?: string;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }

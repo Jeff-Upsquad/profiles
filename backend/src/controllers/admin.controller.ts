@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as adminService from '../services/admin.service.js';
+import * as inviteService from '../services/invite.service.js';
 
 // ---------------------------------------------------------------------------
 // Dashboard
@@ -446,6 +447,125 @@ export async function deleteUser(req: Request, res: Response, next: NextFunction
   try {
     const result = await adminService.deleteUser(req.params.id as string);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Invitations
+// ---------------------------------------------------------------------------
+
+export async function createInvitation(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await inviteService.createInvitation({
+      ...req.body,
+      adminId: req.user!.id,
+    });
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getInvitations(req: Request, res: Response, next: NextFunction) {
+  try {
+    const filters = {
+      role: req.query.role as string | undefined,
+      status: req.query.status as string | undefined,
+    };
+    const result = await inviteService.getInvitations(filters);
+    res.json({ invitations: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function revokeInvitation(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await inviteService.revokeInvitation(req.params.id as string);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Business Subscriptions (Category Assignments)
+// ---------------------------------------------------------------------------
+
+export async function getBusinessSubscriptions(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.getBusinessSubscriptions(req.params.businessId as string);
+    res.json({ subscriptions: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function assignCategories(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.assignCategories(
+      req.params.businessId as string,
+      req.body.category_ids,
+      req.user!.id
+    );
+    res.json({ subscriptions: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function removeCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    await adminService.removeCategory(
+      req.params.businessId as string,
+      req.params.categoryId as string
+    );
+    res.json({ message: 'Category removed' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Business Shared Profiles
+// ---------------------------------------------------------------------------
+
+export async function getBusinessSharedProfiles(req: Request, res: Response, next: NextFunction) {
+  try {
+    const categoryId = req.query.category_id as string | undefined;
+    const result = await adminService.getBusinessSharedProfiles(
+      req.params.businessId as string,
+      categoryId
+    );
+    res.json({ shared_profiles: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function shareProfiles(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.shareProfiles(
+      req.params.businessId as string,
+      req.body.profile_ids,
+      req.body.category_id,
+      req.user!.id
+    );
+    res.json({ shared_profiles: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function unshareProfile(req: Request, res: Response, next: NextFunction) {
+  try {
+    await adminService.unshareProfile(
+      req.params.businessId as string,
+      req.params.profileId as string
+    );
+    res.json({ message: 'Profile unshared' });
   } catch (err) {
     next(err);
   }

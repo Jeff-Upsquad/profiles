@@ -12,6 +12,11 @@ import {
   updateOptionSchema,
   reorderSchema,
 } from '../validators/admin.validators.js';
+import {
+  createInvitationSchema,
+  assignCategoriesSchema,
+  shareProfilesSchema,
+} from '../validators/invite.validators.js';
 
 const router = Router();
 
@@ -151,6 +156,42 @@ router.get('/talents/profiles/:profileId', adminController.getTalentProfile);
 
 router.post('/talents/profiles/:profileId/share-link', adminController.createShareLink);
 router.get('/talents/profiles/:profileId/share-links', adminController.getShareLinks);
+
+// ---------------------------------------------------------------------------
+// Invitations
+// ---------------------------------------------------------------------------
+
+router.get('/invitations', adminController.getInvitations);
+router.post(
+  '/invitations',
+  validate({ body: createInvitationSchema }),
+  adminController.createInvitation
+);
+router.patch('/invitations/:id/revoke', adminController.revokeInvitation);
+
+// ---------------------------------------------------------------------------
+// Business Subscriptions (Category Assignments)
+// ---------------------------------------------------------------------------
+
+router.get('/business/:businessId/subscriptions', adminController.getBusinessSubscriptions);
+router.post(
+  '/business/:businessId/subscriptions',
+  validate({ body: assignCategoriesSchema }),
+  adminController.assignCategories
+);
+router.delete('/business/:businessId/subscriptions/:categoryId', adminController.removeCategory);
+
+// ---------------------------------------------------------------------------
+// Business Shared Profiles
+// ---------------------------------------------------------------------------
+
+router.get('/business/:businessId/shared-profiles', adminController.getBusinessSharedProfiles);
+router.post(
+  '/business/:businessId/shared-profiles',
+  validate({ body: shareProfilesSchema }),
+  adminController.shareProfiles
+);
+router.delete('/business/:businessId/shared-profiles/:profileId', adminController.unshareProfile);
 
 // ---------------------------------------------------------------------------
 // User Management

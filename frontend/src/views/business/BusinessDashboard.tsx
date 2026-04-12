@@ -1,25 +1,19 @@
+import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { useShortlist, useMyInterests, useBusinessCategories } from '@/hooks/useBusiness';
+import { useMyCategories, useSharedProfiles } from '@/hooks/useBusiness';
 import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 
 export default function BusinessDashboard() {
   const { user } = useAuth();
-  const { data: shortlist, isLoading: shortlistLoading } = useShortlist();
-  const { data: interests, isLoading: interestsLoading } = useMyInterests();
-  const { data: categories, isLoading: catLoading } = useBusinessCategories();
+  const { data: categories, isLoading: catLoading } = useMyCategories();
+  const [activeCategory, setActiveCategory] = useState<string | undefined>(undefined);
 
-  const isLoading = shortlistLoading || interestsLoading || catLoading;
+  // Set first category as active once loaded
+  const activeCatId = activeCategory ?? categories?.[0]?.id;
 
-  const stats = {
-    shortlisted: shortlist?.length ?? 0,
-    interestsSent: interests?.length ?? 0,
-    pending: interests?.filter((i) => i.status === 'pending').length ?? 0,
-    accepted: interests?.filter((i) => i.status === 'accepted').length ?? 0,
-  };
+  const { data: profiles, isLoading: profilesLoading } = useSharedProfiles(activeCatId);
 
   return (
     <div className="space-y-6">
@@ -28,87 +22,111 @@ export default function BusinessDashboard() {
           Welcome{user?.company_name ? `, ${user.company_name}` : ''}!
         </h1>
         <p className="mt-1 text-sm text-gray-500">
-          Discover and connect with talented professionals.
+          Browse profiles shared with you across your subscribed categories.
         </p>
       </div>
 
-      {/* Stats */}
-      {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Category Tabs */}
+      {catLoading ? (
+        <div className="flex gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <SkeletonCard key={i} />
+            <div key={i} className="h-10 w-28 animate-pulse rounded-lg bg-gray-200" />
           ))}
         </div>
+      ) : !categories?.length ? (
+        <Card>
+          <div className="py-8 text-center">
+            <p className="text-gray-500">No categories have been assigned to your account yet.</p>
+            <p className="mt-1 text-sm text-gray-400">
+              Please contact the administrator for access.
+            </p>
+          </div>
+        </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <p className="text-sm font-medium text-gray-500">Shortlisted</p>
-            <p className="mt-1 text-3xl font-bold text-indigo-600">{stats.shortlisted}</p>
-          </Card>
-          <Card>
-            <p className="text-sm font-medium text-gray-500">Interest Requests Sent</p>
-            <p className="mt-1 text-3xl font-bold text-gray-900">{stats.interestsSent}</p>
-          </Card>
-          <Card>
-            <p className="text-sm font-medium text-gray-500">Pending Responses</p>
-            <p className="mt-1 text-3xl font-bold text-yellow-600">{stats.pending}</p>
-          </Card>
-          <Card>
-            <p className="text-sm font-medium text-gray-500">Accepted</p>
-            <p className="mt-1 text-3xl font-bold text-green-600">{stats.accepted}</p>
-          </Card>
-        </div>
-      )}
-
-      {/* Quick Actions */}
-      <Card>
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">Quick Actions</h2>
-        <div className="flex flex-wrap gap-3">
-          <Link href="/business/discover">
-            <Button>Discover Talent</Button>
-          </Link>
-          <Link href="/business/shortlist">
-            <Button variant="outline">View Shortlist</Button>
-          </Link>
-          <Link href="/business/interests">
-            <Button variant="outline">View Requests</Button>
-          </Link>
-        </div>
-      </Card>
-
-      {/* Browse by Category */}
-      <Card>
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">Browse by Category</h2>
-        {catLoading ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-16 animate-pulse rounded-lg bg-gray-200" />
-            ))}
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {(categories ?? []).map((cat) => (
-              <Link
+        <>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => (
+              <button
                 key={cat.id}
-                href={`/business/discover/${cat.slug}`}
-                className="flex items-center gap-3 rounded-lg border border-gray-200 p-4 transition-all hover:border-indigo-300 hover:shadow-sm"
+                onClick={() => setActiveCategory(cat.id)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  activeCatId === cat.id
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:border-indigo-300 hover:text-indigo-600'
+                }`}
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">{cat.name}</p>
-                  {cat.description && (
-                    <p className="text-xs text-gray-500 line-clamp-1">{cat.description}</p>
-                  )}
-                </div>
-              </Link>
+                {cat.name}
+              </button>
             ))}
           </div>
-        )}
-      </Card>
+
+          {/* Profiles Grid */}
+          {profilesLoading ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <SkeletonCard key={i} />
+              ))}
+            </div>
+          ) : !profiles?.length ? (
+            <Card>
+              <div className="py-8 text-center">
+                <p className="text-gray-500">No profiles have been shared in this category yet.</p>
+              </div>
+            </Card>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {profiles.map((profile: any) => (
+                <Link
+                  key={profile.id}
+                  href={`/business/discover/${profile.category?.slug ?? activeCatId}/${profile.id}`}
+                >
+                  <Card className="cursor-pointer transition-shadow hover:shadow-md">
+                    <div className="flex items-start gap-3">
+                      {profile.talent_user?.profile_photo_url ? (
+                        <img
+                          src={profile.talent_user.profile_photo_url}
+                          alt=""
+                          className="h-12 w-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 font-semibold">
+                          {(profile.talent_user?.full_name ?? '?')[0]?.toUpperCase()}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 truncate">
+                          {profile.talent_user?.full_name ?? 'Unknown'}
+                        </h3>
+                        <p className="text-sm text-gray-500 truncate">
+                          {profile.talent_user?.current_location ?? 'No location'}
+                        </p>
+                        {profile.field_data?.designation && (
+                          <p className="mt-1 text-xs text-indigo-600 font-medium">
+                            {profile.field_data.designation}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {profile.talent_user?.languages_spoken?.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-1">
+                        {profile.talent_user.languages_spoken.slice(0, 3).map((lang: string) => (
+                          <span
+                            key={lang}
+                            className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+                          >
+                            {lang}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

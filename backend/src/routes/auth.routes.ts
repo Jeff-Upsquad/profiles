@@ -4,11 +4,11 @@ import { authenticate } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import {
   signupTalentSchema,
-  signupBusinessSchema,
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
 } from '../validators/auth.validators.js';
+import { businessLoginSchema } from '../validators/invite.validators.js';
 
 const router = Router();
 
@@ -19,15 +19,16 @@ router.post(
 );
 
 router.post(
-  '/signup/business',
-  validate({ body: signupBusinessSchema }),
-  authController.signupBusiness
-);
-
-router.post(
   '/login',
   validate({ body: loginSchema }),
   authController.login
+);
+
+// Passwordless business login (email only)
+router.post(
+  '/business-login',
+  validate({ body: businessLoginSchema }),
+  authController.businessLogin
 );
 
 router.post('/logout', authController.logout);

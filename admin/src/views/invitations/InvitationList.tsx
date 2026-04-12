@@ -1,0 +1,300 @@
+'use client';
+
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '@/services/api';
+import Button from '@/components/ui/Button';
+import Badge from '@/components/ui/Badge';
+import Input from '@/components/ui/Input';
+import Modal from '@/components/ui/Modal';
+import toast from 'react-hot-toast';
+
+interface Invitation {
+  id: string;
+  email: string;
+  role: 'talent' | 'business';
+  status: 'pending' | 'accepted' | 'expired' | 'revoked';
+  company_name?: string;
+  contact_person_name?: string;
+  expires_at?: string;
+  created_at: string;
+}
+
+const statusColors: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
+  pending: 'yellow',
+  accepted: 'green',
+  expired: 'red',
+  revoked: 'gray',
+};
+
+export default function InvitationList() {
+  const queryClient = useQueryClient();
+  const [showModal, setShowModal] = useState(false);
+  const [filterRole, setFilterRole] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<string>('');
+
+  // Form state
+  const [formEmail, setFormEmail] = useState('');
+  const [formRole, setFormRole] = useState<'talent' | 'business'>('talent');
+  const [formCompanyName, setFormCompanyName] = useState('');
+  const [formContactPerson, setFormContactPerson] = useState('');
+  const [formExpiresAt, setFormExpiresAt] = useState('');
+
+  const { data: invitations, isLoading } = useQuery<Invitation[]>({
+    queryKey: ['admin-invitations', filterRole, filterStatus],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filterRole) params.set('role', filterRole);
+      if (filterStatus) params.set('status', filterStatus);
+      const qs = params.toString();
+      const { data } = await api.get(`/admin/invitations${qs ? `?${qs}` : ''}`);
+      return data.invitations ?? data;
+    },
+  });
+
+  const createInvitation = useMutation({
+    mutationFn: async (payload: any) => {
+      await api.post('/admin/invitations', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-invitations'] });
+      toast.success('Invitation sent successfully');
+      resetForm();
+      setShowModal(false);
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to send invitation');
+    },
+  });
+
+  const revokeInvitation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.patch(`/admin/invitations/${id}/revoke`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-invitations'] });
+      toast.success('Invitation revoked');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to revoke invitation');
+    },
+  });
+
+  function resetForm() {
+    setFormEmail('');
+    setFormRole('talent');
+    setFormCompanyName('');
+    setFormContactPerson('');
+    setFormExpiresAt('');
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const payload: any = {
+      email: formEmail,
+      role: formRole,
+    };
+    if (formRole === 'business') {
+      payload.company_name = formCompanyName;
+      payload.contact_person_name = formContactPerson;
+      if (formExpiresAt) {
+        payload.expires_at = new Date(formExpiresAt).toISOString();
+      }
+    }
+    createInvitation.mutate(payload);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Invitations</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Invite talent and business users to the platform.
+          </p>
+        </div>
+        <Button onClick={() => setShowModal(true)}>Invite User</Button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-3">
+        <select
+          value={filterRole}
+          onChange={(e) => setFilterRole(e.target.value)}
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+        >
+          <option value="">All Roles</option>
+          <option value="talent">Talent</option>
+          <option value="business">Business</option>
+        </select>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+        >
+          <option value="">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="accepted">Accepted</option>
+          <option value="expired">Expired</option>
+          <option value="revoked">Revoked</option>
+        </select>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+          </div>
+        ) : !invitations?.length ? (
+          <div className="py-12 text-center text-sm text-gray-500">
+            No invitations found. Click "Invite User" to get started.
+          </div>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+              <tr>
+                <th className="px-6 py-3">Email</th>
+                <th className="px-6 py-3">Role</th>
+                <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3">Company</th>
+                <th className="px-6 py-3">Expires</th>
+                <th className="px-6 py-3">Created</th>
+                <th className="px-6 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {invitations.map((inv) => (
+                <tr key={inv.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 font-medium text-gray-900">{inv.email}</td>
+                  <td className="px-6 py-4">
+                    <Badge variant={inv.role === 'talent' ? 'green' : 'yellow'}>
+                      {inv.role}
+                    </Badge>
+                  </td>
+                  <td className="px-6 py-4">
+                    <Badge variant={statusColors[inv.status] ?? 'gray'}>
+                      {inv.status}
+                    </Badge>
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {inv.company_name || '-'}
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {inv.expires_at
+                      ? new Date(inv.expires_at).toLocaleDateString()
+                      : '-'}
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {new Date(inv.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4">
+                    {inv.status === 'pending' && (
+                      <button
+                        onClick={() => revokeInvitation.mutate(inv.id)}
+                        className="text-sm font-medium text-red-600 hover:text-red-800"
+                      >
+                        Revoke
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Invite Modal */}
+      <Modal
+        isOpen={showModal}
+        onClose={() => { setShowModal(false); resetForm(); }}
+        title="Invite User"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Email"
+            type="email"
+            value={formEmail}
+            onChange={(e) => setFormEmail(e.target.value)}
+            placeholder="user@example.com"
+            required
+          />
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Role
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="role"
+                  value="talent"
+                  checked={formRole === 'talent'}
+                  onChange={() => setFormRole('talent')}
+                  className="text-indigo-600"
+                />
+                <span className="text-sm text-gray-700">Talent</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="role"
+                  value="business"
+                  checked={formRole === 'business'}
+                  onChange={() => setFormRole('business')}
+                  className="text-indigo-600"
+                />
+                <span className="text-sm text-gray-700">Business</span>
+              </label>
+            </div>
+          </div>
+
+          {formRole === 'business' && (
+            <>
+              <Input
+                label="Company Name"
+                value={formCompanyName}
+                onChange={(e) => setFormCompanyName(e.target.value)}
+                placeholder="Acme Inc."
+                required
+              />
+              <Input
+                label="Contact Person Name"
+                value={formContactPerson}
+                onChange={(e) => setFormContactPerson(e.target.value)}
+                placeholder="John Doe"
+              />
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Access Expiration Date
+                </label>
+                <input
+                  type="date"
+                  value={formExpiresAt}
+                  onChange={(e) => setFormExpiresAt(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+            </>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => { setShowModal(false); resetForm(); }}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" loading={createInvitation.isPending}>
+              Send Invitation
+            </Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+}

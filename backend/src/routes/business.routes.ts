@@ -43,4 +43,8 @@ router.post(
   businessController.sendInterest
 );
 
+// Subscribed categories & shared profiles (invite-only system)
+router.get('/my-categories', businessController.getMyCategories);
+router.get('/my-categories/:categoryId/profiles', businessController.getSharedProfiles);
+
 export default router;

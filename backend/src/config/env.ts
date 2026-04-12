@@ -23,6 +23,9 @@ const envSchema = z.object({
   R2_BUCKET_NAME: z.string().default('squadhire'),
   R2_PUBLIC_URL: z.string().optional(),
 
+  // JWT (for business passwordless auth)
+  JWT_SECRET: z.string().default('squadhire-business-jwt-secret-change-in-production'),
+
   // CORS
   CORS_ORIGIN: z.string().default('http://localhost:5173,http://localhost:5174'),
 });
