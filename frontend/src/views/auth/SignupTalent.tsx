@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
+import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
 import toast from 'react-hot-toast';
 
 export default function SignupTalent() {
@@ -18,8 +19,8 @@ export default function SignupTalent() {
     gender: '',
     native_place: '',
     current_location: '',
-    languages_spoken: '',
   });
+  const [languages, setLanguages] = useState<LanguageEntry[]>([]);
 
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
@@ -37,8 +38,8 @@ export default function SignupTalent() {
         gender: form.gender || undefined,
         native_place: form.native_place || undefined,
         current_location: form.current_location || undefined,
-        languages_spoken: form.languages_spoken
-          ? form.languages_spoken.split(',').map((s) => s.trim())
+        languages_spoken: languages.filter((e) => e.language).length > 0
+          ? languages.filter((e) => e.language)
           : undefined,
       });
     } catch (err: any) {
@@ -143,13 +144,7 @@ export default function SignupTalent() {
               placeholder="City, State"
             />
 
-            <Input
-              label="Languages Spoken"
-              value={form.languages_spoken}
-              onChange={set('languages_spoken')}
-              placeholder="English, Hindi, Malayalam"
-              helperText="Separate multiple languages with commas"
-            />
+            <LanguagePicker value={languages} onChange={setLanguages} />
 
             <Button type="submit" loading={loading} className="w-full">
               Create Account

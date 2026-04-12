@@ -110,12 +110,12 @@ export default function BusinessDashboard() {
 
                     {profile.talent_user?.languages_spoken?.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-1">
-                        {profile.talent_user.languages_spoken.slice(0, 3).map((lang: string) => (
+                        {profile.talent_user.languages_spoken.slice(0, 3).map((entry: any) => (
                           <span
-                            key={lang}
+                            key={entry.language}
                             className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
                           >
-                            {lang}
+                            {entry.language}
                           </span>
                         ))}
                       </div>

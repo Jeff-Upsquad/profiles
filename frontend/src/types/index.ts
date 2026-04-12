@@ -86,7 +86,7 @@ export interface TalentSignupData {
   gender?: string;
   native_place?: string;
   current_location?: string;
-  languages_spoken?: string[];
+  languages_spoken?: { language: string; proficiency: string }[];
 }
 
 export interface BusinessSignupData {

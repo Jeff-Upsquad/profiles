@@ -23,7 +23,7 @@ interface ReviewProfile {
     gender: string;
     current_location: string;
     native_place: string;
-    languages_spoken: string[];
+    languages_spoken: { language: string; proficiency: string }[];
   };
   categories?: { name: string; slug: string };
 }
@@ -199,7 +199,7 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
               ['Gender', talentUser.gender],
               ['Location', talentUser.current_location],
               ['Native Place', talentUser.native_place],
-              ['Languages', (talentUser.languages_spoken ?? []).join(', ')],
+              ['Languages', (talentUser.languages_spoken ?? []).map((l) => `${l.language} (${l.proficiency})`).join(', ')],
             ]
               .filter(([, val]) => val)
               .map(([label, val]) => (

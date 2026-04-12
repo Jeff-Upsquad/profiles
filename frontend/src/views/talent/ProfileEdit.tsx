@@ -7,9 +7,9 @@ import api from '@/services/api';
 import DynamicFormRenderer from '@/components/forms/DynamicFormRenderer';
 import DesignerExtras from '@/components/forms/DesignerExtras';
 import PortfolioUploader from '@/components/forms/PortfolioUploader';
+import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
 
 export default function ProfileEdit({ profileId }: { profileId: string }) {
@@ -21,7 +21,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   const { data: talentMe } = useTalentMe();
   const [values, setValues] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [languages, setLanguages] = useState('');
+  const [languages, setLanguages] = useState<LanguageEntry[]>([]);
 
   const { data: categoryWithFields, isLoading: fieldsLoading } = useCategoryWithFields(
     profile?.category?.slug
@@ -35,7 +35,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
   useEffect(() => {
     if (talentMe?.languages_spoken) {
-      setLanguages(talentMe.languages_spoken.join(', '));
+      setLanguages(talentMe.languages_spoken);
     }
   }, [talentMe]);
 
@@ -82,10 +82,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
   const saveLanguages = () =>
     api.put('/talent/me', {
-      languages_spoken: languages
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
+      languages_spoken: languages.filter((e) => e.language),
     });
 
   const handleSave = async () => {
@@ -187,12 +184,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
         {/* Languages */}
         <div className="mt-6 border-t border-gray-200 pt-6">
-          <Input
-            label="Languages Spoken (comma-separated)"
-            value={languages}
-            onChange={(e) => setLanguages(e.target.value)}
-            placeholder="English, Hindi, Tamil"
-          />
+          <LanguagePicker value={languages} onChange={setLanguages} />
         </div>
 
         {/* Skills with proficiency & Tools */}

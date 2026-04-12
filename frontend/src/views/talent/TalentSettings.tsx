@@ -4,6 +4,7 @@ import api from '@/services/api';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
 import toast from 'react-hot-toast';
 
 export default function TalentSettings() {
@@ -15,8 +16,8 @@ export default function TalentSettings() {
     age: '',
     current_location: '',
     native_place: '',
-    languages_spoken: '',
   });
+  const [languages, setLanguages] = useState<LanguageEntry[]>([]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -29,8 +30,8 @@ export default function TalentSettings() {
           age: info.age?.toString() ?? '',
           current_location: info.current_location ?? '',
           native_place: info.native_place ?? '',
-          languages_spoken: (info.languages_spoken ?? []).join(', '),
         });
+        setLanguages(info.languages_spoken ?? []);
       } catch {
         // ignore
       }
@@ -48,10 +49,7 @@ export default function TalentSettings() {
         age: form.age ? Number(form.age) : undefined,
         current_location: form.current_location,
         native_place: form.native_place,
-        languages_spoken: form.languages_spoken
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
+        languages_spoken: languages.filter((e) => e.language),
       });
       toast.success('Settings updated');
     } catch (err: any) {
@@ -108,12 +106,7 @@ export default function TalentSettings() {
               onChange={(e) => setForm((p) => ({ ...p, native_place: e.target.value }))}
             />
           </div>
-          <Input
-            label="Languages Spoken (comma-separated)"
-            value={form.languages_spoken}
-            onChange={(e) => setForm((p) => ({ ...p, languages_spoken: e.target.value }))}
-            placeholder="English, Hindi, Tamil"
-          />
+          <LanguagePicker value={languages} onChange={setLanguages} />
           <div className="pt-4">
             <Button type="submit" loading={loading}>
               Save Changes

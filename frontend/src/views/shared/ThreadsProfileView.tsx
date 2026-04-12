@@ -15,7 +15,7 @@ interface TalentUser {
   full_name: string;
   current_location?: string;
   profile_photo_url?: string;
-  languages_spoken?: string[];
+  languages_spoken?: { language: string; proficiency: string }[];
 }
 
 interface ThreadsProfileViewProps {

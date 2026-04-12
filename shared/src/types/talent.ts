@@ -16,7 +16,7 @@ export interface TalentUser {
   gender?: string;
   native_place?: string;
   current_location?: string;
-  languages_spoken?: string[];
+  languages_spoken?: { language: string; proficiency: string }[];
   profile_photo_url?: string;
   approval_status: ApprovalStatus;
   approved_at?: string;

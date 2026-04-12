@@ -172,7 +172,7 @@ export default function TalentProfileView({
               ['Gender', talentUser.gender],
               ['Location', talentUser.current_location],
               ['Native Place', talentUser.native_place],
-              ['Languages', (talentUser.languages_spoken ?? []).join(', ')],
+              ['Languages', (talentUser.languages_spoken ?? []).map((l: any) => `${l.language} (${l.proficiency})`).join(', ')],
             ]
               .filter(([, val]) => val)
               .map(([label, val]) => (

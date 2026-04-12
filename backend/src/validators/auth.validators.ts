@@ -9,7 +9,7 @@ export const signupTalentSchema = z.object({
   gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
   native_place: z.string().max(200).optional(),
   current_location: z.string().max(200).optional(),
-  languages_spoken: z.array(z.string()).optional(),
+  languages_spoken: z.array(z.object({ language: z.string(), proficiency: z.string() })).optional(),
 });
 
 export const signupBusinessSchema = z.object({
