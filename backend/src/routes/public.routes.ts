@@ -19,6 +19,15 @@ router.get('/shared/:token', async (req, res, next) => {
   }
 });
 
+router.get('/profiles/:id', async (req, res, next) => {
+  try {
+    const result = await adminService.getPublicProfile(req.params.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Authenticated public routes (no specific role)
 // ---------------------------------------------------------------------------

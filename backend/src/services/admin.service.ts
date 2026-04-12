@@ -749,6 +749,15 @@ export async function getTalentProfile(profileId: string) {
   return { ...data, portfolio_items: portfolio ?? [] };
 }
 
+export async function getPublicProfile(profileId: string) {
+  const profile = await getTalentProfile(profileId);
+  if (profile.status !== 'approved') {
+    throw new AppError(404, 'Profile not found');
+  }
+  const fields = await getCategoryFields(profile.category_id);
+  return { profile, fields };
+}
+
 // ---------------------------------------------------------------------------
 // Profile Share Links
 // ---------------------------------------------------------------------------
