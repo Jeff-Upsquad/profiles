@@ -32,7 +32,7 @@ export default function ProfileView({ profileId }: { profileId: string }) {
     .filter((f) => f.is_active)
     .sort((a, b) => a.sort_order - b.sort_order);
 
-  const canEdit = profile.status === 'draft' || profile.status === 'rejected';
+  const canEdit = profile.status === 'draft' || profile.status === 'rejected' || profile.status === 'approved' || profile.status === 'pending_review';
 
   const skills: { skill: string; level: number }[] = profile.field_data?._skills ?? [];
   const tools: string[] = profile.field_data?._tools ?? [];

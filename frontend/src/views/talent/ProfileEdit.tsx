@@ -71,6 +71,12 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
   const handleSave = async () => {
     if (!profileId) return;
+    if (profile?.status === 'approved') {
+      const confirmed = confirm(
+        'Saving will change your profile status from approved to pending review. Your profile will go offline until re-approved. Continue?'
+      );
+      if (!confirmed) return;
+    }
     try {
       await updateProfile.mutateAsync({ id: profileId, field_data: values });
       router.push(`/talent/profiles/${profileId}`);
@@ -136,6 +142,16 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
         </div>
       )}
 
+      {profile.status === 'approved' && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <h3 className="mb-1 text-sm font-semibold text-amber-800">Warning</h3>
+          <p className="text-sm text-amber-700">
+            This profile is currently approved and visible to businesses. Saving changes will reset
+            its status to pending review, and it will go offline until re-approved.
+          </p>
+        </div>
+      )}
+
       <Card>
         <DynamicFormRenderer
           fields={categoryWithFields?.fields ?? []}
@@ -179,12 +195,14 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
           >
             Save Changes
           </Button>
-          <Button
-            onClick={handleSaveAndSubmit}
-            loading={updateProfile.isPending || submitProfile.isPending}
-          >
-            Save & Submit for Review
-          </Button>
+          {(profile.status === 'draft' || profile.status === 'rejected') && (
+            <Button
+              onClick={handleSaveAndSubmit}
+              loading={updateProfile.isPending || submitProfile.isPending}
+            >
+              Save & Submit for Review
+            </Button>
+          )}
         </div>
       </Card>
     </div>
