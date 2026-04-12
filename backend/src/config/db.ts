@@ -1,6 +1,10 @@
 import pg from 'pg';
+import dns from 'dns';
 import { env } from './env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
+
+// Force IPv4 DNS resolution to avoid ECONNREFUSED on IPv6
+dns.setDefaultResultOrder('ipv4first');
 
 function getConnectionConfig(): pg.ClientConfig {
   // Prefer DATABASE_URL if set (handles special chars in password)
