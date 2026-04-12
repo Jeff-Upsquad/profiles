@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
-import pg from 'pg';
+import { queryPg, queryPgOne } from '../config/db.js';
 import { env } from '../config/env.js';
 import type {
   CreateCategoryInput,
@@ -753,26 +753,7 @@ export async function getTalentProfile(profileId: string) {
 // Profile Share Links
 // ---------------------------------------------------------------------------
 
-async function queryPg<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-  if (!env.DB_HOST || !env.DB_PASSWORD) {
-    throw new AppError(500, 'DB_HOST and DB_PASSWORD environment variables are required for share links');
-  }
-  const client = new pg.Client({
-    host: env.DB_HOST,
-    port: 5432,
-    database: 'postgres',
-    user: 'postgres',
-    password: env.DB_PASSWORD,
-    ssl: { rejectUnauthorized: false },
-  });
-  await client.connect();
-  try {
-    const result = await client.query(sql, params);
-    return result.rows as T[];
-  } finally {
-    await client.end();
-  }
-}
+// queryPg is imported from '../config/db.js'
 
 export async function createShareLink(profileId: string, adminId: string) {
   const crypto = await import('node:crypto');
@@ -824,20 +805,28 @@ export async function getProfileByShareToken(token: string) {
 // ---------------------------------------------------------------------------
 
 export async function getBusinessSubscriptions(businessUserId: string) {
-  const { data, error } = await supabaseAdmin
-    .from('business_category_subscriptions')
-    .select('*, categories(id, name, slug, description, icon_url)')
-    .eq('business_user_id', businessUserId)
-    .order('created_at', { ascending: true });
+  const rows = await queryPg(
+    `SELECT bcs.*, c.id as cat_id, c.name as cat_name, c.slug as cat_slug, c.description as cat_description, c.icon_url as cat_icon_url
+     FROM business_category_subscriptions bcs
+     JOIN categories c ON c.id = bcs.category_id
+     WHERE bcs.business_user_id = $1
+     ORDER BY bcs.created_at ASC`,
+    [businessUserId]
+  );
 
-  if (error) throw new AppError(500, error.message);
-  return (data ?? []).map((s: any) => ({
+  return rows.map((s: any) => ({
     id: s.id,
     business_user_id: s.business_user_id,
     category_id: s.category_id,
     assigned_by: s.assigned_by,
     created_at: s.created_at,
-    category: s.categories,
+    category: {
+      id: s.cat_id,
+      name: s.cat_name,
+      slug: s.cat_slug,
+      description: s.cat_description,
+      icon_url: s.cat_icon_url,
+    },
   }));
 }
 
@@ -847,45 +836,36 @@ export async function assignCategories(
   adminId: string
 ) {
   // Remove existing subscriptions first
-  await supabaseAdmin
-    .from('business_category_subscriptions')
-    .delete()
-    .eq('business_user_id', businessUserId);
+  await queryPg(
+    `DELETE FROM business_category_subscriptions WHERE business_user_id = $1`,
+    [businessUserId]
+  );
 
   if (categoryIds.length === 0) return [];
 
   // Insert new subscriptions
-  const rows = categoryIds.map((categoryId) => ({
-    business_user_id: businessUserId,
-    category_id: categoryId,
-    assigned_by: adminId,
-  }));
+  const values = categoryIds.map((_, i) => `($1, $${i * 2 + 2}, $${i * 2 + 3})`).join(', ');
+  const params: any[] = [businessUserId];
+  categoryIds.forEach((catId) => {
+    params.push(catId, adminId);
+  });
 
-  const { data, error } = await supabaseAdmin
-    .from('business_category_subscriptions')
-    .insert(rows)
-    .select('*, categories(id, name, slug, description, icon_url)');
+  const rows = await queryPg(
+    `INSERT INTO business_category_subscriptions (business_user_id, category_id, assigned_by)
+     VALUES ${values}
+     RETURNING *`,
+    params
+  );
 
-  if (error) throw new AppError(400, error.message);
-
-  return (data ?? []).map((s: any) => ({
-    id: s.id,
-    business_user_id: s.business_user_id,
-    category_id: s.category_id,
-    assigned_by: s.assigned_by,
-    created_at: s.created_at,
-    category: s.categories,
-  }));
+  // Fetch with category details
+  return getBusinessSubscriptions(businessUserId);
 }
 
 export async function removeCategory(businessUserId: string, categoryId: string) {
-  const { error } = await supabaseAdmin
-    .from('business_category_subscriptions')
-    .delete()
-    .eq('business_user_id', businessUserId)
-    .eq('category_id', categoryId);
-
-  if (error) throw new AppError(400, error.message);
+  await queryPg(
+    `DELETE FROM business_category_subscriptions WHERE business_user_id = $1 AND category_id = $2`,
+    [businessUserId, categoryId]
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -893,36 +873,47 @@ export async function removeCategory(businessUserId: string, categoryId: string)
 // ---------------------------------------------------------------------------
 
 export async function getBusinessSharedProfiles(businessUserId: string, categoryId?: string) {
-  let qb = supabaseAdmin
-    .from('business_shared_profiles')
-    .select('*, talent_profiles(*, talent_users(full_name, current_location, languages_spoken, profile_photo_url), categories(id, name, slug))')
-    .eq('business_user_id', businessUserId)
-    .order('created_at', { ascending: false });
+  let sql = `SELECT bsp.*,
+    tp.id as tp_id, tp.talent_user_id, tp.category_id as tp_category_id, tp.status as tp_status, tp.field_data, tp.created_at as tp_created_at,
+    tu.full_name, tu.current_location, tu.languages_spoken, tu.profile_photo_url,
+    c.id as cat_id, c.name as cat_name, c.slug as cat_slug
+    FROM business_shared_profiles bsp
+    JOIN talent_profiles tp ON tp.id = bsp.talent_profile_id
+    LEFT JOIN talent_users tu ON tu.id = tp.talent_user_id
+    LEFT JOIN categories c ON c.id = tp.category_id
+    WHERE bsp.business_user_id = $1`;
+  const params: any[] = [businessUserId];
 
   if (categoryId) {
-    qb = qb.eq('category_id', categoryId);
+    params.push(categoryId);
+    sql += ` AND bsp.category_id = $${params.length}`;
   }
+  sql += ` ORDER BY bsp.created_at DESC`;
 
-  const { data, error } = await qb;
-  if (error) throw new AppError(500, error.message);
+  const rows = await queryPg(sql, params);
 
-  return (data ?? []).map((sp: any) => ({
+  return rows.map((sp: any) => ({
     id: sp.id,
     business_user_id: sp.business_user_id,
     talent_profile_id: sp.talent_profile_id,
     category_id: sp.category_id,
     shared_by: sp.shared_by,
     created_at: sp.created_at,
-    profile: sp.talent_profiles ? {
-      id: sp.talent_profiles.id,
-      talent_user_id: sp.talent_profiles.talent_user_id,
-      category_id: sp.talent_profiles.category_id,
-      category: sp.talent_profiles.categories,
-      status: sp.talent_profiles.status,
-      field_data: sp.talent_profiles.field_data,
-      talent_user: sp.talent_profiles.talent_users,
-      created_at: sp.talent_profiles.created_at,
-    } : null,
+    profile: {
+      id: sp.tp_id,
+      talent_user_id: sp.talent_user_id,
+      category_id: sp.tp_category_id,
+      category: { id: sp.cat_id, name: sp.cat_name, slug: sp.cat_slug },
+      status: sp.tp_status,
+      field_data: sp.field_data,
+      talent_user: {
+        full_name: sp.full_name,
+        current_location: sp.current_location,
+        languages_spoken: sp.languages_spoken,
+        profile_photo_url: sp.profile_photo_url,
+      },
+      created_at: sp.tp_created_at,
+    },
   }));
 }
 
@@ -933,38 +924,31 @@ export async function shareProfiles(
   adminId: string
 ) {
   // Remove existing shares for this business+category first
-  await supabaseAdmin
-    .from('business_shared_profiles')
-    .delete()
-    .eq('business_user_id', businessUserId)
-    .eq('category_id', categoryId);
+  await queryPg(
+    `DELETE FROM business_shared_profiles WHERE business_user_id = $1 AND category_id = $2`,
+    [businessUserId, categoryId]
+  );
 
   if (profileIds.length === 0) return [];
 
-  const rows = profileIds.map((profileId) => ({
-    business_user_id: businessUserId,
-    talent_profile_id: profileId,
-    category_id: categoryId,
-    shared_by: adminId,
-  }));
+  const values = profileIds.map((_, i) => `($1, $${i + 3}, $2, $${profileIds.length + 3})`).join(', ');
+  const params: any[] = [businessUserId, categoryId, ...profileIds, adminId];
 
-  const { data, error } = await supabaseAdmin
-    .from('business_shared_profiles')
-    .insert(rows)
-    .select();
+  const rows = await queryPg(
+    `INSERT INTO business_shared_profiles (business_user_id, talent_profile_id, category_id, shared_by)
+     VALUES ${values}
+     RETURNING *`,
+    params
+  );
 
-  if (error) throw new AppError(400, error.message);
-  return data ?? [];
+  return rows;
 }
 
 export async function unshareProfile(businessUserId: string, profileId: string) {
-  const { error } = await supabaseAdmin
-    .from('business_shared_profiles')
-    .delete()
-    .eq('business_user_id', businessUserId)
-    .eq('talent_profile_id', profileId);
-
-  if (error) throw new AppError(400, error.message);
+  await queryPg(
+    `DELETE FROM business_shared_profiles WHERE business_user_id = $1 AND talent_profile_id = $2`,
+    [businessUserId, profileId]
+  );
 }
 
 // ---------------------------------------------------------------------------
