@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { PortfolioItem } from '@/types';
 import ThreadsPortfolioCard from './ThreadsPortfolioCard';
 
@@ -10,9 +10,37 @@ interface ThreadsPortfolioFeedProps {
 }
 
 export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfolioFeedProps) {
-  const [selectedItem, setSelectedItem] = useState<PortfolioItem | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   const filtered = activeTab === 'All' ? items : items.filter((i) => i.skill_name === activeTab);
+  const selectedItem = selectedIndex !== null ? filtered[selectedIndex] : null;
+  const hasPrev = selectedIndex !== null && selectedIndex > 0;
+  const hasNext = selectedIndex !== null && selectedIndex < filtered.length - 1;
+
+  const goNext = useCallback(() => {
+    if (hasNext) setSelectedIndex((i) => i! + 1);
+  }, [hasNext]);
+
+  const goPrev = useCallback(() => {
+    if (hasPrev) setSelectedIndex((i) => i! - 1);
+  }, [hasPrev]);
+
+  const close = useCallback(() => setSelectedIndex(null), []);
+
+  useEffect(() => {
+    if (selectedIndex === null) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); goNext(); }
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); goPrev(); }
+      else if (e.key === 'Escape') close();
+    };
+    window.addEventListener('keydown', handleKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = '';
+    };
+  }, [selectedIndex, goNext, goPrev, close]);
 
   if (filtered.length === 0) {
     return (
@@ -33,11 +61,11 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
     <>
       {/* Instagram-style 3-column grid */}
       <div className="grid grid-cols-3 gap-[1px] bg-[var(--threads-border-light)]">
-        {filtered.map((item) => (
+        {filtered.map((item, index) => (
           <ThreadsPortfolioCard
             key={item.id}
             item={item}
-            onClick={() => setSelectedItem(item)}
+            onClick={() => setSelectedIndex(index)}
           />
         ))}
       </div>
@@ -46,12 +74,12 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
       {selectedItem && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80"
-          onClick={() => setSelectedItem(null)}
+          onClick={close}
         >
           {/* Close button */}
           <button
-            onClick={() => setSelectedItem(null)}
-            className="absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+            onClick={close}
+            className="absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -59,24 +87,55 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
             </svg>
           </button>
 
+          {/* Previous arrow */}
+          {hasPrev && (
+            <button
+              onClick={(e) => { e.stopPropagation(); goPrev(); }}
+              className="absolute left-3 top-1/2 z-10 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+          )}
+
+          {/* Next arrow */}
+          {hasNext && (
+            <button
+              onClick={(e) => { e.stopPropagation(); goNext(); }}
+              className="absolute right-3 top-1/2 z-10 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          )}
+
+          {/* Counter */}
+          <div className="absolute top-4 left-4 z-10 rounded-full bg-black/50 px-3 py-1 text-xs font-medium text-white/90">
+            {selectedIndex! + 1} / {filtered.length}
+          </div>
+
           {/* Content */}
           <div
-            className="relative max-h-[90vh] max-w-[90vw]"
+            className="relative max-h-[85vh] max-w-[85vw]"
             onClick={(e) => e.stopPropagation()}
           >
             {selectedItem.file_type === 'image' && (
               <img
+                key={selectedItem.id}
                 src={selectedItem.file_url}
                 alt={selectedItem.file_name}
-                className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+                className="max-h-[85vh] max-w-[85vw] rounded-lg object-contain"
               />
             )}
             {selectedItem.file_type === 'video' && (
               <video
+                key={selectedItem.id}
                 src={selectedItem.file_url}
                 controls
                 autoPlay
-                className="max-h-[90vh] max-w-[90vw] rounded-lg"
+                className="max-h-[85vh] max-w-[85vw] rounded-lg"
               />
             )}
             {selectedItem.file_type === 'pdf' && (
