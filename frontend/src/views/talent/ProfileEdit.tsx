@@ -168,11 +168,9 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
               skills={values._skills ?? []}
               tools={values._tools ?? []}
               aiTools={values._ai_tools ?? []}
-              planWages={values._plan_wages ?? {}}
               onSkillsChange={(s) => handleChange('_skills', s)}
               onToolsChange={(t) => handleChange('_tools', t)}
               onAiToolsChange={(at) => handleChange('_ai_tools', at)}
-              onPlanWagesChange={(pw) => handleChange('_plan_wages', pw)}
             />
           </div>
         )}

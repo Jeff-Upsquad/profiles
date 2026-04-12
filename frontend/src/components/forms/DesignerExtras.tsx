@@ -11,22 +11,14 @@ interface SkillWithLevel {
   level: number;
 }
 
-interface PlanWages {
-  hourly?: number | '';
-  daily?: number | '';
-  monthly?: number | '';
-}
-
 interface DesignerExtrasProps {
   categoryId: string;
   skills: SkillWithLevel[];
   tools: string[];
   aiTools?: string[];
-  planWages?: PlanWages;
   onSkillsChange: (skills: SkillWithLevel[]) => void;
   onToolsChange: (tools: string[]) => void;
   onAiToolsChange?: (aiTools: string[]) => void;
-  onPlanWagesChange?: (wages: PlanWages) => void;
 }
 
 export default function DesignerExtras({
@@ -34,11 +26,9 @@ export default function DesignerExtras({
   skills,
   tools,
   aiTools = [],
-  planWages = {},
   onSkillsChange,
   onToolsChange,
   onAiToolsChange,
-  onPlanWagesChange,
 }: DesignerExtrasProps) {
   const { data: availableSkills = [] } = useQuery<SkillItem[]>({
     queryKey: ['templateSkills', categoryId],
@@ -204,63 +194,6 @@ export default function DesignerExtras({
         </div>
       )}
 
-      {/* Plan Wages */}
-      {onPlanWagesChange && (
-        <div>
-          <h3 className="mb-1 text-sm font-semibold text-gray-800">Plan Wages</h3>
-          <p className="mb-3 text-xs text-gray-500">Set your expected rates (USD)</p>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">Hourly Rate</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={planWages.hourly ?? ''}
-                  onChange={(e) =>
-                    onPlanWagesChange({ ...planWages, hourly: e.target.value ? Number(e.target.value) : '' })
-                  }
-                  placeholder="0"
-                  className="w-full rounded-lg border border-gray-300 py-2 pl-7 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">Daily Rate</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={planWages.daily ?? ''}
-                  onChange={(e) =>
-                    onPlanWagesChange({ ...planWages, daily: e.target.value ? Number(e.target.value) : '' })
-                  }
-                  placeholder="0"
-                  className="w-full rounded-lg border border-gray-300 py-2 pl-7 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">Monthly Rate</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={planWages.monthly ?? ''}
-                  onChange={(e) =>
-                    onPlanWagesChange({ ...planWages, monthly: e.target.value ? Number(e.target.value) : '' })
-                  }
-                  placeholder="0"
-                  className="w-full rounded-lg border border-gray-300 py-2 pl-7 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

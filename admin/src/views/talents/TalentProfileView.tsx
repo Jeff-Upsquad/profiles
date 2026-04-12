@@ -130,8 +130,6 @@ export default function TalentProfileView({
   const skills: { skill: string; level: number }[] = profile.field_data?._skills ?? [];
   const tools: string[] = profile.field_data?._tools ?? [];
   const aiTools: string[] = profile.field_data?._ai_tools ?? [];
-  const planWages = profile.field_data?._plan_wages;
-
   // Group portfolio by skill
   const portfolioBySkill: Record<string, any[]> = {};
   for (const item of profile.portfolio_items ?? []) {
@@ -247,33 +245,6 @@ export default function TalentProfileView({
               </span>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Plan Wages */}
-      {planWages && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">Plan Wages</h2>
-          <dl className="grid gap-4 sm:grid-cols-3">
-            {planWages.hourly != null && (
-              <div>
-                <dt className="text-xs font-medium uppercase text-gray-500">Hourly Rate</dt>
-                <dd className="mt-1 text-lg font-semibold text-gray-900">${planWages.hourly}</dd>
-              </div>
-            )}
-            {planWages.daily != null && (
-              <div>
-                <dt className="text-xs font-medium uppercase text-gray-500">Daily Rate</dt>
-                <dd className="mt-1 text-lg font-semibold text-gray-900">${planWages.daily}</dd>
-              </div>
-            )}
-            {planWages.monthly != null && (
-              <div>
-                <dt className="text-xs font-medium uppercase text-gray-500">Monthly Rate</dt>
-                <dd className="mt-1 text-lg font-semibold text-gray-900">${planWages.monthly}</dd>
-              </div>
-            )}
-          </dl>
         </div>
       )}
 
