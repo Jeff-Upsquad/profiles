@@ -36,25 +36,23 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   );
 
   useEffect(() => {
-    if (profile?.field_data && !hasInitializedValues.current) {
-      setValues(profile.field_data);
-      initialValues.current = JSON.stringify(profile.field_data);
-      hasInitializedValues.current = true;
-    }
+    if (!profile || hasInitializedValues.current) return;
+    setValues(profile.field_data ?? {});
+    initialValues.current = JSON.stringify(profile.field_data ?? {});
+    hasInitializedValues.current = true;
   }, [profile]);
 
   useEffect(() => {
-    if (talentMe?.languages_spoken && !hasInitializedLangs.current) {
-      setLanguages(talentMe.languages_spoken);
-      initialLanguages.current = JSON.stringify(talentMe.languages_spoken);
-      hasInitializedLangs.current = true;
-    }
+    if (!talentMe || hasInitializedLangs.current) return;
+    setLanguages(talentMe.languages_spoken ?? []);
+    initialLanguages.current = JSON.stringify(talentMe.languages_spoken ?? []);
+    hasInitializedLangs.current = true;
   }, [talentMe]);
 
   // Track dirty state
   useEffect(() => {
-    const valuesDirty = initialValues.current && JSON.stringify(values) !== initialValues.current;
-    const langDirty = initialLanguages.current && JSON.stringify(languages) !== initialLanguages.current;
+    const valuesDirty = hasInitializedValues.current && JSON.stringify(values) !== initialValues.current;
+    const langDirty = hasInitializedLangs.current && JSON.stringify(languages) !== initialLanguages.current;
     setDirty(!!(valuesDirty || langDirty));
   }, [values, languages]);
 
@@ -65,6 +63,21 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
     };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
+  // Guard browser back / swipe navigation
+  useEffect(() => {
+    if (!dirty) return;
+    window.history.pushState(null, '', window.location.href);
+    const onPopState = () => {
+      if (window.confirm('You have unsaved changes. Discard and leave this page?')) {
+        window.history.back();
+      } else {
+        window.history.pushState(null, '', window.location.href);
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, [dirty]);
 
   const confirmDiscard = useCallback(() => {
