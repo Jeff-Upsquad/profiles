@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useProfile, useUpdateProfile, useSubmitProfile } from '@/hooks/useProfiles';
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import { useTalentMe } from '@/hooks/useTalentMe';
@@ -14,6 +15,7 @@ import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
 
 export default function ProfileEdit({ profileId }: { profileId: string }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: profile, isLoading: profileLoading } = useProfile(profileId);
   const updateProfile = useUpdateProfile();
   const submitProfile = useSubmitProfile();
@@ -33,15 +35,15 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   useEffect(() => {
     if (profile?.field_data) {
       setValues(profile.field_data);
-      initialValues.current = JSON.stringify(profile.field_data);
     }
+    initialValues.current = JSON.stringify(profile?.field_data ?? {});
   }, [profile]);
 
   useEffect(() => {
     if (talentMe?.languages_spoken) {
       setLanguages(talentMe.languages_spoken);
-      initialLanguages.current = JSON.stringify(talentMe.languages_spoken);
     }
+    initialLanguages.current = JSON.stringify(talentMe?.languages_spoken ?? []);
   }, [talentMe]);
 
   // Track dirty state
@@ -124,6 +126,8 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
         updateProfile.mutateAsync({ id: profileId, field_data: values }),
         saveLanguages(),
       ]);
+      await queryClient.invalidateQueries({ queryKey: ['talentMe'] });
+      setDirty(false);
       router.push(`/talent/profiles/${profileId}`);
     } catch {
       // handled in hook
@@ -137,6 +141,8 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
         updateProfile.mutateAsync({ id: profileId, field_data: values }),
         saveLanguages(),
       ]);
+      await queryClient.invalidateQueries({ queryKey: ['talentMe'] });
+      setDirty(false);
       await submitProfile.mutateAsync(profileId);
       router.push(`/talent/profiles/${profileId}`);
     } catch {
