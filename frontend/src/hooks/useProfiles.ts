@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
-import type { Profile } from '@/types';
+import type { Profile, PortfolioItem } from '@/types';
 import toast from 'react-hot-toast';
 
 export function useMyProfiles() {
@@ -116,7 +116,7 @@ export function useReactivateProfile() {
 // ---------------------------------------------------------------------------
 
 export function usePortfolioItems(profileId: string | undefined) {
-  return useQuery({
+  return useQuery<PortfolioItem[]>({
     queryKey: ['portfolio', profileId],
     queryFn: async () => {
       const { data } = await api.get(`/talent/profiles/${profileId}/portfolio`);

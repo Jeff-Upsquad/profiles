@@ -105,3 +105,13 @@ export interface PresignedUrlResponse {
   upload_url: string;
   file_url: string;
 }
+
+export interface PortfolioItem {
+  id: string;
+  profile_id: string;
+  skill_name: string;
+  file_url: string;
+  file_type: 'image' | 'pdf' | 'video';
+  file_name: string;
+  sort_order: number;
+}
