@@ -5,6 +5,7 @@ import { useProfile, useUpdateProfile, useSubmitProfile } from '@/hooks/useProfi
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import { useTalentMe } from '@/hooks/useTalentMe';
 import api from '@/services/api';
+import toast from 'react-hot-toast';
 import DynamicFormRenderer from '@/components/forms/DynamicFormRenderer';
 import DesignerExtras from '@/components/forms/DesignerExtras';
 import PortfolioUploader from '@/components/forms/PortfolioUploader';
@@ -122,32 +123,40 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
       if (!confirmed) return;
     }
     try {
-      await Promise.all([
-        updateProfile.mutateAsync({ id: profileId, field_data: values }),
-        saveLanguages(),
-      ]);
-      await queryClient.invalidateQueries({ queryKey: ['talentMe'] });
-      setDirty(false);
-      router.push(`/talent/profiles/${profileId}`);
+      await updateProfile.mutateAsync({ id: profileId, field_data: values });
     } catch {
-      // handled in hook
+      return; // toast shown by mutation hook
     }
+    try {
+      await saveLanguages();
+    } catch {
+      toast.error('Failed to save languages');
+    }
+    await queryClient.invalidateQueries({ queryKey: ['talentMe'] });
+    setDirty(false);
+    router.push(`/talent/profiles/${profileId}`);
   };
 
   const handleSaveAndSubmit = async () => {
     if (!validate() || !profileId) return;
     try {
-      await Promise.all([
-        updateProfile.mutateAsync({ id: profileId, field_data: values }),
-        saveLanguages(),
-      ]);
-      await queryClient.invalidateQueries({ queryKey: ['talentMe'] });
-      setDirty(false);
-      await submitProfile.mutateAsync(profileId);
-      router.push(`/talent/profiles/${profileId}`);
+      await updateProfile.mutateAsync({ id: profileId, field_data: values });
     } catch {
-      // handled in hook
+      return; // toast shown by mutation hook
     }
+    try {
+      await saveLanguages();
+    } catch {
+      toast.error('Failed to save languages');
+    }
+    await queryClient.invalidateQueries({ queryKey: ['talentMe'] });
+    setDirty(false);
+    try {
+      await submitProfile.mutateAsync(profileId);
+    } catch {
+      return; // toast shown by mutation hook
+    }
+    router.push(`/talent/profiles/${profileId}`);
   };
 
   if (profileLoading || fieldsLoading) {
