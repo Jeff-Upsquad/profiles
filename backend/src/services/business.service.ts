@@ -1,6 +1,5 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
-import { queryPg } from '../config/db.js';
 import type { UpdateBusinessUserInput, DiscoverQueryInput, SendInterestInput } from '../validators/business.validators.js';
 
 // ─── Business User ──────────────────────────────────────────────────────────
@@ -31,46 +30,41 @@ export async function updateBusinessUser(userId: string, input: UpdateBusinessUs
 // ─── Subscribed Categories & Shared Profiles ────────────────────────────────
 
 export async function getSubscribedCategories(businessUserId: string) {
-  const rows = await queryPg(
-    `SELECT c.id, c.name, c.slug, c.description, c.icon_url
-     FROM business_category_subscriptions bcs
-     JOIN categories c ON c.id = bcs.category_id
-     WHERE bcs.business_user_id = $1
-     ORDER BY bcs.created_at ASC`,
-    [businessUserId]
-  );
-  return rows;
+  const { data, error } = await supabaseAdmin
+    .from('business_category_subscriptions')
+    .select('category_id, categories(id, name, slug, description, icon_url)')
+    .eq('business_user_id', businessUserId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw new AppError(500, error.message);
+  return (data ?? []).map((s: any) => s.categories);
 }
 
 export async function getSharedProfiles(businessUserId: string, categoryId: string) {
-  const rows = await queryPg(
-    `SELECT tp.*, tu.full_name, tu.current_location, tu.languages_spoken, tu.profile_photo_url,
-     c.id as cat_id, c.name as cat_name, c.slug as cat_slug
-     FROM business_shared_profiles bsp
-     JOIN talent_profiles tp ON tp.id = bsp.talent_profile_id
-     LEFT JOIN talent_users tu ON tu.id = tp.talent_user_id
-     LEFT JOIN categories c ON c.id = tp.category_id
-     WHERE bsp.business_user_id = $1 AND bsp.category_id = $2
-     ORDER BY bsp.created_at DESC`,
-    [businessUserId, categoryId]
-  );
+  const { data, error } = await supabaseAdmin
+    .from('business_shared_profiles')
+    .select('talent_profile_id, talent_profiles(*, talent_users(full_name, current_location, languages_spoken, profile_photo_url), categories(id, name, slug))')
+    .eq('business_user_id', businessUserId)
+    .eq('category_id', categoryId)
+    .order('created_at', { ascending: false });
 
-  return rows.map((p: any) => ({
-    id: p.id,
-    user_id: p.talent_user_id,
-    category_id: p.category_id,
-    category: { id: p.cat_id, name: p.cat_name, slug: p.cat_slug },
-    status: p.status,
-    field_data: p.field_data,
-    talent_user: {
-      full_name: p.full_name,
-      current_location: p.current_location,
-      languages_spoken: p.languages_spoken,
-      profile_photo_url: p.profile_photo_url,
-    },
-    created_at: p.created_at,
-    updated_at: p.updated_at,
-  }));
+  if (error) throw new AppError(500, error.message);
+
+  return (data ?? []).map((sp: any) => {
+    const p = sp.talent_profiles;
+    if (!p) return null;
+    return {
+      id: p.id,
+      user_id: p.talent_user_id,
+      category_id: p.category_id,
+      category: p.categories,
+      status: p.status,
+      field_data: p.field_data,
+      talent_user: p.talent_users,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
+    };
+  }).filter(Boolean);
 }
 
 // ─── Discover Profiles ──────────────────────────────────────────────────────

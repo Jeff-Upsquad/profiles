@@ -1,4 +1,4 @@
-import { queryPg, queryPgOne } from '../config/db.js';
+import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import crypto from 'crypto';
 
@@ -13,52 +13,54 @@ export async function createInvitation(input: {
   const { email, role, expires_at, company_name, contact_person_name, adminId } = input;
 
   // Check for existing pending invitation
-  const existing = await queryPgOne(
-    `SELECT id FROM invitations WHERE email = $1 AND status = 'pending'`,
-    [email.toLowerCase()]
-  );
+  const { data: existing } = await supabaseAdmin
+    .from('invitations')
+    .select('id')
+    .eq('email', email.toLowerCase())
+    .eq('status', 'pending')
+    .maybeSingle();
 
   if (existing) {
     throw new AppError(409, 'A pending invitation already exists for this email');
   }
 
   // Create invitation
-  const invitation = await queryPgOne(
-    `INSERT INTO invitations (email, role, status, expires_at, company_name, contact_person_name, invited_by)
-     VALUES ($1, $2, 'pending', $3, $4, $5, $6)
-     RETURNING *`,
-    [
-      email.toLowerCase(),
+  const { data: invitation, error } = await supabaseAdmin
+    .from('invitations')
+    .insert({
+      email: email.toLowerCase(),
       role,
-      role === 'business' ? expires_at || null : null,
-      role === 'business' ? company_name || null : null,
-      role === 'business' ? contact_person_name || null : null,
-      adminId,
-    ]
-  );
+      status: 'pending',
+      expires_at: role === 'business' ? expires_at || null : null,
+      company_name: role === 'business' ? company_name || null : null,
+      contact_person_name: role === 'business' ? contact_person_name || null : null,
+      invited_by: adminId,
+    })
+    .select()
+    .single();
 
-  if (!invitation) throw new AppError(500, 'Failed to create invitation');
+  if (error) throw new AppError(400, error.message);
 
   // For business invitations, also create the business_users row
   if (role === 'business') {
     const businessId = crypto.randomUUID();
-    try {
-      await queryPg(
-        `INSERT INTO business_users (id, company_name, contact_person_name, contact_email, access_expires_at, invitation_id, is_active, verified)
-         VALUES ($1, $2, $3, $4, $5, $6, true, true)`,
-        [
-          businessId,
-          company_name || 'Unnamed Company',
-          contact_person_name || '',
-          email.toLowerCase(),
-          expires_at || null,
-          invitation.id,
-        ]
-      );
-    } catch (bizErr: any) {
+    const { error: bizError } = await supabaseAdmin
+      .from('business_users')
+      .insert({
+        id: businessId,
+        company_name: company_name || 'Unnamed Company',
+        contact_person_name: contact_person_name || '',
+        contact_email: email.toLowerCase(),
+        access_expires_at: expires_at || null,
+        invitation_id: invitation.id,
+        is_active: true,
+        verified: true,
+      });
+
+    if (bizError) {
       // Rollback invitation
-      await queryPg(`DELETE FROM invitations WHERE id = $1`, [invitation.id]);
-      throw new AppError(400, bizErr.message || 'Failed to create business user');
+      await supabaseAdmin.from('invitations').delete().eq('id', invitation.id);
+      throw new AppError(400, bizError.message);
     }
   }
 
@@ -66,56 +68,66 @@ export async function createInvitation(input: {
 }
 
 export async function getInvitations(filters?: { role?: string; status?: string }) {
-  let sql = `SELECT * FROM invitations`;
-  const conditions: string[] = [];
-  const params: any[] = [];
+  let qb = supabaseAdmin
+    .from('invitations')
+    .select('*')
+    .order('created_at', { ascending: false });
 
   if (filters?.role) {
-    params.push(filters.role);
-    conditions.push(`role = $${params.length}`);
+    qb = qb.eq('role', filters.role);
   }
   if (filters?.status) {
-    params.push(filters.status);
-    conditions.push(`status = $${params.length}`);
+    qb = qb.eq('status', filters.status);
   }
 
-  if (conditions.length > 0) {
-    sql += ` WHERE ${conditions.join(' AND ')}`;
-  }
-  sql += ` ORDER BY created_at DESC`;
-
-  return queryPg(sql, params);
+  const { data, error } = await qb;
+  if (error) throw new AppError(500, error.message);
+  return data ?? [];
 }
 
 export async function revokeInvitation(invitationId: string) {
-  const row = await queryPgOne(
-    `UPDATE invitations SET status = 'revoked' WHERE id = $1 AND status = 'pending' RETURNING *`,
-    [invitationId]
-  );
-  if (!row) throw new AppError(404, 'Invitation not found or already used');
-  return row;
+  const { data, error } = await supabaseAdmin
+    .from('invitations')
+    .update({ status: 'revoked' })
+    .eq('id', invitationId)
+    .eq('status', 'pending')
+    .select()
+    .single();
+
+  if (error) throw new AppError(404, 'Invitation not found or already used');
+  return data;
 }
 
 export async function checkInvitation(email: string, role: 'talent' | 'business') {
-  const row = await queryPgOne(
-    `SELECT * FROM invitations WHERE email = $1 AND role = $2 AND status = 'pending'`,
-    [email.toLowerCase(), role]
-  );
+  const { data, error } = await supabaseAdmin
+    .from('invitations')
+    .select('*')
+    .eq('email', email.toLowerCase())
+    .eq('role', role)
+    .eq('status', 'pending')
+    .maybeSingle();
 
-  if (!row) return null;
+  if (error) throw new AppError(500, error.message);
+  if (!data) return null;
 
   // For business, also check expiration on the invitation itself
-  if (row.expires_at && new Date(row.expires_at) < new Date()) {
-    await queryPg(`UPDATE invitations SET status = 'expired' WHERE id = $1`, [row.id]);
+  if (data.expires_at && new Date(data.expires_at) < new Date()) {
+    // Mark as expired
+    await supabaseAdmin
+      .from('invitations')
+      .update({ status: 'expired' })
+      .eq('id', data.id);
     return null;
   }
 
-  return row;
+  return data;
 }
 
 export async function markInvitationAccepted(invitationId: string) {
-  await queryPg(
-    `UPDATE invitations SET status = 'accepted', accepted_at = NOW() WHERE id = $1`,
-    [invitationId]
-  );
+  const { error } = await supabaseAdmin
+    .from('invitations')
+    .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+    .eq('id', invitationId);
+
+  if (error) throw new AppError(500, error.message);
 }

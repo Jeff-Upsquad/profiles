@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { queryPg, queryPgOne } from '../config/db.js';
+import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 
@@ -7,11 +7,14 @@ const SESSION_DURATION_HOURS = 24;
 
 export async function businessLogin(email: string) {
   // Look up business user by contact_email
-  const businessUser = await queryPgOne(
-    `SELECT * FROM business_users WHERE contact_email = $1 AND is_active = true`,
-    [email.toLowerCase()]
-  );
+  const { data: businessUser, error } = await supabaseAdmin
+    .from('business_users')
+    .select('*')
+    .eq('contact_email', email.toLowerCase())
+    .eq('is_active', true)
+    .maybeSingle();
 
+  if (error) throw new AppError(500, error.message);
   if (!businessUser) throw new AppError(401, 'No account found for this email. Please contact the administrator.');
 
   // Check expiration
@@ -32,10 +35,15 @@ export async function businessLogin(email: string) {
   );
 
   // Store session
-  await queryPg(
-    `INSERT INTO business_sessions (business_user_id, token, expires_at) VALUES ($1, $2, $3)`,
-    [businessUser.id, token, sessionExpiry.toISOString()]
-  );
+  const { error: sessionError } = await supabaseAdmin
+    .from('business_sessions')
+    .insert({
+      business_user_id: businessUser.id,
+      token,
+      expires_at: sessionExpiry.toISOString(),
+    });
+
+  if (sessionError) throw new AppError(500, 'Failed to create session');
 
   return {
     access_token: token,
@@ -61,23 +69,25 @@ export async function validateBusinessToken(token: string) {
     if (payload.role !== 'business') return null;
 
     // Verify session exists and is not expired
-    const session = await queryPgOne(
-      `SELECT id, expires_at FROM business_sessions WHERE token = $1`,
-      [token]
-    );
+    const { data: session } = await supabaseAdmin
+      .from('business_sessions')
+      .select('id, expires_at')
+      .eq('token', token)
+      .maybeSingle();
 
     if (!session) return null;
     if (new Date(session.expires_at) < new Date()) {
       // Clean up expired session
-      await queryPg(`DELETE FROM business_sessions WHERE id = $1`, [session.id]);
+      await supabaseAdmin.from('business_sessions').delete().eq('id', session.id);
       return null;
     }
 
     // Also check if business user's access has expired
-    const bizUser = await queryPgOne(
-      `SELECT is_active, access_expires_at FROM business_users WHERE id = $1`,
-      [payload.sub]
-    );
+    const { data: bizUser } = await supabaseAdmin
+      .from('business_users')
+      .select('is_active, access_expires_at')
+      .eq('id', payload.sub)
+      .single();
 
     if (!bizUser || !bizUser.is_active) return null;
     if (bizUser.access_expires_at && new Date(bizUser.access_expires_at) < new Date()) return null;
@@ -93,5 +103,5 @@ export async function validateBusinessToken(token: string) {
 }
 
 export async function businessLogout(token: string) {
-  await queryPg(`DELETE FROM business_sessions WHERE token = $1`, [token]);
+  await supabaseAdmin.from('business_sessions').delete().eq('token', token);
 }
