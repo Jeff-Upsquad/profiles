@@ -22,9 +22,21 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
   const { data: items = [] } = usePortfolioItems(profileId);
   const addItem = useAddPortfolioItem();
   const deleteItem = useDeletePortfolioItem();
-  const [uploading, setUploading] = useState<string | null>(null);
+  const [uploadingMap, setUploadingMap] = useState<Record<string, number>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeSkill, setActiveSkill] = useState<string | null>(null);
+
+  const startUpload = (skill: string) =>
+    setUploadingMap((prev) => ({ ...prev, [skill]: (prev[skill] ?? 0) + 1 }));
+  const endUpload = (skill: string) =>
+    setUploadingMap((prev) => {
+      const count = (prev[skill] ?? 1) - 1;
+      if (count <= 0) {
+        const { [skill]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [skill]: count };
+    });
 
   const handleUpload = async (file: File, skillName: string) => {
     const fileType = ACCEPTED_TYPES[file.type];
@@ -33,7 +45,7 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
       return;
     }
 
-    setUploading(skillName);
+    startUpload(skillName);
     try {
       // Get presigned URL
       const { data: presigned } = await api.post('/upload/presigned-url', {
@@ -43,11 +55,18 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
       });
 
       // Upload to storage
-      await fetch(presigned.uploadUrl, {
+      const uploadResponse = await fetch(presigned.uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': file.type },
         body: file,
       });
+
+      if (!uploadResponse.ok) {
+        const errorBody = await uploadResponse.text().catch(() => '');
+        throw new Error(
+          `Storage upload failed (${uploadResponse.status})${errorBody ? `: ${errorBody}` : ''}`
+        );
+      }
 
       // Add portfolio item
       await addItem.mutateAsync({
@@ -57,18 +76,37 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
         file_type: fileType,
         file_name: file.name,
       });
-    } catch {
-      toast.error('Upload failed');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Upload failed';
+      console.error(`Portfolio upload error for "${file.name}":`, err);
+      toast.error(message.length > 120 ? message.slice(0, 120) + '...' : message);
     } finally {
-      setUploading(null);
+      endUpload(skillName);
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && activeSkill) {
-      handleUpload(file, activeSkill);
+    const files = e.target.files;
+    if (!files || files.length === 0 || !activeSkill) {
+      e.target.value = '';
+      return;
     }
+
+    const skill = activeSkill;
+    const fileArray = Array.from(files);
+
+    Promise.allSettled(fileArray.map((file) => handleUpload(file, skill))).then(
+      (results) => {
+        if (fileArray.length > 1) {
+          const failed = results.filter((r) => r.status === 'rejected').length;
+          const succeeded = fileArray.length - failed;
+          if (succeeded > 0) {
+            toast.success(`${succeeded} of ${fileArray.length} files uploaded`);
+          }
+        }
+      }
+    );
+
     e.target.value = '';
   };
 
@@ -99,6 +137,7 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
         ref={fileInputRef}
         type="file"
         accept="image/*,application/pdf,video/mp4,video/quicktime"
+        multiple
         onChange={handleFileSelect}
         className="hidden"
       />
@@ -111,10 +150,12 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
               <Button
                 variant="outline"
                 size="sm"
-                loading={uploading === skill}
+                loading={(uploadingMap[skill] ?? 0) > 0}
                 onClick={() => triggerUpload(skill)}
               >
-                Upload
+                {(uploadingMap[skill] ?? 0) > 1
+                  ? `Uploading ${uploadingMap[skill]}...`
+                  : 'Upload'}
               </Button>
             </div>
 
