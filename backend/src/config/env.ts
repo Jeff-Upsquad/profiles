@@ -15,6 +15,7 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
   DB_HOST: z.string().optional(),
   DB_PASSWORD: z.string().optional(),
+  DATABASE_URL: z.string().optional(),
 
   // Cloudflare R2 (optional — not everyone will have these initially)
   R2_ACCOUNT_ID: z.string().optional(),
