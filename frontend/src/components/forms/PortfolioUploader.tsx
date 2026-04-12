@@ -80,6 +80,7 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
       const message = err instanceof Error ? err.message : 'Upload failed';
       console.error(`Portfolio upload error for "${file.name}":`, err);
       toast.error(message.length > 120 ? message.slice(0, 120) + '...' : message);
+      throw err;
     } finally {
       endUpload(skillName);
     }
