@@ -151,13 +151,6 @@ router.get('/talents/categories/:categoryId/profiles', adminController.getTalent
 router.get('/talents/profiles/:profileId', adminController.getTalentProfile);
 
 // ---------------------------------------------------------------------------
-// Share Links
-// ---------------------------------------------------------------------------
-
-router.post('/talents/profiles/:profileId/share-link', adminController.createShareLink);
-router.get('/talents/profiles/:profileId/share-links', adminController.getShareLinks);
-
-// ---------------------------------------------------------------------------
 // Invitations
 // ---------------------------------------------------------------------------
 

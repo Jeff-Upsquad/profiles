@@ -2,31 +2,8 @@ import { Router } from 'express';
 import * as talentController from '../controllers/talent.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { supabaseAdmin } from '../config/supabase.js';
-import * as adminService from '../services/admin.service.js';
 
 const router = Router();
-
-// ---------------------------------------------------------------------------
-// Truly public routes (no auth) — shared profile links
-// ---------------------------------------------------------------------------
-
-router.get('/shared/:token', async (req, res, next) => {
-  try {
-    const result = await adminService.getProfileByShareToken(req.params.token);
-    res.json(result);
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.get('/profiles/:id', async (req, res, next) => {
-  try {
-    const result = await adminService.getPublicProfile(req.params.id);
-    res.json(result);
-  } catch (err) {
-    next(err);
-  }
-});
 
 // ---------------------------------------------------------------------------
 // Authenticated public routes (no specific role)

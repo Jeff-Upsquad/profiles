@@ -390,28 +390,6 @@ export async function getTalentProfile(req: Request, res: Response, next: NextFu
 }
 
 // ---------------------------------------------------------------------------
-// Share Links
-// ---------------------------------------------------------------------------
-
-export async function createShareLink(req: Request, res: Response, next: NextFunction) {
-  try {
-    const result = await adminService.createShareLink(req.params.profileId as string, req.user!.id);
-    res.status(201).json(result);
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function getShareLinks(req: Request, res: Response, next: NextFunction) {
-  try {
-    const result = await adminService.getShareLinksByProfile(req.params.profileId as string);
-    res.json({ links: result });
-  } catch (err) {
-    next(err);
-  }
-}
-
-// ---------------------------------------------------------------------------
 // User Management
 // ---------------------------------------------------------------------------
 

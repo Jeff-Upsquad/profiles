@@ -1,6 +1,5 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
-import pg from 'pg';
 import { env } from '../config/env.js';
 import type {
   CreateCategoryInput,
@@ -747,85 +746,6 @@ export async function getTalentProfile(profileId: string) {
     .order('sort_order', { ascending: true });
 
   return { ...data, portfolio_items: portfolio ?? [] };
-}
-
-export async function getPublicProfile(profileId: string) {
-  const profile = await getTalentProfile(profileId);
-  if (profile.status !== 'approved') {
-    throw new AppError(404, 'Profile not found');
-  }
-  const fields = await getCategoryFields(profile.category_id);
-  return { profile, fields };
-}
-
-// ---------------------------------------------------------------------------
-// Profile Share Links
-// ---------------------------------------------------------------------------
-
-async function queryPg<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-  if (!env.DB_HOST || !env.DB_PASSWORD) {
-    throw new AppError(500, 'DB_HOST and DB_PASSWORD environment variables are required for share links');
-  }
-  const client = new pg.Client({
-    host: env.DB_HOST,
-    port: 5432,
-    database: 'postgres',
-    user: 'postgres',
-    password: env.DB_PASSWORD,
-    ssl: { rejectUnauthorized: false },
-  });
-  await client.connect();
-  try {
-    const result = await client.query(sql, params);
-    return result.rows as T[];
-  } finally {
-    await client.end();
-  }
-}
-
-export async function createShareLink(profileId: string, adminId: string) {
-  const crypto = await import('node:crypto');
-  const token = crypto.randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-  const rows = await queryPg(
-    `INSERT INTO profile_share_links (profile_id, token, expires_at, created_by)
-     VALUES ($1, $2, $3, $4)
-     RETURNING *`,
-    [profileId, token, expiresAt, adminId]
-  );
-
-  if (!rows[0]) throw new AppError(500, 'Failed to create share link');
-  return rows[0];
-}
-
-export async function getShareLinksByProfile(profileId: string) {
-  return queryPg(
-    `SELECT * FROM profile_share_links WHERE profile_id = $1 ORDER BY created_at DESC`,
-    [profileId]
-  );
-}
-
-export async function getProfileByShareToken(token: string) {
-  const rows = await queryPg(
-    `SELECT * FROM profile_share_links WHERE token = $1`,
-    [token]
-  );
-
-  const link = rows[0];
-  if (!link) throw new AppError(404, 'Share link not found');
-
-  if (new Date(link.expires_at) < new Date()) {
-    throw new AppError(410, 'This share link has expired');
-  }
-
-  // Fetch the full profile
-  const profile = await getTalentProfile(link.profile_id);
-
-  // Also fetch category fields for display
-  const fields = await getCategoryFields(profile.category_id);
-
-  return { profile, fields };
 }
 
 // ---------------------------------------------------------------------------

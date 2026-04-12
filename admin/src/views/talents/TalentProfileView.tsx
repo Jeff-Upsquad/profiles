@@ -1,10 +1,7 @@
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
-import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
-import toast from 'react-hot-toast';
 
 interface ProfileData {
   id: string;
@@ -33,13 +30,6 @@ interface ProfileData {
   }[];
 }
 
-interface ShareLink {
-  id: string;
-  token: string;
-  expires_at: string;
-  created_at: string;
-}
-
 interface CategoryField {
   id: string;
   field_key: string;
@@ -66,8 +56,6 @@ export default function TalentProfileView({
   profileId: string;
 }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const [showLinks, setShowLinks] = useState(false);
 
   const { data: profile, isLoading } = useQuery<ProfileData>({
     queryKey: ['talent-profile', profileId],
@@ -86,36 +74,6 @@ export default function TalentProfileView({
     },
     enabled: !!profile?.category_id,
   });
-
-  const { data: shareLinks } = useQuery<ShareLink[]>({
-    queryKey: ['share-links', profileId],
-    queryFn: async () => {
-      const { data } = await api.get(`/admin/talents/profiles/${profileId}/share-links`);
-      return data.links ?? data;
-    },
-    enabled: showLinks,
-  });
-
-  const createLink = useMutation({
-    mutationFn: async () => {
-      const { data } = await api.post(`/admin/talents/profiles/${profileId}/share-link`);
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['share-links', profileId] });
-      setShowLinks(true);
-      toast.success('Share link created');
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Failed to create link');
-    },
-  });
-
-  const copyLink = (token: string) => {
-    const url = `${window.location.origin}/shared/${token}`;
-    navigator.clipboard.writeText(url);
-    toast.success('Link copied to clipboard');
-  };
 
   const renderFieldValue = (field: CategoryField, value: any) => {
     if (value === undefined || value === null || value === '') {
@@ -202,49 +160,7 @@ export default function TalentProfileView({
             </Badge>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setShowLinks(true);
-              createLink.mutate();
-            }}
-            loading={createLink.isPending}
-          >
-            Generate Share Link
-          </Button>
-        </div>
       </div>
-
-      {/* Share Links */}
-      {showLinks && (shareLinks ?? []).length > 0 && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">Share Links</h2>
-          <div className="space-y-2">
-            {(shareLinks ?? []).map((link) => {
-              const isExpired = new Date(link.expires_at) < new Date();
-              return (
-                <div key={link.id} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
-                  <div className="text-sm">
-                    <span className={`font-mono ${isExpired ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
-                      {window.location.origin}/shared/{link.token.slice(0, 12)}...
-                    </span>
-                    <span className="ml-3 text-xs text-gray-400">
-                      Expires {new Date(link.expires_at).toLocaleDateString()}
-                    </span>
-                    {isExpired && <span className="ml-2 text-xs text-red-500">Expired</span>}
-                  </div>
-                  {!isExpired && (
-                    <Button variant="ghost" size="sm" onClick={() => copyLink(link.token)}>
-                      Copy
-                    </Button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Personal Info */}
       {talentUser && (
