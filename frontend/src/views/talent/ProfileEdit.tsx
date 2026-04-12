@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProfile, useUpdateProfile, useSubmitProfile } from '@/hooks/useProfiles';
 import { useCategoryWithFields } from '@/hooks/useCategories';
+import { useTalentMe } from '@/hooks/useTalentMe';
+import api from '@/services/api';
 import DynamicFormRenderer from '@/components/forms/DynamicFormRenderer';
 import DesignerExtras from '@/components/forms/DesignerExtras';
 import PortfolioUploader from '@/components/forms/PortfolioUploader';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
 
 export default function ProfileEdit({ profileId }: { profileId: string }) {
@@ -15,8 +18,10 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   const updateProfile = useUpdateProfile();
   const submitProfile = useSubmitProfile();
 
+  const { data: talentMe } = useTalentMe();
   const [values, setValues] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [languages, setLanguages] = useState('');
 
   const { data: categoryWithFields, isLoading: fieldsLoading } = useCategoryWithFields(
     profile?.category?.slug
@@ -27,6 +32,12 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
       setValues(profile.field_data);
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (talentMe?.languages_spoken) {
+      setLanguages(talentMe.languages_spoken.join(', '));
+    }
+  }, [talentMe]);
 
   const handleChange = (key: string, value: any) => {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -69,6 +80,14 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
     return Object.keys(newErrors).length === 0;
   };
 
+  const saveLanguages = () =>
+    api.put('/talent/me', {
+      languages_spoken: languages
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    });
+
   const handleSave = async () => {
     if (!profileId) return;
     if (profile?.status === 'approved') {
@@ -78,7 +97,10 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
       if (!confirmed) return;
     }
     try {
-      await updateProfile.mutateAsync({ id: profileId, field_data: values });
+      await Promise.all([
+        updateProfile.mutateAsync({ id: profileId, field_data: values }),
+        saveLanguages(),
+      ]);
       router.push(`/talent/profiles/${profileId}`);
     } catch {
       // handled in hook
@@ -88,7 +110,10 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   const handleSaveAndSubmit = async () => {
     if (!validate() || !profileId) return;
     try {
-      await updateProfile.mutateAsync({ id: profileId, field_data: values });
+      await Promise.all([
+        updateProfile.mutateAsync({ id: profileId, field_data: values }),
+        saveLanguages(),
+      ]);
       await submitProfile.mutateAsync(profileId);
       router.push(`/talent/profiles/${profileId}`);
     } catch {
@@ -159,6 +184,16 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
           onChange={handleChange}
           errors={errors}
         />
+
+        {/* Languages */}
+        <div className="mt-6 border-t border-gray-200 pt-6">
+          <Input
+            label="Languages Spoken (comma-separated)"
+            value={languages}
+            onChange={(e) => setLanguages(e.target.value)}
+            placeholder="English, Hindi, Tamil"
+          />
+        </div>
 
         {/* Skills with proficiency & Tools */}
         {profile && (
