@@ -12,10 +12,12 @@ export interface SidebarItem {
 interface DashboardLayoutProps {
   sidebarItems?: SidebarItem[];
   sidebarContent?: React.ReactNode | ((opts: { onNavigate: () => void }) => React.ReactNode);
+  /** Hide the mobile sidebar toggle (FAB) when the page drives its own mobile navigation. */
+  hideMobileSidebar?: boolean;
   children: React.ReactNode;
 }
 
-export default function DashboardLayout({ sidebarItems, sidebarContent, children }: DashboardLayoutProps) {
+export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobileSidebar, children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
 
@@ -28,17 +30,19 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, children
       <Navbar />
       <div className="flex flex-1 overflow-hidden">
         {/* Mobile sidebar toggle */}
-        <button
-          className="fixed bottom-4 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg md:hidden"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-        >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+        {!hideMobileSidebar && (
+          <button
+            className="fixed bottom-4 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg md:hidden"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        )}
 
         {/* Overlay */}
-        {sidebarOpen && (
+        {sidebarOpen && !hideMobileSidebar && (
           <div
             className="fixed inset-0 z-20 bg-black/30 md:hidden"
             onClick={() => setSidebarOpen(false)}
@@ -48,7 +52,7 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, children
         {/* Sidebar */}
         {sidebarContent ? (
           <div
-            className={`fixed inset-y-0 left-0 z-20 mt-16 flex transform transition-transform md:relative md:mt-0 md:translate-x-0 ${
+            className={`${hideMobileSidebar ? 'hidden md:flex' : 'flex'} fixed inset-y-0 left-0 z-20 mt-16 transform transition-transform md:relative md:mt-0 md:translate-x-0 ${
               sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             }`}
           >

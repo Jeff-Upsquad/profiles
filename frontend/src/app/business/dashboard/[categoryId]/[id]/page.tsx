@@ -44,7 +44,7 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
       interestLoading={sendInterest.isPending}
       isLoading={profileLoading}
       error={profileError ? 'Failed to load profile' : undefined}
-      onBack={() => router.push('/business/dashboard')}
+      onBack={() => router.push(`/business/dashboard/${params.categoryId}`)}
     />
   );
 }
