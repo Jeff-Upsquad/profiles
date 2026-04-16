@@ -32,7 +32,7 @@ export default function BusinessLayout({
   }
 
   return (
-    <DashboardLayout sidebarContent={<BusinessSidebar />}>
+    <DashboardLayout sidebarContent={({ onNavigate }) => <BusinessSidebar onNavigate={onNavigate} />}>
       {children}
     </DashboardLayout>
   );

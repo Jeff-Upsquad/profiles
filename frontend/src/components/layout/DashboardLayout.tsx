@@ -11,7 +11,7 @@ export interface SidebarItem {
 
 interface DashboardLayoutProps {
   sidebarItems?: SidebarItem[];
-  sidebarContent?: React.ReactNode;
+  sidebarContent?: React.ReactNode | ((opts: { onNavigate: () => void }) => React.ReactNode);
   children: React.ReactNode;
 }
 
@@ -52,7 +52,9 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, children
               sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             }`}
           >
-            {sidebarContent}
+            {typeof sidebarContent === 'function'
+              ? sidebarContent({ onNavigate: () => setSidebarOpen(false) })
+              : sidebarContent}
           </div>
         ) : (
           <aside
