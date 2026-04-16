@@ -8,11 +8,14 @@ import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
 import Button from '@/components/ui/Button';
 import MultiSelectSearch from '@/components/ui/MultiSelectSearch';
+import ChipSelect from '@/components/ui/ChipSelect';
 import {
   GENDER_OPTIONS,
   WORK_TYPE_OPTIONS,
   KERALA_DISTRICTS,
   ACCOUNTING_SOFTWARE,
+  ACCOUNTING_SOFTWARE_PRIMARY,
+  ACCOUNTING_SOFTWARE_OTHER,
   ACCOUNTING_SKILLS,
   LANGUAGES,
 } from '@/constants/lead-form-options';
@@ -25,7 +28,7 @@ interface FormValues {
   native_place: string;
   district: string[];
   location: string;
-  work_type: string;
+  work_type: string; // single-select chip
   education: string;
   experience_years: string;
   accounting_software: string[];
@@ -66,7 +69,6 @@ const TERMS = [
   'If Selected you need to join within a week',
   'You need to have a Laptop, Smartphone and reliable Internet to undertake this work.',
   'Work will be Online, At Office or Hybrid model, based on opening',
-  'As per our placement policy for hiring an accountant, we charge a one-time fee of \u20B93,000, payable 30 days after Joining. (pay this only after you get a job). You have the option to Pay this in 3 Instalment of Rs 1,000 Each.',
 ];
 
 export default function AccountantLeadForm() {
@@ -347,15 +349,15 @@ export default function AccountantLeadForm() {
               error={errors.native_place}
             />
 
-            <MultiSelectSearch
+            <ChipSelect
               label="District"
               required
+              multi
               options={KERALA_DISTRICTS}
               selected={form.district}
-              onChange={setMulti('district')}
+              onChange={(v) => setMulti('district')(v as string[])}
               error={errors.district}
               helperText="Select the districts where you prefer to work or get job opening requests from (If you are outside India - select the last option)"
-              placeholder="Type to search..."
             />
 
             <Input
@@ -368,13 +370,15 @@ export default function AccountantLeadForm() {
               helperText="Add the current place you are staying (to get job offer near that location)"
             />
 
-            <Select
+            <ChipSelect
               label="Type of Work"
               required
-              placeholder="Select option..."
               options={WORK_TYPE_OPTIONS}
-              value={form.work_type}
-              onChange={set('work_type')}
+              selected={form.work_type}
+              onChange={(v) => {
+                setForm((prev) => ({ ...prev, work_type: v as string }));
+                setErrors((prev) => ({ ...prev, work_type: undefined }));
+              }}
               error={errors.work_type}
             />
 
@@ -397,24 +401,34 @@ export default function AccountantLeadForm() {
               helperText="Add Zero if you are a fresher"
             />
 
-            <MultiSelectSearch
-              label="Accounting Softwares"
-              required
-              options={ACCOUNTING_SOFTWARE}
-              selected={form.accounting_software}
-              onChange={setMulti('accounting_software')}
-              error={errors.accounting_software}
-              helperText="Select the ones you have experience in (you can select multiple ones)"
-              placeholder="Type to search..."
-            />
+            <div>
+              <ChipSelect
+                label="Accounting Softwares"
+                required
+                multi
+                options={ACCOUNTING_SOFTWARE_PRIMARY}
+                selected={form.accounting_software}
+                onChange={(v) => setMulti('accounting_software')(v as string[])}
+                error={errors.accounting_software}
+                helperText="Select the ones you have experience in (you can select multiple ones)"
+              />
+              <div className="mt-2">
+                <MultiSelectSearch
+                  options={ACCOUNTING_SOFTWARE_OTHER}
+                  selected={form.accounting_software}
+                  onChange={setMulti('accounting_software')}
+                  placeholder="Search more software..."
+                />
+              </div>
+            </div>
 
-            <MultiSelectSearch
+            <ChipSelect
               label="Add on Accounting Skills"
+              multi
               options={ACCOUNTING_SKILLS}
               selected={form.addon_skills}
-              onChange={setMulti('addon_skills')}
+              onChange={(v) => setMulti('addon_skills')(v as string[])}
               helperText="Select the options you have (you can select multiple ones)"
-              placeholder="Type to search..."
             />
 
             <Input
@@ -437,14 +451,14 @@ export default function AccountantLeadForm() {
               error={errors.expected_salary}
             />
 
-            <MultiSelectSearch
+            <ChipSelect
               label="Languages You Speak"
               required
+              multi
               options={LANGUAGES}
               selected={form.languages}
-              onChange={setMulti('languages')}
+              onChange={(v) => setMulti('languages')(v as string[])}
               error={errors.languages}
-              placeholder="Type to search..."
             />
 
             <Input

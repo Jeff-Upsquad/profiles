@@ -7,7 +7,7 @@ export const creativeLeadSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
   phone: z.string().regex(phoneRegex, 'Valid phone number is required'),
   email: z.string().email('Valid email is required'),
-  role: z.enum(['Editor', 'Designer', 'Editor + Designer']),
+  role: z.array(z.enum(['Editor', 'Designer', 'Editor + Designer'])).min(1, 'At least one role is required'),
   portfolio_link: z.string().url('Valid portfolio URL is required'),
   utm_source: z.string().optional(),
   utm_medium: z.string().optional(),

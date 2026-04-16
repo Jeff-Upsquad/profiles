@@ -4,15 +4,15 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
+import ChipSelect from '@/components/ui/ChipSelect';
 import { CREATIVE_ROLES } from '@/constants/lead-form-options';
 
 interface FormValues {
   name: string;
   phone: string;
   email: string;
-  role: string;
+  role: string[];
   portfolio_link: string;
 }
 
@@ -20,7 +20,7 @@ const initial: FormValues = {
   name: '',
   phone: '',
   email: '',
-  role: '',
+  role: [],
   portfolio_link: '',
 };
 
@@ -61,7 +61,7 @@ export default function CreativeLeadForm() {
     if (!form.email.trim()) errs.email = 'Email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       errs.email = 'Enter a valid email';
-    if (!form.role) errs.role = 'Please select a role';
+    if (form.role.length === 0) errs.role = 'Please select at least one role';
     if (!form.portfolio_link.trim()) errs.portfolio_link = 'Portfolio link is required';
     else {
       try {
@@ -219,13 +219,16 @@ export default function CreativeLeadForm() {
               error={errors.email}
             />
 
-            <Select
+            <ChipSelect
               label="Role"
               required
-              placeholder="Select your role"
+              multi
               options={CREATIVE_ROLES}
-              value={form.role}
-              onChange={set('role')}
+              selected={form.role}
+              onChange={(v) => {
+                setForm((prev) => ({ ...prev, role: v as string[] }));
+                setErrors((prev) => ({ ...prev, role: undefined }));
+              }}
               error={errors.role}
             />
 
