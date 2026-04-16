@@ -145,6 +145,46 @@ function buildListChangeNotes(current: string[], previous: string[] | undefined)
   return notes;
 }
 
+/** Build change notes for personal info (talent_users data stored in prev._user) */
+function buildUserChangeNotes(
+  current: ReviewProfile['talent_users'],
+  prevUser: Record<string, any> | undefined,
+): string[] {
+  if (!current || !prevUser) return [];
+  const notes: string[] = [];
+
+  const simple: [string, string][] = [
+    ['full_name', 'Full Name'],
+    ['phone', 'Phone'],
+    ['age', 'Age'],
+    ['gender', 'Gender'],
+    ['current_location', 'Location'],
+    ['native_place', 'Native Place'],
+  ];
+  for (const [key, label] of simple) {
+    const oldVal = prevUser[key];
+    const newVal = (current as any)[key];
+    if (oldVal != null && newVal != null && String(oldVal) !== String(newVal)) {
+      notes.push(`${label}: "${oldVal}" → "${newVal}"`);
+    } else if (oldVal == null && newVal != null) {
+      notes.push(`${label}: added "${newVal}"`);
+    } else if (oldVal != null && newVal == null) {
+      notes.push(`${label}: removed (was "${oldVal}")`);
+    }
+  }
+
+  // Languages
+  const fmtLangs = (langs: { language: string; proficiency: string }[]) =>
+    (langs ?? []).map((l) => `${l.language} (${l.proficiency})`).join(', ');
+  const oldLangs = fmtLangs(prevUser.languages_spoken ?? []);
+  const newLangs = fmtLangs(current.languages_spoken ?? []);
+  if (oldLangs !== newLangs) {
+    notes.push(`Languages: "${oldLangs || '(empty)'}" → "${newLangs || '(empty)'}"`);
+  }
+
+  return notes;
+}
+
 /** Build change notes for plan wages */
 function buildWageChangeNotes(
   current: Record<string, number>,
@@ -299,6 +339,7 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
   const changedKeys = getChangedKeys(profile.field_data ?? {}, prev);
 
   // Build change notes per section
+  const userNotes = prev?._user ? buildUserChangeNotes(talentUser, prev._user) : [];
   const fieldChangeNotes = prev ? buildFieldChangeNotes(sortedFields, profile.field_data ?? {}, prev, changedKeys) : [];
   const skillNotes = prev && changedKeys.has('_skills') ? buildSkillChangeNotes(profile.field_data?._skills ?? [], prev._skills) : [];
   const toolNotes = prev && changedKeys.has('_tools') ? buildListChangeNotes(profile.field_data?._tools ?? [], prev._tools) : [];
@@ -361,6 +402,7 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
                 </div>
               ))}
           </dl>
+          <ChangeNote notes={userNotes} />
         </div>
       )}
 

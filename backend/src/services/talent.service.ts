@@ -147,10 +147,19 @@ export async function updateProfile(profileId: string, userId: string, input: Up
     status: newStatus,
   };
 
-  // Capture previous field_data for admin review diffing
+  // Capture previous field_data + user data for admin review diffing
   // Save on first edit only (preserve baseline); skip drafts (nothing to compare)
   if (input.field_data && profile.status !== 'draft' && !profile.previous_field_data) {
-    updatePayload.previous_field_data = profile.field_data;
+    // Also snapshot talent_users data (languages, etc.) before it gets updated
+    const { data: userData } = await supabaseAdmin
+      .from('talent_users')
+      .select('full_name, phone, age, gender, current_location, native_place, languages_spoken')
+      .eq('id', userId)
+      .single();
+    updatePayload.previous_field_data = {
+      ...profile.field_data,
+      _user: userData,
+    };
   }
 
   if (input.field_data) {
