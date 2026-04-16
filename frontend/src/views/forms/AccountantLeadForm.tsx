@@ -163,7 +163,6 @@ export default function AccountantLeadForm() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       errs.email = 'Enter a valid email';
     if (!form.experience_details.trim()) errs.experience_details = 'Experience details are required';
-    if (!form.resume_url) errs.resume_url = 'Resume is required';
     if (form.terms_accepted !== 'yes') errs.terms_accepted = 'You must accept the terms';
 
     setErrors(errs);
@@ -196,7 +195,7 @@ export default function AccountantLeadForm() {
         expected_salary: Number(form.expected_salary),
         languages: form.languages,
         experience_details: form.experience_details.trim(),
-        resume_url: form.resume_url,
+        resume_url: form.resume_url || undefined,
         terms_accepted: true,
         utm_source: searchParams.get('utm_source') || undefined,
         utm_medium: searchParams.get('utm_medium') || undefined,
@@ -482,7 +481,7 @@ export default function AccountantLeadForm() {
             {/* Resume Upload */}
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                Upload Resume<span className="ml-0.5 text-red-500">*</span>
+                Upload Resume
               </label>
               <label
                 className={`flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed px-4 py-6 text-sm transition-colors ${
@@ -494,7 +493,7 @@ export default function AccountantLeadForm() {
                 <input
                   type="file"
                   className="hidden"
-                  accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp"
                   onChange={handleResumeUpload}
                   disabled={uploading}
                 />
