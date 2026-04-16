@@ -46,14 +46,20 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, children
         )}
 
         {/* Sidebar */}
-        <aside
-          className={`fixed inset-y-0 left-0 z-20 mt-16 w-64 transform border-r border-gray-200 bg-white transition-transform md:relative md:mt-0 md:translate-x-0 ${
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
-        >
-          {sidebarContent ? (
-            <div className="h-full">{sidebarContent}</div>
-          ) : (
+        {sidebarContent ? (
+          <div
+            className={`fixed inset-y-0 left-0 z-20 mt-16 flex transform transition-transform md:relative md:mt-0 md:translate-x-0 ${
+              sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}
+          >
+            {sidebarContent}
+          </div>
+        ) : (
+          <aside
+            className={`fixed inset-y-0 left-0 z-20 mt-16 w-64 transform border-r border-gray-200 bg-white transition-transform md:relative md:mt-0 md:translate-x-0 ${
+              sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}
+          >
             <nav className="flex flex-col gap-1 p-4">
               {(sidebarItems ?? []).map((item) => (
                 <Link
@@ -71,8 +77,8 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, children
                 </Link>
               ))}
             </nav>
-          )}
-        </aside>
+          </aside>
+        )}
 
         {/* Main content */}
         <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
