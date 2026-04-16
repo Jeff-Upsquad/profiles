@@ -144,15 +144,13 @@ export default function ThreadsProfileHeader({
               )}
             </button>
             <button
-              onClick={onSendInterest}
-              disabled={interestLoading}
-              className="flex h-[40px] items-center justify-center rounded-[10px] border border-zinc-200 bg-white text-sm font-semibold text-zinc-950 transition-colors hover:bg-zinc-50 disabled:opacity-50"
+              disabled
+              className="relative flex h-[40px] items-center justify-center gap-1.5 rounded-[10px] border border-zinc-200 bg-white text-sm font-semibold text-zinc-400 cursor-not-allowed"
             >
-              {interestLoading ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-              ) : (
-                'Send Interest'
-              )}
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Coming Soon
             </button>
           </div>
         ) : (
