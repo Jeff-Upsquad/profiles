@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as adminController from '../controllers/admin.controller.js';
+import * as leadController from '../controllers/lead.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -17,6 +18,7 @@ import {
   assignCategoriesSchema,
   shareProfilesSchema,
 } from '../validators/invite.validators.js';
+import { updateLeadStatusSchema } from '../validators/lead.validators.js';
 
 const router = Router();
 
@@ -202,5 +204,17 @@ router.delete('/users/:id', adminController.deleteUser);
 router.get('/recycle-bin', adminController.getRecycleBin);
 router.patch('/recycle-bin/:profileId/restore', adminController.restoreProfile);
 router.delete('/recycle-bin/:profileId', adminController.permanentlyDeleteProfile);
+
+// ---------------------------------------------------------------------------
+// Lead Submissions
+// ---------------------------------------------------------------------------
+
+router.get('/leads', leadController.getLeads);
+router.get('/leads/:id', leadController.getLead);
+router.patch(
+  '/leads/:id/status',
+  validate({ body: updateLeadStatusSchema }),
+  leadController.updateLeadStatus
+);
 
 export default router;
