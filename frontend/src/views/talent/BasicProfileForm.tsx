@@ -48,6 +48,7 @@ export default function BasicProfileForm() {
   const { uploadFile, uploading } = useUpload();
   const [activeSection, setActiveSection] = useState(0);
   const [form, setForm] = useState<BasicProfile>({});
+  const [fullName, setFullName] = useState('');
   const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
 
   const { data: profile, isLoading } = useQuery<BasicProfile | null>({
@@ -67,6 +68,12 @@ export default function BasicProfileForm() {
     }
   }, [profile]);
 
+  useEffect(() => {
+    if (user?.full_name) {
+      setFullName(user.full_name);
+    }
+  }, [user]);
+
   const saveMutation = useMutation({
     mutationFn: async (data: BasicProfile) => {
       const { data: result } = await api.put('/talent/me/basic-profile', data);
@@ -78,6 +85,21 @@ export default function BasicProfileForm() {
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to save profile');
+    },
+  });
+
+  const saveUserMutation = useMutation({
+    mutationFn: async (data: { full_name: string }) => {
+      const { data: result } = await api.put('/talent/me', data);
+      return result;
+    },
+    onSuccess: () => {
+      toast.success('Details updated successfully');
+      // Reload to refresh AuthContext with the new name
+      setTimeout(() => window.location.reload(), 500);
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to update details');
     },
   });
 
@@ -117,6 +139,16 @@ export default function BasicProfileForm() {
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
+
+    // Section 0: Basic Details — update user name
+    if (activeSection === 0) {
+      if (!fullName.trim()) {
+        toast.error('Full name is required');
+        return;
+      }
+      saveUserMutation.mutate({ full_name: fullName.trim() });
+      return;
+    }
 
     if (form.pin_code && !/^\d{6}$/.test(form.pin_code)) {
       toast.error('PIN code must be 6 digits');
@@ -188,8 +220,8 @@ export default function BasicProfileForm() {
             <h2 className="mb-4 text-lg font-semibold text-gray-900">Basic Details</h2>
             <p className="mb-4 text-sm text-gray-500">These details were collected during sign-up. You can update them here.</p>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input label="Full Name" value={user?.full_name || ''} disabled />
-              <Input label="Email" value={user?.email || ''} disabled />
+              <Input label="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your full name" />
+              <Input label="Email" value={user?.email || ''} disabled helperText="Email cannot be changed" />
             </div>
           </Card>
         )}
@@ -381,7 +413,7 @@ export default function BasicProfileForm() {
             Previous
           </Button>
           <div className="flex gap-3">
-            <Button type="submit" loading={saveMutation.isPending}>
+            <Button type="submit" loading={saveMutation.isPending || saveUserMutation.isPending}>
               Save Progress
             </Button>
             {activeSection < sections.length - 1 && (
