@@ -950,3 +950,37 @@ export async function reorderOptions(input: ReorderInput) {
 
   return { message: 'Options reordered successfully' };
 }
+
+// ---------------------------------------------------------------------------
+// Shortlist Tracking
+// ---------------------------------------------------------------------------
+
+export async function getShortlistTracking(categoryId?: string) {
+  let qb = supabaseAdmin
+    .from('shortlists')
+    .select(
+      '*, business_users!inner(id, company_name, contact_person_name, contact_email), talent_profiles!inner(id, category_id, talent_users!inner(full_name), categories!inner(id, name))'
+    )
+    .order('created_at', { ascending: false });
+
+  if (categoryId) {
+    qb = qb.eq('talent_profiles.category_id', categoryId);
+  }
+
+  const { data, error } = await qb;
+
+  if (error) throw new AppError(500, `Failed to fetch shortlists: ${error.message}`);
+
+  return (data ?? []).map((s: any) => ({
+    id: s.id,
+    business_user_id: s.business_user_id,
+    company_name: s.business_users.company_name,
+    contact_person_name: s.business_users.contact_person_name,
+    contact_email: s.business_users.contact_email,
+    talent_profile_id: s.talent_profile_id,
+    talent_name: s.talent_profiles?.talent_users?.full_name ?? 'Unknown',
+    category_id: s.talent_profiles?.category_id,
+    category_name: s.talent_profiles?.categories?.name ?? 'Uncategorized',
+    shortlisted_at: s.created_at,
+  }));
+}

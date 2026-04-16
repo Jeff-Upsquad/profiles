@@ -591,3 +591,17 @@ export async function permanentlyDeleteProfile(req: Request, res: Response, next
     next(err);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Shortlist Tracking
+// ---------------------------------------------------------------------------
+
+export async function getShortlistTracking(req: Request, res: Response, next: NextFunction) {
+  try {
+    const categoryId = req.query.category_id as string | undefined;
+    const result = await adminService.getShortlistTracking(categoryId);
+    res.json({ shortlists: result });
+  } catch (err) {
+    next(err);
+  }
+}
