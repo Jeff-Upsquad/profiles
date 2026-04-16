@@ -102,8 +102,8 @@ export interface BusinessSignupData {
 }
 
 export interface PresignedUrlResponse {
-  upload_url: string;
-  file_url: string;
+  uploadUrl: string;
+  fileUrl: string;
 }
 
 export interface PortfolioItem {

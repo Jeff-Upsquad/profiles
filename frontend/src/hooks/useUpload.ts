@@ -12,19 +12,19 @@ export function useUpload() {
 
     try {
       const { data } = await api.post<PresignedUrlResponse>('/upload/presigned-url', {
-        filename: file.name,
-        content_type: file.type,
+        fileName: file.name,
+        contentType: file.type,
         folder,
       });
 
-      await fetch(data.upload_url, {
+      await fetch(data.uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': file.type },
         body: file,
       });
 
       setProgress(100);
-      return data.file_url;
+      return data.fileUrl;
     } finally {
       setUploading(false);
     }
