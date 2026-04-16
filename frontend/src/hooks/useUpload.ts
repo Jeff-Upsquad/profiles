@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import api from '@/services/api';
-import type { PresignedUrlResponse } from '@/types';
 
 export function useUpload() {
   const [uploading, setUploading] = useState(false);
@@ -11,17 +10,14 @@ export function useUpload() {
     setProgress(0);
 
     try {
-      const { data } = await api.post<PresignedUrlResponse>('/upload/presigned-url', {
-        fileName: file.name,
-        contentType: file.type,
-        folder,
-      });
+      const params = new URLSearchParams({ fileName: file.name });
+      if (folder) params.set('folder', folder);
 
-      await fetch(data.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type },
-        body: file,
-      });
+      const { data } = await api.post<{ fileUrl: string; key: string }>(
+        `/upload/file?${params.toString()}`,
+        file,
+        { headers: { 'Content-Type': file.type } }
+      );
 
       setProgress(100);
       return data.fileUrl;
