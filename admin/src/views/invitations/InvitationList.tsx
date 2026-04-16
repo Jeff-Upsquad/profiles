@@ -20,18 +20,11 @@ interface Invitation {
   created_at: string;
 }
 
-const statusColors: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
-  pending: 'yellow',
-  accepted: 'green',
-  expired: 'red',
-  revoked: 'gray',
-};
-
 export default function InvitationList() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [filterRole, setFilterRole] = useState<string>('');
-  const [filterStatus, setFilterStatus] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'pending' | 'accepted' | 'expired' | 'revoked'>('pending');
 
   // Form state
   const [formEmail, setFormEmail] = useState('');
@@ -41,13 +34,13 @@ export default function InvitationList() {
   const [formExpiresAt, setFormExpiresAt] = useState('');
 
   const { data: invitations, isLoading } = useQuery<Invitation[]>({
-    queryKey: ['admin-invitations', filterRole, filterStatus],
+    queryKey: ['admin-invitations', filterRole, activeTab],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filterRole) params.set('role', filterRole);
-      if (filterStatus) params.set('status', filterStatus);
+      params.set('status', activeTab);
       const qs = params.toString();
-      const { data } = await api.get(`/admin/invitations${qs ? `?${qs}` : ''}`);
+      const { data } = await api.get(`/admin/invitations?${qs}`);
       return data.invitations ?? data;
     },
   });
@@ -116,8 +109,23 @@ export default function InvitationList() {
         <Button onClick={() => setShowModal(true)}>Invite User</Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-3">
+      {/* Tabs + Role Filter */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+          {(['pending', 'accepted', 'expired', 'revoked'] as const).map((status) => (
+            <button
+              key={status}
+              onClick={() => setActiveTab(status)}
+              className={`rounded-md px-4 py-2 text-sm font-medium capitalize transition-colors ${
+                activeTab === status
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
         <select
           value={filterRole}
           onChange={(e) => setFilterRole(e.target.value)}
@@ -126,17 +134,6 @@ export default function InvitationList() {
           <option value="">All Roles</option>
           <option value="talent">Talent</option>
           <option value="business">Business</option>
-        </select>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-        >
-          <option value="">All Statuses</option>
-          <option value="pending">Pending</option>
-          <option value="accepted">Accepted</option>
-          <option value="expired">Expired</option>
-          <option value="revoked">Revoked</option>
         </select>
       </div>
 
@@ -156,7 +153,6 @@ export default function InvitationList() {
               <tr>
                 <th className="px-6 py-3">Email</th>
                 <th className="px-6 py-3">Role</th>
-                <th className="px-6 py-3">Status</th>
                 <th className="px-6 py-3">Company</th>
                 <th className="px-6 py-3">Expires</th>
                 <th className="px-6 py-3">Created</th>
@@ -170,11 +166,6 @@ export default function InvitationList() {
                   <td className="px-6 py-4">
                     <Badge variant={inv.role === 'talent' ? 'green' : 'yellow'}>
                       {inv.role}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge variant={statusColors[inv.status] ?? 'gray'}>
-                      {inv.status}
                     </Badge>
                   </td>
                   <td className="px-6 py-4 text-gray-500">

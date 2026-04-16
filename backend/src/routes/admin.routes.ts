@@ -18,6 +18,7 @@ import {
   createInvitationSchema,
   assignCategoriesSchema,
   shareProfilesSchema,
+  extendAccessSchema,
 } from '../validators/invite.validators.js';
 import { updateLeadStatusSchema } from '../validators/lead.validators.js';
 
@@ -188,6 +189,16 @@ router.post(
   adminController.shareProfiles
 );
 router.delete('/business/:businessId/shared-profiles/:profileId', adminController.unshareProfile);
+
+// ---------------------------------------------------------------------------
+// Business Access Extension
+// ---------------------------------------------------------------------------
+
+router.patch(
+  '/business/:businessId/extend-access',
+  validate({ body: extendAccessSchema }),
+  adminController.extendBusinessAccess
+);
 
 // ---------------------------------------------------------------------------
 // User Management

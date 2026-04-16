@@ -20,6 +20,15 @@ export async function businessLogin(req: Request, res: Response, next: NextFunct
   }
 }
 
+export async function requestAccess(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await businessAuthService.requestAccess(req.body.email);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await authService.login(req.body);

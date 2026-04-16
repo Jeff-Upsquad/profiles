@@ -361,6 +361,7 @@ export async function approveProfile(profileId: string, adminId: string) {
       reviewed_by: adminId,
       reviewed_at: new Date().toISOString(),
       rejection_reason: null,
+      previous_field_data: null,
     })
     .eq('id', profileId)
     .eq('status', 'pending_review')
@@ -379,6 +380,7 @@ export async function rejectProfile(profileId: string, adminId: string, reason: 
       reviewed_by: adminId,
       reviewed_at: new Date().toISOString(),
       rejection_reason: reason,
+      previous_field_data: null,
     })
     .eq('id', profileId)
     .eq('status', 'pending_review')
@@ -565,6 +567,39 @@ export async function getBusinessUsers() {
 
   if (error) throw new AppError(500, error.message);
   return data;
+}
+
+export async function extendBusinessAccess(businessUserId: string, days: number) {
+  const { data: user, error: fetchError } = await supabaseAdmin
+    .from('business_users')
+    .select('access_expires_at')
+    .eq('id', businessUserId)
+    .single();
+
+  if (fetchError) throw new AppError(404, 'Business user not found');
+
+  // If current expiry is in the past or null, base from now; otherwise extend from current expiry
+  const baseDate =
+    user.access_expires_at && new Date(user.access_expires_at) > new Date()
+      ? new Date(user.access_expires_at)
+      : new Date();
+
+  const newExpiry = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000);
+
+  const { error } = await supabaseAdmin
+    .from('business_users')
+    .update({
+      access_expires_at: newExpiry.toISOString(),
+      access_requested_at: null,
+    })
+    .eq('id', businessUserId);
+
+  if (error) throw new AppError(400, error.message);
+
+  return {
+    message: `Access extended by ${days} days`,
+    access_expires_at: newExpiry.toISOString(),
+  };
 }
 
 export async function suspendUser(userId: string, suspend: boolean) {

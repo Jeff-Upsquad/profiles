@@ -18,7 +18,7 @@ function ItemList({
   label,
 }: {
   categoryId: string;
-  type: 'skills' | 'tools';
+  type: 'skills' | 'tools' | 'ai-tools';
   label: string;
 }) {
   const queryClient = useQueryClient();
@@ -30,7 +30,8 @@ function ItemList({
     queryKey: ['template', type, categoryId],
     queryFn: async () => {
       const { data } = await api.get(`/admin/categories/${categoryId}/${type}`);
-      return data[type] ?? data;
+      const key = type === 'ai-tools' ? 'ai_tools' : type;
+      return data[key] ?? data;
     },
   });
 
@@ -48,7 +49,7 @@ function ItemList({
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
-      const endpoint = type === 'skills' ? 'skills' : 'tools';
+      const endpoint = type === 'skills' ? 'skills' : type === 'ai-tools' ? 'ai-tools' : 'tools';
       await api.put(`/admin/${endpoint}/${id}`, { name });
     },
     onSuccess: () => {
@@ -61,7 +62,7 @@ function ItemList({
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const endpoint = type === 'skills' ? 'skills' : 'tools';
+      const endpoint = type === 'skills' ? 'skills' : type === 'ai-tools' ? 'ai-tools' : 'tools';
       await api.delete(`/admin/${endpoint}/${id}`);
     },
     onSuccess: () => {
@@ -167,9 +168,10 @@ export default function TemplateManager({ categoryId }: { categoryId: string }) 
       <p className="mb-6 text-sm text-gray-500">
         Manage the skill sets and tools available for talent users when creating profiles in this category.
       </p>
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div className="grid gap-8 lg:grid-cols-3">
         <ItemList categoryId={categoryId} type="skills" label="Skill" />
         <ItemList categoryId={categoryId} type="tools" label="Tool" />
+        <ItemList categoryId={categoryId} type="ai-tools" label="AI Tool" />
       </div>
     </div>
   );

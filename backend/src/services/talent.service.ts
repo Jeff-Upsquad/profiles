@@ -147,6 +147,15 @@ export async function updateProfile(profileId: string, userId: string, input: Up
     status: newStatus,
   };
 
+  // Capture previous field_data for admin review diffing
+  // Only on first edit after approval/rejection (not on subsequent edits while still pending)
+  if (
+    (profile.status === 'approved' || profile.status === 'rejected') &&
+    newStatus === 'pending_review'
+  ) {
+    updatePayload.previous_field_data = profile.field_data;
+  }
+
   if (input.field_data) {
     updatePayload.field_data = input.field_data;
   }

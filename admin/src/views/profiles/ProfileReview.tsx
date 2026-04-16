@@ -13,6 +13,7 @@ interface ReviewProfile {
   category_id: string;
   status: string;
   field_data: Record<string, any>;
+  previous_field_data?: Record<string, any> | null;
   rejection_reason?: string;
   created_at: string;
   updated_at: string;
@@ -36,6 +37,42 @@ interface CategoryField {
   is_active: boolean;
   sort_order: number;
   options?: { label: string; value: string }[];
+}
+
+/** Deep-compare two values (handles arrays, objects, primitives) */
+function valuesChanged(a: any, b: any): boolean {
+  if (a === b) return false;
+  if (a == null && b == null) return false;
+  if (a == null || b == null) return true;
+  if (typeof a !== typeof b) return true;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return true;
+    return a.some((v, i) => valuesChanged(v, b[i]));
+  }
+  if (typeof a === 'object') {
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+    for (const k of keys) {
+      if (valuesChanged(a[k], b[k])) return true;
+    }
+    return false;
+  }
+  return a !== b;
+}
+
+/** Returns a Set of top-level field_data keys that differ between current and previous */
+function getChangedKeys(
+  current: Record<string, any>,
+  previous: Record<string, any> | null | undefined,
+): Set<string> {
+  if (!previous) return new Set();
+  const changed = new Set<string>();
+  const allKeys = new Set([...Object.keys(current), ...Object.keys(previous)]);
+  for (const key of allKeys) {
+    if (valuesChanged(current[key], previous[key])) {
+      changed.add(key);
+    }
+  }
+  return changed;
 }
 
 export default function ProfileReview({ profileId }: { profileId: string }) {
@@ -98,7 +135,7 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
     if (field.field_type === 'multi_select' && Array.isArray(value)) {
       const labels = (field.options ?? []).reduce(
         (acc, opt) => ({ ...acc, [opt.value]: opt.label }),
-        {} as Record<string, string>
+        {} as Record<string, string>,
       );
       return (
         <div className="flex flex-wrap gap-1">
@@ -153,6 +190,10 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
 
   const talentUser = profile.talent_users;
 
+  const prev = profile.previous_field_data;
+  const hasChanges = !!prev;
+  const changedKeys = getChangedKeys(profile.field_data ?? {}, prev);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -187,6 +228,18 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
         </div>
       </div>
 
+      {/* Changes Banner */}
+      {hasChanges && changedKeys.size > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+          <svg className="h-5 w-5 flex-shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
+          </svg>
+          <p className="text-sm font-medium text-amber-800">
+            This is a re-submission. Highlighted fields have been modified since the last review.
+          </p>
+        </div>
+      )}
+
       {/* Talent User Info */}
       {talentUser && (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
@@ -216,14 +269,48 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
       <div className="rounded-xl border border-gray-200 bg-white p-6">
         <h2 className="mb-4 text-lg font-semibold text-gray-900">Profile Details</h2>
         <dl className="divide-y divide-gray-100">
-          {sortedFields.map((field) => (
-            <div key={field.id} className="py-3 sm:flex sm:gap-4">
-              <dt className="text-sm font-medium text-gray-500 sm:w-1/3">{field.field_label}</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:w-2/3">
-                {renderFieldValue(field, profile.field_data?.[field.field_key])}
-              </dd>
-            </div>
-          ))}
+          {sortedFields.map((field) => {
+            const isChanged = changedKeys.has(field.field_key);
+            return (
+              <div
+                key={field.id}
+                className={`py-3 sm:flex sm:gap-4 ${isChanged ? 'rounded-md border-l-4 border-amber-400 bg-amber-50 pl-3' : ''}`}
+              >
+                <dt className="text-sm font-medium text-gray-500 sm:w-1/3">
+                  {field.field_label}
+                  {isChanged && (
+                    <span className="ml-2 inline-block rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800">
+                      Changed
+                    </span>
+                  )}
+                </dt>
+                <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:w-2/3">
+                  {renderFieldValue(field, profile.field_data?.[field.field_key])}
+                  {isChanged && prev && (
+                    <div className="mt-1 text-xs text-gray-500">
+                      <span className="font-medium">Previously:</span>{' '}
+                      {prev[field.field_key] === undefined || prev[field.field_key] === null || prev[field.field_key] === ''
+                        ? <span className="italic">Not provided</span>
+                        : String(
+                            field.field_type === 'multi_select' && Array.isArray(prev[field.field_key])
+                              ? prev[field.field_key]
+                                  .map((v: string) => {
+                                    const opt = (field.options ?? []).find((o) => o.value === v);
+                                    return opt?.label || v;
+                                  })
+                                  .join(', ')
+                              : field.field_type === 'select'
+                                ? ((field.options ?? []).find((o) => o.value === prev[field.field_key])?.label || prev[field.field_key])
+                                : field.field_type === 'currency'
+                                  ? `$${Number(prev[field.field_key]).toLocaleString()}`
+                                  : prev[field.field_key],
+                          )}
+                    </div>
+                  )}
+                </dd>
+              </div>
+            );
+          })}
         </dl>
       </div>
 
@@ -231,8 +318,15 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
       {(profile.field_data?._skills?.length > 0 || profile.field_data?._tools?.length > 0) && (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
           {profile.field_data?._skills?.length > 0 && (
-            <div className="mb-6">
-              <h2 className="mb-3 text-lg font-semibold text-gray-900">Skill Sets</h2>
+            <div className={`mb-6 ${changedKeys.has('_skills') ? 'rounded-md border-l-4 border-amber-400 bg-amber-50 p-3' : ''}`}>
+              <h2 className="mb-3 text-lg font-semibold text-gray-900">
+                Skill Sets
+                {changedKeys.has('_skills') && (
+                  <span className="ml-2 inline-block rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800">
+                    Changed
+                  </span>
+                )}
+              </h2>
               <div className="space-y-2">
                 {profile.field_data._skills.map((s: { skill: string; level: number }) => (
                   <div key={s.skill} className="flex items-center gap-3">
@@ -252,8 +346,15 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
             </div>
           )}
           {profile.field_data?._tools?.length > 0 && (
-            <div>
-              <h2 className="mb-3 text-lg font-semibold text-gray-900">Tools</h2>
+            <div className={changedKeys.has('_tools') ? 'rounded-md border-l-4 border-amber-400 bg-amber-50 p-3' : ''}>
+              <h2 className="mb-3 text-lg font-semibold text-gray-900">
+                Tools
+                {changedKeys.has('_tools') && (
+                  <span className="ml-2 inline-block rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800">
+                    Changed
+                  </span>
+                )}
+              </h2>
               <div className="flex flex-wrap gap-2">
                 {profile.field_data._tools.map((tool: string) => (
                   <span
@@ -272,16 +373,25 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
       {/* AI Tools */}
       {profile.field_data?._ai_tools?.length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">AI Tools</h2>
-          <div className="flex flex-wrap gap-2">
-            {profile.field_data._ai_tools.map((tool: string) => (
-              <span
-                key={tool}
-                className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700"
-              >
-                {tool}
-              </span>
-            ))}
+          <div className={changedKeys.has('_ai_tools') ? 'rounded-md border-l-4 border-amber-400 bg-amber-50 p-3' : ''}>
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">
+              AI Tools
+              {changedKeys.has('_ai_tools') && (
+                <span className="ml-2 inline-block rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800">
+                  Changed
+                </span>
+              )}
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {profile.field_data._ai_tools.map((tool: string) => (
+                <span
+                  key={tool}
+                  className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700"
+                >
+                  {tool}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -289,27 +399,45 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
       {/* Plan Wages */}
       {profile.field_data?._plan_wages && (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">Plan Wages</h2>
-          <dl className="grid gap-4 sm:grid-cols-3">
-            {profile.field_data._plan_wages.hourly != null && (
-              <div>
-                <dt className="text-xs font-medium uppercase text-gray-500">Hourly Rate</dt>
-                <dd className="mt-1 text-lg font-semibold text-gray-900">${profile.field_data._plan_wages.hourly}</dd>
-              </div>
-            )}
-            {profile.field_data._plan_wages.daily != null && (
-              <div>
-                <dt className="text-xs font-medium uppercase text-gray-500">Daily Rate</dt>
-                <dd className="mt-1 text-lg font-semibold text-gray-900">${profile.field_data._plan_wages.daily}</dd>
-              </div>
-            )}
-            {profile.field_data._plan_wages.monthly != null && (
-              <div>
-                <dt className="text-xs font-medium uppercase text-gray-500">Monthly Rate</dt>
-                <dd className="mt-1 text-lg font-semibold text-gray-900">${profile.field_data._plan_wages.monthly}</dd>
-              </div>
-            )}
-          </dl>
+          <div className={changedKeys.has('_plan_wages') ? 'rounded-md border-l-4 border-amber-400 bg-amber-50 p-3' : ''}>
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">
+              Plan Wages
+              {changedKeys.has('_plan_wages') && (
+                <span className="ml-2 inline-block rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800">
+                  Changed
+                </span>
+              )}
+            </h2>
+            <dl className="grid gap-4 sm:grid-cols-3">
+              {profile.field_data._plan_wages.hourly != null && (
+                <div>
+                  <dt className="text-xs font-medium uppercase text-gray-500">Hourly Rate</dt>
+                  <dd className="mt-1 text-lg font-semibold text-gray-900">${profile.field_data._plan_wages.hourly}</dd>
+                  {changedKeys.has('_plan_wages') && prev?._plan_wages?.hourly != null && prev._plan_wages.hourly !== profile.field_data._plan_wages.hourly && (
+                    <dd className="text-xs text-gray-500">Previously: ${prev._plan_wages.hourly}</dd>
+                  )}
+                </div>
+              )}
+              {profile.field_data._plan_wages.daily != null && (
+                <div>
+                  <dt className="text-xs font-medium uppercase text-gray-500">Daily Rate</dt>
+                  <dd className="mt-1 text-lg font-semibold text-gray-900">${profile.field_data._plan_wages.daily}</dd>
+                  {changedKeys.has('_plan_wages') && prev?._plan_wages?.daily != null && prev._plan_wages.daily !== profile.field_data._plan_wages.daily && (
+                    <dd className="text-xs text-gray-500">Previously: ${prev._plan_wages.daily}</dd>
+                  )}
+                </div>
+              )}
+              {profile.field_data._plan_wages.monthly != null && (
+                <div>
+                  <dt className="text-xs font-medium uppercase text-gray-500">Monthly Rate</dt>
+                  <dd className="mt-1 text-lg font-semibold text-gray-900">${profile.field_data._plan_wages.monthly}</dd>
+                  {changedKeys.has('_plan_wages') && prev?._plan_wages?.monthly != null && prev._plan_wages.monthly !== profile.field_data._plan_wages.monthly && (
+                    <dd className="text-xs text-gray-500">Previously: ${prev._plan_wages.monthly}</dd>
+                  )}
+                </div>
+              )}
+            </dl>
+          </div>
         </div>
       )}
 

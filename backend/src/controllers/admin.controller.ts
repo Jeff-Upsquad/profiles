@@ -411,6 +411,18 @@ export async function getBusinessUsers(_req: Request, res: Response, next: NextF
   }
 }
 
+export async function extendBusinessAccess(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.extendBusinessAccess(
+      req.params.businessId as string,
+      req.body.days
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function suspendUser(req: Request, res: Response, next: NextFunction) {
   try {
     const { suspend } = req.body;

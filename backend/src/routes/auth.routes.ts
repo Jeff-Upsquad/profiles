@@ -31,6 +31,13 @@ router.post(
   authController.businessLogin
 );
 
+// Request access renewal (public, no auth required)
+router.post(
+  '/request-access',
+  validate({ body: businessLoginSchema }),
+  authController.requestAccess
+);
+
 router.post('/logout', authController.logout);
 
 router.post('/refresh', authController.refresh);

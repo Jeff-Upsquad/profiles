@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
+import { markInvitationAccepted } from './invite.service.js';
 
 const SESSION_DURATION_HOURS = 24;
 
@@ -44,6 +45,15 @@ export async function businessLogin(email: string) {
     });
 
   if (sessionError) throw new AppError(500, 'Failed to create session');
+
+  // Mark linked invitation as accepted on first login
+  if (businessUser.invitation_id) {
+    try {
+      await markInvitationAccepted(businessUser.invitation_id);
+    } catch {
+      // Non-fatal: don't block login if invitation update fails
+    }
+  }
 
   return {
     access_token: token,
@@ -104,4 +114,28 @@ export async function validateBusinessToken(token: string) {
 
 export async function businessLogout(token: string) {
   await supabaseAdmin.from('business_sessions').delete().eq('token', token);
+}
+
+export async function requestAccess(email: string) {
+  const { data: user, error } = await supabaseAdmin
+    .from('business_users')
+    .select('id, access_expires_at')
+    .eq('contact_email', email.toLowerCase())
+    .maybeSingle();
+
+  if (error) throw new AppError(500, error.message);
+  if (!user) throw new AppError(404, 'No account found for this email.');
+
+  if (!user.access_expires_at || new Date(user.access_expires_at) >= new Date()) {
+    throw new AppError(400, 'Your access has not expired.');
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from('business_users')
+    .update({ access_requested_at: new Date().toISOString() })
+    .eq('id', user.id);
+
+  if (updateError) throw new AppError(500, updateError.message);
+
+  return { message: 'Your request has been sent to the administrator.' };
 }

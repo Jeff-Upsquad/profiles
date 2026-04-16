@@ -21,7 +21,12 @@ export const shareProfilesSchema = z.object({
   category_id: z.string().uuid(),
 });
 
+export const extendAccessSchema = z.object({
+  days: z.number().int().min(1).max(365),
+});
+
 export type CreateInvitationInput = z.infer<typeof createInvitationSchema>;
 export type BusinessLoginInput = z.infer<typeof businessLoginSchema>;
 export type AssignCategoriesInput = z.infer<typeof assignCategoriesSchema>;
 export type ShareProfilesInput = z.infer<typeof shareProfilesSchema>;
+export type ExtendAccessInput = z.infer<typeof extendAccessSchema>;
