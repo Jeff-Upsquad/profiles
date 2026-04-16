@@ -87,7 +87,7 @@ export default function ThreadsProfileView({
 
   if (isLoading) {
     return (
-      <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-white">
+      <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
         <ThreadsProfileSkeleton />
       </div>
     );
@@ -95,23 +95,24 @@ export default function ThreadsProfileView({
 
   if (error || !profile) {
     return (
-      <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-white">
-        <ThreadsProfileShell>
-          <ThreadsTopBar displayName="" onBack={onBack} />
+      <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
+        <ThreadsProfileShell
+          topBar={<ThreadsTopBar displayName="" onBack={onBack} />}
+        >
           <div className="flex flex-col items-center justify-center py-20 px-5">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--threads-bg-tag)]">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--threads-text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#a3a3a3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" />
                 <line x1="12" y1="8" x2="12" y2="12" />
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
             </div>
-            <p className="mt-4 text-[15px] font-medium text-[var(--threads-text-primary)]">
+            <p className="mt-4 text-[15px] font-medium text-zinc-950">
               {error || 'Profile not found'}
             </p>
             <button
               onClick={onBack}
-              className="mt-3 text-[14px] font-medium text-[var(--threads-text-secondary)] hover:underline"
+              className="mt-3 text-[14px] font-medium text-zinc-500 hover:underline"
             >
               Go back
             </button>
@@ -124,10 +125,10 @@ export default function ThreadsProfileView({
   const hasPortfolio = portfolioItems && portfolioItems.length > 0;
 
   return (
-    <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-white">
-      <ThreadsProfileShell>
-        <ThreadsTopBar displayName={talentUser.full_name} onBack={onBack} />
-
+    <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
+      <ThreadsProfileShell
+        topBar={<ThreadsTopBar displayName={talentUser.full_name} onBack={onBack} />}
+      >
         <ThreadsProfileHeader
           profile={profile}
           talentUser={talentUser}
@@ -144,14 +145,12 @@ export default function ThreadsProfileView({
           fields={fields}
           fieldData={profile.field_data}
           bioFieldKey={bioFieldKey}
+          languages={talentUser.languages_spoken}
         />
 
         {/* Portfolio section */}
         {hasPortfolio && (
           <>
-            {/* Divider */}
-            <div className="mx-5 mt-4 border-t border-[var(--threads-border)]" />
-
             <ThreadsPortfolioTabBar
               tabs={portfolioTabs}
               activeTab={activeTab}
@@ -168,22 +167,21 @@ export default function ThreadsProfileView({
         {/* Empty portfolio for talent view */}
         {mode === 'talent' && !hasPortfolio && (
           <>
-            <div className="mx-5 mt-4 border-t border-[var(--threads-border)]" />
             <div className="flex flex-col items-center justify-center py-16 px-5">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--threads-bg-tag)]">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--threads-text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a3a3a3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                   <circle cx="8.5" cy="8.5" r="1.5" />
                   <polyline points="21 15 16 10 5 21" />
                 </svg>
               </div>
-              <p className="mt-3 text-[14px] text-[var(--threads-text-secondary)]">No portfolio items yet</p>
+              <p className="mt-3 text-[14px] text-zinc-500">No portfolio items yet</p>
             </div>
           </>
         )}
 
         {/* Bottom padding */}
-        <div className="h-8" />
+        <div className="h-4" />
       </ThreadsProfileShell>
 
       {/* Interest Modal */}
@@ -213,7 +211,7 @@ export default function ThreadsProfileView({
             <button
               onClick={handleSendInterest}
               disabled={!interestMessage.trim() || interestLoading}
-              className="rounded-lg bg-[var(--threads-accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              className="rounded-lg bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
             >
               {interestLoading ? 'Sending...' : 'Send Interest'}
             </button>

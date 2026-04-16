@@ -41,7 +41,7 @@ function extractWebsite(fields: CategoryField[], fieldData: Record<string, any>)
 }
 
 function generateUsername(name: string): string {
-  return '@' + name.toLowerCase().replace(/\s+/g, '.');
+  return name.toLowerCase().replace(/\s+/g, '.');
 }
 
 export default function ThreadsProfileHeader({
@@ -61,21 +61,21 @@ export default function ThreadsProfileHeader({
   const isVerified = profile.status === 'approved';
 
   return (
-    <div className="px-5 pt-5 pb-2">
+    <div className="pt-6 px-6 pb-2">
       {/* Name + Avatar row */}
       <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0 pr-4">
-          <h1 className="font-serif-display text-[30px] leading-[1.15] text-[var(--threads-text-primary)]">
+        <div className="flex-1 min-w-0 pr-4 mt-1">
+          <h1 className="text-[26px] sm:text-[28px] font-bold tracking-tight text-zinc-950 leading-none">
             {talentUser.full_name}
           </h1>
-          <p className="mt-0.5 text-sm text-[var(--threads-text-secondary)]">
+          <p className="mt-2 text-[15px] text-zinc-950">
             {generateUsername(talentUser.full_name)}
           </p>
         </div>
 
         {/* Avatar */}
         <div className="relative flex-shrink-0">
-          <div className="h-[84px] w-[84px] rounded-full border-[3px] border-white ring-1 ring-[var(--threads-border)] overflow-hidden bg-gray-100">
+          <div className="h-[84px] w-[84px] rounded-full overflow-hidden bg-gray-100">
             {talentUser.profile_photo_url ? (
               <img
                 src={talentUser.profile_photo_url}
@@ -100,36 +100,27 @@ export default function ThreadsProfileHeader({
 
       {/* Category */}
       {category && (
-        <p className="mt-3 text-[14.5px] font-medium text-[var(--threads-text-primary)]">
+        <p className="mt-3 text-[14.5px] font-medium text-zinc-800">
           {category.name}
         </p>
       )}
 
       {/* Meta row */}
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-        {talentUser.current_location && (
-          <span className="flex items-center gap-1 text-[13px] text-[var(--threads-text-secondary)]">
+      {talentUser.current_location && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="flex items-center gap-1 text-[13px] text-zinc-500">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
               <circle cx="12" cy="10" r="3" />
             </svg>
             {talentUser.current_location}
           </span>
-        )}
-        {talentUser.languages_spoken && talentUser.languages_spoken.length > 0 && (
-          <span className="flex items-center gap-1 text-[13px] text-[var(--threads-text-secondary)]">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
-            </svg>
-            {talentUser.languages_spoken.map((l) => l.language).join(', ')}
-          </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Bio */}
       {bio && (
-        <p className="mt-3 text-[14.5px] leading-relaxed text-[var(--threads-text-primary)]">
+        <p className="mt-3 text-[14.5px] leading-relaxed text-zinc-800">
           {bio}
         </p>
       )}
@@ -140,7 +131,7 @@ export default function ThreadsProfileHeader({
           href={website.startsWith('http') ? website : `https://${website}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2 inline-block text-[14.5px] font-semibold text-[var(--threads-text-primary)] hover:underline"
+          className="mt-2 inline-block text-[14.5px] font-semibold text-zinc-950 hover:underline"
         >
           {website.replace(/^https?:\/\//, '')}
         </a>
@@ -153,7 +144,7 @@ export default function ThreadsProfileHeader({
             <button
               onClick={onShortlist}
               disabled={shortlistLoading}
-              className="flex h-[40px] items-center justify-center rounded-[10px] bg-[var(--threads-accent)] text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="flex h-[40px] items-center justify-center rounded-[10px] bg-zinc-950 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {shortlistLoading ? (
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -164,7 +155,7 @@ export default function ThreadsProfileHeader({
             <button
               onClick={onSendInterest}
               disabled={interestLoading}
-              className="flex h-[40px] items-center justify-center rounded-[10px] border border-[var(--threads-border)] bg-[var(--threads-bg)] text-sm font-semibold text-[var(--threads-text-primary)] transition-colors hover:bg-[var(--threads-bg-hover)] disabled:opacity-50"
+              className="flex h-[40px] items-center justify-center rounded-[10px] border border-zinc-200 bg-white text-sm font-semibold text-zinc-950 transition-colors hover:bg-zinc-50 disabled:opacity-50"
             >
               {interestLoading ? (
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
@@ -177,7 +168,7 @@ export default function ThreadsProfileHeader({
           editProfileHref && (
             <Link
               href={editProfileHref}
-              className="flex h-[40px] w-full items-center justify-center rounded-[10px] border border-[var(--threads-border)] bg-[var(--threads-bg)] text-sm font-semibold text-[var(--threads-text-primary)] transition-colors hover:bg-[var(--threads-bg-hover)]"
+              className="flex h-[40px] w-full items-center justify-center rounded-[10px] border border-zinc-200 bg-white text-sm font-semibold text-zinc-950 transition-colors hover:bg-zinc-50"
             >
               Edit Profile
             </Link>

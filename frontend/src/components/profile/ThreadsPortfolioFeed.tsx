@@ -59,8 +59,8 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
 
   return (
     <>
-      {/* Instagram-style 3-column grid */}
-      <div className="grid grid-cols-3 gap-[1px] bg-[var(--threads-border-light)]">
+      {/* Portfolio grid — 2 cols mobile, 3 cols desktop */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-0.5 mt-0.5 pb-0.5 px-0.5">
         {filtered.map((item, index) => (
           <ThreadsPortfolioCard
             key={item.id}
