@@ -67,6 +67,56 @@ export async function getSharedProfiles(businessUserId: string, categoryId: stri
   }).filter(Boolean);
 }
 
+export async function getSharedProfile(businessUserId: string, categoryId: string, profileId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('business_shared_profiles')
+    .select('talent_profile_id, talent_profiles(*, talent_users(full_name, current_location, languages_spoken, profile_photo_url, phone), categories(id, name, slug))')
+    .eq('business_user_id', businessUserId)
+    .eq('category_id', categoryId)
+    .eq('talent_profile_id', profileId)
+    .single();
+
+  if (error || !data) throw new AppError(404, 'Shared profile not found');
+
+  const p = (data as any).talent_profiles;
+  if (!p) throw new AppError(404, 'Profile not found');
+
+  return {
+    id: p.id,
+    user_id: p.talent_user_id,
+    category_id: p.category_id,
+    category: p.categories,
+    status: p.status,
+    field_data: p.field_data,
+    talent_user: p.talent_users,
+    created_at: p.created_at,
+    updated_at: p.updated_at,
+  };
+}
+
+export async function getPortfolioForProfile(businessUserId: string, categoryId: string, profileId: string) {
+  // Verify the profile is shared with this business user
+  const { data: shared } = await supabaseAdmin
+    .from('business_shared_profiles')
+    .select('id')
+    .eq('business_user_id', businessUserId)
+    .eq('category_id', categoryId)
+    .eq('talent_profile_id', profileId)
+    .single();
+
+  if (!shared) throw new AppError(404, 'Profile not shared with you');
+
+  const { data, error } = await supabaseAdmin
+    .from('portfolio_items')
+    .select('*')
+    .eq('profile_id', profileId)
+    .order('skill_name', { ascending: true })
+    .order('sort_order', { ascending: true });
+
+  if (error) throw new AppError(500, 'Failed to fetch portfolio items');
+  return data ?? [];
+}
+
 // ─── Discover Profiles ──────────────────────────────────────────────────────
 
 export async function discoverProfiles(categorySlug: string, query: DiscoverQueryInput) {

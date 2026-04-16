@@ -166,3 +166,25 @@ export function useSharedProfiles(categoryId: string | undefined) {
     enabled: !!categoryId,
   });
 }
+
+export function useSharedProfile(categoryId: string | undefined, profileId: string | undefined) {
+  return useQuery<Profile>({
+    queryKey: ['shared-profile', categoryId, profileId],
+    queryFn: async () => {
+      const { data } = await api.get(`/business/my-categories/${categoryId}/profiles/${profileId}`);
+      return data.profile ?? data;
+    },
+    enabled: !!categoryId && !!profileId,
+  });
+}
+
+export function useBusinessPortfolio(categoryId: string | undefined, profileId: string | undefined) {
+  return useQuery<any[]>({
+    queryKey: ['business-portfolio', categoryId, profileId],
+    queryFn: async () => {
+      const { data } = await api.get(`/business/my-categories/${categoryId}/profiles/${profileId}/portfolio`);
+      return data.items ?? data;
+    },
+    enabled: !!categoryId && !!profileId,
+  });
+}

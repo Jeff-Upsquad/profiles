@@ -114,3 +114,29 @@ export async function getSharedProfiles(req: Request, res: Response, next: NextF
     next(err);
   }
 }
+
+export async function getSharedProfile(req: Request, res: Response, next: NextFunction) {
+  try {
+    const profile = await businessService.getSharedProfile(
+      req.user!.id,
+      req.params.categoryId as string,
+      req.params.profileId as string
+    );
+    res.json({ profile });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getSharedProfilePortfolio(req: Request, res: Response, next: NextFunction) {
+  try {
+    const items = await businessService.getPortfolioForProfile(
+      req.user!.id,
+      req.params.categoryId as string,
+      req.params.profileId as string
+    );
+    res.json({ items });
+  } catch (err) {
+    next(err);
+  }
+}

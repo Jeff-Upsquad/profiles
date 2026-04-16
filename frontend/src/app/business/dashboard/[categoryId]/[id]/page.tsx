@@ -2,23 +2,25 @@
 
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDiscoverProfile, useAddToShortlist, useSendInterest, useBusinessPortfolio } from '@/hooks/useBusiness';
+import { useSharedProfile, useBusinessPortfolio, useAddToShortlist, useSendInterest } from '@/hooks/useBusiness';
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import ThreadsProfileView from '@/views/shared/ThreadsProfileView';
 
 interface Params {
-  slug: string;
+  categoryId: string;
   id: string;
 }
 
-export default function ViewProfilePage(props: { params: Promise<Params> }) {
+export default function DashboardProfilePage(props: { params: Promise<Params> }) {
   const params = use(props.params);
   const router = useRouter();
 
-  const { data: profile, isLoading: profileLoading, error: profileError } = useDiscoverProfile(params.slug, params.id);
-  const { data: categoryWithFields } = useCategoryWithFields(params.slug);
-  const categoryId = profile?.category_id ?? (categoryWithFields as any)?.id;
-  const { data: portfolioItems } = useBusinessPortfolio(categoryId, params.id);
+  const { data: profile, isLoading: profileLoading, error: profileError } = useSharedProfile(params.categoryId, params.id);
+  const { data: portfolioItems } = useBusinessPortfolio(params.categoryId, params.id);
+
+  const categorySlug = (profile as any)?.category?.slug;
+  const { data: categoryWithFields } = useCategoryWithFields(categorySlug);
+
   const addToShortlist = useAddToShortlist();
   const sendInterest = useSendInterest();
 
@@ -42,7 +44,7 @@ export default function ViewProfilePage(props: { params: Promise<Params> }) {
       interestLoading={sendInterest.isPending}
       isLoading={profileLoading}
       error={profileError ? 'Failed to load profile' : undefined}
-      onBack={() => router.push(`/business/discover/${params.slug}`)}
+      onBack={() => router.push('/business/dashboard')}
     />
   );
 }

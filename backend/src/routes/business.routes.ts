@@ -46,5 +46,7 @@ router.post(
 // Subscribed categories & shared profiles (invite-only system)
 router.get('/my-categories', businessController.getMyCategories);
 router.get('/my-categories/:categoryId/profiles', businessController.getSharedProfiles);
+router.get('/my-categories/:categoryId/profiles/:profileId', businessController.getSharedProfile);
+router.get('/my-categories/:categoryId/profiles/:profileId/portfolio', businessController.getSharedProfilePortfolio);
 
 export default router;

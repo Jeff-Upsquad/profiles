@@ -10,11 +10,12 @@ export interface SidebarItem {
 }
 
 interface DashboardLayoutProps {
-  sidebarItems: SidebarItem[];
+  sidebarItems?: SidebarItem[];
+  sidebarContent?: React.ReactNode;
   children: React.ReactNode;
 }
 
-export default function DashboardLayout({ sidebarItems, children }: DashboardLayoutProps) {
+export default function DashboardLayout({ sidebarItems, sidebarContent, children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
 
@@ -50,23 +51,27 @@ export default function DashboardLayout({ sidebarItems, children }: DashboardLay
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
-          <nav className="flex flex-col gap-1 p-4">
-            {sidebarItems.map((item) => (
-              <Link
-                key={item.to}
-                href={item.to}
-                onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  isActive(item.to)
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                {item.icon}
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          {sidebarContent ? (
+            <div className="h-full">{sidebarContent}</div>
+          ) : (
+            <nav className="flex flex-col gap-1 p-4">
+              {(sidebarItems ?? []).map((item) => (
+                <Link
+                  key={item.to}
+                  href={item.to}
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                    isActive(item.to)
+                      ? 'bg-indigo-50 text-indigo-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  {item.icon}
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          )}
         </aside>
 
         {/* Main content */}
