@@ -22,37 +22,37 @@ export const updateTalentUserSchema = z.object({
 
 export const updateBasicProfileSchema = z.object({
   // Section 2: Contact Details
-  permanent_address: z.string().max(500).optional(),
-  current_address: z.string().max(500).optional(),
-  current_district: z.string().max(200).optional(),
-  city: z.string().max(200).optional(),
-  pin_code: z.string().regex(/^\d{6}$/, 'PIN code must be 6 digits').optional(),
+  permanent_address: z.string().max(500).nullable().optional(),
+  current_address: z.string().max(500).nullable().optional(),
+  current_district: z.string().max(200).nullable().optional(),
+  city: z.string().max(200).nullable().optional(),
+  pin_code: z.string().regex(/^\d{6}$/, 'PIN code must be 6 digits').nullable().optional(),
 
   // Section 3: Job Preferences
-  availability: z.array(z.enum(['full_time', 'part_time'])).optional(),
-  job_type: z.array(z.enum(['remote', 'office', 'hybrid', 'field'])).optional(),
+  availability: z.array(z.enum(['full_time', 'part_time'])).nullable().optional(),
+  job_type: z.array(z.enum(['remote', 'office', 'hybrid', 'field'])).nullable().optional(),
 
   // Section 4: ID Proofs
-  aadhaar_number: z.string().regex(/^\d{12}$/, 'Aadhaar number must be 12 digits').optional(),
-  aadhaar_file_url: z.string().url().optional(),
-  pan_number: z.string().regex(/^[A-Z]{5}\d{4}[A-Z]$/, 'Invalid PAN format (e.g. ABCDE1234F)').optional(),
-  pan_file_url: z.string().url().optional(),
+  aadhaar_number: z.string().regex(/^\d{12}$/, 'Aadhaar number must be 12 digits').nullable().optional(),
+  aadhaar_file_url: z.string().url().nullable().optional(),
+  pan_number: z.string().regex(/^[A-Z]{5}\d{4}[A-Z]$/, 'Invalid PAN format (e.g. ABCDE1234F)').nullable().optional(),
+  pan_file_url: z.string().url().nullable().optional(),
 
   // Section 5: Profile Picture
-  profile_picture_url: z.string().url().optional(),
+  profile_picture_url: z.string().url().nullable().optional(),
 
   // Section 6: Bank Account Details
-  bank_account_holder: z.string().max(200).optional(),
-  bank_name: z.string().max(200).optional(),
-  bank_account_number: z.string().max(30).optional(),
-  bank_ifsc_code: z.string().max(20).optional(),
-  bank_branch_name: z.string().max(200).optional(),
+  bank_account_holder: z.string().max(200).nullable().optional(),
+  bank_name: z.string().max(200).nullable().optional(),
+  bank_account_number: z.string().max(30).nullable().optional(),
+  bank_ifsc_code: z.string().max(20).nullable().optional(),
+  bank_branch_name: z.string().max(200).nullable().optional(),
 
   // Section 7: Resume
-  resume_url: z.string().url().optional(),
+  resume_url: z.string().url().nullable().optional(),
 
   // Section 8: Expected Salary
-  expected_salary_monthly: z.number().int().min(0).optional(),
+  expected_salary_monthly: z.number().int().min(0).nullable().optional(),
 });
 
 export type CreateProfileInput = z.infer<typeof createProfileSchema>;
