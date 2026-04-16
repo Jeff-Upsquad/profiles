@@ -28,7 +28,7 @@ interface FormValues {
   native_place: string;
   district: string[];
   location: string;
-  work_type: string; // single-select chip
+  work_type: string[];
   education: string;
   experience_years: string;
   accounting_software: string[];
@@ -50,7 +50,7 @@ const initial: FormValues = {
   native_place: '',
   district: [],
   location: '',
-  work_type: '',
+  work_type: [],
   education: '',
   experience_years: '',
   accounting_software: [],
@@ -148,7 +148,7 @@ export default function AccountantLeadForm() {
     if (!form.native_place.trim()) errs.native_place = 'Native place is required';
     if (form.district.length === 0) errs.district = 'Select at least one district';
     if (!form.location.trim()) errs.location = 'Location is required';
-    if (!form.work_type) errs.work_type = 'Type of work is required';
+    if (form.work_type.length === 0) errs.work_type = 'Select at least one work type';
     if (!form.education.trim()) errs.education = 'Educational qualifications are required';
     if (!form.experience_years.trim()) errs.experience_years = 'Years of experience is required';
     if (form.accounting_software.length === 0) errs.accounting_software = 'Select at least one software';
@@ -373,12 +373,10 @@ export default function AccountantLeadForm() {
             <ChipSelect
               label="Type of Work"
               required
+              multi
               options={WORK_TYPE_OPTIONS}
               selected={form.work_type}
-              onChange={(v) => {
-                setForm((prev) => ({ ...prev, work_type: v as string }));
-                setErrors((prev) => ({ ...prev, work_type: undefined }));
-              }}
+              onChange={(v) => setMulti('work_type')(v as string[])}
               error={errors.work_type}
             />
 

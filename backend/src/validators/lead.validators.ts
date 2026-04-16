@@ -24,7 +24,7 @@ export const accountantLeadSchema = z.object({
   native_place: z.string().min(1, 'Native place is required').max(200),
   district: z.array(z.string()).min(1, 'At least one district is required'),
   location: z.string().min(1, 'Location is required').max(200),
-  work_type: z.enum(['Online', 'At Office', 'Hybrid']),
+  work_type: z.array(z.enum(['Online', 'At Office', 'Hybrid'])).min(1, 'At least one work type is required'),
   education: z.string().min(1, 'Educational qualifications are required'),
   experience_years: z.string().min(1, 'Years of experience is required'),
   accounting_software: z.array(z.string()).min(1, 'At least one software is required'),
