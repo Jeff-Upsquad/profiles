@@ -56,6 +56,15 @@ export async function updateBasicProfile(userId: string, input: UpdateBasicProfi
     .single();
 
   if (error) throw new AppError(500, `Failed to save basic profile: ${error.message}`);
+
+  // Sync profile picture to talent_users so job profiles display it
+  if (input.profile_picture_url !== undefined) {
+    await supabaseAdmin
+      .from('talent_users')
+      .update({ profile_photo_url: input.profile_picture_url })
+      .eq('id', userId);
+  }
+
   return data;
 }
 
