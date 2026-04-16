@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as adminController from '../controllers/admin.controller.js';
 import * as leadController from '../controllers/lead.controller.js';
+import * as formConfigController from '../controllers/form-config.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -216,5 +217,12 @@ router.patch(
   validate({ body: updateLeadStatusSchema }),
   leadController.updateLeadStatus
 );
+
+// ---------------------------------------------------------------------------
+// Public Forms Config
+// ---------------------------------------------------------------------------
+
+router.get('/forms', formConfigController.getPublicForms);
+router.patch('/forms/:id/toggle', formConfigController.toggleFormEnabled);
 
 export default router;

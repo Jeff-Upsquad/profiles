@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import Input from '@/components/ui/Input';
@@ -31,6 +31,18 @@ export default function CreativeLeadForm() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState('');
+  const [formDisabled, setFormDisabled] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(true);
+
+  useEffect(() => {
+    axios
+      .get('/api/leads/form-status/creative')
+      .then((res) => {
+        if (!res.data.enabled) setFormDisabled(true);
+      })
+      .catch(() => {})
+      .finally(() => setCheckingStatus(false));
+  }, []);
 
   const set = (key: keyof FormValues) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -90,6 +102,29 @@ export default function CreativeLeadForm() {
       setSubmitting(false);
     }
   };
+
+  if (checkingStatus) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3]">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (formDisabled) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3] px-4">
+        <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center shadow-sm">
+          <h2 className="text-2xl font-semibold text-neutral-900">
+            Applications Closed
+          </h2>
+          <p className="mt-2 text-neutral-500">
+            This form is currently not accepting applications. Please check back later.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (

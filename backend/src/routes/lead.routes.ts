@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import * as leadController from '../controllers/lead.controller.js';
+import * as formConfigController from '../controllers/form-config.controller.js';
 import { validate } from '../middleware/validate.middleware.js';
 import { createLeadSchema } from '../validators/lead.validators.js';
 
@@ -32,5 +33,8 @@ router.post(
 
 // Public presigned URL for resume upload (no auth, rate-limited)
 router.post('/upload-url', uploadLimiter, leadController.getUploadUrl);
+
+// Public — check if a form is enabled
+router.get('/form-status/:formType', formConfigController.checkFormStatus);
 
 export default router;
