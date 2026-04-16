@@ -40,10 +40,6 @@ function extractWebsite(fields: CategoryField[], fieldData: Record<string, any>)
   return val && typeof val === 'string' && (val.startsWith('http') || val.startsWith('www')) ? val : null;
 }
 
-function generateUsername(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, '.');
-}
-
 export default function ThreadsProfileHeader({
   profile,
   talentUser,
@@ -68,9 +64,11 @@ export default function ThreadsProfileHeader({
           <h1 className="text-[26px] sm:text-[28px] font-bold tracking-tight text-zinc-950 leading-none">
             {talentUser.full_name}
           </h1>
-          <p className="mt-2 text-[15px] text-zinc-950">
-            {generateUsername(talentUser.full_name)}
-          </p>
+          {category && (
+            <p className="mt-2 text-[15px] text-zinc-500">
+              {category.name}
+            </p>
+          )}
         </div>
 
         {/* Avatar */}
@@ -97,13 +95,6 @@ export default function ThreadsProfileHeader({
           )}
         </div>
       </div>
-
-      {/* Category */}
-      {category && (
-        <p className="mt-3 text-[14.5px] font-medium text-zinc-800">
-          {category.name}
-        </p>
-      )}
 
       {/* Meta row */}
       {talentUser.current_location && (
