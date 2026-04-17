@@ -7,11 +7,14 @@ import api from '@/services/api';
 import toast from 'react-hot-toast';
 
 type LoginMode = 'talent' | 'business';
+type BusinessIdentifier = 'email' | 'phone';
 
 export default function Login() {
   const { login, businessLogin } = useAuth();
   const [mode, setMode] = useState<LoginMode>('talent');
+  const [bizIdentifier, setBizIdentifier] = useState<BusinessIdentifier>('email');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [accessExpired, setAccessExpired] = useState(false);
@@ -23,7 +26,7 @@ export default function Login() {
     setLoading(true);
     try {
       if (mode === 'business') {
-        await businessLogin(email);
+        await businessLogin(bizIdentifier === 'email' ? { email } : { phone });
       } else {
         await login(email, password);
       }
@@ -41,7 +44,10 @@ export default function Login() {
   const handleRequestAccess = async () => {
     setRequestLoading(true);
     try {
-      await api.post('/auth/request-access', { email });
+      await api.post(
+        '/auth/request-access',
+        bizIdentifier === 'email' ? { email } : { phone }
+      );
       setRequestSent(true);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to send request');
@@ -100,14 +106,52 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); resetExpiredState(); }}
-              placeholder="you@example.com"
-              required
-            />
+            {mode === 'business' && (
+              <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+                <button
+                  type="button"
+                  onClick={() => { setBizIdentifier('email'); resetExpiredState(); }}
+                  className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    bizIdentifier === 'email'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setBizIdentifier('phone'); resetExpiredState(); }}
+                  className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    bizIdentifier === 'phone'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Phone
+                </button>
+              </div>
+            )}
+
+            {mode === 'business' && bizIdentifier === 'phone' ? (
+              <Input
+                label="Phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => { setPhone(e.target.value); resetExpiredState(); }}
+                placeholder="+91 98765 43210"
+                required
+              />
+            ) : (
+              <Input
+                label="Email"
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); resetExpiredState(); }}
+                placeholder="you@example.com"
+                required
+              />
+            )}
 
             {mode === 'talent' && (
               <>
@@ -132,7 +176,7 @@ export default function Login() {
 
             {mode === 'business' && (
               <p className="text-xs text-gray-500">
-                Business users log in with their invited email address. No password required.
+                Business users log in with the email or phone they were invited with. No password required.
               </p>
             )}
 

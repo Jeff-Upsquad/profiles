@@ -30,7 +30,8 @@ export interface LoginPayload {
 }
 
 export interface BusinessLoginPayload {
-  email: string;
+  email?: string;
+  phone?: string;
 }
 
 export interface BusinessAuthResponse {

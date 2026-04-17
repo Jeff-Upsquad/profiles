@@ -13,7 +13,10 @@ export async function signupTalent(req: Request, res: Response, next: NextFuncti
 
 export async function businessLogin(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await businessAuthService.businessLogin(req.body.email);
+    const result = await businessAuthService.businessLogin({
+      email: req.body.email,
+      phone: req.body.phone,
+    });
     res.json(result);
   } catch (err) {
     next(err);
@@ -22,7 +25,10 @@ export async function businessLogin(req: Request, res: Response, next: NextFunct
 
 export async function requestAccess(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await businessAuthService.requestAccess(req.body.email);
+    const result = await businessAuthService.requestAccess({
+      email: req.body.email,
+      phone: req.body.phone,
+    });
     res.json(result);
   } catch (err) {
     next(err);

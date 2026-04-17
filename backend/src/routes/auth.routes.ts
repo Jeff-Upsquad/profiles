@@ -8,7 +8,7 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
 } from '../validators/auth.validators.js';
-import { businessLoginSchema } from '../validators/invite.validators.js';
+import { businessLoginSchema, requestAccessSchema } from '../validators/invite.validators.js';
 
 const router = Router();
 
@@ -24,7 +24,7 @@ router.post(
   authController.login
 );
 
-// Passwordless business login (email only)
+// Passwordless business login (email or phone)
 router.post(
   '/business-login',
   validate({ body: businessLoginSchema }),
@@ -34,7 +34,7 @@ router.post(
 // Request access renewal (public, no auth required)
 router.post(
   '/request-access',
-  validate({ body: businessLoginSchema }),
+  validate({ body: requestAccessSchema }),
   authController.requestAccess
 );
 

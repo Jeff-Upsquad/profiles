@@ -15,7 +15,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  businessLogin: (email: string) => Promise<void>;
+  businessLogin: (identifier: { email?: string; phone?: string }) => Promise<void>;
   signupTalent: (data: TalentSignupData) => Promise<void>;
   logout: () => void;
 }
@@ -75,8 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const businessLogin = useCallback(
-    async (email: string) => {
-      const { data } = await api.post('/auth/business-login', { email });
+    async (identifier: { email?: string; phone?: string }) => {
+      const { data } = await api.post('/auth/business-login', identifier);
       storeAuth(data.access_token || data.token, data.user);
       router.push('/business/dashboard');
     },

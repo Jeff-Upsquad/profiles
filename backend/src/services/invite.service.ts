@@ -8,9 +8,10 @@ export async function createInvitation(input: {
   expires_at?: string;
   company_name?: string;
   contact_person_name?: string;
+  phone?: string;
   adminId: string;
 }) {
-  const { email, role, expires_at, company_name, contact_person_name, adminId } = input;
+  const { email, role, expires_at, company_name, contact_person_name, phone, adminId } = input;
 
   // Check for existing pending invitation
   const { data: existing } = await supabaseAdmin
@@ -24,6 +25,21 @@ export async function createInvitation(input: {
     throw new AppError(409, 'A pending invitation already exists for this email');
   }
 
+  const trimmedPhone = role === 'business' && phone ? phone.trim() : null;
+
+  if (trimmedPhone) {
+    const normalized = trimmedPhone.replace(/\D/g, '');
+    const { data: phoneDupe } = await supabaseAdmin
+      .from('invitations')
+      .select('id')
+      .eq('phone_normalized', normalized)
+      .eq('status', 'pending')
+      .maybeSingle();
+    if (phoneDupe) {
+      throw new AppError(409, 'A pending invitation already exists for this phone number');
+    }
+  }
+
   // Create invitation
   const { data: invitation, error } = await supabaseAdmin
     .from('invitations')
@@ -34,6 +50,7 @@ export async function createInvitation(input: {
       expires_at: role === 'business' ? expires_at || null : null,
       company_name: role === 'business' ? company_name || null : null,
       contact_person_name: role === 'business' ? contact_person_name || null : null,
+      phone: trimmedPhone,
       invited_by: adminId,
     })
     .select()
@@ -51,6 +68,7 @@ export async function createInvitation(input: {
         company_name: company_name || 'Unnamed Company',
         contact_person_name: contact_person_name || '',
         contact_email: email.toLowerCase(),
+        contact_phone: trimmedPhone,
         access_expires_at: expires_at || null,
         invitation_id: invitation.id,
         is_active: true,

@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 interface Invitation {
   id: string;
   email: string;
+  phone?: string;
   role: 'talent' | 'business';
   status: 'pending' | 'accepted' | 'expired' | 'revoked';
   company_name?: string;
@@ -31,6 +32,7 @@ export default function InvitationList() {
   const [formRole, setFormRole] = useState<'talent' | 'business'>('talent');
   const [formCompanyName, setFormCompanyName] = useState('');
   const [formContactPerson, setFormContactPerson] = useState('');
+  const [formPhone, setFormPhone] = useState('');
   const [formExpiresAt, setFormExpiresAt] = useState('');
 
   const { data: invitations, isLoading } = useQuery<Invitation[]>({
@@ -78,6 +80,7 @@ export default function InvitationList() {
     setFormRole('talent');
     setFormCompanyName('');
     setFormContactPerson('');
+    setFormPhone('');
     setFormExpiresAt('');
   }
 
@@ -90,6 +93,9 @@ export default function InvitationList() {
     if (formRole === 'business') {
       payload.company_name = formCompanyName;
       payload.contact_person_name = formContactPerson;
+      if (formPhone.trim()) {
+        payload.phone = formPhone.trim();
+      }
       if (formExpiresAt) {
         payload.expires_at = new Date(formExpiresAt).toISOString();
       }
@@ -152,6 +158,7 @@ export default function InvitationList() {
             <thead className="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>
                 <th className="px-6 py-3">Email</th>
+                <th className="px-6 py-3">Phone</th>
                 <th className="px-6 py-3">Role</th>
                 <th className="px-6 py-3">Company</th>
                 <th className="px-6 py-3">Expires</th>
@@ -163,6 +170,7 @@ export default function InvitationList() {
               {invitations.map((inv) => (
                 <tr key={inv.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 font-medium text-gray-900">{inv.email}</td>
+                  <td className="px-6 py-4 text-gray-500">{inv.phone || '-'}</td>
                   <td className="px-6 py-4">
                     <Badge variant={inv.role === 'talent' ? 'green' : 'yellow'}>
                       {inv.role}
@@ -256,6 +264,14 @@ export default function InvitationList() {
                 value={formContactPerson}
                 onChange={(e) => setFormContactPerson(e.target.value)}
                 placeholder="John Doe"
+              />
+              <Input
+                label="Phone (optional)"
+                type="tel"
+                value={formPhone}
+                onChange={(e) => setFormPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+                helperText="Lets the user log in with phone instead of email."
               />
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">

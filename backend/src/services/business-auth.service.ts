@@ -6,17 +6,41 @@ import { markInvitationAccepted } from './invite.service.js';
 
 const SESSION_DURATION_HOURS = 24;
 
-export async function businessLogin(email: string) {
-  // Look up business user by contact_email
-  const { data: businessUser, error } = await supabaseAdmin
-    .from('business_users')
-    .select('*')
-    .eq('contact_email', email.toLowerCase())
-    .eq('is_active', true)
-    .maybeSingle();
+async function findBusinessUser(
+  identifier: { email?: string; phone?: string },
+  opts: { requireActive?: boolean } = {}
+) {
+  let qb = supabaseAdmin.from('business_users').select('*');
+  if (identifier.email) {
+    qb = qb.eq('contact_email', identifier.email.toLowerCase());
+  } else if (identifier.phone) {
+    const normalized = identifier.phone.replace(/\D/g, '');
+    if (!normalized) return null;
+    qb = qb.eq('contact_phone_normalized', normalized);
+  } else {
+    return null;
+  }
+  if (opts.requireActive) qb = qb.eq('is_active', true);
 
+  const { data, error } = await qb.maybeSingle();
   if (error) throw new AppError(500, error.message);
-  if (!businessUser) throw new AppError(401, 'No account found for this email. Please contact the administrator.');
+  return data;
+}
+
+export async function businessLogin(identifier: { email?: string; phone?: string }) {
+  if (!identifier.email && !identifier.phone) {
+    throw new AppError(400, 'Email or phone is required');
+  }
+
+  const businessUser = await findBusinessUser(identifier, { requireActive: true });
+  if (!businessUser) {
+    throw new AppError(
+      401,
+      identifier.email
+        ? 'No account found for this email. Please contact the administrator.'
+        : 'No account found for this phone number. Please contact the administrator.'
+    );
+  }
 
   // Check expiration
   if (businessUser.access_expires_at && new Date(businessUser.access_expires_at) < new Date()) {
@@ -28,7 +52,7 @@ export async function businessLogin(email: string) {
   const token = jwt.sign(
     {
       sub: businessUser.id,
-      email: email.toLowerCase(),
+      email: businessUser.contact_email,
       role: 'business',
     },
     env.JWT_SECRET,
@@ -59,7 +83,7 @@ export async function businessLogin(email: string) {
     access_token: token,
     user: {
       id: businessUser.id,
-      email: email.toLowerCase(),
+      email: businessUser.contact_email,
       role: 'business' as const,
       company_name: businessUser.company_name,
       contact_person_name: businessUser.contact_person_name,
@@ -116,15 +140,13 @@ export async function businessLogout(token: string) {
   await supabaseAdmin.from('business_sessions').delete().eq('token', token);
 }
 
-export async function requestAccess(email: string) {
-  const { data: user, error } = await supabaseAdmin
-    .from('business_users')
-    .select('id, access_expires_at')
-    .eq('contact_email', email.toLowerCase())
-    .maybeSingle();
+export async function requestAccess(identifier: { email?: string; phone?: string }) {
+  if (!identifier.email && !identifier.phone) {
+    throw new AppError(400, 'Email or phone is required');
+  }
 
-  if (error) throw new AppError(500, error.message);
-  if (!user) throw new AppError(404, 'No account found for this email.');
+  const user = await findBusinessUser(identifier);
+  if (!user) throw new AppError(404, 'No account found.');
 
   if (!user.access_expires_at || new Date(user.access_expires_at) >= new Date()) {
     throw new AppError(400, 'Your access has not expired.');
