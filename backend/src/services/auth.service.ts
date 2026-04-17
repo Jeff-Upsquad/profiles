@@ -149,14 +149,11 @@ export async function resetPassword(accessToken: string, newPassword: string) {
 }
 
 export async function changePassword(userId: string, newPassword: string) {
-  const { data: existing, error: getErr } = await supabaseAdmin.auth.admin.getUserById(userId);
-  if (getErr || !existing?.user) throw new AppError(404, 'User not found');
-
-  const { must_reset_password: _flag, ...cleanMetadata } = existing.user.user_metadata ?? {};
-
+  // Supabase's updateUserById merges user_metadata, so omitting a key doesn't
+  // remove it — set must_reset_password to false explicitly to clear the flag.
   const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
     password: newPassword,
-    user_metadata: cleanMetadata,
+    user_metadata: { must_reset_password: false },
   });
 
   if (error) throw new AppError(400, error.message);

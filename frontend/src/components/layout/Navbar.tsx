@@ -38,7 +38,7 @@ export default function Navbar() {
               <>
                 <span className="text-sm text-neutral-500">{user.email}</span>
                 <Badge variant="indigo">{user.role}</Badge>
-                <Button variant="ghost" size="sm" onClick={logout}>
+                <Button variant="ghost" size="sm" onClick={() => logout()}>
                   Logout
                 </Button>
               </>

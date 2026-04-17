@@ -15,6 +15,12 @@ export default function ChangePassword() {
 
   const mustReset = user?.must_reset_password === true;
 
+  const loginPathForRole = () => {
+    if (user?.role === 'business') return '/login/business';
+    if (user?.role === 'talent') return '/login/talent';
+    return '/login';
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (newPassword.length < 6) {
@@ -29,7 +35,7 @@ export default function ChangePassword() {
     try {
       await api.post('/auth/change-password', { new_password: newPassword });
       toast.success('Password updated. Please sign in with your new password.');
-      logout();
+      logout(loginPathForRole());
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to update password');
     } finally {

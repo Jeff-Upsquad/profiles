@@ -19,7 +19,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   businessLogin: (identifier: { email?: string; phone?: string }) => Promise<void>;
   signupTalent: (data: TalentSignupData, options?: { skipRedirect?: boolean }) => Promise<void>;
-  logout: () => void;
+  logout: (redirectTo?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -105,10 +105,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [storeAuth, router]
   );
 
-  const logout = useCallback(() => {
-    clearAuth();
-    router.push('/');
-  }, [clearAuth, router]);
+  const logout = useCallback(
+    (redirectTo: string = '/') => {
+      clearAuth();
+      router.push(redirectTo);
+    },
+    [clearAuth, router]
+  );
 
   return (
     <AuthContext.Provider
