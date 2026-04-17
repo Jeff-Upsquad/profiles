@@ -8,11 +8,13 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { useAuth } from '@/context/AuthContext';
+import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
 import type { Category } from '@/types';
 
 export default function ProfileCreate() {
   const router = useRouter();
   const { user } = useAuth();
+  const isApproved = user?.approval_status === 'approved';
   const { data: categories, isLoading: catLoading } = useCategories();
   const { data: profiles } = useMyProfiles();
   const createProfile = useCreateProfile();
@@ -105,26 +107,6 @@ export default function ProfileCreate() {
     }
   };
 
-  // Block if not approved
-  if (user?.approval_status !== 'approved') {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Create New Profile</h1>
-        <Card className="py-12 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
-            <svg className="h-8 w-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-          <h3 className="mb-2 text-lg font-semibold text-gray-900">This module is locked</h3>
-          <p className="text-sm text-gray-500">
-            This will be opened once your account is approved.
-          </p>
-        </Card>
-      </div>
-    );
-  }
-
   // Step 1: Category selection
   if (!selectedCategory) {
     return (
@@ -135,6 +117,8 @@ export default function ProfileCreate() {
             Step 1: Select a category for your profile
           </p>
         </div>
+
+        {!isApproved && <PendingApprovalBanner />}
 
         {catLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -200,6 +184,8 @@ export default function ProfileCreate() {
         </div>
       </div>
 
+      {!isApproved && <PendingApprovalBanner />}
+
       <Card>
         {fieldsLoading ? (
           <div className="space-y-4">
@@ -231,7 +217,7 @@ export default function ProfileCreate() {
               </div>
             )}
 
-            <div className="mt-6 flex flex-wrap gap-3 border-t border-gray-200 pt-6">
+            <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-gray-200 pt-6">
               <Button
                 variant="outline"
                 onClick={handleSaveDraft}
@@ -242,9 +228,16 @@ export default function ProfileCreate() {
               <Button
                 onClick={handleSaveAndSubmit}
                 loading={createProfile.isPending || submitProfile.isPending}
+                disabled={!isApproved}
+                title={!isApproved ? 'Available after account approval' : undefined}
               >
                 Save & Submit for Review
               </Button>
+              {!isApproved && (
+                <span className="text-xs text-gray-500">
+                  Submission unlocks once your account is approved.
+                </span>
+              )}
             </div>
           </>
         )}

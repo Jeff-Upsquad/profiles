@@ -24,12 +24,12 @@ router.put('/me', validate({ body: updateTalentUserSchema }), talentController.u
 router.get('/me/basic-profile', talentController.getBasicProfile);
 router.put('/me/basic-profile', validate({ body: updateBasicProfileSchema }), talentController.updateBasicProfile);
 
-// Talent profiles (require approval for creation)
+// Talent profiles (approval gates submission, not creation)
 router.get('/profiles', talentController.getProfiles);
-router.post('/profiles', requireApproval, validate({ body: createProfileSchema }), talentController.createProfile);
+router.post('/profiles', validate({ body: createProfileSchema }), talentController.createProfile);
 router.get('/profiles/:id', talentController.getProfile);
 router.put('/profiles/:id', validate({ body: updateProfileSchema }), talentController.updateProfile);
-router.patch('/profiles/:id/submit', talentController.submitProfile);
+router.patch('/profiles/:id/submit', requireApproval, talentController.submitProfile);
 router.patch('/profiles/:id/deactivate', talentController.deactivateProfile);
 router.patch('/profiles/:id/reactivate', talentController.reactivateProfile);
 router.delete('/profiles/:id', talentController.deleteProfile);

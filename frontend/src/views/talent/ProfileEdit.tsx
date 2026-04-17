@@ -4,12 +4,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useProfile, useUpdateProfile, useSubmitProfile } from '@/hooks/useProfiles';
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import { useTalentMe } from '@/hooks/useTalentMe';
+import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 import DynamicFormRenderer from '@/components/forms/DynamicFormRenderer';
 import DesignerExtras from '@/components/forms/DesignerExtras';
 import PortfolioUploader from '@/components/forms/PortfolioUploader';
 import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
+import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
@@ -17,6 +19,8 @@ import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
 export default function ProfileEdit({ profileId }: { profileId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const isApproved = user?.approval_status === 'approved';
   const { data: profile, isLoading: profileLoading } = useProfile(profileId);
   const updateProfile = useUpdateProfile();
   const submitProfile = useSubmitProfile();
@@ -219,12 +223,16 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
             <Button
               onClick={handleSaveAndSubmit}
               loading={updateProfile.isPending || submitProfile.isPending}
+              disabled={!isApproved}
+              title={!isApproved ? 'Available after account approval' : undefined}
             >
               Save & Submit
             </Button>
           )}
         </div>
       </div>
+
+      {!isApproved && <PendingApprovalBanner />}
 
       {profile.rejection_reason && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4">
