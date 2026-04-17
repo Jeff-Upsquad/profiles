@@ -280,12 +280,24 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
         )}
 
         {/* Portfolio */}
-        {profile && (values._skills ?? []).length > 0 && (
+        {profile && (
           <div className="mt-6 border-t border-gray-200 pt-6">
-            <PortfolioUploader
-              profileId={profileId}
-              skills={values._skills ?? []}
-            />
+            {(values._skills ?? []).length > 0 ? (
+              <PortfolioUploader
+                profileId={profileId}
+                skills={values._skills ?? []}
+              />
+            ) : (
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">Portfolio</h3>
+                <div className="mt-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+                  <p className="text-sm text-gray-600">
+                    Select at least one skill in <strong>Skill Sets</strong> above to start
+                    uploading portfolio items for it.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
