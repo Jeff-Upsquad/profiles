@@ -49,7 +49,7 @@ export default function ForgotPassword() {
                 We've sent a password reset link to <strong>{email}</strong>.
                 Please check your inbox and follow the instructions.
               </p>
-              <Link href="/login" className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+              <Link href="/login/talent" className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
                 Back to login
               </Link>
             </div>

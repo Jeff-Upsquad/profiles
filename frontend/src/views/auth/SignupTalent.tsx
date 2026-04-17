@@ -153,7 +153,7 @@ export default function SignupTalent() {
 
           <div className="mt-6 text-center text-sm text-gray-500">
             Already have an account?{' '}
-            <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-800">
+            <Link href="/login/talent" className="font-medium text-indigo-600 hover:text-indigo-800">
               Sign in
             </Link>
           </div>

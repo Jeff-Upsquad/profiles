@@ -22,7 +22,7 @@ export default function BusinessLayout({
   }
 
   if (!user) {
-    router.push('/login');
+    router.push('/login/business');
     return null;
   }
 

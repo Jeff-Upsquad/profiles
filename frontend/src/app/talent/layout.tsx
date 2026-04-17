@@ -70,7 +70,7 @@ export default function TalentLayout({
   }
 
   if (!user) {
-    router.push('/login');
+    router.push('/login/talent');
     return null;
   }
 
