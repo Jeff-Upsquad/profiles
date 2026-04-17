@@ -26,11 +26,29 @@ interface LeadsResponse {
   total_pages: number;
 }
 
-const statusColors: Record<string, 'blue' | 'yellow' | 'green' | 'red'> = {
+const statusColors: Record<string, 'blue' | 'yellow' | 'green' | 'red' | 'indigo' | 'gray'> = {
   new: 'blue',
+  under_review: 'yellow',
+  shortlisted: 'indigo',
+  partner_onboarding: 'yellow',
+  onboard_completed: 'green',
+  archived: 'gray',
+  // legacy
   contacted: 'yellow',
   converted: 'green',
   rejected: 'red',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  new: 'New',
+  under_review: 'Under Review',
+  shortlisted: 'Shortlisted',
+  partner_onboarding: 'Partner Onboarding',
+  onboard_completed: 'Onboard Completed',
+  archived: 'Archived',
+  contacted: 'Contacted',
+  converted: 'Converted',
+  rejected: 'Rejected',
 };
 
 const FORM_TYPE_TABS: { value: string; label: string }[] = [
@@ -97,9 +115,11 @@ export default function LeadList() {
           >
             <option value="">All</option>
             <option value="new">New</option>
-            <option value="contacted">Contacted</option>
-            <option value="converted">Converted</option>
-            <option value="rejected">Rejected</option>
+            <option value="under_review">Under Review</option>
+            <option value="shortlisted">Shortlisted</option>
+            <option value="partner_onboarding">Partner Onboarding</option>
+            <option value="onboard_completed">Onboard Completed</option>
+            <option value="archived">Archived</option>
           </select>
         </div>
         <div className="w-64">
@@ -155,7 +175,7 @@ export default function LeadList() {
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant={statusColors[lead.status] || 'gray'}>
-                      {lead.status}
+                      {STATUS_LABELS[lead.status] || lead.status}
                     </Badge>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">

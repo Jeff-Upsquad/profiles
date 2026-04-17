@@ -45,12 +45,59 @@ export const createLeadSchema = z.discriminatedUnion('form_type', [
   accountantLeadSchema,
 ]);
 
-export const updateLeadStatusSchema = z.object({
-  status: z.enum(['new', 'contacted', 'converted', 'rejected']),
-  admin_notes: z.string().optional(),
-});
+export const LEAD_STATUS_VALUES = [
+  'new',
+  'under_review',
+  'shortlisted',
+  'partner_onboarding',
+  'onboard_completed',
+  'archived',
+  // legacy values kept for backward compatibility with pre-existing rows
+  'contacted',
+  'converted',
+  'rejected',
+] as const;
+
+export const ARCHIVE_REASON_VALUES = [
+  'not_qualified',
+  'not_responsive',
+  'not_interested',
+  'duplicate',
+  'spam',
+  'other',
+] as const;
+
+export const PROFILE_TYPE_VALUES = ['junior', 'pro', 'elite', 'custom'] as const;
+
+export const updateLeadStatusSchema = z
+  .object({
+    status: z.enum(LEAD_STATUS_VALUES),
+    admin_notes: z.string().optional(),
+    archive_reason: z.enum(ARCHIVE_REASON_VALUES).optional(),
+  })
+  .refine(
+    (data) => data.status !== 'archived' || !!data.archive_reason,
+    { message: 'archive_reason is required when status is archived', path: ['archive_reason'] }
+  )
+  .refine(
+    (data) => data.status !== 'archived' || (!!data.admin_notes && data.admin_notes.trim().length > 0),
+    { message: 'A note is required when archiving', path: ['admin_notes'] }
+  );
+
+export const updateLeadProfileTypeSchema = z
+  .object({
+    profile_type: z.enum(PROFILE_TYPE_VALUES).nullable(),
+    profile_type_custom: z.string().max(100).optional().nullable(),
+  })
+  .refine(
+    (data) =>
+      data.profile_type !== 'custom' ||
+      (!!data.profile_type_custom && data.profile_type_custom.trim().length > 0),
+    { message: 'Custom profile type label is required', path: ['profile_type_custom'] }
+  );
 
 export type CreateCreativeLeadInput = z.infer<typeof creativeLeadSchema>;
 export type CreateAccountantLeadInput = z.infer<typeof accountantLeadSchema>;
 export type CreateLeadInput = z.infer<typeof createLeadSchema>;
 export type UpdateLeadStatusInput = z.infer<typeof updateLeadStatusSchema>;
+export type UpdateLeadProfileTypeInput = z.infer<typeof updateLeadProfileTypeSchema>;

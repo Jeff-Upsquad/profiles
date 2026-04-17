@@ -1,6 +1,10 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
-import type { CreateLeadInput, UpdateLeadStatusInput } from '../validators/lead.validators.js';
+import type {
+  CreateLeadInput,
+  UpdateLeadStatusInput,
+  UpdateLeadProfileTypeInput,
+} from '../validators/lead.validators.js';
 
 // ---------------------------------------------------------------------------
 // Submit (public)
@@ -104,18 +108,54 @@ export async function updateLeadStatus(
   input: UpdateLeadStatusInput,
   adminUserId: string
 ) {
+  const update: Record<string, unknown> = {
+    status: input.status,
+    status_changed_by: adminUserId,
+    status_changed_at: new Date().toISOString(),
+  };
+
+  // admin_notes only overwritten when provided (so transitioning without note keeps previous)
+  if (input.admin_notes !== undefined) {
+    update.admin_notes = input.admin_notes;
+  }
+
+  // Archive-specific field; clear it if moving out of archived
+  if (input.status === 'archived') {
+    update.archive_reason = input.archive_reason ?? null;
+  } else {
+    update.archive_reason = null;
+  }
+
   const { data, error } = await supabaseAdmin
     .from('lead_submissions')
-    .update({
-      status: input.status,
-      admin_notes: input.admin_notes ?? null,
-      status_changed_by: adminUserId,
-      status_changed_at: new Date().toISOString(),
-    })
+    .update(update)
     .eq('id', id)
     .select('*')
     .single();
 
   if (error) throw new AppError(500, `Failed to update lead: ${error.message}`);
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Update profile type (admin)
+// ---------------------------------------------------------------------------
+
+export async function updateLeadProfileType(
+  id: string,
+  input: UpdateLeadProfileTypeInput
+) {
+  const { data, error } = await supabaseAdmin
+    .from('lead_submissions')
+    .update({
+      profile_type: input.profile_type ?? null,
+      profile_type_custom:
+        input.profile_type === 'custom' ? input.profile_type_custom ?? null : null,
+    })
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) throw new AppError(500, `Failed to update profile type: ${error.message}`);
   return data;
 }

@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import Modal from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
 
 interface Lead {
@@ -21,16 +22,79 @@ interface Lead {
   utm_medium: string | null;
   utm_campaign: string | null;
   admin_notes: string | null;
+  archive_reason: string | null;
+  profile_type: string | null;
+  profile_type_custom: string | null;
   status_changed_at: string | null;
   created_at: string;
 }
 
-const statusColors: Record<string, 'blue' | 'yellow' | 'green' | 'red'> = {
+type Status =
+  | 'new'
+  | 'under_review'
+  | 'shortlisted'
+  | 'partner_onboarding'
+  | 'onboard_completed'
+  | 'archived'
+  | 'contacted'
+  | 'converted'
+  | 'rejected';
+
+const STATUS_LABELS: Record<string, string> = {
+  new: 'New',
+  under_review: 'Under Review',
+  shortlisted: 'Shortlisted',
+  partner_onboarding: 'Partner Onboarding',
+  onboard_completed: 'Onboard Completed',
+  archived: 'Archived',
+  // legacy
+  contacted: 'Contacted',
+  converted: 'Converted',
+  rejected: 'Rejected',
+};
+
+const statusColors: Record<string, 'blue' | 'yellow' | 'green' | 'red' | 'indigo' | 'gray'> = {
   new: 'blue',
+  under_review: 'yellow',
+  shortlisted: 'indigo',
+  partner_onboarding: 'yellow',
+  onboard_completed: 'green',
+  archived: 'gray',
+  // legacy
   contacted: 'yellow',
   converted: 'green',
   rejected: 'red',
 };
+
+// Allowed forward transitions from each status
+const NEXT_STATUSES: Record<string, Status[]> = {
+  new: ['under_review', 'shortlisted', 'archived'],
+  under_review: ['shortlisted', 'archived'],
+  shortlisted: ['partner_onboarding', 'archived'],
+  partner_onboarding: ['onboard_completed', 'archived'],
+  onboard_completed: ['archived'],
+  archived: ['new'], // allow un-archive back to new
+  // legacy (treat like new)
+  contacted: ['under_review', 'shortlisted', 'archived'],
+  converted: ['onboard_completed', 'archived'],
+  rejected: ['new', 'archived'],
+};
+
+const ARCHIVE_REASONS: { value: string; label: string }[] = [
+  { value: 'not_qualified', label: 'Not qualified' },
+  { value: 'not_responsive', label: 'Not responsive' },
+  { value: 'not_interested', label: 'Not interested' },
+  { value: 'duplicate', label: 'Duplicate' },
+  { value: 'spam', label: 'Spam' },
+  { value: 'other', label: 'Other' },
+];
+
+const PROFILE_TYPES: { value: string; label: string }[] = [
+  { value: 'junior', label: 'Junior' },
+  { value: 'pro', label: 'Pro' },
+  { value: 'elite', label: 'Elite' },
+  { value: 'custom', label: 'Custom' },
+];
 
 // Human-readable field labels
 const FIELD_LABELS: Record<string, string> = {
@@ -57,8 +121,6 @@ const FIELD_LABELS: Record<string, string> = {
 export default function LeadDetail({ id }: { id: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [newStatus, setNewStatus] = useState('');
-  const [notes, setNotes] = useState('');
 
   const { data: lead, isLoading } = useQuery<Lead>({
     queryKey: ['admin-lead', id],
@@ -69,20 +131,59 @@ export default function LeadDetail({ id }: { id: string }) {
     enabled: !!id,
   });
 
+  // Status update state
+  const [notes, setNotes] = useState('');
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [archiveReason, setArchiveReason] = useState('');
+  const [archiveNote, setArchiveNote] = useState('');
+
+  // Profile type state
+  const [profileType, setProfileType] = useState<string>('');
+  const [profileTypeCustom, setProfileTypeCustom] = useState('');
+
+  useEffect(() => {
+    if (lead) {
+      setProfileType(lead.profile_type ?? '');
+      setProfileTypeCustom(lead.profile_type_custom ?? '');
+    }
+  }, [lead]);
+
   const updateStatus = useMutation({
-    mutationFn: async () => {
-      await api.patch(`/admin/leads/${id}/status`, {
-        status: newStatus,
-        admin_notes: notes || undefined,
-      });
+    mutationFn: async (payload: {
+      status: Status;
+      admin_notes?: string;
+      archive_reason?: string;
+    }) => {
+      await api.patch(`/admin/leads/${id}/status`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-lead', id] });
       queryClient.invalidateQueries({ queryKey: ['admin-leads'] });
       toast.success('Status updated');
+      setNotes('');
+      setShowArchiveModal(false);
+      setArchiveReason('');
+      setArchiveNote('');
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.error || 'Failed to update status');
+      toast.error(err.response?.data?.error || err.response?.data?.message || 'Failed to update status');
+    },
+  });
+
+  const updateProfileType = useMutation({
+    mutationFn: async () => {
+      await api.patch(`/admin/leads/${id}/profile-type`, {
+        profile_type: profileType || null,
+        profile_type_custom: profileType === 'custom' ? profileTypeCustom : null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-lead', id] });
+      queryClient.invalidateQueries({ queryKey: ['admin-leads'] });
+      toast.success('Profile type updated');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || err.response?.data?.message || 'Failed to update profile type');
     },
   });
 
@@ -107,6 +208,32 @@ export default function LeadDetail({ id }: { id: string }) {
     return String(value);
   };
 
+  const nextStatuses = NEXT_STATUSES[lead.status] ?? ['archived'];
+
+  const handleStatusClick = (status: Status) => {
+    if (status === 'archived') {
+      setShowArchiveModal(true);
+      return;
+    }
+    updateStatus.mutate({ status, admin_notes: notes || undefined });
+  };
+
+  const handleArchiveSubmit = () => {
+    if (!archiveReason) {
+      toast.error('Please select a reason');
+      return;
+    }
+    if (!archiveNote.trim()) {
+      toast.error('Please add a note explaining why');
+      return;
+    }
+    updateStatus.mutate({
+      status: 'archived',
+      archive_reason: archiveReason,
+      admin_notes: archiveNote,
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -121,13 +248,20 @@ export default function LeadDetail({ id }: { id: string }) {
         </button>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{lead.name}</h1>
-          <div className="mt-1 flex items-center gap-2">
+          <div className="mt-1 flex flex-wrap items-center gap-2">
             <Badge variant={statusColors[lead.status] || 'gray'}>
-              {lead.status}
+              {STATUS_LABELS[lead.status] || lead.status}
             </Badge>
             <Badge variant={lead.form_type === 'creative' ? 'indigo' : 'gray'}>
               {lead.form_type}
             </Badge>
+            {lead.profile_type && (
+              <Badge variant="indigo">
+                {lead.profile_type === 'custom'
+                  ? lead.profile_type_custom || 'Custom'
+                  : PROFILE_TYPES.find((p) => p.value === lead.profile_type)?.label ?? lead.profile_type}
+              </Badge>
+            )}
             <span className="text-sm text-gray-500">
               Submitted {new Date(lead.created_at).toLocaleString('en-IN')}
             </span>
@@ -217,49 +351,172 @@ export default function LeadDetail({ id }: { id: string }) {
         </div>
       )}
 
-      {/* Status Management */}
+      {/* Profile Type */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">Update Status</h2>
-        {lead.admin_notes && (
-          <div className="mb-4 rounded-lg bg-gray-50 p-3">
-            <span className="block text-xs font-medium text-gray-500">Current Notes</span>
-            <p className="mt-1 text-sm text-gray-700">{lead.admin_notes}</p>
-          </div>
-        )}
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="w-48">
-            <label className="mb-1 block text-xs font-medium text-gray-600">New Status</label>
-            <select
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={newStatus}
-              onChange={(e) => setNewStatus(e.target.value)}
+        <h2 className="mb-1 text-lg font-semibold text-gray-900">Profile Type</h2>
+        <p className="mb-4 text-sm text-gray-500">
+          Classify this candidate for internal tracking.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {PROFILE_TYPES.map((pt) => (
+            <button
+              key={pt.value}
+              type="button"
+              onClick={() => setProfileType(pt.value)}
+              className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${
+                profileType === pt.value
+                  ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+              }`}
             >
-              <option value="">Select...</option>
-              <option value="new">New</option>
-              <option value="contacted">Contacted</option>
-              <option value="converted">Converted</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </div>
-          <div className="flex-1">
-            <label className="mb-1 block text-xs font-medium text-gray-600">Notes (optional)</label>
+              {pt.label}
+            </button>
+          ))}
+          {profileType && (
+            <button
+              type="button"
+              onClick={() => setProfileType('')}
+              className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-50"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        {profileType === 'custom' && (
+          <div className="mt-4">
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              Custom label
+            </label>
             <input
               type="text"
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Add a note..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              value={profileTypeCustom}
+              onChange={(e) => setProfileTypeCustom(e.target.value)}
+              placeholder="e.g. Specialist"
+              maxLength={100}
+              className="block w-full max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
+        )}
+        <div className="mt-4">
           <Button
-            disabled={!newStatus}
-            loading={updateStatus.isPending}
-            onClick={() => updateStatus.mutate()}
+            loading={updateProfileType.isPending}
+            disabled={profileType === 'custom' && !profileTypeCustom.trim()}
+            onClick={() => updateProfileType.mutate()}
           >
-            Update
+            Save profile type
           </Button>
         </div>
       </div>
+
+      {/* Status Management */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <h2 className="mb-1 text-lg font-semibold text-gray-900">Update Status</h2>
+        <p className="mb-4 text-sm text-gray-500">
+          Current:{' '}
+          <span className="font-medium text-gray-900">
+            {STATUS_LABELS[lead.status] || lead.status}
+          </span>
+          {lead.status === 'archived' && lead.archive_reason && (
+            <span className="text-gray-500">
+              {' '}— {ARCHIVE_REASONS.find((r) => r.value === lead.archive_reason)?.label ?? lead.archive_reason}
+            </span>
+          )}
+        </p>
+        {lead.admin_notes && (
+          <div className="mb-4 rounded-lg bg-gray-50 p-3">
+            <span className="block text-xs font-medium text-gray-500">Current Notes</span>
+            <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{lead.admin_notes}</p>
+          </div>
+        )}
+        <div className="mb-4">
+          <label className="mb-1 block text-xs font-medium text-gray-600">
+            Notes (optional)
+          </label>
+          <input
+            type="text"
+            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Add a note that will be saved with the status change..."
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {nextStatuses.map((s) => (
+            <Button
+              key={s}
+              variant={s === 'archived' ? 'secondary' : 'primary'}
+              loading={updateStatus.isPending}
+              onClick={() => handleStatusClick(s)}
+            >
+              {s === 'archived' ? 'Archive…' : `Mark as ${STATUS_LABELS[s]}`}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Archive Modal */}
+      <Modal
+        isOpen={showArchiveModal}
+        onClose={() => {
+          setShowArchiveModal(false);
+          setArchiveReason('');
+          setArchiveNote('');
+        }}
+        title="Archive Lead"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Archiving <span className="font-medium text-gray-900">{lead.name}</span>.
+            Please share a reason so the team knows why.
+          </p>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Reason <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={archiveReason}
+              onChange={(e) => setArchiveReason(e.target.value)}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">Select a reason...</option>
+              {ARCHIVE_REASONS.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Note <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={archiveNote}
+              onChange={(e) => setArchiveNote(e.target.value)}
+              rows={4}
+              placeholder="Explain why this profile is being archived..."
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowArchiveModal(false);
+                setArchiveReason('');
+                setArchiveNote('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              loading={updateStatus.isPending}
+              onClick={handleArchiveSubmit}
+            >
+              Archive
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -20,7 +20,10 @@ import {
   shareProfilesSchema,
   extendAccessSchema,
 } from '../validators/invite.validators.js';
-import { updateLeadStatusSchema } from '../validators/lead.validators.js';
+import {
+  updateLeadStatusSchema,
+  updateLeadProfileTypeSchema,
+} from '../validators/lead.validators.js';
 
 const router = Router();
 
@@ -233,6 +236,11 @@ router.patch(
   '/leads/:id/status',
   validate({ body: updateLeadStatusSchema }),
   leadController.updateLeadStatus
+);
+router.patch(
+  '/leads/:id/profile-type',
+  validate({ body: updateLeadProfileTypeSchema }),
+  leadController.updateLeadProfileType
 );
 
 // ---------------------------------------------------------------------------

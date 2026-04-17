@@ -78,3 +78,15 @@ export async function updateLeadStatus(req: Request, res: Response, next: NextFu
     next(err);
   }
 }
+
+export async function updateLeadProfileType(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await leadService.updateLeadProfileType(
+      req.params.id as string,
+      req.body
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
