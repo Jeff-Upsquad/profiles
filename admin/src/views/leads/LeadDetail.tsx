@@ -132,6 +132,7 @@ export default function LeadDetail({ id }: { id: string }) {
   });
 
   // Status update state
+  const [nextStatus, setNextStatus] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [archiveReason, setArchiveReason] = useState('');
@@ -161,6 +162,7 @@ export default function LeadDetail({ id }: { id: string }) {
       queryClient.invalidateQueries({ queryKey: ['admin-leads'] });
       toast.success('Status updated');
       setNotes('');
+      setNextStatus('');
       setShowArchiveModal(false);
       setArchiveReason('');
       setArchiveNote('');
@@ -210,12 +212,13 @@ export default function LeadDetail({ id }: { id: string }) {
 
   const nextStatuses = NEXT_STATUSES[lead.status] ?? ['archived'];
 
-  const handleStatusClick = (status: Status) => {
-    if (status === 'archived') {
+  const handleApplyStatus = () => {
+    if (!nextStatus) return;
+    if (nextStatus === 'archived') {
       setShowArchiveModal(true);
       return;
     }
-    updateStatus.mutate({ status, admin_notes: notes || undefined });
+    updateStatus.mutate({ status: nextStatus as Status, admin_notes: notes || undefined });
   };
 
   const handleArchiveSubmit = () => {
@@ -440,17 +443,32 @@ export default function LeadDetail({ id }: { id: string }) {
             onChange={(e) => setNotes(e.target.value)}
           />
         </div>
-        <div className="flex flex-wrap gap-2">
-          {nextStatuses.map((s) => (
-            <Button
-              key={s}
-              variant={s === 'archived' ? 'secondary' : 'primary'}
-              loading={updateStatus.isPending}
-              onClick={() => handleStatusClick(s)}
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[220px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              New status
+            </label>
+            <select
+              value={nextStatus}
+              onChange={(e) => setNextStatus(e.target.value)}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              {s === 'archived' ? 'Archive…' : `Mark as ${STATUS_LABELS[s]}`}
-            </Button>
-          ))}
+              <option value="">Select status...</option>
+              {nextStatuses.map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button
+            disabled={!nextStatus}
+            loading={updateStatus.isPending}
+            variant={nextStatus === 'archived' ? 'danger' : 'primary'}
+            onClick={handleApplyStatus}
+          >
+            {nextStatus === 'archived' ? 'Archive…' : 'Update'}
+          </Button>
         </div>
       </div>
 
