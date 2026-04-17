@@ -13,6 +13,7 @@ interface FormValues {
   phone: string;
   email: string;
   role: string[];
+  experience_years: string;
   portfolio_link: string;
 }
 
@@ -21,6 +22,7 @@ const initial: FormValues = {
   phone: '',
   email: '',
   role: [],
+  experience_years: '',
   portfolio_link: '',
 };
 
@@ -62,6 +64,7 @@ export default function CreativeLeadForm() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       errs.email = 'Enter a valid email';
     if (form.role.length === 0) errs.role = 'Please select at least one role';
+    if (!form.experience_years.trim()) errs.experience_years = 'Years of experience is required';
     if (!form.portfolio_link.trim()) errs.portfolio_link = 'Portfolio link is required';
     else {
       try {
@@ -88,6 +91,7 @@ export default function CreativeLeadForm() {
         phone: form.phone.replace(/\s/g, ''),
         email: form.email.trim(),
         role: form.role,
+        experience_years: form.experience_years.trim(),
         portfolio_link: form.portfolio_link.trim(),
         utm_source: searchParams.get('utm_source') || undefined,
         utm_medium: searchParams.get('utm_medium') || undefined,
@@ -230,6 +234,16 @@ export default function CreativeLeadForm() {
                 setErrors((prev) => ({ ...prev, role: undefined }));
               }}
               error={errors.role}
+            />
+
+            <Input
+              label="Years of Experience"
+              required
+              placeholder="e.g. 2"
+              value={form.experience_years}
+              onChange={set('experience_years')}
+              error={errors.experience_years}
+              helperText="Add Zero if you are a fresher"
             />
 
             <Input

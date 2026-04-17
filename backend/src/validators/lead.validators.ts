@@ -8,6 +8,7 @@ export const creativeLeadSchema = z.object({
   phone: z.string().regex(phoneRegex, 'Valid phone number is required'),
   email: z.string().email('Valid email is required'),
   role: z.array(z.enum(['Editor', 'Designer', 'Editor + Designer'])).min(1, 'At least one role is required'),
+  experience_years: z.string().min(1, 'Years of experience is required'),
   portfolio_link: z.string().url('Valid portfolio URL is required'),
   utm_source: z.string().optional(),
   utm_medium: z.string().optional(),
