@@ -216,6 +216,7 @@ router.get('/shortlists', adminController.getShortlistTracking);
 router.get('/users/talent', adminController.getTalentUsers);
 router.get('/users/business', adminController.getBusinessUsers);
 router.patch('/users/:id/suspend', adminController.suspendUser);
+router.post('/users/:id/reset-password', adminController.resetUserPassword);
 router.delete('/users/:id', adminController.deleteUser);
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,13 @@ import api from '@/services/api';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
+import Modal from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
+
+interface ResetTarget {
+  id: string;
+  label: string;
+}
 
 interface TalentUser {
   id: string;
@@ -37,6 +43,8 @@ export default function UserManagement() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('talent');
   const [search, setSearch] = useState('');
+  const [resetTarget, setResetTarget] = useState<ResetTarget | null>(null);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
 
   const { data: talentUsers, isLoading: talentLoading } = useQuery<TalentUser[]>({
     queryKey: ['admin-users-talent'],
@@ -81,6 +89,36 @@ export default function UserManagement() {
       toast.error(err.response?.data?.message || 'Failed to delete user');
     },
   });
+
+  const resetPassword = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data } = await api.post(`/admin/users/${userId}/reset-password`);
+      return data as { temp_password: string; message: string };
+    },
+    onSuccess: (data) => {
+      setTempPassword(data.temp_password);
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to reset password');
+      setResetTarget(null);
+    },
+  });
+
+  const closeResetModal = () => {
+    setResetTarget(null);
+    setTempPassword(null);
+    resetPassword.reset();
+  };
+
+  const copyTempPassword = async () => {
+    if (!tempPassword) return;
+    try {
+      await navigator.clipboard.writeText(tempPassword);
+      toast.success('Password copied to clipboard');
+    } catch {
+      toast.error('Failed to copy. Select and copy manually.');
+    }
+  };
 
   const handleDelete = (userId: string) => {
     if (window.confirm('Are you sure you want to permanently delete this user? This action cannot be undone.')) {
@@ -179,6 +217,15 @@ export default function UserManagement() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() =>
+                            setResetTarget({ id: user.id, label: user.full_name || user.email || 'this user' })
+                          }
+                        >
+                          Reset Password
+                        </Button>
+                        <Button
                           variant={user.suspended ? 'primary' : 'secondary'}
                           size="sm"
                           loading={suspendUser.isPending}
@@ -252,6 +299,18 @@ export default function UserManagement() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() =>
+                            setResetTarget({
+                              id: user.id,
+                              label: user.contact_person_name || user.company_name || user.email || 'this user',
+                            })
+                          }
+                        >
+                          Reset Password
+                        </Button>
+                        <Button
                           variant={user.suspended ? 'primary' : 'secondary'}
                           size="sm"
                           loading={suspendUser.isPending}
@@ -278,6 +337,56 @@ export default function UserManagement() {
           )}
         </div>
       )}
+
+      {/* Reset Password Modal */}
+      <Modal
+        isOpen={!!resetTarget}
+        onClose={closeResetModal}
+        title={tempPassword ? 'Temporary password' : 'Reset password'}
+        size="sm"
+      >
+        {tempPassword ? (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Share this temporary password with <strong>{resetTarget?.label}</strong>. They&apos;ll be
+              required to choose a new password on their next sign-in.
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-base font-mono tracking-wider text-gray-900 select-all">
+                {tempPassword}
+              </code>
+              <Button variant="secondary" size="sm" onClick={copyTempPassword}>
+                Copy
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500">
+              This password will only be shown once. Make sure you&apos;ve shared it before closing.
+            </p>
+            <div className="flex justify-end pt-2">
+              <Button onClick={closeResetModal}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Generate a new temporary password for <strong>{resetTarget?.label}</strong>? Their
+              current password will stop working and they&apos;ll be forced to set a new one on next
+              login.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" onClick={closeResetModal} disabled={resetPassword.isPending}>
+                Cancel
+              </Button>
+              <Button
+                loading={resetPassword.isPending}
+                onClick={() => resetTarget && resetPassword.mutate(resetTarget.id)}
+              >
+                Generate password
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

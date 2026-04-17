@@ -6,9 +6,11 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import api from '@/services/api';
 import type { User, TalentSignupData } from '@/types';
+
+const CHANGE_PASSWORD_PATH = '/change-password';
 
 interface AuthContextType {
   user: User | null;
@@ -32,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   const storeAuth = useCallback((authToken: string, authUser: User) => {
     localStorage.setItem('squadhire_token', authToken);
@@ -64,6 +67,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     verifyToken();
   }, [token, clearAuth]);
+
+  // Force users flagged for password reset to the change-password page.
+  useEffect(() => {
+    if (!user) return;
+    if (user.must_reset_password && pathname !== CHANGE_PASSWORD_PATH) {
+      router.replace(CHANGE_PASSWORD_PATH);
+    }
+  }, [user, pathname, router]);
 
   const login = useCallback(
     async (email: string, password: string) => {

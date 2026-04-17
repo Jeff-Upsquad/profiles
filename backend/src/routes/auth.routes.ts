@@ -7,6 +7,7 @@ import {
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  changePasswordSchema,
 } from '../validators/auth.validators.js';
 import { businessLoginSchema, requestAccessSchema } from '../validators/invite.validators.js';
 
@@ -52,6 +53,13 @@ router.post(
   '/reset-password',
   validate({ body: resetPasswordSchema }),
   authController.resetPassword
+);
+
+router.post(
+  '/change-password',
+  authenticate,
+  validate({ body: changePasswordSchema }),
+  authController.changePassword
 );
 
 router.get('/me', authenticate, authController.getMe);

@@ -38,6 +38,10 @@ export const resetPasswordSchema = z.object({
   new_password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
+export const changePasswordSchema = z.object({
+  new_password: z.string().min(6, 'Password must be at least 6 characters'),
+});
+
 export type SignupTalentInput = z.infer<typeof signupTalentSchema>;
 export type SignupBusinessInput = z.infer<typeof signupBusinessSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

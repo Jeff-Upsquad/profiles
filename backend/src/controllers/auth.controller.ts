@@ -76,6 +76,15 @@ export async function resetPassword(req: Request, res: Response, next: NextFunct
   }
 }
 
+export async function changePassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await authService.changePassword(req.user!.id, req.body.new_password);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function logout(req: Request, res: Response, next: NextFunction) {
   try {
     // For business users, invalidate the session server-side

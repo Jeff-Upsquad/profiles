@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { env } from '../config/env.js';
@@ -616,6 +617,36 @@ export async function deleteUser(userId: string) {
   const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
   if (error) throw new AppError(400, error.message);
   return { message: 'User permanently deleted' };
+}
+
+export async function resetUserPassword(userId: string) {
+  const { data: existing, error: getErr } = await supabaseAdmin.auth.admin.getUserById(userId);
+  if (getErr || !existing?.user) throw new AppError(404, 'User not found');
+
+  const tempPassword = generateTempPassword();
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    password: tempPassword,
+    user_metadata: {
+      ...(existing.user.user_metadata ?? {}),
+      must_reset_password: true,
+    },
+  });
+
+  if (error) throw new AppError(400, error.message);
+  return {
+    temp_password: tempPassword,
+    message: 'Password reset. Share this temporary password with the user.',
+  };
+}
+
+function generateTempPassword(length = 12): string {
+  // Omit visually ambiguous chars (0/O, 1/l/I)
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let pw = '';
+  for (let i = 0; i < length; i++) {
+    pw += chars[randomInt(0, chars.length)];
+  }
+  return pw;
 }
 
 // ---------------------------------------------------------------------------

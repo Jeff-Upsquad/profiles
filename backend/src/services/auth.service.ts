@@ -148,7 +148,25 @@ export async function resetPassword(accessToken: string, newPassword: string) {
   return { message: 'Password has been reset successfully.' };
 }
 
+export async function changePassword(userId: string, newPassword: string) {
+  const { data: existing, error: getErr } = await supabaseAdmin.auth.admin.getUserById(userId);
+  if (getErr || !existing?.user) throw new AppError(404, 'User not found');
+
+  const { must_reset_password: _flag, ...cleanMetadata } = existing.user.user_metadata ?? {};
+
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    password: newPassword,
+    user_metadata: cleanMetadata,
+  });
+
+  if (error) throw new AppError(400, error.message);
+  return { message: 'Password updated successfully.' };
+}
+
 export async function getMe(userId: string, role: UserRole) {
+  const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
+  const mustResetPassword = authUser?.user?.user_metadata?.must_reset_password === true;
+
   if (role === 'talent') {
     const { data, error } = await supabaseAdmin
       .from('talent_users')
@@ -157,7 +175,7 @@ export async function getMe(userId: string, role: UserRole) {
       .single();
 
     if (error || !data) throw new AppError(404, 'Talent user not found');
-    return { ...data, role };
+    return { ...data, role, must_reset_password: mustResetPassword };
   }
 
   if (role === 'business') {
@@ -174,9 +192,9 @@ export async function getMe(userId: string, role: UserRole) {
       throw new AppError(403, 'Your access has expired. Please contact the administrator.');
     }
 
-    return { ...data, role };
+    return { ...data, role, must_reset_password: mustResetPassword };
   }
 
   // Admin — return minimal info
-  return { id: userId, role };
+  return { id: userId, role, must_reset_password: mustResetPassword };
 }

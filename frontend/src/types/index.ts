@@ -7,6 +7,7 @@ export interface User {
   full_name?: string;
   company_name?: string;
   approval_status?: ApprovalStatus;
+  must_reset_password?: boolean;
 }
 
 export interface AuthResponse {

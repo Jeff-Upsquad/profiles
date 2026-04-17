@@ -442,6 +442,15 @@ export async function deleteUser(req: Request, res: Response, next: NextFunction
   }
 }
 
+export async function resetUserPassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.resetUserPassword(req.params.id as string);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Invitations
 // ---------------------------------------------------------------------------
