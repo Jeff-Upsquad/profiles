@@ -14,6 +14,7 @@ interface Lead {
   name: string;
   email: string | null;
   phone: string;
+  form_data: Record<string, any>;
   created_at: string;
 }
 
@@ -32,10 +33,11 @@ const statusColors: Record<string, 'blue' | 'yellow' | 'green' | 'red'> = {
   rejected: 'red',
 };
 
-const formTypeColors: Record<string, 'indigo' | 'gray'> = {
-  creative: 'indigo',
-  accountant: 'gray',
-};
+const FORM_TYPE_TABS: { value: string; label: string }[] = [
+  { value: '', label: 'All' },
+  { value: 'creative', label: 'Creative' },
+  { value: 'accountant', label: 'Accountant' },
+];
 
 export default function LeadList() {
   const router = useRouter();
@@ -67,20 +69,25 @@ export default function LeadList() {
         </p>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="w-40">
-          <label className="mb-1 block text-xs font-medium text-gray-600">Form Type</label>
-          <select
-            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            value={formType}
-            onChange={(e) => { setFormType(e.target.value); setPage(1); }}
+      {/* Form Type Tabs */}
+      <div className="flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
+        {FORM_TYPE_TABS.map((tab) => (
+          <button
+            key={tab.value || 'all'}
+            onClick={() => { setFormType(tab.value); setPage(1); }}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              formType === tab.value
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
           >
-            <option value="">All</option>
-            <option value="creative">Creative</option>
-            <option value="accountant">Accountant</option>
-          </select>
-        </div>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Status & Search Filters */}
+      <div className="flex flex-wrap items-end gap-3">
         <div className="w-40">
           <label className="mb-1 block text-xs font-medium text-gray-600">Status</label>
           <select
@@ -112,7 +119,7 @@ export default function LeadList() {
               <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Name</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Phone</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Email</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Form</th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Role</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Submitted</th>
               <th className="px-4 py-3" />
@@ -143,10 +150,8 @@ export default function LeadList() {
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">{lead.name}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{lead.phone}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{lead.email || '—'}</td>
-                  <td className="px-4 py-3">
-                    <Badge variant={formTypeColors[lead.form_type] || 'gray'}>
-                      {lead.form_type}
-                    </Badge>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    {lead.form_data?.role || '—'}
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant={statusColors[lead.status] || 'gray'}>
