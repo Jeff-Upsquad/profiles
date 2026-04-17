@@ -11,11 +11,18 @@ import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
+import {
+  COUNTRIES,
+  INDIAN_STATES,
+  DISTRICTS_BY_STATE,
+} from '@/constants/india-locations';
 import toast from 'react-hot-toast';
 
 interface BasicProfile {
   permanent_address?: string;
   current_address?: string;
+  country?: string;
+  state?: string;
   current_district?: string;
   city?: string;
   pin_code?: string;
@@ -56,7 +63,6 @@ const STEP_TITLES = [
   'Bank Details',
   'Profile Picture',
   'Resume',
-  'Expected Salary',
 ];
 
 const STEP_SUBTITLES = [
@@ -68,7 +74,6 @@ const STEP_SUBTITLES = [
   'Where should we send your payouts?',
   'Put a face to your profile',
   'Share your work history',
-  'What are you hoping to earn?',
 ];
 
 const AVAILABILITY_OPTIONS = [
@@ -83,7 +88,7 @@ const JOB_TYPE_OPTIONS = [
   { label: 'Field Job', value: 'field' },
 ];
 
-const TOTAL_STEPS = 9;
+const TOTAL_STEPS = 8;
 
 function signupDoneKey(userId: string) {
   return `squadhire_talent_signup_done_${userId}`;
@@ -97,8 +102,7 @@ function determineStartStep(me: TalentUser, bp: BasicProfile): number {
   if (!bp.bank_account_holder && !bp.bank_account_number) return 6;
   if (!bp.profile_picture_url) return 7;
   if (!bp.resume_url) return 8;
-  if (!bp.expected_salary_monthly) return 9;
-  return 10;
+  return 9;
 }
 
 export default function SignupTalent() {
@@ -198,13 +202,6 @@ export default function SignupTalent() {
   const setProfile = (key: keyof BasicProfile) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setProfileForm((prev) => ({ ...prev, [key]: e.target.value }));
-
-  const setProfileNumber = (key: keyof BasicProfile) =>
-    (e: React.ChangeEvent<HTMLInputElement>) =>
-      setProfileForm((prev) => ({
-        ...prev,
-        [key]: e.target.value ? Number(e.target.value) : undefined,
-      }));
 
   const toggleMulti = (key: 'availability' | 'job_type', value: string) => {
     setProfileForm((prev) => {
@@ -338,6 +335,8 @@ export default function SignupTalent() {
         return saveProfile({
           permanent_address: profileForm.permanent_address,
           current_address: profileForm.current_address,
+          country: profileForm.country || 'India',
+          state: profileForm.state,
           current_district: profileForm.current_district,
           city: profileForm.city,
           pin_code: profileForm.pin_code,
@@ -384,8 +383,6 @@ export default function SignupTalent() {
         return saveProfile({ profile_picture_url: profileForm.profile_picture_url });
       case 8:
         return saveProfile({ resume_url: profileForm.resume_url });
-      case 9:
-        return saveProfile({ expected_salary_monthly: profileForm.expected_salary_monthly });
     }
   };
 
@@ -409,7 +406,7 @@ export default function SignupTalent() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-lg font-bold text-white">
               S
             </div>
-            <span className="text-2xl font-bold text-gray-900">SquadHire</span>
+            <span className="text-2xl font-bold text-gray-900">UpSquad</span>
           </Link>
         </div>
 
@@ -563,12 +560,73 @@ export default function SignupTalent() {
                   />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-3">
-                  <Input
-                    label="Current District"
-                    value={profileForm.current_district || ''}
-                    onChange={setProfile('current_district')}
-                    placeholder="District"
+                  <Select
+                    label="Country"
+                    value={profileForm.country || 'India'}
+                    onChange={(e) =>
+                      setProfileForm((prev) => ({
+                        ...prev,
+                        country: e.target.value,
+                        state: undefined,
+                        current_district: undefined,
+                      }))
+                    }
+                    options={COUNTRIES}
                   />
+                  {(profileForm.country || 'India') === 'India' ? (
+                    <Select
+                      label="State"
+                      value={profileForm.state || ''}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({
+                          ...prev,
+                          state: e.target.value,
+                          current_district: undefined,
+                        }))
+                      }
+                      placeholder="Select state"
+                      options={INDIAN_STATES}
+                    />
+                  ) : (
+                    <Input
+                      label="State / Region"
+                      value={profileForm.state || ''}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({ ...prev, state: e.target.value }))
+                      }
+                      placeholder="State or region"
+                    />
+                  )}
+                  {(profileForm.country || 'India') === 'India' && profileForm.state ? (
+                    <Select
+                      label="District"
+                      value={profileForm.current_district || ''}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({ ...prev, current_district: e.target.value }))
+                      }
+                      placeholder="Select district"
+                      options={(DISTRICTS_BY_STATE[profileForm.state] || []).map((d) => ({
+                        label: d,
+                        value: d,
+                      }))}
+                    />
+                  ) : (
+                    <Input
+                      label="District"
+                      value={profileForm.current_district || ''}
+                      onChange={setProfile('current_district')}
+                      placeholder={
+                        (profileForm.country || 'India') === 'India'
+                          ? 'Select a state first'
+                          : 'District'
+                      }
+                      disabled={
+                        (profileForm.country || 'India') === 'India' && !profileForm.state
+                      }
+                    />
+                  )}
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
                   <Input
                     label="City"
                     value={profileForm.city || ''}
@@ -702,7 +760,7 @@ export default function SignupTalent() {
                   <p className="mb-1 font-semibold text-blue-900">Why we ask for this</p>
                   <p className="text-blue-800">
                     Your bank details are used only to pay you for jobs you take on through
-                    SquadHire. We store them securely and never share them.
+                    UpSquad. We store them securely and never share them.
                   </p>
                   <p className="mt-2 text-blue-800">
                     <span className="font-medium">You can share this later</span> — skip for
@@ -814,19 +872,6 @@ export default function SignupTalent() {
                 {profileForm.resume_url && (
                   <p className="mt-2 text-xs text-green-600">Resume uploaded</p>
                 )}
-              </div>
-            )}
-
-            {activeStep === 9 && (
-              <div className="max-w-xs">
-                <Input
-                  label="Expected Salary per Month (₹)"
-                  type="number"
-                  value={profileForm.expected_salary_monthly ?? ''}
-                  onChange={setProfileNumber('expected_salary_monthly')}
-                  placeholder="e.g. 25000"
-                  min={0}
-                />
               </div>
             )}
 

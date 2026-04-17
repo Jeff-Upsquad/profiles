@@ -24,6 +24,8 @@ export const updateBasicProfileSchema = z.object({
   // Section 2: Contact Details
   permanent_address: z.string().max(500).nullable().optional(),
   current_address: z.string().max(500).nullable().optional(),
+  country: z.string().max(100).nullable().optional(),
+  state: z.string().max(100).nullable().optional(),
   current_district: z.string().max(200).nullable().optional(),
   city: z.string().max(200).nullable().optional(),
   pin_code: z.string().regex(/^\d{6}$/, 'PIN code must be 6 digits').nullable().optional(),
