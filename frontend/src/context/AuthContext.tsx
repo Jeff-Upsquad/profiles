@@ -16,7 +16,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   businessLogin: (identifier: { email?: string; phone?: string }) => Promise<void>;
-  signupTalent: (data: TalentSignupData) => Promise<void>;
+  signupTalent: (data: TalentSignupData, options?: { skipRedirect?: boolean }) => Promise<void>;
   logout: () => void;
 }
 
@@ -84,10 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signupTalent = useCallback(
-    async (signupData: TalentSignupData) => {
+    async (signupData: TalentSignupData, options?: { skipRedirect?: boolean }) => {
       const { data } = await api.post('/auth/signup/talent', signupData);
       storeAuth(data.access_token || data.token, data.user);
-      router.push('/talent/basic-profile');
+      if (!options?.skipRedirect) {
+        router.push('/talent/basic-profile');
+      }
     },
     [storeAuth, router]
   );
