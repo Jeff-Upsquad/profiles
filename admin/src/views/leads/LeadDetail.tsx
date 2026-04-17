@@ -284,7 +284,9 @@ export default function LeadDetail({ id }: { id: string }) {
             <span className="block text-xs font-medium uppercase text-gray-500">Phone</span>
             <span className="text-sm text-gray-900">{lead.phone}</span>
             <a
-              href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`}
+              href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                `Hi, ${lead.name}\nThis is from Upsquad. We have received your application for Upsquad Partner Program.`
+              )}`}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-green-600 hover:text-green-700 hover:underline"
