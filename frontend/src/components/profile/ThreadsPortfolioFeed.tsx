@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { PortfolioItem } from '@/types';
 import ThreadsPortfolioCard from './ThreadsPortfolioCard';
 
@@ -12,6 +12,11 @@ interface ThreadsPortfolioFeedProps {
 export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfolioFeedProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [imageIsTall, setImageIsTall] = useState(false);
+  const [showTopFade, setShowTopFade] = useState(false);
+  const [showBottomFade, setShowBottomFade] = useState(false);
+  const [showScrollHint, setShowScrollHint] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filtered = activeTab === 'All' ? items : items.filter((i) => i.skill_name === activeTab);
   const selectedItem = selectedIndex !== null ? filtered[selectedIndex] : null;
@@ -20,11 +25,29 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
 
   useEffect(() => {
     setImageIsTall(false);
+    setShowTopFade(false);
+    setShowBottomFade(false);
+    setShowScrollHint(false);
+    if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
   }, [selectedIndex]);
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
-    setImageIsTall(img.naturalHeight / img.naturalWidth > 2);
+    const tall = img.naturalHeight / img.naturalWidth > 2;
+    setImageIsTall(tall);
+    if (tall) {
+      setShowBottomFade(true);
+      setShowScrollHint(true);
+      hintTimerRef.current = setTimeout(() => setShowScrollHint(false), 2500);
+    }
+  };
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setShowTopFade(el.scrollTop > 8);
+    setShowBottomFade(el.scrollTop + el.clientHeight < el.scrollHeight - 8);
+    if (showScrollHint) setShowScrollHint(false);
   };
 
   const goNext = useCallback(() => {
@@ -133,14 +156,32 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
           >
             {selectedItem.file_type === 'image' && (
               imageIsTall ? (
-                <div className="h-[85vh] w-[min(480px,85vw)] overflow-y-auto overscroll-contain rounded-lg bg-zinc-900">
-                  <img
-                    key={selectedItem.id}
-                    src={selectedItem.file_url}
-                    alt={selectedItem.file_name}
-                    onLoad={handleImageLoad}
-                    className="block w-full h-auto"
+                <div className="relative rounded-lg overflow-hidden">
+                  <div
+                    ref={scrollRef}
+                    onScroll={handleScroll}
+                    className="h-[85vh] w-[min(480px,85vw)] overflow-y-auto overscroll-contain bg-zinc-900"
+                  >
+                    <img
+                      key={selectedItem.id}
+                      src={selectedItem.file_url}
+                      alt={selectedItem.file_name}
+                      onLoad={handleImageLoad}
+                      className="block w-full h-auto"
+                    />
+                  </div>
+                  <div
+                    className={`pointer-events-none absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-black/80 to-transparent transition-opacity duration-200 ${showTopFade ? 'opacity-100' : 'opacity-0'}`}
                   />
+                  <div
+                    className={`pointer-events-none absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-3 transition-opacity duration-200 ${showBottomFade ? 'opacity-100' : 'opacity-0'}`}
+                  >
+                    {showScrollHint && (
+                      <svg className="animate-bounce" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <img
