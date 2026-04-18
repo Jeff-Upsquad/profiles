@@ -16,7 +16,6 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
   const [showBottomFade, setShowBottomFade] = useState(false);
   const [showScrollHint, setShowScrollHint] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filtered = activeTab === 'All' ? items : items.filter((i) => i.skill_name === activeTab);
   const selectedItem = selectedIndex !== null ? filtered[selectedIndex] : null;
@@ -28,7 +27,6 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
     setShowTopFade(false);
     setShowBottomFade(false);
     setShowScrollHint(false);
-    if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
   }, [selectedIndex]);
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -38,7 +36,6 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
     if (tall) {
       setShowBottomFade(true);
       setShowScrollHint(true);
-      hintTimerRef.current = setTimeout(() => setShowScrollHint(false), 2500);
     }
   };
 
@@ -177,9 +174,11 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
                     className={`pointer-events-none absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-3 transition-opacity duration-200 ${showBottomFade ? 'opacity-100' : 'opacity-0'}`}
                   >
                     {showScrollHint && (
-                      <svg className="animate-bounce" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
+                      <div className="animate-bounce flex h-11 w-11 items-center justify-center rounded-full bg-black/60 shadow-lg">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </div>
                     )}
                   </div>
                 </div>
