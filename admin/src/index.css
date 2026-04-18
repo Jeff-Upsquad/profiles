@@ -29,3 +29,12 @@
 .animate-fade-up {
   animation: fadeUp 0.4s ease-out both;
 }
+
+/* ── Scrollbar Hide (portfolio tab bar) ── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

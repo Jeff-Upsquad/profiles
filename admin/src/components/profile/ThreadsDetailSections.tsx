@@ -163,7 +163,9 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   let sectionIndex = 0;
   const sections: React.ReactNode[] = [];
 
-  const skills: { skill: string; level: number }[] = fieldData?._skills ?? [];
+  const skills: { skill: string; level: number }[] = [...(fieldData?._skills ?? [])].sort(
+    (a, b) => b.level - a.level
+  );
   const tools: string[] = fieldData?._tools ?? [];
   const aiTools: string[] = fieldData?._ai_tools ?? [];
 
