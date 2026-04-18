@@ -389,6 +389,15 @@ export async function getTalentProfile(req: Request, res: Response, next: NextFu
   }
 }
 
+export async function softDeleteTalentProfile(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.adminSoftDeleteProfile(req.params.profileId as string);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // User Management
 // ---------------------------------------------------------------------------

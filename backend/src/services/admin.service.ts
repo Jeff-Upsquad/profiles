@@ -680,6 +680,19 @@ export async function restoreProfile(profileId: string) {
   return data;
 }
 
+export async function adminSoftDeleteProfile(profileId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('talent_profiles')
+    .update({ deleted_at: new Date().toISOString(), status: 'deleted' })
+    .eq('id', profileId)
+    .is('deleted_at', null)
+    .select()
+    .single();
+
+  if (error || !data) throw new AppError(404, 'Profile not found or already deleted');
+  return { message: 'Profile moved to recycle bin' };
+}
+
 export async function permanentlyDeleteProfile(profileId: string) {
   const { error } = await supabaseAdmin
     .from('talent_profiles')

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -24,6 +25,7 @@ const statusVariant: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
 
 export default function TalentProfileList({ categoryId }: { categoryId: string }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
 
   const { data: profiles, isLoading } = useQuery<TalentProfile[]>({
@@ -32,6 +34,20 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
       const params = search ? `?search=${encodeURIComponent(search)}` : '';
       const { data } = await api.get(`/admin/talents/categories/${categoryId}/profiles${params}`);
       return data.profiles ?? data;
+    },
+  });
+
+  const deleteProfile = useMutation({
+    mutationFn: async (profileId: string) => {
+      await api.delete(`/admin/talents/profiles/${profileId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['talent-profiles', categoryId] });
+      queryClient.invalidateQueries({ queryKey: ['recycle-bin'] });
+      toast.success('Profile moved to recycle bin');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to delete profile');
     },
   });
 
@@ -115,9 +131,28 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
                     {new Date(profile.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link href={`/talents/${categoryId}/${profile.id}`}>
-                      <Button variant="ghost" size="sm">View</Button>
-                    </Link>
+                    <div className="flex justify-end gap-1">
+                      <Link href={`/talents/${categoryId}/${profile.id}`}>
+                        <Button variant="ghost" size="sm">View</Button>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                        loading={deleteProfile.isPending && deleteProfile.variables === profile.id}
+                        onClick={() => {
+                          if (
+                            confirm(
+                              'Delete this profile? It will be moved to the recycle bin and can be restored later.'
+                            )
+                          ) {
+                            deleteProfile.mutate(profile.id);
+                          }
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}

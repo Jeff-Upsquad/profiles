@@ -156,6 +156,7 @@ router.delete('/ai-tools/:toolId', adminController.deleteTemplateAiTool);
 router.get('/talents/categories', adminController.getTalentCategories);
 router.get('/talents/categories/:categoryId/profiles', adminController.getTalentProfilesByCategory);
 router.get('/talents/profiles/:profileId', adminController.getTalentProfile);
+router.delete('/talents/profiles/:profileId', adminController.softDeleteTalentProfile);
 
 // ---------------------------------------------------------------------------
 // Invitations
