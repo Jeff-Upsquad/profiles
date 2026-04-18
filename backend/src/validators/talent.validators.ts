@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const createProfileSchema = z.object({
   category_id: z.string().uuid('Valid category ID is required'),
+  field_data: z.record(z.string(), z.any()).optional(),
 });
 
 export const updateProfileSchema = z.object({

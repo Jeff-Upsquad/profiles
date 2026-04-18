@@ -61,7 +61,11 @@ export async function getProfile(req: Request, res: Response, next: NextFunction
 
 export async function createProfile(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await talentService.createProfile(req.user!.id, req.body.category_id);
+    const result = await talentService.createProfile(
+      req.user!.id,
+      req.body.category_id,
+      req.body.field_data
+    );
     res.status(201).json(result);
   } catch (err) {
     next(err);

@@ -97,7 +97,11 @@ export async function getProfile(profileId: string, userId: string) {
   return data;
 }
 
-export async function createProfile(userId: string, categoryId: string) {
+export async function createProfile(
+  userId: string,
+  categoryId: string,
+  fieldData?: Record<string, any>
+) {
   // Check for existing non-deleted profile in this category
   const { data: existing } = await supabaseAdmin
     .from('talent_profiles')
@@ -117,7 +121,7 @@ export async function createProfile(userId: string, categoryId: string) {
       talent_user_id: userId,
       category_id: categoryId,
       status: 'draft',
-      field_data: {},
+      field_data: fieldData ?? {},
     })
     .select('*')
     .single();
