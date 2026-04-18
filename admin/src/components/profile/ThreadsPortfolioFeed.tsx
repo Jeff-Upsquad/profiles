@@ -11,11 +11,21 @@ interface ThreadsPortfolioFeedProps {
 
 export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfolioFeedProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [imageIsTall, setImageIsTall] = useState(false);
 
   const filtered = activeTab === 'All' ? items : items.filter((i) => i.skill_name === activeTab);
   const selectedItem = selectedIndex !== null ? filtered[selectedIndex] : null;
   const hasPrev = selectedIndex !== null && selectedIndex > 0;
   const hasNext = selectedIndex !== null && selectedIndex < filtered.length - 1;
+
+  useEffect(() => {
+    setImageIsTall(false);
+  }, [selectedIndex]);
+
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    setImageIsTall(img.naturalHeight / img.naturalWidth > 2);
+  };
 
   const goNext = useCallback(() => {
     if (hasNext) setSelectedIndex((i) => i! + 1);
@@ -111,16 +121,29 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
           </div>
 
           <div
-            className="relative max-h-[85vh] max-w-[85vw]"
+            className="relative flex flex-col items-center"
             onClick={(e) => e.stopPropagation()}
           >
             {selectedItem.file_type === 'image' && (
-              <img
-                key={selectedItem.id}
-                src={selectedItem.file_url}
-                alt={selectedItem.file_name}
-                className="max-h-[85vh] max-w-[85vw] rounded-lg object-contain"
-              />
+              imageIsTall ? (
+                <div className="h-[85vh] w-[min(480px,85vw)] overflow-y-auto overscroll-contain rounded-lg bg-zinc-900">
+                  <img
+                    key={selectedItem.id}
+                    src={selectedItem.file_url}
+                    alt={selectedItem.file_name}
+                    onLoad={handleImageLoad}
+                    className="block w-full h-auto"
+                  />
+                </div>
+              ) : (
+                <img
+                  key={selectedItem.id}
+                  src={selectedItem.file_url}
+                  alt={selectedItem.file_name}
+                  onLoad={handleImageLoad}
+                  className="max-h-[85vh] max-w-[85vw] rounded-lg object-contain"
+                />
+              )
             )}
             {selectedItem.file_type === 'video' && (
               <video
