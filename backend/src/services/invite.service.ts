@@ -85,7 +85,7 @@ export async function createInvitation(input: {
   return invitation;
 }
 
-export async function getInvitations(filters?: { role?: string; status?: string }) {
+export async function getInvitations(filters?: { role?: string; status?: string; email?: string }) {
   let qb = supabaseAdmin
     .from('invitations')
     .select('*')
@@ -96,6 +96,9 @@ export async function getInvitations(filters?: { role?: string; status?: string 
   }
   if (filters?.status) {
     qb = qb.eq('status', filters.status);
+  }
+  if (filters?.email) {
+    qb = qb.eq('email', filters.email.toLowerCase());
   }
 
   const { data, error } = await qb;

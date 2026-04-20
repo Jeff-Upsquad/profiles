@@ -489,6 +489,7 @@ export async function getInvitations(req: Request, res: Response, next: NextFunc
     const filters = {
       role: req.query.role as string | undefined,
       status: req.query.status as string | undefined,
+      email: req.query.email as string | undefined,
     };
     const result = await inviteService.getInvitations(filters);
     res.json({ invitations: result });

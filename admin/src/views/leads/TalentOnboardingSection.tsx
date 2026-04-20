@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import Button from '@/components/ui/Button';
 import toast from 'react-hot-toast';
@@ -16,8 +16,23 @@ interface Props {
 }
 
 export default function TalentOnboardingSection({ leadEmail, leadName, leadPhone }: Props) {
-  const [invited, setInvited] = useState(false);
+  const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
+
+  const invitationQueryKey = ['invitation-check', leadEmail];
+  const { data: existingInvitations = [] } = useQuery<Array<{ status: string }>>({
+    queryKey: invitationQueryKey,
+    queryFn: async () => {
+      const { data } = await api.get('/admin/invitations', {
+        params: { email: leadEmail, role: 'talent', status: 'pending' },
+      });
+      return data.invitations ?? [];
+    },
+    enabled: !!leadEmail,
+    staleTime: 30_000,
+  });
+
+  const invited = existingInvitations.length > 0;
 
   const inviteMutation = useMutation({
     mutationFn: async () => {
@@ -25,13 +40,13 @@ export default function TalentOnboardingSection({ leadEmail, leadName, leadPhone
       await api.post('/admin/invitations', { email: leadEmail, role: 'talent' });
     },
     onSuccess: () => {
-      setInvited(true);
+      queryClient.invalidateQueries({ queryKey: invitationQueryKey });
       toast.success('Invitation created — they can now sign up');
     },
     onError: (err: any) => {
       const msg = err.response?.data?.error || err.response?.data?.message || err.message || '';
       if (err.response?.status === 409 || /already/i.test(msg) || /pending/i.test(msg)) {
-        setInvited(true);
+        queryClient.invalidateQueries({ queryKey: invitationQueryKey });
         toast('An invitation already exists for this email', { icon: 'ℹ️' });
       } else {
         toast.error(msg || 'Failed to invite');
@@ -89,9 +104,11 @@ export default function TalentOnboardingSection({ leadEmail, leadName, leadPhone
         <Button
           onClick={() => inviteMutation.mutate()}
           loading={inviteMutation.isPending}
-          disabled={!leadEmail}
+          disabled={!leadEmail || invited}
+          className={invited ? '!bg-green-600 !text-white hover:!bg-green-600 !cursor-default' : ''}
+          title={invited ? 'Invitation already created for this candidate' : undefined}
         >
-          {invited ? '✓ Invitation Created' : 'Invite as Talent'}
+          {invited ? '✓ Invited' : 'Invite as Talent'}
         </Button>
 
         <button
