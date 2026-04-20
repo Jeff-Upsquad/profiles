@@ -272,9 +272,12 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
               skills={values._skills ?? []}
               tools={values._tools ?? []}
               aiTools={values._ai_tools ?? []}
+              accountingSoftware={values._accounting_software ?? []}
               onSkillsChange={(s) => handleChange('_skills', s)}
               onToolsChange={(t) => handleChange('_tools', t)}
               onAiToolsChange={(at) => handleChange('_ai_tools', at)}
+              onAccountingSoftwareChange={(v) => handleChange('_accounting_software', v)}
+              showAccountingSoftware={profile.category?.slug === 'accountant'}
             />
           </div>
         )}

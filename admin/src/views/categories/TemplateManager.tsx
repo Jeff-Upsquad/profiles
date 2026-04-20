@@ -10,6 +10,7 @@ interface TemplateItem {
   name: string;
   sort_order: number;
   is_active: boolean;
+  group?: string | null;
 }
 
 function ItemList({
@@ -22,9 +23,12 @@ function ItemList({
   label: string;
 }) {
   const queryClient = useQueryClient();
+  const supportsGroup = type === 'tools';
   const [newName, setNewName] = useState('');
+  const [newGroup, setNewGroup] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [editGroup, setEditGroup] = useState('');
 
   const { data: items = [], isLoading } = useQuery<TemplateItem[]>({
     queryKey: ['template', type, categoryId],
@@ -35,22 +39,33 @@ function ItemList({
     },
   });
 
+  const existingGroups = Array.from(
+    new Set(items.map((i) => i.group).filter(Boolean) as string[]),
+  );
+
   const createMutation = useMutation({
-    mutationFn: async (name: string) => {
-      await api.post(`/admin/categories/${categoryId}/${type}`, { name });
+    mutationFn: async ({ name, group }: { name: string; group?: string | null }) => {
+      await api.post(
+        `/admin/categories/${categoryId}/${type}`,
+        supportsGroup ? { name, group: group || null } : { name },
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['template', type, categoryId] });
       setNewName('');
+      setNewGroup('');
       toast.success(`${label} added`);
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to add'),
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+    mutationFn: async ({ id, name, group }: { id: string; name: string; group?: string | null }) => {
       const endpoint = type === 'skills' ? 'skills' : type === 'ai-tools' ? 'ai-tools' : 'tools';
-      await api.put(`/admin/${endpoint}/${id}`, { name });
+      await api.put(
+        `/admin/${endpoint}/${id}`,
+        supportsGroup ? { name, group: group || null } : { name },
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['template', type, categoryId] });
@@ -77,26 +92,43 @@ function ItemList({
       <h3 className="mb-3 text-sm font-semibold text-gray-800">{label}s</h3>
 
       {/* Add new */}
-      <div className="mb-4 flex gap-2">
-        <Input
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          placeholder={`Add new ${label.toLowerCase()}...`}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && newName.trim()) {
-              e.preventDefault();
-              createMutation.mutate(newName.trim());
-            }
-          }}
-        />
-        <Button
-          size="sm"
-          disabled={!newName.trim()}
-          loading={createMutation.isPending}
-          onClick={() => newName.trim() && createMutation.mutate(newName.trim())}
-        >
-          Add
-        </Button>
+      <div className="mb-4 space-y-2">
+        <div className="flex gap-2">
+          <Input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder={`Add new ${label.toLowerCase()}...`}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && newName.trim()) {
+                e.preventDefault();
+                createMutation.mutate({ name: newName.trim(), group: supportsGroup ? newGroup.trim() : undefined });
+              }
+            }}
+          />
+          <Button
+            size="sm"
+            disabled={!newName.trim()}
+            loading={createMutation.isPending}
+            onClick={() => newName.trim() && createMutation.mutate({ name: newName.trim(), group: supportsGroup ? newGroup.trim() : undefined })}
+          >
+            Add
+          </Button>
+        </div>
+        {supportsGroup && (
+          <div className="flex items-center gap-2">
+            <Input
+              value={newGroup}
+              onChange={(e) => setNewGroup(e.target.value)}
+              placeholder="Group (optional, e.g. Accounting Software)"
+              list={`groups-${categoryId}`}
+            />
+            <datalist id={`groups-${categoryId}`}>
+              {existingGroups.map((g) => (
+                <option key={g} value={g} />
+              ))}
+            </datalist>
+          </div>
+        )}
       </div>
 
       {isLoading ? (
@@ -108,30 +140,47 @@ function ItemList({
           {items.map((item) => (
             <div key={item.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2 hover:bg-gray-50">
               {editingId === item.id ? (
-                <div className="flex flex-1 gap-2">
-                  <Input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && editName.trim()) {
-                        updateMutation.mutate({ id: item.id, name: editName.trim() });
-                      }
-                      if (e.key === 'Escape') setEditingId(null);
-                    }}
-                  />
-                  <Button size="sm" onClick={() => editName.trim() && updateMutation.mutate({ id: item.id, name: editName.trim() })}>
-                    Save
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
-                    Cancel
-                  </Button>
+                <div className="flex flex-1 flex-col gap-2">
+                  <div className="flex gap-2">
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && editName.trim()) {
+                          updateMutation.mutate({ id: item.id, name: editName.trim(), group: supportsGroup ? editGroup.trim() : undefined });
+                        }
+                        if (e.key === 'Escape') setEditingId(null);
+                      }}
+                    />
+                    <Button size="sm" onClick={() => editName.trim() && updateMutation.mutate({ id: item.id, name: editName.trim(), group: supportsGroup ? editGroup.trim() : undefined })}>
+                      Save
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                  {supportsGroup && (
+                    <Input
+                      value={editGroup}
+                      onChange={(e) => setEditGroup(e.target.value)}
+                      placeholder="Group (optional)"
+                      list={`groups-${categoryId}`}
+                    />
+                  )}
                 </div>
               ) : (
                 <>
-                  <span className="text-sm text-gray-700">{item.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-700">{item.name}</span>
+                    {supportsGroup && item.group && (
+                      <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                        {item.group}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex gap-1">
                     <button
-                      onClick={() => { setEditingId(item.id); setEditName(item.name); }}
+                      onClick={() => { setEditingId(item.id); setEditName(item.name); setEditGroup(item.group ?? ''); }}
                       className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

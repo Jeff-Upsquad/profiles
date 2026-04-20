@@ -510,10 +510,14 @@ export async function getTemplateTools(categoryId: string) {
   return data;
 }
 
-export async function createTemplateTool(categoryId: string, name: string) {
+export async function createTemplateTool(
+  categoryId: string,
+  name: string,
+  group?: string | null,
+) {
   const { data, error } = await supabaseAdmin
     .from('template_tools')
-    .insert({ category_id: categoryId, name })
+    .insert({ category_id: categoryId, name, group: group ?? null })
     .select()
     .single();
 
@@ -524,10 +528,17 @@ export async function createTemplateTool(categoryId: string, name: string) {
   return data;
 }
 
-export async function updateTemplateTool(toolId: string, name: string) {
+export async function updateTemplateTool(
+  toolId: string,
+  name: string,
+  group?: string | null,
+) {
+  const payload: { name: string; group?: string | null } = { name };
+  if (group !== undefined) payload.group = group;
+
   const { data, error } = await supabaseAdmin
     .from('template_tools')
-    .update({ name })
+    .update(payload)
     .eq('id', toolId)
     .select()
     .single();

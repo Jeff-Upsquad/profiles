@@ -292,7 +292,11 @@ export async function getTemplateTools(req: Request, res: Response, next: NextFu
 
 export async function createTemplateTool(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await adminService.createTemplateTool(req.params.categoryId as string, req.body.name);
+    const result = await adminService.createTemplateTool(
+      req.params.categoryId as string,
+      req.body.name,
+      req.body.group ?? null,
+    );
     res.status(201).json(result);
   } catch (err) {
     next(err);
@@ -301,7 +305,11 @@ export async function createTemplateTool(req: Request, res: Response, next: Next
 
 export async function updateTemplateTool(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await adminService.updateTemplateTool(req.params.toolId as string, req.body.name);
+    const result = await adminService.updateTemplateTool(
+      req.params.toolId as string,
+      req.body.name,
+      req.body.group,
+    );
     res.json(result);
   } catch (err) {
     next(err);

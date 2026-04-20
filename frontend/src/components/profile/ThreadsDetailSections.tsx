@@ -163,12 +163,16 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   let sectionIndex = 0;
   const sections: React.ReactNode[] = [];
 
-  // Special field_data keys: _skills, _tools, _ai_tools
+  // Special field_data keys: _skills, _accounting_software, _tools, _ai_tools
   const skills: { skill: string; level: number }[] = [...(fieldData?._skills ?? [])].sort(
     (a, b) => b.level - a.level
   );
+  const accountingSoftware: string[] = fieldData?._accounting_software ?? [];
   const tools: string[] = fieldData?._tools ?? [];
   const aiTools: string[] = fieldData?._ai_tools ?? [];
+
+  // Rename "Tools" → "Other Tools" only when Accounting Software is also present
+  const toolsLabel = accountingSoftware.length > 0 ? 'Other Tools' : 'Tools';
 
   // Skills section (dot indicators)
   if (skills.length > 0) {
@@ -177,10 +181,24 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
     sectionIndex++;
   }
 
+  // Accounting Software section (outlined tags) — accountant category, rendered before Tools
+  if (accountingSoftware.length > 0) {
+    const delay = sectionIndex * 0.04;
+    sections.push(
+      <TagSection
+        key="_accounting_software"
+        label="Accounting Software"
+        tags={accountingSoftware}
+        delay={delay}
+      />
+    );
+    sectionIndex++;
+  }
+
   // Tools section (outlined tags)
   if (tools.length > 0) {
     const delay = sectionIndex * 0.04;
-    sections.push(<TagSection key="_tools" label="Tools" tags={tools} delay={delay} />);
+    sections.push(<TagSection key="_tools" label={toolsLabel} tags={tools} delay={delay} />);
     sectionIndex++;
   }
 
