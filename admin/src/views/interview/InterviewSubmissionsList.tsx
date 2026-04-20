@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
@@ -91,6 +91,7 @@ export default function InterviewSubmissionsList() {
       const { data } = await api.get(`/admin/interview-invitations?${params.toString()}`);
       return data;
     },
+    placeholderData: keepPreviousData,
   });
 
   const reviewedMutation = useMutation({

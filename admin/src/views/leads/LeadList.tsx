@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
@@ -77,12 +77,12 @@ export default function LeadList() {
         if (v === null || v === '') params.delete(k);
         else params.set(k, v);
       }
-      router.replace(`${pathname}?${params.toString()}`);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     },
     [router, pathname, searchParams]
   );
 
-  const { data, isLoading } = useQuery<LeadsResponse>({
+  const { data, isLoading, isPlaceholderData } = useQuery<LeadsResponse>({
     queryKey: ['admin-leads', formType, status, search, page],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -94,6 +94,7 @@ export default function LeadList() {
       const { data } = await api.get(`/admin/leads?${params.toString()}`);
       return data;
     },
+    placeholderData: keepPreviousData,
   });
 
   const leads = data?.leads ?? [];
@@ -169,6 +170,7 @@ export default function LeadList() {
       </div>
 
       {/* Grouped list */}
+      <div className={`relative ${isPlaceholderData ? 'opacity-70 transition-opacity' : ''}`}>
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -260,6 +262,7 @@ export default function LeadList() {
           ))}
         </div>
       )}
+      </div>
 
       {/* Pagination */}
       {data && data.total_pages > 1 && (
