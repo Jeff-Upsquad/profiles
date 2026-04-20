@@ -14,6 +14,7 @@ REPO_DIR="/root/Profiles"
 API_PORT=5000
 FRONTEND_PORT=3002
 ADMIN_PORT=3003
+ADMIN_LITE_PORT=3004
 
 echo "=== Pulling latest code ==="
 cd "$REPO_DIR"
@@ -34,9 +35,14 @@ cd "$REPO_DIR/admin"
 npm install
 npm run build
 
+echo "=== Building admin-lite ==="
+cd "$REPO_DIR/admin-lite"
+npm install
+npm run build
+
 echo "=== Restarting services ==="
 # Delete and recreate processes with explicit ports to avoid port drift
-pm2 delete profiles-api profiles-frontend profiles-admin 2>/dev/null || true
+pm2 delete profiles-api profiles-frontend profiles-admin profiles-admin-lite 2>/dev/null || true
 
 cd "$REPO_DIR/backend"
 pm2 start "npm run start" --name profiles-api
@@ -47,6 +53,9 @@ pm2 start "npm run start -- -p $FRONTEND_PORT" --name profiles-frontend
 cd "$REPO_DIR/admin"
 pm2 start "npm run start -- -p $ADMIN_PORT" --name profiles-admin
 
+cd "$REPO_DIR/admin-lite"
+pm2 start "npm run start -- -p $ADMIN_LITE_PORT" --name profiles-admin-lite
+
 pm2 save
 
 echo "=== Reloading nginx ==="
@@ -54,7 +63,8 @@ nginx -t && nginx -s reload
 
 echo ""
 echo "✓ Deploy complete!"
-echo "  API:      http://localhost:$API_PORT"
-echo "  Frontend: http://localhost:$FRONTEND_PORT"
-echo "  Admin:    http://localhost:$ADMIN_PORT"
+echo "  API:        http://localhost:$API_PORT"
+echo "  Frontend:   http://localhost:$FRONTEND_PORT"
+echo "  Admin:      http://localhost:$ADMIN_PORT"
+echo "  Admin-Lite: http://localhost:$ADMIN_LITE_PORT"
 pm2 status

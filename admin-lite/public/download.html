@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Lite - Download</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #F1F5F9;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      max-width: 400px;
+      width: 100%;
+      padding: 40px 32px;
+      text-align: center;
+    }
+    .logo {
+      width: 72px;
+      height: 72px;
+      border-radius: 18px;
+      background: #4F46E5;
+      color: #fff;
+      font-size: 28px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #0F172B;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #64748B;
+      margin-bottom: 28px;
+    }
+    .features {
+      text-align: left;
+      margin-bottom: 28px;
+      padding: 0 8px;
+    }
+    .feature {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      font-size: 14px;
+      color: #334155;
+    }
+    .feature .icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #EEF2FF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 16px;
+    }
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: #4F46E5;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      padding: 14px 32px;
+      border-radius: 12px;
+      text-decoration: none;
+      width: 100%;
+      transition: background 0.2s, opacity 0.2s;
+    }
+    .download-btn:hover { background: #4338CA; }
+    .download-btn.is-disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      background: #4F46E5;
+    }
+    .download-btn svg { width: 20px; height: 20px; }
+    .download-msg {
+      display: none;
+      margin-top: 16px;
+      padding: 12px 14px;
+      background: #ECFDF5;
+      color: #065F46;
+      border: 1px solid #A7F3D0;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      text-align: left;
+    }
+    .download-msg.is-visible { display: block; }
+    .version {
+      font-size: 12px;
+      color: #94A3B8;
+      margin-top: 12px;
+    }
+    .note {
+      font-size: 12px;
+      color: #94A3B8;
+      margin-top: 20px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">AL</div>
+    <h1>Admin Lite</h1>
+    <p class="subtitle">Focused admin tools for candidates and approvals</p>
+
+    <div class="features">
+      <div class="feature">
+        <div class="icon">&#128100;</div>
+        <span>Review candidate applications</span>
+      </div>
+      <div class="feature">
+        <div class="icon">&#9989;</div>
+        <span>Approve talent sign-ups</span>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128221;</div>
+        <span>Review profile submissions</span>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128241;</div>
+        <span>Mobile-friendly workflow</span>
+      </div>
+    </div>
+
+    <a href="admin-lite-latest.apk" class="download-btn" id="downloadBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Download for Android
+    </a>
+    <p class="download-msg" id="downloadMsg">
+      Download started. Check your notifications for progress.
+    </p>
+    <p class="version">Version 1.0.0 &bull; Android</p>
+    <p class="version">Updated on 20 Apr 2026, 11:45 PM IST</p>
+
+    <p class="note">
+      After downloading, open the APK file to install.<br>
+      You may need to enable &ldquo;Install from unknown sources&rdquo; in your device settings.
+    </p>
+  </div>
+
+  <script>
+    (function () {
+      var btn = document.getElementById('downloadBtn');
+      var msg = document.getElementById('downloadMsg');
+      var locked = false;
+      btn.addEventListener('click', function (e) {
+        if (locked) {
+          e.preventDefault();
+          return;
+        }
+        locked = true;
+        msg.classList.add('is-visible');
+        btn.classList.add('is-disabled');
+        setTimeout(function () {
+          locked = false;
+          btn.classList.remove('is-disabled');
+        }, 5000);
+      });
+    })();
+  </script>
+</body>
+</html>
