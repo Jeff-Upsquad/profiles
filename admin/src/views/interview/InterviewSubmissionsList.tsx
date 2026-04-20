@@ -6,51 +6,30 @@ import { useRouter } from 'next/navigation';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
-import LeadsTabs from './LeadsTabs';
+import LeadsTabs from '@/views/leads/LeadsTabs';
 
-interface Lead {
+interface InvitationRow {
   id: string;
+  lead_id: string;
+  lead_name: string;
+  lead_phone: string;
+  lead_email: string | null;
   form_type: string;
-  status: string;
-  name: string;
-  email: string | null;
-  phone: string;
-  form_data: Record<string, any>;
   created_at: string;
+  expires_at: string;
+  submitted_at: string | null;
+  response_count: number;
 }
 
-interface LeadsResponse {
-  leads: Lead[];
+interface InvitationsResponse {
+  invitations: InvitationRow[];
   total: number;
   page: number;
   limit: number;
   total_pages: number;
 }
 
-const statusColors: Record<string, 'blue' | 'yellow' | 'green' | 'red' | 'indigo' | 'gray'> = {
-  new: 'blue',
-  under_review: 'yellow',
-  shortlisted: 'indigo',
-  partner_onboarding: 'yellow',
-  onboard_completed: 'green',
-  archived: 'gray',
-  // legacy
-  contacted: 'yellow',
-  converted: 'green',
-  rejected: 'red',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  new: 'New',
-  under_review: 'Under Review',
-  shortlisted: 'Shortlisted',
-  partner_onboarding: 'Partner Onboarding',
-  onboard_completed: 'Onboard Completed',
-  archived: 'Archived',
-  contacted: 'Contacted',
-  converted: 'Converted',
-  rejected: 'Rejected',
-};
+type StatusFilter = 'submitted' | 'pending' | 'expired' | 'all';
 
 const FORM_TYPE_TABS: { value: string; label: string }[] = [
   { value: '', label: 'All' },
@@ -58,23 +37,52 @@ const FORM_TYPE_TABS: { value: string; label: string }[] = [
   { value: 'accountant', label: 'Accountant' },
 ];
 
-export default function LeadList() {
+const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: 'submitted', label: 'Submitted' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'expired', label: 'Expired' },
+  { value: 'all', label: 'All' },
+];
+
+const statusVariant: Record<StatusFilter, 'green' | 'yellow' | 'red' | 'gray'> = {
+  submitted: 'green',
+  pending: 'yellow',
+  expired: 'red',
+  all: 'gray',
+};
+
+function rowStatus(row: InvitationRow): 'submitted' | 'pending' | 'expired' {
+  if (row.submitted_at) return 'submitted';
+  if (new Date(row.expires_at).getTime() < Date.now()) return 'expired';
+  return 'pending';
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+export default function InterviewSubmissionsList() {
   const router = useRouter();
   const [formType, setFormType] = useState('');
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState<StatusFilter>('submitted');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
-  const { data, isLoading } = useQuery<LeadsResponse>({
-    queryKey: ['admin-leads', formType, status, search, page],
+  const { data, isLoading } = useQuery<InvitationsResponse>({
+    queryKey: ['admin-interview-invitations', formType, status, search, page],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (formType) params.set('form_type', formType);
-      if (status) params.set('status', status);
+      params.set('status', status);
       if (search) params.set('search', search);
       params.set('page', String(page));
       params.set('limit', '25');
-      const { data } = await api.get(`/admin/leads?${params.toString()}`);
+      const { data } = await api.get(`/admin/interview-invitations?${params.toString()}`);
       return data;
     },
   });
@@ -84,9 +92,9 @@ export default function LeadList() {
       <LeadsTabs />
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Lead Submissions</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Interview Responses</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Manage submissions from Meta ad forms
+          Review first-level interview submissions across all candidates.
         </p>
       </div>
 
@@ -114,15 +122,11 @@ export default function LeadList() {
           <select
             className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             value={status}
-            onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+            onChange={(e) => { setStatus(e.target.value as StatusFilter); setPage(1); }}
           >
-            <option value="">All</option>
-            <option value="new">New</option>
-            <option value="under_review">Under Review</option>
-            <option value="shortlisted">Shortlisted</option>
-            <option value="partner_onboarding">Partner Onboarding</option>
-            <option value="onboard_completed">Onboard Completed</option>
-            <option value="archived">Archived</option>
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
           </select>
         </div>
         <div className="w-64">
@@ -139,12 +143,12 @@ export default function LeadList() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Name</th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Candidate</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Phone</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Email</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Role</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Submitted</th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Responses</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -157,44 +161,46 @@ export default function LeadList() {
                   </td>
                 </tr>
               ))
-            ) : !data?.leads.length ? (
+            ) : !data?.invitations.length ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
-                  No leads found
+                  No interview responses match your filters.
                 </td>
               </tr>
             ) : (
-              data.leads.map((lead) => (
-                <tr
-                  key={lead.id}
-                  className="cursor-pointer hover:bg-gray-50"
-                  onClick={() => router.push(`/leads/${lead.id}`)}
-                >
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{lead.name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{lead.phone}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{lead.email || '—'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {lead.form_data?.role || '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={statusColors[lead.status] || 'gray'}>
-                      {STATUS_LABELS[lead.status] || lead.status}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
-                    {new Date(lead.created_at).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </td>
-                </tr>
-              ))
+              data.invitations.map((row) => {
+                const rs = rowStatus(row);
+                return (
+                  <tr
+                    key={row.id}
+                    className="cursor-pointer hover:bg-gray-50"
+                    onClick={() => router.push(`/leads/${row.lead_id}`)}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="text-sm font-medium text-gray-900">{row.lead_name}</div>
+                      <div className="text-xs text-gray-500">via {row.form_type}</div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{row.lead_phone}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{row.lead_email || '—'}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={statusVariant[rs]}>
+                        {rs.charAt(0).toUpperCase() + rs.slice(1)}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {row.submitted_at ? formatDate(row.submitted_at) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {row.submitted_at ? `${row.response_count} answer${row.response_count === 1 ? '' : 's'}` : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

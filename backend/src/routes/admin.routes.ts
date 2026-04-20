@@ -284,6 +284,7 @@ router.delete('/interview-questions/:id', interviewController.deleteQuestion);
 // Per-lead Interview Invitations (admin)
 // ---------------------------------------------------------------------------
 
+router.get('/interview-invitations', interviewController.listInvitations);
 router.get('/leads/:leadId/interview-invitation', interviewController.getInvitation);
 router.post('/leads/:leadId/interview-invitation', interviewController.createInvitation);
 

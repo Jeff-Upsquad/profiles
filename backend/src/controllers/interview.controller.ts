@@ -100,6 +100,26 @@ export async function reorderQuestions(req: Request, res: Response, next: NextFu
 }
 
 // ---------------------------------------------------------------------------
+// Admin — list invitations across leads
+// ---------------------------------------------------------------------------
+
+export async function listInvitations(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { status, form_type, search, page, limit } = req.query;
+    const result = await interviewService.listInterviewInvitations({
+      status: (status as any) || undefined,
+      form_type: form_type as string | undefined,
+      search: search as string | undefined,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Admin — per-lead invitations
 // ---------------------------------------------------------------------------
 

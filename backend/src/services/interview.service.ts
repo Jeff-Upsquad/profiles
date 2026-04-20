@@ -145,6 +145,75 @@ export async function createInvitation(leadId: string, adminUserId?: string) {
   return { invitation: data, lead };
 }
 
+export async function listInterviewInvitations(filters: {
+  status?: 'submitted' | 'pending' | 'expired' | 'all';
+  form_type?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const page = filters.page ?? 1;
+  const limit = filters.limit ?? 25;
+  const offset = (page - 1) * limit;
+  const statusFilter = filters.status ?? 'submitted';
+  const nowIso = new Date().toISOString();
+
+  let query = supabaseAdmin
+    .from('interview_invitations')
+    .select(
+      'id, lead_id, token, expires_at, submitted_at, responses, created_at, lead:lead_submissions!inner(name, phone, email, form_type)',
+      { count: 'exact' }
+    )
+    .order('submitted_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (statusFilter === 'submitted') {
+    query = query.not('submitted_at', 'is', null);
+  } else if (statusFilter === 'pending') {
+    query = query.is('submitted_at', null).gte('expires_at', nowIso);
+  } else if (statusFilter === 'expired') {
+    query = query.is('submitted_at', null).lt('expires_at', nowIso);
+  }
+
+  if (filters.form_type) {
+    query = query.eq('lead.form_type', filters.form_type);
+  }
+
+  if (filters.search) {
+    const esc = filters.search.replace(/[%,]/g, '');
+    // Supabase .or() on an embedded relationship uses the `referencedTable` option.
+    query = query.or(
+      `name.ilike.%${esc}%,email.ilike.%${esc}%,phone.ilike.%${esc}%`,
+      { referencedTable: 'lead' }
+    );
+  }
+
+  const { data, error, count } = await query;
+  if (error) throw new AppError(500, `Failed to list invitations: ${error.message}`);
+
+  const invitations = (data ?? []).map((row: any) => ({
+    id: row.id,
+    lead_id: row.lead_id,
+    lead_name: row.lead?.name ?? '',
+    lead_phone: row.lead?.phone ?? '',
+    lead_email: row.lead?.email ?? null,
+    form_type: row.lead?.form_type ?? '',
+    created_at: row.created_at,
+    expires_at: row.expires_at,
+    submitted_at: row.submitted_at,
+    response_count: row.responses ? Object.keys(row.responses).length : 0,
+  }));
+
+  return {
+    invitations,
+    total: count ?? 0,
+    page,
+    limit,
+    total_pages: Math.ceil((count ?? 0) / limit),
+  };
+}
+
 export async function getLatestInvitationForLead(leadId: string) {
   const { data, error } = await supabaseAdmin
     .from('interview_invitations')
