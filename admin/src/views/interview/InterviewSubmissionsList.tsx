@@ -212,7 +212,7 @@ export default function InterviewSubmissionsList() {
                   <tr
                     key={row.id}
                     className={`cursor-pointer hover:bg-gray-50 ${isReviewed ? 'bg-gray-50/50 text-gray-500' : ''}`}
-                    onClick={() => router.push(`/leads/${row.lead_id}`)}
+                    onClick={() => router.push(`/leads?selected=${row.lead_id}`)}
                   >
                     <td
                       className="px-4 py-3"

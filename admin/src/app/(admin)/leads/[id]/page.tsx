@@ -1,9 +1,14 @@
 'use client';
 
-import { useParams } from 'next/navigation';
-import LeadDetail from '@/views/leads/LeadDetail';
+import { useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 
 export default function LeadDetailPage() {
   const params = useParams();
-  return <LeadDetail id={params.id as string} />;
+  const router = useRouter();
+  useEffect(() => {
+    const id = params.id as string;
+    if (id) router.replace(`/leads?selected=${encodeURIComponent(id)}`);
+  }, [params.id, router]);
+  return null;
 }
