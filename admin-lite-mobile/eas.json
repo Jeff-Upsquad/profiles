@@ -1,0 +1,25 @@
+{
+  "cli": { "version": ">= 12.0.0", "appVersionSource": "local" },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": { "credentialsSource": "local" }
+    },
+    "preview": {
+      "channel": "preview",
+      "android": {
+        "buildType": "apk",
+        "credentialsSource": "local"
+      },
+      "distribution": "internal"
+    },
+    "production": {
+      "channel": "production",
+      "android": {
+        "buildType": "apk",
+        "credentialsSource": "local"
+      }
+    }
+  }
+}
