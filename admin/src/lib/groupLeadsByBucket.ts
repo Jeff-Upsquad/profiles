@@ -1,8 +1,8 @@
 /**
  * Groups a list of items (with a date field) into time-bucketed sections:
- *  1. "Last 7 days"          — last 168 hours
- *  2. "Earlier this month"   — this calendar month, excluding the last 7 days
- *  3. Older entries grouped by month label (e.g. "March 2026")
+ *  1. "Today" / "Yesterday" / weekday name (e.g. "Wednesday") — for the past 7 calendar days
+ *  2. "Earlier this month"                                    — this calendar month, excluding those 7 days
+ *  3. "March 2026"                                            — older entries grouped by month
  *
  * Items must already be sorted newest-first by the same date field.
  */
@@ -21,11 +21,15 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
 export function groupItemsByBucket<T extends DatedItem>(items: T[]): LeadBucket<T>[] {
   if (!items.length) return [];
 
   const now = new Date();
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const todayStart = startOfDay(now);
   const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const buckets = new Map<string, LeadBucket<T>>();
@@ -40,8 +44,18 @@ export function groupItemsByBucket<T extends DatedItem>(items: T[]): LeadBucket<
 
   for (const item of items) {
     const d = new Date(item.created_at);
-    if (d >= sevenDaysAgo) {
-      pushTo('last-7', 'Last 7 days', item);
+    const diffDays = Math.floor(
+      (todayStart.getTime() - startOfDay(d).getTime()) / 86_400_000
+    );
+
+    if (diffDays <= 0) {
+      pushTo('day-today', 'Today', item);
+    } else if (diffDays === 1) {
+      pushTo('day-yesterday', 'Yesterday', item);
+    } else if (diffDays <= 6) {
+      const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
+      // key uses day-offset so it stays unique across weeks if the window ever extends
+      pushTo(`day-${diffDays}`, weekday, item);
     } else if (d >= startOfThisMonth) {
       pushTo('this-month', 'Earlier this month', item);
     } else {
@@ -51,6 +65,6 @@ export function groupItemsByBucket<T extends DatedItem>(items: T[]): LeadBucket<
     }
   }
 
-  // Preserve input ordering (which is newest-first) via insertion order of buckets.
+  // Input is newest-first, so insertion order already gives us the correct bucket order.
   return Array.from(buckets.values());
 }
