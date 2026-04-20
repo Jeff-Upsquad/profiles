@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import toast from 'react-hot-toast';
@@ -61,12 +62,23 @@ export default function FormManager() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Public Forms</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Manage the public-facing candidate application forms. Toggle forms on
-          or off, and copy shareable links for your Meta ad campaigns.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Public Forms</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Manage the public-facing candidate application forms. Toggle forms on
+            or off, and copy shareable links for your Meta ad campaigns.
+          </p>
+        </div>
+        <Link
+          href="/forms/interview-questions"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          Interview Questions
+        </Link>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

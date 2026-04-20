@@ -8,6 +8,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
+import InterviewInvitationSection from '@/views/interview/InterviewInvitationSection';
 
 interface Lead {
   id: string;
@@ -366,6 +367,14 @@ export default function LeadDetail({ id }: { id: string }) {
           </div>
         </div>
       )}
+
+      {/* First-Level Interview */}
+      <InterviewInvitationSection
+        leadId={lead.id}
+        leadName={lead.name}
+        leadPhone={lead.phone}
+        formType={lead.form_type}
+      />
 
       {/* Profile Type */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">

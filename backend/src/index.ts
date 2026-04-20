@@ -11,6 +11,7 @@ import talentRouter from './routes/talent.routes.js';
 import publicRouter from './routes/public.routes.js';
 import businessRouter from './routes/business.routes.js';
 import leadRouter from './routes/lead.routes.js';
+import interviewRouter from './routes/interview.routes.js';
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use('/api/talent', talentRouter);
 app.use('/api/public', publicRouter);
 app.use('/api/business', businessRouter);
 app.use('/api/leads', leadRouter);
+app.use('/api/interview', interviewRouter);
 
 // ---------------------------------------------------------------------------
 // Global error handler (must be registered after all routes)

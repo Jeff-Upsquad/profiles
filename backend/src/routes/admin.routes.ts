@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as adminController from '../controllers/admin.controller.js';
 import * as leadController from '../controllers/lead.controller.js';
 import * as formConfigController from '../controllers/form-config.controller.js';
+import * as interviewController from '../controllers/interview.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -24,6 +25,11 @@ import {
   updateLeadStatusSchema,
   updateLeadProfileTypeSchema,
 } from '../validators/lead.validators.js';
+import {
+  createInterviewQuestionSchema,
+  updateInterviewQuestionSchema,
+  reorderInterviewQuestionsSchema,
+} from '../validators/interview.validators.js';
 
 const router = Router();
 
@@ -251,5 +257,34 @@ router.patch(
 
 router.get('/forms', formConfigController.getPublicForms);
 router.patch('/forms/:id/toggle', formConfigController.toggleFormEnabled);
+
+// ---------------------------------------------------------------------------
+// Interview Questions (admin)
+// ---------------------------------------------------------------------------
+
+router.get('/interview-questions', interviewController.listQuestions);
+router.post(
+  '/interview-questions',
+  validate({ body: createInterviewQuestionSchema }),
+  interviewController.createQuestion
+);
+router.patch(
+  '/interview-questions/reorder',
+  validate({ body: reorderInterviewQuestionsSchema }),
+  interviewController.reorderQuestions
+);
+router.patch(
+  '/interview-questions/:id',
+  validate({ body: updateInterviewQuestionSchema }),
+  interviewController.updateQuestion
+);
+router.delete('/interview-questions/:id', interviewController.deleteQuestion);
+
+// ---------------------------------------------------------------------------
+// Per-lead Interview Invitations (admin)
+// ---------------------------------------------------------------------------
+
+router.get('/leads/:leadId/interview-invitation', interviewController.getInvitation);
+router.post('/leads/:leadId/interview-invitation', interviewController.createInvitation);
 
 export default router;
