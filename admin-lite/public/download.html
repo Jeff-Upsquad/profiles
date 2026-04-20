@@ -145,45 +145,21 @@
       </div>
     </div>
 
-    <a href="admin-lite-latest.apk" class="download-btn" id="downloadBtn">
+    <a href="/admin-lite/login" class="download-btn" id="downloadBtn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-        <polyline points="7 10 12 15 17 10"/>
-        <line x1="12" y1="15" x2="12" y2="3"/>
+        <path d="M5 12h14"/>
+        <polyline points="12 5 19 12 12 19"/>
       </svg>
-      Download for Android
+      Open Admin Panel
     </a>
-    <p class="download-msg" id="downloadMsg">
-      Download started. Check your notifications for progress.
-    </p>
-    <p class="version">Version 1.0.0 &bull; Android</p>
-    <p class="version">Updated on 20 Apr 2026, 11:45 PM IST</p>
+    <p class="version">Version 1.0.0 &bull; Web</p>
+    <p class="version">Updated on 21 Apr 2026</p>
 
     <p class="note">
-      After downloading, open the APK file to install.<br>
-      You may need to enable &ldquo;Install from unknown sources&rdquo; in your device settings.
+      Works on any device with a modern browser.<br>
+      Tip: on mobile, use your browser&rsquo;s &ldquo;Add to Home Screen&rdquo; to launch like an app.
     </p>
   </div>
 
-  <script>
-    (function () {
-      var btn = document.getElementById('downloadBtn');
-      var msg = document.getElementById('downloadMsg');
-      var locked = false;
-      btn.addEventListener('click', function (e) {
-        if (locked) {
-          e.preventDefault();
-          return;
-        }
-        locked = true;
-        msg.classList.add('is-visible');
-        btn.classList.add('is-disabled');
-        setTimeout(function () {
-          locked = false;
-          btn.classList.remove('is-disabled');
-        }, 5000);
-      });
-    })();
-  </script>
 </body>
 </html>
