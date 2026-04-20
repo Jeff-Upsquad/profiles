@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import toast from 'react-hot-toast';
+import { cleanPhoneForLink } from '@/lib/phone';
 
 interface Props {
   isOpen: boolean;
@@ -29,7 +30,7 @@ export default function ShareInviteModal({
     setTimeout(() => setCopiedField((c) => (c === field ? null : c)), 2000);
   };
 
-  const whatsappHref = `https://wa.me/${leadPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+  const whatsappHref = `https://wa.me/${cleanPhoneForLink(leadPhone)}?text=${encodeURIComponent(
     shareMessage
   )}`;
 

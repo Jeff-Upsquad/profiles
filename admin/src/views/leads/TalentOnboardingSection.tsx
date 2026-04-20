@@ -5,6 +5,7 @@ import { useMutation } from '@tanstack/react-query';
 import api from '@/services/api';
 import Button from '@/components/ui/Button';
 import toast from 'react-hot-toast';
+import { cleanPhoneForLink } from '@/lib/phone';
 
 const SIGNUP_URL = 'https://squadhire.upsquadconnect.com/signup/talent';
 
@@ -56,10 +57,10 @@ export default function TalentOnboardingSection({ leadEmail, leadName, leadPhone
   };
 
   const openWhatsApp = () => {
-    const cleanPhone = leadPhone.replace(/[^0-9]/g, '');
+    const linkPhone = cleanPhoneForLink(leadPhone);
     const msg = encodeURIComponent(shareMessage());
-    const href = cleanPhone
-      ? `https://wa.me/${cleanPhone}?text=${msg}`
+    const href = linkPhone
+      ? `https://wa.me/${linkPhone}?text=${msg}`
       : `https://wa.me/?text=${msg}`;
     window.open(href, '_blank', 'noopener,noreferrer');
   };

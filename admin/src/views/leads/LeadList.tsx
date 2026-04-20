@@ -9,6 +9,7 @@ import Input from '@/components/ui/Input';
 import LeadsTabs from './LeadsTabs';
 import LeadSidePanel from './LeadSidePanel';
 import { groupItemsByBucket } from '@/lib/groupLeadsByBucket';
+import { formatIndianPhone } from '@/lib/phone';
 
 interface Lead {
   id: string;
@@ -225,7 +226,7 @@ export default function LeadList() {
                             </Badge>
                           </div>
                           <p className="mt-0.5 truncate text-xs text-gray-500">
-                            {lead.phone}
+                            {formatIndianPhone(lead.phone)}
                             {lead.email ? ` · ${lead.email}` : ''}
                           </p>
                         </div>

@@ -8,6 +8,7 @@ import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import LeadsTabs from '@/views/leads/LeadsTabs';
 import toast from 'react-hot-toast';
+import { formatIndianPhone } from '@/lib/phone';
 
 interface InvitationRow {
   id: string;
@@ -240,7 +241,7 @@ export default function InterviewSubmissionsList() {
                       </div>
                       <div className="text-xs text-gray-500">via {row.form_type}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{row.lead_phone}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{formatIndianPhone(row.lead_phone)}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{row.lead_email || '—'}</td>
                     <td className="px-4 py-3">
                       <Badge variant={statusVariant[rs]}>
