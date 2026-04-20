@@ -161,7 +161,7 @@ export async function listInterviewInvitations(filters: {
   let query = supabaseAdmin
     .from('interview_invitations')
     .select(
-      'id, lead_id, token, expires_at, submitted_at, responses, created_at, lead:lead_submissions!inner(name, phone, email, form_type)',
+      'id, lead_id, token, expires_at, submitted_at, responses, created_at, reviewed_at, reviewed_by, lead:lead_submissions!inner(name, phone, email, form_type)',
       { count: 'exact' }
     )
     .order('submitted_at', { ascending: false, nullsFirst: false })
@@ -202,6 +202,8 @@ export async function listInterviewInvitations(filters: {
     created_at: row.created_at,
     expires_at: row.expires_at,
     submitted_at: row.submitted_at,
+    reviewed_at: row.reviewed_at,
+    reviewed_by: row.reviewed_by,
     response_count: row.responses ? Object.keys(row.responses).length : 0,
   }));
 
@@ -212,6 +214,27 @@ export async function listInterviewInvitations(filters: {
     limit,
     total_pages: Math.ceil((count ?? 0) / limit),
   };
+}
+
+export async function setInvitationReviewed(
+  invitationId: string,
+  reviewed: boolean,
+  adminUserId?: string
+) {
+  const update: Record<string, unknown> = {
+    reviewed_at: reviewed ? new Date().toISOString() : null,
+    reviewed_by: reviewed ? (adminUserId ?? null) : null,
+  };
+
+  const { data, error } = await supabaseAdmin
+    .from('interview_invitations')
+    .update(update)
+    .eq('id', invitationId)
+    .select('id, reviewed_at, reviewed_by')
+    .single();
+
+  if (error) throw new AppError(500, `Failed to update reviewed state: ${error.message}`);
+  return data;
 }
 
 export async function getLatestInvitationForLead(leadId: string) {

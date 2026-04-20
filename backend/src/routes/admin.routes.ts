@@ -285,6 +285,7 @@ router.delete('/interview-questions/:id', interviewController.deleteQuestion);
 // ---------------------------------------------------------------------------
 
 router.get('/interview-invitations', interviewController.listInvitations);
+router.patch('/interview-invitations/:id/reviewed', interviewController.setInvitationReviewed);
 router.get('/leads/:leadId/interview-invitation', interviewController.getInvitation);
 router.post('/leads/:leadId/interview-invitation', interviewController.createInvitation);
 

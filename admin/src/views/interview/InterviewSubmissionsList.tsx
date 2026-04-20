@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import LeadsTabs from '@/views/leads/LeadsTabs';
+import toast from 'react-hot-toast';
 
 interface InvitationRow {
   id: string;
@@ -18,6 +19,8 @@ interface InvitationRow {
   created_at: string;
   expires_at: string;
   submitted_at: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
   response_count: number;
 }
 
@@ -68,13 +71,16 @@ function formatDate(iso: string | null): string {
 
 export default function InterviewSubmissionsList() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [formType, setFormType] = useState('');
   const [status, setStatus] = useState<StatusFilter>('submitted');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
+  const queryKey = ['admin-interview-invitations', formType, status, search, page];
+
   const { data, isLoading } = useQuery<InvitationsResponse>({
-    queryKey: ['admin-interview-invitations', formType, status, search, page],
+    queryKey,
     queryFn: async () => {
       const params = new URLSearchParams();
       if (formType) params.set('form_type', formType);
@@ -84,6 +90,34 @@ export default function InterviewSubmissionsList() {
       params.set('limit', '25');
       const { data } = await api.get(`/admin/interview-invitations?${params.toString()}`);
       return data;
+    },
+  });
+
+  const reviewedMutation = useMutation({
+    mutationFn: async ({ id, reviewed }: { id: string; reviewed: boolean }) => {
+      await api.patch(`/admin/interview-invitations/${id}/reviewed`, { reviewed });
+    },
+    onMutate: async ({ id, reviewed }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<InvitationsResponse>(queryKey);
+      if (previous) {
+        queryClient.setQueryData<InvitationsResponse>(queryKey, {
+          ...previous,
+          invitations: previous.invitations.map((row) =>
+            row.id === id
+              ? { ...row, reviewed_at: reviewed ? new Date().toISOString() : null }
+              : row
+          ),
+        });
+      }
+      return { previous };
+    },
+    onError: (err: any, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(queryKey, ctx.previous);
+      toast.error(err.response?.data?.error || 'Failed to update');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
     },
   });
 
@@ -143,6 +177,9 @@ export default function InterviewSubmissionsList() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              <th className="w-10 px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                <span title="Mark as reviewed">Done</span>
+              </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Candidate</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Phone</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Email</th>
@@ -156,28 +193,50 @@ export default function InterviewSubmissionsList() {
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
-                  <td colSpan={7} className="px-4 py-3">
+                  <td colSpan={8} className="px-4 py-3">
                     <div className="h-4 w-full animate-pulse rounded bg-gray-200" />
                   </td>
                 </tr>
               ))
             ) : !data?.invitations.length ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500">
                   No interview responses match your filters.
                 </td>
               </tr>
             ) : (
               data.invitations.map((row) => {
                 const rs = rowStatus(row);
+                const isReviewed = !!row.reviewed_at;
                 return (
                   <tr
                     key={row.id}
-                    className="cursor-pointer hover:bg-gray-50"
+                    className={`cursor-pointer hover:bg-gray-50 ${isReviewed ? 'bg-gray-50/50 text-gray-500' : ''}`}
                     onClick={() => router.push(`/leads/${row.lead_id}`)}
                   >
+                    <td
+                      className="px-4 py-3"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isReviewed}
+                        disabled={reviewedMutation.isPending}
+                        onChange={(e) =>
+                          reviewedMutation.mutate({ id: row.id, reviewed: e.target.checked })
+                        }
+                        title={
+                          isReviewed && row.reviewed_at
+                            ? `Reviewed on ${formatDate(row.reviewed_at)}`
+                            : 'Mark as reviewed'
+                        }
+                        className="h-4 w-4 cursor-pointer rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                    </td>
                     <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-gray-900">{row.lead_name}</div>
+                      <div className={`text-sm font-medium ${isReviewed ? 'text-gray-600 line-through decoration-gray-300' : 'text-gray-900'}`}>
+                        {row.lead_name}
+                      </div>
                       <div className="text-xs text-gray-500">via {row.form_type}</div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{row.lead_phone}</td>

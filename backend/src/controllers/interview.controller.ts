@@ -103,6 +103,18 @@ export async function reorderQuestions(req: Request, res: Response, next: NextFu
 // Admin — list invitations across leads
 // ---------------------------------------------------------------------------
 
+export async function setInvitationReviewed(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = req.params.id as string;
+    const reviewed = req.body?.reviewed !== false;
+    const adminUserId = (req as any).user?.id;
+    const result = await interviewService.setInvitationReviewed(id, reviewed, adminUserId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function listInvitations(req: Request, res: Response, next: NextFunction) {
   try {
     const { status, form_type, search, page, limit } = req.query;
