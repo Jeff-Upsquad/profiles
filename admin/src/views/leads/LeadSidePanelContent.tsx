@@ -5,6 +5,7 @@ import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import StatusTabs from './StatusTabs';
 import ProfileTypeTabs from './ProfileTypeTabs';
+import TalentOnboardingSection from './TalentOnboardingSection';
 import InterviewInvitationSection from '@/views/interview/InterviewInvitationSection';
 
 interface LeadFull {
@@ -193,6 +194,15 @@ export default function LeadSidePanelContent({ leadId }: { leadId: string }) {
           currentCustom={lead.profile_type_custom}
         />
       </Section>
+
+      {/* Talent onboarding (shortlisted only) */}
+      {lead.status === 'shortlisted' && (
+        <TalentOnboardingSection
+          leadEmail={lead.email}
+          leadName={lead.name}
+          leadPhone={lead.phone}
+        />
+      )}
 
       {/* Form details */}
       {formDataEntries.length > 0 && (
