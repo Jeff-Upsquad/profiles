@@ -139,8 +139,8 @@ export default function AccountantLeadForm() {
 
     if (!form.name.trim()) errs.name = 'Name is required';
     if (!form.phone.trim()) errs.phone = 'Contact number is required';
-    else if (!/^\+?[1-9]\d{9,14}$/.test(form.phone.replace(/\s/g, '')))
-      errs.phone = 'Enter a valid phone number';
+    else if (!/^\+?91[6-9]\d{9}$/.test(form.phone.replace(/\s/g, '')))
+      errs.phone = 'Enter a valid 10-digit mobile number';
     if (!form.age.trim()) errs.age = 'Age is required';
     else if (isNaN(Number(form.age)) || Number(form.age) < 16 || Number(form.age) > 100)
       errs.age = 'Enter a valid age (16-100)';
@@ -299,19 +299,23 @@ export default function AccountantLeadForm() {
                 </span>
                 <input
                   type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
                   className={`block w-full rounded-r-lg border px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
                     errors.phone
                       ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
                       : 'border-gray-300 focus:border-indigo-500'
                   }`}
-                  placeholder="Enter phone"
+                  placeholder="10-digit mobile"
                   value={form.phone.replace(/^\+91/, '')}
                   onChange={(e) => {
-                    const digits = e.target.value.replace(/[^\d]/g, '');
-                    setForm((prev) => ({
-                      ...prev,
-                      phone: '+91' + digits,
-                    }));
+                    let digits = e.target.value.replace(/\D/g, '');
+                    // Candidate pasted "+91..." or typed 91 at the start — strip duplicates.
+                    while (digits.length > 10 && digits.startsWith('91')) {
+                      digits = digits.slice(2);
+                    }
+                    digits = digits.slice(0, 10);
+                    setForm((prev) => ({ ...prev, phone: '+91' + digits }));
                     setErrors((prev) => ({ ...prev, phone: undefined }));
                   }}
                 />

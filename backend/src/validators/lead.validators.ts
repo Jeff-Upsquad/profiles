@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-const phoneRegex = /^\+?[1-9]\d{9,14}$/;
+// Indian mobile: optional "+91" prefix + exactly 10 digits starting with 6–9.
+const phoneRegex = /^(\+?91)?[6-9]\d{9}$/;
 
 export const creativeLeadSchema = z.object({
   form_type: z.literal('creative'),
