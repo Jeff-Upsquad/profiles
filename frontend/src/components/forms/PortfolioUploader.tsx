@@ -9,6 +9,8 @@ interface PortfolioUploaderProps {
   skills: { skill: string }[];
 }
 
+type InFlight = { fileName: string; progress: number };
+
 const ACCEPTED_TYPES: Record<string, string> = {
   'image/jpeg': 'image',
   'image/png': 'image',
@@ -22,36 +24,57 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
   const { data: items = [] } = usePortfolioItems(profileId);
   const addItem = useAddPortfolioItem();
   const deleteItem = useDeletePortfolioItem();
-  const [uploadingMap, setUploadingMap] = useState<Record<string, number>>({});
+  const [uploadsMap, setUploadsMap] = useState<Record<string, Record<string, InFlight>>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeSkill, setActiveSkill] = useState<string | null>(null);
 
-  const startUpload = (skill: string) =>
-    setUploadingMap((prev) => ({ ...prev, [skill]: (prev[skill] ?? 0) + 1 }));
-  const endUpload = (skill: string) =>
-    setUploadingMap((prev) => {
-      const count = (prev[skill] ?? 1) - 1;
-      if (count <= 0) {
-        const { [skill]: _, ...rest } = prev;
-        return rest;
+  const beginUpload = (skill: string, id: string, fileName: string) =>
+    setUploadsMap((prev) => ({
+      ...prev,
+      [skill]: { ...(prev[skill] ?? {}), [id]: { fileName, progress: 0 } },
+    }));
+  const updateProgress = (skill: string, id: string, progress: number) =>
+    setUploadsMap((prev) => {
+      const skillMap = prev[skill];
+      if (!skillMap || !skillMap[id]) return prev;
+      return {
+        ...prev,
+        [skill]: { ...skillMap, [id]: { ...skillMap[id], progress } },
+      };
+    });
+  const finishUpload = (skill: string, id: string) =>
+    setUploadsMap((prev) => {
+      const skillMap = prev[skill];
+      if (!skillMap) return prev;
+      const { [id]: _, ...rest } = skillMap;
+      if (Object.keys(rest).length === 0) {
+        const { [skill]: __, ...others } = prev;
+        return others;
       }
-      return { ...prev, [skill]: count };
+      return { ...prev, [skill]: rest };
     });
 
-  const handleUpload = async (file: File, skillName: string) => {
+  const handleUpload = async (file: File, skillName: string, uploadId: string) => {
     const fileType = ACCEPTED_TYPES[file.type];
     if (!fileType) {
       toast.error('Unsupported file type. Use images, PDFs, or videos.');
       return;
     }
 
-    startUpload(skillName);
+    beginUpload(skillName, uploadId, file.name);
     try {
       // Upload file through backend
       const { data: uploaded } = await api.post(
         `/upload/file?fileName=${encodeURIComponent(file.name)}&folder=portfolio`,
         file,
-        { headers: { 'Content-Type': file.type } }
+        {
+          headers: { 'Content-Type': file.type },
+          onUploadProgress: (e) => {
+            if (!e.total) return;
+            const pct = Math.round((e.loaded / e.total) * 100);
+            updateProgress(skillName, uploadId, pct);
+          },
+        }
       );
 
       // Add portfolio item
@@ -68,7 +91,7 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
       toast.error(message.length > 120 ? message.slice(0, 120) + '...' : message);
       throw err;
     } finally {
-      endUpload(skillName);
+      finishUpload(skillName, uploadId);
     }
   };
 
@@ -81,8 +104,11 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
 
     const skill = activeSkill;
     const fileArray = Array.from(files);
+    const batchId = Date.now();
 
-    Promise.allSettled(fileArray.map((file) => handleUpload(file, skill))).then(
+    Promise.allSettled(
+      fileArray.map((file, i) => handleUpload(file, skill, `${batchId}-${i}`))
+    ).then(
       (results) => {
         if (fileArray.length > 1) {
           const failed = results.filter((r) => r.status === 'rejected').length;
@@ -130,21 +156,40 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
       />
 
       <div className="space-y-6">
-        {skills.map(({ skill }) => (
+        {skills.map(({ skill }) => {
+          const inFlight = Object.values(uploadsMap[skill] ?? {});
+          return (
           <div key={skill} className="rounded-lg border border-gray-200 p-4">
             <div className="mb-3 flex items-center justify-between">
               <h4 className="text-sm font-medium text-gray-700">{skill}</h4>
               <Button
                 variant="outline"
                 size="sm"
-                loading={(uploadingMap[skill] ?? 0) > 0}
+                loading={inFlight.length > 0}
                 onClick={() => triggerUpload(skill)}
               >
-                {(uploadingMap[skill] ?? 0) > 1
-                  ? `Uploading ${uploadingMap[skill]}...`
-                  : 'Upload'}
+                Upload
               </Button>
             </div>
+
+            {inFlight.length > 0 && (
+              <div className="mb-3 space-y-2">
+                {inFlight.map((u, i) => (
+                  <div key={i}>
+                    <div className="mb-1 flex justify-between text-xs text-gray-600">
+                      <span className="truncate pr-2">{u.fileName}</span>
+                      <span className="tabular-nums">{u.progress}%</span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className="h-full bg-neutral-900 transition-all duration-150"
+                        style={{ width: `${u.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {(itemsBySkill[skill] ?? []).length > 0 ? (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -187,7 +232,8 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
               <p className="text-xs text-gray-400">No portfolio items yet</p>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
