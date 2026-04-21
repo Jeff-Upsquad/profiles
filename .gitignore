@@ -9,6 +9,7 @@ node_modules/
 dist/
 build/
 .next/
+*.tsbuildinfo
 
 # Uploads (local file storage)
 backend/uploads/*
@@ -29,5 +30,11 @@ npm-debug.log*
 # Coverage
 coverage/
 
+# Claude Code local config (user-specific, contains absolute paths)
+.claude/settings.local.json
+.claude/launch.json
 # Feature worktrees (git worktree add .claude/worktrees/<name> -b worktree-<name>)
 .claude/worktrees/
+
+# Graphify skill output
+graphify-out/
