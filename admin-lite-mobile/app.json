@@ -22,7 +22,9 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "permissions": ["android.permission.INTERNET"]
+      "permissions": [
+        "android.permission.INTERNET"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -36,7 +38,13 @@
     },
     "extra": {
       "apiUrl": "https://squadhire.upsquadconnect.com/api",
-      "router": { "origin": false }
-    }
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "0ccf95d1-f82b-4bd3-b4e3-9156e97ec344"
+      }
+    },
+    "owner": "upsquad_connect"
   }
 }
