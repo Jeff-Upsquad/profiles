@@ -12,6 +12,7 @@ import ChipSelect from '@/components/ui/ChipSelect';
 import {
   GENDER_OPTIONS,
   WORK_TYPE_OPTIONS,
+  WORK_TYPE_SEEKING_OPTIONS,
   KERALA_DISTRICTS,
   ACCOUNTING_SOFTWARE,
   ACCOUNTING_SOFTWARE_PRIMARY,
@@ -29,6 +30,7 @@ interface FormValues {
   district: string[];
   location: string;
   work_type: string[];
+  work_type_seeking: string[];
   education: string;
   experience_years: string;
   accounting_software: string[];
@@ -51,6 +53,7 @@ const initial: FormValues = {
   district: [],
   location: '',
   work_type: [],
+  work_type_seeking: [],
   education: '',
   experience_years: '',
   accounting_software: [],
@@ -149,6 +152,7 @@ export default function AccountantLeadForm() {
     if (form.district.length === 0) errs.district = 'Select at least one district';
     if (!form.location.trim()) errs.location = 'Location is required';
     if (form.work_type.length === 0) errs.work_type = 'Select at least one work type';
+    if (form.work_type_seeking.length === 0) errs.work_type_seeking = 'Select at least one option';
     if (!form.education.trim()) errs.education = 'Educational qualifications are required';
     if (!form.experience_years.trim()) errs.experience_years = 'Years of experience is required';
     if (form.accounting_software.length === 0) errs.accounting_software = 'Select at least one software';
@@ -187,6 +191,7 @@ export default function AccountantLeadForm() {
         district: form.district,
         location: form.location.trim(),
         work_type: form.work_type,
+        work_type_seeking: form.work_type_seeking,
         education: form.education.trim(),
         experience_years: form.experience_years.trim(),
         accounting_software: form.accounting_software,
@@ -381,6 +386,16 @@ export default function AccountantLeadForm() {
               selected={form.work_type}
               onChange={(v) => setMulti('work_type')(v as string[])}
               error={errors.work_type}
+            />
+
+            <ChipSelect
+              label="What type of work are you looking for?"
+              required
+              multi
+              options={WORK_TYPE_SEEKING_OPTIONS}
+              selected={form.work_type_seeking}
+              onChange={(v) => setMulti('work_type_seeking')(v as string[])}
+              error={errors.work_type_seeking}
             />
 
             <Textarea

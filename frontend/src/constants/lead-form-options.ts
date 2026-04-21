@@ -17,6 +17,12 @@ export const WORK_TYPE_OPTIONS = [
   { label: 'Hybrid', value: 'Hybrid' },
 ];
 
+export const WORK_TYPE_SEEKING_OPTIONS = [
+  { label: 'Freelance work', value: 'Freelance work' },
+  { label: 'Full Time Job', value: 'Full Time Job' },
+  { label: 'Part Time Job', value: 'Part Time Job' },
+];
+
 export const KERALA_DISTRICTS = [
   'Alappuzha',
   'Ernakulam',

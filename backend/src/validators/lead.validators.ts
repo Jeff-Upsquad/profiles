@@ -3,12 +3,17 @@ import { z } from 'zod';
 // Indian mobile: optional "+91" prefix + exactly 10 digits starting with 6–9.
 const phoneRegex = /^(\+?91)?[6-9]\d{9}$/;
 
+const workTypeSeekingSchema = z
+  .array(z.enum(['Freelance work', 'Full Time Job', 'Part Time Job']))
+  .min(1, 'Select at least one work type you are looking for');
+
 export const creativeLeadSchema = z.object({
   form_type: z.literal('creative'),
   name: z.string().min(1, 'Name is required').max(200),
   phone: z.string().regex(phoneRegex, 'Valid phone number is required'),
   email: z.string().email('Valid email is required'),
   role: z.array(z.enum(['Editor', 'Designer', 'Editor + Designer'])).min(1, 'At least one role is required'),
+  work_type_seeking: workTypeSeekingSchema,
   experience_years: z.string().min(1, 'Years of experience is required'),
   portfolio_link: z.string().url('Valid portfolio URL is required'),
   utm_source: z.string().optional(),
@@ -27,6 +32,7 @@ export const accountantLeadSchema = z.object({
   district: z.array(z.string()).min(1, 'At least one district is required'),
   location: z.string().min(1, 'Location is required').max(200),
   work_type: z.array(z.enum(['Online', 'At Office', 'Hybrid'])).min(1, 'At least one work type is required'),
+  work_type_seeking: workTypeSeekingSchema,
   education: z.string().min(1, 'Educational qualifications are required'),
   experience_years: z.string().min(1, 'Years of experience is required'),
   accounting_software: z.array(z.string()).min(1, 'At least one software is required'),

@@ -6,13 +6,14 @@ import axios from 'axios';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import ChipSelect from '@/components/ui/ChipSelect';
-import { CREATIVE_ROLES } from '@/constants/lead-form-options';
+import { CREATIVE_ROLES, WORK_TYPE_SEEKING_OPTIONS } from '@/constants/lead-form-options';
 
 interface FormValues {
   name: string;
   phone: string;
   email: string;
   role: string[];
+  work_type_seeking: string[];
   experience_years: string;
   portfolio_link: string;
 }
@@ -22,6 +23,7 @@ const initial: FormValues = {
   phone: '',
   email: '',
   role: [],
+  work_type_seeking: [],
   experience_years: '',
   portfolio_link: '',
 };
@@ -64,6 +66,7 @@ export default function CreativeLeadForm() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       errs.email = 'Enter a valid email';
     if (form.role.length === 0) errs.role = 'Please select at least one role';
+    if (form.work_type_seeking.length === 0) errs.work_type_seeking = 'Select at least one option';
     if (!form.experience_years.trim()) errs.experience_years = 'Years of experience is required';
     if (!form.portfolio_link.trim()) errs.portfolio_link = 'Portfolio link is required';
     else {
@@ -91,6 +94,7 @@ export default function CreativeLeadForm() {
         phone: form.phone.replace(/\s/g, ''),
         email: form.email.trim(),
         role: form.role,
+        work_type_seeking: form.work_type_seeking,
         experience_years: form.experience_years.trim(),
         portfolio_link: form.portfolio_link.trim(),
         utm_source: searchParams.get('utm_source') || undefined,
@@ -238,6 +242,19 @@ export default function CreativeLeadForm() {
                 setErrors((prev) => ({ ...prev, role: undefined }));
               }}
               error={errors.role}
+            />
+
+            <ChipSelect
+              label="What type of work are you looking for?"
+              required
+              multi
+              options={WORK_TYPE_SEEKING_OPTIONS}
+              selected={form.work_type_seeking}
+              onChange={(v) => {
+                setForm((prev) => ({ ...prev, work_type_seeking: v as string[] }));
+                setErrors((prev) => ({ ...prev, work_type_seeking: undefined }));
+              }}
+              error={errors.work_type_seeking}
             />
 
             <Input
