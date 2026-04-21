@@ -28,3 +28,6 @@ npm-debug.log*
 
 # Coverage
 coverage/
+
+# Feature worktrees (git worktree add .claude/worktrees/<name> -b worktree-<name>)
+.claude/worktrees/
