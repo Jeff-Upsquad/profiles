@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
@@ -57,11 +58,19 @@ export default function UserApprovals() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">User Approvals</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Review and approve talent user accounts ({users.length} pending)
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">User Approvals</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Review and approve talent user accounts ({users.length} pending)
+          </p>
+        </div>
+        <Link
+          href="/approvals/preview"
+          className="inline-flex shrink-0 items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+        >
+          Preview Signup Form
+        </Link>
       </div>
 
       {users.length === 0 ? (
