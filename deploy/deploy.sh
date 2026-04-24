@@ -41,7 +41,15 @@ npm install
 npm run build
 
 echo "=== Restarting services ==="
-# Delete and recreate processes with explicit ports to avoid port drift
+# Delete and recreate processes with explicit ports to avoid port drift.
+#
+# NOTE — also the env-reload guarantee: pm2 caches each process's env at start
+# time. A plain `pm2 restart <name>` does NOT re-read .env; only dotenv inside
+# the Node process runs fresh on spawn. We use `pm2 delete && pm2 start` so
+# every deploy picks up `.env` changes unconditionally. Do not "simplify" this
+# to `pm2 restart` (even `pm2 restart all`) — it silently ships stale secrets.
+#
+# For env-only reloads between deploys (no rebuild), use deploy/reload-env.sh.
 pm2 delete profiles-api profiles-frontend profiles-admin profiles-admin-lite 2>/dev/null || true
 
 cd "$REPO_DIR/backend"
