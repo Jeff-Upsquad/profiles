@@ -16,11 +16,17 @@ export function validate(schema: {
       if (schema.body) {
         req.body = schema.body.parse(req.body);
       }
+      // Express 5 makes req.query / req.params getter-only, so we can't
+      // reassign them. Mutate in place instead — Zod returns coerced values
+      // and fills in defaults, and Object.assign copies those onto the
+      // existing object that downstream handlers read from.
       if (schema.query) {
-        req.query = schema.query.parse(req.query) as any;
+        const parsedQuery = schema.query.parse(req.query);
+        Object.assign(req.query, parsedQuery);
       }
       if (schema.params) {
-        req.params = schema.params.parse(req.params) as any;
+        const parsedParams = schema.params.parse(req.params);
+        Object.assign(req.params, parsedParams);
       }
       next();
     } catch (err) {
