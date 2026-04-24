@@ -12,6 +12,9 @@ import publicRouter from './routes/public.routes.js';
 import businessRouter from './routes/business.routes.js';
 import leadRouter from './routes/lead.routes.js';
 import interviewRouter from './routes/interview.routes.js';
+import subscriptionRouter from './routes/subscription.routes.js';
+import webhookRouter from './routes/webhooks.routes.js';
+import { startCallbackSweeper } from './services/squadhub-callback.service.js';
 
 const app = express();
 
@@ -57,6 +60,8 @@ app.use('/api/public', publicRouter);
 app.use('/api/business', businessRouter);
 app.use('/api/leads', leadRouter);
 app.use('/api/interview', interviewRouter);
+app.use('/api/talent/subscriptions', subscriptionRouter);
+app.use('/api/webhooks', webhookRouter);
 
 // ---------------------------------------------------------------------------
 // Global error handler (must be registered after all routes)
@@ -88,6 +93,7 @@ if (process.env.NODE_ENV === 'production') {
 // ---------------------------------------------------------------------------
 app.listen(env.PORT, () => {
   console.log(`[SquadHire] Server running on port ${env.PORT}`);
+  startCallbackSweeper();
 });
 
 export default app;

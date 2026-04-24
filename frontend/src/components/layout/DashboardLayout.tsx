@@ -7,6 +7,7 @@ export interface SidebarItem {
   label: string;
   to: string;
   icon: React.ReactNode;
+  badge?: React.ReactNode;
 }
 
 interface DashboardLayoutProps {
@@ -79,7 +80,8 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
                   }`}
                 >
                   {item.icon}
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {item.badge}
                 </Link>
               ))}
             </nav>
