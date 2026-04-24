@@ -24,6 +24,11 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     match_rules: input.match_rules,
     published_at: input.published_at ?? new Date().toISOString(),
     expires_at: input.expires_at ?? null,
+    // status: write only when SquadHub sent one. On insert we still default
+    // to 'active' via the column default; on update we preserve the existing
+    // status when `status` is omitted so a plain content refresh doesn't
+    // accidentally un-archive a recalled card.
+    ...(input.status ? { status: input.status } : {}),
   };
 
   // Upsert the card by external_id for idempotency.
@@ -34,14 +39,17 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     .maybeSingle();
 
   if (existing?.id) {
+    const updatePatch: Record<string, unknown> = {
+      content: row.content,
+      match_rules: row.match_rules,
+      published_at: row.published_at,
+      expires_at: row.expires_at,
+    };
+    if (input.status) updatePatch.status = input.status;
+
     const { error } = await supabaseAdmin
       .from('subscription_cards')
-      .update({
-        content: row.content,
-        match_rules: row.match_rules,
-        published_at: row.published_at,
-        expires_at: row.expires_at,
-      })
+      .update(updatePatch)
       .eq('id', existing.id);
     if (error) throw new AppError(500, error.message);
 

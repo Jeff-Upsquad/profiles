@@ -16,6 +16,10 @@ export const ingestSubscriptionCardSchema = z
     // `.datetime()` rejects. `offset: true` covers both.
     published_at: z.string().datetime({ offset: true }).optional(),
     expires_at: z.string().datetime({ offset: true }).optional(),
+    // Propagated from SquadHub so Recall / Close on their side can hide
+    // the card from talent dashboards. Omitted on first publish → stays
+    // 'active' by default.
+    status: z.enum(['active', 'archived']).optional(),
   })
   .strict();
 
