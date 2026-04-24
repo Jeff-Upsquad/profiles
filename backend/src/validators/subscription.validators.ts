@@ -11,8 +11,11 @@ export const ingestSubscriptionCardSchema = z
     external_id: z.string().min(1).max(200),
     content: z.record(z.unknown()).default({}),
     match_rules: z.record(z.unknown()).default({}),
-    published_at: z.string().datetime().optional(),
-    expires_at: z.string().datetime().optional(),
+    // Accept both the Z-suffix and +HH:MM offset forms of ISO-8601. Postgres
+    // and the Supabase JS client hand back the offset form, which vanilla
+    // `.datetime()` rejects. `offset: true` covers both.
+    published_at: z.string().datetime({ offset: true }).optional(),
+    expires_at: z.string().datetime({ offset: true }).optional(),
   })
   .strict();
 
