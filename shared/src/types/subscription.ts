@@ -23,6 +23,16 @@ export interface SubscriptionCardContent {
   notes?: string;
   target_country_names?: string[];
   target_languages?: string[];
+  // Plan-card fields (forwarded from SquadHub's selected plan):
+  plan_name?: string;
+  subscription_name?: string;
+  hours_label?: string;
+  capacity_label?: string;
+  deliverables_label?: string;
+  monthly_price?: number;
+  currency?: string;
+  price_label?: string;
+  is_popular?: boolean;
   [key: string]: unknown;
 }
 

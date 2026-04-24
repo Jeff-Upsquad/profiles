@@ -18,6 +18,16 @@ export interface SubscriptionCardContentShape {
   notes?: string;
   target_country_names?: string[];
   target_languages?: string[];
+  // Plan-card fields (SquadHub should forward these from the selected plan):
+  plan_name?: string;                // "Plus"
+  subscription_name?: string;        // "Designer"
+  hours_label?: string;              // "4-5 hours/day"
+  capacity_label?: string;           // "50% Capacity"
+  deliverables_label?: string;       // "e.g. 20 posters per month"
+  monthly_price?: number;            // 20000
+  currency?: string;                 // "INR"
+  price_label?: string;              // pre-formatted "₹20,000/month" (optional; overrides monthly_price+currency)
+  is_popular?: boolean;              // adds a POPULAR ribbon
   [key: string]: unknown;
 }
 
