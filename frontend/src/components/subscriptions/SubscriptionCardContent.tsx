@@ -126,6 +126,19 @@ export default function SubscriptionCardContent({ content }: Props) {
 
   const hasClientBrief = brandName || businessNature || notes;
 
+  // SquadHub composes `description` by concatenating `business_nature`,
+  // `working_days`, and `notes` for the fallback-card path. When the same
+  // fields arrive as structured values we'd render them twice. Suppress the
+  // concat whenever any structured source is present — the per-section
+  // rendering below is strictly more informative.
+  const hasStructured =
+    deliverables.length > 0 ||
+    workingDays.length > 0 ||
+    hasClientBrief ||
+    countries.length > 0 ||
+    languages.length > 0;
+  const showDescription = description && !hasStructured;
+
   return (
     <div className="flex flex-col gap-3">
       {imageUrl.startsWith('https://') && (
@@ -141,7 +154,7 @@ export default function SubscriptionCardContent({ content }: Props) {
           {title}
         </h3>
       )}
-      {description && (
+      {showDescription && (
         <p className="whitespace-pre-line text-sm text-neutral-600">
           {description}
         </p>
