@@ -43,7 +43,7 @@ export default function SubscriptionsPage() {
       </div>
 
       {isLoading && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {[0, 1, 2].map((i) => (
             <Card key={i}>
               <div className="h-40 animate-pulse rounded-lg bg-gray-100" />
@@ -74,7 +74,7 @@ export default function SubscriptionsPage() {
       )}
 
       {!isLoading && !isError && (data?.length ?? 0) > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {data!.map((item) => (
             <SubscriptionCardView key={item.id} item={item} />
           ))}
