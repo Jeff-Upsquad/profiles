@@ -14,6 +14,7 @@ import leadRouter from './routes/lead.routes.js';
 import interviewRouter from './routes/interview.routes.js';
 import subscriptionRouter from './routes/subscription.routes.js';
 import webhookRouter from './routes/webhooks.routes.js';
+import integrationsRouter from './routes/integrations.routes.js';
 import { startCallbackSweeper } from './services/squadhub-callback.service.js';
 
 const app = express();
@@ -62,6 +63,7 @@ app.use('/api/leads', leadRouter);
 app.use('/api/interview', interviewRouter);
 app.use('/api/talent/subscriptions', subscriptionRouter);
 app.use('/api/webhooks', webhookRouter);
+app.use('/api/integrations', integrationsRouter);
 
 // ---------------------------------------------------------------------------
 // Global error handler (must be registered after all routes)
