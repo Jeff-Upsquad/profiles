@@ -29,6 +29,14 @@ const envSchema = z.object({
 
   // CORS
   CORS_ORIGIN: z.string().default('http://localhost:5173,http://localhost:5174'),
+
+  // SquadHub integration (inbound webhook + outbound callback for subscription cards).
+  // All three are optional at startup — if the inbound secret is unset the webhook
+  // endpoint returns 503; if the callback URL is unset outbound deliveries are
+  // skipped and logged. This keeps local dev zero-config.
+  SQUADHUB_WEBHOOK_SECRET: z.string().min(32).optional(),
+  SQUADHUB_CALLBACK_URL: z.string().url().optional(),
+  SQUADHUB_CALLBACK_SECRET: z.string().min(32).optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
