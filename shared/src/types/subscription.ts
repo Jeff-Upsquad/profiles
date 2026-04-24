@@ -15,6 +15,14 @@ export interface SubscriptionCardContent {
   imageUrl?: string;
   ctaLabel?: string;
   expiresAt?: string;
+  // Structured fields from SquadHub (see SubscriptionCardContent.tsx for render rules):
+  custom_deliverables?: Array<{ label?: string; name?: string; title?: string; description?: string } | string>;
+  working_days?: string[];
+  brand_name?: string;
+  business_nature?: string;
+  notes?: string;
+  target_country_names?: string[];
+  target_languages?: string[];
   [key: string]: unknown;
 }
 
