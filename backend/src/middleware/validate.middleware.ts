@@ -16,17 +16,28 @@ export function validate(schema: {
       if (schema.body) {
         req.body = schema.body.parse(req.body);
       }
-      // Express 5 makes req.query / req.params getter-only, so we can't
-      // reassign them. Mutate in place instead — Zod returns coerced values
-      // and fills in defaults, and Object.assign copies those onto the
-      // existing object that downstream handlers read from.
+      // Express 5 implements req.query / req.params as getters that don't
+      // persist mutations from Object.assign — so Zod-applied defaults and
+      // coercions get silently dropped. Replace the getter with a plain
+      // property using Object.defineProperty so the parsed value (with
+      // defaults applied) is what downstream handlers see.
       if (schema.query) {
         const parsedQuery = schema.query.parse(req.query);
-        Object.assign(req.query, parsedQuery);
+        Object.defineProperty(req, 'query', {
+          value: parsedQuery,
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
       }
       if (schema.params) {
         const parsedParams = schema.params.parse(req.params);
-        Object.assign(req.params, parsedParams);
+        Object.defineProperty(req, 'params', {
+          value: parsedParams,
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
       }
       next();
     } catch (err) {
