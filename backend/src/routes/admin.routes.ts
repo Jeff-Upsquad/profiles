@@ -3,6 +3,7 @@ import * as adminController from '../controllers/admin.controller.js';
 import * as leadController from '../controllers/lead.controller.js';
 import * as formConfigController from '../controllers/form-config.controller.js';
 import * as interviewController from '../controllers/interview.controller.js';
+import * as talentAccessController from '../controllers/talent-access.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -30,6 +31,12 @@ import {
   updateInterviewQuestionSchema,
   reorderInterviewQuestionsSchema,
 } from '../validators/interview.validators.js';
+import {
+  createGrantSchema,
+  updateGrantSchema,
+  extendGrantSchema,
+  listGrantsQuerySchema,
+} from '../validators/talent-access.validators.js';
 
 const router = Router();
 
@@ -175,6 +182,34 @@ router.post(
   adminController.createInvitation
 );
 router.patch('/invitations/:id/revoke', adminController.revokeInvitation);
+
+// ---------------------------------------------------------------------------
+// Talent Access Grants (email-gated public profile browsing)
+// ---------------------------------------------------------------------------
+
+router.get(
+  '/talent-access',
+  validate({ query: listGrantsQuerySchema }),
+  talentAccessController.listGrants
+);
+router.post(
+  '/talent-access',
+  validate({ body: createGrantSchema }),
+  talentAccessController.createGrant
+);
+router.get('/talent-access/:id', talentAccessController.getGrant);
+router.patch(
+  '/talent-access/:id',
+  validate({ body: updateGrantSchema }),
+  talentAccessController.updateGrant
+);
+router.patch('/talent-access/:id/revoke', talentAccessController.revokeGrant);
+router.post(
+  '/talent-access/:id/extend',
+  validate({ body: extendGrantSchema }),
+  talentAccessController.extendGrant
+);
+router.delete('/talent-access/:id', talentAccessController.deleteGrant);
 
 // ---------------------------------------------------------------------------
 // Business Subscriptions (Category Assignments)

@@ -8,6 +8,11 @@ declare global {
         email: string;
         role: UserRole;
       };
+      talentAccess?: {
+        grantId: string;
+        email: string;
+        categoryIds: string[];
+      };
     }
   }
 }
