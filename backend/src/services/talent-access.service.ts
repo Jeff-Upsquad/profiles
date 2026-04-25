@@ -445,19 +445,21 @@ function extractTopSkills(fieldData: any, limit = 3): string[] {
 
 export async function listProfiles(session: AccessSession, query: ProfilesQuery) {
   assertCategoryAuthorized(session, query.category_id);
+  const page = query.page ?? 1;
 
-  // 1. If tier filter is set, narrow to allowed talent_profile_ids first
+  // 1. If tier filter is set, narrow to allowed talent_profile_ids first.
+  //    Multi-tier support: profile is allowed if its tier ∈ selected tiers.
   let allowedIds: string[] | null = null;
-  if (query.tier) {
+  if (query.tier && query.tier.length > 0) {
     const { data, error } = await supabaseAdmin
       .from('v_talent_profile_tier')
       .select('talent_profile_id')
       .eq('category_id', query.category_id)
-      .eq('tier', query.tier);
+      .in('tier', query.tier);
     if (error) throw new AppError(500, error.message);
     allowedIds = (data ?? []).map((r: any) => r.talent_profile_id);
     if (allowedIds.length === 0) {
-      return { profiles: [], page: query.page, per_page: PER_PAGE, total: 0 };
+      return { profiles: [], page, per_page: PER_PAGE, total: 0 };
     }
   }
 
@@ -475,8 +477,8 @@ export async function listProfiles(session: AccessSession, query: ProfilesQuery)
     .is('deleted_at', null);
 
   if (allowedIds) qb = qb.in('id', allowedIds);
-  if (query.location) {
-    qb = qb.ilike('talent_users.current_location', `%${query.location}%`);
+  if (query.location && query.location.length > 0) {
+    qb = qb.in('talent_users.current_location', query.location);
   }
   if (query.search) {
     qb = qb.ilike('talent_users.full_name', `%${query.search}%`);
@@ -489,33 +491,34 @@ export async function listProfiles(session: AccessSession, query: ProfilesQuery)
 
   let profiles = (data ?? []) as any[];
 
-  // 3. JS-side filters for nested JSONB fields
-  if (query.language) {
-    const wanted = query.language.toLowerCase();
+  // 3. JS-side filters for nested JSONB fields. Multi-value filters use OR
+  //    semantics (a profile matches if it has ANY of the selected values).
+  if (query.language && query.language.length > 0) {
+    const wanted = new Set(query.language.map((l) => l.toLowerCase()));
     profiles = profiles.filter((p) =>
       Array.isArray(p.talent_users?.languages_spoken) &&
       p.talent_users.languages_spoken.some(
-        (l: any) => (l?.language ?? '').toLowerCase() === wanted,
+        (l: any) => wanted.has(String(l?.language ?? '').toLowerCase()),
       ),
     );
   }
-  if (query.skill) {
-    const wanted = query.skill.toLowerCase();
+  if (query.skill && query.skill.length > 0) {
+    const wanted = new Set(query.skill.map((s) => s.toLowerCase()));
     profiles = profiles.filter((p) => {
       const skills = p.field_data?._skills;
       if (!Array.isArray(skills)) return false;
       return skills.some((s: any) => {
         const name = typeof s === 'string' ? s : s?.skill;
-        return typeof name === 'string' && name.toLowerCase() === wanted;
+        return typeof name === 'string' && wanted.has(name.toLowerCase());
       });
     });
   }
-  if (query.ai_tool) {
-    const wanted = query.ai_tool.toLowerCase();
+  if (query.ai_tool && query.ai_tool.length > 0) {
+    const wanted = new Set(query.ai_tool.map((t) => t.toLowerCase()));
     profiles = profiles.filter((p) => {
       const tools = p.field_data?._ai_tools;
       return Array.isArray(tools) && tools.some(
-        (t: any) => typeof t === 'string' && t.toLowerCase() === wanted,
+        (t: any) => typeof t === 'string' && wanted.has(t.toLowerCase()),
       );
     });
   }
@@ -538,7 +541,7 @@ export async function listProfiles(session: AccessSession, query: ProfilesQuery)
 
   // 5. Paginate
   const total = profiles.length;
-  const start = (query.page - 1) * PER_PAGE;
+  const start = (page - 1) * PER_PAGE;
   const paged = profiles.slice(start, start + PER_PAGE);
 
   return {
@@ -552,7 +555,7 @@ export async function listProfiles(session: AccessSession, query: ProfilesQuery)
       top_skills: extractTopSkills(p.field_data),
       category: p.categories,
     })),
-    page: query.page,
+    page,
     per_page: PER_PAGE,
     total,
   };

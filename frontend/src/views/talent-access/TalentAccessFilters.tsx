@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   useTalentAccessFilterOptions,
   type Tier,
@@ -14,11 +15,11 @@ const TIERS: { value: Tier; label: string }[] = [
 ];
 
 export interface FilterState {
-  tier?: Tier;
-  location?: string;
-  language?: string;
-  skill?: string;
-  ai_tool?: string;
+  tier?: Tier[];
+  location?: string[];
+  language?: string[];
+  skill?: string[];
+  ai_tool?: string[];
 }
 
 interface Props {
@@ -27,185 +28,233 @@ interface Props {
   onChange: (next: FilterState) => void;
 }
 
+function toggle<T>(list: T[] | undefined, item: T): T[] {
+  const arr = list ?? [];
+  return arr.includes(item) ? arr.filter((x) => x !== item) : [...arr, item];
+}
+
+function CountBadge({ n }: { n: number }) {
+  if (n === 0) return null;
+  return (
+    <span className="ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-zinc-900 px-1.5 text-[10px] font-semibold text-white">
+      {n}
+    </span>
+  );
+}
+
+interface SectionProps {
+  title: string;
+  count: number;
+  onClear?: () => void;
+  scroll?: boolean;
+  children: React.ReactNode;
+}
+
+function Section({ title, count, onClear, scroll, children }: SectionProps) {
+  return (
+    <section className="min-w-0">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="flex items-center text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          {title}
+          <CountBadge n={count} />
+        </h3>
+        {count > 0 && onClear && (
+          <button
+            onClick={onClear}
+            className="text-[11px] font-medium text-zinc-500 hover:text-zinc-900"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      <div
+        className={
+          scroll
+            ? 'max-h-48 space-y-1.5 overflow-y-auto rounded-md border border-zinc-200 bg-white p-2'
+            : 'space-y-1.5'
+        }
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
+
+interface CheckboxRowProps {
+  checked: boolean;
+  onChange: () => void;
+  children: React.ReactNode;
+}
+
+function CheckboxRow({ checked, onChange, children }: CheckboxRowProps) {
+  return (
+    <label className="flex min-w-0 cursor-pointer items-center gap-2 text-sm text-zinc-700">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="h-4 w-4 shrink-0 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+      />
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+    </label>
+  );
+}
+
 export default function TalentAccessFilters({ categoryId, value, onChange }: Props) {
   const { data: options, isLoading } = useTalentAccessFilterOptions(categoryId);
+  const [tierExpanded, setTierExpanded] = useState(false);
 
-  function patch(p: Partial<FilterState>) {
-    onChange({ ...value, ...p });
-  }
+  const tierCount = value.tier?.length ?? 0;
+  const locationCount = value.location?.length ?? 0;
+  const languageCount = value.language?.length ?? 0;
+  const skillCount = value.skill?.length ?? 0;
+  const aiToolCount = value.ai_tool?.length ?? 0;
 
-  function reset() {
-    onChange({});
-  }
-
-  const hasAny =
-    value.tier ||
-    value.location ||
-    value.language ||
-    value.skill ||
-    value.ai_tool;
+  const totalSelected =
+    tierCount + locationCount + languageCount + skillCount + aiToolCount;
 
   return (
-    <aside className="space-y-5">
-      <div className="flex items-center justify-between">
+    <aside className="min-w-0 space-y-5 overflow-hidden">
+      <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-zinc-900">Filters</h2>
-        {hasAny && (
+        {totalSelected > 0 && (
           <button
-            onClick={reset}
+            onClick={() => onChange({})}
             className="text-xs font-medium text-zinc-500 hover:text-zinc-900"
           >
-            Reset
+            Reset all
           </button>
         )}
       </div>
 
       {/* Tier */}
-      <section>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          Tier
-        </h3>
-        <div className="space-y-1.5">
-          {TIERS.map((t) => (
-            <label
-              key={t.value}
-              className="flex cursor-pointer items-center gap-2 text-sm text-zinc-700"
-            >
-              <input
-                type="radio"
-                name="tier"
-                checked={value.tier === t.value}
-                onChange={() => patch({ tier: t.value })}
-                className="h-4 w-4 border-zinc-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              {t.label}
-            </label>
-          ))}
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-500">
-            <input
-              type="radio"
-              name="tier"
-              checked={!value.tier}
-              onChange={() => patch({ tier: undefined })}
-              className="h-4 w-4 border-zinc-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            Any
-          </label>
-        </div>
+      <Section
+        title="Tier"
+        count={tierCount}
+        onClear={() => onChange({ ...value, tier: undefined })}
+      >
+        {TIERS.map((t) => (
+          <CheckboxRow
+            key={t.value}
+            checked={!!value.tier?.includes(t.value)}
+            onChange={() =>
+              onChange({ ...value, tier: toggle(value.tier, t.value) })
+            }
+          >
+            {t.label}
+          </CheckboxRow>
+        ))}
         <div className="mt-3">
-          <TierExplainer />
+          <button
+            type="button"
+            onClick={() => setTierExpanded((v) => !v)}
+            className="flex w-full items-center justify-between rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-left text-xs font-medium text-zinc-600 hover:bg-zinc-100"
+          >
+            <span>What the tiers mean</span>
+            <span className="text-zinc-400">{tierExpanded ? '–' : '+'}</span>
+          </button>
+          {tierExpanded && (
+            <div className="mt-2">
+              <TierExplainer />
+            </div>
+          )}
         </div>
-      </section>
+      </Section>
 
       {/* Location */}
-      <section>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          Location
-        </h3>
-        <select
-          value={value.location ?? ''}
-          onChange={(e) => patch({ location: e.target.value || undefined })}
-          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          disabled={isLoading}
-        >
-          <option value="">All locations</option>
-          {(options?.locations ?? []).map((loc) => (
-            <option key={loc} value={loc}>
+      <Section
+        title="Location"
+        count={locationCount}
+        onClear={() => onChange({ ...value, location: undefined })}
+        scroll={(options?.locations ?? []).length > 6}
+      >
+        {isLoading ? (
+          <p className="text-xs text-zinc-400">Loading…</p>
+        ) : (options?.locations ?? []).length === 0 ? (
+          <p className="text-xs text-zinc-400">No locations available.</p>
+        ) : (
+          options!.locations.map((loc) => (
+            <CheckboxRow
+              key={loc}
+              checked={!!value.location?.includes(loc)}
+              onChange={() =>
+                onChange({ ...value, location: toggle(value.location, loc) })
+              }
+            >
               {loc}
-            </option>
-          ))}
-        </select>
-      </section>
+            </CheckboxRow>
+          ))
+        )}
+      </Section>
 
       {/* Language */}
-      <section>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          Language
-        </h3>
-        <select
-          value={value.language ?? ''}
-          onChange={(e) => patch({ language: e.target.value || undefined })}
-          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          disabled={isLoading}
-        >
-          <option value="">All languages</option>
-          {(options?.languages ?? []).map((lang) => (
-            <option key={lang} value={lang}>
+      <Section
+        title="Language"
+        count={languageCount}
+        onClear={() => onChange({ ...value, language: undefined })}
+        scroll={(options?.languages ?? []).length > 6}
+      >
+        {isLoading ? (
+          <p className="text-xs text-zinc-400">Loading…</p>
+        ) : (options?.languages ?? []).length === 0 ? (
+          <p className="text-xs text-zinc-400">No languages available.</p>
+        ) : (
+          options!.languages.map((lang) => (
+            <CheckboxRow
+              key={lang}
+              checked={!!value.language?.includes(lang)}
+              onChange={() =>
+                onChange({ ...value, language: toggle(value.language, lang) })
+              }
+            >
               {lang}
-            </option>
-          ))}
-        </select>
-      </section>
+            </CheckboxRow>
+          ))
+        )}
+      </Section>
 
       {/* Skills */}
       {(options?.skills ?? []).length > 0 && (
-        <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Skill set
-          </h3>
-          <div className="space-y-1.5">
-            {options!.skills.map((skill) => (
-              <label
-                key={skill}
-                className="flex cursor-pointer items-center gap-2 text-sm text-zinc-700"
-              >
-                <input
-                  type="radio"
-                  name="skill"
-                  checked={value.skill === skill}
-                  onChange={() => patch({ skill })}
-                  className="h-4 w-4 border-zinc-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                {skill}
-              </label>
-            ))}
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-500">
-              <input
-                type="radio"
-                name="skill"
-                checked={!value.skill}
-                onChange={() => patch({ skill: undefined })}
-                className="h-4 w-4 border-zinc-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              Any
-            </label>
-          </div>
-        </section>
+        <Section
+          title="Skill set"
+          count={skillCount}
+          onClear={() => onChange({ ...value, skill: undefined })}
+          scroll={options!.skills.length > 6}
+        >
+          {options!.skills.map((skill) => (
+            <CheckboxRow
+              key={skill}
+              checked={!!value.skill?.includes(skill)}
+              onChange={() =>
+                onChange({ ...value, skill: toggle(value.skill, skill) })
+              }
+            >
+              {skill}
+            </CheckboxRow>
+          ))}
+        </Section>
       )}
 
       {/* AI tools */}
       {(options?.ai_tools ?? []).length > 0 && (
-        <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            AI tools
-          </h3>
-          <div className="space-y-1.5">
-            {options!.ai_tools.map((tool) => (
-              <label
-                key={tool}
-                className="flex cursor-pointer items-center gap-2 text-sm text-zinc-700"
-              >
-                <input
-                  type="radio"
-                  name="ai_tool"
-                  checked={value.ai_tool === tool}
-                  onChange={() => patch({ ai_tool: tool })}
-                  className="h-4 w-4 border-zinc-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                {tool}
-              </label>
-            ))}
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-500">
-              <input
-                type="radio"
-                name="ai_tool"
-                checked={!value.ai_tool}
-                onChange={() => patch({ ai_tool: undefined })}
-                className="h-4 w-4 border-zinc-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              Any
-            </label>
-          </div>
-        </section>
+        <Section
+          title="AI tools"
+          count={aiToolCount}
+          onClear={() => onChange({ ...value, ai_tool: undefined })}
+          scroll={options!.ai_tools.length > 6}
+        >
+          {options!.ai_tools.map((tool) => (
+            <CheckboxRow
+              key={tool}
+              checked={!!value.ai_tool?.includes(tool)}
+              onChange={() =>
+                onChange({ ...value, ai_tool: toggle(value.ai_tool, tool) })
+              }
+            >
+              {tool}
+            </CheckboxRow>
+          ))}
+        </Section>
       )}
     </aside>
   );

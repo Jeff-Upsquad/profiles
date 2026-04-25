@@ -46,13 +46,30 @@ export const loginSchema = z.object({
   email: z.string().email('Valid email is required'),
 });
 
+/**
+ * Coerces a comma-separated query string (`?tier=junior,pro`) into an array.
+ * Supports both `?tier=junior,pro` and a single value (`?tier=junior`).
+ */
+const csvArray = <T extends z.ZodTypeAny>(item: T) =>
+  z
+    .preprocess((v) => {
+      if (v === undefined || v === null || v === '') return undefined;
+      if (Array.isArray(v)) return v;
+      if (typeof v === 'string') {
+        const parts = v.split(',').map((p) => p.trim()).filter(Boolean);
+        return parts.length === 0 ? undefined : parts;
+      }
+      return v;
+    }, z.array(item).min(1).optional())
+    .optional();
+
 export const profilesQuerySchema = z.object({
   category_id: z.string().uuid('category_id is required'),
-  tier: z.enum(TIER_VALUES).optional(),
-  location: z.string().trim().min(1).optional(),
-  language: z.string().trim().min(1).optional(),
-  skill: z.string().trim().min(1).optional(),
-  ai_tool: z.string().trim().min(1).optional(),
+  tier: csvArray(z.enum(TIER_VALUES)),
+  location: csvArray(z.string().trim().min(1)),
+  language: csvArray(z.string().trim().min(1)),
+  skill: csvArray(z.string().trim().min(1)),
+  ai_tool: csvArray(z.string().trim().min(1)),
   search: z.string().trim().min(1).optional(),
   page: z.coerce.number().int().min(1).default(1),
 });

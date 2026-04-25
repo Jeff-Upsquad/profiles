@@ -93,11 +93,11 @@ export interface ProfileDetailResponse {
 
 export interface ProfileFilters {
   category_id: string;
-  tier?: Tier;
-  location?: string;
-  language?: string;
-  skill?: string;
-  ai_tool?: string;
+  tier?: Tier[];
+  location?: string[];
+  language?: string[];
+  skill?: string[];
+  ai_tool?: string[];
   search?: string;
   page?: number;
 }
@@ -187,17 +187,26 @@ export function useTalentAccessMe() {
   });
 }
 
+function appendCsv(
+  params: URLSearchParams,
+  key: string,
+  values: string[] | undefined,
+) {
+  if (!values || values.length === 0) return;
+  params.set(key, values.join(','));
+}
+
 export function useTalentAccessProfiles(filters: ProfileFilters) {
   return useQuery<ProfilesResponse>({
     queryKey: ['talent-access', 'profiles', filters],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set('category_id', filters.category_id);
-      if (filters.tier) params.set('tier', filters.tier);
-      if (filters.location) params.set('location', filters.location);
-      if (filters.language) params.set('language', filters.language);
-      if (filters.skill) params.set('skill', filters.skill);
-      if (filters.ai_tool) params.set('ai_tool', filters.ai_tool);
+      appendCsv(params, 'tier', filters.tier);
+      appendCsv(params, 'location', filters.location);
+      appendCsv(params, 'language', filters.language);
+      appendCsv(params, 'skill', filters.skill);
+      appendCsv(params, 'ai_tool', filters.ai_tool);
       if (filters.search) params.set('search', filters.search);
       if (filters.page) params.set('page', String(filters.page));
       const { data } = await taApi.get<ProfilesResponse>(
