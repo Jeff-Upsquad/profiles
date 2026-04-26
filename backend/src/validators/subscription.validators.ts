@@ -32,6 +32,23 @@ export const removeTalentFromCardSchema = z.object({
   talent_user_id: z.string().uuid(),
 });
 
+/**
+ * Inbound notification from SquadHub when an admin hand-picks a talent for a
+ * soft-published subscription card. We upsert the recipient row so the talent
+ * sees the card in their subscriptions tab, same as if they'd been auto-
+ * matched at publish time.
+ *
+ * `card_id` here is SquadHub's UUID — i.e. our `external_id`. `talent_id` is
+ * a Profiles `talent_users.id`. Both are UUIDs but `card_id` is loosely
+ * validated to keep parity with the ingest schema.
+ */
+export const manualAssignTalentSchema = z.object({
+  type: z.literal('manual_assignment').optional(),
+  card_id: z.string().min(1).max(200),
+  talent_id: z.string().uuid(),
+  assigned_at: z.string().datetime({ offset: true }).optional(),
+});
+
 export const externalIdParamSchema = z.object({
   externalId: z.string().min(1).max(200),
 });
@@ -57,3 +74,4 @@ export type IngestSubscriptionCardInput = z.infer<typeof ingestSubscriptionCardS
 export type ListSubscriptionsQueryInput = z.infer<typeof listSubscriptionsQuerySchema>;
 export type RespondToSubscriptionInput = z.infer<typeof respondToSubscriptionSchema>;
 export type RemoveTalentFromCardInput = z.infer<typeof removeTalentFromCardSchema>;
+export type ManualAssignTalentInput = z.infer<typeof manualAssignTalentSchema>;
