@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import type { UpdateProfileInput, UpdateTalentUserInput, UpdateBasicProfileInput } from '../validators/talent.validators.js';
+import { parseVideoUrl, type VideoProvider } from '../../../shared/src/videoEmbed.js';
 
 // ---------------------------------------------------------------------------
 // Talent User
@@ -351,10 +352,40 @@ export async function getPortfolioItems(profileId: string, userId: string) {
   return data;
 }
 
+interface AddPortfolioItemInput {
+  skill_name: string;
+  file_url?: string;
+  file_type: string;
+  file_name: string;
+  // Link-source fields (required when source_type === 'link')
+  source_type?: 'upload' | 'link';
+  provider?: string;
+  external_url?: string;
+  embed_url?: string;
+}
+
+/**
+ * Best-effort fetch of a Vimeo thumbnail via oEmbed. Never throws — failure
+ * just leaves thumbnail_url null and the card falls back to a provider chip.
+ */
+async function fetchVimeoThumbnail(externalUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(externalUrl)}`,
+      { signal: AbortSignal.timeout(3000) }
+    );
+    if (!res.ok) return null;
+    const json = (await res.json()) as { thumbnail_url?: string };
+    return typeof json.thumbnail_url === 'string' ? json.thumbnail_url : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function addPortfolioItem(
   profileId: string,
   userId: string,
-  input: { skill_name: string; file_url: string; file_type: string; file_name: string }
+  input: AddPortfolioItemInput
 ) {
   const { data: profile } = await supabaseAdmin
     .from('talent_profiles')
@@ -366,9 +397,68 @@ export async function addPortfolioItem(
 
   if (!profile) throw new AppError(404, 'Profile not found');
 
+  // Build the row to insert. Link rows require server-side re-validation of
+  // the parsed URL — we never trust the client's `embed_url`/`provider`.
+  let row: Record<string, unknown>;
+
+  if (input.source_type === 'link') {
+    if (!input.external_url) {
+      throw new AppError(400, 'external_url is required for link portfolio items');
+    }
+    const parsed = parseVideoUrl(input.external_url);
+    if (!parsed) {
+      throw new AppError(
+        400,
+        'Unsupported video link. Use YouTube, Vimeo, Loom, Google Drive, or Dropbox.'
+      );
+    }
+    // Reject if the client tried to forge a different provider/embed_url
+    // than what the parser would derive from the external_url.
+    if (input.provider && input.provider !== parsed.provider) {
+      throw new AppError(400, 'Provider does not match the parsed URL');
+    }
+    if (input.embed_url && input.embed_url !== parsed.embedUrl) {
+      throw new AppError(400, 'embed_url does not match the parsed URL');
+    }
+
+    // Vimeo thumbnail is best-effort over the network. YouTube is
+    // deterministic and already on the parsed result.
+    let thumbnailUrl: string | null = parsed.thumbnailUrl ?? null;
+    if (parsed.provider === 'vimeo' && !thumbnailUrl) {
+      thumbnailUrl = await fetchVimeoThumbnail(parsed.externalUrl);
+    }
+
+    row = {
+      profile_id: profileId,
+      skill_name: input.skill_name,
+      file_type: 'video',
+      file_name: input.file_name,
+      // Mirror embed_url into file_url so legacy reads keep working.
+      file_url: parsed.embedUrl,
+      source_type: 'link',
+      provider: parsed.provider satisfies VideoProvider,
+      external_url: parsed.externalUrl,
+      embed_url: parsed.embedUrl,
+      thumbnail_url: thumbnailUrl,
+    };
+  } else {
+    // Upload path — strip any link-only fields the client may have sent.
+    if (!input.file_url) {
+      throw new AppError(400, 'file_url is required for uploaded portfolio items');
+    }
+    row = {
+      profile_id: profileId,
+      skill_name: input.skill_name,
+      file_url: input.file_url,
+      file_type: input.file_type,
+      file_name: input.file_name,
+      source_type: 'upload',
+    };
+  }
+
   const { data, error } = await supabaseAdmin
     .from('portfolio_items')
-    .insert({ profile_id: profileId, ...input })
+    .insert(row)
     .select()
     .single();
 

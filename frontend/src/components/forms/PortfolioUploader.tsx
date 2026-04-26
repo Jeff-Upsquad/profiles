@@ -1,8 +1,13 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import api from '@/services/api';
 import { usePortfolioItems, useAddPortfolioItem, useDeletePortfolioItem } from '@/hooks/useProfiles';
 import Button from '@/components/ui/Button';
 import toast from 'react-hot-toast';
+import {
+  parseVideoUrl,
+  PROVIDER_DISPLAY_NAME,
+  type ParsedVideo,
+} from '@/lib/videoEmbed';
 
 interface PortfolioUploaderProps {
   profileId: string;
@@ -128,6 +133,49 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
     fileInputRef.current?.click();
   };
 
+  // ---- Video link paste flow (per-skill state) ----
+  const [linkOpenSkill, setLinkOpenSkill] = useState<string | null>(null);
+  const [linkInput, setLinkInput] = useState('');
+  const [linkSubmitting, setLinkSubmitting] = useState(false);
+  const parsedLink: ParsedVideo | null = useMemo(
+    () => (linkInput.trim() ? parseVideoUrl(linkInput) : null),
+    [linkInput]
+  );
+
+  const openLinkPanel = (skill: string) => {
+    setLinkOpenSkill(skill);
+    setLinkInput('');
+  };
+  const closeLinkPanel = () => {
+    setLinkOpenSkill(null);
+    setLinkInput('');
+  };
+
+  const submitLink = async (skill: string) => {
+    if (!parsedLink) return;
+    setLinkSubmitting(true);
+    try {
+      const fileName = `${PROVIDER_DISPLAY_NAME[parsedLink.provider]} video`;
+      await addItem.mutateAsync({
+        profileId,
+        skill_name: skill,
+        file_url: parsedLink.embedUrl,
+        file_type: 'video',
+        file_name: fileName,
+        source_type: 'link',
+        provider: parsedLink.provider,
+        external_url: parsedLink.externalUrl,
+        embed_url: parsedLink.embedUrl,
+      });
+      closeLinkPanel();
+    } catch (err) {
+      // toast already raised by mutation onError
+      console.error('Add video link failed:', err);
+    } finally {
+      setLinkSubmitting(false);
+    }
+  };
+
   // Group items by skill
   const itemsBySkill: Record<string, any[]> = {};
   for (const item of items) {
@@ -143,7 +191,8 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
     <div>
       <h3 className="mb-1 text-sm font-semibold text-gray-800">Portfolio</h3>
       <p className="mb-4 text-xs text-gray-500">
-        Upload images, PDFs, or videos for each skill to showcase your work
+        Upload images, PDFs, or videos for each skill — or paste a public video
+        link from YouTube, Vimeo, Loom, Google Drive, or Dropbox
       </p>
 
       <input
@@ -160,17 +209,77 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
           const inFlight = Object.values(uploadsMap[skill] ?? {});
           return (
           <div key={skill} className="rounded-lg border border-gray-200 p-4">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex items-center justify-between gap-2">
               <h4 className="text-sm font-medium text-gray-700">{skill}</h4>
-              <Button
-                variant="outline"
-                size="sm"
-                loading={inFlight.length > 0}
-                onClick={() => triggerUpload(skill)}
-              >
-                Upload
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  loading={inFlight.length > 0}
+                  onClick={() => triggerUpload(skill)}
+                >
+                  Upload
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    linkOpenSkill === skill ? closeLinkPanel() : openLinkPanel(skill)
+                  }
+                >
+                  {linkOpenSkill === skill ? 'Cancel' : 'Paste video link'}
+                </Button>
+              </div>
             </div>
+
+            {linkOpenSkill === skill && (
+              <div className="mb-3 rounded-md border border-dashed border-gray-300 bg-gray-50 p-3">
+                <label className="mb-1 block text-xs font-medium text-gray-700">
+                  Paste a public video link
+                </label>
+                <input
+                  type="url"
+                  value={linkInput}
+                  onChange={(e) => setLinkInput(e.target.value)}
+                  placeholder="https://www.youtube.com/watch?v=…  or  drive.google.com/…  or  loom.com/share/…"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-neutral-700 focus:outline-none"
+                  autoFocus
+                />
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <div className="min-h-[1.25rem] text-xs">
+                    {linkInput.trim() === '' ? (
+                      <span className="text-gray-500">
+                        Supported: YouTube, Vimeo, Loom, Google Drive, Dropbox
+                      </span>
+                    ) : parsedLink ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
+                        <span aria-hidden>✓</span>
+                        Detected: {PROVIDER_DISPLAY_NAME[parsedLink.provider]}
+                        {parsedLink.provider === 'gdrive' && (
+                          <span className="ml-1 font-normal text-emerald-700/80">
+                            — make sure sharing is &ldquo;Anyone with the link&rdquo;
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700">
+                        <span aria-hidden>✗</span>
+                        Unrecognized link — supported: YouTube, Vimeo, Loom, Google Drive, Dropbox
+                      </span>
+                    )}
+                  </div>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={!parsedLink || linkSubmitting}
+                    loading={linkSubmitting}
+                    onClick={() => submitLink(skill)}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {inFlight.length > 0 && (
               <div className="mb-3 space-y-2">
@@ -202,7 +311,26 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
                         className="h-24 w-full rounded-md object-cover"
                       />
                     )}
-                    {item.file_type === 'video' && (
+                    {item.file_type === 'video' && item.source_type === 'link' && item.provider !== 'dropbox' && (
+                      <div className="relative h-24 w-full overflow-hidden rounded-md bg-gray-900">
+                        {item.thumbnail_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={item.thumbnail_url}
+                            alt={item.file_name}
+                            className="h-full w-full object-cover opacity-90"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xs font-medium text-white/80">
+                            {PROVIDER_DISPLAY_NAME[item.provider as keyof typeof PROVIDER_DISPLAY_NAME] ?? 'Video link'}
+                          </div>
+                        )}
+                        <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                          {PROVIDER_DISPLAY_NAME[item.provider as keyof typeof PROVIDER_DISPLAY_NAME] ?? 'Link'}
+                        </span>
+                      </div>
+                    )}
+                    {item.file_type === 'video' && (item.source_type !== 'link' || item.provider === 'dropbox') && (
                       <video
                         src={item.file_url}
                         className="h-24 w-full rounded-md object-cover"
