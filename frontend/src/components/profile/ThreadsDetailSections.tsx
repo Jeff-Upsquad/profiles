@@ -7,6 +7,56 @@ interface ThreadsDetailSectionsProps {
   fieldData: Record<string, any>;
   bioFieldKey?: string;
   languages?: { language: string; proficiency: string }[];
+  /**
+   * Optional name → group lookups for skills/tools/AI tools. When any item
+   * resolves to a non-empty group, that section is rendered with subheadings
+   * (e.g. "DESIGNER" / "EDITOR" inside CORE SKILLS). Falls back to flat
+   * rendering when no item carries a group.
+   *
+   * `groupOrder` controls the display order of groups (e.g., ['Designer',
+   * 'Editor']). Groups not listed are appended at the end.
+   */
+  groupMaps?: {
+    skills?: Record<string, string | null>;
+    tools?: Record<string, string | null>;
+    aiTools?: Record<string, string | null>;
+    groupOrder?: string[];
+  };
+}
+
+function groupItemsByName<T>(
+  items: T[],
+  getName: (item: T) => string,
+  groupMap: Record<string, string | null> | undefined,
+  groupOrder?: string[]
+): { groups: Map<string, T[]>; hasNamedGroups: boolean } {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const key = (groupMap?.[getName(item)] ?? '') || '';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(item);
+  }
+  const hasNamedGroups = Array.from(groups.keys()).some((k) => k !== '');
+
+  if (groupOrder?.length) {
+    const ordered = new Map<string, T[]>();
+    for (const g of groupOrder) {
+      if (groups.has(g)) ordered.set(g, groups.get(g)!);
+    }
+    for (const [g, list] of groups.entries()) {
+      if (!ordered.has(g)) ordered.set(g, list);
+    }
+    return { groups: ordered, hasNamedGroups };
+  }
+  return { groups, hasNamedGroups };
+}
+
+function GroupSubHeading({ name }: { name: string }) {
+  return (
+    <h4 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-2 mt-1">
+      {name}
+    </h4>
+  );
 }
 
 function isEmpty(value: any): boolean {
@@ -25,55 +75,119 @@ function getLevelLabel(dots: number): string {
   }
 }
 
-function SkillsSection({ skills, delay }: { skills: { skill: string; level: number }[]; delay: number }) {
+function SkillRow({ skill, level }: { skill: string; level: number }) {
+  const dots = Math.max(1, Math.min(5, Math.ceil(level / 2)));
   return (
-    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
-      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
-        Core Skills
-      </h3>
-      <div className="flex flex-col gap-3">
-        {skills.map((s) => {
-          const dots = Math.max(1, Math.min(5, Math.ceil(s.level / 2)));
-          return (
-            <div key={s.skill} className="flex items-center justify-between">
-              <span className="text-[14px] font-medium text-zinc-800">{s.skill}</span>
-              <div className="flex items-center gap-2">
-                <div className="flex gap-0.5">
-                  {[1, 2, 3, 4, 5].map((level) => (
-                    <div
-                      key={level}
-                      className={`w-3 h-3 rounded-full ${level <= dots ? 'bg-zinc-800' : 'bg-zinc-200'}`}
-                    />
-                  ))}
-                </div>
-                <span className="text-[12px] text-zinc-500 w-24 text-right">
-                  {getLevelLabel(dots)}
-                </span>
-              </div>
-            </div>
-          );
-        })}
+    <div className="flex items-center justify-between">
+      <span className="text-[14px] font-medium text-zinc-800">{skill}</span>
+      <div className="flex items-center gap-2">
+        <div className="flex gap-0.5">
+          {[1, 2, 3, 4, 5].map((l) => (
+            <div
+              key={l}
+              className={`w-3 h-3 rounded-full ${l <= dots ? 'bg-zinc-800' : 'bg-zinc-200'}`}
+            />
+          ))}
+        </div>
+        <span className="text-[12px] text-zinc-500 w-24 text-right">
+          {getLevelLabel(dots)}
+        </span>
       </div>
     </div>
   );
 }
 
-function TagSection({ label, tags, delay }: { label: string; tags: string[]; delay: number }) {
+function SkillRowList({ skills }: { skills: { skill: string; level: number }[] }) {
+  return (
+    <div className="flex flex-col gap-3">
+      {skills.map((s) => (
+        <SkillRow key={s.skill} skill={s.skill} level={s.level} />
+      ))}
+    </div>
+  );
+}
+
+function SkillsSection({
+  skills,
+  delay,
+  groupMap,
+  groupOrder,
+}: {
+  skills: { skill: string; level: number }[];
+  delay: number;
+  groupMap?: Record<string, string | null>;
+  groupOrder?: string[];
+}) {
+  const { groups, hasNamedGroups } = groupItemsByName(skills, (s) => s.skill, groupMap, groupOrder);
+
+  return (
+    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
+      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
+        Core Skills
+      </h3>
+      {hasNamedGroups ? (
+        <div className="space-y-4">
+          {Array.from(groups.entries()).map(([groupName, list]) => (
+            <div key={groupName || '_ungrouped'}>
+              {groupName && <GroupSubHeading name={groupName} />}
+              <SkillRowList skills={list} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <SkillRowList skills={skills} />
+      )}
+    </div>
+  );
+}
+
+function TagChips({ tags }: { tags: string[] }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="px-3 py-1.5 bg-white border border-zinc-200 rounded-[10px] text-[13px] font-medium text-zinc-800 shadow-sm"
+        >
+          {tag}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function TagSection({
+  label,
+  tags,
+  delay,
+  groupMap,
+  groupOrder,
+}: {
+  label: string;
+  tags: string[];
+  delay: number;
+  groupMap?: Record<string, string | null>;
+  groupOrder?: string[];
+}) {
+  const { groups, hasNamedGroups } = groupItemsByName(tags, (t) => t, groupMap, groupOrder);
+
   return (
     <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
       <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
         {label}
       </h3>
-      <div className="flex flex-wrap gap-2">
-        {tags.map((tag) => (
-          <span
-            key={tag}
-            className="px-3 py-1.5 bg-white border border-zinc-200 rounded-[10px] text-[13px] font-medium text-zinc-800 shadow-sm"
-          >
-            {tag}
-          </span>
-        ))}
-      </div>
+      {hasNamedGroups ? (
+        <div className="space-y-3">
+          {Array.from(groups.entries()).map(([groupName, list]) => (
+            <div key={groupName || '_ungrouped'}>
+              {groupName && <GroupSubHeading name={groupName} />}
+              <TagChips tags={list} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <TagChips tags={tags} />
+      )}
     </div>
   );
 }
@@ -155,7 +269,7 @@ function FileLink({ label, url, delay }: { label: string; url: string; delay: nu
   );
 }
 
-export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, languages }: ThreadsDetailSectionsProps) {
+export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, languages, groupMaps }: ThreadsDetailSectionsProps) {
   const activeFields = fields
     .filter((f) => f.is_active)
     .sort((a, b) => a.sort_order - b.sort_order);
@@ -177,7 +291,15 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   // Skills section (dot indicators)
   if (skills.length > 0) {
     const delay = sectionIndex * 0.04;
-    sections.push(<SkillsSection key="_skills" skills={skills} delay={delay} />);
+    sections.push(
+      <SkillsSection
+        key="_skills"
+        skills={skills}
+        delay={delay}
+        groupMap={groupMaps?.skills}
+        groupOrder={groupMaps?.groupOrder}
+      />
+    );
     sectionIndex++;
   }
 
@@ -198,14 +320,32 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   // Tools section (outlined tags)
   if (tools.length > 0) {
     const delay = sectionIndex * 0.04;
-    sections.push(<TagSection key="_tools" label={toolsLabel} tags={tools} delay={delay} />);
+    sections.push(
+      <TagSection
+        key="_tools"
+        label={toolsLabel}
+        tags={tools}
+        delay={delay}
+        groupMap={groupMaps?.tools}
+        groupOrder={groupMaps?.groupOrder}
+      />
+    );
     sectionIndex++;
   }
 
   // AI Tools section (outlined tags)
   if (aiTools.length > 0) {
     const delay = sectionIndex * 0.04;
-    sections.push(<TagSection key="_ai_tools" label="AI Tools" tags={aiTools} delay={delay} />);
+    sections.push(
+      <TagSection
+        key="_ai_tools"
+        label="AI Tools"
+        tags={aiTools}
+        delay={delay}
+        groupMap={groupMaps?.aiTools}
+        groupOrder={groupMaps?.groupOrder}
+      />
+    );
     sectionIndex++;
   }
 

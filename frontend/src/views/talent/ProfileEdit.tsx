@@ -289,6 +289,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
               <PortfolioUploader
                 profileId={profileId}
                 skills={values._skills ?? []}
+                categoryId={profile.category_id}
               />
             ) : (
               <div>

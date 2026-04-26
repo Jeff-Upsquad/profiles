@@ -10,6 +10,7 @@ import ThreadsDetailSections from '@/components/profile/ThreadsDetailSections';
 import ThreadsPortfolioTabBar from '@/components/profile/ThreadsPortfolioTabBar';
 import ThreadsPortfolioFeed from '@/components/profile/ThreadsPortfolioFeed';
 import ThreadsProfileSkeleton from '@/components/profile/ThreadsProfileSkeleton';
+import { useCategoryTemplateGroups } from '@/hooks/useCategories';
 
 interface TalentUser {
   full_name: string;
@@ -62,11 +63,37 @@ export default function ThreadsProfileView({
   const [interestMessage, setInterestMessage] = useState('');
   const [activeTab, setActiveTab] = useState('All');
 
+  const { skillGroups, toolGroups, aiToolGroups, skillGroupOrder } =
+    useCategoryTemplateGroups(category?.id);
+
   const portfolioTabs = useMemo(() => {
     if (!portfolioItems || portfolioItems.length === 0) return [];
-    const skills = [...new Set(portfolioItems.map((i) => i.skill_name))];
-    return ['All', ...skills];
-  }, [portfolioItems]);
+    const unique = [...new Set(portfolioItems.map((i) => i.skill_name))];
+    // Order tabs by skill group when available (Designer skills before Editor),
+    // preserving the original encounter order within each group.
+    if (skillGroupOrder?.length && unique.some((s) => skillGroups[s])) {
+      const byGroup = new Map<string, string[]>();
+      for (const name of unique) {
+        const g = (skillGroups[name] || '') as string;
+        if (!byGroup.has(g)) byGroup.set(g, []);
+        byGroup.get(g)!.push(name);
+      }
+      const ordered: string[] = [];
+      for (const g of skillGroupOrder) {
+        if (byGroup.has(g)) ordered.push(...byGroup.get(g)!);
+      }
+      for (const [g, list] of byGroup.entries()) {
+        if (!skillGroupOrder.includes(g)) ordered.push(...list);
+      }
+      return ['All', ...ordered];
+    }
+    return ['All', ...unique];
+  }, [portfolioItems, skillGroups, skillGroupOrder]);
+
+  const groupOrder = useMemo(
+    () => (skillGroupOrder ?? []).filter((g) => g !== ''),
+    [skillGroupOrder]
+  );
 
   const fields = useMemo(
     () => (category?.fields ?? []).filter((f) => f.is_active).sort((a, b) => a.sort_order - b.sort_order),
@@ -146,6 +173,12 @@ export default function ThreadsProfileView({
           fieldData={profile.field_data}
           bioFieldKey={bioFieldKey}
           languages={talentUser.languages_spoken}
+          groupMaps={{
+            skills: skillGroups,
+            tools: toolGroups,
+            aiTools: aiToolGroups,
+            groupOrder,
+          }}
         />
 
         {/* Portfolio section */}
