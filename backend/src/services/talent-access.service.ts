@@ -258,6 +258,113 @@ export async function deleteGrant(grantId: string) {
   if (error) throw new AppError(400, error.message);
 }
 
+// ============================================================
+// SquadHub-originated CRUD (called from /api/integrations/squadhub/...
+// webhook handlers). Same data manipulation as the admin paths but with
+// no admin user attribution and an extra cross-link column.
+// ============================================================
+
+export interface SquadhubGrantInput {
+  squadhub_grant_id: string;
+  email: string;
+  category_ids: string[];
+  expires_at: string;
+  notes?: string | null;
+  created_by_squadhub_user_id?: string | null;
+}
+
+export async function createGrantFromSquadhub(input: SquadhubGrantInput) {
+  const email = normalizeEmail(input.email);
+
+  // Validate categories exist + are active
+  const { data: cats, error: catErr } = await supabaseAdmin
+    .from('categories')
+    .select('id')
+    .in('id', input.category_ids)
+    .eq('is_active', true);
+  if (catErr) throw new AppError(500, catErr.message);
+  if ((cats ?? []).length !== input.category_ids.length) {
+    throw new AppError(400, 'One or more categories are invalid or inactive');
+  }
+
+  // Idempotency: if a row already exists for this squadhub_grant_id, treat
+  // the call as an update — SquadHub's webhook may retry on a flaky network.
+  const { data: existing } = await supabaseAdmin
+    .from('talent_access_grants')
+    .select('id')
+    .eq('squadhub_grant_id', input.squadhub_grant_id)
+    .maybeSingle();
+  if (existing?.id) {
+    return updateGrantFromSquadhub((existing as any).id as string, {
+      ...input,
+      squadhub_grant_id: input.squadhub_grant_id,
+    });
+  }
+
+  const { data: grant, error: insErr } = await supabaseAdmin
+    .from('talent_access_grants')
+    .insert({
+      email,
+      expires_at: input.expires_at,
+      notes: input.notes ?? null,
+      created_by: null,
+      squadhub_grant_id: input.squadhub_grant_id,
+      created_by_squadhub_user_id: input.created_by_squadhub_user_id ?? null,
+    })
+    .select()
+    .single();
+  if (insErr) throw new AppError(400, insErr.message);
+
+  await setGrantCategories(grant.id, input.category_ids);
+
+  return shapeGrantOut(grant as GrantRow, await fetchGrantCategories(grant.id));
+}
+
+export interface SquadhubGrantUpdateInput {
+  squadhub_grant_id?: string; // unused on update path but accepted for symmetry
+  category_ids?: string[];
+  expires_at?: string;
+  revoked_at?: string | null;
+  notes?: string | null;
+  created_by_squadhub_user_id?: string | null;
+}
+
+export async function updateGrantFromSquadhub(
+  profilesGrantId: string,
+  input: SquadhubGrantUpdateInput,
+) {
+  const updates: Record<string, unknown> = {};
+  if (input.expires_at !== undefined) updates.expires_at = input.expires_at;
+  if (input.notes !== undefined) updates.notes = input.notes;
+  if (input.revoked_at !== undefined) updates.revoked_at = input.revoked_at;
+  if (input.created_by_squadhub_user_id !== undefined) {
+    updates.created_by_squadhub_user_id = input.created_by_squadhub_user_id;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    const { error } = await supabaseAdmin
+      .from('talent_access_grants')
+      .update(updates)
+      .eq('id', profilesGrantId);
+    if (error) throw new AppError(400, error.message);
+  }
+
+  if (input.category_ids !== undefined) {
+    const { data: cats, error: catErr } = await supabaseAdmin
+      .from('categories')
+      .select('id')
+      .in('id', input.category_ids)
+      .eq('is_active', true);
+    if (catErr) throw new AppError(500, catErr.message);
+    if ((cats ?? []).length !== input.category_ids.length) {
+      throw new AppError(400, 'One or more categories are invalid or inactive');
+    }
+    await setGrantCategories(profilesGrantId, input.category_ids);
+  }
+
+  return getGrant(profilesGrantId);
+}
+
 function shapeGrantOut(grant: GrantRow, categories: CategoryRow[]) {
   return {
     id: grant.id,
