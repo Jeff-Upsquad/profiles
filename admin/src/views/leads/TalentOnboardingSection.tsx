@@ -91,8 +91,8 @@ export default function TalentOnboardingSection({
     const firstName = leadName.split(' ')[0] || leadName;
     const tierName = resolveTierName(leadProfileType, leadProfileTypeCustom);
     const congrats = tierName
-      ? `Congrats! You've been shortlisted with Upsquad under the ${tierName} tier.`
-      : `Congrats! You've been shortlisted with Upsquad.`;
+      ? `Congrats! You've been shortlisted with Upsquad Partner Program under the ${tierName} tier.`
+      : `Congrats! You've been shortlisted with Upsquad Partner Program.`;
     return (
       `Hi, ${firstName}.\n\n` +
       `${congrats} To know more about the program, visit our website: https://upsquadconnect.com/partner-program/.\n\n` +
