@@ -624,6 +624,35 @@ export async function suspendUser(userId: string, suspend: boolean) {
   return { message: suspend ? 'User suspended' : 'User unsuspended' };
 }
 
+// Flip talent_profiles.is_active. Touches ONLY is_active — never status —
+// so admin reactivation does not force re-approval. (Talent self-service
+// deactivateProfile/reactivateProfile in talent.service.ts intentionally
+// couples is_active with status; admin must not.)
+export async function setProfileActive(profileId: string, isActive: boolean) {
+  const { data, error } = await supabaseAdmin
+    .from('talent_profiles')
+    .update({ is_active: isActive })
+    .eq('id', profileId)
+    .is('deleted_at', null)
+    .select('id, is_active, status')
+    .single();
+
+  if (error || !data) throw new AppError(404, 'Profile not found');
+  return { id: data.id, is_active: data.is_active, status: data.status };
+}
+
+export async function setTalentUserActive(userId: string, isActive: boolean) {
+  const { data, error } = await supabaseAdmin
+    .from('talent_users')
+    .update({ is_active: isActive })
+    .eq('id', userId)
+    .select('id, is_active')
+    .single();
+
+  if (error || !data) throw new AppError(404, 'Talent user not found');
+  return { id: data.id, is_active: data.is_active };
+}
+
 export async function deleteUser(userId: string) {
   const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
   if (error) throw new AppError(400, error.message);
@@ -804,7 +833,7 @@ export async function getTalentCategories() {
 export async function getTalentProfilesByCategory(categoryId: string, search?: string) {
   let qb = supabaseAdmin
     .from('talent_profiles')
-    .select('*, talent_users!inner(full_name, profile_photo_url, current_location), categories!inner(name, slug)')
+    .select('*, talent_users!inner(full_name, profile_photo_url, current_location, is_active), categories!inner(name, slug)')
     .eq('category_id', categoryId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false });

@@ -22,6 +22,7 @@ interface TalentUser {
   created_at: string;
   email?: string;
   suspended?: boolean;
+  is_active: boolean;
 }
 
 interface BusinessUser {
@@ -73,6 +74,19 @@ export default function UserManagement() {
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to update user');
+    },
+  });
+
+  const setUserActive = useMutation({
+    mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
+      await api.patch(`/admin/users/talent/${userId}/active`, { is_active: isActive });
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users-talent'] });
+      toast.success(vars.isActive ? 'Talent visible to public' : 'Talent hidden from public');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to update visibility');
     },
   });
 
@@ -206,7 +220,10 @@ export default function UserManagement() {
                 {filteredTalent.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
+                        {!user.is_active && <Badge variant="gray">Hidden</Badge>}
+                      </div>
                       {user.email && <div className="text-xs text-gray-500">{user.email}</div>}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{user.phone ?? '-'}</td>
@@ -224,6 +241,16 @@ export default function UserManagement() {
                           }
                         >
                           Reset Password
+                        </Button>
+                        <Button
+                          variant={user.is_active ? 'secondary' : 'primary'}
+                          size="sm"
+                          loading={setUserActive.isPending && setUserActive.variables?.userId === user.id}
+                          onClick={() =>
+                            setUserActive.mutate({ userId: user.id, isActive: !user.is_active })
+                          }
+                        >
+                          {user.is_active ? 'Mark Inactive' : 'Mark Active'}
                         </Button>
                         <Button
                           variant={user.suspended ? 'primary' : 'secondary'}

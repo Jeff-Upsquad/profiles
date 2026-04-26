@@ -10,8 +10,14 @@ import Badge from '@/components/ui/Badge';
 interface TalentProfile {
   id: string;
   status: string;
+  is_active: boolean;
   created_at: string;
-  talent_users?: { full_name: string; profile_photo_url?: string; current_location?: string };
+  talent_users?: {
+    full_name: string;
+    profile_photo_url?: string;
+    current_location?: string;
+    is_active?: boolean;
+  };
   categories?: { name: string };
 }
 
@@ -123,9 +129,15 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
                     {profile.talent_users?.current_location ?? '-'}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge variant={statusVariant[profile.status] ?? 'gray'}>
-                      {profile.status.replace('_', ' ')}
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Badge variant={statusVariant[profile.status] ?? 'gray'}>
+                        {profile.status.replace('_', ' ')}
+                      </Badge>
+                      {!profile.is_active && <Badge variant="gray">Hidden</Badge>}
+                      {profile.talent_users?.is_active === false && (
+                        <Badge variant="gray">Talent hidden</Badge>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">
                     {new Date(profile.created_at).toLocaleDateString()}

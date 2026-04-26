@@ -474,6 +474,7 @@ export async function listProfiles(session: AccessSession, query: ProfilesQuery)
     .eq('category_id', query.category_id)
     .eq('status', 'approved')
     .eq('is_active', true)
+    .eq('talent_users.is_active', true)
     .is('deleted_at', null);
 
   if (allowedIds) qb = qb.in('id', allowedIds);
@@ -573,6 +574,7 @@ export async function getProfile(session: AccessSession, profileId: string) {
     .eq('id', profileId)
     .eq('status', 'approved')
     .eq('is_active', true)
+    .eq('talent_users.is_active', true)
     .is('deleted_at', null)
     .maybeSingle();
 
@@ -671,6 +673,7 @@ export async function getFilterOptions(session: AccessSession, categoryId: strin
       .eq('category_id', categoryId)
       .eq('status', 'approved')
       .eq('is_active', true)
+      .eq('talent_users.is_active', true)
       .is('deleted_at', null),
   ]);
 

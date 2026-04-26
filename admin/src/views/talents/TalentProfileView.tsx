@@ -1,12 +1,15 @@
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
 
 interface ProfileData {
   id: string;
   category_id: string;
   status: string;
+  is_active: boolean;
   field_data: Record<string, any>;
   created_at: string;
   updated_at: string;
@@ -19,6 +22,7 @@ interface ProfileData {
     native_place: string;
     languages_spoken: string[];
     profile_photo_url?: string;
+    is_active?: boolean;
   };
   categories?: { name: string; slug: string };
   portfolio_items?: {
@@ -56,6 +60,7 @@ export default function TalentProfileView({
   profileId: string;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const { data: profile, isLoading } = useQuery<ProfileData>({
     queryKey: ['talent-profile', profileId],
@@ -64,6 +69,20 @@ export default function TalentProfileView({
       return data.profile ?? data;
     },
     enabled: !!profileId,
+  });
+
+  const setProfileActive = useMutation({
+    mutationFn: async (isActive: boolean) => {
+      await api.patch(`/admin/talents/profiles/${profileId}/active`, { is_active: isActive });
+    },
+    onSuccess: (_data, isActive) => {
+      queryClient.invalidateQueries({ queryKey: ['talent-profile', profileId] });
+      queryClient.invalidateQueries({ queryKey: ['talent-profiles'] });
+      toast.success(isActive ? 'Profile visible to public' : 'Profile hidden from public');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to update visibility');
+    },
   });
 
   const { data: fields } = useQuery<CategoryField[]>({
@@ -151,23 +170,37 @@ export default function TalentProfileView({
           <h1 className="text-2xl font-bold text-gray-900">
             {talentUser?.full_name ?? 'Profile'}
           </h1>
-          <div className="mt-1 flex items-center gap-2">
+          <div className="mt-1 flex flex-wrap items-center gap-2">
             <span className="text-sm text-gray-500">{profile.categories?.name}</span>
             <Badge variant={statusVariant[profile.status] ?? 'gray'}>
               {profile.status.replace('_', ' ')}
             </Badge>
+            {!profile.is_active && <Badge variant="gray">Hidden from public</Badge>}
+            {talentUser?.is_active === false && (
+              <Badge variant="gray">Talent account hidden</Badge>
+            )}
           </div>
         </div>
-        <button
-          onClick={() => router.push(`/talents/${categoryId}/${profileId}/preview`)}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-        >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-          </svg>
-          Preview Public View
-        </button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={profile.is_active ? 'secondary' : 'primary'}
+            size="sm"
+            loading={setProfileActive.isPending}
+            onClick={() => setProfileActive.mutate(!profile.is_active)}
+          >
+            {profile.is_active ? 'Mark Inactive' : 'Mark Active'}
+          </Button>
+          <button
+            onClick={() => router.push(`/talents/${categoryId}/${profileId}/preview`)}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            Preview Public View
+          </button>
+        </div>
       </div>
 
       {/* Personal Info */}

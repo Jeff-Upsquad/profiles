@@ -169,6 +169,7 @@ router.delete('/ai-tools/:toolId', adminController.deleteTemplateAiTool);
 router.get('/talents/categories', adminController.getTalentCategories);
 router.get('/talents/categories/:categoryId/profiles', adminController.getTalentProfilesByCategory);
 router.get('/talents/profiles/:profileId', adminController.getTalentProfile);
+router.patch('/talents/profiles/:profileId/active', adminController.setProfileActive);
 router.delete('/talents/profiles/:profileId', adminController.softDeleteTalentProfile);
 
 // ---------------------------------------------------------------------------
@@ -258,6 +259,7 @@ router.get('/shortlists', adminController.getShortlistTracking);
 router.get('/users/talent', adminController.getTalentUsers);
 router.get('/users/business', adminController.getBusinessUsers);
 router.patch('/users/:id/suspend', adminController.suspendUser);
+router.patch('/users/talent/:id/active', adminController.setTalentUserActive);
 router.post('/users/:id/reset-password', adminController.resetUserPassword);
 router.delete('/users/:id', adminController.deleteUser);
 

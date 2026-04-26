@@ -450,6 +450,30 @@ export async function suspendUser(req: Request, res: Response, next: NextFunctio
   }
 }
 
+export async function setProfileActive(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.setProfileActive(
+      req.params.profileId as string,
+      Boolean(req.body.is_active),
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function setTalentUserActive(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.setTalentUserActive(
+      req.params.id as string,
+      Boolean(req.body.is_active),
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function deleteUser(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await adminService.deleteUser(req.params.id as string);

@@ -21,6 +21,7 @@ export interface TalentUser {
   approval_status: ApprovalStatus;
   approved_at?: string;
   approved_by?: string;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
