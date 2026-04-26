@@ -40,6 +40,26 @@ function dailyHours(from: string, to: string): number {
   return Math.max(0, b - a) / 60;
 }
 
+const DAY_TO_DOW: Record<DayId, number> = {
+  sun: 0,
+  mon: 1,
+  tue: 2,
+  wed: 3,
+  thu: 4,
+  fri: 5,
+  sat: 6,
+};
+
+function monthlyOccurrences(dayId: DayId, ref: Date): number {
+  const target = DAY_TO_DOW[dayId];
+  const year = ref.getFullYear();
+  const month = ref.getMonth();
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstOccurrenceDay = 1 + ((target - firstDow + 7) % 7);
+  return Math.floor((daysInMonth - firstOccurrenceDay) / 7) + 1;
+}
+
 function fmt(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
@@ -56,7 +76,14 @@ export default function VirtualOfficeHoursPicker({ value, onChange }: Props) {
     () => rows.reduce((sum, r) => sum + dailyHours(r.from, r.to), 0),
     [rows]
   );
-  const monthly = +(weekly * 4.33).toFixed(1);
+  const monthly = useMemo(() => {
+    const now = new Date();
+    const total = rows.reduce(
+      (sum, r) => sum + dailyHours(r.from, r.to) * monthlyOccurrences(r.day, now),
+      0
+    );
+    return +total.toFixed(1);
+  }, [rows]);
 
   const update = (day: DayId, patch: Partial<DayHours>) => {
     const next = rows.map((r) => (r.day === day ? { ...r, ...patch } : r));
