@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import api from '@/services/api';
 import { useCategories, useCategoryWithFields } from '@/hooks/useCategories';
-import { useMyProfiles, useCreateProfile, useSubmitProfile } from '@/hooks/useProfiles';
+import { useMyProfiles, useCreateProfile, useUpdateProfile, useSubmitProfile } from '@/hooks/useProfiles';
 import DynamicFormRenderer from '@/components/forms/DynamicFormRenderer';
 import DesignerExtras from '@/components/forms/DesignerExtras';
+import PortfolioUploader from '@/components/forms/PortfolioUploader';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { SkeletonCard } from '@/components/ui/Skeleton';
@@ -18,15 +22,20 @@ export default function ProfileCreate() {
   const isApproved = user?.approval_status === 'approved';
   const autoApproveActive = user?.auto_approve_signups === true;
   const canSubmit = isApproved || autoApproveActive;
+  const queryClient = useQueryClient();
   const { data: categories, isLoading: catLoading } = useCategories();
   const { data: profiles } = useMyProfiles();
   const createProfile = useCreateProfile();
+  const updateProfile = useUpdateProfile();
   const submitProfile = useSubmitProfile();
 
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [values, setValues] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [celebrationPhase, setCelebrationPhase] = useState<'loading' | 'approved' | null>(null);
+  const [draftProfileId, setDraftProfileId] = useState<string | null>(null);
+  const [autoSaving, setAutoSaving] = useState(false);
+  const autoSaveInFlight = useRef(false);
 
   const { data: categoryWithFields, isLoading: fieldsLoading } = useCategoryWithFields(
     selectedCategory?.slug
@@ -50,6 +59,39 @@ export default function ProfileCreate() {
       return next;
     });
   };
+
+  // Auto-create a draft profile the first time the user picks a skill so the
+  // PortfolioUploader (which needs a profile_id for portfolio_items rows) can
+  // render inline. Once draftProfileId is set, subsequent saves are updates.
+  const skillCount = (values._skills ?? []).length;
+  useEffect(() => {
+    if (skillCount === 0) return;
+    if (draftProfileId) return;
+    if (autoSaveInFlight.current) return;
+    if (!selectedCategory) return;
+
+    autoSaveInFlight.current = true;
+    setAutoSaving(true);
+    api
+      .post('/talent/profiles', {
+        category_id: selectedCategory.id,
+        field_data: values,
+      })
+      .then((res) => {
+        const profile = res.data.profile ?? res.data;
+        setDraftProfileId(profile.id);
+        queryClient.invalidateQueries({ queryKey: ['myProfiles'] });
+        toast.success('Draft saved — you can now upload portfolio items', { duration: 3000 });
+      })
+      .catch(() => {
+        toast.error('Could not auto-save draft. Click "Save as Draft" to enable portfolio uploads.');
+      })
+      .finally(() => {
+        autoSaveInFlight.current = false;
+        setAutoSaving(false);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skillCount, draftProfileId, selectedCategory]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -83,14 +125,23 @@ export default function ProfileCreate() {
     return Object.keys(newErrors).length === 0;
   };
 
+  const persistDraft = async (categoryId: string): Promise<string> => {
+    if (draftProfileId) {
+      await updateProfile.mutateAsync({ id: draftProfileId, field_data: values });
+      return draftProfileId;
+    }
+    const result = await createProfile.mutateAsync({
+      category_id: categoryId,
+      field_data: values,
+    });
+    return result.id;
+  };
+
   const handleSaveDraft = async () => {
     if (!selectedCategory) return;
     try {
-      const result = await createProfile.mutateAsync({
-        category_id: selectedCategory.id,
-        field_data: values,
-      });
-      router.push(`/talent/profiles/${result.id}`);
+      const id = await persistDraft(selectedCategory.id);
+      router.push(`/talent/profiles/${id}`);
     } catch {
       // error handled in hook
     }
@@ -102,17 +153,14 @@ export default function ProfileCreate() {
     const willAutoApprove = !isApproved && autoApproveActive;
     try {
       if (willAutoApprove) setCelebrationPhase('loading');
-      const result = await createProfile.mutateAsync({
-        category_id: selectedCategory.id,
-        field_data: values,
-      });
-      const submitted: any = await submitProfile.mutateAsync(result.id);
+      const id = await persistDraft(selectedCategory.id);
+      const submitted: any = await submitProfile.mutateAsync(id);
       if (willAutoApprove && submitted?.auto_approved) {
         await refetchUser();
         setCelebrationPhase('approved');
         await new Promise((r) => setTimeout(r, 1400));
       }
-      router.push(`/talent/profiles/${result.id}`);
+      router.push(`/talent/profiles/${id}`);
     } catch {
       setCelebrationPhase(null);
       // error handled in hook
@@ -179,6 +227,8 @@ export default function ProfileCreate() {
             setSelectedCategory(null);
             setValues({});
             setErrors({});
+            setDraftProfileId(null);
+            setAutoSaving(false);
           }}
           className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
         >
@@ -232,18 +282,33 @@ export default function ProfileCreate() {
               </div>
             )}
 
+            {/* Portfolio — appears once a draft exists (auto-created on first skill) */}
+            {draftProfileId && skillCount > 0 && (
+              <div className="mt-6 border-t border-gray-200 pt-6">
+                <PortfolioUploader
+                  profileId={draftProfileId}
+                  skills={values._skills ?? []}
+                  categoryId={selectedCategory.id}
+                />
+              </div>
+            )}
+            {autoSaving && (
+              <p className="mt-4 text-xs text-gray-500">Preparing portfolio uploader…</p>
+            )}
+
             <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-gray-200 pt-6">
               <Button
                 variant="outline"
                 onClick={handleSaveDraft}
-                loading={createProfile.isPending}
+                loading={createProfile.isPending || updateProfile.isPending}
+                disabled={autoSaving}
               >
                 Save as Draft
               </Button>
               <Button
                 onClick={handleSaveAndSubmit}
-                loading={createProfile.isPending || submitProfile.isPending}
-                disabled={!canSubmit}
+                loading={createProfile.isPending || updateProfile.isPending || submitProfile.isPending}
+                disabled={!canSubmit || autoSaving}
                 title={
                   !canSubmit
                     ? 'Available after account approval'
