@@ -6,6 +6,7 @@ import type {
   IngestSubscriptionCardInput,
   ListSubscriptionsQueryInput,
   ManualAssignTalentInput,
+  RemoveAssignedTalentInput,
   RespondToSubscriptionInput,
 } from '../validators/subscription.validators.js';
 
@@ -737,5 +738,45 @@ export async function manualAssignTalent(
     card_id: (card as any).id as string,
     talent_user_id: input.talent_id,
     inserted: true,
+  };
+}
+
+export interface RemoveAssignedTalentResult {
+  card_id: string | null;
+  talent_user_id: string;
+  removed: number;
+}
+
+/**
+ * SquadHub admin removed a previously-assigned talent from a card. Drops the
+ * recipient row so the card disappears from the talent's subscription tab.
+ *
+ * Idempotent: returns `removed: 0` if the recipient (or the card itself) is
+ * already gone — common after a Recall on the SquadHub side, which clears
+ * recipients server-side and may fire removals for the same talents.
+ */
+export async function removeAssignedTalent(
+  input: RemoveAssignedTalentInput
+): Promise<RemoveAssignedTalentResult> {
+  const { data: card } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id')
+    .eq('external_id', input.card_id)
+    .maybeSingle();
+  if (!card) {
+    return { card_id: null, talent_user_id: input.talent_id, removed: 0 };
+  }
+
+  const { error, count } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .delete({ count: 'exact' })
+    .eq('card_id', (card as any).id)
+    .eq('talent_user_id', input.talent_id);
+  if (error) throw new AppError(500, error.message);
+
+  return {
+    card_id: (card as any).id as string,
+    talent_user_id: input.talent_id,
+    removed: count ?? 0,
   };
 }
