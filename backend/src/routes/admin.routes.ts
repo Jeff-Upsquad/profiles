@@ -25,6 +25,8 @@ import {
 import {
   updateLeadStatusSchema,
   updateLeadProfileTypeSchema,
+  createLeadNoteSchema,
+  updateLeadNoteSchema,
 } from '../validators/lead.validators.js';
 import {
   createInterviewQuestionSchema,
@@ -287,6 +289,19 @@ router.patch(
   validate({ body: updateLeadProfileTypeSchema }),
   leadController.updateLeadProfileType
 );
+
+router.get('/leads/:id/notes', leadController.listLeadNotes);
+router.post(
+  '/leads/:id/notes',
+  validate({ body: createLeadNoteSchema }),
+  leadController.createLeadNote
+);
+router.patch(
+  '/leads/notes/:noteId',
+  validate({ body: updateLeadNoteSchema }),
+  leadController.updateLeadNote
+);
+router.delete('/leads/notes/:noteId', leadController.deleteLeadNote);
 
 // ---------------------------------------------------------------------------
 // Public Forms Config

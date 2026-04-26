@@ -5,6 +5,7 @@ import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import StatusTabs from './StatusTabs';
 import ProfileTypeTabs from './ProfileTypeTabs';
+import NotesSection from './NotesSection';
 import TalentOnboardingSection from './TalentOnboardingSection';
 import InterviewInvitationSection from '@/views/interview/InterviewInvitationSection';
 import { formatIndianPhone, cleanPhoneForLink } from '@/lib/phone';
@@ -186,6 +187,11 @@ export default function LeadSidePanelContent({ leadId }: { leadId: string }) {
             <p className="mt-0.5 whitespace-pre-wrap text-sm text-gray-800">{lead.admin_notes}</p>
           </div>
         )}
+      </Section>
+
+      {/* Notes */}
+      <Section title="Notes">
+        <NotesSection leadId={lead.id} />
       </Section>
 
       {/* Profile type */}

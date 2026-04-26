@@ -104,8 +104,18 @@ export const updateLeadProfileTypeSchema = z
     { message: 'Custom profile type label is required', path: ['profile_type_custom'] }
   );
 
+export const createLeadNoteSchema = z.object({
+  content: z.string().trim().min(1, 'Note cannot be empty').max(5000),
+});
+
+export const updateLeadNoteSchema = z.object({
+  content: z.string().trim().min(1, 'Note cannot be empty').max(5000),
+});
+
 export type CreateCreativeLeadInput = z.infer<typeof creativeLeadSchema>;
 export type CreateAccountantLeadInput = z.infer<typeof accountantLeadSchema>;
 export type CreateLeadInput = z.infer<typeof createLeadSchema>;
 export type UpdateLeadStatusInput = z.infer<typeof updateLeadStatusSchema>;
 export type UpdateLeadProfileTypeInput = z.infer<typeof updateLeadProfileTypeSchema>;
+export type CreateLeadNoteInput = z.infer<typeof createLeadNoteSchema>;
+export type UpdateLeadNoteInput = z.infer<typeof updateLeadNoteSchema>;
