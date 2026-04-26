@@ -1,12 +1,24 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { PortfolioItem } from '@/types';
+import type { PortfolioItem, PortfolioVideoProvider } from '@/types';
 import ThreadsPortfolioCard from './ThreadsPortfolioCard';
 
 interface ThreadsPortfolioFeedProps {
   items: PortfolioItem[];
   activeTab: string;
+}
+
+const PROVIDER_LABELS: Record<PortfolioVideoProvider, string> = {
+  youtube: 'YouTube',
+  vimeo: 'Vimeo',
+  loom: 'Loom',
+  gdrive: 'Google Drive',
+  dropbox: 'Dropbox',
+};
+
+function providerLabel(provider: PortfolioVideoProvider | null | undefined): string {
+  return provider ? PROVIDER_LABELS[provider] : 'source';
 }
 
 export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfolioFeedProps) {
@@ -196,24 +208,50 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
               selectedItem.source_type === 'link' &&
               selectedItem.provider !== 'dropbox' &&
               selectedItem.embed_url && (
-                <iframe
-                  key={selectedItem.id}
-                  src={selectedItem.embed_url}
-                  title={selectedItem.file_name}
-                  // Sandbox blocks top-navigation/forms while still allowing the
-                  // provider's player to run. allow-same-origin is required for
-                  // YouTube/Vimeo/Loom to function.
-                  sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allow="autoplay; fullscreen; picture-in-picture"
-                  allowFullScreen
-                  // Viewport-relative sizing so the iframe adapts to its host:
-                  //   – mobile (~360×640): ~324×544, near 9:16, fits portrait video
-                  //   – desktop (≥1280): capped at 1200×680, near 16:9, fits landscape
-                  // Removed fixed aspect-video (16:9) which letterboxed portrait clips
-                  // with huge horizontal black bars.
-                  className="h-[85vh] w-[90vw] max-w-[1200px] rounded-lg bg-black"
-                />
+                <div className="flex flex-col items-center gap-2">
+                  <iframe
+                    key={selectedItem.id}
+                    src={selectedItem.embed_url}
+                    title={selectedItem.file_name}
+                    // Sandbox blocks top-navigation/forms while still allowing the
+                    // provider's player to run. allow-same-origin is required for
+                    // YouTube/Vimeo/Loom to function.
+                    sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allow="autoplay; fullscreen; picture-in-picture"
+                    allowFullScreen
+                    // Viewport-relative sizing so the iframe adapts to its host:
+                    //   – mobile (~360×640): ~324×544, near 9:16, fits portrait video
+                    //   – desktop (≥1280): capped at 1200×680, near 16:9, fits landscape
+                    // Removed fixed aspect-video (16:9) which letterboxed portrait clips
+                    // with huge horizontal black bars.
+                    className="h-[85vh] w-[90vw] max-w-[1200px] rounded-lg bg-black"
+                  />
+                  {selectedItem.external_url && (
+                    <a
+                      href={selectedItem.external_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90 backdrop-blur transition-colors hover:bg-white/20"
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                      Open in {providerLabel(selectedItem.provider)}
+                    </a>
+                  )}
+                </div>
               )}
             {selectedItem.file_type === 'video' &&
               (selectedItem.source_type !== 'link' || selectedItem.provider === 'dropbox') && (
