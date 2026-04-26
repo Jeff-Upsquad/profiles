@@ -138,6 +138,11 @@ export function useAddPortfolioItem() {
       file_url: string;
       file_type: string;
       file_name: string;
+      // Link-source fields (required when source_type === 'link')
+      source_type?: 'upload' | 'link';
+      provider?: 'youtube' | 'vimeo' | 'loom' | 'gdrive' | 'dropbox';
+      external_url?: string;
+      embed_url?: string;
     }) => {
       const { data } = await api.post(`/talent/profiles/${profileId}/portfolio`, item);
       return data;

@@ -192,15 +192,34 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
                 />
               )
             )}
-            {selectedItem.file_type === 'video' && (
-              <video
-                key={selectedItem.id}
-                src={selectedItem.file_url}
-                controls
-                autoPlay
-                className="max-h-[85vh] max-w-[85vw] rounded-lg"
-              />
-            )}
+            {selectedItem.file_type === 'video' &&
+              selectedItem.source_type === 'link' &&
+              selectedItem.provider !== 'dropbox' &&
+              selectedItem.embed_url && (
+                <iframe
+                  key={selectedItem.id}
+                  src={selectedItem.embed_url}
+                  title={selectedItem.file_name}
+                  // Sandbox blocks top-navigation/forms while still allowing the
+                  // provider's player to run. allow-same-origin is required for
+                  // YouTube/Vimeo/Loom to function.
+                  sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowFullScreen
+                  className="aspect-video w-[85vw] max-w-[1200px] rounded-lg bg-black"
+                />
+              )}
+            {selectedItem.file_type === 'video' &&
+              (selectedItem.source_type !== 'link' || selectedItem.provider === 'dropbox') && (
+                <video
+                  key={selectedItem.id}
+                  src={selectedItem.file_url}
+                  controls
+                  autoPlay
+                  className="max-h-[85vh] max-w-[85vw] rounded-lg"
+                />
+              )}
             {selectedItem.file_type === 'pdf' && (
               <div className="flex flex-col items-center gap-4 rounded-lg bg-white p-8">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

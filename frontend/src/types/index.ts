@@ -107,6 +107,15 @@ export interface PresignedUrlResponse {
   fileUrl: string;
 }
 
+export type PortfolioVideoProvider =
+  | 'youtube'
+  | 'vimeo'
+  | 'loom'
+  | 'gdrive'
+  | 'dropbox';
+
+export type PortfolioSourceType = 'upload' | 'link';
+
 export interface PortfolioItem {
   id: string;
   profile_id: string;
@@ -115,4 +124,10 @@ export interface PortfolioItem {
   file_type: 'image' | 'pdf' | 'video';
   file_name: string;
   sort_order: number;
+  // External-link video fields (present when source_type === 'link').
+  source_type?: PortfolioSourceType;
+  provider?: PortfolioVideoProvider | null;
+  external_url?: string | null;
+  embed_url?: string | null;
+  thumbnail_url?: string | null;
 }
