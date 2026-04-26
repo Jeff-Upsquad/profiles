@@ -37,14 +37,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const storeAuth = useCallback((authToken: string, authUser: User) => {
-    localStorage.setItem('squadhire_token', authToken);
-    setToken(authToken);
-    setUser(authUser);
-  }, []);
+  const storeAuth = useCallback(
+    (authToken: string, authUser: User, refreshToken?: string | null) => {
+      localStorage.setItem('squadhire_token', authToken);
+      if (refreshToken) {
+        localStorage.setItem('squadhire_refresh', refreshToken);
+      } else {
+        // Business users have no refresh token — clear any stale value from a
+        // previous session of a different role on the same device.
+        localStorage.removeItem('squadhire_refresh');
+      }
+      setToken(authToken);
+      setUser(authUser);
+    },
+    []
+  );
 
   const clearAuth = useCallback(() => {
     localStorage.removeItem('squadhire_token');
+    localStorage.removeItem('squadhire_refresh');
     setToken(null);
     setUser(null);
   }, []);
@@ -80,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (email: string, password: string) => {
       const { data } = await api.post('/auth/login', { email, password });
-      storeAuth(data.access_token || data.token, data.user);
+      storeAuth(data.access_token || data.token, data.user, data.refresh_token);
       router.push('/dashboard');
     },
     [storeAuth, router]
@@ -89,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const businessLogin = useCallback(
     async (identifier: { email?: string; phone?: string }) => {
       const { data } = await api.post('/auth/business-login', identifier);
-      storeAuth(data.access_token || data.token, data.user);
+      storeAuth(data.access_token || data.token, data.user, null);
       router.push('/business/dashboard');
     },
     [storeAuth, router]
@@ -98,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signupTalent = useCallback(
     async (signupData: TalentSignupData, options?: { skipRedirect?: boolean }) => {
       const { data } = await api.post('/auth/signup/talent', signupData);
-      storeAuth(data.access_token || data.token, data.user);
+      storeAuth(data.access_token || data.token, data.user, data.refresh_token);
       if (!options?.skipRedirect) {
         router.push('/talent/basic-profile');
       }

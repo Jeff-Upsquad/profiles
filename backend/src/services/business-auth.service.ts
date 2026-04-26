@@ -140,6 +140,61 @@ export async function businessLogout(token: string) {
   await supabaseAdmin.from('business_sessions').delete().eq('token', token);
 }
 
+export async function refreshSession(oldToken: string, userId: string) {
+  const { data: businessUser, error: fetchError } = await supabaseAdmin
+    .from('business_users')
+    .select('*')
+    .eq('id', userId)
+    .single();
+
+  if (fetchError || !businessUser) throw new AppError(401, 'Account not found');
+  if (!businessUser.is_active) throw new AppError(403, 'Account is inactive');
+  if (
+    businessUser.access_expires_at &&
+    new Date(businessUser.access_expires_at) < new Date()
+  ) {
+    throw new AppError(403, 'Your access has expired. Please contact the administrator.');
+  }
+
+  const sessionExpiry = new Date(Date.now() + SESSION_DURATION_HOURS * 60 * 60 * 1000);
+  const newToken = jwt.sign(
+    {
+      sub: businessUser.id,
+      email: businessUser.contact_email,
+      role: 'business',
+    },
+    env.JWT_SECRET,
+    { expiresIn: `${SESSION_DURATION_HOURS}h` }
+  );
+
+  // Insert new session first, then delete the old row. If the insert fails the
+  // old session is still valid; if the delete fails we leave a brief duplicate
+  // (validateBusinessToken still works on the new row, the old one ages out).
+  const { error: insertError } = await supabaseAdmin
+    .from('business_sessions')
+    .insert({
+      business_user_id: businessUser.id,
+      token: newToken,
+      expires_at: sessionExpiry.toISOString(),
+    });
+
+  if (insertError) throw new AppError(500, 'Failed to refresh session');
+
+  await supabaseAdmin.from('business_sessions').delete().eq('token', oldToken);
+
+  return {
+    access_token: newToken,
+    user: {
+      id: businessUser.id,
+      email: businessUser.contact_email,
+      role: 'business' as const,
+      company_name: businessUser.company_name,
+      contact_person_name: businessUser.contact_person_name,
+      access_expires_at: businessUser.access_expires_at,
+    },
+  };
+}
+
 export async function requestAccess(identifier: { email?: string; phone?: string }) {
   if (!identifier.email && !identifier.phone) {
     throw new AppError(400, 'Email or phone is required');
