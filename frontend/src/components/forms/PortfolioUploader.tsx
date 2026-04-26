@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import axios from 'axios';
 import api from '@/services/api';
 import { usePortfolioItems, useAddPortfolioItem, useDeletePortfolioItem } from '@/hooks/useProfiles';
+import { useCategoryTemplateGroups } from '@/hooks/useCategories';
 import Button from '@/components/ui/Button';
 import toast from 'react-hot-toast';
 // Imported for grid rendering of historical link rows (source_type='link')
@@ -19,6 +20,13 @@ const MAX_UPLOAD_LABEL = '500 MB';
 interface PortfolioUploaderProps {
   profileId: string;
   skills: { skill: string }[];
+  /**
+   * When provided, the upload cards are grouped by template `group`
+   * (e.g. "DESIGNER" / "EDITOR" subheadings for the Designer + Editor
+   * category). Categories whose templates have no group fall back to a
+   * flat list.
+   */
+  categoryId?: string;
 }
 
 type InFlight = { fileName: string; progress: number };
@@ -32,8 +40,9 @@ const ACCEPTED_TYPES: Record<string, string> = {
   'video/quicktime': 'video',
 };
 
-export default function PortfolioUploader({ profileId, skills }: PortfolioUploaderProps) {
+export default function PortfolioUploader({ profileId, skills, categoryId }: PortfolioUploaderProps) {
   const { data: items = [] } = usePortfolioItems(profileId);
+  const { skillGroups, skillGroupOrder } = useCategoryTemplateGroups(categoryId);
   const addItem = useAddPortfolioItem();
   const deleteItem = useDeletePortfolioItem();
   const [uploadsMap, setUploadsMap] = useState<Record<string, Record<string, InFlight>>>({});
@@ -169,6 +178,129 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
     return null;
   }
 
+  const renderSkillCard = (skill: string) => {
+    const inFlight = Object.values(uploadsMap[skill] ?? {});
+    return (
+      <div key={skill} className="rounded-lg border border-gray-200 p-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h4 className="text-sm font-medium text-gray-700">{skill}</h4>
+          <Button
+            variant="outline"
+            size="sm"
+            loading={inFlight.length > 0}
+            onClick={() => triggerUpload(skill)}
+          >
+            Upload
+          </Button>
+        </div>
+
+        {inFlight.length > 0 && (
+          <div className="mb-3 space-y-2">
+            {inFlight.map((u, i) => (
+              <div key={i}>
+                <div className="mb-1 flex justify-between text-xs text-gray-600">
+                  <span className="truncate pr-2">{u.fileName}</span>
+                  <span className="tabular-nums">{u.progress}%</span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                  <div
+                    className="h-full bg-neutral-900 transition-all duration-150"
+                    style={{ width: `${u.progress}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(itemsBySkill[skill] ?? []).length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {(itemsBySkill[skill] ?? []).map((item: any) => (
+              <div key={item.id} className="group relative rounded-lg border border-gray-100 p-2">
+                {item.file_type === 'image' && (
+                  <img
+                    src={item.file_url}
+                    alt={item.file_name}
+                    className="h-24 w-full rounded-md object-cover"
+                  />
+                )}
+                {item.file_type === 'video' && item.source_type === 'link' && item.provider !== 'dropbox' && (
+                  <div className="relative h-24 w-full overflow-hidden rounded-md bg-gray-900">
+                    {item.thumbnail_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.thumbnail_url}
+                        alt={item.file_name}
+                        className="h-full w-full object-cover opacity-90"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs font-medium text-white/80">
+                        {legacyProviderDisplayName(item.provider ?? '')}
+                      </div>
+                    )}
+                    <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                      {legacyProviderDisplayName(item.provider ?? '')}
+                    </span>
+                  </div>
+                )}
+                {item.file_type === 'video' && (item.source_type !== 'link' || item.provider === 'dropbox') && (
+                  <video
+                    src={item.file_url}
+                    className="h-24 w-full rounded-md object-cover"
+                  />
+                )}
+                {item.file_type === 'pdf' && (
+                  <div className="flex h-24 items-center justify-center rounded-md bg-red-50">
+                    <svg className="h-8 w-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                )}
+                <p className="mt-1 truncate text-xs text-gray-600">{item.file_name}</p>
+                <button
+                  type="button"
+                  onClick={() => deleteItem.mutate({ profileId, itemId: item.id })}
+                  className="absolute right-1 top-1 hidden rounded-full bg-white p-1 text-red-500 shadow hover:bg-red-50 group-hover:block"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400">No portfolio items yet</p>
+        )}
+      </div>
+    );
+  };
+
+  // Group the skill cards by template `group` when available. Designer +
+  // Editor: groups become DESIGNER / EDITOR subheadings, ordered per the
+  // template's group order. Other categories fall back to a flat list.
+  const skillNames = skills.map((s) => s.skill);
+  const grouped = new Map<string, string[]>();
+  for (const name of skillNames) {
+    const g = skillGroups[name] || '';
+    if (!grouped.has(g)) grouped.set(g, []);
+    grouped.get(g)!.push(name);
+  }
+  const hasNamedGroups = Array.from(grouped.keys()).some((k) => k !== '');
+
+  let orderedEntries: [string, string[]][];
+  if (hasNamedGroups) {
+    orderedEntries = [];
+    for (const g of skillGroupOrder ?? []) {
+      if (grouped.has(g) && g !== '') orderedEntries.push([g, grouped.get(g)!]);
+    }
+    for (const [g, list] of grouped.entries()) {
+      if (!orderedEntries.find((e) => e[0] === g)) orderedEntries.push([g, list]);
+    }
+  } else {
+    orderedEntries = [['', skillNames]];
+  }
+
   return (
     <div>
       <h3 className="mb-1 text-sm font-semibold text-gray-800">Portfolio</h3>
@@ -186,104 +318,17 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
         className="hidden"
       />
 
-      <div className="space-y-6">
-        {skills.map(({ skill }) => {
-          const inFlight = Object.values(uploadsMap[skill] ?? {});
-          return (
-          <div key={skill} className="rounded-lg border border-gray-200 p-4">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h4 className="text-sm font-medium text-gray-700">{skill}</h4>
-              <Button
-                variant="outline"
-                size="sm"
-                loading={inFlight.length > 0}
-                onClick={() => triggerUpload(skill)}
-              >
-                Upload
-              </Button>
-            </div>
-
-            {inFlight.length > 0 && (
-              <div className="mb-3 space-y-2">
-                {inFlight.map((u, i) => (
-                  <div key={i}>
-                    <div className="mb-1 flex justify-between text-xs text-gray-600">
-                      <span className="truncate pr-2">{u.fileName}</span>
-                      <span className="tabular-nums">{u.progress}%</span>
-                    </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
-                      <div
-                        className="h-full bg-neutral-900 transition-all duration-150"
-                        style={{ width: `${u.progress}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+      <div className="space-y-8">
+        {orderedEntries.map(([groupName, list]) => (
+          <div key={groupName || '_ungrouped'}>
+            {groupName && (
+              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                {groupName}
+              </h4>
             )}
-
-            {(itemsBySkill[skill] ?? []).length > 0 ? (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {(itemsBySkill[skill] ?? []).map((item: any) => (
-                  <div key={item.id} className="group relative rounded-lg border border-gray-100 p-2">
-                    {item.file_type === 'image' && (
-                      <img
-                        src={item.file_url}
-                        alt={item.file_name}
-                        className="h-24 w-full rounded-md object-cover"
-                      />
-                    )}
-                    {item.file_type === 'video' && item.source_type === 'link' && item.provider !== 'dropbox' && (
-                      <div className="relative h-24 w-full overflow-hidden rounded-md bg-gray-900">
-                        {item.thumbnail_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={item.thumbnail_url}
-                            alt={item.file_name}
-                            className="h-full w-full object-cover opacity-90"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-xs font-medium text-white/80">
-                            {legacyProviderDisplayName(item.provider ?? '')}
-                          </div>
-                        )}
-                        <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                          {legacyProviderDisplayName(item.provider ?? '')}
-                        </span>
-                      </div>
-                    )}
-                    {item.file_type === 'video' && (item.source_type !== 'link' || item.provider === 'dropbox') && (
-                      <video
-                        src={item.file_url}
-                        className="h-24 w-full rounded-md object-cover"
-                      />
-                    )}
-                    {item.file_type === 'pdf' && (
-                      <div className="flex h-24 items-center justify-center rounded-md bg-red-50">
-                        <svg className="h-8 w-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                    )}
-                    <p className="mt-1 truncate text-xs text-gray-600">{item.file_name}</p>
-                    <button
-                      type="button"
-                      onClick={() => deleteItem.mutate({ profileId, itemId: item.id })}
-                      className="absolute right-1 top-1 hidden rounded-full bg-white p-1 text-red-500 shadow hover:bg-red-50 group-hover:block"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-gray-400">No portfolio items yet</p>
-            )}
+            <div className="space-y-6">{list.map(renderSkillCard)}</div>
           </div>
-          );
-        })}
+        ))}
       </div>
     </div>
   );
