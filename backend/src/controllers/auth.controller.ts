@@ -58,6 +58,21 @@ export async function refresh(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+export async function businessRefresh(req: Request, res: Response, next: NextFunction) {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'Missing token' });
+      return;
+    }
+    const oldToken = authHeader.slice(7);
+    const result = await businessAuthService.refreshSession(oldToken, req.user!.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function forgotPassword(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await authService.forgotPassword(req.body.email);

@@ -43,6 +43,8 @@ router.post('/logout', authController.logout);
 
 router.post('/refresh', authController.refresh);
 
+router.post('/business-refresh', authenticate, authController.businessRefresh);
+
 router.post(
   '/forgot-password',
   validate({ body: forgotPasswordSchema }),

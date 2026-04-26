@@ -41,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem('squadhire_admin_token');
+    localStorage.removeItem('squadhire_admin_refresh');
     setToken(null);
     setUser(null);
     router.push('/login');
@@ -75,12 +76,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = await api.post('/auth/login', { email, password });
     const userData = data.user || data;
     const accessToken = data.access_token || data.token || data.accessToken;
+    const refreshToken = data.refresh_token;
 
     if (userData.role !== 'admin') {
       throw new Error('Access denied. Admin privileges required.');
     }
 
     localStorage.setItem('squadhire_admin_token', accessToken);
+    if (refreshToken) {
+      localStorage.setItem('squadhire_admin_refresh', refreshToken);
+    }
     setToken(accessToken);
     setUser(userData);
     router.push('/');
