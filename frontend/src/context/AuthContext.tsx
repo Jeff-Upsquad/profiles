@@ -20,6 +20,7 @@ interface AuthContextType {
   businessLogin: (identifier: { email?: string; phone?: string }) => Promise<void>;
   signupTalent: (data: TalentSignupData, options?: { skipRedirect?: boolean }) => Promise<void>;
   logout: (redirectTo?: string) => void;
+  refetchUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -113,9 +114,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [clearAuth, router]
   );
 
+  const refetchUser = useCallback(async () => {
+    if (!token) return;
+    const { data } = await api.get('/auth/me');
+    setUser(data.user ?? data);
+  }, [token]);
+
   return (
     <AuthContext.Provider
-      value={{ user, token, isLoading, login, businessLogin, signupTalent, logout }}
+      value={{ user, token, isLoading, login, businessLogin, signupTalent, logout, refetchUser }}
     >
       {children}
     </AuthContext.Provider>

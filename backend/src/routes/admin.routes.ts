@@ -142,6 +142,9 @@ router.get('/user-approvals', adminController.getPendingApprovals);
 router.patch('/user-approvals/:userId/approve', adminController.approveUser);
 router.patch('/user-approvals/:userId/reject', adminController.rejectUser);
 
+router.get('/settings/auto-approve', adminController.getAutoApproveSetting);
+router.patch('/settings/auto-approve', adminController.setAutoApproveSetting);
+
 // ---------------------------------------------------------------------------
 // Template Skill Sets & Tools
 // ---------------------------------------------------------------------------

@@ -242,6 +242,38 @@ export async function rejectUser(req: Request, res: Response, next: NextFunction
 }
 
 // ---------------------------------------------------------------------------
+// Auto-approve setting
+// ---------------------------------------------------------------------------
+
+export async function getAutoApproveSetting(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const value = await adminService.getAdminSetting<boolean>('auto_approve_signups');
+    res.json({ enabled: value === true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function setAutoApproveSetting(req: Request, res: Response, next: NextFunction) {
+  try {
+    const enabled = req.body?.enabled === true;
+    const adminId = req.user!.id;
+
+    await adminService.setAdminSetting('auto_approve_signups', enabled, adminId);
+
+    let approvedCount = 0;
+    if (enabled) {
+      const result = await adminService.bulkApprovePendingUsers(adminId);
+      approvedCount = result.approvedCount;
+    }
+
+    res.json({ enabled, approvedCount });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Template Skill Sets & Tools
 // ---------------------------------------------------------------------------
 

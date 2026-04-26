@@ -1,6 +1,7 @@
 import { supabaseAdmin, supabaseAnon } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { checkInvitation, markInvitationAccepted } from './invite.service.js';
+import { getAdminSetting } from './admin.service.js';
 import type { SignupTalentInput, LoginInput } from '../validators/auth.validators.js';
 import type { UserRole } from '../../../shared/src/types/auth.js';
 
@@ -172,7 +173,15 @@ export async function getMe(userId: string, role: UserRole) {
       .single();
 
     if (error || !data) throw new AppError(404, 'Talent user not found');
-    return { ...data, role, must_reset_password: mustResetPassword };
+
+    const autoApproveSignups = (await getAdminSetting<boolean>('auto_approve_signups')) === true;
+
+    return {
+      ...data,
+      role,
+      must_reset_password: mustResetPassword,
+      auto_approve_signups: autoApproveSignups,
+    };
   }
 
   if (role === 'business') {

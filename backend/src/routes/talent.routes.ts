@@ -9,7 +9,7 @@ import {
   updateTalentUserSchema,
   updateBasicProfileSchema,
 } from '../validators/talent.validators.js';
-import { requireApproval } from '../middleware/approval.middleware.js';
+import { requireApprovalOrAutoApprove } from '../middleware/approval.middleware.js';
 
 const router = Router();
 
@@ -32,7 +32,7 @@ router.get('/profiles', talentController.getProfiles);
 router.post('/profiles', validate({ body: createProfileSchema }), talentController.createProfile);
 router.get('/profiles/:id', talentController.getProfile);
 router.put('/profiles/:id', validate({ body: updateProfileSchema }), talentController.updateProfile);
-router.patch('/profiles/:id/submit', requireApproval, talentController.submitProfile);
+router.patch('/profiles/:id/submit', requireApprovalOrAutoApprove, talentController.submitProfile);
 router.patch('/profiles/:id/deactivate', talentController.deactivateProfile);
 router.patch('/profiles/:id/reactivate', talentController.reactivateProfile);
 router.delete('/profiles/:id', talentController.deleteProfile);
