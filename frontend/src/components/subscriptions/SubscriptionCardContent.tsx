@@ -42,6 +42,21 @@ interface DeliverableItem {
   description?: string;
 }
 
+function asNumber(v: unknown): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+}
+
+function formatItemCadence(d: Record<string, unknown>): string {
+  const perDay = asNumber(d.per_day);
+  const perWeek = asNumber(d.per_week);
+  const perMonth = asNumber(d.per_month);
+  const parts: string[] = [];
+  if (perDay) parts.push(`${perDay}/day`);
+  if (perWeek) parts.push(`${perWeek}/week`);
+  if (perMonth) parts.push(`${perMonth}/month`);
+  return parts.join(' · ');
+}
+
 function normalizeDeliverables(v: unknown): DeliverableItem[] {
   if (!Array.isArray(v)) return [];
   const out: DeliverableItem[] = [];
@@ -51,11 +66,15 @@ function normalizeDeliverables(v: unknown): DeliverableItem[] {
       if (label) out.push({ label });
     } else if (item && typeof item === 'object') {
       const obj = item as Record<string, unknown>;
+      // Hours-kind items feed the dedicated HOURS section via hours_label;
+      // skip them here so they don't double-render.
+      if (asString(obj.kind).trim() === 'hours') continue;
       const label =
         asString(obj.label).trim() ||
         asString(obj.name).trim() ||
         asString(obj.title).trim();
-      const description = asString(obj.description).trim();
+      const description =
+        asString(obj.description).trim() || formatItemCadence(obj);
       if (label || description) {
         out.push({ label: label || '—', description: description || undefined });
       }

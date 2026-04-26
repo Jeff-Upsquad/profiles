@@ -11,7 +11,19 @@ export interface SubscriptionCardContentShape {
   ctaLabel?: string;
   expiresAt?: string;
   // Structured fields forwarded from SquadHub's subscription_cards row:
-  custom_deliverables?: Array<{ label?: string; name?: string; title?: string; description?: string } | string>;
+  custom_deliverables?: Array<
+    | {
+        label?: string;
+        name?: string;
+        title?: string;
+        description?: string;
+        kind?: 'hours' | 'item';
+        per_day?: number;
+        per_week?: number;
+        per_month?: number;
+      }
+    | string
+  >;
   working_days?: string[];
   brand_name?: string;
   business_nature?: string;
