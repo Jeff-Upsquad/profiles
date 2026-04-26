@@ -31,6 +31,12 @@ export async function signupTalent(input: SignupTalentInput) {
 
   const userId = authData.user.id;
 
+  // Honor the auto-approve setting at signup time. Without this, brand-new
+  // signups land in `pending` even when the toggle is on — only the
+  // toggle-flip bulk approve and the profile-submission inline approve cover
+  // that case, leaving fresh signups stuck until they submit a profile.
+  const autoApprove = (await getAdminSetting<boolean>('auto_approve_signups')) === true;
+
   // Insert into talent_users table
   const { error: profileError } = await supabaseAdmin
     .from('talent_users')
@@ -43,6 +49,9 @@ export async function signupTalent(input: SignupTalentInput) {
       native_place: profileData.native_place ?? null,
       current_location: profileData.current_location ?? null,
       languages_spoken: profileData.languages_spoken ?? [],
+      ...(autoApprove
+        ? { approval_status: 'approved' as const, approved_at: new Date().toISOString() }
+        : {}),
     });
 
   if (profileError) {
@@ -71,7 +80,7 @@ export async function signupTalent(input: SignupTalentInput) {
       id: userId,
       email,
       role: 'talent' as UserRole,
-      approval_status: 'pending' as const,
+      approval_status: autoApprove ? ('approved' as const) : ('pending' as const),
     },
   };
 }
