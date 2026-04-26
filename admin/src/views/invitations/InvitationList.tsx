@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import Button from '@/components/ui/Button';
@@ -8,6 +8,7 @@ import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
+import { groupItemsByBucket } from '@/lib/groupLeadsByBucket';
 
 interface Invitation {
   id: string;
@@ -46,6 +47,11 @@ export default function InvitationList() {
       return data.invitations ?? data;
     },
   });
+
+  const buckets = useMemo(
+    () => groupItemsByBucket(invitations ?? []),
+    [invitations]
+  );
 
   const createInvitation = useMutation({
     mutationFn: async (payload: any) => {
@@ -166,40 +172,53 @@ export default function InvitationList() {
                 <th className="px-6 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {invitations.map((inv) => (
-                <tr key={inv.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium text-gray-900">{inv.email}</td>
-                  <td className="px-6 py-4 text-gray-500">{inv.phone || '-'}</td>
-                  <td className="px-6 py-4">
-                    <Badge variant={inv.role === 'talent' ? 'green' : 'yellow'}>
-                      {inv.role}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">
-                    {inv.company_name || '-'}
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">
-                    {inv.expires_at
-                      ? new Date(inv.expires_at).toLocaleDateString()
-                      : '-'}
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">
-                    {new Date(inv.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4">
-                    {inv.status === 'pending' && (
-                      <button
-                        onClick={() => revokeInvitation.mutate(inv.id)}
-                        className="text-sm font-medium text-red-600 hover:text-red-800"
-                      >
-                        Revoke
-                      </button>
-                    )}
+            {buckets.map((bucket) => (
+              <tbody key={bucket.key} className="divide-y divide-gray-200">
+                <tr className="bg-gray-50/50">
+                  <td colSpan={7} className="px-6 py-2">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        {bucket.label}
+                      </h2>
+                      <span className="text-xs text-gray-400">{bucket.items.length}</span>
+                      <div className="ml-2 h-px flex-1 bg-gray-200" />
+                    </div>
                   </td>
                 </tr>
-              ))}
-            </tbody>
+                {bucket.items.map((inv) => (
+                  <tr key={inv.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 font-medium text-gray-900">{inv.email}</td>
+                    <td className="px-6 py-4 text-gray-500">{inv.phone || '-'}</td>
+                    <td className="px-6 py-4">
+                      <Badge variant={inv.role === 'talent' ? 'green' : 'yellow'}>
+                        {inv.role}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">
+                      {inv.company_name || '-'}
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">
+                      {inv.expires_at
+                        ? new Date(inv.expires_at).toLocaleDateString()
+                        : '-'}
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">
+                      {new Date(inv.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      {inv.status === 'pending' && (
+                        <button
+                          onClick={() => revokeInvitation.mutate(inv.id)}
+                          className="text-sm font-medium text-red-600 hover:text-red-800"
+                        >
+                          Revoke
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            ))}
           </table>
         )}
       </div>
