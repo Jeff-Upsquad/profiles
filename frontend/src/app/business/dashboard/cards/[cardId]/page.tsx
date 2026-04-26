@@ -55,7 +55,7 @@ export default function CardShortlistPage(props: { params: Promise<Params> }) {
       ? `${card.brand_name} · ${card.subscription_name}`
       : card.brand_name
     : 'Subscription card';
-  const price = formatPrice(card.monthly_price, card.currency);
+  const price = formatPrice(card.customer_monthly_price, card.currency);
 
   return (
     <>
