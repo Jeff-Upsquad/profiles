@@ -284,89 +284,75 @@ export default function SubscriptionCardContent({ content }: Props) {
       )}
 
       {/* ── PRIMARY: Work commitment (Hours + Deliverables) ─────
-          When deliverables are present we always render the grouped
-          WORK COMMITMENT wrapper with both sub-cards. The Hours sub-
-          card stays put even when hours are disabled / missing — it
-          shows an explicit "No hourly commitment" placeholder so the
-          talent isn't left wondering about the time commitment.
-          (SquadHub's editor copy promises this exact string.) */}
+          Whenever a card has either hours or deliverables, render the
+          grouped WORK COMMITMENT wrapper with both sub-cards. Each
+          sub-card shows its real value or an explicit placeholder so
+          the talent always knows where they stand on both axes:
+            - Hours empty       → "No hourly commitment"
+            - Deliverables empty→ "No specific deliverables" */}
       {(() => {
         const hasHours = Boolean(hoursLabel || capacityLabel);
         const hasDeliverables = Boolean(deliverablesLabel || deliverables.length > 0);
+        if (!hasHours && !hasDeliverables) return null;
 
-        if (hasDeliverables) {
-          return (
-            <div>
-              <SectionLabel icon={IconBriefcase} tone="deliverables">Work commitment</SectionLabel>
-              <div className="mt-2 space-y-2">
-                {/* Hours sub-card — always rendered alongside deliverables */}
-                <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-3">
-                  <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700/70">
-                    <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">{IconClock}</span>
-                    Hours
-                  </p>
-                  {hasHours ? (
-                    <>
-                      {hoursLabel && (
-                        <p className="mt-1 text-base font-semibold text-blue-700">{hoursLabel}</p>
-                      )}
-                      {capacityLabel && (
-                        <p className="text-xs text-blue-700/60">{capacityLabel}</p>
-                      )}
-                    </>
-                  ) : (
-                    <p className="mt-1 text-sm font-medium text-blue-700/60">No hourly commitment</p>
-                  )}
-                </div>
+        return (
+          <div>
+            <SectionLabel icon={IconBriefcase} tone="deliverables">Work commitment</SectionLabel>
+            <div className="mt-2 space-y-2">
+              {/* Hours sub-card */}
+              <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-3">
+                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700/70">
+                  <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">{IconClock}</span>
+                  Hours
+                </p>
+                {hasHours ? (
+                  <>
+                    {hoursLabel && (
+                      <p className="mt-1 text-base font-semibold text-blue-700">{hoursLabel}</p>
+                    )}
+                    {capacityLabel && (
+                      <p className="text-xs text-blue-700/60">{capacityLabel}</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="mt-1 text-sm font-medium text-blue-700/60">No hourly commitment</p>
+                )}
+              </div>
 
-                {/* Deliverables sub-card */}
-                <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-3">
-                  <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700/70">
-                    <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">{IconClipboard}</span>
-                    Deliverables
-                  </p>
-                  {deliverablesLabel && (
-                    <p className="mt-1 text-sm font-medium text-blue-700">{deliverablesLabel}</p>
-                  )}
-                  {deliverables.length > 0 && (
-                    <ul className="mt-1 space-y-1">
-                      {deliverables.map((d, i) => (
-                        <li key={i} className="flex items-baseline gap-2">
-                          <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500" />
-                          <div className="flex flex-wrap items-baseline gap-x-1.5">
-                            <span className="text-base font-semibold text-blue-700">{d.label}</span>
-                            {d.description && (
-                              <span className="text-xs font-normal text-blue-700/70">{d.description}</span>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+              {/* Deliverables sub-card */}
+              <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-3">
+                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700/70">
+                  <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">{IconClipboard}</span>
+                  Deliverables
+                </p>
+                {hasDeliverables ? (
+                  <>
+                    {deliverablesLabel && (
+                      <p className="mt-1 text-sm font-medium text-blue-700">{deliverablesLabel}</p>
+                    )}
+                    {deliverables.length > 0 && (
+                      <ul className="mt-1 space-y-1">
+                        {deliverables.map((d, i) => (
+                          <li key={i} className="flex items-baseline gap-2">
+                            <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500" />
+                            <div className="flex flex-wrap items-baseline gap-x-1.5">
+                              <span className="text-base font-semibold text-blue-700">{d.label}</span>
+                              {d.description && (
+                                <span className="text-xs font-normal text-blue-700/70">{d.description}</span>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                ) : (
+                  <p className="mt-1 text-sm font-medium text-blue-700/60">No specific deliverables</p>
+                )}
               </div>
             </div>
-          );
-        }
-
-        if (hasHours) {
-          // Hours-only offer (no deliverables) — keep the simple standalone
-          // section, no need for "no deliverables" copy since hours-only is
-          // a valid offering shape.
-          return (
-            <div>
-              <SectionLabel icon={IconClock}>Hours</SectionLabel>
-              {hoursLabel && (
-                <p className="mt-1 text-base font-semibold text-neutral-900">{hoursLabel}</p>
-              )}
-              {capacityLabel && (
-                <p className="text-xs text-neutral-500">{capacityLabel}</p>
-              )}
-            </div>
-          );
-        }
-
-        return null;
+          </div>
+        );
       })()}
 
       {/* ── Payment ───────────────────────────────────── */}
