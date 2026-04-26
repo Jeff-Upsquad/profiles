@@ -25,6 +25,28 @@ export async function unreadCount(req: Request, res: Response, next: NextFunctio
   }
 }
 
+export async function adminListCards(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const status = typeof req.query.status === 'string' && (req.query.status === 'active' || req.query.status === 'archived')
+      ? req.query.status
+      : undefined;
+    const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+    const items = await subscriptionService.listAllForAdmin({ status, search });
+    res.json({ items });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function adminListRecipients(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const items = await subscriptionService.listRecipientsForAdmin(req.params.id as string);
+    res.json({ items });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function respond(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     if (!req.user) throw new AppError(401, 'Authentication required');
