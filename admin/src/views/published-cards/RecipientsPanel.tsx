@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 
 type Recipient = {
@@ -37,10 +37,24 @@ const STATUS_CHIP: Record<'pending' | 'accepted' | 'rejected', string> = {
 export default function RecipientsPanel({
   cardId, title, onClose,
 }: { cardId: string; title: string; onClose: () => void }) {
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useQuery<Response>({
     queryKey: ['admin-card-recipients', cardId],
     queryFn: () =>
       api.get(`/admin/subscription-cards/${cardId}/recipients`).then((r) => r.data),
+  });
+
+  const removeFromDashboard = useMutation({
+    mutationFn: (recipientId: string) =>
+      api
+        .post(`/admin/subscription-cards/${cardId}/recipients/${recipientId}/remove-from-dashboard`)
+        .then((r) => r.data as { removed: number }),
+    onSuccess: () => {
+      // Refresh recipients list (no field changes here, but invalidate to
+      // pick up any related counts the parent list shows for this card).
+      queryClient.invalidateQueries({ queryKey: ['admin-card-recipients', cardId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-published-cards'] });
+    },
   });
 
   const groups = useMemo(() => {
@@ -71,7 +85,14 @@ export default function RecipientsPanel({
             <p className="text-center text-xs text-red-600">Failed to load recipients.</p>
           ) : (
             <Section title="Talents">
-              <Subgroup label="Accepted" items={groups.accepted} />
+              <Subgroup
+                label="Accepted"
+                items={groups.accepted}
+                onRemoveFromDashboard={(id) => removeFromDashboard.mutate(id)}
+                pendingRemovalId={
+                  removeFromDashboard.isPending ? removeFromDashboard.variables ?? null : null
+                }
+              />
               <Subgroup label="Rejected" items={groups.rejected} />
               <Subgroup label="Pending" items={groups.pending} />
             </Section>
@@ -92,8 +113,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function Subgroup({
-  label, items,
-}: { label: 'Accepted' | 'Rejected' | 'Pending'; items: Recipient[] }) {
+  label, items, onRemoveFromDashboard, pendingRemovalId,
+}: {
+  label: 'Accepted' | 'Rejected' | 'Pending';
+  items: Recipient[];
+  onRemoveFromDashboard?: (recipientId: string) => void;
+  pendingRemovalId?: string | null;
+}) {
   if (items.length === 0) {
     return (
       <div className="space-y-1.5">
@@ -115,9 +141,25 @@ function Subgroup({
                 <p className="text-[11px] text-gray-400">{formatRelative(it.responded_at)}</p>
               )}
             </div>
-            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_CHIP[it.status]}`}>
-              {it.status}
-            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              {onRemoveFromDashboard && it.status === 'accepted' && (
+                <button
+                  type="button"
+                  disabled={pendingRemovalId === it.id}
+                  onClick={() => {
+                    if (window.confirm('Remove this talent from the business dashboard?')) {
+                      onRemoveFromDashboard(it.id);
+                    }
+                  }}
+                  className="rounded-md border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {pendingRemovalId === it.id ? 'Removing…' : 'Remove from dashboard'}
+                </button>
+              )}
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_CHIP[it.status]}`}>
+                {it.status}
+              </span>
+            </div>
           </li>
         ))}
       </ul>
