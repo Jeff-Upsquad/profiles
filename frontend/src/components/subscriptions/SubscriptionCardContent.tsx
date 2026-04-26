@@ -284,30 +284,38 @@ export default function SubscriptionCardContent({ content }: Props) {
       )}
 
       {/* ── PRIMARY: Work commitment (Hours + Deliverables) ─────
-          Group both under one "WORK COMMITMENT" wrapper when both
-          are present; otherwise render the surviving section in the
-          simpler standalone style so a solo sub-card under a heavy
-          section header doesn't look lopsided. */}
+          When deliverables are present we always render the grouped
+          WORK COMMITMENT wrapper with both sub-cards. The Hours sub-
+          card stays put even when hours are disabled / missing — it
+          shows an explicit "No hourly commitment" placeholder so the
+          talent isn't left wondering about the time commitment.
+          (SquadHub's editor copy promises this exact string.) */}
       {(() => {
         const hasHours = Boolean(hoursLabel || capacityLabel);
         const hasDeliverables = Boolean(deliverablesLabel || deliverables.length > 0);
 
-        if (hasHours && hasDeliverables) {
+        if (hasDeliverables) {
           return (
             <div>
               <SectionLabel icon={IconBriefcase} tone="deliverables">Work commitment</SectionLabel>
               <div className="mt-2 space-y-2">
-                {/* Hours sub-card */}
+                {/* Hours sub-card — always rendered alongside deliverables */}
                 <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-3">
                   <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700/70">
                     <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">{IconClock}</span>
                     Hours
                   </p>
-                  {hoursLabel && (
-                    <p className="mt-1 text-base font-semibold text-blue-700">{hoursLabel}</p>
-                  )}
-                  {capacityLabel && (
-                    <p className="text-xs text-blue-700/60">{capacityLabel}</p>
+                  {hasHours ? (
+                    <>
+                      {hoursLabel && (
+                        <p className="mt-1 text-base font-semibold text-blue-700">{hoursLabel}</p>
+                      )}
+                      {capacityLabel && (
+                        <p className="text-xs text-blue-700/60">{capacityLabel}</p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="mt-1 text-sm font-medium text-blue-700/60">No hourly commitment</p>
                   )}
                 </div>
 
@@ -342,7 +350,9 @@ export default function SubscriptionCardContent({ content }: Props) {
         }
 
         if (hasHours) {
-          // Standalone Hours — no wrapper, no nested card.
+          // Hours-only offer (no deliverables) — keep the simple standalone
+          // section, no need for "no deliverables" copy since hours-only is
+          // a valid offering shape.
           return (
             <div>
               <SectionLabel icon={IconClock}>Hours</SectionLabel>
@@ -351,33 +361,6 @@ export default function SubscriptionCardContent({ content }: Props) {
               )}
               {capacityLabel && (
                 <p className="text-xs text-neutral-500">{capacityLabel}</p>
-              )}
-            </div>
-          );
-        }
-
-        if (hasDeliverables) {
-          // Standalone Deliverables — keep the iter-2 blue styling.
-          return (
-            <div>
-              <SectionLabel icon={IconClipboard} tone="deliverables">Deliverables</SectionLabel>
-              {deliverablesLabel && (
-                <p className="mt-1 text-base font-semibold text-blue-700">{deliverablesLabel}</p>
-              )}
-              {deliverables.length > 0 && (
-                <ul className="mt-1 space-y-1">
-                  {deliverables.map((d, i) => (
-                    <li key={i} className="flex items-baseline gap-2">
-                      <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500" />
-                      <div className="flex flex-wrap items-baseline gap-x-1.5">
-                        <span className="text-lg font-semibold text-blue-700">{d.label}</span>
-                        {d.description && (
-                          <span className="text-xs font-normal text-blue-700/70">{d.description}</span>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
               )}
             </div>
           );
