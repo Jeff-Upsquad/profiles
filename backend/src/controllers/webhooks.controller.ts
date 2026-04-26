@@ -44,3 +44,16 @@ export async function manualAssignTalent(
     next(err);
   }
 }
+
+export async function removeAssignedTalent(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const result = await subscriptionService.removeAssignedTalent(req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}

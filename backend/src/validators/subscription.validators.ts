@@ -49,6 +49,19 @@ export const manualAssignTalentSchema = z.object({
   assigned_at: z.string().datetime({ offset: true }).optional(),
 });
 
+/**
+ * Inbound notification from SquadHub when an admin removes a previously-
+ * assigned talent from a card. Delete the recipient row so the talent stops
+ * seeing the card in their subscriptions tab. Idempotent — a removal for a
+ * card+talent pair that's already gone returns `removed: 0`.
+ */
+export const removeAssignedTalentSchema = z.object({
+  type: z.literal('manual_assignment_removal').optional(),
+  card_id: z.string().min(1).max(200),
+  talent_id: z.string().uuid(),
+  removed_at: z.string().datetime({ offset: true }).optional(),
+});
+
 export const externalIdParamSchema = z.object({
   externalId: z.string().min(1).max(200),
 });
@@ -75,3 +88,4 @@ export type ListSubscriptionsQueryInput = z.infer<typeof listSubscriptionsQueryS
 export type RespondToSubscriptionInput = z.infer<typeof respondToSubscriptionSchema>;
 export type RemoveTalentFromCardInput = z.infer<typeof removeTalentFromCardSchema>;
 export type ManualAssignTalentInput = z.infer<typeof manualAssignTalentSchema>;
+export type RemoveAssignedTalentInput = z.infer<typeof removeAssignedTalentSchema>;

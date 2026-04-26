@@ -5,6 +5,7 @@ import { validate } from '../middleware/validate.middleware.js';
 import {
   ingestSubscriptionCardSchema,
   manualAssignTalentSchema,
+  removeAssignedTalentSchema,
   removeTalentFromCardSchema,
   externalIdParamSchema,
 } from '../validators/subscription.validators.js';
@@ -26,6 +27,15 @@ router.post(
   verifySquadhubSecret,
   validate({ body: manualAssignTalentSchema }),
   webhooksController.manualAssignTalent
+);
+
+// SquadHub admin removed a previously-assigned talent. Drops the recipient
+// row so the card disappears from the talent's subscription tab. Idempotent.
+router.post(
+  '/squadhub/cards/manual-assignments/remove',
+  verifySquadhubSecret,
+  validate({ body: removeAssignedTalentSchema }),
+  webhooksController.removeAssignedTalent
 );
 
 // Hide a previously-shared talent from the linked business's dashboard.
