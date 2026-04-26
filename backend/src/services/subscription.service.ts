@@ -201,7 +201,7 @@ export async function listAllForAdmin(input: AdminListCardsInput): Promise<Admin
     const needle = input.search.trim().toLowerCase();
     list = list.filter((c: any) => {
       const content = (c.content ?? {}) as Record<string, unknown>;
-      const business = String(content.business_name ?? '').toLowerCase();
+      const business = String(content.brand_name ?? '').toLowerCase();
       const sub = String(content.subscription_name ?? '').toLowerCase();
       return business.includes(needle) || sub.includes(needle);
     });
@@ -238,7 +238,7 @@ export async function listAllForAdmin(input: AdminListCardsInput): Promise<Admin
       status: c.status,
       published_at: c.published_at,
       expires_at: c.expires_at,
-      business_name: (content.business_name as string) ?? null,
+      business_name: (content.brand_name as string) ?? null,
       subscription_name: (content.subscription_name as string) ?? null,
       plan_label: (content.plan_name as string) ?? null,
       talents: countsByCard.get(c.id) ?? { pending: 0, accepted: 0, rejected: 0 },
@@ -325,10 +325,17 @@ export async function respond(
 
   // Fire-and-forget callback. Never block or fail the user's response on this.
   if (externalId) {
+    const { data: talent } = await supabaseAdmin
+      .from('talent_users')
+      .select('full_name')
+      .eq('id', updated.talent_user_id)
+      .maybeSingle();
+
     deliverCallback({
       external_id: externalId,
       recipient_id: updated.id,
       talent_user_id: updated.talent_user_id,
+      talent_name: talent?.full_name ?? undefined,
       action: input.action,
       responded_at: respondedAt,
     }).catch((err) => {
