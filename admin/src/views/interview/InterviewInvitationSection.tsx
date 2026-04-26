@@ -214,7 +214,7 @@ export default function InterviewInvitationSection({
         {activeQuestions.length === 0 && (
           <div className="mb-4 rounded-lg bg-yellow-50 px-3 py-2 text-xs text-yellow-800">
             No active questions for <span className="font-medium">{formType}</span>. Add questions
-            in Forms → Interview Questions before generating a link.
+            in Public Forms → Interview Questions before generating a link.
           </div>
         )}
 
