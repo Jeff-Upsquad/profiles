@@ -1,13 +1,20 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef } from 'react';
+import axios from 'axios';
 import api from '@/services/api';
 import { usePortfolioItems, useAddPortfolioItem, useDeletePortfolioItem } from '@/hooks/useProfiles';
 import Button from '@/components/ui/Button';
 import toast from 'react-hot-toast';
-import {
-  parseVideoUrl,
-  PROVIDER_DISPLAY_NAME,
-  type ParsedVideo,
-} from '@/lib/videoEmbed';
+// Imported for grid rendering of historical link rows (source_type='link')
+// that pre-date the removal of the paste-link UI. The parser/Add flow is no
+// longer wired up in this component; new portfolio video items can only be
+// added via direct upload.
+import { legacyProviderDisplayName } from '@/lib/videoEmbed';
+
+// Client-side cap mirrored from backend MAX_UPLOAD_BYTES (backend
+// re-validates and signs Content-Length into the URL, so a forged client
+// can't bypass it).
+const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
+const MAX_UPLOAD_LABEL = '500 MB';
 
 interface PortfolioUploaderProps {
   profileId: string;
@@ -66,27 +73,45 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
       return;
     }
 
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error(
+        `"${file.name}" is too large. Max upload size is ${MAX_UPLOAD_LABEL}. ` +
+          `Try compressing the video or trimming its length.`
+      );
+      return;
+    }
+
     beginUpload(skillName, uploadId, file.name);
     try {
-      // Upload file through backend
-      const { data: uploaded } = await api.post(
-        `/upload/file?fileName=${encodeURIComponent(file.name)}&folder=portfolio`,
-        file,
-        {
-          headers: { 'Content-Type': file.type },
-          onUploadProgress: (e) => {
-            if (!e.total) return;
-            const pct = Math.round((e.loaded / e.total) * 100);
-            updateProgress(skillName, uploadId, pct);
-          },
-        }
-      );
+      // Step 1: ask the backend for a presigned R2 PUT URL. The backend
+      // validates content type, applies MAX_UPLOAD_BYTES, and signs
+      // Content-Length into the URL so R2 enforces it server-side.
+      const { data: presigned } = await api.post('/upload/presigned-url', {
+        fileName: file.name,
+        contentType: file.type,
+        contentLength: file.size,
+        folder: 'portfolio',
+      });
 
-      // Add portfolio item
+      // Step 2: PUT the file directly to R2 (browser → R2, skipping the
+      // VPS bandwidth path). axios.put to a raw URL preserves the
+      // onUploadProgress callback we use for the per-file progress bar.
+      await axios.put(presigned.uploadUrl, file, {
+        headers: { 'Content-Type': file.type },
+        onUploadProgress: (e) => {
+          if (!e.total) return;
+          const pct = Math.round((e.loaded / e.total) * 100);
+          updateProgress(skillName, uploadId, pct);
+        },
+        // 30 min ceiling — covers a 500 MB file even on a slow uplink.
+        timeout: 30 * 60 * 1000,
+      });
+
+      // Step 3: persist the portfolio_items row pointing at the public URL.
       await addItem.mutateAsync({
         profileId,
         skill_name: skillName,
-        file_url: uploaded.fileUrl,
+        file_url: presigned.fileUrl,
         file_type: fileType,
         file_name: file.name,
       });
@@ -133,49 +158,6 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
     fileInputRef.current?.click();
   };
 
-  // ---- Video link paste flow (per-skill state) ----
-  const [linkOpenSkill, setLinkOpenSkill] = useState<string | null>(null);
-  const [linkInput, setLinkInput] = useState('');
-  const [linkSubmitting, setLinkSubmitting] = useState(false);
-  const parsedLink: ParsedVideo | null = useMemo(
-    () => (linkInput.trim() ? parseVideoUrl(linkInput) : null),
-    [linkInput]
-  );
-
-  const openLinkPanel = (skill: string) => {
-    setLinkOpenSkill(skill);
-    setLinkInput('');
-  };
-  const closeLinkPanel = () => {
-    setLinkOpenSkill(null);
-    setLinkInput('');
-  };
-
-  const submitLink = async (skill: string) => {
-    if (!parsedLink) return;
-    setLinkSubmitting(true);
-    try {
-      const fileName = `${PROVIDER_DISPLAY_NAME[parsedLink.provider]} video`;
-      await addItem.mutateAsync({
-        profileId,
-        skill_name: skill,
-        file_url: parsedLink.embedUrl,
-        file_type: 'video',
-        file_name: fileName,
-        source_type: 'link',
-        provider: parsedLink.provider,
-        external_url: parsedLink.externalUrl,
-        embed_url: parsedLink.embedUrl,
-      });
-      closeLinkPanel();
-    } catch (err) {
-      // toast already raised by mutation onError
-      console.error('Add video link failed:', err);
-    } finally {
-      setLinkSubmitting(false);
-    }
-  };
-
   // Group items by skill
   const itemsBySkill: Record<string, any[]> = {};
   for (const item of items) {
@@ -191,8 +173,8 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
     <div>
       <h3 className="mb-1 text-sm font-semibold text-gray-800">Portfolio</h3>
       <p className="mb-4 text-xs text-gray-500">
-        Upload images, PDFs, or videos for each skill — or paste a public video
-        link from YouTube, Vimeo, Loom, Google Drive, or Dropbox
+        Upload images, PDFs, or videos for each skill — up to{' '}
+        {MAX_UPLOAD_LABEL} per file. Videos play inline on your profile.
       </p>
 
       <input
@@ -211,75 +193,15 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
           <div key={skill} className="rounded-lg border border-gray-200 p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h4 className="text-sm font-medium text-gray-700">{skill}</h4>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  loading={inFlight.length > 0}
-                  onClick={() => triggerUpload(skill)}
-                >
-                  Upload
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    linkOpenSkill === skill ? closeLinkPanel() : openLinkPanel(skill)
-                  }
-                >
-                  {linkOpenSkill === skill ? 'Cancel' : 'Paste video link'}
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                loading={inFlight.length > 0}
+                onClick={() => triggerUpload(skill)}
+              >
+                Upload
+              </Button>
             </div>
-
-            {linkOpenSkill === skill && (
-              <div className="mb-3 rounded-md border border-dashed border-gray-300 bg-gray-50 p-3">
-                <label className="mb-1 block text-xs font-medium text-gray-700">
-                  Paste a public video link
-                </label>
-                <input
-                  type="url"
-                  value={linkInput}
-                  onChange={(e) => setLinkInput(e.target.value)}
-                  placeholder="https://www.youtube.com/watch?v=…  or  drive.google.com/…  or  loom.com/share/…"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-neutral-700 focus:outline-none"
-                  autoFocus
-                />
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <div className="min-h-[1.25rem] text-xs">
-                    {linkInput.trim() === '' ? (
-                      <span className="text-gray-500">
-                        Supported: YouTube, Vimeo, Loom, Google Drive, Dropbox
-                      </span>
-                    ) : parsedLink ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
-                        <span aria-hidden>✓</span>
-                        Detected: {PROVIDER_DISPLAY_NAME[parsedLink.provider]}
-                        {parsedLink.provider === 'gdrive' && (
-                          <span className="ml-1 font-normal text-emerald-700/80">
-                            — make sure sharing is &ldquo;Anyone with the link&rdquo;
-                          </span>
-                        )}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700">
-                        <span aria-hidden>✗</span>
-                        Unrecognized link — supported: YouTube, Vimeo, Loom, Google Drive, Dropbox
-                      </span>
-                    )}
-                  </div>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    disabled={!parsedLink || linkSubmitting}
-                    loading={linkSubmitting}
-                    onClick={() => submitLink(skill)}
-                  >
-                    Add
-                  </Button>
-                </div>
-              </div>
-            )}
 
             {inFlight.length > 0 && (
               <div className="mb-3 space-y-2">
@@ -322,11 +244,11 @@ export default function PortfolioUploader({ profileId, skills }: PortfolioUpload
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-xs font-medium text-white/80">
-                            {PROVIDER_DISPLAY_NAME[item.provider as keyof typeof PROVIDER_DISPLAY_NAME] ?? 'Video link'}
+                            {legacyProviderDisplayName(item.provider ?? '')}
                           </div>
                         )}
                         <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                          {PROVIDER_DISPLAY_NAME[item.provider as keyof typeof PROVIDER_DISPLAY_NAME] ?? 'Link'}
+                          {legacyProviderDisplayName(item.provider ?? '')}
                         </span>
                       </div>
                     )}

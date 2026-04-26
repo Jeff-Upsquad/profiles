@@ -5,6 +5,7 @@ export {
   parseVideoUrl,
   SUPPORTED_PROVIDERS,
   PROVIDER_DISPLAY_NAME,
+  legacyProviderDisplayName,
   type VideoProvider,
   type ParsedVideo,
 } from '../../../shared/src/videoEmbed';

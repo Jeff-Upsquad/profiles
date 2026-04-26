@@ -1,5 +1,5 @@
 import type { PortfolioItem } from '@/types';
-import { PROVIDER_DISPLAY_NAME } from '@/lib/videoEmbed';
+import { legacyProviderDisplayName } from '@/lib/videoEmbed';
 
 interface ThreadsPortfolioCardProps {
   item: PortfolioItem;
@@ -16,8 +16,10 @@ const LINK_USES_STATIC_POSTER = (provider?: string | null) =>
 export default function ThreadsPortfolioCard({ item, onClick }: ThreadsPortfolioCardProps) {
   const isLinkVideo = item.file_type === 'video' && item.source_type === 'link';
   const showStaticPoster = isLinkVideo && LINK_USES_STATIC_POSTER(item.provider);
+  // Use legacyProviderDisplayName so historical 'gdrive' rows still get a
+  // human label even though we no longer accept new GDrive pastes.
   const providerLabel = item.provider
-    ? PROVIDER_DISPLAY_NAME[item.provider as keyof typeof PROVIDER_DISPLAY_NAME]
+    ? legacyProviderDisplayName(item.provider)
     : undefined;
 
   return (

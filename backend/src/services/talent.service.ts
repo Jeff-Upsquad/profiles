@@ -409,7 +409,7 @@ export async function addPortfolioItem(
     if (!parsed) {
       throw new AppError(
         400,
-        'Unsupported video link. Use YouTube, Vimeo, Loom, Google Drive, or Dropbox.'
+        'Unsupported video link. Use YouTube, Vimeo, Loom, or Dropbox — or upload your video directly.'
       );
     }
     // Reject if the client tried to forge a different provider/embed_url

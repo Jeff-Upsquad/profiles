@@ -107,11 +107,16 @@ export interface PresignedUrlResponse {
   fileUrl: string;
 }
 
+// Providers we currently accept new pastes from. Existing rows in the
+// database may still carry provider='gdrive' (Google Drive support was
+// removed because of reliability issues) — display components handle that
+// via `legacyProviderDisplayName` from @/lib/videoEmbed. The `provider`
+// field on PortfolioItem is typed as a broader string because the DB
+// CHECK constraint still permits 'gdrive'.
 export type PortfolioVideoProvider =
   | 'youtube'
   | 'vimeo'
   | 'loom'
-  | 'gdrive'
   | 'dropbox';
 
 export type PortfolioSourceType = 'upload' | 'link';
@@ -126,7 +131,8 @@ export interface PortfolioItem {
   sort_order: number;
   // External-link video fields (present when source_type === 'link').
   source_type?: PortfolioSourceType;
-  provider?: PortfolioVideoProvider | null;
+  // String (not the union) so legacy 'gdrive' rows still type-check.
+  provider?: string | null;
   external_url?: string | null;
   embed_url?: string | null;
   thumbnail_url?: string | null;
