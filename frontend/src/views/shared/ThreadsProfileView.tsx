@@ -26,7 +26,9 @@ interface ThreadsProfileViewProps {
   portfolioItems?: PortfolioItem[];
   mode: 'business' | 'talent';
   onShortlist?: () => void;
+  onUnshortlist?: () => void;
   shortlistLoading?: boolean;
+  isShortlisted?: boolean;
   onSendInterest?: (message: string) => void;
   interestLoading?: boolean;
   editProfileHref?: string;
@@ -51,7 +53,9 @@ export default function ThreadsProfileView({
   portfolioItems,
   mode,
   onShortlist,
+  onUnshortlist,
   shortlistLoading,
+  isShortlisted,
   onSendInterest,
   interestLoading,
   editProfileHref,
@@ -162,7 +166,9 @@ export default function ThreadsProfileView({
           category={category}
           mode={mode}
           onShortlist={onShortlist}
+          onUnshortlist={onUnshortlist}
           shortlistLoading={shortlistLoading}
+          isShortlisted={isShortlisted}
           onSendInterest={() => setInterestModalOpen(true)}
           interestLoading={interestLoading}
           editProfileHref={editProfileHref}

@@ -310,6 +310,176 @@ export async function removeFromShortlist(businessUserId: string, profileId: str
   if (error) throw new AppError(400, error.message);
 }
 
+// ─── Subscription cards (linked via subscription_cards.business_user_id) ────
+
+function pickCategoryIds(matchRules: unknown): string[] {
+  if (!matchRules || typeof matchRules !== 'object') return [];
+  const raw = (matchRules as Record<string, unknown>).category_ids;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((v): v is string => typeof v === 'string' && v.length > 0);
+}
+
+export async function listMySubscriptionCards(businessUserId: string) {
+  const { data: cards, error } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id, external_id, content, match_rules, status, published_at, expires_at, created_at')
+    .eq('business_user_id', businessUserId)
+    .order('published_at', { ascending: false });
+
+  if (error) throw new AppError(500, error.message);
+  const list = cards ?? [];
+  if (list.length === 0) return [];
+
+  const cardIds = list.map((c: any) => c.id as string);
+
+  // Pull recipient acceptance counts in one shot.
+  const { data: recipientRows } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('card_id, status')
+    .in('card_id', cardIds);
+  const counts = new Map<string, { accepted: number; pending: number; rejected: number }>();
+  for (const id of cardIds) counts.set(id, { accepted: 0, pending: 0, rejected: 0 });
+  for (const r of recipientRows ?? []) {
+    const bucket = counts.get((r as any).card_id);
+    if (!bucket) continue;
+    const status = (r as any).status as 'pending' | 'accepted' | 'rejected';
+    if (status in bucket) bucket[status]++;
+  }
+
+  // Pull this business's shortlist once, then count per card by category match.
+  const { data: shortlistRows } = await supabaseAdmin
+    .from('shortlists')
+    .select('talent_profile_id, talent_profiles!inner(category_id)')
+    .eq('business_user_id', businessUserId);
+  const shortlistedCategoryIds = new Set<string>();
+  const shortlistsByCategory = new Map<string, number>();
+  for (const row of shortlistRows ?? []) {
+    const categoryId = (row as any).talent_profiles?.category_id as string | undefined;
+    if (!categoryId) continue;
+    shortlistedCategoryIds.add(categoryId);
+    shortlistsByCategory.set(categoryId, (shortlistsByCategory.get(categoryId) ?? 0) + 1);
+  }
+
+  return list.map((card: any) => {
+    const content = (card.content ?? {}) as Record<string, unknown>;
+    const categoryIds = pickCategoryIds(card.match_rules);
+    const shortlistedCount = categoryIds.reduce(
+      (sum, cid) => sum + (shortlistsByCategory.get(cid) ?? 0),
+      0,
+    );
+    return {
+      id: card.id as string,
+      external_id: card.external_id as string,
+      brand_name: (content.brand_name as string) ?? null,
+      subscription_name: (content.subscription_name as string) ?? null,
+      plan_name: (content.plan_name as string) ?? null,
+      monthly_price: typeof content.monthly_price === 'number' ? content.monthly_price : null,
+      currency: (content.currency as string) ?? null,
+      status: card.status as 'active' | 'archived',
+      published_at: card.published_at as string | null,
+      category_ids: categoryIds,
+      counts: {
+        ...counts.get(card.id as string)!,
+        shortlisted: shortlistedCount,
+      },
+    };
+  });
+}
+
+export async function getMySubscriptionCard(businessUserId: string, cardId: string) {
+  const { data: card, error } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id, external_id, content, match_rules, status, published_at, expires_at, business_user_id')
+    .eq('id', cardId)
+    .maybeSingle();
+
+  if (error) throw new AppError(500, error.message);
+  if (!card) throw new AppError(404, 'Card not found');
+  if ((card as any).business_user_id !== businessUserId) {
+    throw new AppError(404, 'Card not found');
+  }
+
+  const content = ((card as any).content ?? {}) as Record<string, unknown>;
+  const categoryIds = pickCategoryIds((card as any).match_rules);
+
+  // Hydrate the card's targeted categories so the UI can label them.
+  let categories: Array<{ id: string; name: string; slug: string }> = [];
+  if (categoryIds.length > 0) {
+    const { data: cats } = await supabaseAdmin
+      .from('categories')
+      .select('id, name, slug')
+      .in('id', categoryIds);
+    categories = (cats ?? []) as any;
+  }
+
+  return {
+    id: card.id as string,
+    external_id: card.external_id as string,
+    brand_name: (content.brand_name as string) ?? null,
+    subscription_name: (content.subscription_name as string) ?? null,
+    plan_name: (content.plan_name as string) ?? null,
+    monthly_price: typeof content.monthly_price === 'number' ? content.monthly_price : null,
+    currency: (content.currency as string) ?? null,
+    description: (content.description as string) ?? null,
+    business_nature: (content.business_nature as string) ?? null,
+    hours_label: (content.hours_label as string) ?? null,
+    working_days: Array.isArray(content.working_days) ? content.working_days : null,
+    status: card.status as 'active' | 'archived',
+    published_at: card.published_at as string | null,
+    expires_at: card.expires_at as string | null,
+    category_ids: categoryIds,
+    categories,
+  };
+}
+
+export async function getShortlistedProfilesForCard(
+  businessUserId: string,
+  cardId: string,
+) {
+  // First make sure the card belongs to this business — reuse the auth check
+  // from getMySubscriptionCard so the shape stays consistent.
+  const { data: card, error: cardErr } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id, business_user_id, match_rules')
+    .eq('id', cardId)
+    .maybeSingle();
+  if (cardErr) throw new AppError(500, cardErr.message);
+  if (!card || (card as any).business_user_id !== businessUserId) {
+    throw new AppError(404, 'Card not found');
+  }
+
+  const categoryIds = pickCategoryIds((card as any).match_rules);
+  if (categoryIds.length === 0) return [];
+
+  const { data, error } = await supabaseAdmin
+    .from('shortlists')
+    .select(
+      'created_at, talent_profiles!inner(*, talent_users!inner(full_name, current_location, profile_photo_url, languages_spoken), categories!inner(id, name, slug))',
+    )
+    .eq('business_user_id', businessUserId)
+    .in('talent_profiles.category_id', categoryIds)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new AppError(500, error.message);
+
+  return (data ?? [])
+    .map((row: any) => {
+      const p = row.talent_profiles;
+      if (!p) return null;
+      return {
+        id: p.id as string,
+        user_id: p.talent_user_id as string,
+        category_id: p.category_id as string,
+        category: p.categories,
+        status: p.status as string,
+        field_data: p.field_data,
+        talent_user: p.talent_users,
+        shortlisted_at: row.created_at as string,
+      };
+    })
+    .filter((p): p is NonNullable<typeof p> => p != null);
+}
+
 // ─── Interest Requests ──────────────────────────────────────────────────────
 
 export async function sendInterest(

@@ -49,4 +49,12 @@ router.get('/my-categories/:categoryId/profiles', businessController.getSharedPr
 router.get('/my-categories/:categoryId/profiles/:profileId', businessController.getSharedProfile);
 router.get('/my-categories/:categoryId/profiles/:profileId/portfolio', businessController.getSharedProfilePortfolio);
 
+// Subscription cards published to this business (via SquadHub webhook)
+router.get('/my-subscription-cards', businessController.getMySubscriptionCards);
+router.get('/my-subscription-cards/:cardId', businessController.getMySubscriptionCard);
+router.get(
+  '/my-subscription-cards/:cardId/shortlisted-profiles',
+  businessController.getShortlistedProfilesForCard,
+);
+
 export default router;

@@ -140,3 +140,38 @@ export async function getSharedProfilePortfolio(req: Request, res: Response, nex
     next(err);
   }
 }
+
+// ─── Subscription cards ─────────────────────────────────────────────────────
+
+export async function getMySubscriptionCards(req: Request, res: Response, next: NextFunction) {
+  try {
+    const cards = await businessService.listMySubscriptionCards(req.user!.id);
+    res.json({ cards });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getMySubscriptionCard(req: Request, res: Response, next: NextFunction) {
+  try {
+    const card = await businessService.getMySubscriptionCard(
+      req.user!.id,
+      req.params.cardId as string,
+    );
+    res.json({ card });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getShortlistedProfilesForCard(req: Request, res: Response, next: NextFunction) {
+  try {
+    const profiles = await businessService.getShortlistedProfilesForCard(
+      req.user!.id,
+      req.params.cardId as string,
+    );
+    res.json({ profiles });
+  } catch (err) {
+    next(err);
+  }
+}
