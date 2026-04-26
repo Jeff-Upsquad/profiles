@@ -35,6 +35,20 @@ export const updateBasicProfileSchema = z.object({
   availability: z.array(z.enum(['full_time', 'part_time'])).nullable().optional(),
   job_type: z.array(z.enum(['remote', 'office', 'hybrid', 'field'])).nullable().optional(),
 
+  // Section 3b: Work Type (employment vs freelance) and freelance schedule
+  employment_type: z.array(z.enum(['salary', 'freelance'])).nullable().optional(),
+  virtual_office_hours: z
+    .array(
+      z.object({
+        day: z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']),
+        from: z.string().regex(/^\d{2}:\d{2}$/).or(z.literal('')),
+        to: z.string().regex(/^\d{2}:\d{2}$/).or(z.literal('')),
+      })
+    )
+    .max(7)
+    .nullable()
+    .optional(),
+
   // Section 4: ID Proofs
   aadhaar_number: z.string().regex(/^\d{12}$/, 'Aadhaar number must be 12 digits').nullable().optional(),
   aadhaar_file_url: z.string().url().nullable().optional(),

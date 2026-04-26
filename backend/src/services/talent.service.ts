@@ -69,6 +69,31 @@ export async function updateBasicProfile(userId: string, input: UpdateBasicProfi
 }
 
 // ---------------------------------------------------------------------------
+// Lead Submission lookup (used to auto-populate signup from public form)
+// ---------------------------------------------------------------------------
+
+export async function getLeadSubmissionForTalent(userId: string) {
+  const { data: user, error: userErr } = await supabaseAdmin
+    .from('talent_users')
+    .select('email')
+    .eq('id', userId)
+    .single();
+
+  if (userErr || !user?.email) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from('lead_submissions')
+    .select('id, form_type, form_data, created_at')
+    .ilike('email', user.email)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) return null;
+  return data;
+}
+
+// ---------------------------------------------------------------------------
 // Talent Profiles
 // ---------------------------------------------------------------------------
 

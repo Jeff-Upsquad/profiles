@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -10,13 +10,19 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import ChipSelect from '@/components/ui/ChipSelect';
 import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
+import VirtualOfficeHoursPicker, {
+  type DayHours,
+} from '@/components/forms/VirtualOfficeHoursPicker';
 import {
   COUNTRIES,
   INDIAN_STATES,
   DISTRICTS_BY_STATE,
 } from '@/constants/india-locations';
 import toast from 'react-hot-toast';
+
+type EmploymentType = 'salary' | 'freelance';
 
 interface BasicProfile {
   permanent_address?: string;
@@ -28,6 +34,8 @@ interface BasicProfile {
   pin_code?: string;
   availability?: string[];
   job_type?: string[];
+  employment_type?: EmploymentType[];
+  virtual_office_hours?: DayHours[];
   aadhaar_number?: string;
   aadhaar_file_url?: string;
   pan_number?: string;
@@ -54,27 +62,70 @@ interface TalentUser {
   languages_spoken?: LanguageEntry[];
 }
 
-const STEP_TITLES = [
-  'Create Account',
-  'Basic Details',
-  'Contact Details',
-  'Job Preferences',
-  'ID Proofs',
-  'Bank Details',
-  'Profile Picture',
-  'Resume',
-];
+interface LeadSubmission {
+  id: string;
+  form_type: string;
+  form_data: Record<string, any> | null;
+  created_at: string;
+}
 
-const STEP_SUBTITLES = [
-  'Showcase your skills and get discovered by businesses',
-  'Help us understand who you are',
-  'Where can we reach you?',
-  'What kind of work are you looking for?',
-  'Verify your identity',
-  'Where should we send your payouts?',
-  'Put a face to your profile',
-  'Share your work history',
-];
+type StepId =
+  | 'account'
+  | 'basic'
+  | 'contact'
+  | 'employment'
+  | 'job_pref'
+  | 'virtual_hours'
+  | 'id'
+  | 'bank'
+  | 'photo'
+  | 'resume';
+
+const STEP_META: Record<StepId, { title: string; subtitle: string; description?: string }> = {
+  account: {
+    title: 'Create Account',
+    subtitle: 'Showcase your skills and get discovered by businesses',
+  },
+  basic: {
+    title: 'Basic Details',
+    subtitle: 'Help us understand who you are',
+  },
+  contact: {
+    title: 'Contact Details',
+    subtitle: 'Where can we reach you?',
+  },
+  employment: {
+    title: 'What kind of work are you looking for?',
+    subtitle: 'Pick at least one — you can choose both if you’re open to either.',
+  },
+  job_pref: {
+    title: 'Job Preferences',
+    subtitle: 'Tell us about your salary-based work preferences',
+    description:
+      'If you are also looking for employment (monthly salary basis), which of these options do you prefer?',
+  },
+  virtual_hours: {
+    title: 'Set your virtual office times',
+    subtitle:
+      'Enter your days and times of availability. These times will be shown in your profile and represent when you are available for work.',
+  },
+  id: {
+    title: 'ID Proofs',
+    subtitle: 'Verify your identity',
+  },
+  bank: {
+    title: 'Bank Details',
+    subtitle: 'Where should we send your payouts?',
+  },
+  photo: {
+    title: 'Profile Picture',
+    subtitle: 'Put a face to your profile',
+  },
+  resume: {
+    title: 'Resume',
+    subtitle: 'Share your work history',
+  },
+};
 
 const AVAILABILITY_OPTIONS = [
   { label: 'Full Time', value: 'full_time' },
@@ -88,21 +139,67 @@ const JOB_TYPE_OPTIONS = [
   { label: 'Field Job', value: 'field' },
 ];
 
-const TOTAL_STEPS = 8;
+const EMPLOYMENT_TYPE_OPTIONS = [
+  { label: 'Looking for employment (monthly salary-based work)', value: 'salary' },
+  { label: 'Freelance work / SquadHub partner program', value: 'freelance' },
+];
+
+function buildVisibleSteps(employmentType: EmploymentType[] | undefined): StepId[] {
+  const types = employmentType ?? [];
+  const middle: StepId[] = [];
+  if (types.includes('salary')) middle.push('job_pref');
+  if (types.includes('freelance')) middle.push('virtual_hours');
+  return [
+    'account',
+    'basic',
+    'contact',
+    'employment',
+    ...middle,
+    'id',
+    'bank',
+    'photo',
+    'resume',
+  ];
+}
+
+function inferEmploymentTypeFromLead(lead: LeadSubmission | null): EmploymentType[] {
+  if (!lead) return [];
+  const explicit = lead.form_data?.looking_for;
+  if (Array.isArray(explicit)) {
+    const valid = explicit.filter(
+      (v): v is EmploymentType => v === 'salary' || v === 'freelance'
+    );
+    if (valid.length) return valid;
+  }
+  if (lead.form_type === 'creative') return ['freelance'];
+  if (lead.form_type === 'accountant') return ['salary'];
+  return [];
+}
 
 function signupDoneKey(userId: string) {
   return `squadhire_talent_signup_done_${userId}`;
 }
 
-function determineStartStep(me: TalentUser, bp: BasicProfile): number {
-  if (!me.age || !me.gender || !me.native_place || !me.current_location) return 2;
-  if (!bp.permanent_address && !bp.current_address && !bp.city && !bp.pin_code) return 3;
-  if ((!bp.availability || bp.availability.length === 0) && (!bp.job_type || bp.job_type.length === 0)) return 4;
-  if (!bp.aadhaar_number && !bp.pan_number) return 5;
-  if (!bp.bank_account_holder && !bp.bank_account_number) return 6;
-  if (!bp.profile_picture_url) return 7;
-  if (!bp.resume_url) return 8;
-  return 9;
+function determineStartStepId(me: TalentUser, bp: BasicProfile): StepId | null {
+  if (!me.age || !me.gender || !me.native_place || !me.current_location) return 'basic';
+  if (!bp.permanent_address && !bp.current_address && !bp.city && !bp.pin_code) return 'contact';
+  if (!bp.employment_type || bp.employment_type.length === 0) return 'employment';
+  if (
+    bp.employment_type.includes('salary') &&
+    (!bp.availability || bp.availability.length === 0) &&
+    (!bp.job_type || bp.job_type.length === 0)
+  )
+    return 'job_pref';
+  if (
+    bp.employment_type.includes('freelance') &&
+    (!bp.virtual_office_hours || bp.virtual_office_hours.length === 0)
+  )
+    return 'virtual_hours';
+  if (!bp.aadhaar_number && !bp.pan_number) return 'id';
+  if (!bp.bank_account_holder && !bp.bank_account_number) return 'bank';
+  if (!bp.profile_picture_url) return 'photo';
+  if (!bp.resume_url) return 'resume';
+  return null;
 }
 
 export default function SignupTalent() {
@@ -110,7 +207,7 @@ export default function SignupTalent() {
   const router = useRouter();
   const { uploadFile, uploading } = useUpload();
 
-  const [activeStep, setActiveStep] = useState(1);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [initializing, setInitializing] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -132,11 +229,19 @@ export default function SignupTalent() {
   const [profileForm, setProfileForm] = useState<BasicProfile>({});
   const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
 
+  const visibleSteps = useMemo(
+    () => buildVisibleSteps(profileForm.employment_type),
+    [profileForm.employment_type]
+  );
+  const currentStepId: StepId = visibleSteps[Math.min(activeIndex, visibleSteps.length - 1)];
+  const totalSteps = visibleSteps.length;
+  const meta = STEP_META[currentStepId];
+
   useEffect(() => {
     if (authLoading) return;
 
     if (!token || !user) {
-      setActiveStep(1);
+      setActiveIndex(0);
       setInitializing(false);
       return;
     }
@@ -153,12 +258,19 @@ export default function SignupTalent() {
 
     (async () => {
       try {
-        const [meRes, profileRes] = await Promise.all([
+        const [meRes, profileRes, leadRes] = await Promise.all([
           api.get<TalentUser>('/talent/me'),
           api.get<BasicProfile | null>('/talent/me/basic-profile'),
+          api.get<LeadSubmission | null>('/talent/me/lead-submission').catch(() => null),
         ]);
         const me = meRes.data;
         const bp = profileRes.data || {};
+
+        // Auto-populate employment_type from prior public-form lead, if not yet saved.
+        if (!bp.employment_type || bp.employment_type.length === 0) {
+          const inferred = inferEmploymentTypeFromLead(leadRes?.data ?? null);
+          if (inferred.length) bp.employment_type = inferred;
+        }
 
         setAccountForm({
           email: me.email || '',
@@ -176,15 +288,16 @@ export default function SignupTalent() {
         setProfileForm(bp);
         if (bp.bank_account_number) setConfirmAccountNumber(bp.bank_account_number);
 
-        const startStep = determineStartStep(me, bp);
-        if (startStep > TOTAL_STEPS) {
+        const startId = determineStartStepId(me, bp);
+        if (!startId) {
           localStorage.setItem(signupDoneKey(user.id), '1');
           router.push('/dashboard');
           return;
         }
-        setActiveStep(startStep);
+        const steps = buildVisibleSteps(bp.employment_type);
+        setActiveIndex(Math.max(0, steps.indexOf(startId)));
       } catch {
-        setActiveStep(2);
+        setActiveIndex(1);
       } finally {
         setInitializing(false);
       }
@@ -235,9 +348,13 @@ export default function SignupTalent() {
     input.click();
   };
 
+  // Note: visibleSteps recomputes when employment_type changes, so the
+  // next-step lookup naturally accounts for added/removed branches. We do
+  // NOT clear job_pref or virtual_hours data when a branch is unselected —
+  // it stays in the DB silently and reappears if the user re-selects.
   const goNext = () => {
-    if (activeStep < TOTAL_STEPS) {
-      setActiveStep(activeStep + 1);
+    if (activeIndex < visibleSteps.length - 1) {
+      setActiveIndex(activeIndex + 1);
     } else {
       handleFinish();
     }
@@ -251,7 +368,7 @@ export default function SignupTalent() {
   };
 
   const handleBack = () => {
-    if (activeStep > 1) setActiveStep(activeStep - 1);
+    if (activeIndex > 0) setActiveIndex(activeIndex - 1);
   };
 
   const handleAccountSubmit = async () => {
@@ -279,7 +396,8 @@ export default function SignupTalent() {
         { skipRedirect: true }
       );
       toast.success('Account created');
-      setActiveStep(2);
+      const stepsAfter = buildVisibleSteps(profileForm.employment_type);
+      setActiveIndex(stepsAfter.indexOf('basic'));
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Signup failed');
     } finally {
@@ -322,12 +440,12 @@ export default function SignupTalent() {
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
-    switch (activeStep) {
-      case 1:
+    switch (currentStepId) {
+      case 'account':
         return handleAccountSubmit();
-      case 2:
+      case 'basic':
         return handleBasicSubmit();
-      case 3:
+      case 'contact':
         if (profileForm.pin_code && !/^\d{6}$/.test(profileForm.pin_code)) {
           toast.error('PIN code must be 6 digits');
           return;
@@ -341,12 +459,20 @@ export default function SignupTalent() {
           city: profileForm.city,
           pin_code: profileForm.pin_code,
         });
-      case 4:
+      case 'employment':
+        if (!profileForm.employment_type || profileForm.employment_type.length === 0) {
+          toast.error('Pick at least one option');
+          return;
+        }
+        return saveProfile({ employment_type: profileForm.employment_type });
+      case 'job_pref':
         return saveProfile({
           availability: profileForm.availability,
           job_type: profileForm.job_type,
         });
-      case 5:
+      case 'virtual_hours':
+        return saveProfile({ virtual_office_hours: profileForm.virtual_office_hours });
+      case 'id':
         if (profileForm.aadhaar_number && !/^\d{12}$/.test(profileForm.aadhaar_number)) {
           toast.error('Aadhaar number must be 12 digits');
           return;
@@ -364,7 +490,7 @@ export default function SignupTalent() {
           pan_number: profileForm.pan_number,
           pan_file_url: profileForm.pan_file_url,
         });
-      case 6:
+      case 'bank':
         if (
           profileForm.bank_account_number &&
           profileForm.bank_account_number !== confirmAccountNumber
@@ -379,9 +505,9 @@ export default function SignupTalent() {
           bank_ifsc_code: profileForm.bank_ifsc_code,
           bank_branch_name: profileForm.bank_branch_name,
         });
-      case 7:
+      case 'photo':
         return saveProfile({ profile_picture_url: profileForm.profile_picture_url });
-      case 8:
+      case 'resume':
         return saveProfile({ resume_url: profileForm.resume_url });
     }
   };
@@ -394,9 +520,12 @@ export default function SignupTalent() {
     );
   }
 
-  const isLastStep = activeStep === TOTAL_STEPS;
-  const isSkippable = activeStep >= 3;
-  const showFinishLater = activeStep >= 3;
+  const isLastStep = activeIndex === visibleSteps.length - 1;
+  const isSkippable =
+    currentStepId !== 'account' &&
+    currentStepId !== 'basic' &&
+    currentStepId !== 'employment';
+  const showFinishLater = isSkippable;
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4 py-12">
@@ -414,7 +543,7 @@ export default function SignupTalent() {
           <div className="mb-6">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-medium uppercase tracking-wide text-indigo-600">
-                Step {activeStep} of {TOTAL_STEPS}
+                Step {activeIndex + 1} of {totalSteps}
               </span>
               {showFinishLater && (
                 <button
@@ -427,26 +556,27 @@ export default function SignupTalent() {
               )}
             </div>
             <div className="mb-4 flex gap-1">
-              {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+              {Array.from({ length: totalSteps }).map((_, i) => (
                 <div
                   key={i}
                   className={`h-1.5 flex-1 rounded-full transition-colors ${
-                    i < activeStep - 1
+                    i < activeIndex
                       ? 'bg-indigo-600'
-                      : i === activeStep - 1
+                      : i === activeIndex
                       ? 'bg-indigo-400'
                       : 'bg-gray-200'
                   }`}
                 />
               ))}
             </div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              {STEP_TITLES[activeStep - 1]}
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">{STEP_SUBTITLES[activeStep - 1]}</p>
+            <h2 className="text-2xl font-bold text-gray-900">{meta.title}</h2>
+            <p className="mt-1 text-sm text-gray-500">{meta.subtitle}</p>
+            {meta.description && (
+              <p className="mt-2 text-sm text-gray-600">{meta.description}</p>
+            )}
           </div>
 
-          {activeStep === 1 && (
+          {currentStepId === 'account' && (
             <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
               <p className="text-sm text-amber-800">
                 Signup is by invitation only. Use the email address your invitation was sent to.
@@ -455,7 +585,7 @@ export default function SignupTalent() {
           )}
 
           <form onSubmit={handleSave} className="space-y-4">
-            {activeStep === 1 && (
+            {currentStepId === 'account' && (
               <>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Input
@@ -492,7 +622,7 @@ export default function SignupTalent() {
               </>
             )}
 
-            {activeStep === 2 && (
+            {currentStepId === 'basic' && (
               <>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Input
@@ -533,7 +663,7 @@ export default function SignupTalent() {
               </>
             )}
 
-            {activeStep === 3 && (
+            {currentStepId === 'contact' && (
               <>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -644,7 +774,22 @@ export default function SignupTalent() {
               </>
             )}
 
-            {activeStep === 4 && (
+            {currentStepId === 'employment' && (
+              <ChipSelect
+                multi
+                options={EMPLOYMENT_TYPE_OPTIONS}
+                selected={profileForm.employment_type || []}
+                onChange={(val) =>
+                  setProfileForm((prev) => ({
+                    ...prev,
+                    employment_type: (Array.isArray(val) ? val : [val]) as EmploymentType[],
+                  }))
+                }
+                required
+              />
+            )}
+
+            {currentStepId === 'job_pref' && (
               <div className="space-y-6">
                 <div>
                   <h3 className="mb-2 text-sm font-medium text-gray-700">Availability</h3>
@@ -687,7 +832,16 @@ export default function SignupTalent() {
               </div>
             )}
 
-            {activeStep === 5 && (
+            {currentStepId === 'virtual_hours' && (
+              <VirtualOfficeHoursPicker
+                value={profileForm.virtual_office_hours || []}
+                onChange={(next) =>
+                  setProfileForm((prev) => ({ ...prev, virtual_office_hours: next }))
+                }
+              />
+            )}
+
+            {currentStepId === 'id' && (
               <div className="space-y-6">
                 <div>
                   <h3 className="mb-3 text-sm font-semibold text-gray-800">Aadhaar Card</h3>
@@ -754,7 +908,7 @@ export default function SignupTalent() {
               </div>
             )}
 
-            {activeStep === 6 && (
+            {currentStepId === 'bank' && (
               <div className="space-y-5">
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm">
                   <p className="mb-1 font-semibold text-blue-900">Why we ask for this</p>
@@ -814,7 +968,7 @@ export default function SignupTalent() {
               </div>
             )}
 
-            {activeStep === 7 && (
+            {currentStepId === 'photo' && (
               <div className="flex items-center gap-6">
                 {profileForm.profile_picture_url ? (
                   <img
@@ -856,7 +1010,7 @@ export default function SignupTalent() {
               </div>
             )}
 
-            {activeStep === 8 && (
+            {currentStepId === 'resume' && (
               <div>
                 <p className="mb-3 text-sm text-gray-500">
                   Upload your resume in PDF format only.
@@ -879,7 +1033,7 @@ export default function SignupTalent() {
               <Button
                 type="button"
                 variant="outline"
-                disabled={activeStep === 1 || submitting}
+                disabled={activeIndex === 0 || submitting}
                 onClick={handleBack}
               >
                 Back
@@ -892,11 +1046,11 @@ export default function SignupTalent() {
                     disabled={submitting}
                     onClick={goNext}
                   >
-                    {activeStep === 6 ? 'Skip for now' : 'Skip'}
+                    {currentStepId === 'bank' ? 'Skip for now' : 'Skip'}
                   </Button>
                 )}
                 <Button type="submit" loading={submitting}>
-                  {activeStep === 1
+                  {currentStepId === 'account'
                     ? 'Create Account'
                     : isLastStep
                     ? 'Finish'
@@ -906,7 +1060,7 @@ export default function SignupTalent() {
             </div>
           </form>
 
-          {activeStep === 1 && (
+          {currentStepId === 'account' && (
             <>
               <div className="mt-6 text-center text-sm text-gray-500">
                 Already have an account?{' '}
