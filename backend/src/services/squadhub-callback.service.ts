@@ -160,13 +160,19 @@ export function startCallbackSweeper(): NodeJS.Timeout {
       }
 
       for (const row of rows as any[]) {
+        // Postgres returns timestamps with a space separator ("... 13:44:18+00")
+        // but the receiver validates with Zod's .datetime() which requires ISO
+        // 8601 with the T separator. Normalize via Date round-trip.
+        const respondedAtIso = row.responded_at
+          ? new Date(row.responded_at).toISOString()
+          : new Date().toISOString();
         const payload: CallbackPayload = {
           external_id: row.subscription_cards.external_id,
           recipient_id: row.id,
           talent_user_id: row.talent_user_id,
           talent_name: nameById.get(row.talent_user_id),
           action: row.status === 'accepted' ? 'accept' : 'reject',
-          responded_at: row.responded_at,
+          responded_at: respondedAtIso,
         };
         const outcome = await postOnce(payload);
         await persistCallbackResult(row.id, outcome, 1);
