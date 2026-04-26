@@ -188,3 +188,70 @@ export function useBusinessPortfolio(categoryId: string | undefined, profileId: 
     enabled: !!categoryId && !!profileId,
   });
 }
+
+// ─── Subscription cards (linked to this business via SquadHub publish) ─────
+
+export interface BusinessSubscriptionCardSummary {
+  id: string;
+  external_id: string;
+  brand_name: string | null;
+  subscription_name: string | null;
+  plan_name: string | null;
+  monthly_price: number | null;
+  currency: string | null;
+  status: 'active' | 'archived';
+  published_at: string | null;
+  category_ids: string[];
+  counts: { accepted: number; pending: number; rejected: number; shortlisted: number };
+}
+
+export interface BusinessSubscriptionCardDetail {
+  id: string;
+  external_id: string;
+  brand_name: string | null;
+  subscription_name: string | null;
+  plan_name: string | null;
+  monthly_price: number | null;
+  currency: string | null;
+  description: string | null;
+  business_nature: string | null;
+  hours_label: string | null;
+  working_days: string[] | null;
+  status: 'active' | 'archived';
+  published_at: string | null;
+  expires_at: string | null;
+  category_ids: string[];
+  categories: Array<{ id: string; name: string; slug: string }>;
+}
+
+export function useMySubscriptionCards() {
+  return useQuery<BusinessSubscriptionCardSummary[]>({
+    queryKey: ['my-subscription-cards'],
+    queryFn: async () => {
+      const { data } = await api.get('/business/my-subscription-cards');
+      return data.cards ?? [];
+    },
+  });
+}
+
+export function useMySubscriptionCard(cardId: string | undefined) {
+  return useQuery<BusinessSubscriptionCardDetail>({
+    queryKey: ['my-subscription-card', cardId],
+    queryFn: async () => {
+      const { data } = await api.get(`/business/my-subscription-cards/${cardId}`);
+      return data.card;
+    },
+    enabled: !!cardId,
+  });
+}
+
+export function useShortlistedProfilesForCard(cardId: string | undefined) {
+  return useQuery<Profile[]>({
+    queryKey: ['my-subscription-card-shortlisted', cardId],
+    queryFn: async () => {
+      const { data } = await api.get(`/business/my-subscription-cards/${cardId}/shortlisted-profiles`);
+      return data.profiles ?? [];
+    },
+    enabled: !!cardId,
+  });
+}

@@ -2,69 +2,154 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { useMyCategories } from '@/hooks/useBusiness';
+import { useMySubscriptionCards, type BusinessSubscriptionCardSummary } from '@/hooks/useBusiness';
+
+function formatPrice(amount: number | null, currency: string | null): string | null {
+  if (amount == null) return null;
+  const symbol = currency === 'INR' ? '₹' : currency ? `${currency} ` : '';
+  return `${symbol}${amount.toLocaleString()}/mo`;
+}
+
+function formatPublishedAt(iso: string | null): string {
+  if (!iso) return '';
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (days < 1) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function cardTitle(card: BusinessSubscriptionCardSummary): string {
+  const left = card.brand_name || 'Untitled';
+  const right = card.subscription_name;
+  return right ? `${left} · ${right}` : left;
+}
 
 export default function BusinessDashboard() {
   const { user } = useAuth();
-  const { data: categories, isLoading } = useMyCategories();
+  const { data: cards, isLoading } = useMySubscriptionCards();
+
+  const active = (cards ?? []).filter((c) => c.status === 'active');
+  const archived = (cards ?? []).filter((c) => c.status === 'archived');
+
+  const greeting = (
+    <div className="mb-5">
+      <h1 className="text-xl font-bold text-gray-900 md:text-2xl">
+        Welcome{user?.company_name ? `, ${user.company_name}` : ''}
+      </h1>
+      <p className="mt-1 text-sm text-gray-500">
+        Subscription cards published to your account. Tap one to see the talents you've shortlisted under it.
+      </p>
+    </div>
+  );
+
+  if (isLoading) {
+    return (
+      <>
+        {greeting}
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-24 animate-pulse rounded-xl bg-gray-100" />
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  if (!cards || cards.length === 0) {
+    return (
+      <>
+        {greeting}
+        <div className="rounded-xl border border-dashed border-gray-200 bg-white p-10 text-center">
+          <p className="text-sm font-medium text-gray-600">No subscription cards yet.</p>
+          <p className="mt-1 text-xs text-gray-400">
+            Cards will appear here once they're published to your account.
+          </p>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
-      {/* ── Mobile: category list drill-down ── */}
-      <div className="md:hidden">
-        <div className="mb-5">
-          <h1 className="text-xl font-bold text-gray-900">
-            Welcome{user?.company_name ? `, ${user.company_name}` : ''}
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Tap a category to browse shared talents.
-          </p>
-        </div>
+      {greeting}
+      {active.length > 0 && <CardSection label="Active" items={active} />}
+      {archived.length > 0 && <CardSection label="Archived" items={archived} muted />}
+    </>
+  );
+}
 
-        {isLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-14 animate-pulse rounded-xl bg-gray-100" />
-            ))}
-          </div>
-        ) : !categories?.length ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-500">
-            No categories assigned yet.
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {categories.map((cat) => (
-              <Link
-                key={cat.id}
-                href={`/business/dashboard/${cat.id}`}
-                className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
-              >
-                <span className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
-                  </span>
-                  {cat.name}
-                </span>
-                <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
-            ))}
-          </div>
+function CardSection({
+  label,
+  items,
+  muted = false,
+}: {
+  label: string;
+  items: BusinessSubscriptionCardSummary[];
+  muted?: boolean;
+}) {
+  return (
+    <div className="mb-6">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+        {label} <span className="text-gray-400">({items.length})</span>
+      </p>
+      <div className="grid gap-2 md:grid-cols-2">
+        {items.map((card) => (
+          <SubscriptionCardRow key={card.id} card={card} muted={muted} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SubscriptionCardRow({
+  card,
+  muted,
+}: {
+  card: BusinessSubscriptionCardSummary;
+  muted: boolean;
+}) {
+  const price = formatPrice(card.monthly_price, card.currency);
+  const published = formatPublishedAt(card.published_at);
+  const accepted = card.counts.accepted;
+  const shortlisted = card.counts.shortlisted;
+
+  return (
+    <Link
+      href={`/business/dashboard/cards/${card.id}`}
+      className={`group flex flex-col rounded-xl border bg-white p-4 transition-shadow hover:shadow-md ${
+        muted ? 'border-gray-200 opacity-70' : 'border-gray-200'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-gray-900">
+            {cardTitle(card)}
+          </p>
+          {card.plan_name && (
+            <p className="mt-0.5 truncate text-xs text-gray-500">{card.plan_name}</p>
+          )}
+        </div>
+        {price && (
+          <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700">
+            {price}
+          </span>
         )}
       </div>
 
-      {/* ── Desktop: welcome message (sidebar drives navigation) ── */}
-      <div className="hidden md:flex md:flex-col md:items-center md:justify-center md:py-20">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Welcome{user?.company_name ? `, ${user.company_name}` : ''}!
-        </h1>
-        <p className="mt-2 max-w-md text-center text-sm text-gray-500">
-          Select a category from the sidebar to browse talents shared with you.
-        </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
+          <span>{accepted}</span>
+          <span className="text-emerald-500">accepted</span>
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700">
+          <span>{shortlisted}</span>
+          <span className="text-indigo-500">shortlisted</span>
+        </span>
+        {published && (
+          <span className="ml-auto text-gray-400">Published {published}</span>
+        )}
       </div>
-    </>
+    </Link>
   );
 }

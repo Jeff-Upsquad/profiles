@@ -16,7 +16,9 @@ interface ThreadsProfileHeaderProps {
   category: CategoryWithFields | null;
   mode: 'business' | 'talent';
   onShortlist?: () => void;
+  onUnshortlist?: () => void;
   shortlistLoading?: boolean;
+  isShortlisted?: boolean;
   onSendInterest?: () => void;
   interestLoading?: boolean;
   editProfileHref?: string;
@@ -46,7 +48,9 @@ export default function ThreadsProfileHeader({
   category,
   mode,
   onShortlist,
+  onUnshortlist,
   shortlistLoading,
+  isShortlisted,
   onSendInterest,
   interestLoading,
   editProfileHref,
@@ -133,12 +137,24 @@ export default function ThreadsProfileHeader({
         {mode === 'business' ? (
           <div className="grid grid-cols-2 gap-2.5">
             <button
-              onClick={onShortlist}
+              onClick={isShortlisted ? onUnshortlist : onShortlist}
               disabled={shortlistLoading}
-              className="flex h-[40px] items-center justify-center rounded-[10px] bg-zinc-950 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              aria-pressed={isShortlisted ? true : false}
+              className={`flex h-[40px] items-center justify-center gap-1.5 rounded-[10px] text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 ${
+                isShortlisted
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-zinc-950 text-white'
+              }`}
             >
               {shortlistLoading ? (
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : isShortlisted ? (
+                <>
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Shortlisted
+                </>
               ) : (
                 'Shortlist'
               )}
