@@ -283,43 +283,55 @@ export default function SubscriptionCardContent({ content }: Props) {
         </p>
       )}
 
-      {/* ── PRIMARY: Hours ─────────────────────────────── */}
-      {(hoursLabel || capacityLabel) && (
+      {/* ── PRIMARY: Work commitment (Hours + Deliverables) ───── */}
+      {(hoursLabel || capacityLabel || deliverablesLabel || deliverables.length > 0) && (
         <div>
-          <SectionLabel icon={IconClock}>Hours</SectionLabel>
-          {hoursLabel && (
-            <p className="mt-1 text-base font-semibold text-neutral-900">
-              {hoursLabel}
-            </p>
-          )}
-          {capacityLabel && (
-            <p className="text-xs text-neutral-500">{capacityLabel}</p>
-          )}
-        </div>
-      )}
+          <SectionLabel icon={IconBriefcase} tone="deliverables">Work commitment</SectionLabel>
+          <div className="mt-2 space-y-2">
+            {/* Hours sub-card */}
+            {(hoursLabel || capacityLabel) && (
+              <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-3">
+                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700/70">
+                  <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">{IconClock}</span>
+                  Hours
+                </p>
+                {hoursLabel && (
+                  <p className="mt-1 text-base font-semibold text-blue-700">{hoursLabel}</p>
+                )}
+                {capacityLabel && (
+                  <p className="text-xs text-blue-700/60">{capacityLabel}</p>
+                )}
+              </div>
+            )}
 
-      {/* ── PRIMARY: Deliverables ──────────────────────── */}
-      {(deliverablesLabel || deliverables.length > 0) && (
-        <div>
-          <SectionLabel icon={IconClipboard} tone="deliverables">Deliverables</SectionLabel>
-          {deliverablesLabel && (
-            <p className="mt-1 text-base font-semibold text-blue-700">{deliverablesLabel}</p>
-          )}
-          {deliverables.length > 0 && (
-            <ul className="mt-1 space-y-1">
-              {deliverables.map((d, i) => (
-                <li key={i} className="flex items-baseline gap-2">
-                  <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500" />
-                  <div className="flex flex-wrap items-baseline gap-x-1.5">
-                    <span className="text-lg font-semibold text-blue-700">{d.label}</span>
-                    {d.description && (
-                      <span className="text-xs font-normal text-blue-700/70">{d.description}</span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+            {/* Deliverables sub-card */}
+            {(deliverablesLabel || deliverables.length > 0) && (
+              <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-3">
+                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700/70">
+                  <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">{IconClipboard}</span>
+                  Deliverables
+                </p>
+                {deliverablesLabel && (
+                  <p className="mt-1 text-sm font-medium text-blue-700">{deliverablesLabel}</p>
+                )}
+                {deliverables.length > 0 && (
+                  <ul className="mt-1 space-y-1">
+                    {deliverables.map((d, i) => (
+                      <li key={i} className="flex items-baseline gap-2">
+                        <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500" />
+                        <div className="flex flex-wrap items-baseline gap-x-1.5">
+                          <span className="text-base font-semibold text-blue-700">{d.label}</span>
+                          {d.description && (
+                            <span className="text-xs font-normal text-blue-700/70">{d.description}</span>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
