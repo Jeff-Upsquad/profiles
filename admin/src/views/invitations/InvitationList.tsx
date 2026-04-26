@@ -149,79 +149,84 @@ export default function InvitationList() {
         </select>
       </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        {isLoading ? (
+      {/* Grouped buckets */}
+      {isLoading ? (
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
           <div className="flex items-center justify-center py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
           </div>
-        ) : !invitations?.length ? (
+        </div>
+      ) : !invitations?.length ? (
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
           <div className="py-12 text-center text-sm text-gray-500">
             No invitations found. Click "Invite User" to get started.
           </div>
-        ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-              <tr>
-                <th className="px-6 py-3">Email</th>
-                <th className="px-6 py-3">Phone</th>
-                <th className="px-6 py-3">Role</th>
-                <th className="px-6 py-3">Company</th>
-                <th className="px-6 py-3">Expires</th>
-                <th className="px-6 py-3">Created</th>
-                <th className="px-6 py-3">Actions</th>
-              </tr>
-            </thead>
-            {buckets.map((bucket) => (
-              <tbody key={bucket.key} className="divide-y divide-gray-200">
-                <tr className="bg-gray-50/50">
-                  <td colSpan={7} className="px-6 py-2">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                        {bucket.label}
-                      </h2>
-                      <span className="text-xs text-gray-400">{bucket.items.length}</span>
-                      <div className="ml-2 h-px flex-1 bg-gray-200" />
-                    </div>
-                  </td>
-                </tr>
-                {bucket.items.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium text-gray-900">{inv.email}</td>
-                    <td className="px-6 py-4 text-gray-500">{inv.phone || '-'}</td>
-                    <td className="px-6 py-4">
-                      <Badge variant={inv.role === 'talent' ? 'green' : 'yellow'}>
-                        {inv.role}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 text-gray-500">
-                      {inv.company_name || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-gray-500">
-                      {inv.expires_at
-                        ? new Date(inv.expires_at).toLocaleDateString()
-                        : '-'}
-                    </td>
-                    <td className="px-6 py-4 text-gray-500">
-                      {new Date(inv.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      {inv.status === 'pending' && (
-                        <button
-                          onClick={() => revokeInvitation.mutate(inv.id)}
-                          className="text-sm font-medium text-red-600 hover:text-red-800"
-                        >
-                          Revoke
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            ))}
-          </table>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {buckets.map((bucket) => (
+            <section key={bucket.key}>
+              <div className="mb-2 flex items-center gap-2">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  {bucket.label}
+                </h2>
+                <span className="text-xs text-gray-400">{bucket.items.length}</span>
+                <div className="ml-2 h-px flex-1 bg-gray-200" />
+              </div>
+
+              <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                    <tr>
+                      <th className="px-6 py-3">Email</th>
+                      <th className="px-6 py-3">Phone</th>
+                      <th className="px-6 py-3">Role</th>
+                      <th className="px-6 py-3">Company</th>
+                      <th className="px-6 py-3">Expires</th>
+                      <th className="px-6 py-3">Created</th>
+                      <th className="px-6 py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {bucket.items.map((inv) => (
+                      <tr key={inv.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 font-medium text-gray-900">{inv.email}</td>
+                        <td className="px-6 py-4 text-gray-500">{inv.phone || '-'}</td>
+                        <td className="px-6 py-4">
+                          <Badge variant={inv.role === 'talent' ? 'green' : 'yellow'}>
+                            {inv.role}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 text-gray-500">
+                          {inv.company_name || '-'}
+                        </td>
+                        <td className="px-6 py-4 text-gray-500">
+                          {inv.expires_at
+                            ? new Date(inv.expires_at).toLocaleDateString()
+                            : '-'}
+                        </td>
+                        <td className="px-6 py-4 text-gray-500">
+                          {new Date(inv.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4">
+                          {inv.status === 'pending' && (
+                            <button
+                              onClick={() => revokeInvitation.mutate(inv.id)}
+                              className="text-sm font-medium text-red-600 hover:text-red-800"
+                            >
+                              Revoke
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
 
       {/* Invite Modal */}
       <Modal
