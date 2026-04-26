@@ -4,6 +4,7 @@ import { verifySquadhubSecret } from '../middleware/webhookAuth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import {
   ingestSubscriptionCardSchema,
+  manualAssignTalentSchema,
   removeTalentFromCardSchema,
   externalIdParamSchema,
 } from '../validators/subscription.validators.js';
@@ -15,6 +16,16 @@ router.post(
   verifySquadhubSecret,
   validate({ body: ingestSubscriptionCardSchema }),
   webhooksController.ingestSubscriptionCard
+);
+
+// SquadHub admin hand-picked a talent for a soft-published card. Upserts a
+// pending recipient row so the talent sees the card in their subscription
+// tab. Idempotent on (card_id, talent_user_id).
+router.post(
+  '/squadhub/cards/manual-assignments',
+  verifySquadhubSecret,
+  validate({ body: manualAssignTalentSchema }),
+  webhooksController.manualAssignTalent
 );
 
 // Hide a previously-shared talent from the linked business's dashboard.
