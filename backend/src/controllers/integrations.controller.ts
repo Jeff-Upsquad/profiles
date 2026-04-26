@@ -18,6 +18,20 @@ export async function getCategories(
   }
 }
 
+export async function searchTalents(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const q = typeof req.query.q === 'string' ? req.query.q : '';
+    const talents = await integrationsService.searchActiveTalents(q);
+    res.json({ talents });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ============================================================
 // SquadHub-originated talent-access grants (webhook ingest).
 // SquadHub stores grants locally and POSTs them here so the Profiles admin

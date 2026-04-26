@@ -5,6 +5,7 @@ import { deliverCallback } from './squadhub-callback.service.js';
 import type {
   IngestSubscriptionCardInput,
   ListSubscriptionsQueryInput,
+  ManualAssignTalentInput,
   RespondToSubscriptionInput,
 } from '../validators/subscription.validators.js';
 
@@ -583,4 +584,71 @@ export async function removeFromBusinessDashboardByRecipient(
   if (!externalId) throw new AppError(500, 'Recipient is missing card external_id');
 
   return removeFromBusinessDashboard(externalId, (rec as any).talent_user_id);
+}
+
+// ─── Manual assignments from SquadHub ──────────────────────────────────────
+
+export interface ManualAssignTalentResult {
+  card_id: string;
+  talent_user_id: string;
+  inserted: boolean;
+}
+
+/**
+ * SquadHub admin hand-picked a talent for a soft-published card. Upsert a
+ * recipient row so the card surfaces in the talent's subscription tab — same
+ * shape as auto-fan-out, just driven by an admin instead of `match_rules`.
+ *
+ * Idempotent on (card_id, talent_user_id). 404s if the card or talent is
+ * unknown so SquadHub-side admins get a clean error to act on (instead of a
+ * silent no-op).
+ */
+export async function manualAssignTalent(
+  input: ManualAssignTalentInput
+): Promise<ManualAssignTalentResult> {
+  const { data: card, error: cardErr } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id')
+    .eq('external_id', input.card_id)
+    .maybeSingle();
+  if (cardErr) throw new AppError(500, cardErr.message);
+  if (!card) throw new AppError(404, 'Subscription card not found on Profiles');
+
+  const { data: talent, error: talentErr } = await supabaseAdmin
+    .from('talent_users')
+    .select('id')
+    .eq('id', input.talent_id)
+    .maybeSingle();
+  if (talentErr) throw new AppError(500, talentErr.message);
+  if (!talent) throw new AppError(404, 'Talent not found');
+
+  const { data: existing } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id')
+    .eq('card_id', (card as any).id)
+    .eq('talent_user_id', input.talent_id)
+    .maybeSingle();
+
+  if (existing) {
+    return {
+      card_id: (card as any).id as string,
+      talent_user_id: input.talent_id,
+      inserted: false,
+    };
+  }
+
+  const { error: insErr } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .insert({
+      card_id: (card as any).id,
+      talent_user_id: input.talent_id,
+      status: 'pending',
+    });
+  if (insErr) throw new AppError(500, insErr.message);
+
+  return {
+    card_id: (card as any).id as string,
+    talent_user_id: input.talent_id,
+    inserted: true,
+  };
 }

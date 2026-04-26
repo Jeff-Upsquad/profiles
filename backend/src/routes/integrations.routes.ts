@@ -3,10 +3,16 @@ import * as integrationsController from '../controllers/integrations.controller.
 import { verifySquadhubSecret } from '../middleware/webhookAuth.middleware.js';
 
 /**
- * Signed read-through endpoints + grant CRUD that SquadHub uses for the
- * Profile Access feature. Single shared-secret middleware: a caller that
- * can read the category list can also issue grants on behalf of a SquadHub
- * user, since the secret only lives on the SquadHub server.
+ * Signed integration surface that SquadHub talks to. One shared-secret
+ * middleware (verifySquadhubSecret) gates all of these — a caller that
+ * can read the category list can also drive the talent picker and the
+ * Profile Access grant lifecycle, because the secret only lives on the
+ * SquadHub server.
+ *
+ *   /squadhub/categories                  — category metadata for targeting UI
+ *   /squadhub/talents/search              — talent identity for manual-assign
+ *   /squadhub/talent-access/grants (CRUD) — Profile Access grants originated
+ *                                            from SquadHub's user-app tab
  */
 
 const router = Router();
@@ -15,6 +21,12 @@ router.get(
   '/squadhub/categories',
   verifySquadhubSecret,
   integrationsController.getCategories,
+);
+
+router.get(
+  '/squadhub/talents/search',
+  verifySquadhubSecret,
+  integrationsController.searchTalents,
 );
 
 // Talent access grants — SquadHub originates and we mirror.
