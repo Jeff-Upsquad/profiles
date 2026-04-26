@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import type { UpdateProfileInput, UpdateTalentUserInput, UpdateBasicProfileInput } from '../validators/talent.validators.js';
 import { parseVideoUrl, type VideoProvider } from '../../../shared/src/videoEmbed.js';
+import { getAdminSetting } from './admin.service.js';
 
 // ---------------------------------------------------------------------------
 // Talent User
@@ -240,6 +241,32 @@ export async function submitProfile(profileId: string, userId: string) {
     throw new AppError(400, `Cannot submit: ${errors.join('; ')}`);
   }
 
+  // Auto-approve the talent user inline if the global setting is on and the
+  // user is still pending. Lets the celebratory loading→approved overlay
+  // resolve in a single round-trip.
+  let didAutoApprove = false;
+  const { data: talentUser } = await supabaseAdmin
+    .from('talent_users')
+    .select('approval_status')
+    .eq('id', userId)
+    .single();
+
+  if (talentUser?.approval_status === 'pending') {
+    const enabled = await getAdminSetting<boolean>('auto_approve_signups');
+    if (enabled === true) {
+      const { error: approveErr } = await supabaseAdmin
+        .from('talent_users')
+        .update({
+          approval_status: 'approved',
+          approved_at: new Date().toISOString(),
+        })
+        .eq('id', userId)
+        .eq('approval_status', 'pending');
+      if (approveErr) throw new AppError(500, `Auto-approval failed: ${approveErr.message}`);
+      didAutoApprove = true;
+    }
+  }
+
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')
     .update({ status: 'pending_review' })
@@ -248,7 +275,7 @@ export async function submitProfile(profileId: string, userId: string) {
     .single();
 
   if (error) throw new AppError(500, 'Failed to submit profile');
-  return data;
+  return { ...data, auto_approved: didAutoApprove };
 }
 
 export async function deactivateProfile(profileId: string, userId: string) {

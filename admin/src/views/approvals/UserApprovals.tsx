@@ -13,6 +13,10 @@ interface TalentUser {
   created_at: string;
 }
 
+interface AutoApproveSetting {
+  enabled: boolean;
+}
+
 export default function UserApprovals() {
   const queryClient = useQueryClient();
 
@@ -22,6 +26,35 @@ export default function UserApprovals() {
       const { data } = await api.get('/admin/user-approvals');
       return data.users ?? data;
     },
+  });
+
+  const { data: autoApprove } = useQuery<AutoApproveSetting>({
+    queryKey: ['autoApproveSetting'],
+    queryFn: async () => {
+      const { data } = await api.get('/admin/settings/auto-approve');
+      return data;
+    },
+  });
+
+  const autoApproveMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const { data } = await api.patch('/admin/settings/auto-approve', { enabled });
+      return data as { enabled: boolean; approvedCount: number };
+    },
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['autoApproveSetting'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingApprovals'] });
+      if (res.enabled) {
+        toast.success(
+          res.approvedCount > 0
+            ? `Auto-approval enabled — ${res.approvedCount} pending user${res.approvedCount === 1 ? '' : 's'} approved`
+            : 'Auto-approval enabled',
+        );
+      } else {
+        toast.success('Auto-approval disabled');
+      }
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to update setting'),
   });
 
   const approveMutation = useMutation({
@@ -55,6 +88,19 @@ export default function UserApprovals() {
   }
 
   const users = data || [];
+  const autoApproveEnabled = autoApprove?.enabled === true;
+
+  const handleToggleAutoApprove = () => {
+    if (autoApproveMutation.isPending) return;
+    const next = !autoApproveEnabled;
+    if (next && users.length > 0) {
+      const ok = confirm(
+        `Enabling auto-approval will approve all ${users.length} pending user${users.length === 1 ? '' : 's'} immediately. Continue?`,
+      );
+      if (!ok) return;
+    }
+    autoApproveMutation.mutate(next);
+  };
 
   return (
     <div className="space-y-6">
@@ -71,6 +117,42 @@ export default function UserApprovals() {
         >
           Preview Signup Form
         </Link>
+      </div>
+
+      <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-gray-900">Auto-approve new signups</h2>
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                autoApproveEnabled
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              {autoApproveEnabled ? 'On' : 'Off'}
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-gray-500">
+            When on, new signups skip review and any pending users are approved immediately.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={autoApproveEnabled}
+          onClick={handleToggleAutoApprove}
+          disabled={autoApproveMutation.isPending}
+          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+            autoApproveEnabled ? 'bg-indigo-600' : 'bg-gray-300'
+          }`}
+        >
+          <span
+            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+              autoApproveEnabled ? 'translate-x-5' : 'translate-x-0.5'
+            }`}
+          />
+        </button>
       </div>
 
       {users.length === 0 ? (

@@ -9,12 +9,15 @@ import Button from '@/components/ui/Button';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { useAuth } from '@/context/AuthContext';
 import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
+import ApprovalCelebration from '@/components/talent/ApprovalCelebration';
 import type { Category } from '@/types';
 
 export default function ProfileCreate() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, refetchUser } = useAuth();
   const isApproved = user?.approval_status === 'approved';
+  const autoApproveActive = user?.auto_approve_signups === true;
+  const canSubmit = isApproved || autoApproveActive;
   const { data: categories, isLoading: catLoading } = useCategories();
   const { data: profiles } = useMyProfiles();
   const createProfile = useCreateProfile();
@@ -23,6 +26,7 @@ export default function ProfileCreate() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [values, setValues] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [celebrationPhase, setCelebrationPhase] = useState<'loading' | 'approved' | null>(null);
 
   const { data: categoryWithFields, isLoading: fieldsLoading } = useCategoryWithFields(
     selectedCategory?.slug
@@ -95,14 +99,22 @@ export default function ProfileCreate() {
   const handleSaveAndSubmit = async () => {
     if (!validate()) return;
     if (!selectedCategory) return;
+    const willAutoApprove = !isApproved && autoApproveActive;
     try {
+      if (willAutoApprove) setCelebrationPhase('loading');
       const result = await createProfile.mutateAsync({
         category_id: selectedCategory.id,
         field_data: values,
       });
-      await submitProfile.mutateAsync(result.id);
+      const submitted: any = await submitProfile.mutateAsync(result.id);
+      if (willAutoApprove && submitted?.auto_approved) {
+        await refetchUser();
+        setCelebrationPhase('approved');
+        await new Promise((r) => setTimeout(r, 1400));
+      }
       router.push(`/talent/profiles/${result.id}`);
     } catch {
+      setCelebrationPhase(null);
       // error handled in hook
     }
   };
@@ -231,20 +243,32 @@ export default function ProfileCreate() {
               <Button
                 onClick={handleSaveAndSubmit}
                 loading={createProfile.isPending || submitProfile.isPending}
-                disabled={!isApproved}
-                title={!isApproved ? 'Available after account approval' : undefined}
+                disabled={!canSubmit}
+                title={
+                  !canSubmit
+                    ? 'Available after account approval'
+                    : !isApproved && autoApproveActive
+                    ? 'Submitting will activate your account instantly'
+                    : undefined
+                }
               >
                 Save & Submit for Review
               </Button>
-              {!isApproved && (
+              {!isApproved && !autoApproveActive && (
                 <span className="text-xs text-gray-500">
                   Submission unlocks once your account is approved.
+                </span>
+              )}
+              {!isApproved && autoApproveActive && (
+                <span className="text-xs text-indigo-600">
+                  Submitting will activate your account instantly.
                 </span>
               )}
             </div>
           </>
         )}
       </Card>
+      {celebrationPhase && <ApprovalCelebration phase={celebrationPhase} />}
     </div>
   );
 }

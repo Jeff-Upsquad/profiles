@@ -1068,3 +1068,46 @@ export async function getShortlistTracking(categoryId?: string) {
     shortlisted_at: s.created_at,
   }));
 }
+
+// ---------------------------------------------------------------------------
+// Admin Settings (key/value)
+// ---------------------------------------------------------------------------
+
+export async function getAdminSetting<T = unknown>(key: string): Promise<T | null> {
+  const { data, error } = await supabaseAdmin
+    .from('admin_settings')
+    .select('value')
+    .eq('key', key)
+    .maybeSingle();
+
+  if (error) throw new AppError(500, `Failed to read setting "${key}": ${error.message}`);
+  return (data?.value as T) ?? null;
+}
+
+export async function setAdminSetting(key: string, value: unknown, adminId: string) {
+  const { error } = await supabaseAdmin
+    .from('admin_settings')
+    .upsert({
+      key,
+      value,
+      updated_at: new Date().toISOString(),
+      updated_by: adminId,
+    });
+
+  if (error) throw new AppError(500, `Failed to update setting "${key}": ${error.message}`);
+}
+
+export async function bulkApprovePendingUsers(adminId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('talent_users')
+    .update({
+      approval_status: 'approved',
+      approved_at: new Date().toISOString(),
+      approved_by: adminId,
+    })
+    .eq('approval_status', 'pending')
+    .select('id');
+
+  if (error) throw new AppError(500, `Failed to bulk-approve pending users: ${error.message}`);
+  return { approvedCount: data?.length ?? 0 };
+}
