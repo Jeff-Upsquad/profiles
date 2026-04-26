@@ -159,3 +159,58 @@ export async function updateLeadProfileType(
   if (error) throw new AppError(500, `Failed to update profile type: ${error.message}`);
   return data;
 }
+
+// ---------------------------------------------------------------------------
+// Notes (admin)
+// ---------------------------------------------------------------------------
+
+export async function listLeadNotes(leadId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('lead_notes')
+    .select('*')
+    .eq('lead_id', leadId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new AppError(500, `Failed to fetch notes: ${error.message}`);
+  return data ?? [];
+}
+
+export async function createLeadNote(
+  leadId: string,
+  content: string,
+  adminUserId: string
+) {
+  const { data, error } = await supabaseAdmin
+    .from('lead_notes')
+    .insert({ lead_id: leadId, content, created_by: adminUserId })
+    .select('*')
+    .single();
+
+  if (error) throw new AppError(500, `Failed to create note: ${error.message}`);
+  return data;
+}
+
+export async function updateLeadNote(noteId: string, content: string) {
+  const { data, error } = await supabaseAdmin
+    .from('lead_notes')
+    .update({ content })
+    .eq('id', noteId)
+    .select('*')
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') throw new AppError(404, 'Note not found');
+    throw new AppError(500, `Failed to update note: ${error.message}`);
+  }
+  return data;
+}
+
+export async function deleteLeadNote(noteId: string) {
+  const { error } = await supabaseAdmin
+    .from('lead_notes')
+    .delete()
+    .eq('id', noteId);
+
+  if (error) throw new AppError(500, `Failed to delete note: ${error.message}`);
+  return { success: true };
+}

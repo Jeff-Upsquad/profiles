@@ -90,3 +90,50 @@ export async function updateLeadProfileType(req: Request, res: Response, next: N
     next(err);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Notes (admin)
+// ---------------------------------------------------------------------------
+
+export async function listLeadNotes(req: Request, res: Response, next: NextFunction) {
+  try {
+    const notes = await leadService.listLeadNotes(req.params.id as string);
+    res.json({ notes });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createLeadNote(req: Request, res: Response, next: NextFunction) {
+  try {
+    const note = await leadService.createLeadNote(
+      req.params.id as string,
+      req.body.content,
+      (req as any).user.id
+    );
+    res.status(201).json(note);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateLeadNote(req: Request, res: Response, next: NextFunction) {
+  try {
+    const note = await leadService.updateLeadNote(
+      req.params.noteId as string,
+      req.body.content
+    );
+    res.json(note);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteLeadNote(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await leadService.deleteLeadNote(req.params.noteId as string);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
