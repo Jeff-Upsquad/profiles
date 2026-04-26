@@ -158,11 +158,16 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
   // Upsert the card by external_id for idempotency.
   const { data: existing } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id')
+    .select('id, status')
     .eq('external_id', input.external_id)
     .maybeSingle();
 
   if (existing?.id) {
+    const previousStatus = (existing as any).status as 'active' | 'archived';
+    const nextStatus = input.status ?? previousStatus;
+    const isRecall = previousStatus === 'active' && nextStatus === 'archived';
+    const isRepublish = previousStatus === 'archived' && nextStatus === 'active';
+
     const updatePatch: Record<string, unknown> = {
       content: row.content,
       match_rules: row.match_rules,
@@ -184,11 +189,80 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       await autoSubscribeBusinessToCategories(businessUserId, extractCategoryIds(input.match_rules));
     }
 
+    // Recall: stamp cancelled_at on every still-active recipient row. Old
+    // status (pending/accepted/rejected) is preserved as audit; the row stays
+    // visible to the talent with a "Cancelled" tag.
+    if (isRecall) {
+      const { error: cancelErr } = await supabaseAdmin
+        .from('subscription_card_recipients')
+        .update({ cancelled_at: new Date().toISOString() })
+        .eq('card_id', existing.id)
+        .is('cancelled_at', null);
+      if (cancelErr) {
+        console.error('[subscription] failed to mark recipients cancelled on recall', cancelErr);
+      }
+    }
+
+    // Republish (archived → active) or plain edit while active: re-fan-out
+    // to every matching talent that doesn't already have an *active* (uncancelled)
+    // row. The partial unique index `WHERE cancelled_at IS NULL` can't be
+    // inferred by PostgREST's ON CONFLICT, so we read existing active rows,
+    // diff against the matched talents, and INSERT only the missing ones.
+    // Cancelled rows from prior rounds stay around as audit.
+    let recipientCount = 0;
+    if (nextStatus === 'active') {
+      const talentIds = await findMatchingTalents(input.match_rules ?? {});
+      if (talentIds.length > 0) {
+        const { data: existingRows, error: existErr } = await supabaseAdmin
+          .from('subscription_card_recipients')
+          .select('talent_user_id')
+          .eq('card_id', existing.id)
+          .is('cancelled_at', null);
+
+        if (existErr) {
+          console.error('[subscription] failed to read existing recipients', existErr);
+        } else {
+          const haveActive = new Set(
+            (existingRows ?? []).map((r: any) => r.talent_user_id as string)
+          );
+          const newTalentIds = talentIds.filter((id) => !haveActive.has(id));
+
+          if (newTalentIds.length > 0) {
+            const recipients = newTalentIds.map((talent_user_id) => ({
+              card_id: existing.id,
+              talent_user_id,
+              status: 'pending' as const,
+            }));
+            const { error: recErr, count } = await supabaseAdmin
+              .from('subscription_card_recipients')
+              .insert(recipients, { count: 'exact' });
+            if (recErr) {
+              // 23505 = unique violation. A concurrent webhook can race us
+              // between the SELECT and INSERT; the partial index will reject
+              // the duplicate, which is the correct outcome — log and move on.
+              if (recErr.code !== '23505') {
+                console.error('[subscription] failed to insert recipients on update', recErr);
+              }
+            } else {
+              recipientCount = count ?? newTalentIds.length;
+            }
+          }
+        }
+      }
+    }
+
+    if (isRepublish) {
+      console.info('[subscription] republished card', {
+        external_id: input.external_id,
+        new_recipients: recipientCount,
+      });
+    }
+
     return {
       id: existing.id,
       external_id: input.external_id,
       inserted: false,
-      recipient_count: 0,
+      recipient_count: recipientCount,
     };
   }
 
@@ -240,6 +314,7 @@ interface RecipientRow {
   id: string;
   status: 'pending' | 'accepted' | 'rejected';
   responded_at: string | null;
+  cancelled_at: string | null;
   created_at: string;
   subscription_cards: {
     id: string;
@@ -258,15 +333,17 @@ export async function listForTalent(
   id: string;
   status: 'pending' | 'accepted' | 'rejected';
   responded_at: string | null;
+  cancelled_at: string | null;
   card: RecipientRow['subscription_cards'];
 }>> {
+  // No filter on subscription_cards.status — recalled cards stay visible to
+  // the talent, annotated with a "Cancelled" tag (driven by cancelled_at).
   let q = supabaseAdmin
     .from('subscription_card_recipients')
     .select(
-      'id, status, responded_at, created_at, subscription_cards!inner(id, external_id, content, status, published_at, expires_at)'
+      'id, status, responded_at, cancelled_at, created_at, subscription_cards!inner(id, external_id, content, status, published_at, expires_at)'
     )
     .eq('talent_user_id', talentUserId)
-    .eq('subscription_cards.status', 'active')
     .order('created_at', { ascending: false });
 
   if (query.status === 'pending') {
@@ -282,17 +359,19 @@ export async function listForTalent(
     id: r.id,
     status: r.status,
     responded_at: r.responded_at,
+    cancelled_at: r.cancelled_at,
     card: r.subscription_cards,
   }));
 }
 
 export async function getUnreadCount(talentUserId: string): Promise<number> {
+  // Cancelled offers don't count as unread — the partner rescinded them.
   const { count, error } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('id, subscription_cards!inner(status)', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('talent_user_id', talentUserId)
     .eq('status', 'pending')
-    .eq('subscription_cards.status', 'active');
+    .is('cancelled_at', null);
 
   if (error) throw new AppError(500, error.message);
   return count ?? 0;
@@ -433,26 +512,34 @@ export async function respond(
   const newStatus = input.action === 'accept' ? 'accepted' : 'rejected';
   const respondedAt = new Date().toISOString();
 
-  // The `status = 'pending'` guard prevents double-response races.
+  // The `status = 'pending'` + `cancelled_at IS NULL` guards prevent both
+  // double-response races and accepting/rejecting an offer the partner has
+  // since recalled. RLS enforces the same rules; this guard is defense in
+  // depth for the service-role write.
   const { data: updated, error } = await supabaseAdmin
     .from('subscription_card_recipients')
     .update({ status: newStatus, responded_at: respondedAt })
     .eq('id', recipientId)
     .eq('talent_user_id', talentUserId)
     .eq('status', 'pending')
+    .is('cancelled_at', null)
     .select('id, talent_user_id, subscription_cards!inner(external_id, business_user_id, match_rules)')
     .maybeSingle();
 
   if (error) throw new AppError(500, error.message);
   if (!updated) {
-    // Either not found (or not owned), or already responded. Distinguish:
+    // Either not found (or not owned), already responded, or cancelled.
+    // Distinguish so the UI can show the right message.
     const { data: existing } = await supabaseAdmin
       .from('subscription_card_recipients')
-      .select('id, status')
+      .select('id, status, cancelled_at')
       .eq('id', recipientId)
       .eq('talent_user_id', talentUserId)
       .maybeSingle();
     if (!existing) throw new AppError(404, 'Subscription not found');
+    if ((existing as any).cancelled_at) {
+      throw new AppError(409, 'This offer has been cancelled by the partner');
+    }
     throw new AppError(409, 'Already responded to this subscription');
   }
 

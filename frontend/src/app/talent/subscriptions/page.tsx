@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Card from '@/components/ui/Card';
 import SubscriptionCardView from '@/components/subscriptions/SubscriptionCardView';
+import RespondedListView from '@/components/subscriptions/RespondedListView';
 import {
   useMySubscriptionCards,
   type SubscriptionListFilter,
@@ -73,12 +74,16 @@ export default function SubscriptionsPage() {
         </Card>
       )}
 
-      {!isLoading && !isError && (data?.length ?? 0) > 0 && (
+      {!isLoading && !isError && (data?.length ?? 0) > 0 && tab === 'pending' && (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {data!.map((item) => (
             <SubscriptionCardView key={item.id} item={item} />
           ))}
         </div>
+      )}
+
+      {!isLoading && !isError && (data?.length ?? 0) > 0 && tab === 'responded' && (
+        <RespondedListView items={data!} />
       )}
     </div>
   );

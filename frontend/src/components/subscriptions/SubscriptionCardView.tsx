@@ -16,6 +16,8 @@ interface Props {
 export default function SubscriptionCardView({ item }: Props) {
   const respond = useRespondToSubscriptionCard();
   const isPending = item.status === 'pending';
+  const isCancelled = item.cancelled_at != null;
+  const showActions = isPending && !isCancelled;
   const ctaLabel =
     typeof item.card.content.ctaLabel === 'string' && item.card.content.ctaLabel.trim().length > 0
       ? item.card.content.ctaLabel.trim()
@@ -27,10 +29,12 @@ export default function SubscriptionCardView({ item }: Props) {
 
   return (
     <Card className="flex flex-col gap-4">
-      <SubscriptionCardContent content={item.card.content} />
+      <div className={isCancelled ? 'opacity-60' : ''}>
+        <SubscriptionCardContent content={item.card.content} />
+      </div>
 
       <div className="mt-auto flex items-center justify-between gap-3 pt-2">
-        {isPending ? (
+        {showActions ? (
           <>
             <Button
               variant="outline"
@@ -52,9 +56,11 @@ export default function SubscriptionCardView({ item }: Props) {
             </Button>
           </>
         ) : (
-          <Badge variant={item.status === 'accepted' ? 'green' : 'red'}>
-            {item.status === 'accepted' ? 'Accepted' : 'Rejected'}
-          </Badge>
+          <div className="flex flex-wrap gap-2">
+            {item.status === 'accepted' && <Badge variant="green">Accepted</Badge>}
+            {item.status === 'rejected' && <Badge variant="red">Rejected</Badge>}
+            {isCancelled && <Badge variant="gray">Cancelled</Badge>}
+          </div>
         )}
       </div>
 
