@@ -1,10 +1,18 @@
 // Parser/validator for externally-hosted portfolio video links.
 //
-// Supports YouTube, Vimeo, Loom, Google Drive, Dropbox.
+// Supports YouTube, Vimeo, Loom, Dropbox.
 // Single source of truth — imported by both backend (server-side validation)
 // and frontend (live URL detection in the uploader UI).
+//
+// NOTE: Google Drive was previously supported but removed because of
+// reliability issues in production (sign-in walls on supposedly-public
+// shares, third-party-cookie blocking in modern browsers). Existing rows
+// with provider='gdrive' remain in the database (the CHECK constraint still
+// allows them) and continue to render via the lightbox iframe — the parser
+// just won't accept new Drive URLs. See plan
+// .claude/plans/i-want-to-know-adaptive-lobster.md for context.
 
-export type VideoProvider = 'youtube' | 'vimeo' | 'loom' | 'gdrive' | 'dropbox';
+export type VideoProvider = 'youtube' | 'vimeo' | 'loom' | 'dropbox';
 
 export interface ParsedVideo {
   provider: VideoProvider;
@@ -22,7 +30,6 @@ const HOST_ALLOWLIST: Record<VideoProvider, RegExp> = {
   youtube: /^(www\.|m\.)?(youtube\.com|youtu\.be)$/i,
   vimeo: /^(www\.|player\.)?vimeo\.com$/i,
   loom: /^(www\.)?loom\.com$/i,
-  gdrive: /^drive\.google\.com$/i,
   dropbox: /^(www\.)?dropbox\.com$/i,
 };
 
@@ -98,19 +105,6 @@ function parseLoom(u: URL): ParsedVideo | null {
   };
 }
 
-function parseGoogleDrive(u: URL): ParsedVideo | null {
-  // drive.google.com/file/d/{id}/view OR /preview OR /edit
-  const m = u.pathname.match(/^\/file\/d\/([a-zA-Z0-9_-]{10,})(?:\/|$)/);
-  if (!m) return null;
-  const id = m[1];
-  return {
-    provider: 'gdrive',
-    externalUrl: `https://drive.google.com/file/d/${id}/view`,
-    embedUrl: `https://drive.google.com/file/d/${id}/preview`,
-    renderMode: 'iframe',
-  };
-}
-
 function parseDropbox(u: URL): ParsedVideo | null {
   // Accept either legacy /s/... or modern /scl/fi|fo/... share paths.
   if (!/^\/(s|scl)\//.test(u.pathname)) return null;
@@ -139,7 +133,6 @@ const PARSERS: Record<VideoProvider, (u: URL) => ParsedVideo | null> = {
   youtube: parseYouTube,
   vimeo: parseVimeo,
   loom: parseLoom,
-  gdrive: parseGoogleDrive,
   dropbox: parseDropbox,
 };
 
@@ -161,7 +154,6 @@ export const SUPPORTED_PROVIDERS: VideoProvider[] = [
   'youtube',
   'vimeo',
   'loom',
-  'gdrive',
   'dropbox',
 ];
 
@@ -169,6 +161,19 @@ export const PROVIDER_DISPLAY_NAME: Record<VideoProvider, string> = {
   youtube: 'YouTube',
   vimeo: 'Vimeo',
   loom: 'Loom',
-  gdrive: 'Google Drive',
   dropbox: 'Dropbox',
 };
+
+/**
+ * Display label for any provider that may exist in the database, including
+ * legacy providers no longer accepted by the parser. Used by display
+ * components rendering historical rows (e.g. existing GDrive items still
+ * render via the lightbox iframe even though new pastes are rejected).
+ */
+export function legacyProviderDisplayName(provider: string): string {
+  if (provider in PROVIDER_DISPLAY_NAME) {
+    return PROVIDER_DISPLAY_NAME[provider as VideoProvider];
+  }
+  if (provider === 'gdrive') return 'Google Drive';
+  return 'Video';
+}

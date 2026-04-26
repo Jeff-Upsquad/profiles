@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { PortfolioItem, PortfolioVideoProvider } from '@/types';
+import type { PortfolioItem } from '@/types';
+import { legacyProviderDisplayName } from '@/lib/videoEmbed';
 import ThreadsPortfolioCard from './ThreadsPortfolioCard';
 
 interface ThreadsPortfolioFeedProps {
@@ -9,16 +10,11 @@ interface ThreadsPortfolioFeedProps {
   activeTab: string;
 }
 
-const PROVIDER_LABELS: Record<PortfolioVideoProvider, string> = {
-  youtube: 'YouTube',
-  vimeo: 'Vimeo',
-  loom: 'Loom',
-  gdrive: 'Google Drive',
-  dropbox: 'Dropbox',
-};
-
-function providerLabel(provider: PortfolioVideoProvider | null | undefined): string {
-  return provider ? PROVIDER_LABELS[provider] : 'source';
+// Use the shared display-name helper which gracefully handles legacy
+// providers (e.g. 'gdrive') no longer accepted by the parser. Falls back
+// to a generic 'source' label when no provider is set.
+function providerLabel(provider: string | null | undefined): string {
+  return provider ? legacyProviderDisplayName(provider) : 'source';
 }
 
 export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfolioFeedProps) {

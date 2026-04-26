@@ -3,12 +3,13 @@ import * as storageService from '../services/storage.service.js';
 
 export async function presign(req: Request, res: Response, next: NextFunction) {
   try {
-    const { fileName, contentType, folder } = req.body;
+    const { fileName, contentType, folder, contentLength } = req.body;
     const result = await storageService.getPresignedUploadUrl({
       userId: req.user!.id,
       fileName,
       contentType,
       folder,
+      contentLength,
     });
     res.json(result);
   } catch (err) {

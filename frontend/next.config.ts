@@ -6,13 +6,17 @@ import type { NextConfig } from 'next';
 // here. Backend re-validation in talent.service is the actual security
 // boundary; this is defense-in-depth against an iframe URL slipping past the
 // parser.
+// NOTE: 'https://drive.google.com' was previously listed here but removed
+// after Google Drive support was dropped from the link-paste feature. Any
+// historical portfolio rows with provider='gdrive' (we measured ~1 in
+// production at the time of this change) will now show a blank iframe in
+// the lightbox. Re-add the entry if you need to keep those rows working.
 const FRAME_SRC_ALLOWLIST = [
   "'self'",
   'https://www.youtube.com',
   'https://www.youtube-nocookie.com',
   'https://player.vimeo.com',
   'https://www.loom.com',
-  'https://drive.google.com',
   'https://*.dropbox.com',
   'https://*.dropboxusercontent.com',
 ].join(' ');
