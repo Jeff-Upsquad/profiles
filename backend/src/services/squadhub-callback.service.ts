@@ -24,6 +24,7 @@ export interface CallbackPayload {
   external_id: string;
   recipient_id: string;
   talent_user_id: string;
+  talent_name?: string;
   action: 'accept' | 'reject';
   responded_at: string;
 }
@@ -147,11 +148,23 @@ export function startCallbackSweeper(): NodeJS.Timeout {
       }
       if (!rows || rows.length === 0) return;
 
+      const talentIds = Array.from(new Set(rows.map((r: any) => r.talent_user_id))).filter(Boolean);
+      const { data: talents } = await supabaseAdmin
+        .from('talent_users')
+        .select('id, full_name')
+        .in('id', talentIds.length ? talentIds : ['00000000-0000-0000-0000-000000000000']);
+      const nameById = new Map<string, string>();
+      for (const t of talents ?? []) {
+        const u = t as any;
+        if (u.full_name) nameById.set(u.id, u.full_name);
+      }
+
       for (const row of rows as any[]) {
         const payload: CallbackPayload = {
           external_id: row.subscription_cards.external_id,
           recipient_id: row.id,
           talent_user_id: row.talent_user_id,
+          talent_name: nameById.get(row.talent_user_id),
           action: row.status === 'accepted' ? 'accept' : 'reject',
           responded_at: row.responded_at,
         };
