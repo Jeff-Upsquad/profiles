@@ -125,9 +125,12 @@ function SectionLabel({
 }: {
   icon: React.ReactNode;
   children: React.ReactNode;
-  tone?: 'neutral' | 'money';
+  tone?: 'neutral' | 'money' | 'deliverables';
 }) {
-  const color = tone === 'money' ? 'text-emerald-700' : 'text-neutral-500';
+  const color =
+    tone === 'money' ? 'text-emerald-700'
+    : tone === 'deliverables' ? 'text-blue-700'
+    : 'text-neutral-500';
   return (
     <p className={`flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider ${color}`}>
       <span aria-hidden="true" className="inline-flex h-4 w-4 items-center justify-center">
@@ -298,19 +301,19 @@ export default function SubscriptionCardContent({ content }: Props) {
       {/* ── PRIMARY: Deliverables ──────────────────────── */}
       {(deliverablesLabel || deliverables.length > 0) && (
         <div>
-          <SectionLabel icon={IconClipboard}>Deliverables</SectionLabel>
+          <SectionLabel icon={IconClipboard} tone="deliverables">Deliverables</SectionLabel>
           {deliverablesLabel && (
-            <p className="mt-1 text-sm text-neutral-800">{deliverablesLabel}</p>
+            <p className="mt-1 text-base font-semibold text-blue-700">{deliverablesLabel}</p>
           )}
           {deliverables.length > 0 && (
-            <ul className="mt-1.5 space-y-1 text-sm text-neutral-700">
+            <ul className="mt-1 space-y-1">
               {deliverables.map((d, i) => (
-                <li key={i} className="flex gap-2">
-                  <span aria-hidden="true" className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-neutral-400" />
-                  <div>
-                    <span className="font-medium">{d.label}</span>
+                <li key={i} className="flex items-baseline gap-2">
+                  <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500" />
+                  <div className="flex flex-wrap items-baseline gap-x-1.5">
+                    <span className="text-lg font-semibold text-blue-700">{d.label}</span>
                     {d.description && (
-                      <span className="text-neutral-500"> — {d.description}</span>
+                      <span className="text-xs font-normal text-blue-700/70">{d.description}</span>
                     )}
                   </div>
                 </li>
