@@ -373,7 +373,8 @@ export async function listMySubscriptionCards(businessUserId: string) {
       brand_name: (content.brand_name as string) ?? null,
       subscription_name: (content.subscription_name as string) ?? null,
       plan_name: (content.plan_name as string) ?? null,
-      monthly_price: typeof content.monthly_price === 'number' ? content.monthly_price : null,
+      customer_monthly_price:
+        typeof content.customer_monthly_price === 'number' ? content.customer_monthly_price : null,
       currency: (content.currency as string) ?? null,
       status: card.status as 'active' | 'archived',
       published_at: card.published_at as string | null,
@@ -418,7 +419,8 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
     brand_name: (content.brand_name as string) ?? null,
     subscription_name: (content.subscription_name as string) ?? null,
     plan_name: (content.plan_name as string) ?? null,
-    monthly_price: typeof content.monthly_price === 'number' ? content.monthly_price : null,
+    customer_monthly_price:
+      typeof content.customer_monthly_price === 'number' ? content.customer_monthly_price : null,
     currency: (content.currency as string) ?? null,
     description: (content.description as string) ?? null,
     business_nature: (content.business_nature as string) ?? null,

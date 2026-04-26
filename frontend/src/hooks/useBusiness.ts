@@ -197,7 +197,7 @@ export interface BusinessSubscriptionCardSummary {
   brand_name: string | null;
   subscription_name: string | null;
   plan_name: string | null;
-  monthly_price: number | null;
+  customer_monthly_price: number | null;
   currency: string | null;
   status: 'active' | 'archived';
   published_at: string | null;
@@ -211,7 +211,7 @@ export interface BusinessSubscriptionCardDetail {
   brand_name: string | null;
   subscription_name: string | null;
   plan_name: string | null;
-  monthly_price: number | null;
+  customer_monthly_price: number | null;
   currency: string | null;
   description: string | null;
   business_nature: string | null;

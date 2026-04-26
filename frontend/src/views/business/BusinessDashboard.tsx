@@ -109,7 +109,7 @@ function SubscriptionCardRow({
   card: BusinessSubscriptionCardSummary;
   muted: boolean;
 }) {
-  const price = formatPrice(card.monthly_price, card.currency);
+  const price = formatPrice(card.customer_monthly_price, card.currency);
   const published = formatPublishedAt(card.published_at);
   const accepted = card.counts.accepted;
   const shortlisted = card.counts.shortlisted;
