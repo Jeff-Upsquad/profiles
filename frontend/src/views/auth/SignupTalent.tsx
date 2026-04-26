@@ -141,7 +141,7 @@ const JOB_TYPE_OPTIONS = [
 
 const EMPLOYMENT_TYPE_OPTIONS = [
   { label: 'Looking for employment (monthly salary-based work)', value: 'salary' },
-  { label: 'Freelance work / SquadHub partner program', value: 'freelance' },
+  { label: 'Freelance work / UpSquad Partner Program', value: 'freelance' },
 ];
 
 function buildVisibleSteps(employmentType: EmploymentType[] | undefined): StepId[] {

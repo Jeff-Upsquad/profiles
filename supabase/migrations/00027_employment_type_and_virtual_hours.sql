@@ -1,7 +1,7 @@
 -- Migration: 00027_employment_type_and_virtual_hours
 -- Description: Add employment_type and virtual_office_hours columns to
 --              talent_profiles_basic to support the split signup step
---              (salary-based vs freelance / SquadHub partner program).
+--              (salary-based vs freelance / UpSquad Partner Program).
 
 ALTER TABLE talent_profiles_basic
   ADD COLUMN IF NOT EXISTS employment_type TEXT[],
