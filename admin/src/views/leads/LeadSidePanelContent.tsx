@@ -203,6 +203,8 @@ export default function LeadSidePanelContent({ leadId }: { leadId: string }) {
           leadEmail={lead.email}
           leadName={lead.name}
           leadPhone={lead.phone}
+          leadProfileType={lead.profile_type}
+          leadProfileTypeCustom={lead.profile_type_custom}
         />
       )}
 
