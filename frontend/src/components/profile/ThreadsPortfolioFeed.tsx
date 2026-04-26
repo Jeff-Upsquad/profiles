@@ -207,7 +207,12 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
                   referrerPolicy="strict-origin-when-cross-origin"
                   allow="autoplay; fullscreen; picture-in-picture"
                   allowFullScreen
-                  className="aspect-video w-[85vw] max-w-[1200px] rounded-lg bg-black"
+                  // Viewport-relative sizing so the iframe adapts to its host:
+                  //   – mobile (~360×640): ~324×544, near 9:16, fits portrait video
+                  //   – desktop (≥1280): capped at 1200×680, near 16:9, fits landscape
+                  // Removed fixed aspect-video (16:9) which letterboxed portrait clips
+                  // with huge horizontal black bars.
+                  className="h-[85vh] w-[90vw] max-w-[1200px] rounded-lg bg-black"
                 />
               )}
             {selectedItem.file_type === 'video' &&
