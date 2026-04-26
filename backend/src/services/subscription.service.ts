@@ -8,6 +8,124 @@ import type {
   RespondToSubscriptionInput,
 } from '../validators/subscription.validators.js';
 
+// Sentinel UUID used as `assigned_by` / `shared_by` for rows that the
+// subscription pipeline writes automatically (no human admin in the loop).
+// The two columns are NOT NULL but have no FK, so a fixed UUID is fine.
+const SYSTEM_ACTOR_UUID = '00000000-0000-0000-0000-000000000000';
+
+function extractCategoryIds(matchRules: unknown): string[] {
+  if (!matchRules || typeof matchRules !== 'object') return [];
+  const raw = (matchRules as Record<string, unknown>).category_ids;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((v): v is string => typeof v === 'string' && v.length > 0);
+}
+
+async function resolveBusinessUserIdFromEmail(email: string | undefined): Promise<string | null> {
+  if (!email) return null;
+
+  // `business_users.contact_email` is the only email column. Match
+  // case-insensitively in case existing rows were stored with mixed case.
+  const { data, error } = await supabaseAdmin
+    .from('business_users')
+    .select('id')
+    .ilike('contact_email', email)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[subscription] business_email lookup failed', { email, error: error.message });
+    return null;
+  }
+  if (!data) {
+    console.warn('[subscription] business_email did not match any business_users row', { email });
+    return null;
+  }
+  return data.id as string;
+}
+
+async function autoSubscribeBusinessToCategories(
+  businessUserId: string,
+  categoryIds: string[]
+): Promise<void> {
+  if (categoryIds.length === 0) return;
+
+  const rows = categoryIds.map((category_id) => ({
+    business_user_id: businessUserId,
+    category_id,
+    assigned_by: SYSTEM_ACTOR_UUID,
+  }));
+
+  const { error } = await supabaseAdmin
+    .from('business_category_subscriptions')
+    .upsert(rows, { onConflict: 'business_user_id,category_id', ignoreDuplicates: true });
+
+  if (error) {
+    console.error('[subscription] failed to auto-subscribe business to categories', {
+      businessUserId,
+      categoryIds,
+      error: error.message,
+    });
+  }
+}
+
+/**
+ * On talent accept: insert one business_shared_profiles row per matching
+ * (talent_profile, category) so the talent appears in the business dashboard.
+ * Idempotent via UNIQUE(business_user_id, talent_profile_id). Never throws —
+ * dashboard writes shouldn't fail the user-facing accept call.
+ */
+async function writeAcceptedTalentToDashboard(
+  businessUserId: string,
+  talentUserId: string,
+  matchRules: unknown
+): Promise<void> {
+  const categoryIds = extractCategoryIds(matchRules);
+  if (categoryIds.length === 0) return;
+
+  const { data: profiles, error: profErr } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('id, category_id')
+    .eq('talent_user_id', talentUserId)
+    .eq('status', 'approved')
+    .is('deleted_at', null)
+    .in('category_id', categoryIds);
+
+  if (profErr) {
+    console.error('[subscription] failed to load talent profiles for dashboard write', {
+      talentUserId,
+      error: profErr.message,
+    });
+    return;
+  }
+
+  if (!profiles || profiles.length === 0) {
+    console.debug('[subscription] no approved talent profile in card categories', {
+      talentUserId,
+      categoryIds,
+    });
+    return;
+  }
+
+  const rows = profiles.map((p: any) => ({
+    business_user_id: businessUserId,
+    talent_profile_id: p.id as string,
+    category_id: p.category_id as string,
+    shared_by: SYSTEM_ACTOR_UUID,
+  }));
+
+  const { error } = await supabaseAdmin
+    .from('business_shared_profiles')
+    .upsert(rows, { onConflict: 'business_user_id,talent_profile_id', ignoreDuplicates: true });
+
+  if (error) {
+    console.error('[subscription] failed to write to business_shared_profiles', {
+      businessUserId,
+      talentUserId,
+      error: error.message,
+    });
+  }
+}
+
 // ─── Ingest (webhook from SquadHub) ────────────────────────────────────────
 
 export interface IngestResult {
@@ -18,12 +136,18 @@ export interface IngestResult {
 }
 
 export async function ingestCard(input: IngestSubscriptionCardInput): Promise<IngestResult> {
+  // Resolve the SquadHub-provided client email to a Profiles business_users
+  // row. If unset or unresolved, the card still gets persisted but won't feed
+  // into any business dashboard on talent accept.
+  const businessUserId = await resolveBusinessUserIdFromEmail(input.business_email);
+
   const row = {
     external_id: input.external_id,
     content: input.content,
     match_rules: input.match_rules,
     published_at: input.published_at ?? new Date().toISOString(),
     expires_at: input.expires_at ?? null,
+    business_user_id: businessUserId,
     // status: write only when SquadHub sent one. On insert we still default
     // to 'active' via the column default; on update we preserve the existing
     // status when `status` is omitted so a plain content refresh doesn't
@@ -44,6 +168,9 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       match_rules: row.match_rules,
       published_at: row.published_at,
       expires_at: row.expires_at,
+      // Re-resolve on every ingest so SquadHub can correct the link by
+      // re-publishing with a fixed business_email. Null overwrites a stale id.
+      business_user_id: businessUserId,
     };
     if (input.status) updatePatch.status = input.status;
 
@@ -52,6 +179,10 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       .update(updatePatch)
       .eq('id', existing.id);
     if (error) throw new AppError(500, error.message);
+
+    if (businessUserId) {
+      await autoSubscribeBusinessToCategories(businessUserId, extractCategoryIds(input.match_rules));
+    }
 
     return {
       id: existing.id,
@@ -67,6 +198,10 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     .select('id')
     .single();
   if (insErr || !inserted) throw new AppError(500, insErr?.message ?? 'Failed to insert card');
+
+  if (businessUserId) {
+    await autoSubscribeBusinessToCategories(businessUserId, extractCategoryIds(input.match_rules));
+  }
 
   // Fan out: find matching talents and batch-insert recipient rows.
   const talentIds = await findMatchingTalents(input.match_rules ?? {});
@@ -305,7 +440,7 @@ export async function respond(
     .eq('id', recipientId)
     .eq('talent_user_id', talentUserId)
     .eq('status', 'pending')
-    .select('id, talent_user_id, subscription_cards!inner(external_id)')
+    .select('id, talent_user_id, subscription_cards!inner(external_id, business_user_id, match_rules)')
     .maybeSingle();
 
   if (error) throw new AppError(500, error.message);
@@ -321,7 +456,22 @@ export async function respond(
     throw new AppError(409, 'Already responded to this subscription');
   }
 
-  const externalId = (updated as any).subscription_cards?.external_id as string | undefined;
+  const card = (updated as any).subscription_cards as {
+    external_id?: string;
+    business_user_id?: string | null;
+    match_rules?: unknown;
+  } | undefined;
+  const externalId = card?.external_id;
+
+  // On accept, surface the talent in the linked business's dashboard.
+  // Fire-and-forget: a failure here must not block or fail the user response.
+  if (input.action === 'accept' && card?.business_user_id) {
+    try {
+      await writeAcceptedTalentToDashboard(card.business_user_id, updated.talent_user_id, card.match_rules);
+    } catch (err) {
+      console.error('[subscription] writeAcceptedTalentToDashboard threw', err);
+    }
+  }
 
   // Fire-and-forget callback. Never block or fail the user's response on this.
   if (externalId) {
@@ -348,4 +498,89 @@ export async function respond(
     status: newStatus,
     responded_at: respondedAt,
   };
+}
+
+// ─── Removal from business dashboard ───────────────────────────────────────
+
+export interface RemoveFromBusinessDashboardResult {
+  removed: number;
+}
+
+/**
+ * Remove a previously-shared talent from the linked business's dashboard.
+ * Deletes only the `business_shared_profiles` rows; the recipient row (and
+ * its 'accepted' status) is preserved as the audit trail.
+ *
+ * Looks up the card by `external_id` so both the SquadHub webhook and the
+ * Profiles admin UI can call this with the same payload shape.
+ */
+export async function removeFromBusinessDashboard(
+  externalId: string,
+  talentUserId: string
+): Promise<RemoveFromBusinessDashboardResult> {
+  const { data: card, error: cardErr } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id, business_user_id, match_rules')
+    .eq('external_id', externalId)
+    .maybeSingle();
+
+  if (cardErr) throw new AppError(500, cardErr.message);
+  if (!card) throw new AppError(404, 'Subscription card not found');
+
+  const businessUserId = (card as any).business_user_id as string | null;
+  if (!businessUserId) {
+    return { removed: 0 };
+  }
+
+  const categoryIds = extractCategoryIds((card as any).match_rules);
+  if (categoryIds.length === 0) {
+    return { removed: 0 };
+  }
+
+  const { data: profiles, error: profErr } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('id')
+    .eq('talent_user_id', talentUserId)
+    .in('category_id', categoryIds);
+
+  if (profErr) throw new AppError(500, profErr.message);
+  const profileIds = (profiles ?? []).map((p: any) => p.id as string);
+  if (profileIds.length === 0) {
+    return { removed: 0 };
+  }
+
+  const { error: delErr, count } = await supabaseAdmin
+    .from('business_shared_profiles')
+    .delete({ count: 'exact' })
+    .eq('business_user_id', businessUserId)
+    .in('talent_profile_id', profileIds);
+
+  if (delErr) throw new AppError(500, delErr.message);
+
+  return { removed: count ?? 0 };
+}
+
+/**
+ * Admin variant: looks up the talent_user_id from the recipient row, then
+ * delegates. Used by the Profiles admin UI which has cardId + recipientId
+ * but not the external_id directly.
+ */
+export async function removeFromBusinessDashboardByRecipient(
+  cardId: string,
+  recipientId: string
+): Promise<RemoveFromBusinessDashboardResult> {
+  const { data: rec, error: recErr } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('talent_user_id, subscription_cards!inner(external_id)')
+    .eq('id', recipientId)
+    .eq('card_id', cardId)
+    .maybeSingle();
+
+  if (recErr) throw new AppError(500, recErr.message);
+  if (!rec) throw new AppError(404, 'Recipient not found');
+
+  const externalId = (rec as any).subscription_cards?.external_id as string | undefined;
+  if (!externalId) throw new AppError(500, 'Recipient is missing card external_id');
+
+  return removeFromBusinessDashboard(externalId, (rec as any).talent_user_id);
 }

@@ -47,6 +47,23 @@ export async function adminListRecipients(req: Request, res: Response, next: Nex
   }
 }
 
+export async function adminRemoveFromBusinessDashboard(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { cardId, recipientId } = req.params as { cardId: string; recipientId: string };
+    const result = await subscriptionService.removeFromBusinessDashboardByRecipient(
+      cardId,
+      recipientId
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function respond(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     if (!req.user) throw new AppError(401, 'Authentication required');

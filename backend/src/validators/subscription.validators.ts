@@ -20,8 +20,26 @@ export const ingestSubscriptionCardSchema = z
     // the card from talent dashboards. Omitted on first publish → stays
     // 'active' by default.
     status: z.enum(['active', 'archived']).optional(),
+    // SquadHub's identifier for the client this card was created for. We
+    // resolve it to a Profiles business_users row at ingest time so talent
+    // accept/reject can populate that business's dashboard view. Optional
+    // for backwards compat — cards without a resolvable email behave as before.
+    business_email: z.string().email().toLowerCase().optional(),
   })
   .strict();
+
+export const removeTalentFromCardSchema = z.object({
+  talent_user_id: z.string().uuid(),
+});
+
+export const externalIdParamSchema = z.object({
+  externalId: z.string().min(1).max(200),
+});
+
+export const cardIdRecipientIdParamSchema = z.object({
+  cardId: z.string().uuid(),
+  recipientId: z.string().uuid(),
+});
 
 export const listSubscriptionsQuerySchema = z.object({
   status: z.enum(['pending', 'responded', 'all']).default('pending'),
@@ -38,3 +56,4 @@ export const recipientIdParamSchema = z.object({
 export type IngestSubscriptionCardInput = z.infer<typeof ingestSubscriptionCardSchema>;
 export type ListSubscriptionsQueryInput = z.infer<typeof listSubscriptionsQuerySchema>;
 export type RespondToSubscriptionInput = z.infer<typeof respondToSubscriptionSchema>;
+export type RemoveTalentFromCardInput = z.infer<typeof removeTalentFromCardSchema>;
