@@ -163,6 +163,133 @@ export async function getUnreadCount(talentUserId: string): Promise<number> {
   return count ?? 0;
 }
 
+// ─── Admin-facing queries ──────────────────────────────────────────────────
+
+export interface AdminCardRow {
+  id: string;
+  external_id: string;
+  status: 'active' | 'archived';
+  published_at: string;
+  expires_at: string | null;
+  business_name: string | null;
+  subscription_name: string | null;
+  plan_label: string | null;
+  talents: { pending: number; accepted: number; rejected: number };
+}
+
+export interface AdminListCardsInput {
+  status?: 'active' | 'archived';
+  search?: string;
+}
+
+export async function listAllForAdmin(input: AdminListCardsInput): Promise<AdminCardRow[]> {
+  let q = supabaseAdmin
+    .from('subscription_cards')
+    .select('id, external_id, status, published_at, expires_at, content')
+    .order('published_at', { ascending: false });
+
+  if (input.status === 'active' || input.status === 'archived') {
+    q = q.eq('status', input.status);
+  }
+
+  const { data: cards, error } = await q;
+  if (error) throw new AppError(500, error.message);
+
+  let list = cards ?? [];
+
+  if (input.search?.trim()) {
+    const needle = input.search.trim().toLowerCase();
+    list = list.filter((c: any) => {
+      const content = (c.content ?? {}) as Record<string, unknown>;
+      const business = String(content.business_name ?? '').toLowerCase();
+      const sub = String(content.subscription_name ?? '').toLowerCase();
+      return business.includes(needle) || sub.includes(needle);
+    });
+  }
+
+  if (list.length === 0) return [];
+
+  const cardIds = list.map((c: any) => c.id);
+
+  // Batch-fetch recipient statuses for all cards in one query, then bucket
+  // them by card_id. Avoids N+1 round-trips.
+  const { data: recipientRows, error: recErr } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('card_id, status')
+    .in('card_id', cardIds);
+  if (recErr) throw new AppError(500, recErr.message);
+
+  const countsByCard = new Map<string, { pending: number; accepted: number; rejected: number }>();
+  for (const id of cardIds) {
+    countsByCard.set(id, { pending: 0, accepted: 0, rejected: 0 });
+  }
+  for (const r of recipientRows ?? []) {
+    const bucket = countsByCard.get((r as any).card_id);
+    if (!bucket) continue;
+    const status = (r as any).status as 'pending' | 'accepted' | 'rejected';
+    if (status in bucket) bucket[status]++;
+  }
+
+  return list.map((c: any) => {
+    const content = (c.content ?? {}) as Record<string, unknown>;
+    return {
+      id: c.id,
+      external_id: c.external_id,
+      status: c.status,
+      published_at: c.published_at,
+      expires_at: c.expires_at,
+      business_name: (content.business_name as string) ?? null,
+      subscription_name: (content.subscription_name as string) ?? null,
+      plan_label: (content.plan_name as string) ?? null,
+      talents: countsByCard.get(c.id) ?? { pending: 0, accepted: 0, rejected: 0 },
+    };
+  });
+}
+
+export interface AdminCardRecipient {
+  id: string;
+  talent_user_id: string;
+  talent_name: string | null;
+  status: 'pending' | 'accepted' | 'rejected';
+  responded_at: string | null;
+  created_at: string;
+}
+
+export async function listRecipientsForAdmin(cardId: string): Promise<AdminCardRecipient[]> {
+  const { data, error } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id, talent_user_id, status, responded_at, created_at')
+    .eq('card_id', cardId)
+    .order('created_at', { ascending: false });
+  if (error) throw new AppError(500, error.message);
+
+  const rows = data ?? [];
+  if (rows.length === 0) return [];
+
+  const talentIds = Array.from(new Set(rows.map((r: any) => r.talent_user_id))).filter(Boolean);
+  const { data: talents } = await supabaseAdmin
+    .from('talent_users')
+    .select('id, full_name')
+    .in('id', talentIds.length ? talentIds : ['00000000-0000-0000-0000-000000000000']);
+
+  const nameById = new Map<string, string>();
+  for (const t of talents ?? []) {
+    const u = t as any;
+    nameById.set(u.id, u.full_name || u.id.slice(0, 8));
+  }
+
+  return rows.map((r: any) => ({
+    id: r.id,
+    talent_user_id: r.talent_user_id,
+    talent_name: nameById.get(r.talent_user_id) ?? null,
+    status: r.status,
+    responded_at: r.responded_at,
+    created_at: r.created_at,
+  }));
+}
+
+// ─── Talent response ───────────────────────────────────────────────────────
+
 export async function respond(
   talentUserId: string,
   recipientId: string,

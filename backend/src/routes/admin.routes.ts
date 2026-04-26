@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as adminController from '../controllers/admin.controller.js';
 import * as leadController from '../controllers/lead.controller.js';
+import * as subscriptionController from '../controllers/subscription.controller.js';
 import * as formConfigController from '../controllers/form-config.controller.js';
 import * as interviewController from '../controllers/interview.controller.js';
 import * as talentAccessController from '../controllers/talent-access.controller.js';
@@ -272,6 +273,13 @@ router.delete('/users/:id', adminController.deleteUser);
 router.get('/recycle-bin', adminController.getRecycleBin);
 router.patch('/recycle-bin/:profileId/restore', adminController.restoreProfile);
 router.delete('/recycle-bin/:profileId', adminController.permanentlyDeleteProfile);
+
+// ---------------------------------------------------------------------------
+// Subscription Cards (read-only org-wide list)
+// ---------------------------------------------------------------------------
+
+router.get('/subscription-cards', subscriptionController.adminListCards);
+router.get('/subscription-cards/:id/recipients', subscriptionController.adminListRecipients);
 
 // ---------------------------------------------------------------------------
 // Lead Submissions
