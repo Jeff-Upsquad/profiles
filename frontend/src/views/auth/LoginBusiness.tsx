@@ -63,6 +63,7 @@ export default function LoginBusiness() {
       </div>
 
       <h1 className="text-2xl font-semibold text-gray-900">Welcome to SquadHire</h1>
+      <p className="mt-0.5 text-xs text-gray-400">Powered by UpSquad</p>
       <p className="mt-1 text-sm text-gray-500">
         Sign in with the {identifier === 'email' ? 'email' : 'phone number'} you were invited with.
       </p>

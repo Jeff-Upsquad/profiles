@@ -71,6 +71,7 @@ export default function Login() {
             </div>
             <span className="text-2xl font-bold text-gray-900">SquadHire</span>
           </Link>
+          <p className="mt-1 text-xs text-gray-400">Powered by UpSquad</p>
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-lg">

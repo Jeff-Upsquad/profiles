@@ -17,7 +17,10 @@ export default function Navbar() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-900 text-xs font-bold text-white">
               SH
             </div>
-            <span className="text-lg font-semibold text-neutral-900 tracking-tight">SquadHire</span>
+            <div className="flex flex-col leading-tight">
+              <span className="text-lg font-semibold text-neutral-900 tracking-tight">SquadHire</span>
+              <span className="text-[10px] text-neutral-500">Powered by UpSquad</span>
+            </div>
           </Link>
 
           {/* Desktop nav */}

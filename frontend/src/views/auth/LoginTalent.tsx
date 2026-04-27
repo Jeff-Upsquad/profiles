@@ -39,6 +39,7 @@ export default function LoginTalent() {
       </div>
 
       <h1 className="text-2xl font-semibold text-gray-900">Welcome to SquadHire</h1>
+      <p className="mt-0.5 text-xs text-gray-400">Powered by UpSquad</p>
       <p className="mt-1 text-sm text-gray-500">Sign in to your talent account below.</p>
 
       {step === 'email' ? (
@@ -140,7 +141,10 @@ export function AuthShell({
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gray-900 text-sm font-bold text-white">
             S
           </div>
-          <span className="text-base font-semibold text-gray-900">SquadHire</span>
+          <div className="flex flex-col leading-tight">
+            <span className="text-base font-semibold text-gray-900">SquadHire</span>
+            <span className="text-[10px] text-gray-400">Powered by UpSquad</span>
+          </div>
         </Link>
         <Link
           href={switchHref}
