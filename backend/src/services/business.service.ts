@@ -253,7 +253,7 @@ export async function getApprovedProfile(categorySlug: string, profileId: string
 
   if (error || !data) throw new AppError(404, 'Profile not found');
 
-  return {
+  const baseProfile = {
     id: data.id,
     user_id: (data as any).talent_user_id,
     category_id: data.category_id,
@@ -263,7 +263,71 @@ export async function getApprovedProfile(categorySlug: string, profileId: string
     talent_user: (data as any).talent_users,
     created_at: data.created_at,
     updated_at: data.updated_at,
+    is_ghost: (data as any).is_ghost === true,
   };
+
+  // Ghost rows are pointers — load the two source profiles' full data
+  // (and portfolio items) so the public/business view can render both
+  // in a single payload. Source profiles are looked up by ID; we don't
+  // gate on status here (the ghost row itself is already approved-gated
+  // above, which means both sources were approved when the ghost was
+  // synced).
+  if (baseProfile.is_ghost) {
+    const designerId = (data as any).source_designer_profile_id as string | null;
+    const editorId = (data as any).source_editor_profile_id as string | null;
+    const ids = [designerId, editorId].filter((v): v is string => !!v);
+    if (ids.length > 0) {
+      const [{ data: sources, error: srcErr }, { data: portfolio, error: pfErr }] =
+        await Promise.all([
+          supabaseAdmin
+            .from('talent_profiles')
+            .select('*, categories!inner(id, name, slug)')
+            .in('id', ids)
+            .is('deleted_at', null),
+          supabaseAdmin
+            .from('portfolio_items')
+            .select('*, portfolio_item_skills(skill_name)')
+            .in('profile_id', ids)
+            .order('category_name', { ascending: true })
+            .order('skill_name', { ascending: true })
+            .order('sort_order', { ascending: true }),
+        ]);
+      if (srcErr) throw new AppError(500, 'Failed to load ghost source profiles');
+      if (pfErr) throw new AppError(500, 'Failed to load ghost source portfolio');
+
+      const portfolioByProfile: Record<string, any[]> = {};
+      for (const row of (portfolio ?? []) as any[]) {
+        const { portfolio_item_skills, ...rest } = row;
+        const item = {
+          ...rest,
+          skills: Array.isArray(portfolio_item_skills)
+            ? portfolio_item_skills.map((s: { skill_name: string }) => s.skill_name)
+            : [],
+        };
+        const pid = rest.profile_id as string;
+        if (!portfolioByProfile[pid]) portfolioByProfile[pid] = [];
+        portfolioByProfile[pid].push(item);
+      }
+
+      const sourceProfiles = (sources ?? []).map((p: any) => ({
+        id: p.id,
+        category_id: p.category_id,
+        category: p.categories,
+        status: p.status,
+        field_data: p.field_data,
+        created_at: p.created_at,
+        updated_at: p.updated_at,
+        portfolio_items: portfolioByProfile[p.id] ?? [],
+      }));
+      // Order: Designer first, then Video Editor (matches the category name).
+      sourceProfiles.sort((a, b) =>
+        a.category?.slug === 'designer' ? -1 : b.category?.slug === 'designer' ? 1 : 0,
+      );
+      return { ...baseProfile, source_profiles: sourceProfiles };
+    }
+  }
+
+  return baseProfile;
 }
 
 // ─── Shortlist ──────────────────────────────────────────────────────────────

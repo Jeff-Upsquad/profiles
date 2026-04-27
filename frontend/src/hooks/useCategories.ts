@@ -13,6 +13,25 @@ export function useCategories() {
   });
 }
 
+/**
+ * Categories the logged-in talent is allowed to create a profile in.
+ *
+ * Distinct from `useCategories()`: this endpoint hides the Designer + Editor
+ * combined category (now ghost-only — auto-generated when a talent has both
+ * a Designer and a Video Editor profile). Use this hook in talent-side
+ * pickers; everywhere else (home page, business discovery) continues to use
+ * `useCategories()`.
+ */
+export function useTalentCreatableCategories() {
+  return useQuery<Category[]>({
+    queryKey: ['talentCreatableCategories'],
+    queryFn: async () => {
+      const { data } = await api.get('/talent/profile-categories');
+      return data.categories ?? data;
+    },
+  });
+}
+
 export function useCategoryWithFields(slug: string | undefined) {
   return useQuery<CategoryWithFields>({
     queryKey: ['category', slug],

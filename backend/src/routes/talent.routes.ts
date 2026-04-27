@@ -27,6 +27,12 @@ router.put('/me/basic-profile', validate({ body: updateBasicProfileSchema }), ta
 // Lead submission (used by signup to auto-populate from a prior public-form lead)
 router.get('/me/lead-submission', talentController.getMyLeadSubmission);
 
+// Categories a talent is allowed to create a profile in.
+// Filters out the Designer + Editor combined category — that one is now
+// a ghost-only category, auto-generated when a talent has both a Designer
+// and a Video Editor profile (see ghost-profile.service.ts).
+router.get('/profile-categories', talentController.getTalentCreatableCategories);
+
 // Talent profiles (approval gates submission, not creation)
 router.get('/profiles', talentController.getProfiles);
 router.post('/profiles', validate({ body: createProfileSchema }), talentController.createProfile);

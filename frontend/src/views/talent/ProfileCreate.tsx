@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
-import { useCategories, useCategoryWithFields } from '@/hooks/useCategories';
+import { useTalentCreatableCategories, useCategoryWithFields } from '@/hooks/useCategories';
 import { useMyProfiles, useCreateProfile, useUpdateProfile, useSubmitProfile } from '@/hooks/useProfiles';
 import DynamicFormRenderer from '@/components/forms/DynamicFormRenderer';
 import DesignerExtras from '@/components/forms/DesignerExtras';
@@ -23,7 +23,10 @@ export default function ProfileCreate() {
   const autoApproveActive = user?.auto_approve_signups === true;
   const canSubmit = isApproved || autoApproveActive;
   const queryClient = useQueryClient();
-  const { data: categories, isLoading: catLoading } = useCategories();
+  // Designer + Editor is filtered out server-side here — that combined
+  // category is auto-generated as a ghost when the talent has both a
+  // Designer profile and a Video Editor profile.
+  const { data: categories, isLoading: catLoading } = useTalentCreatableCategories();
   const { data: profiles } = useMyProfiles();
   const createProfile = useCreateProfile();
   const updateProfile = useUpdateProfile();
@@ -48,7 +51,7 @@ export default function ProfileCreate() {
       .map((p) => p.category_id)
   );
   const availableCategories = (categories ?? []).filter(
-    (c) => !existingCategoryIds.has(c.id)
+    (c) => !existingCategoryIds.has(c.id) && c.slug !== 'designer-editor'
   );
 
   const handleChange = (key: string, value: any) => {
