@@ -279,6 +279,7 @@ router.get('/shortlists', adminController.getShortlistTracking);
 
 router.get('/users/talent', adminController.getTalentUsers);
 router.get('/users/business', adminController.getBusinessUsers);
+router.get('/users/:userId', adminController.getUserDetail);
 router.patch('/users/:id/suspend', adminController.suspendUser);
 router.patch('/users/talent/:id/active', adminController.setTalentUserActive);
 router.post('/users/:id/reset-password', adminController.resetUserPassword);

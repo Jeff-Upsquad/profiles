@@ -611,6 +611,38 @@ export async function getBusinessUsers() {
   return data;
 }
 
+export async function getUserDetail(userId: string) {
+  const { data: talent } = await supabaseAdmin
+    .from('talent_users')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (talent) {
+    const { data: profiles, error: profErr } = await supabaseAdmin
+      .from('talent_profiles')
+      .select('id, category_id, status, is_active, updated_at, created_at, categories(name, slug)')
+      .eq('talent_user_id', userId)
+      .is('deleted_at', null)
+      .order('updated_at', { ascending: false });
+
+    if (profErr) throw new AppError(500, profErr.message);
+    return { kind: 'talent' as const, user: talent, profiles: profiles ?? [] };
+  }
+
+  const { data: business } = await supabaseAdmin
+    .from('business_users')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (business) {
+    return { kind: 'business' as const, user: business };
+  }
+
+  throw new AppError(404, 'User not found');
+}
+
 export async function extendBusinessAccess(businessUserId: string, days: number) {
   const { data: user, error: fetchError } = await supabaseAdmin
     .from('business_users')
