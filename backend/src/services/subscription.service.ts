@@ -738,11 +738,18 @@ export async function manualAssignTalent(
   if (talentErr) throw new AppError(500, talentErr.message);
   if (!talent) throw new AppError(404, 'Talent not found');
 
+  // Only an *active* (uncancelled) row counts as "already assigned". A
+  // cancelled row from an earlier recall cycle should not block a fresh
+  // assignment — otherwise re-assigning a talent after a recall+republish
+  // is a silent no-op and the talent never sees the new offer. The partial
+  // unique index `WHERE cancelled_at IS NULL` lets the new row coexist with
+  // the cancelled audit row without conflict.
   const { data: existing } = await supabaseAdmin
     .from('subscription_card_recipients')
     .select('id')
     .eq('card_id', (card as any).id)
     .eq('talent_user_id', input.talent_id)
+    .is('cancelled_at', null)
     .maybeSingle();
 
   if (existing) {
