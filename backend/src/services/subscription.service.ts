@@ -357,8 +357,13 @@ export async function listForTalent(
   cancelled_at: string | null;
   card: RecipientRow['subscription_cards'];
 }>> {
-  // No filter on subscription_cards.status — recalled cards stay visible to
-  // the talent, annotated with a "Cancelled" tag (driven by cancelled_at).
+  // Cancelled-but-pending rows are hidden everywhere — the talent never
+  // responded, so there's nothing to keep showing them. Cancelled-but-
+  // responded rows stay in the Responded tab, annotated with a Cancelled
+  // tag, so the talent can still see what happened to a card they engaged
+  // with. cancelled_at is the signal: it's stamped by the ingest handler
+  // when SquadHub sends status='archived' (recall, close, or cancel-
+  // subscription on the lead).
   let q = supabaseAdmin
     .from('subscription_card_recipients')
     .select(
@@ -368,9 +373,13 @@ export async function listForTalent(
     .order('created_at', { ascending: false });
 
   if (query.status === 'pending') {
-    q = q.eq('status', 'pending');
+    q = q.eq('status', 'pending').is('cancelled_at', null);
   } else if (query.status === 'responded') {
     q = q.in('status', ['accepted', 'rejected']);
+  } else {
+    // 'all' — show responded (cancelled or not) and active-pending; hide
+    // cancelled-pending for the same reason as above.
+    q = q.or('status.in.(accepted,rejected),cancelled_at.is.null');
   }
 
   const { data, error } = await q;
