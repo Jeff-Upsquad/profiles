@@ -23,19 +23,6 @@ const STATUSES: { value: Status; label: string; color: string }[] = [
   { value: 'archived', label: 'Archived', color: 'bg-red-50 text-red-700 border-red-200' },
 ];
 
-// Allowed forward transitions from each status (aligned with backend validation).
-const NEXT_STATUSES: Record<string, Status[]> = {
-  new: ['new', 'under_review', 'shortlisted', 'archived'],
-  under_review: ['under_review', 'shortlisted', 'archived'],
-  shortlisted: ['shortlisted', 'partner_onboarding', 'archived'],
-  partner_onboarding: ['partner_onboarding', 'onboard_completed', 'archived'],
-  onboard_completed: ['onboard_completed', 'archived'],
-  archived: ['archived', 'new'],
-  contacted: ['under_review', 'shortlisted', 'archived'],
-  converted: ['onboard_completed', 'archived'],
-  rejected: ['new', 'archived'],
-};
-
 interface Props {
   leadId: string;
   leadName: string;
@@ -65,11 +52,8 @@ export default function StatusTabs({ leadId, leadName, currentStatus }: Props) {
     },
   });
 
-  const allowed = new Set(NEXT_STATUSES[currentStatus] ?? [currentStatus]);
-
   const handleClick = (value: Status) => {
     if (value === currentStatus) return;
-    if (!allowed.has(value)) return;
     if (value === 'archived') {
       setArchiveOpen(true);
       return;
@@ -82,14 +66,12 @@ export default function StatusTabs({ leadId, leadName, currentStatus }: Props) {
       <div className="flex flex-wrap gap-1.5">
         {STATUSES.map((s) => {
           const active = s.value === currentStatus;
-          const isAllowed = allowed.has(s.value);
-          const disabled = !active && !isAllowed;
           return (
             <button
               key={s.value}
               type="button"
               onClick={() => handleClick(s.value)}
-              disabled={disabled || updateStatus.isPending}
+              disabled={active || updateStatus.isPending}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
                 active
                   ? `${s.color} shadow-sm ring-2 ring-offset-1 ${
@@ -99,17 +81,9 @@ export default function StatusTabs({ leadId, leadName, currentStatus }: Props) {
                           ? 'ring-green-300'
                           : 'ring-indigo-300'
                     }`
-                  : disabled
-                    ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
-                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
               }`}
-              title={
-                disabled
-                  ? `Not an allowed transition from ${currentStatus}`
-                  : active
-                    ? 'Current status'
-                    : `Switch to ${s.label}`
-              }
+              title={active ? 'Current status' : `Switch to ${s.label}`}
             >
               {s.label}
             </button>
