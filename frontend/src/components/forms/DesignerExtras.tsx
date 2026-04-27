@@ -26,17 +26,22 @@ interface SkillWithLevel {
   level: number;
 }
 
+interface CategoryWithLevel {
+  category: string;
+  level: number;
+}
+
 interface DesignerExtrasProps {
   categoryId: string;
   skills: SkillWithLevel[];
   tools: string[];
   aiTools?: string[];
-  categories?: string[];
+  categories?: CategoryWithLevel[];
   accountingSoftware?: string[];
   onSkillsChange: (skills: SkillWithLevel[]) => void;
   onToolsChange: (tools: string[]) => void;
   onAiToolsChange?: (aiTools: string[]) => void;
-  onCategoriesChange?: (categories: string[]) => void;
+  onCategoriesChange?: (categories: CategoryWithLevel[]) => void;
   onAccountingSoftwareChange?: (accountingSoftware: string[]) => void;
   /** When true, renders an "Accounting Software" picker before Tools and relabels Tools to "Other Tools". */
   showAccountingSoftware?: boolean;
@@ -113,11 +118,19 @@ export default function DesignerExtras({
 
   const toggleCategory = (name: string) => {
     if (!onCategoriesChange) return;
-    if (categories.includes(name)) {
-      onCategoriesChange(categories.filter((c) => c !== name));
+    const existing = categories.find((c) => c.category === name);
+    if (existing) {
+      onCategoriesChange(categories.filter((c) => c.category !== name));
     } else {
-      onCategoriesChange([...categories, name]);
+      onCategoriesChange([...categories, { category: name, level: 5 }]);
     }
+  };
+
+  const setCategoryLevel = (name: string, level: number) => {
+    if (!onCategoriesChange) return;
+    onCategoriesChange(
+      categories.map((c) => (c.category === name ? { ...c, level } : c))
+    );
   };
 
   const toggleAiTool = (toolName: string) => {
@@ -262,27 +275,41 @@ export default function DesignerExtras({
         <div>
           <h3 className="mb-1 text-sm font-semibold text-gray-800">Categories</h3>
           <p className="mb-3 text-xs text-gray-500">
-            Pick the genres you specialize in — your portfolio uploads are organized by these.
+            Pick the genres you specialize in and rate your proficiency (1-10) — your portfolio uploads are organized by these.
           </p>
           {availableCategories.length === 0 ? (
             <p className="text-sm text-gray-400">No categories configured for this category yet.</p>
           ) : (
-            <div className="flex flex-wrap gap-2">
+            <div className="space-y-2">
               {availableCategories.map((cat) => {
-                const isSelected = categories.includes(cat.name);
+                const selected = categories.find((c) => c.category === cat.name);
                 return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => toggleCategory(cat.name)}
-                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                      isSelected
-                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {cat.name}
-                  </button>
+                  <div key={cat.id} className="rounded-lg border border-gray-200 px-4 py-3">
+                    <label className="flex cursor-pointer items-center gap-3">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                        checked={!!selected}
+                        onChange={() => toggleCategory(cat.name)}
+                      />
+                      <span className="text-sm font-medium text-gray-700">{cat.name}</span>
+                    </label>
+                    {selected && (
+                      <div className="mt-3 flex items-center gap-3 pl-7">
+                        <input
+                          type="range"
+                          min={1}
+                          max={10}
+                          value={selected.level}
+                          onChange={(e) => setCategoryLevel(cat.name, Number(e.target.value))}
+                          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-gray-200 accent-emerald-600"
+                        />
+                        <span className="w-8 text-center text-sm font-semibold text-emerald-600">
+                          {selected.level}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>

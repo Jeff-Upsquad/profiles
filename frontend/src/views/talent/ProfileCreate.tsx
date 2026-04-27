@@ -290,7 +290,7 @@ export default function ProfileCreate() {
                 <PortfolioUploader
                   profileId={draftProfileId}
                   skills={values._skills ?? []}
-                  categories={values._categories ?? []}
+                  categories={(values._categories ?? []).map((c: { category: string }) => c.category)}
                   categoryId={selectedCategory.id}
                 />
               </div>
