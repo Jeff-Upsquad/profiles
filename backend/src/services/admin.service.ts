@@ -619,15 +619,29 @@ export async function getUserDetail(userId: string) {
     .maybeSingle();
 
   if (talent) {
-    const { data: profiles, error: profErr } = await supabaseAdmin
-      .from('talent_profiles')
-      .select('id, category_id, status, is_active, updated_at, created_at, categories(name, slug)')
-      .eq('talent_user_id', userId)
-      .is('deleted_at', null)
-      .order('updated_at', { ascending: false });
+    const [{ data: profiles, error: profErr }, { data: basic }, { data: authData }] =
+      await Promise.all([
+        supabaseAdmin
+          .from('talent_profiles')
+          .select('id, category_id, status, is_active, updated_at, created_at, categories(name, slug)')
+          .eq('talent_user_id', userId)
+          .is('deleted_at', null)
+          .order('updated_at', { ascending: false }),
+        supabaseAdmin
+          .from('talent_profiles_basic')
+          .select('*')
+          .eq('talent_user_id', userId)
+          .maybeSingle(),
+        supabaseAdmin.auth.admin.getUserById(userId),
+      ]);
 
     if (profErr) throw new AppError(500, profErr.message);
-    return { kind: 'talent' as const, user: talent, profiles: profiles ?? [] };
+    return {
+      kind: 'talent' as const,
+      user: { ...talent, email: authData?.user?.email ?? null },
+      basic: basic ?? null,
+      profiles: profiles ?? [],
+    };
   }
 
   const { data: business } = await supabaseAdmin
@@ -637,7 +651,11 @@ export async function getUserDetail(userId: string) {
     .maybeSingle();
 
   if (business) {
-    return { kind: 'business' as const, user: business };
+    const { data: authData } = await supabaseAdmin.auth.admin.getUserById(userId);
+    return {
+      kind: 'business' as const,
+      user: { ...business, email: authData?.user?.email ?? business.contact_email ?? null },
+    };
   }
 
   throw new AppError(404, 'User not found');
