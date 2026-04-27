@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
@@ -10,9 +10,11 @@ import {
 } from '@/hooks/useProfiles';
 import Button from '@/components/ui/Button';
 import toast from 'react-hot-toast';
-// Imported for grid rendering of historical link rows (source_type='link')
-// that pre-date the removal of the paste-link UI.
-import { legacyProviderDisplayName } from '@/lib/videoEmbed';
+import {
+  parseVideoUrl,
+  legacyProviderDisplayName,
+  type ParsedVideo,
+} from '@/lib/videoEmbed';
 
 const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
 const MAX_UPLOAD_LABEL = '500 MB';
@@ -251,6 +253,53 @@ export default function PortfolioUploader({
     fileInputRef.current?.click();
   };
 
+  // ---- YouTube link paste flow (per-bucket state) ----
+  const [linkOpenBucket, setLinkOpenBucket] = useState<string | null>(null);
+  const [linkInput, setLinkInput] = useState('');
+  const [linkSubmitting, setLinkSubmitting] = useState(false);
+  const parsedLink: ParsedVideo | null = useMemo(
+    () => (linkInput.trim() ? parseVideoUrl(linkInput) : null),
+    [linkInput]
+  );
+
+  const openLinkPanel = (bucket: string) => {
+    setLinkOpenBucket(bucket);
+    setLinkInput('');
+  };
+  const closeLinkPanel = () => {
+    setLinkOpenBucket(null);
+    setLinkInput('');
+  };
+
+  const submitLink = async (bucket: string) => {
+    if (!parsedLink) return;
+    setLinkSubmitting(true);
+    try {
+      // Like uploads: use bucket name as legacy skill_name fallback so the
+      // NOT NULL column is satisfied; the new junction starts empty —
+      // editor tags skills via chips after the link is added.
+      await addItem.mutateAsync({
+        profileId,
+        skill_name: bucket,
+        category_name: bucket,
+        skill_names: [],
+        file_url: parsedLink.embedUrl,
+        file_type: 'video',
+        file_name: 'YouTube video',
+        source_type: 'link',
+        provider: parsedLink.provider,
+        external_url: parsedLink.externalUrl,
+        embed_url: parsedLink.embedUrl,
+      });
+      closeLinkPanel();
+    } catch (err) {
+      // toast already raised by mutation onError
+      console.error('Add YouTube link failed:', err);
+    } finally {
+      setLinkSubmitting(false);
+    }
+  };
+
   // Bucket items by category. Anything without a category — or whose
   // category isn't in the editor's current selection — falls into
   // Uncategorized so legacy items are visible and editable.
@@ -294,16 +343,71 @@ export default function PortfolioUploader({
             )}
           </h4>
           {!isUncategorized && (
-            <Button
-              variant="outline"
-              size="sm"
-              loading={inFlight.length > 0}
-              onClick={() => triggerUpload(bucket)}
-            >
-              Upload
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                loading={inFlight.length > 0}
+                onClick={() => triggerUpload(bucket)}
+              >
+                Upload
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  linkOpenBucket === bucket ? closeLinkPanel() : openLinkPanel(bucket)
+                }
+              >
+                {linkOpenBucket === bucket ? 'Cancel' : 'Paste YouTube link'}
+              </Button>
+            </div>
           )}
         </div>
+
+        {linkOpenBucket === bucket && (
+          <div className="mb-3 rounded-md border border-dashed border-gray-300 bg-gray-50 p-3">
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              Paste a YouTube link
+            </label>
+            <input
+              type="url"
+              value={linkInput}
+              onChange={(e) => setLinkInput(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=…  or  youtu.be/…"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-neutral-700 focus:outline-none"
+              autoFocus
+            />
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="min-h-[1.25rem] text-xs">
+                {linkInput.trim() === '' ? (
+                  <span className="text-gray-500">
+                    Make sure the video is public or unlisted
+                  </span>
+                ) : parsedLink ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
+                    <span aria-hidden>✓</span>
+                    YouTube link detected
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700">
+                    <span aria-hidden>✗</span>
+                    Not a valid YouTube URL — paste a youtube.com/watch?v=… or youtu.be/… link
+                  </span>
+                )}
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={!parsedLink || linkSubmitting}
+                loading={linkSubmitting}
+                onClick={() => submitLink(bucket)}
+              >
+                Add
+              </Button>
+            </div>
+          </div>
+        )}
 
         {inFlight.length > 0 && (
           <div className="mb-3 space-y-2">
@@ -416,7 +520,8 @@ export default function PortfolioUploader({
       <h3 className="mb-1 text-sm font-semibold text-gray-800">Portfolio</h3>
       <p className="mb-4 text-xs text-gray-500">
         Upload images, PDFs, or videos under each category — up to {MAX_UPLOAD_LABEL} per file.
-        Tag the skills demonstrated in each video using the chips below it.
+        You can also paste a YouTube link if your video is hosted there. Tag the skills
+        demonstrated in each video using the chips below it.
       </p>
 
       <input

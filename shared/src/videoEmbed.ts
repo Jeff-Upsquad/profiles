@@ -1,36 +1,32 @@
 // Parser/validator for externally-hosted portfolio video links.
 //
-// Supports YouTube, Vimeo, Loom, Dropbox.
-// Single source of truth — imported by both backend (server-side validation)
-// and frontend (live URL detection in the uploader UI).
+// Currently scoped to YouTube only. Talents can paste a YouTube share URL
+// alongside direct uploads. Vimeo, Loom, and Dropbox were previously
+// accepted; they were trimmed back when the link feature was narrowed
+// after Google Drive caused production issues. Existing rows of any
+// historical provider still render via legacyProviderDisplayName.
 //
-// NOTE: Google Drive was previously supported but removed because of
-// reliability issues in production (sign-in walls on supposedly-public
-// shares, third-party-cookie blocking in modern browsers). Existing rows
-// with provider='gdrive' remain in the database (the CHECK constraint still
-// allows them) and continue to render via the lightbox iframe — the parser
-// just won't accept new Drive URLs. See plan
-// .claude/plans/i-want-to-know-adaptive-lobster.md for context.
+// Single source of truth — imported by both backend (server-side
+// validation) and frontend (live URL detection in the uploader UI).
 
-export type VideoProvider = 'youtube' | 'vimeo' | 'loom' | 'dropbox';
+export type VideoProvider = 'youtube';
 
 export interface ParsedVideo {
   provider: VideoProvider;
   /** Canonical/normalized form of the user-supplied share URL. */
   externalUrl: string;
-  /** URL to use as iframe src or <video src>. */
+  /** URL to use as iframe src. */
   embedUrl: string;
-  /** Whether the embed should be rendered as <iframe> or native <video>. */
+  /** Always 'iframe' for YouTube. Kept as a discriminator in case other
+   *  providers return for native <video> playback (e.g. Dropbox direct
+   *  URLs in an earlier iteration). */
   renderMode: 'iframe' | 'video';
-  /** Optional poster image URL (deterministic for YouTube). */
+  /** Deterministic poster image URL. */
   thumbnailUrl?: string;
 }
 
 const HOST_ALLOWLIST: Record<VideoProvider, RegExp> = {
   youtube: /^(www\.|m\.)?(youtube\.com|youtu\.be)$/i,
-  vimeo: /^(www\.|player\.)?vimeo\.com$/i,
-  loom: /^(www\.)?loom\.com$/i,
-  dropbox: /^(www\.)?dropbox\.com$/i,
 };
 
 /** Lightweight URL safety check — only https, no userinfo. */
@@ -78,62 +74,8 @@ function parseYouTube(u: URL): ParsedVideo | null {
   };
 }
 
-function parseVimeo(u: URL): ParsedVideo | null {
-  // Accepts vimeo.com/123456789 or player.vimeo.com/video/123456789
-  const m =
-    u.pathname.match(/^\/(?:video\/)?(\d{6,})(?:\/|$)/) ||
-    u.pathname.match(/^\/(\d{6,})(?:\/|$)/);
-  if (!m) return null;
-  const id = m[1];
-  return {
-    provider: 'vimeo',
-    externalUrl: `https://vimeo.com/${id}`,
-    embedUrl: `https://player.vimeo.com/video/${id}`,
-    renderMode: 'iframe',
-  };
-}
-
-function parseLoom(u: URL): ParsedVideo | null {
-  const m = u.pathname.match(/^\/share\/([a-f0-9]{24,})(?:\/|$)/i);
-  if (!m) return null;
-  const id = m[1].toLowerCase();
-  return {
-    provider: 'loom',
-    externalUrl: `https://www.loom.com/share/${id}`,
-    embedUrl: `https://www.loom.com/embed/${id}`,
-    renderMode: 'iframe',
-  };
-}
-
-function parseDropbox(u: URL): ParsedVideo | null {
-  // Accept either legacy /s/... or modern /scl/fi|fo/... share paths.
-  if (!/^\/(s|scl)\//.test(u.pathname)) return null;
-  // Force raw=1 so the URL streams the file bytes (playable in <video>).
-  // Drop any dl=0/dl=1 params.
-  const params = new URLSearchParams(u.search);
-  params.delete('dl');
-  params.set('raw', '1');
-  const embedUrl = `https://${u.hostname}${u.pathname}?${params.toString()}`;
-  // Canonicalize by stripping raw flag in the display URL.
-  const externalParams = new URLSearchParams(u.search);
-  externalParams.delete('raw');
-  externalParams.delete('dl');
-  const qs = externalParams.toString();
-  const externalUrl =
-    `https://${u.hostname}${u.pathname}` + (qs ? `?${qs}` : '');
-  return {
-    provider: 'dropbox',
-    externalUrl,
-    embedUrl,
-    renderMode: 'video',
-  };
-}
-
 const PARSERS: Record<VideoProvider, (u: URL) => ParsedVideo | null> = {
   youtube: parseYouTube,
-  vimeo: parseVimeo,
-  loom: parseLoom,
-  dropbox: parseDropbox,
 };
 
 /**
@@ -150,30 +92,24 @@ export function parseVideoUrl(input: string): ParsedVideo | null {
   return PARSERS[provider](u);
 }
 
-export const SUPPORTED_PROVIDERS: VideoProvider[] = [
-  'youtube',
-  'vimeo',
-  'loom',
-  'dropbox',
-];
+export const SUPPORTED_PROVIDERS: VideoProvider[] = ['youtube'];
 
 export const PROVIDER_DISPLAY_NAME: Record<VideoProvider, string> = {
   youtube: 'YouTube',
-  vimeo: 'Vimeo',
-  loom: 'Loom',
-  dropbox: 'Dropbox',
 };
 
 /**
  * Display label for any provider that may exist in the database, including
  * legacy providers no longer accepted by the parser. Used by display
- * components rendering historical rows (e.g. existing GDrive items still
- * render via the lightbox iframe even though new pastes are rejected).
+ * components rendering historical rows.
  */
 export function legacyProviderDisplayName(provider: string): string {
   if (provider in PROVIDER_DISPLAY_NAME) {
     return PROVIDER_DISPLAY_NAME[provider as VideoProvider];
   }
+  if (provider === 'vimeo') return 'Vimeo';
+  if (provider === 'loom') return 'Loom';
+  if (provider === 'dropbox') return 'Dropbox';
   if (provider === 'gdrive') return 'Google Drive';
   return 'Video';
 }
