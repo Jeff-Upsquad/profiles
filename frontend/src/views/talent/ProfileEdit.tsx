@@ -41,8 +41,16 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
   useEffect(() => {
     if (!profile || hasInitializedValues.current) return;
-    setValues(profile.field_data ?? {});
-    initialValues.current = JSON.stringify(profile.field_data ?? {});
+    // Upgrade legacy `_categories: string[]` to `[{category, level: 5}]` so
+    // existing rows render in the new checkbox+slider control. Server SQL
+    // also runs this migration; this is the client-side fallback for any
+    // profile whose row hasn't been touched yet.
+    const fd = { ...(profile.field_data ?? {}) };
+    if (Array.isArray(fd._categories) && fd._categories.length > 0 && typeof fd._categories[0] === 'string') {
+      fd._categories = fd._categories.map((category: string) => ({ category, level: 5 }));
+    }
+    setValues(fd);
+    initialValues.current = JSON.stringify(fd);
     hasInitializedValues.current = true;
   }, [profile]);
 
@@ -291,7 +299,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
               <PortfolioUploader
                 profileId={profileId}
                 skills={values._skills ?? []}
-                categories={values._categories ?? []}
+                categories={(values._categories ?? []).map((c: { category: string }) => c.category)}
                 categoryId={profile.category_id}
               />
             ) : (

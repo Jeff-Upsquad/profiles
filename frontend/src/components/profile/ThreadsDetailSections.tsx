@@ -108,11 +108,13 @@ function SkillRowList({ skills }: { skills: { skill: string; level: number }[] }
 }
 
 function SkillsSection({
+  label,
   skills,
   delay,
   groupMap,
   groupOrder,
 }: {
+  label: string;
   skills: { skill: string; level: number }[];
   delay: number;
   groupMap?: Record<string, string | null>;
@@ -123,7 +125,7 @@ function SkillsSection({
   return (
     <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
       <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
-        Core Skills
+        {label}
       </h3>
       {hasNamedGroups ? (
         <div className="space-y-4">
@@ -281,7 +283,18 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   const skills: { skill: string; level: number }[] = [...(fieldData?._skills ?? [])].sort(
     (a, b) => b.level - a.level
   );
-  const categories: string[] = fieldData?._categories ?? [];
+  // Categories: legacy rows may still carry plain string[] from the
+  // pre-proficiency version — coerce both shapes into {skill, level}
+  // so SkillsSection renders them uniformly.
+  const rawCategories: any[] = fieldData?._categories ?? [];
+  const categories: { skill: string; level: number }[] = rawCategories
+    .map((c) =>
+      typeof c === 'string'
+        ? { skill: c, level: 5 }
+        : { skill: c.category ?? c.skill ?? '', level: c.level ?? 5 },
+    )
+    .filter((c) => c.skill)
+    .sort((a, b) => b.level - a.level);
   const accountingSoftware: string[] = fieldData?._accounting_software ?? [];
   const tools: string[] = fieldData?._tools ?? [];
   const aiTools: string[] = fieldData?._ai_tools ?? [];
@@ -289,12 +302,12 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   // Rename "Tools" → "Other Tools" only when Accounting Software is also present
   const toolsLabel = accountingSoftware.length > 0 ? 'Other Tools' : 'Tools';
 
-  // Categories section (chip pills) — rendered above Core Skills, mirroring
-  // the edit form's section ordering.
+  // Categories section (dot indicators, like Skills) — rendered above Core
+  // Skills, mirroring the edit form's section ordering.
   if (categories.length > 0) {
     const delay = sectionIndex * 0.04;
     sections.push(
-      <TagSection key="_categories" label="Categories" tags={categories} delay={delay} />
+      <SkillsSection key="_categories" label="Categories" skills={categories} delay={delay} />
     );
     sectionIndex++;
   }
@@ -305,6 +318,7 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
     sections.push(
       <SkillsSection
         key="_skills"
+        label="Core Skills"
         skills={skills}
         delay={delay}
         groupMap={groupMaps?.skills}
