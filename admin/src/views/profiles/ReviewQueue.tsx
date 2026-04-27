@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
+import TierBadge from '@/components/ui/TierBadge';
 import toast from 'react-hot-toast';
 
 interface ReviewProfile {
@@ -16,6 +17,8 @@ interface ReviewProfile {
   updated_at: string;
   talent_users?: { full_name: string };
   categories?: { name: string; slug: string };
+  tier: 'junior' | 'pro' | 'elite' | 'custom' | null;
+  tier_custom: string | null;
 }
 
 export default function ReviewQueue() {
@@ -159,7 +162,10 @@ export default function ReviewQueue() {
                     />
                   </td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                    {profile.talent_users?.full_name ?? 'Unknown'}
+                    <div className="flex items-center gap-2">
+                      <span>{profile.talent_users?.full_name ?? 'Unknown'}</span>
+                      <TierBadge tier={profile.tier} tierCustom={profile.tier_custom} />
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {profile.categories?.name ?? 'N/A'}

@@ -75,18 +75,10 @@ export async function updateBasicProfile(userId: string, input: UpdateBasicProfi
 // ---------------------------------------------------------------------------
 
 export async function getLeadSubmissionForTalent(userId: string) {
-  const { data: user, error: userErr } = await supabaseAdmin
-    .from('talent_users')
-    .select('email')
-    .eq('id', userId)
-    .single();
-
-  if (userErr || !user?.email) return null;
-
   const { data, error } = await supabaseAdmin
     .from('lead_submissions')
     .select('id, form_type, form_data, created_at')
-    .ilike('email', user.email)
+    .eq('linked_talent_user_id', userId)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();

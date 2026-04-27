@@ -20,6 +20,7 @@ interface Lead {
   phone: string;
   form_data: Record<string, any>;
   created_at: string;
+  linked_talent: { id: string; full_name: string } | null;
 }
 
 interface LeadsResponse {
@@ -224,6 +225,9 @@ export default function LeadList() {
                             <Badge variant={lead.form_type === 'creative' ? 'indigo' : 'gray'}>
                               {lead.form_type}
                             </Badge>
+                            {lead.linked_talent && (
+                              <Badge variant="green">Signed up</Badge>
+                            )}
                           </div>
                           <p className="mt-0.5 truncate text-xs text-gray-500">
                             {formatIndianPhone(lead.phone)}

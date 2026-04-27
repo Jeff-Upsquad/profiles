@@ -2,6 +2,7 @@ import { randomInt } from 'crypto';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { env } from '../config/env.js';
+import { getTalentTiersByUserIds } from './talent-tier.service.js';
 import type {
   CreateCategoryInput,
   UpdateCategoryInput,
@@ -331,7 +332,16 @@ export async function getReviewQueue(categoryId?: string) {
 
   const { data, error } = await qb;
   if (error) throw new AppError(500, `Failed to fetch reviews: ${error.message}`);
-  return data;
+
+  const rows = (data ?? []) as any[];
+  const tiers = await getTalentTiersByUserIds(
+    rows.map((r) => r.talent_user_id).filter(Boolean),
+  );
+  return rows.map((r) => ({
+    ...r,
+    tier: tiers[r.talent_user_id]?.tier ?? null,
+    tier_custom: tiers[r.talent_user_id]?.tier_custom ?? null,
+  }));
 }
 
 export async function getReviewProfile(profileId: string) {
@@ -362,7 +372,16 @@ export async function getReviewProfile(profileId: string) {
     };
   });
 
-  return { ...data, portfolio_items: portfolioWithSkills };
+  // Originating leads (Candidates module). One talent can have multiple lead
+  // rows (e.g. creative + accountant form submissions); return all so the UI
+  // can show every touchpoint.
+  const { data: linkedLeads } = await supabaseAdmin
+    .from('lead_submissions')
+    .select('id, form_type, status, created_at, utm_source, utm_campaign, profile_type, name')
+    .eq('linked_talent_user_id', data.talent_user_id)
+    .order('created_at', { ascending: false });
+
+  return { ...data, portfolio_items: portfolioWithSkills, linked_leads: linkedLeads ?? [] };
 }
 
 export async function approveProfile(profileId: string, adminId: string) {
@@ -906,7 +925,16 @@ export async function getTalentProfilesByCategory(categoryId: string, search?: s
 
   const { data, error } = await qb;
   if (error) throw new AppError(500, error.message);
-  return data;
+
+  const rows = (data ?? []) as any[];
+  const tiers = await getTalentTiersByUserIds(
+    rows.map((r) => r.talent_user_id).filter(Boolean),
+  );
+  return rows.map((r) => ({
+    ...r,
+    tier: tiers[r.talent_user_id]?.tier ?? null,
+    tier_custom: tiers[r.talent_user_id]?.tier_custom ?? null,
+  }));
 }
 
 export async function getTalentProfile(profileId: string) {
@@ -937,7 +965,13 @@ export async function getTalentProfile(profileId: string) {
     };
   });
 
-  return { ...data, portfolio_items: portfolioWithSkills };
+  const { data: linkedLeads } = await supabaseAdmin
+    .from('lead_submissions')
+    .select('id, form_type, status, created_at, utm_source, utm_campaign, profile_type, name')
+    .eq('linked_talent_user_id', data.talent_user_id)
+    .order('created_at', { ascending: false });
+
+  return { ...data, portfolio_items: portfolioWithSkills, linked_leads: linkedLeads ?? [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -1025,24 +1059,35 @@ export async function getBusinessSharedProfiles(businessUserId: string, category
   const { data, error } = await qb;
   if (error) throw new AppError(500, error.message);
 
-  return (data ?? []).map((sp: any) => ({
-    id: sp.id,
-    business_user_id: sp.business_user_id,
-    talent_profile_id: sp.talent_profile_id,
-    category_id: sp.category_id,
-    shared_by: sp.shared_by,
-    created_at: sp.created_at,
-    profile: sp.talent_profiles ? {
-      id: sp.talent_profiles.id,
-      talent_user_id: sp.talent_profiles.talent_user_id,
-      category_id: sp.talent_profiles.category_id,
-      category: sp.talent_profiles.categories,
-      status: sp.talent_profiles.status,
-      field_data: sp.talent_profiles.field_data,
-      talent_user: sp.talent_profiles.talent_users,
-      created_at: sp.talent_profiles.created_at,
-    } : null,
-  }));
+  const rows = (data ?? []) as any[];
+  const tiers = await getTalentTiersByUserIds(
+    rows.map((sp) => sp.talent_profiles?.talent_user_id).filter(Boolean),
+  );
+
+  return rows.map((sp) => {
+    const userId = sp.talent_profiles?.talent_user_id;
+    const t = userId ? tiers[userId] : undefined;
+    return {
+      id: sp.id,
+      business_user_id: sp.business_user_id,
+      talent_profile_id: sp.talent_profile_id,
+      category_id: sp.category_id,
+      shared_by: sp.shared_by,
+      created_at: sp.created_at,
+      profile: sp.talent_profiles ? {
+        id: sp.talent_profiles.id,
+        talent_user_id: sp.talent_profiles.talent_user_id,
+        category_id: sp.talent_profiles.category_id,
+        category: sp.talent_profiles.categories,
+        status: sp.talent_profiles.status,
+        field_data: sp.talent_profiles.field_data,
+        talent_user: sp.talent_profiles.talent_users,
+        created_at: sp.talent_profiles.created_at,
+        tier: t?.tier ?? null,
+        tier_custom: t?.tier_custom ?? null,
+      } : null,
+    };
+  });
 }
 
 export async function shareProfiles(
@@ -1116,7 +1161,7 @@ export async function getShortlistTracking(categoryId?: string) {
   let qb = supabaseAdmin
     .from('shortlists')
     .select(
-      '*, business_users!inner(id, company_name, contact_person_name, contact_email), talent_profiles!inner(id, category_id, talent_users!inner(full_name), categories!inner(id, name))'
+      '*, business_users!inner(id, company_name, contact_person_name, contact_email), talent_profiles!inner(id, category_id, talent_user_id, talent_users!inner(id, full_name), categories!inner(id, name))'
     )
     .order('created_at', { ascending: false });
 
@@ -1128,18 +1173,31 @@ export async function getShortlistTracking(categoryId?: string) {
 
   if (error) throw new AppError(500, `Failed to fetch shortlists: ${error.message}`);
 
-  return (data ?? []).map((s: any) => ({
-    id: s.id,
-    business_user_id: s.business_user_id,
-    company_name: s.business_users.company_name,
-    contact_person_name: s.business_users.contact_person_name,
-    contact_email: s.business_users.contact_email,
-    talent_profile_id: s.talent_profile_id,
-    talent_name: s.talent_profiles?.talent_users?.full_name ?? 'Unknown',
-    category_id: s.talent_profiles?.category_id,
-    category_name: s.talent_profiles?.categories?.name ?? 'Uncategorized',
-    shortlisted_at: s.created_at,
-  }));
+  const rows = (data ?? []) as any[];
+  const tiers = await getTalentTiersByUserIds(
+    rows
+      .map((s) => s.talent_profiles?.talent_users?.id ?? s.talent_profiles?.talent_user_id)
+      .filter(Boolean),
+  );
+
+  return rows.map((s) => {
+    const userId = s.talent_profiles?.talent_users?.id ?? s.talent_profiles?.talent_user_id;
+    const t = userId ? tiers[userId] : undefined;
+    return {
+      id: s.id,
+      business_user_id: s.business_user_id,
+      company_name: s.business_users.company_name,
+      contact_person_name: s.business_users.contact_person_name,
+      contact_email: s.business_users.contact_email,
+      talent_profile_id: s.talent_profile_id,
+      talent_name: s.talent_profiles?.talent_users?.full_name ?? 'Unknown',
+      category_id: s.talent_profiles?.category_id,
+      category_name: s.talent_profiles?.categories?.name ?? 'Uncategorized',
+      shortlisted_at: s.created_at,
+      tier: t?.tier ?? null,
+      tier_custom: t?.tier_custom ?? null,
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------

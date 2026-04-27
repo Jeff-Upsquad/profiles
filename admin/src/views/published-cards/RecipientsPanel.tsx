@@ -3,11 +3,14 @@
 import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import TierBadge from '@/components/ui/TierBadge';
 
 type Recipient = {
   id: string;
   talent_user_id: string;
   talent_name: string | null;
+  tier: 'junior' | 'pro' | 'elite' | 'custom' | null;
+  tier_custom: string | null;
   status: 'pending' | 'accepted' | 'rejected';
   responded_at: string | null;
   created_at: string;
@@ -135,7 +138,10 @@ function Subgroup({
         {items.map((it) => (
           <li key={it.id} className="flex items-center justify-between gap-3 px-3 py-2">
             <div className="min-w-0 flex-1 truncate">
-              <p className="truncate text-sm text-gray-900">{it.talent_name || 'Unknown talent'}</p>
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm text-gray-900">{it.talent_name || 'Unknown talent'}</p>
+                <TierBadge tier={it.tier} tierCustom={it.tier_custom} />
+              </div>
               <p className="truncate text-[11px] font-mono text-gray-400">{it.talent_user_id.slice(0, 8)}</p>
               {it.responded_at && (
                 <p className="text-[11px] text-gray-400">{formatRelative(it.responded_at)}</p>

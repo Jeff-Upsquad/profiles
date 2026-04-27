@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { findMatchingTalents } from './subscription-matcher.service.js';
 import { deliverCallback } from './squadhub-callback.service.js';
+import { getTalentTiersByUserIds } from './talent-tier.service.js';
 import type {
   IngestSubscriptionCardInput,
   ListSubscriptionsQueryInput,
@@ -494,6 +495,8 @@ export interface AdminCardRecipient {
   id: string;
   talent_user_id: string;
   talent_name: string | null;
+  tier: 'junior' | 'pro' | 'elite' | 'custom' | null;
+  tier_custom: string | null;
   status: 'pending' | 'accepted' | 'rejected';
   responded_at: string | null;
   created_at: string;
@@ -522,10 +525,14 @@ export async function listRecipientsForAdmin(cardId: string): Promise<AdminCardR
     nameById.set(u.id, u.full_name || u.id.slice(0, 8));
   }
 
+  const tiers = await getTalentTiersByUserIds(talentIds as string[]);
+
   return rows.map((r: any) => ({
     id: r.id,
     talent_user_id: r.talent_user_id,
     talent_name: nameById.get(r.talent_user_id) ?? null,
+    tier: tiers[r.talent_user_id]?.tier ?? null,
+    tier_custom: tiers[r.talent_user_id]?.tier_custom ?? null,
     status: r.status,
     responded_at: r.responded_at,
     created_at: r.created_at,

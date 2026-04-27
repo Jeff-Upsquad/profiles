@@ -63,6 +63,22 @@ export async function signupTalent(input: SignupTalentInput) {
   // Mark invitation as accepted
   await markInvitationAccepted(invitation.id);
 
+  // Best-effort: link any pre-existing lead_submissions to this new talent
+  // user. Match by email (case-insensitive) OR last 10 digits of phone, since
+  // signup phone may not be normalized to lead_submissions' +91xxxxxxxxxx.
+  // Failure is non-fatal — signup still succeeds.
+  const phoneDigits = (profileData.phone ?? '').replace(/\D/g, '');
+  const last10 = phoneDigits.length >= 10 ? phoneDigits.slice(-10) : null;
+  try {
+    await supabaseAdmin.rpc('link_leads_for_talent_user', {
+      p_user_id: userId,
+      p_email: email,
+      p_phone_last10: last10,
+    });
+  } catch (e) {
+    console.error('Lead linking failed (non-fatal):', e);
+  }
+
   // Sign in to get tokens
   const { data: session, error: signInError } = await supabaseAnon.auth.signInWithPassword({
     email,

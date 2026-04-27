@@ -37,6 +37,7 @@ export interface ProfileCardSummary {
   current_location: string | null;
   languages_spoken: { language: string; proficiency?: string }[];
   tier: Tier | null;
+  tier_custom: string | null;
   top_skills: string[];
   category: AccessCategory;
 }

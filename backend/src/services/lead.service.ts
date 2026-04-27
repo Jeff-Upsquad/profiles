@@ -56,7 +56,7 @@ export async function getLeadSubmissions(filters: {
 
   let query = supabaseAdmin
     .from('lead_submissions')
-    .select('*', { count: 'exact' })
+    .select('*, linked_talent:linked_talent_user_id(id, full_name)', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -91,7 +91,7 @@ export async function getLeadSubmissions(filters: {
 export async function getLeadSubmission(id: string) {
   const { data, error } = await supabaseAdmin
     .from('lead_submissions')
-    .select('*')
+    .select('*, linked_talent:linked_talent_user_id(id, full_name)')
     .eq('id', id)
     .single();
 

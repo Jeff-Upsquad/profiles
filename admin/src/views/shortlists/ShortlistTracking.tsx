@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useShortlistTracking, type ShortlistEntry } from '@/hooks/useShortlists';
 import { useCategories } from '@/hooks/useCategories';
 import Badge from '@/components/ui/Badge';
+import TierBadge from '@/components/ui/TierBadge';
 
 export default function ShortlistTracking() {
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -198,7 +199,12 @@ function GroupRow({
               <tbody className="divide-y divide-gray-200">
                 {entries.map((entry) => (
                   <tr key={entry.id}>
-                    <td className="py-2 font-medium text-gray-900">{entry.talent_name}</td>
+                    <td className="py-2 font-medium text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <span>{entry.talent_name}</span>
+                        <TierBadge tier={entry.tier} tierCustom={entry.tier_custom} />
+                      </div>
+                    </td>
                     <td className="py-2">
                       <Badge variant="blue">{entry.category_name}</Badge>
                     </td>

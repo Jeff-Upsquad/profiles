@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import type { UpdateBusinessUserInput, DiscoverQueryInput, SendInterestInput } from '../validators/business.validators.js';
+import { getTalentTiersByUserIds } from './talent-tier.service.js';
 
 // ─── Business User ──────────────────────────────────────────────────────────
 
@@ -203,8 +204,13 @@ export async function discoverProfiles(categorySlug: string, query: DiscoverQuer
 
   if (error) throw new AppError(500, error.message);
 
+  const rows = (profiles ?? []) as any[];
+  const tiers = await getTalentTiersByUserIds(
+    rows.map((p) => p.talent_user_id).filter(Boolean),
+  );
+
   // Reshape to nest talent_user
-  const shaped = (profiles ?? []).map((p: any) => ({
+  const shaped = rows.map((p: any) => ({
     id: p.id,
     user_id: p.talent_user_id,
     category_id: p.category_id,
@@ -214,6 +220,8 @@ export async function discoverProfiles(categorySlug: string, query: DiscoverQuer
     talent_user: p.talent_users,
     created_at: p.created_at,
     updated_at: p.updated_at,
+    tier: tiers[p.talent_user_id]?.tier ?? null,
+    tier_custom: tiers[p.talent_user_id]?.tier_custom ?? null,
   }));
 
   return {
@@ -269,7 +277,12 @@ export async function getShortlist(businessUserId: string) {
 
   if (error) throw new AppError(500, error.message);
 
-  return (data ?? []).map((s: any) => {
+  const rows = (data ?? []) as any[];
+  const tiers = await getTalentTiersByUserIds(
+    rows.map((s) => s.talent_profiles?.talent_user_id).filter(Boolean),
+  );
+
+  return rows.map((s: any) => {
     const p = s.talent_profiles;
     return {
       id: p.id,
@@ -281,6 +294,8 @@ export async function getShortlist(businessUserId: string) {
       talent_user: p.talent_users,
       created_at: p.created_at,
       updated_at: p.updated_at,
+      tier: tiers[p.talent_user_id]?.tier ?? null,
+      tier_custom: tiers[p.talent_user_id]?.tier_custom ?? null,
     };
   });
 }

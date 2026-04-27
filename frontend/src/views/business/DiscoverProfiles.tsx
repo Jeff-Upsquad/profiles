@@ -6,6 +6,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Badge from '@/components/ui/Badge';
+import TierBadge from '@/components/ui/TierBadge';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 
 export default function DiscoverProfiles({ categorySlug }: { categorySlug: string }) {
@@ -105,9 +106,15 @@ export default function DiscoverProfiles({ categorySlug }: { categorySlug: strin
               <Card key={profile.id} className="flex flex-col justify-between">
                 <div>
                   <div className="mb-2 flex items-start justify-between">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {(profile as any).talent_user?.full_name ?? 'Talent'}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {(profile as any).talent_user?.full_name ?? 'Talent'}
+                      </h3>
+                      <TierBadge
+                        tier={(profile as any).tier}
+                        tierCustom={(profile as any).tier_custom}
+                      />
+                    </div>
                     <Badge variant="green">Approved</Badge>
                   </div>
 

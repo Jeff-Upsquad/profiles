@@ -631,19 +631,22 @@ export async function listProfiles(session: AccessSession, query: ProfilesQuery)
     });
   }
 
-  // 4. Tier resolution for display
-  const tierMap = new Map<string, Tier | null>();
+  // 4. Tier resolution for display (includes tier_custom for the 'custom' type)
+  const tierMap = new Map<string, { tier: Tier | null; tier_custom: string | null }>();
   if (profiles.length > 0) {
     const { data: tiers, error: tErr } = await supabaseAdmin
       .from('v_talent_profile_tier')
-      .select('talent_profile_id, tier')
+      .select('talent_profile_id, tier, tier_custom')
       .in(
         'talent_profile_id',
         profiles.map((p) => p.id),
       );
     if (tErr) throw new AppError(500, tErr.message);
     for (const t of tiers ?? []) {
-      tierMap.set((t as any).talent_profile_id, ((t as any).tier as Tier | null) ?? null);
+      tierMap.set((t as any).talent_profile_id, {
+        tier: ((t as any).tier as Tier | null) ?? null,
+        tier_custom: ((t as any).tier_custom as string | null) ?? null,
+      });
     }
   }
 
@@ -653,16 +656,20 @@ export async function listProfiles(session: AccessSession, query: ProfilesQuery)
   const paged = profiles.slice(start, start + PER_PAGE);
 
   return {
-    profiles: paged.map((p) => ({
-      id: p.id,
-      full_name: p.talent_users?.full_name ?? '',
-      profile_photo_url: p.talent_users?.profile_photo_url ?? null,
-      current_location: p.talent_users?.current_location ?? null,
-      languages_spoken: p.talent_users?.languages_spoken ?? [],
-      tier: tierMap.get(p.id) ?? null,
-      top_skills: extractTopSkills(p.field_data),
-      category: p.categories,
-    })),
+    profiles: paged.map((p) => {
+      const t = tierMap.get(p.id);
+      return {
+        id: p.id,
+        full_name: p.talent_users?.full_name ?? '',
+        profile_photo_url: p.talent_users?.profile_photo_url ?? null,
+        current_location: p.talent_users?.current_location ?? null,
+        languages_spoken: p.talent_users?.languages_spoken ?? [],
+        tier: t?.tier ?? null,
+        tier_custom: t?.tier_custom ?? null,
+        top_skills: extractTopSkills(p.field_data),
+        category: p.categories,
+      };
+    }),
     page,
     per_page: PER_PAGE,
     total,

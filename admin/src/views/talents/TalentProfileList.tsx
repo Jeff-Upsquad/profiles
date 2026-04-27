@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
+import TierBadge from '@/components/ui/TierBadge';
 
 interface TalentProfile {
   id: string;
@@ -19,6 +20,8 @@ interface TalentProfile {
     is_active?: boolean;
   };
   categories?: { name: string };
+  tier: 'junior' | 'pro' | 'elite' | 'custom' | null;
+  tier_custom: string | null;
 }
 
 const statusVariant: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
@@ -123,6 +126,7 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
                       <span className="text-sm font-medium text-gray-900">
                         {profile.talent_users?.full_name ?? 'Unknown'}
                       </span>
+                      <TierBadge tier={profile.tier} tierCustom={profile.tier_custom} />
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">

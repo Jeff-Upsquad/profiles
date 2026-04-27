@@ -1,10 +1,23 @@
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import TierBadge from '@/components/ui/TierBadge';
 import { cleanPhoneForLink } from '@/lib/phone';
+
+interface LinkedLead {
+  id: string;
+  form_type: 'creative' | 'accountant';
+  status: string;
+  created_at: string;
+  utm_source: string | null;
+  utm_campaign: string | null;
+  profile_type: 'junior' | 'pro' | 'elite' | 'custom' | null;
+  name: string;
+}
 
 interface ProfileData {
   id: string;
@@ -33,6 +46,7 @@ interface ProfileData {
     file_type: string;
     file_name: string;
   }[];
+  linked_leads?: LinkedLead[];
 }
 
 interface CategoryField {
@@ -170,9 +184,15 @@ export default function TalentProfileView({
           >
             &larr; Back to List
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {talentUser?.full_name ?? 'Profile'}
-          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold text-gray-900">
+              {talentUser?.full_name ?? 'Profile'}
+            </h1>
+            <TierBadge
+              tier={profile.linked_leads?.[0]?.profile_type ?? null}
+              tierCustom={null}
+            />
+          </div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <span className="text-sm text-gray-500">{profile.categories?.name}</span>
             <Badge variant={statusVariant[profile.status] ?? 'gray'}>
@@ -218,6 +238,51 @@ export default function TalentProfileView({
           </button>
         </div>
       </div>
+
+      {/* Originated From — surfaces matching lead_submissions linked at signup */}
+      {profile.linked_leads && profile.linked_leads.length > 0 && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-6">
+          <h2 className="mb-3 text-lg font-semibold text-gray-900">
+            Originated from {profile.linked_leads.length === 1 ? 'Candidate' : 'Candidates'}
+          </h2>
+          <ul className="space-y-3">
+            {profile.linked_leads.map((lead) => (
+              <li
+                key={lead.id}
+                className="flex items-start justify-between gap-4 rounded-lg bg-white p-4"
+              >
+                <div className="space-y-1 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-gray-900">
+                      {lead.form_type === 'creative' ? 'Creative form' : 'Accountant form'}
+                    </span>
+                    <Badge variant={lead.status === 'archived' ? 'gray' : 'indigo'}>
+                      {lead.status.replace(/_/g, ' ')}
+                    </Badge>
+                    {lead.profile_type && (
+                      <Badge variant="green">{lead.profile_type}</Badge>
+                    )}
+                  </div>
+                  <div className="text-gray-600">
+                    Submitted {new Date(lead.created_at).toLocaleDateString()}
+                  </div>
+                  {(lead.utm_source || lead.utm_campaign) && (
+                    <div className="text-gray-500">
+                      {[lead.utm_source, lead.utm_campaign].filter(Boolean).join(' · ')}
+                    </div>
+                  )}
+                </div>
+                <Link
+                  href={`/leads/${lead.id}`}
+                  className="shrink-0 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                >
+                  View lead →
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Personal Info */}
       {talentUser && (

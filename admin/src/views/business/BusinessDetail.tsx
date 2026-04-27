@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/services/api';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
+import TierBadge from '@/components/ui/TierBadge';
 import toast from 'react-hot-toast';
 
 interface Category {
@@ -33,6 +34,8 @@ interface SharedProfile {
       current_location?: string;
     };
     category?: Category;
+    tier?: 'junior' | 'pro' | 'elite' | 'custom' | null;
+    tier_custom?: string | null;
   };
 }
 
@@ -47,6 +50,8 @@ interface TalentProfile {
     current_location?: string;
     profile_photo_url?: string;
   };
+  tier?: 'junior' | 'pro' | 'elite' | 'custom' | null;
+  tier_custom?: string | null;
 }
 
 interface BusinessUser {
@@ -379,9 +384,12 @@ export default function BusinessDetail({ businessId }: { businessId: string }) {
                           className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                         />
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">
-                            {profile.talent_users?.full_name ?? 'Unknown'}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900">
+                              {profile.talent_users?.full_name ?? 'Unknown'}
+                            </p>
+                            <TierBadge tier={profile.tier} tierCustom={profile.tier_custom} />
+                          </div>
                           <p className="text-xs text-gray-500">
                             {profile.talent_users?.current_location ?? 'No location'}
                             {profile.field_data?.designation && (

@@ -37,6 +37,7 @@ export default function TalentAccessProfileCard({
   profile: ProfileCardSummary;
 }) {
   const tier = profile.tier ? TIER_BADGE[profile.tier] : null;
+  const tierLabel = profile.tier === 'custom' && profile.tier_custom ? profile.tier_custom : tier?.label;
 
   return (
     <Link
@@ -65,7 +66,7 @@ export default function TalentAccessProfileCard({
               <span
                 className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${tier.className}`}
               >
-                {tier.label}
+                {tierLabel}
               </span>
             )}
           </div>
