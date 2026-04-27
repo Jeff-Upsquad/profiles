@@ -42,5 +42,6 @@ router.get('/profiles/:id/portfolio', talentController.getPortfolioItems);
 router.post('/profiles/:id/portfolio', talentController.addPortfolioItem);
 router.delete('/profiles/:id/portfolio/:itemId', talentController.deletePortfolioItem);
 router.patch('/profiles/:id/portfolio/reorder', talentController.reorderPortfolioItems);
+router.patch('/profiles/:id/portfolio/:itemId', talentController.updatePortfolioItem);
 
 export default router;

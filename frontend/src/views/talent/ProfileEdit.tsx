@@ -272,10 +272,12 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
               skills={values._skills ?? []}
               tools={values._tools ?? []}
               aiTools={values._ai_tools ?? []}
+              categories={values._categories ?? []}
               accountingSoftware={values._accounting_software ?? []}
               onSkillsChange={(s) => handleChange('_skills', s)}
               onToolsChange={(t) => handleChange('_tools', t)}
               onAiToolsChange={(at) => handleChange('_ai_tools', at)}
+              onCategoriesChange={(c) => handleChange('_categories', c)}
               onAccountingSoftwareChange={(v) => handleChange('_accounting_software', v)}
               showAccountingSoftware={profile.category?.slug === 'accountant'}
             />
@@ -285,10 +287,11 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
         {/* Portfolio */}
         {profile && (
           <div className="mt-6 border-t border-gray-200 pt-6">
-            {(values._skills ?? []).length > 0 ? (
+            {(values._skills ?? []).length > 0 || (values._categories ?? []).length > 0 ? (
               <PortfolioUploader
                 profileId={profileId}
                 skills={values._skills ?? []}
+                categories={values._categories ?? []}
                 categoryId={profile.category_id}
               />
             ) : (
@@ -296,8 +299,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
                 <h3 className="text-base font-semibold text-gray-900">Portfolio</h3>
                 <div className="mt-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
                   <p className="text-sm text-gray-600">
-                    Select at least one skill in <strong>Skill Sets</strong> above to start
-                    uploading portfolio items for it.
+                    Select at least one category or skill above to start uploading portfolio items.
                   </p>
                 </div>
               </div>

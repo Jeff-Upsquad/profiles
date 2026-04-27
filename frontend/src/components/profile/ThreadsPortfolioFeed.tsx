@@ -25,7 +25,12 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
   const [showScrollHint, setShowScrollHint] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const filtered = activeTab === 'All' ? items : items.filter((i) => i.skill_name === activeTab);
+  const filtered =
+    activeTab === 'All'
+      ? items
+      : activeTab === 'Other'
+        ? items.filter((i) => !i.category_name)
+        : items.filter((i) => i.category_name === activeTab);
   const selectedItem = selectedIndex !== null ? filtered[selectedIndex] : null;
   const hasPrev = selectedIndex !== null && selectedIndex > 0;
   const hasNext = selectedIndex !== null && selectedIndex < filtered.length - 1;

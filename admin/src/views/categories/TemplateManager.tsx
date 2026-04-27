@@ -13,13 +13,32 @@ interface TemplateItem {
   group?: string | null;
 }
 
+type ItemType = 'skills' | 'tools' | 'ai-tools' | 'portfolio-categories';
+
+// The /admin route shape is mostly /admin/categories/:id/:type for list+create,
+// and /admin/:singleResource/:id for update+delete. portfolio-categories breaks
+// from the singular convention to avoid colliding with /admin/categories/:id.
+const SINGLE_RESOURCE: Record<ItemType, string> = {
+  skills: 'skills',
+  tools: 'tools',
+  'ai-tools': 'ai-tools',
+  'portfolio-categories': 'portfolio-categories',
+};
+
+const RESPONSE_KEY: Record<ItemType, string> = {
+  skills: 'skills',
+  tools: 'tools',
+  'ai-tools': 'ai_tools',
+  'portfolio-categories': 'portfolio_categories',
+};
+
 function ItemList({
   categoryId,
   type,
   label,
 }: {
   categoryId: string;
-  type: 'skills' | 'tools' | 'ai-tools';
+  type: ItemType;
   label: string;
 }) {
   const queryClient = useQueryClient();
@@ -34,8 +53,7 @@ function ItemList({
     queryKey: ['template', type, categoryId],
     queryFn: async () => {
       const { data } = await api.get(`/admin/categories/${categoryId}/${type}`);
-      const key = type === 'ai-tools' ? 'ai_tools' : type;
-      return data[key] ?? data;
+      return data[RESPONSE_KEY[type]] ?? data;
     },
   });
 
@@ -61,9 +79,8 @@ function ItemList({
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, name, group }: { id: string; name: string; group?: string | null }) => {
-      const endpoint = type === 'skills' ? 'skills' : type === 'ai-tools' ? 'ai-tools' : 'tools';
       await api.put(
-        `/admin/${endpoint}/${id}`,
+        `/admin/${SINGLE_RESOURCE[type]}/${id}`,
         supportsGroup ? { name, group: group || null } : { name },
       );
     },
@@ -77,8 +94,7 @@ function ItemList({
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const endpoint = type === 'skills' ? 'skills' : type === 'ai-tools' ? 'ai-tools' : 'tools';
-      await api.delete(`/admin/${endpoint}/${id}`);
+      await api.delete(`/admin/${SINGLE_RESOURCE[type]}/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['template', type, categoryId] });
@@ -215,8 +231,11 @@ export default function TemplateManager({ categoryId }: { categoryId: string }) 
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
       <h2 className="mb-6 text-lg font-bold text-gray-900">Template Skills & Tools</h2>
       <p className="mb-6 text-sm text-gray-500">
-        Manage the skill sets and tools available for talent users when creating profiles in this category.
+        Manage the categories, skill sets, and tools available for talent users when creating profiles in this category.
       </p>
+      <div className="mb-8 border-b border-gray-200 pb-8">
+        <ItemList categoryId={categoryId} type="portfolio-categories" label="Category" />
+      </div>
       <div className="grid gap-8 lg:grid-cols-3">
         <ItemList categoryId={categoryId} type="skills" label="Skill" />
         <ItemList categoryId={categoryId} type="tools" label="Tool" />

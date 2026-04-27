@@ -143,6 +143,9 @@ export function useAddPortfolioItem() {
       provider?: 'youtube' | 'vimeo' | 'loom' | 'gdrive' | 'dropbox';
       external_url?: string;
       embed_url?: string;
+      // New axes
+      category_name?: string | null;
+      skill_names?: string[];
     }) => {
       const { data } = await api.post(`/talent/profiles/${profileId}/portfolio`, item);
       return data;
@@ -153,6 +156,34 @@ export function useAddPortfolioItem() {
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to add portfolio item');
+    },
+  });
+}
+
+export function useUpdatePortfolioItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      profileId,
+      itemId,
+      ...patch
+    }: {
+      profileId: string;
+      itemId: string;
+      category_name?: string | null;
+      skill_names?: string[];
+    }) => {
+      const { data } = await api.patch(
+        `/talent/profiles/${profileId}/portfolio/${itemId}`,
+        patch,
+      );
+      return data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['portfolio', variables.profileId] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to update portfolio item');
     },
   });
 }

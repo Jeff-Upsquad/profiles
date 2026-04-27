@@ -169,6 +169,21 @@ router.put('/ai-tools/:toolId', adminController.updateTemplateAiTool);
 router.delete('/ai-tools/:toolId', adminController.deleteTemplateAiTool);
 
 // ---------------------------------------------------------------------------
+// Template Portfolio Categories (genres)
+// ---------------------------------------------------------------------------
+
+router.get(
+  '/categories/:categoryId/portfolio-categories',
+  adminController.getTemplateCategories,
+);
+router.post(
+  '/categories/:categoryId/portfolio-categories',
+  adminController.createTemplateCategory,
+);
+router.put('/portfolio-categories/:id', adminController.updateTemplateCategory);
+router.delete('/portfolio-categories/:id', adminController.deleteTemplateCategory);
+
+// ---------------------------------------------------------------------------
 // Talents Module (browse profiles by category)
 // ---------------------------------------------------------------------------
 

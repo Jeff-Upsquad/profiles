@@ -687,8 +687,9 @@ export async function getProfile(session: AccessSession, profileId: string) {
 
   const portfolioQ = supabaseAdmin
     .from('portfolio_items')
-    .select('*')
+    .select('*, portfolio_item_skills(skill_name)')
     .eq('profile_id', profileId)
+    .order('category_name', { ascending: true })
     .order('skill_name', { ascending: true })
     .order('sort_order', { ascending: true });
 
@@ -743,7 +744,15 @@ export async function getProfile(session: AccessSession, profileId: string) {
     },
     talent_user: profile.talent_users,
     category,
-    portfolio_items: portfolioRes.data ?? [],
+    portfolio_items: (portfolioRes.data ?? []).map((row: any) => {
+      const { portfolio_item_skills, ...rest } = row;
+      return {
+        ...rest,
+        skills: Array.isArray(portfolio_item_skills)
+          ? portfolio_item_skills.map((s: { skill_name: string }) => s.skill_name)
+          : [],
+      };
+    }),
     tier: (tierRow as any)?.tier ?? null,
     tier_custom: (tierRow as any)?.tier_custom ?? null,
   };

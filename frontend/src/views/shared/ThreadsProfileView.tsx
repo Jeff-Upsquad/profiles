@@ -72,27 +72,19 @@ export default function ThreadsProfileView({
 
   const portfolioTabs = useMemo(() => {
     if (!portfolioItems || portfolioItems.length === 0) return [];
-    const unique = [...new Set(portfolioItems.map((i) => i.skill_name))];
-    // Order tabs by skill group when available (Designer skills before Editor),
-    // preserving the original encounter order within each group.
-    if (skillGroupOrder?.length && unique.some((s) => skillGroups[s])) {
-      const byGroup = new Map<string, string[]>();
-      for (const name of unique) {
-        const g = (skillGroups[name] || '') as string;
-        if (!byGroup.has(g)) byGroup.set(g, []);
-        byGroup.get(g)!.push(name);
-      }
-      const ordered: string[] = [];
-      for (const g of skillGroupOrder) {
-        if (byGroup.has(g)) ordered.push(...byGroup.get(g)!);
-      }
-      for (const [g, list] of byGroup.entries()) {
-        if (!skillGroupOrder.includes(g)) ordered.push(...list);
-      }
-      return ['All', ...ordered];
+    // Tabs are now driven by category_name. Items with no category fall
+    // under "Other" so legacy uploads stay visible until the editor
+    // assigns them a category.
+    const named = new Set<string>();
+    let hasUncategorized = false;
+    for (const item of portfolioItems) {
+      if (item.category_name) named.add(item.category_name);
+      else hasUncategorized = true;
     }
-    return ['All', ...unique];
-  }, [portfolioItems, skillGroups, skillGroupOrder]);
+    const tabs = ['All', ...Array.from(named)];
+    if (hasUncategorized) tabs.push('Other');
+    return tabs;
+  }, [portfolioItems]);
 
   const groupOrder = useMemo(
     () => (skillGroupOrder ?? []).filter((g) => g !== ''),

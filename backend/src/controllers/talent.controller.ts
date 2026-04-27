@@ -161,6 +161,20 @@ export async function deletePortfolioItem(req: Request, res: Response, next: Nex
   }
 }
 
+export async function updatePortfolioItem(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await talentService.updatePortfolioItem(
+      paramStr(req.params.id),
+      req.user!.id,
+      paramStr(req.params.itemId),
+      req.body
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function reorderPortfolioItems(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await talentService.reorderPortfolioItems(

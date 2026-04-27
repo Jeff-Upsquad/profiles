@@ -102,6 +102,25 @@ export default function ThreadsPortfolioCard({ item, onClick }: ThreadsPortfolio
         </div>
       )}
 
+      {/* Skill chips overlaid at bottom — show up to 3, with a +N pill if more */}
+      {item.skills && item.skills.length > 0 && (
+        <div className="pointer-events-none absolute bottom-1.5 right-1.5 flex max-w-[80%] flex-wrap justify-end gap-1">
+          {item.skills.slice(0, 3).map((s) => (
+            <span
+              key={s}
+              className="rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white/90"
+            >
+              {s}
+            </span>
+          ))}
+          {item.skills.length > 3 && (
+            <span className="rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white/90">
+              +{item.skills.length - 3}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Hover overlay */}
       <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
     </button>
