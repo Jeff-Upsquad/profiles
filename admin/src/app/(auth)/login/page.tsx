@@ -51,6 +51,7 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">SquadHire Admin</h1>
+          <p className="text-xs text-gray-400 mt-0.5">Powered by UpSquad</p>
           <p className="text-sm text-gray-500 mt-1">
             Sign in to access the admin panel
           </p>

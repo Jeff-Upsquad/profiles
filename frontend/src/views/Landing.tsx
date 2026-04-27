@@ -156,12 +156,13 @@ export default function Landing() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
-              <Link href="/" className="flex items-center gap-2.5 mb-4">
+              <Link href="/" className="flex items-center gap-2.5 mb-1">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-900 text-xs font-bold text-white">
                   SH
                 </div>
                 <span className="text-lg font-semibold text-neutral-900 tracking-tight">SquadHire</span>
               </Link>
+              <p className="text-xs text-neutral-500 mb-3">Powered by UpSquad</p>
               <p className="text-sm text-neutral-500">
                 Connecting businesses with skilled professionals.
               </p>
@@ -198,6 +199,7 @@ export default function Landing() {
             <p className="text-center text-sm text-neutral-400">
               &copy; {new Date().getFullYear()} SquadHire. All rights reserved.
             </p>
+            <p className="text-center text-xs text-neutral-400 mt-1">Powered by UpSquad</p>
           </div>
         </div>
       </footer>

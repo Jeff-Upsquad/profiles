@@ -79,6 +79,7 @@ export default function AdminLayout({
         <div className="px-6 py-5 border-b border-gray-800">
           <h1 className="text-xl font-bold tracking-tight">SquadHire</h1>
           <p className="text-xs text-gray-400 mt-0.5">Admin Lite</p>
+          <p className="text-[10px] text-gray-500 mt-0.5">Powered by UpSquad</p>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">

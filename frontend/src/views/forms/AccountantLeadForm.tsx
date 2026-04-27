@@ -265,6 +265,7 @@ export default function AccountantLeadForm() {
           <h1 className="text-3xl font-semibold tracking-tight text-neutral-900">
             SquadHire
           </h1>
+          <p className="mt-0.5 text-xs text-neutral-400">Powered by UpSquad</p>
           <p className="mt-1 text-sm text-neutral-500">Talent Platform</p>
         </div>
 
