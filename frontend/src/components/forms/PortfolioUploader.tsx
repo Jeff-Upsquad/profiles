@@ -1,15 +1,15 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import axios from 'axios';
 import api from '@/services/api';
 import { usePortfolioItems, useAddPortfolioItem, useDeletePortfolioItem } from '@/hooks/useProfiles';
 import { useCategoryTemplateGroups } from '@/hooks/useCategories';
 import Button from '@/components/ui/Button';
 import toast from 'react-hot-toast';
-// Imported for grid rendering of historical link rows (source_type='link')
-// that pre-date the removal of the paste-link UI. The parser/Add flow is no
-// longer wired up in this component; new portfolio video items can only be
-// added via direct upload.
-import { legacyProviderDisplayName } from '@/lib/videoEmbed';
+import {
+  parseVideoUrl,
+  legacyProviderDisplayName,
+  type ParsedVideo,
+} from '@/lib/videoEmbed';
 
 // Client-side cap mirrored from backend MAX_UPLOAD_BYTES (backend
 // re-validates and signs Content-Length into the URL, so a forged client
@@ -167,6 +167,48 @@ export default function PortfolioUploader({ profileId, skills, categoryId }: Por
     fileInputRef.current?.click();
   };
 
+  // ---- YouTube link paste flow (per-skill state) ----
+  const [linkOpenSkill, setLinkOpenSkill] = useState<string | null>(null);
+  const [linkInput, setLinkInput] = useState('');
+  const [linkSubmitting, setLinkSubmitting] = useState(false);
+  const parsedLink: ParsedVideo | null = useMemo(
+    () => (linkInput.trim() ? parseVideoUrl(linkInput) : null),
+    [linkInput]
+  );
+
+  const openLinkPanel = (skill: string) => {
+    setLinkOpenSkill(skill);
+    setLinkInput('');
+  };
+  const closeLinkPanel = () => {
+    setLinkOpenSkill(null);
+    setLinkInput('');
+  };
+
+  const submitLink = async (skill: string) => {
+    if (!parsedLink) return;
+    setLinkSubmitting(true);
+    try {
+      await addItem.mutateAsync({
+        profileId,
+        skill_name: skill,
+        file_url: parsedLink.embedUrl,
+        file_type: 'video',
+        file_name: 'YouTube video',
+        source_type: 'link',
+        provider: parsedLink.provider,
+        external_url: parsedLink.externalUrl,
+        embed_url: parsedLink.embedUrl,
+      });
+      closeLinkPanel();
+    } catch (err) {
+      // toast already raised by mutation onError
+      console.error('Add YouTube link failed:', err);
+    } finally {
+      setLinkSubmitting(false);
+    }
+  };
+
   // Group items by skill
   const itemsBySkill: Record<string, any[]> = {};
   for (const item of items) {
@@ -184,15 +226,70 @@ export default function PortfolioUploader({ profileId, skills, categoryId }: Por
       <div key={skill} className="rounded-lg border border-gray-200 p-4">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h4 className="text-sm font-medium text-gray-700">{skill}</h4>
-          <Button
-            variant="outline"
-            size="sm"
-            loading={inFlight.length > 0}
-            onClick={() => triggerUpload(skill)}
-          >
-            Upload
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              loading={inFlight.length > 0}
+              onClick={() => triggerUpload(skill)}
+            >
+              Upload
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                linkOpenSkill === skill ? closeLinkPanel() : openLinkPanel(skill)
+              }
+            >
+              {linkOpenSkill === skill ? 'Cancel' : 'Paste YouTube link'}
+            </Button>
+          </div>
         </div>
+
+        {linkOpenSkill === skill && (
+          <div className="mb-3 rounded-md border border-dashed border-gray-300 bg-gray-50 p-3">
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              Paste a YouTube link
+            </label>
+            <input
+              type="url"
+              value={linkInput}
+              onChange={(e) => setLinkInput(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=…  or  youtu.be/…"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-neutral-700 focus:outline-none"
+              autoFocus
+            />
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="min-h-[1.25rem] text-xs">
+                {linkInput.trim() === '' ? (
+                  <span className="text-gray-500">
+                    Make sure the video is public or unlisted
+                  </span>
+                ) : parsedLink ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
+                    <span aria-hidden>✓</span>
+                    YouTube link detected
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700">
+                    <span aria-hidden>✗</span>
+                    Not a valid YouTube URL — paste a youtube.com/watch?v=… or youtu.be/… link
+                  </span>
+                )}
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={!parsedLink || linkSubmitting}
+                loading={linkSubmitting}
+                onClick={() => submitLink(skill)}
+              >
+                Add
+              </Button>
+            </div>
+          </div>
+        )}
 
         {inFlight.length > 0 && (
           <div className="mb-3 space-y-2">
@@ -306,7 +403,8 @@ export default function PortfolioUploader({ profileId, skills, categoryId }: Por
       <h3 className="mb-1 text-sm font-semibold text-gray-800">Portfolio</h3>
       <p className="mb-4 text-xs text-gray-500">
         Upload images, PDFs, or videos for each skill — up to{' '}
-        {MAX_UPLOAD_LABEL} per file. Videos play inline on your profile.
+        {MAX_UPLOAD_LABEL} per file. You can also paste a YouTube link if your
+        video is hosted there. Videos play inline on your profile.
       </p>
 
       <input
