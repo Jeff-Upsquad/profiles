@@ -277,16 +277,27 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   let sectionIndex = 0;
   const sections: React.ReactNode[] = [];
 
-  // Special field_data keys: _skills, _accounting_software, _tools, _ai_tools
+  // Special field_data keys: _skills, _categories, _accounting_software, _tools, _ai_tools
   const skills: { skill: string; level: number }[] = [...(fieldData?._skills ?? [])].sort(
     (a, b) => b.level - a.level
   );
+  const categories: string[] = fieldData?._categories ?? [];
   const accountingSoftware: string[] = fieldData?._accounting_software ?? [];
   const tools: string[] = fieldData?._tools ?? [];
   const aiTools: string[] = fieldData?._ai_tools ?? [];
 
   // Rename "Tools" → "Other Tools" only when Accounting Software is also present
   const toolsLabel = accountingSoftware.length > 0 ? 'Other Tools' : 'Tools';
+
+  // Categories section (chip pills) — rendered above Core Skills, mirroring
+  // the edit form's section ordering.
+  if (categories.length > 0) {
+    const delay = sectionIndex * 0.04;
+    sections.push(
+      <TagSection key="_categories" label="Categories" tags={categories} delay={delay} />
+    );
+    sectionIndex++;
+  }
 
   // Skills section (dot indicators)
   if (skills.length > 0) {
