@@ -9,6 +9,8 @@ import Textarea from '@/components/ui/Textarea';
 import Button from '@/components/ui/Button';
 import MultiSelectSearch from '@/components/ui/MultiSelectSearch';
 import ChipSelect from '@/components/ui/ChipSelect';
+import AlreadySubmittedModal from '@/components/forms/AlreadySubmittedModal';
+import { useDuplicateContactCheck } from '@/hooks/useDuplicateContactCheck';
 import {
   GENDER_OPTIONS,
   WORK_TYPE_OPTIONS,
@@ -20,12 +22,16 @@ import {
   ACCOUNTING_SKILLS,
   LANGUAGES,
 } from '@/constants/lead-form-options';
+import { COUNTRIES, INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-locations';
 
 interface FormValues {
   name: string;
   phone: string;
   age: string;
   gender: string;
+  country: string;
+  state: string;
+  current_district: string;
   native_place: string;
   district: string[];
   location: string;
@@ -49,6 +55,9 @@ const initial: FormValues = {
   phone: '',
   age: '',
   gender: '',
+  country: 'India',
+  state: '',
+  current_district: '',
   native_place: '',
   district: [],
   location: '',
@@ -85,6 +94,7 @@ export default function AccountantLeadForm() {
   const [resumeFileName, setResumeFileName] = useState('');
   const [formDisabled, setFormDisabled] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
+  const dup = useDuplicateContactCheck();
 
   useEffect(() => {
     axios
@@ -148,6 +158,9 @@ export default function AccountantLeadForm() {
     else if (isNaN(Number(form.age)) || Number(form.age) < 16 || Number(form.age) > 100)
       errs.age = 'Enter a valid age (16-100)';
     if (!form.gender) errs.gender = 'Gender is required';
+    if (!form.country) errs.country = 'Country is required';
+    if (!form.state.trim()) errs.state = 'State is required';
+    if (!form.current_district.trim()) errs.current_district = 'District is required';
     if (!form.native_place.trim()) errs.native_place = 'Native place is required';
     if (form.district.length === 0) errs.district = 'Select at least one district';
     if (!form.location.trim()) errs.location = 'Location is required';
@@ -187,6 +200,9 @@ export default function AccountantLeadForm() {
         email: form.email.trim(),
         age: Number(form.age),
         gender: form.gender,
+        country: form.country,
+        state: form.state.trim(),
+        current_district: form.current_district.trim(),
         native_place: form.native_place.trim(),
         district: form.district,
         location: form.location.trim(),
@@ -323,6 +339,11 @@ export default function AccountantLeadForm() {
                     digits = digits.slice(0, 10);
                     setForm((prev) => ({ ...prev, phone: '+91' + digits }));
                     setErrors((prev) => ({ ...prev, phone: undefined }));
+                    dup.clearPhone();
+                  }}
+                  onBlur={() => {
+                    const digits = form.phone.replace(/^\+91/, '');
+                    if (digits.length === 10) dup.checkPhone(digits);
                   }}
                 />
               </div>
@@ -349,6 +370,77 @@ export default function AccountantLeadForm() {
               error={errors.gender}
             />
 
+            <Select
+              label="Country"
+              required
+              options={COUNTRIES}
+              value={form.country}
+              onChange={(e) => {
+                setForm((prev) => ({
+                  ...prev,
+                  country: e.target.value,
+                  state: '',
+                  current_district: '',
+                }));
+                setErrors((prev) => ({
+                  ...prev,
+                  country: undefined,
+                  state: undefined,
+                  current_district: undefined,
+                }));
+              }}
+              error={errors.country}
+            />
+
+            {form.country === 'India' ? (
+              <Select
+                label="State"
+                required
+                placeholder="Select state"
+                options={INDIAN_STATES}
+                value={form.state}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, state: e.target.value, current_district: '' }));
+                  setErrors((prev) => ({ ...prev, state: undefined, current_district: undefined }));
+                }}
+                error={errors.state}
+              />
+            ) : (
+              <Input
+                label="State / Region"
+                required
+                placeholder="State or region"
+                value={form.state}
+                onChange={set('state')}
+                error={errors.state}
+              />
+            )}
+
+            {form.country === 'India' && form.state ? (
+              <Select
+                label="District"
+                required
+                placeholder="Select district"
+                options={(DISTRICTS_BY_STATE[form.state] || []).map((d) => ({
+                  label: d,
+                  value: d,
+                }))}
+                value={form.current_district}
+                onChange={set('current_district')}
+                error={errors.current_district}
+              />
+            ) : (
+              <Input
+                label="District"
+                required
+                placeholder={form.country === 'India' ? 'Select a state first' : 'District'}
+                value={form.current_district}
+                onChange={set('current_district')}
+                disabled={form.country === 'India' && !form.state}
+                error={errors.current_district}
+              />
+            )}
+
             <Input
               label="Native Place"
               required
@@ -359,7 +451,7 @@ export default function AccountantLeadForm() {
             />
 
             <ChipSelect
-              label="District"
+              label="Preferred Work Districts"
               required
               multi
               options={KERALA_DISTRICTS}
@@ -484,7 +576,11 @@ export default function AccountantLeadForm() {
               required
               placeholder="Enter email"
               value={form.email}
-              onChange={set('email')}
+              onChange={(e) => {
+                set('email')(e);
+                dup.clearEmail();
+              }}
+              onBlur={() => dup.checkEmail(form.email)}
               error={errors.email}
             />
 
@@ -553,12 +649,34 @@ export default function AccountantLeadForm() {
               error={errors.terms_accepted}
             />
 
-            <Button type="submit" loading={submitting} className="w-full">
+            {dup.anyDuplicate && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                You have already submitted a request with us.{' '}
+                <button
+                  type="button"
+                  onClick={() => dup.setShowModal(true)}
+                  className="font-semibold underline hover:text-amber-900"
+                >
+                  Contact Talent Support
+                </button>
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              loading={submitting}
+              disabled={dup.anyDuplicate}
+              className="w-full"
+            >
               Submit
             </Button>
           </form>
         </div>
       </div>
+      <AlreadySubmittedModal
+        open={dup.showModal}
+        onClose={() => dup.setShowModal(false)}
+      />
     </div>
   );
 }

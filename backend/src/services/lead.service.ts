@@ -40,6 +40,26 @@ export async function createLeadSubmission(input: CreateLeadInput) {
 }
 
 // ---------------------------------------------------------------------------
+// Existence check (public)
+// ---------------------------------------------------------------------------
+
+export async function checkContactExists(input: { email?: string; phone?: string }) {
+  const email = input.email?.trim().toLowerCase() || null;
+  const phoneDigits = input.phone
+    ? input.phone.replace(/\D/g, '').slice(-10)
+    : null;
+  const phoneArg = phoneDigits && phoneDigits.length === 10 ? phoneDigits : null;
+  if (!email && !phoneArg) return { exists: false };
+
+  const { data, error } = await supabaseAdmin.rpc('check_contact_exists', {
+    p_email: email,
+    p_phone_digits: phoneArg,
+  });
+  if (error) throw new AppError(500, `Failed to check contact: ${error.message}`);
+  return { exists: (data ?? []).length > 0 };
+}
+
+// ---------------------------------------------------------------------------
 // List (admin)
 // ---------------------------------------------------------------------------
 

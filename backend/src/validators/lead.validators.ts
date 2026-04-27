@@ -12,6 +12,11 @@ export const creativeLeadSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
   phone: z.string().regex(phoneRegex, 'Valid phone number is required'),
   email: z.string().email('Valid email is required'),
+  age: z.number().int().min(16).max(100),
+  gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']),
+  country: z.string().min(1, 'Country is required').max(100),
+  state: z.string().min(1, 'State is required').max(100),
+  current_district: z.string().min(1, 'District is required').max(100),
   role: z.array(z.enum(['Editor', 'Designer', 'Editor + Designer'])).min(1, 'At least one role is required'),
   work_type_seeking: workTypeSeekingSchema,
   experience_years: z.string().min(1, 'Years of experience is required'),
@@ -28,6 +33,9 @@ export const accountantLeadSchema = z.object({
   email: z.string().email('Valid email is required'),
   age: z.number().int().min(16).max(100),
   gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']),
+  country: z.string().min(1, 'Country is required').max(100),
+  state: z.string().min(1, 'State is required').max(100),
+  current_district: z.string().min(1, 'District is required').max(100),
   native_place: z.string().min(1, 'Native place is required').max(200),
   district: z.array(z.string()).min(1, 'At least one district is required'),
   location: z.string().min(1, 'Location is required').max(200),
@@ -52,6 +60,15 @@ export const createLeadSchema = z.discriminatedUnion('form_type', [
   creativeLeadSchema,
   accountantLeadSchema,
 ]);
+
+export const checkExistingContactSchema = z
+  .object({
+    email: z.string().trim().email('Valid email is required').optional(),
+    phone: z.string().trim().min(1).optional(),
+  })
+  .refine((data) => !!data.email || !!data.phone, {
+    message: 'email or phone is required',
+  });
 
 export const LEAD_STATUS_VALUES = [
   'new',
@@ -119,3 +136,4 @@ export type UpdateLeadStatusInput = z.infer<typeof updateLeadStatusSchema>;
 export type UpdateLeadProfileTypeInput = z.infer<typeof updateLeadProfileTypeSchema>;
 export type CreateLeadNoteInput = z.infer<typeof createLeadNoteSchema>;
 export type UpdateLeadNoteInput = z.infer<typeof updateLeadNoteSchema>;
+export type CheckExistingContactInput = z.infer<typeof checkExistingContactSchema>;

@@ -19,11 +19,12 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   async rewrites() {
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
     return {
       beforeFiles: [
         {
           source: '/api/:path*',
-          destination: 'http://localhost:5000/api/:path*',
+          destination: `${backendUrl}/api/:path*`,
         },
       ],
     };

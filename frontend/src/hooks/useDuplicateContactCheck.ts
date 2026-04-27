@@ -1,0 +1,67 @@
+'use client';
+
+import { useCallback, useRef, useState } from 'react';
+import axios from 'axios';
+
+const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function useDuplicateContactCheck() {
+  const [emailDuplicate, setEmailDuplicate] = useState(false);
+  const [phoneDuplicate, setPhoneDuplicate] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const seenRef = useRef<Map<string, boolean>>(new Map());
+
+  const fetchExists = useCallback(
+    async (payload: { email?: string; phone?: string }, cacheKey: string) => {
+      const cached = seenRef.current.get(cacheKey);
+      if (cached !== undefined) return cached;
+      try {
+        const { data } = await axios.post('/api/leads/check-existing', payload);
+        const exists = !!data?.exists;
+        seenRef.current.set(cacheKey, exists);
+        return exists;
+      } catch {
+        return false;
+      }
+    },
+    []
+  );
+
+  const checkEmail = useCallback(
+    async (rawEmail: string) => {
+      const email = rawEmail.trim().toLowerCase();
+      if (!EMAIL_RX.test(email)) return;
+      const exists = await fetchExists({ email }, `e:${email}`);
+      setEmailDuplicate(exists);
+      if (exists) setShowModal(true);
+    },
+    [fetchExists]
+  );
+
+  const checkPhone = useCallback(
+    async (digits: string) => {
+      if (digits.length !== 10) return;
+      const exists = await fetchExists({ phone: digits }, `p:${digits}`);
+      setPhoneDuplicate(exists);
+      if (exists) setShowModal(true);
+    },
+    [fetchExists]
+  );
+
+  const clearEmail = useCallback(() => setEmailDuplicate(false), []);
+  const clearPhone = useCallback(() => setPhoneDuplicate(false), []);
+
+  const anyDuplicate = emailDuplicate || phoneDuplicate;
+
+  return {
+    emailDuplicate,
+    phoneDuplicate,
+    anyDuplicate,
+    showModal,
+    setShowModal,
+    checkEmail,
+    checkPhone,
+    clearEmail,
+    clearPhone,
+  };
+}

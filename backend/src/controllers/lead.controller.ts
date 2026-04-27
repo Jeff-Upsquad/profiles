@@ -15,6 +15,15 @@ export async function submitLead(req: Request, res: Response, next: NextFunction
   }
 }
 
+export async function checkExisting(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await leadService.checkContactExists(req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getUploadUrl(req: Request, res: Response, next: NextFunction) {
   try {
     const { filename, content_type } = req.body;

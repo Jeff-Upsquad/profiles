@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 import * as leadController from '../controllers/lead.controller.js';
 import * as formConfigController from '../controllers/form-config.controller.js';
 import { validate } from '../middleware/validate.middleware.js';
-import { createLeadSchema } from '../validators/lead.validators.js';
+import { createLeadSchema, checkExistingContactSchema } from '../validators/lead.validators.js';
 
 const router = Router();
 
@@ -24,11 +24,27 @@ const uploadLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const checkLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 30,
+  message: { error: 'Too many checks. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 router.post(
   '/submit',
   submitLimiter,
   validate({ body: createLeadSchema }),
   leadController.submitLead
+);
+
+// Public duplicate-contact check (no auth, rate-limited)
+router.post(
+  '/check-existing',
+  checkLimiter,
+  validate({ body: checkExistingContactSchema }),
+  leadController.checkExisting
 );
 
 // Public presigned URL for resume upload (no auth, rate-limited)

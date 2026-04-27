@@ -4,14 +4,23 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import ChipSelect from '@/components/ui/ChipSelect';
-import { CREATIVE_ROLES, WORK_TYPE_SEEKING_OPTIONS } from '@/constants/lead-form-options';
+import { CREATIVE_ROLES, WORK_TYPE_SEEKING_OPTIONS, GENDER_OPTIONS } from '@/constants/lead-form-options';
+import { COUNTRIES, INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-locations';
+import AlreadySubmittedModal from '@/components/forms/AlreadySubmittedModal';
+import { useDuplicateContactCheck } from '@/hooks/useDuplicateContactCheck';
 
 interface FormValues {
   name: string;
   phone: string;
   email: string;
+  age: string;
+  gender: string;
+  country: string;
+  state: string;
+  current_district: string;
   role: string[];
   work_type_seeking: string[];
   experience_years: string;
@@ -22,6 +31,11 @@ const initial: FormValues = {
   name: '',
   phone: '',
   email: '',
+  age: '',
+  gender: '',
+  country: 'India',
+  state: '',
+  current_district: '',
   role: [],
   work_type_seeking: [],
   experience_years: '',
@@ -37,6 +51,7 @@ export default function CreativeLeadForm() {
   const [serverError, setServerError] = useState('');
   const [formDisabled, setFormDisabled] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
+  const dup = useDuplicateContactCheck();
 
   useEffect(() => {
     axios
@@ -65,6 +80,13 @@ export default function CreativeLeadForm() {
     if (!form.email.trim()) errs.email = 'Email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       errs.email = 'Enter a valid email';
+    if (!form.age.trim()) errs.age = 'Age is required';
+    else if (isNaN(Number(form.age)) || Number(form.age) < 16 || Number(form.age) > 100)
+      errs.age = 'Enter a valid age (16-100)';
+    if (!form.gender) errs.gender = 'Gender is required';
+    if (!form.country) errs.country = 'Country is required';
+    if (!form.state.trim()) errs.state = 'State is required';
+    if (!form.current_district.trim()) errs.current_district = 'District is required';
     if (form.role.length === 0) errs.role = 'Please select at least one role';
     if (form.work_type_seeking.length === 0) errs.work_type_seeking = 'Select at least one option';
     if (!form.experience_years.trim()) errs.experience_years = 'Years of experience is required';
@@ -93,6 +115,11 @@ export default function CreativeLeadForm() {
         name: form.name.trim(),
         phone: form.phone.replace(/\s/g, ''),
         email: form.email.trim(),
+        age: Number(form.age),
+        gender: form.gender,
+        country: form.country,
+        state: form.state.trim(),
+        current_district: form.current_district.trim(),
         role: form.role,
         work_type_seeking: form.work_type_seeking,
         experience_years: form.experience_years.trim(),
@@ -216,6 +243,11 @@ export default function CreativeLeadForm() {
                     digits = digits.slice(0, 10);
                     setForm((prev) => ({ ...prev, phone: '+91' + digits }));
                     setErrors((prev) => ({ ...prev, phone: undefined }));
+                    dup.clearPhone();
+                  }}
+                  onBlur={() => {
+                    const digits = form.phone.replace(/^\+91/, '');
+                    if (digits.length === 10) dup.checkPhone(digits);
                   }}
                 />
               </div>
@@ -228,9 +260,99 @@ export default function CreativeLeadForm() {
               required
               placeholder="your@email.com"
               value={form.email}
-              onChange={set('email')}
+              onChange={(e) => {
+                set('email')(e);
+                dup.clearEmail();
+              }}
+              onBlur={() => dup.checkEmail(form.email)}
               error={errors.email}
             />
+
+            <Input
+              label="Age"
+              required
+              type="number"
+              placeholder="Enter age"
+              value={form.age}
+              onChange={set('age')}
+              error={errors.age}
+            />
+
+            <Select
+              label="Gender"
+              required
+              placeholder="Select option..."
+              options={GENDER_OPTIONS}
+              value={form.gender}
+              onChange={set('gender')}
+              error={errors.gender}
+            />
+
+            <Select
+              label="Country"
+              required
+              options={COUNTRIES}
+              value={form.country}
+              onChange={(e) => {
+                setForm((prev) => ({
+                  ...prev,
+                  country: e.target.value,
+                  state: '',
+                  current_district: '',
+                }));
+                setErrors((prev) => ({ ...prev, country: undefined, state: undefined, current_district: undefined }));
+              }}
+              error={errors.country}
+            />
+
+            {form.country === 'India' ? (
+              <Select
+                label="State"
+                required
+                placeholder="Select state"
+                options={INDIAN_STATES}
+                value={form.state}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, state: e.target.value, current_district: '' }));
+                  setErrors((prev) => ({ ...prev, state: undefined, current_district: undefined }));
+                }}
+                error={errors.state}
+              />
+            ) : (
+              <Input
+                label="State / Region"
+                required
+                placeholder="State or region"
+                value={form.state}
+                onChange={set('state')}
+                error={errors.state}
+              />
+            )}
+
+            {form.country === 'India' && form.state ? (
+              <Select
+                label="District"
+                required
+                placeholder="Select district"
+                options={(DISTRICTS_BY_STATE[form.state] || []).map((d) => ({
+                  label: d,
+                  value: d,
+                }))}
+                value={form.current_district}
+                onChange={set('current_district')}
+                error={errors.current_district}
+              />
+            ) : (
+              <Input
+                label="District"
+                required
+                placeholder={form.country === 'India' ? 'Select a state first' : 'District'}
+                value={form.current_district}
+                onChange={set('current_district')}
+                disabled={form.country === 'India' && !form.state}
+                error={errors.current_district}
+              />
+            )}
 
             <ChipSelect
               label="Role"
@@ -278,12 +400,34 @@ export default function CreativeLeadForm() {
               helperText="If you don't have a portfolio, upload files to a drive and share that link"
             />
 
-            <Button type="submit" loading={submitting} className="w-full">
+            {dup.anyDuplicate && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                You have already submitted a request with us.{' '}
+                <button
+                  type="button"
+                  onClick={() => dup.setShowModal(true)}
+                  className="font-semibold underline hover:text-amber-900"
+                >
+                  Contact Talent Support
+                </button>
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              loading={submitting}
+              disabled={dup.anyDuplicate}
+              className="w-full"
+            >
               Submit Application
             </Button>
           </form>
         </div>
       </div>
+      <AlreadySubmittedModal
+        open={dup.showModal}
+        onClose={() => dup.setShowModal(false)}
+      />
     </div>
   );
 }
