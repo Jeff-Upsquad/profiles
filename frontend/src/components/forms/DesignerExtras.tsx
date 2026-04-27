@@ -31,10 +31,12 @@ interface DesignerExtrasProps {
   skills: SkillWithLevel[];
   tools: string[];
   aiTools?: string[];
+  categories?: string[];
   accountingSoftware?: string[];
   onSkillsChange: (skills: SkillWithLevel[]) => void;
   onToolsChange: (tools: string[]) => void;
   onAiToolsChange?: (aiTools: string[]) => void;
+  onCategoriesChange?: (categories: string[]) => void;
   onAccountingSoftwareChange?: (accountingSoftware: string[]) => void;
   /** When true, renders an "Accounting Software" picker before Tools and relabels Tools to "Other Tools". */
   showAccountingSoftware?: boolean;
@@ -67,10 +69,12 @@ export default function DesignerExtras({
   skills,
   tools,
   aiTools = [],
+  categories = [],
   accountingSoftware = [],
   onSkillsChange,
   onToolsChange,
   onAiToolsChange,
+  onCategoriesChange,
   onAccountingSoftwareChange,
   showAccountingSoftware = false,
 }: DesignerExtrasProps) {
@@ -97,6 +101,24 @@ export default function DesignerExtras({
       return data.ai_tools ?? data;
     },
   });
+
+  const { data: availableCategories = [] } = useQuery<SkillItem[]>({
+    queryKey: ['templateCategories', categoryId],
+    queryFn: async () => {
+      const { data } = await api.get(`/public/categories/${categoryId}/portfolio-categories`);
+      return data.portfolio_categories ?? data;
+    },
+    enabled: Boolean(onCategoriesChange),
+  });
+
+  const toggleCategory = (name: string) => {
+    if (!onCategoriesChange) return;
+    if (categories.includes(name)) {
+      onCategoriesChange(categories.filter((c) => c !== name));
+    } else {
+      onCategoriesChange([...categories, name]);
+    }
+  };
 
   const toggleAiTool = (toolName: string) => {
     if (!onAiToolsChange) return;
@@ -235,6 +257,39 @@ export default function DesignerExtras({
 
   return (
     <div className="space-y-8">
+      {/* Categories — portfolio genres (e.g. Wedding, Movies, AI Video) */}
+      {onCategoriesChange && (
+        <div>
+          <h3 className="mb-1 text-sm font-semibold text-gray-800">Categories</h3>
+          <p className="mb-3 text-xs text-gray-500">
+            Pick the genres you specialize in — your portfolio uploads are organized by these.
+          </p>
+          {availableCategories.length === 0 ? (
+            <p className="text-sm text-gray-400">No categories configured for this category yet.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {availableCategories.map((cat) => {
+                const isSelected = categories.includes(cat.name);
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => toggleCategory(cat.name)}
+                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                      isSelected
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Skill Sets */}
       <div>
         <h3 className="mb-1 text-sm font-semibold text-gray-800">Skill Sets</h3>

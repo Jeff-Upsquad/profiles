@@ -108,13 +108,22 @@ export async function getPortfolioForProfile(businessUserId: string, categoryId:
 
   const { data, error } = await supabaseAdmin
     .from('portfolio_items')
-    .select('*')
+    .select('*, portfolio_item_skills(skill_name)')
     .eq('profile_id', profileId)
+    .order('category_name', { ascending: true })
     .order('skill_name', { ascending: true })
     .order('sort_order', { ascending: true });
 
   if (error) throw new AppError(500, 'Failed to fetch portfolio items');
-  return data ?? [];
+  return (data ?? []).map((row: any) => {
+    const { portfolio_item_skills, ...rest } = row;
+    return {
+      ...rest,
+      skills: Array.isArray(portfolio_item_skills)
+        ? portfolio_item_skills.map((s: { skill_name: string }) => s.skill_name)
+        : [],
+    };
+  });
 }
 
 // ─── Discover Profiles ──────────────────────────────────────────────────────

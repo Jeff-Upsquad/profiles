@@ -1,31 +1,33 @@
 import { useState, useRef } from 'react';
 import axios from 'axios';
+import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
-import { usePortfolioItems, useAddPortfolioItem, useDeletePortfolioItem } from '@/hooks/useProfiles';
-import { useCategoryTemplateGroups } from '@/hooks/useCategories';
+import {
+  usePortfolioItems,
+  useAddPortfolioItem,
+  useDeletePortfolioItem,
+  useUpdatePortfolioItem,
+} from '@/hooks/useProfiles';
 import Button from '@/components/ui/Button';
 import toast from 'react-hot-toast';
 // Imported for grid rendering of historical link rows (source_type='link')
-// that pre-date the removal of the paste-link UI. The parser/Add flow is no
-// longer wired up in this component; new portfolio video items can only be
-// added via direct upload.
+// that pre-date the removal of the paste-link UI.
 import { legacyProviderDisplayName } from '@/lib/videoEmbed';
 
-// Client-side cap mirrored from backend MAX_UPLOAD_BYTES (backend
-// re-validates and signs Content-Length into the URL, so a forged client
-// can't bypass it).
 const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
 const MAX_UPLOAD_LABEL = '500 MB';
 
+const UNCATEGORIZED = '__uncategorized__';
+
 interface PortfolioUploaderProps {
   profileId: string;
+  /** Skills the editor selected on their profile — used as the option list
+   * for per-video skill chips. */
   skills: { skill: string }[];
-  /**
-   * When provided, the upload cards are grouped by template `group`
-   * (e.g. "DESIGNER" / "EDITOR" subheadings for the Designer + Editor
-   * category). Categories whose templates have no group fall back to a
-   * flat list.
-   */
+  /** Categories the editor selected — used as the upload buckets. Items
+   * whose category_name doesn't match (legacy uploads) land in
+   * "Uncategorized" so the editor can reassign them. */
+  categories: string[];
   categoryId?: string;
 }
 
@@ -40,61 +42,148 @@ const ACCEPTED_TYPES: Record<string, string> = {
   'video/quicktime': 'video',
 };
 
-export default function PortfolioUploader({ profileId, skills, categoryId }: PortfolioUploaderProps) {
+interface ItemSkillChipsProps {
+  profileId: string;
+  item: any;
+  selectedSkills: string[];
+  availableSkills: string[];
+}
+
+function ItemSkillChips({ profileId, item, selectedSkills, availableSkills }: ItemSkillChipsProps) {
+  const updateItem = useUpdatePortfolioItem();
+  if (availableSkills.length === 0) return null;
+  return (
+    <div className="mt-2 flex flex-wrap gap-1">
+      {availableSkills.map((skill) => {
+        const isSelected = selectedSkills.includes(skill);
+        return (
+          <button
+            key={skill}
+            type="button"
+            disabled={updateItem.isPending}
+            onClick={() => {
+              const next = isSelected
+                ? selectedSkills.filter((s) => s !== skill)
+                : [...selectedSkills, skill];
+              updateItem.mutate({ profileId, itemId: item.id, skill_names: next });
+            }}
+            className={`rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${
+              isSelected
+                ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            {skill}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+interface ItemCategorySelectProps {
+  profileId: string;
+  itemId: string;
+  current: string | null | undefined;
+  options: string[];
+}
+
+function ItemCategorySelect({ profileId, itemId, current, options }: ItemCategorySelectProps) {
+  const updateItem = useUpdatePortfolioItem();
+  return (
+    <select
+      value={current ?? ''}
+      disabled={updateItem.isPending}
+      onChange={(e) => {
+        const value = e.target.value;
+        updateItem.mutate({
+          profileId,
+          itemId,
+          category_name: value === '' ? null : value,
+        });
+      }}
+      className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+    >
+      <option value="">Uncategorized</option>
+      {options.map((c) => (
+        <option key={c} value={c}>
+          {c}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+export default function PortfolioUploader({
+  profileId,
+  skills,
+  categories,
+  categoryId,
+}: PortfolioUploaderProps) {
   const { data: items = [] } = usePortfolioItems(profileId);
-  const { skillGroups, skillGroupOrder } = useCategoryTemplateGroups(categoryId);
   const addItem = useAddPortfolioItem();
   const deleteItem = useDeletePortfolioItem();
   const [uploadsMap, setUploadsMap] = useState<Record<string, Record<string, InFlight>>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeSkill, setActiveSkill] = useState<string | null>(null);
+  const [activeBucket, setActiveBucket] = useState<string | null>(null);
 
-  const beginUpload = (skill: string, id: string, fileName: string) =>
+  // Pull the full template skill list for this admin category — we use it
+  // as the per-video chip option list. The editor's selected skills
+  // (`skills` prop) are a subset; we still let them tag any template skill
+  // since a single video can demonstrate skills they didn't proactively
+  // select on the profile.
+  const { data: templateSkills = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['templateSkills', categoryId],
+    queryFn: async () => {
+      const { data } = await api.get(`/public/categories/${categoryId}/skills`);
+      return data.skills ?? data;
+    },
+    enabled: Boolean(categoryId),
+  });
+
+  const skillChipOptions = templateSkills.length > 0
+    ? templateSkills.map((s) => s.name)
+    : skills.map((s) => s.skill);
+
+  const beginUpload = (bucket: string, id: string, fileName: string) =>
     setUploadsMap((prev) => ({
       ...prev,
-      [skill]: { ...(prev[skill] ?? {}), [id]: { fileName, progress: 0 } },
+      [bucket]: { ...(prev[bucket] ?? {}), [id]: { fileName, progress: 0 } },
     }));
-  const updateProgress = (skill: string, id: string, progress: number) =>
+  const updateProgress = (bucket: string, id: string, progress: number) =>
     setUploadsMap((prev) => {
-      const skillMap = prev[skill];
-      if (!skillMap || !skillMap[id]) return prev;
-      return {
-        ...prev,
-        [skill]: { ...skillMap, [id]: { ...skillMap[id], progress } },
-      };
+      const m = prev[bucket];
+      if (!m || !m[id]) return prev;
+      return { ...prev, [bucket]: { ...m, [id]: { ...m[id], progress } } };
     });
-  const finishUpload = (skill: string, id: string) =>
+  const finishUpload = (bucket: string, id: string) =>
     setUploadsMap((prev) => {
-      const skillMap = prev[skill];
-      if (!skillMap) return prev;
-      const { [id]: _, ...rest } = skillMap;
+      const m = prev[bucket];
+      if (!m) return prev;
+      const { [id]: _, ...rest } = m;
       if (Object.keys(rest).length === 0) {
-        const { [skill]: __, ...others } = prev;
+        const { [bucket]: __, ...others } = prev;
         return others;
       }
-      return { ...prev, [skill]: rest };
+      return { ...prev, [bucket]: rest };
     });
 
-  const handleUpload = async (file: File, skillName: string, uploadId: string) => {
+  const handleUpload = async (file: File, categoryName: string, uploadId: string) => {
     const fileType = ACCEPTED_TYPES[file.type];
     if (!fileType) {
       toast.error('Unsupported file type. Use images, PDFs, or videos.');
       return;
     }
-
     if (file.size > MAX_UPLOAD_BYTES) {
       toast.error(
         `"${file.name}" is too large. Max upload size is ${MAX_UPLOAD_LABEL}. ` +
-          `Try compressing the video or trimming its length.`
+          `Try compressing the video or trimming its length.`,
       );
       return;
     }
 
-    beginUpload(skillName, uploadId, file.name);
+    beginUpload(categoryName, uploadId, file.name);
     try {
-      // Step 1: ask the backend for a presigned R2 PUT URL. The backend
-      // validates content type, applies MAX_UPLOAD_BYTES, and signs
-      // Content-Length into the URL so R2 enforces it server-side.
       const { data: presigned } = await api.post('/upload/presigned-url', {
         fileName: file.name,
         contentType: file.type,
@@ -102,24 +191,24 @@ export default function PortfolioUploader({ profileId, skills, categoryId }: Por
         folder: 'portfolio',
       });
 
-      // Step 2: PUT the file directly to R2 (browser → R2, skipping the
-      // VPS bandwidth path). axios.put to a raw URL preserves the
-      // onUploadProgress callback we use for the per-file progress bar.
       await axios.put(presigned.uploadUrl, file, {
         headers: { 'Content-Type': file.type },
         onUploadProgress: (e) => {
           if (!e.total) return;
           const pct = Math.round((e.loaded / e.total) * 100);
-          updateProgress(skillName, uploadId, pct);
+          updateProgress(categoryName, uploadId, pct);
         },
-        // 30 min ceiling — covers a 500 MB file even on a slow uplink.
         timeout: 30 * 60 * 1000,
       });
 
-      // Step 3: persist the portfolio_items row pointing at the public URL.
+      // Use the category name as the legacy skill_name fallback so older
+      // server reads (skill_name NOT NULL) still satisfy the constraint.
+      // The new junction starts empty — the editor tags skills via chips.
       await addItem.mutateAsync({
         profileId,
-        skill_name: skillName,
+        skill_name: categoryName,
+        category_name: categoryName,
+        skill_names: [],
         file_url: presigned.fileUrl,
         file_type: fileType,
         file_name: file.name,
@@ -130,68 +219,90 @@ export default function PortfolioUploader({ profileId, skills, categoryId }: Por
       toast.error(message.length > 120 ? message.slice(0, 120) + '...' : message);
       throw err;
     } finally {
-      finishUpload(skillName, uploadId);
+      finishUpload(categoryName, uploadId);
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0 || !activeSkill) {
+    if (!files || files.length === 0 || !activeBucket) {
       e.target.value = '';
       return;
     }
-
-    const skill = activeSkill;
+    const bucket = activeBucket;
     const fileArray = Array.from(files);
     const batchId = Date.now();
 
     Promise.allSettled(
-      fileArray.map((file, i) => handleUpload(file, skill, `${batchId}-${i}`))
-    ).then(
-      (results) => {
-        if (fileArray.length > 1) {
-          const failed = results.filter((r) => r.status === 'rejected').length;
-          const succeeded = fileArray.length - failed;
-          if (succeeded > 0) {
-            toast.success(`${succeeded} of ${fileArray.length} files uploaded`);
-          }
-        }
+      fileArray.map((file, i) => handleUpload(file, bucket, `${batchId}-${i}`)),
+    ).then((results) => {
+      if (fileArray.length > 1) {
+        const failed = results.filter((r) => r.status === 'rejected').length;
+        const succeeded = fileArray.length - failed;
+        if (succeeded > 0) toast.success(`${succeeded} of ${fileArray.length} files uploaded`);
       }
-    );
+    });
 
     e.target.value = '';
   };
 
-  const triggerUpload = (skillName: string) => {
-    setActiveSkill(skillName);
+  const triggerUpload = (bucket: string) => {
+    setActiveBucket(bucket);
     fileInputRef.current?.click();
   };
 
-  // Group items by skill
-  const itemsBySkill: Record<string, any[]> = {};
-  for (const item of items) {
-    if (!itemsBySkill[item.skill_name]) itemsBySkill[item.skill_name] = [];
-    itemsBySkill[item.skill_name].push(item);
+  // Bucket items by category. Anything without a category — or whose
+  // category isn't in the editor's current selection — falls into
+  // Uncategorized so legacy items are visible and editable.
+  const itemsByBucket: Record<string, any[]> = {};
+  for (const item of items as any[]) {
+    const bucket = item.category_name && categories.includes(item.category_name)
+      ? item.category_name
+      : item.category_name && !categories.includes(item.category_name)
+        ? item.category_name
+        : UNCATEGORIZED;
+    if (!itemsByBucket[bucket]) itemsByBucket[bucket] = [];
+    itemsByBucket[bucket].push(item);
   }
 
-  if (skills.length === 0) {
-    return null;
+  // Order: editor's selected categories first (in their selection order),
+  // then any other category that has items, then Uncategorized at the end.
+  const orderedBuckets: string[] = [];
+  for (const c of categories) orderedBuckets.push(c);
+  for (const c of Object.keys(itemsByBucket)) {
+    if (c === UNCATEGORIZED) continue;
+    if (!orderedBuckets.includes(c)) orderedBuckets.push(c);
   }
+  if (itemsByBucket[UNCATEGORIZED]?.length) orderedBuckets.push(UNCATEGORIZED);
 
-  const renderSkillCard = (skill: string) => {
-    const inFlight = Object.values(uploadsMap[skill] ?? {});
+  if (orderedBuckets.length === 0) return null;
+
+  const renderBucket = (bucket: string) => {
+    const isUncategorized = bucket === UNCATEGORIZED;
+    const inFlight = Object.values(uploadsMap[bucket] ?? {});
+    const bucketItems = itemsByBucket[bucket] ?? [];
+
     return (
-      <div key={skill} className="rounded-lg border border-gray-200 p-4">
+      <div key={bucket} className="rounded-lg border border-gray-200 p-4">
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h4 className="text-sm font-medium text-gray-700">{skill}</h4>
-          <Button
-            variant="outline"
-            size="sm"
-            loading={inFlight.length > 0}
-            onClick={() => triggerUpload(skill)}
-          >
-            Upload
-          </Button>
+          <h4 className="text-sm font-medium text-gray-700">
+            {isUncategorized ? 'Uncategorized' : bucket}
+            {isUncategorized && bucketItems.length > 0 && (
+              <span className="ml-2 text-xs font-normal text-gray-400">
+                — assign a category to each item below
+              </span>
+            )}
+          </h4>
+          {!isUncategorized && (
+            <Button
+              variant="outline"
+              size="sm"
+              loading={inFlight.length > 0}
+              onClick={() => triggerUpload(bucket)}
+            >
+              Upload
+            </Button>
+          )}
         </div>
 
         {inFlight.length > 0 && (
@@ -213,9 +324,9 @@ export default function PortfolioUploader({ profileId, skills, categoryId }: Por
           </div>
         )}
 
-        {(itemsBySkill[skill] ?? []).length > 0 ? (
+        {bucketItems.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {(itemsBySkill[skill] ?? []).map((item: any) => (
+            {bucketItems.map((item: any) => (
               <div key={item.id} className="group relative rounded-lg border border-gray-100 p-2">
                 {item.file_type === 'image' && (
                   <img
@@ -244,19 +355,43 @@ export default function PortfolioUploader({ profileId, skills, categoryId }: Por
                   </div>
                 )}
                 {item.file_type === 'video' && (item.source_type !== 'link' || item.provider === 'dropbox') && (
-                  <video
-                    src={item.file_url}
-                    className="h-24 w-full rounded-md object-cover"
-                  />
+                  <video src={item.file_url} className="h-24 w-full rounded-md object-cover" />
                 )}
                 {item.file_type === 'pdf' && (
                   <div className="flex h-24 items-center justify-center rounded-md bg-red-50">
-                    <svg className="h-8 w-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    <svg
+                      className="h-8 w-8 text-red-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                      />
                     </svg>
                   </div>
                 )}
                 <p className="mt-1 truncate text-xs text-gray-600">{item.file_name}</p>
+
+                {/* Category re-bucket selector */}
+                <ItemCategorySelect
+                  profileId={profileId}
+                  itemId={item.id}
+                  current={item.category_name}
+                  options={categories}
+                />
+
+                {/* Per-video skill chips */}
+                <ItemSkillChips
+                  profileId={profileId}
+                  item={item}
+                  selectedSkills={item.skills ?? []}
+                  availableSkills={skillChipOptions}
+                />
+
                 <button
                   type="button"
                   onClick={() => deleteItem.mutate({ profileId, itemId: item.id })}
@@ -276,37 +411,12 @@ export default function PortfolioUploader({ profileId, skills, categoryId }: Por
     );
   };
 
-  // Group the skill cards by template `group` when available. Designer +
-  // Editor: groups become DESIGNER / EDITOR subheadings, ordered per the
-  // template's group order. Other categories fall back to a flat list.
-  const skillNames = skills.map((s) => s.skill);
-  const grouped = new Map<string, string[]>();
-  for (const name of skillNames) {
-    const g = skillGroups[name] || '';
-    if (!grouped.has(g)) grouped.set(g, []);
-    grouped.get(g)!.push(name);
-  }
-  const hasNamedGroups = Array.from(grouped.keys()).some((k) => k !== '');
-
-  let orderedEntries: [string, string[]][];
-  if (hasNamedGroups) {
-    orderedEntries = [];
-    for (const g of skillGroupOrder ?? []) {
-      if (grouped.has(g) && g !== '') orderedEntries.push([g, grouped.get(g)!]);
-    }
-    for (const [g, list] of grouped.entries()) {
-      if (!orderedEntries.find((e) => e[0] === g)) orderedEntries.push([g, list]);
-    }
-  } else {
-    orderedEntries = [['', skillNames]];
-  }
-
   return (
     <div>
       <h3 className="mb-1 text-sm font-semibold text-gray-800">Portfolio</h3>
       <p className="mb-4 text-xs text-gray-500">
-        Upload images, PDFs, or videos for each skill — up to{' '}
-        {MAX_UPLOAD_LABEL} per file. Videos play inline on your profile.
+        Upload images, PDFs, or videos under each category — up to {MAX_UPLOAD_LABEL} per file.
+        Tag the skills demonstrated in each video using the chips below it.
       </p>
 
       <input
@@ -318,18 +428,7 @@ export default function PortfolioUploader({ profileId, skills, categoryId }: Por
         className="hidden"
       />
 
-      <div className="space-y-8">
-        {orderedEntries.map(([groupName, list]) => (
-          <div key={groupName || '_ungrouped'}>
-            {groupName && (
-              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {groupName}
-              </h4>
-            )}
-            <div className="space-y-6">{list.map(renderSkillCard)}</div>
-          </div>
-        ))}
-      </div>
+      <div className="space-y-6">{orderedBuckets.map(renderBucket)}</div>
     </div>
   );
 }

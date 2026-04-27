@@ -60,4 +60,19 @@ router.get('/categories/:categoryId/ai-tools', async (req, res, next) => {
   }
 });
 
+router.get('/categories/:categoryId/portfolio-categories', async (req, res, next) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('template_categories')
+      .select('*')
+      .eq('category_id', req.params.categoryId)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+    if (error) return res.status(500).json({ message: error.message });
+    res.json({ portfolio_categories: data });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

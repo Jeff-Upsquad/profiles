@@ -346,12 +346,23 @@ export async function getReviewProfile(profileId: string) {
   // Also fetch portfolio items
   const { data: portfolio } = await supabaseAdmin
     .from('portfolio_items')
-    .select('*')
+    .select('*, portfolio_item_skills(skill_name)')
     .eq('profile_id', profileId)
+    .order('category_name', { ascending: true })
     .order('skill_name', { ascending: true })
     .order('sort_order', { ascending: true });
 
-  return { ...data, portfolio_items: portfolio ?? [] };
+  const portfolioWithSkills = (portfolio ?? []).map((row: any) => {
+    const { portfolio_item_skills, ...rest } = row;
+    return {
+      ...rest,
+      skills: Array.isArray(portfolio_item_skills)
+        ? portfolio_item_skills.map((s: { skill_name: string }) => s.skill_name)
+        : [],
+    };
+  });
+
+  return { ...data, portfolio_items: portfolioWithSkills };
 }
 
 export async function approveProfile(profileId: string, adminId: string) {
@@ -796,6 +807,57 @@ export async function deleteTemplateAiTool(toolId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Template Portfolio Categories (genres per parent category)
+// ---------------------------------------------------------------------------
+
+export async function getTemplateCategories(categoryId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('template_categories')
+    .select('*')
+    .eq('category_id', categoryId)
+    .order('sort_order', { ascending: true });
+
+  if (error) throw new AppError(500, error.message);
+  return data;
+}
+
+export async function createTemplateCategory(categoryId: string, name: string) {
+  const { data, error } = await supabaseAdmin
+    .from('template_categories')
+    .insert({ category_id: categoryId, name })
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === '23505') throw new AppError(409, 'Category already exists for this category');
+    throw new AppError(500, error.message);
+  }
+  return data;
+}
+
+export async function updateTemplateCategory(id: string, name: string) {
+  const { data, error } = await supabaseAdmin
+    .from('template_categories')
+    .update({ name })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw new AppError(400, error.message);
+  return data;
+}
+
+export async function deleteTemplateCategory(id: string) {
+  const { error } = await supabaseAdmin
+    .from('template_categories')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw new AppError(400, error.message);
+  return { message: 'Category deleted' };
+}
+
+// ---------------------------------------------------------------------------
 // Talents Module (browse approved profiles by category)
 // ---------------------------------------------------------------------------
 
@@ -859,12 +921,23 @@ export async function getTalentProfile(profileId: string) {
   // Also fetch portfolio items
   const { data: portfolio } = await supabaseAdmin
     .from('portfolio_items')
-    .select('*')
+    .select('*, portfolio_item_skills(skill_name)')
     .eq('profile_id', profileId)
+    .order('category_name', { ascending: true })
     .order('skill_name', { ascending: true })
     .order('sort_order', { ascending: true });
 
-  return { ...data, portfolio_items: portfolio ?? [] };
+  const portfolioWithSkills = (portfolio ?? []).map((row: any) => {
+    const { portfolio_item_skills, ...rest } = row;
+    return {
+      ...rest,
+      skills: Array.isArray(portfolio_item_skills)
+        ? portfolio_item_skills.map((s: { skill_name: string }) => s.skill_name)
+        : [],
+    };
+  });
+
+  return { ...data, portfolio_items: portfolioWithSkills };
 }
 
 // ---------------------------------------------------------------------------

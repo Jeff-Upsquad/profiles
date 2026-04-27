@@ -272,10 +272,12 @@ export default function ProfileCreate() {
                   skills={values._skills ?? []}
                   tools={values._tools ?? []}
                   aiTools={values._ai_tools ?? []}
+                  categories={values._categories ?? []}
                   accountingSoftware={values._accounting_software ?? []}
                   onSkillsChange={(s) => handleChange('_skills', s)}
                   onToolsChange={(t) => handleChange('_tools', t)}
                   onAiToolsChange={(at) => handleChange('_ai_tools', at)}
+                  onCategoriesChange={(c) => handleChange('_categories', c)}
                   onAccountingSoftwareChange={(v) => handleChange('_accounting_software', v)}
                   showAccountingSoftware={selectedCategory.slug === 'accountant'}
                 />
@@ -288,6 +290,7 @@ export default function ProfileCreate() {
                 <PortfolioUploader
                   profileId={draftProfileId}
                   skills={values._skills ?? []}
+                  categories={values._categories ?? []}
                   categoryId={selectedCategory.id}
                 />
               </div>

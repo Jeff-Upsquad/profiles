@@ -370,13 +370,23 @@ export async function getPortfolioItems(profileId: string, userId: string) {
 
   const { data, error } = await supabaseAdmin
     .from('portfolio_items')
-    .select('*')
+    .select('*, portfolio_item_skills(skill_name)')
     .eq('profile_id', profileId)
+    .order('category_name', { ascending: true })
     .order('skill_name', { ascending: true })
     .order('sort_order', { ascending: true });
 
   if (error) throw new AppError(500, 'Failed to fetch portfolio items');
-  return data;
+
+  return (data ?? []).map((row: any) => {
+    const { portfolio_item_skills, ...rest } = row;
+    return {
+      ...rest,
+      skills: Array.isArray(portfolio_item_skills)
+        ? portfolio_item_skills.map((s: { skill_name: string }) => s.skill_name)
+        : [],
+    };
+  });
 }
 
 interface AddPortfolioItemInput {
@@ -389,6 +399,9 @@ interface AddPortfolioItemInput {
   provider?: string;
   external_url?: string;
   embed_url?: string;
+  // New axes
+  category_name?: string | null;
+  skill_names?: string[];
 }
 
 /**
@@ -458,6 +471,7 @@ export async function addPortfolioItem(
     row = {
       profile_id: profileId,
       skill_name: input.skill_name,
+      category_name: input.category_name ?? null,
       file_type: 'video',
       file_name: input.file_name,
       // Mirror embed_url into file_url so legacy reads keep working.
@@ -476,6 +490,7 @@ export async function addPortfolioItem(
     row = {
       profile_id: profileId,
       skill_name: input.skill_name,
+      category_name: input.category_name ?? null,
       file_url: input.file_url,
       file_type: input.file_type,
       file_name: input.file_name,
@@ -490,7 +505,101 @@ export async function addPortfolioItem(
     .single();
 
   if (error) throw new AppError(500, `Failed to add portfolio item: ${error.message}`);
-  return data;
+
+  // Seed the skills junction. If skill_names is omitted, the legacy
+  // single skill_name is the sole tag — keeps the historical PortfolioUploader
+  // call shape working unchanged.
+  const skillNames =
+    input.skill_names && input.skill_names.length > 0
+      ? Array.from(new Set(input.skill_names))
+      : input.skill_name
+        ? [input.skill_name]
+        : [];
+  if (skillNames.length > 0) {
+    await supabaseAdmin
+      .from('portfolio_item_skills')
+      .insert(skillNames.map((skill_name) => ({ portfolio_item_id: data.id, skill_name })));
+  }
+
+  return { ...data, skills: skillNames };
+}
+
+interface UpdatePortfolioItemInput {
+  category_name?: string | null;
+  skill_names?: string[];
+}
+
+export async function updatePortfolioItem(
+  profileId: string,
+  userId: string,
+  itemId: string,
+  input: UpdatePortfolioItemInput,
+) {
+  const { data: profile } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('id')
+    .eq('id', profileId)
+    .eq('talent_user_id', userId)
+    .is('deleted_at', null)
+    .single();
+
+  if (!profile) throw new AppError(404, 'Profile not found');
+
+  const updates: Record<string, unknown> = {};
+  if (input.category_name !== undefined) updates.category_name = input.category_name;
+  // Mirror primary skill into legacy skill_name column for back-compat
+  // reads (public profile feeds, share links, etc.). Empty selection
+  // preserves whatever was there — a portfolio_item can't lose its
+  // legacy skill_name, only get retagged.
+  if (input.skill_names && input.skill_names.length > 0) {
+    updates.skill_name = input.skill_names[0];
+  }
+
+  if (Object.keys(updates).length > 0) {
+    const { error: updateError } = await supabaseAdmin
+      .from('portfolio_items')
+      .update(updates)
+      .eq('id', itemId)
+      .eq('profile_id', profileId);
+    if (updateError) {
+      throw new AppError(500, `Failed to update portfolio item: ${updateError.message}`);
+    }
+  }
+
+  if (input.skill_names) {
+    const dedup = Array.from(new Set(input.skill_names));
+    const { error: deleteError } = await supabaseAdmin
+      .from('portfolio_item_skills')
+      .delete()
+      .eq('portfolio_item_id', itemId);
+    if (deleteError) {
+      throw new AppError(500, `Failed to clear skill tags: ${deleteError.message}`);
+    }
+    if (dedup.length > 0) {
+      const { error: insertError } = await supabaseAdmin
+        .from('portfolio_item_skills')
+        .insert(dedup.map((skill_name) => ({ portfolio_item_id: itemId, skill_name })));
+      if (insertError) {
+        throw new AppError(500, `Failed to write skill tags: ${insertError.message}`);
+      }
+    }
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('portfolio_items')
+    .select('*, portfolio_item_skills(skill_name)')
+    .eq('id', itemId)
+    .single();
+
+  if (error) throw new AppError(500, 'Failed to read updated portfolio item');
+
+  const { portfolio_item_skills, ...rest } = data as any;
+  return {
+    ...rest,
+    skills: Array.isArray(portfolio_item_skills)
+      ? portfolio_item_skills.map((s: { skill_name: string }) => s.skill_name)
+      : [],
+  };
 }
 
 export async function deletePortfolioItem(profileId: string, userId: string, itemId: string) {

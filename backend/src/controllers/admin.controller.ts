@@ -398,6 +398,52 @@ export async function deleteTemplateAiTool(req: Request, res: Response, next: Ne
 }
 
 // ---------------------------------------------------------------------------
+// Template Portfolio Categories
+// ---------------------------------------------------------------------------
+
+export async function getTemplateCategories(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.getTemplateCategories(req.params.categoryId as string);
+    res.json({ portfolio_categories: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createTemplateCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.createTemplateCategory(
+      req.params.categoryId as string,
+      req.body.name,
+    );
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateTemplateCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.updateTemplateCategory(
+      req.params.id as string,
+      req.body.name,
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteTemplateCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.deleteTemplateCategory(req.params.id as string);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Talents Module
 // ---------------------------------------------------------------------------
 

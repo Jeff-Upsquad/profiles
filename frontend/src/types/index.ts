@@ -130,6 +130,10 @@ export interface PortfolioItem {
   file_type: 'image' | 'pdf' | 'video';
   file_name: string;
   sort_order: number;
+  /** New axis: which genre (template_categories.name) the item was uploaded under. */
+  category_name?: string | null;
+  /** Skills demonstrated in this video (from portfolio_item_skills). */
+  skills?: string[];
   // External-link video fields (present when source_type === 'link').
   source_type?: PortfolioSourceType;
   // String (not the union) so legacy 'gdrive' rows still type-check.
