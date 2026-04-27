@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
+import DropdownMenu, { type DropdownMenuItem } from '@/components/ui/DropdownMenu';
 import toast from 'react-hot-toast';
 
 interface ResetTarget {
@@ -41,6 +43,7 @@ interface BusinessUser {
 type Tab = 'talent' | 'business';
 
 export default function UserManagement() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('talent');
   const [search, setSearch] = useState('');
@@ -217,63 +220,58 @@ export default function UserManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredTalent.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
-                        {!user.is_active && <Badge variant="gray">Hidden</Badge>}
-                      </div>
-                      {user.email && <div className="text-xs text-gray-500">{user.email}</div>}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{user.phone ?? '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{user.current_location ?? '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {new Date(user.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() =>
-                            setResetTarget({ id: user.id, label: user.full_name || user.email || 'this user' })
-                          }
-                        >
-                          Reset Password
-                        </Button>
-                        <Button
-                          variant={user.is_active ? 'secondary' : 'primary'}
-                          size="sm"
-                          loading={setUserActive.isPending && setUserActive.variables?.userId === user.id}
-                          onClick={() =>
-                            setUserActive.mutate({ userId: user.id, isActive: !user.is_active })
-                          }
-                        >
-                          {user.is_active ? 'Mark Inactive' : 'Mark Active'}
-                        </Button>
-                        <Button
-                          variant={user.suspended ? 'primary' : 'secondary'}
-                          size="sm"
-                          loading={suspendUser.isPending}
-                          onClick={() =>
-                            suspendUser.mutate({ userId: user.id, suspend: !user.suspended })
-                          }
-                        >
-                          {user.suspended ? 'Unsuspend' : 'Suspend'}
-                        </Button>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          loading={deleteUser.isPending}
-                          onClick={() => handleDelete(user.id)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filteredTalent.map((user) => {
+                  const items: DropdownMenuItem[] = [
+                    {
+                      label: 'Reset Password',
+                      onClick: () =>
+                        setResetTarget({ id: user.id, label: user.full_name || user.email || 'this user' }),
+                    },
+                    {
+                      label: user.is_active ? 'Mark Inactive' : 'Mark Active',
+                      loading: setUserActive.isPending && setUserActive.variables?.userId === user.id,
+                      onClick: () =>
+                        setUserActive.mutate({ userId: user.id, isActive: !user.is_active }),
+                    },
+                    {
+                      label: user.suspended ? 'Unsuspend' : 'Suspend',
+                      loading: suspendUser.isPending && suspendUser.variables?.userId === user.id,
+                      onClick: () =>
+                        suspendUser.mutate({ userId: user.id, suspend: !user.suspended }),
+                    },
+                    {
+                      label: 'Delete',
+                      variant: 'danger',
+                      loading: deleteUser.isPending && deleteUser.variables === user.id,
+                      onClick: () => handleDelete(user.id),
+                    },
+                  ];
+                  return (
+                    <tr
+                      key={user.id}
+                      className="cursor-pointer hover:bg-gray-50"
+                      onClick={() => router.push(`/users/${user.id}`)}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
+                          {!user.is_active && <Badge variant="gray">Hidden</Badge>}
+                        </div>
+                        {user.email && <div className="text-xs text-gray-500">{user.email}</div>}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{user.phone ?? '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{user.current_location ?? '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex justify-end">
+                          <DropdownMenu items={items} />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -304,61 +302,60 @@ export default function UserManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredBusiness.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-gray-900">{user.company_name}</div>
-                      <div className="text-xs text-gray-500">{user.company_size}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm text-gray-900">{user.contact_person_name}</div>
-                      <div className="text-xs text-gray-500">{user.contact_email}</div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{user.industry ?? '-'}</td>
-                    <td className="px-4 py-3">
-                      <Badge variant={user.verified ? 'green' : 'yellow'}>
-                        {user.verified ? 'Verified' : 'Unverified'}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {new Date(user.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() =>
-                            setResetTarget({
-                              id: user.id,
-                              label: user.contact_person_name || user.company_name || user.email || 'this user',
-                            })
-                          }
-                        >
-                          Reset Password
-                        </Button>
-                        <Button
-                          variant={user.suspended ? 'primary' : 'secondary'}
-                          size="sm"
-                          loading={suspendUser.isPending}
-                          onClick={() =>
-                            suspendUser.mutate({ userId: user.id, suspend: !user.suspended })
-                          }
-                        >
-                          {user.suspended ? 'Unsuspend' : 'Suspend'}
-                        </Button>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          loading={deleteUser.isPending}
-                          onClick={() => handleDelete(user.id)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filteredBusiness.map((user) => {
+                  const items: DropdownMenuItem[] = [
+                    {
+                      label: 'Reset Password',
+                      onClick: () =>
+                        setResetTarget({
+                          id: user.id,
+                          label: user.contact_person_name || user.company_name || user.email || 'this user',
+                        }),
+                    },
+                    {
+                      label: user.suspended ? 'Unsuspend' : 'Suspend',
+                      loading: suspendUser.isPending && suspendUser.variables?.userId === user.id,
+                      onClick: () =>
+                        suspendUser.mutate({ userId: user.id, suspend: !user.suspended }),
+                    },
+                    {
+                      label: 'Delete',
+                      variant: 'danger',
+                      loading: deleteUser.isPending && deleteUser.variables === user.id,
+                      onClick: () => handleDelete(user.id),
+                    },
+                  ];
+                  return (
+                    <tr
+                      key={user.id}
+                      className="cursor-pointer hover:bg-gray-50"
+                      onClick={() => router.push(`/users/${user.id}`)}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="text-sm font-medium text-gray-900">{user.company_name}</div>
+                        <div className="text-xs text-gray-500">{user.company_size}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm text-gray-900">{user.contact_person_name}</div>
+                        <div className="text-xs text-gray-500">{user.contact_email}</div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{user.industry ?? '-'}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant={user.verified ? 'green' : 'yellow'}>
+                          {user.verified ? 'Verified' : 'Unverified'}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex justify-end">
+                          <DropdownMenu items={items} />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

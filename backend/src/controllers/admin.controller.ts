@@ -518,6 +518,15 @@ export async function extendBusinessAccess(req: Request, res: Response, next: Ne
   }
 }
 
+export async function getUserDetail(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.getUserDetail(req.params.userId as string);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function suspendUser(req: Request, res: Response, next: NextFunction) {
   try {
     const { suspend } = req.body;

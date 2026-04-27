@@ -7,11 +7,13 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   async rewrites() {
+    const backendPort = process.env.BACKEND_PORT ?? '5000';
     return {
       beforeFiles: [
         {
           source: '/api/:path*',
-          destination: 'http://localhost:5000/api/:path*',
+          destination: `http://localhost:${backendPort}/api/:path*`,
+          basePath: false,
         },
       ],
     };
