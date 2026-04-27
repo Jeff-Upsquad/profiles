@@ -25,6 +25,12 @@ export const ingestSubscriptionCardSchema = z.object({
   // accept/reject can populate that business's dashboard view. Optional
   // for backwards compat — cards without a resolvable email behave as before.
   business_email: z.string().email().toLowerCase().optional(),
+  // SquadHub's distribution mode. `broadcast` (default) = fan out to every
+  // matching talent at ingest. `manual` ("soft publish") = card is delivered
+  // for the business's own dashboard but talents only see it via a separate
+  // /manual-assignments call. Defaulting to broadcast preserves prior
+  // behaviour for any caller that hasn't started sending the field.
+  distribution: z.enum(['broadcast', 'manual']).default('broadcast'),
 });
 
 export const removeTalentFromCardSchema = z.object({

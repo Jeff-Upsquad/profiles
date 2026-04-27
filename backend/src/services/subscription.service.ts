@@ -143,6 +143,11 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
   // into any business dashboard on talent accept.
   const businessUserId = await resolveBusinessUserIdFromEmail(input.business_email);
 
+  // Manual ("soft publish") cards must NOT auto-fan-out. The business owner
+  // sees them via business_email → business_user_id resolution; talents see
+  // them only when a separate /manual-assignments call hand-picks them.
+  const skipAutoFanOut = input.distribution === 'manual';
+
   const row = {
     external_id: input.external_id,
     content: input.content,
@@ -150,6 +155,11 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     published_at: input.published_at ?? new Date().toISOString(),
     expires_at: input.expires_at ?? null,
     business_user_id: businessUserId,
+    // Stored verbatim so the business dashboard can fall back to email-match
+    // when business_user_id is null (the lead's business_users row may be
+    // created AFTER the card arrives — they accept their invitation later).
+    business_email: input.business_email ?? null,
+    distribution: input.distribution,
     // status: write only when SquadHub sent one. On insert we still default
     // to 'active' via the column default; on update we preserve the existing
     // status when `status` is omitted so a plain content refresh doesn't
@@ -178,6 +188,8 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       // Re-resolve on every ingest so SquadHub can correct the link by
       // re-publishing with a fixed business_email. Null overwrites a stale id.
       business_user_id: businessUserId,
+      business_email: row.business_email,
+      distribution: row.distribution,
     };
     if (input.status) updatePatch.status = input.status;
 
@@ -211,8 +223,11 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     // inferred by PostgREST's ON CONFLICT, so we read existing active rows,
     // diff against the matched talents, and INSERT only the missing ones.
     // Cancelled rows from prior rounds stay around as audit.
+    //
+    // Manual cards are exempt: they only ever surface to talents through
+    // /manual-assignments, never auto-fan-out, even on republish.
     let recipientCount = 0;
-    if (nextStatus === 'active') {
+    if (nextStatus === 'active' && !skipAutoFanOut) {
       const talentIds = await findMatchingTalents(input.match_rules ?? {});
       if (talentIds.length > 0) {
         const { data: existingRows, error: existErr } = await supabaseAdmin
@@ -280,7 +295,11 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
   }
 
   // Fan out: find matching talents and batch-insert recipient rows.
-  const talentIds = await findMatchingTalents(input.match_rules ?? {});
+  // Manual ("soft publish") cards skip this — they only reach talents
+  // via the explicit /manual-assignments hand-pick path.
+  const talentIds = skipAutoFanOut
+    ? []
+    : await findMatchingTalents(input.match_rules ?? {});
 
   let recipientCount = 0;
   if (talentIds.length > 0) {
