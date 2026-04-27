@@ -320,15 +320,50 @@ function pickCategoryIds(matchRules: unknown): string[] {
 }
 
 export async function listMySubscriptionCards(businessUserId: string) {
+  // Resolve the caller's contact_email so we can rescue cards whose
+  // business_user_id was left null at ingest time. SquadHub may publish
+  // a card before the business_users row exists (the lead accepts their
+  // invitation later); the row's `business_email` is the ground truth
+  // and lets us match the card to the user once both sides exist.
+  const { data: businessUser } = await supabaseAdmin
+    .from('business_users')
+    .select('contact_email')
+    .eq('id', businessUserId)
+    .maybeSingle();
+  const contactEmail = (businessUser?.contact_email as string | null | undefined) ?? null;
+
+  const orFilter = contactEmail
+    ? `business_user_id.eq.${businessUserId},and(business_user_id.is.null,business_email.ilike.${contactEmail})`
+    : `business_user_id.eq.${businessUserId}`;
+
   const { data: cards, error } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, content, match_rules, status, published_at, expires_at, created_at')
-    .eq('business_user_id', businessUserId)
+    .select('id, external_id, content, match_rules, status, published_at, expires_at, created_at, business_user_id')
+    .or(orFilter)
     .order('published_at', { ascending: false });
 
   if (error) throw new AppError(500, error.message);
   const list = cards ?? [];
   if (list.length === 0) return [];
+
+  // Opportunistically backfill business_user_id for any cards we matched
+  // by email so subsequent reads hit the indexed FK path. Best-effort —
+  // don't block the response on it. Idempotent: an already-linked card
+  // will simply re-write the same id.
+  const orphanIds = list
+    .filter((c: any) => c.business_user_id == null)
+    .map((c: any) => c.id as string);
+  if (orphanIds.length > 0) {
+    void supabaseAdmin
+      .from('subscription_cards')
+      .update({ business_user_id: businessUserId })
+      .in('id', orphanIds)
+      .then(({ error: backfillErr }) => {
+        if (backfillErr) {
+          console.error('[business] failed to backfill business_user_id', backfillErr);
+        }
+      });
+  }
 
   const cardIds = list.map((c: any) => c.id as string);
 
