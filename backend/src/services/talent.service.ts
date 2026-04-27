@@ -391,24 +391,6 @@ interface AddPortfolioItemInput {
   embed_url?: string;
 }
 
-/**
- * Best-effort fetch of a Vimeo thumbnail via oEmbed. Never throws — failure
- * just leaves thumbnail_url null and the card falls back to a provider chip.
- */
-async function fetchVimeoThumbnail(externalUrl: string): Promise<string | null> {
-  try {
-    const res = await fetch(
-      `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(externalUrl)}`,
-      { signal: AbortSignal.timeout(3000) }
-    );
-    if (!res.ok) return null;
-    const json = (await res.json()) as { thumbnail_url?: string };
-    return typeof json.thumbnail_url === 'string' ? json.thumbnail_url : null;
-  } catch {
-    return null;
-  }
-}
-
 export async function addPortfolioItem(
   profileId: string,
   userId: string,
@@ -436,7 +418,7 @@ export async function addPortfolioItem(
     if (!parsed) {
       throw new AppError(
         400,
-        'Unsupported video link. Use YouTube, Vimeo, Loom, or Dropbox — or upload your video directly.'
+        'Unsupported video link. Paste a YouTube URL or upload your video directly.'
       );
     }
     // Reject if the client tried to forge a different provider/embed_url
@@ -448,12 +430,9 @@ export async function addPortfolioItem(
       throw new AppError(400, 'embed_url does not match the parsed URL');
     }
 
-    // Vimeo thumbnail is best-effort over the network. YouTube is
-    // deterministic and already on the parsed result.
-    let thumbnailUrl: string | null = parsed.thumbnailUrl ?? null;
-    if (parsed.provider === 'vimeo' && !thumbnailUrl) {
-      thumbnailUrl = await fetchVimeoThumbnail(parsed.externalUrl);
-    }
+    // YouTube thumbnails are deterministic — parseVideoUrl already populates
+    // them. No network calls needed.
+    const thumbnailUrl: string | null = parsed.thumbnailUrl ?? null;
 
     row = {
       profile_id: profileId,
