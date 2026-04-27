@@ -209,3 +209,20 @@ export async function getCategoryBySlug(req: Request, res: Response, next: NextF
     next(err);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Talent: Categories the caller can create a profile in
+// ---------------------------------------------------------------------------
+// This is mounted under `/api/talent/...` so it's role-gated to talents.
+// Distinct from `/api/public/categories`, which serves the same data
+// (without the designer-editor filter) to non-talent contexts (home page,
+// business discovery, etc.).
+
+export async function getTalentCreatableCategories(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await talentService.getTalentCreatableCategories();
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}

@@ -3,6 +3,11 @@ import { AppError } from '../middleware/errorHandler.middleware.js';
 import type { UpdateProfileInput, UpdateTalentUserInput, UpdateBasicProfileInput } from '../validators/talent.validators.js';
 import { parseVideoUrl, type VideoProvider } from '../../../shared/src/videoEmbed.js';
 import { getAdminSetting } from './admin.service.js';
+import {
+  isGhostCategory,
+  isGhostSourceCategory,
+  syncGhostForTalent,
+} from './ghost-profile.service.js';
 
 // ---------------------------------------------------------------------------
 // Talent User
@@ -121,6 +126,18 @@ export async function createProfile(
   categoryId: string,
   fieldData?: Record<string, any>
 ) {
+  // Block direct creation of the Designer + Editor combined profile —
+  // talents pick Designer and Video Editor separately, and the ghost
+  // profile service auto-generates a virtual combined entry. The
+  // frontend already hides this category, but we enforce it here too
+  // as defense in depth.
+  if (await isGhostCategory(categoryId)) {
+    throw new AppError(
+      400,
+      'The Designer + Editor profile is generated automatically when you have both a Designer and a Video Editor profile.'
+    );
+  }
+
   // Check for existing non-deleted profile in this category
   const { data: existing } = await supabaseAdmin
     .from('talent_profiles')
@@ -146,6 +163,13 @@ export async function createProfile(
     .single();
 
   if (error) throw new AppError(500, 'Failed to create profile');
+
+  // If this is a Designer or Video Editor profile, the ghost service
+  // may need to (re)build the combined ghost row.
+  if (await isGhostSourceCategory(categoryId)) {
+    await syncGhostForTalent(userId);
+  }
+
   return data;
 }
 
@@ -209,6 +233,14 @@ export async function updateProfile(profileId: string, userId: string, input: Up
     .single();
 
   if (error) throw new AppError(500, 'Failed to update profile');
+
+  // Status may have flipped from approved → pending_review on edit. If
+  // this is a ghost source profile, the ghost's mirrored status needs
+  // to be recomputed.
+  if (await isGhostSourceCategory(profile.category_id)) {
+    await syncGhostForTalent(userId);
+  }
+
   return data;
 }
 
@@ -267,6 +299,11 @@ export async function submitProfile(profileId: string, userId: string) {
     .single();
 
   if (error) throw new AppError(500, 'Failed to submit profile');
+
+  if (await isGhostSourceCategory(profile.category_id)) {
+    await syncGhostForTalent(userId);
+  }
+
   return { ...data, auto_approved: didAutoApprove };
 }
 
@@ -293,6 +330,11 @@ export async function deactivateProfile(profileId: string, userId: string) {
     .single();
 
   if (error) throw new AppError(500, 'Failed to deactivate profile');
+
+  if (await isGhostSourceCategory(profile.category_id)) {
+    await syncGhostForTalent(userId);
+  }
+
   return data;
 }
 
@@ -319,6 +361,11 @@ export async function reactivateProfile(profileId: string, userId: string) {
     .single();
 
   if (error) throw new AppError(500, 'Failed to reactivate profile');
+
+  if (await isGhostSourceCategory(profile.category_id)) {
+    await syncGhostForTalent(userId);
+  }
+
   return data;
 }
 
@@ -341,6 +388,13 @@ export async function softDeleteProfile(profileId: string, userId: string) {
     .single();
 
   if (error) throw new AppError(500, 'Failed to delete profile');
+
+  // Removing one of the source profiles voids the ghost — let the
+  // ghost service hard-delete it.
+  if (await isGhostSourceCategory(profile.category_id)) {
+    await syncGhostForTalent(userId);
+  }
+
   return data;
 }
 
@@ -729,6 +783,20 @@ export async function getActiveCategories() {
 
   if (error) throw new AppError(500, 'Failed to fetch categories');
   return data;
+}
+
+/**
+ * Categories a talent is allowed to create a profile in.
+ *
+ * Excludes the Designer + Editor combined category — that one is now
+ * a ghost-only category, auto-generated when a talent has both a
+ * Designer profile and a Video Editor profile (see
+ * `ghost-profile.service.ts`). Other contexts (business discovery,
+ * subscription cards, admin) continue to use `getActiveCategories()`.
+ */
+export async function getTalentCreatableCategories() {
+  const all = await getActiveCategories();
+  return (all ?? []).filter((c: any) => c.slug !== 'designer-editor');
 }
 
 export async function getCategoryBySlug(slug: string) {
