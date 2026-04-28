@@ -171,6 +171,7 @@ export default function ThreadsProfileView({
           fieldData={profile.field_data}
           bioFieldKey={bioFieldKey}
           languages={talentUser.languages_spoken}
+          categorySlug={category?.slug}
           groupMaps={{
             skills: skillGroups,
             tools: toolGroups,

@@ -33,6 +33,10 @@ interface CategoryWithLevel {
 
 interface DesignerExtrasProps {
   categoryId: string;
+  /** Parent category slug — used to relabel the Categories section to
+   * "Categories and Skills" on Designer profiles, where Skills was folded
+   * into Categories. */
+  categorySlug?: string;
   skills: SkillWithLevel[];
   tools: string[];
   aiTools?: string[];
@@ -71,6 +75,7 @@ function GroupHeading({ name }: { name: string }) {
 
 export default function DesignerExtras({
   categoryId,
+  categorySlug,
   skills,
   tools,
   aiTools = [],
@@ -83,6 +88,11 @@ export default function DesignerExtras({
   onAccountingSoftwareChange,
   showAccountingSoftware = false,
 }: DesignerExtrasProps) {
+  const isDesigner = categorySlug === 'designer';
+  const categoriesLabel = isDesigner ? 'Categories and Skills' : 'Categories';
+  const categoriesHelp = isDesigner
+    ? 'Pick the categories and skills you specialize in and rate your proficiency (1-10) — your portfolio uploads are organized by these.'
+    : 'Pick the genres you specialize in and rate your proficiency (1-10) — your portfolio uploads are organized by these.';
   const { data: availableSkills = [] } = useQuery<SkillItem[]>({
     queryKey: ['templateSkills', categoryId],
     queryFn: async () => {
@@ -270,13 +280,12 @@ export default function DesignerExtras({
 
   return (
     <div className="space-y-8">
-      {/* Categories — portfolio genres (e.g. Wedding, Movies, AI Video) */}
+      {/* Categories — portfolio genres (e.g. Wedding, Movies, AI Video).
+          On Designer profiles this section also subsumes Skills. */}
       {onCategoriesChange && (
         <div>
-          <h3 className="mb-1 text-sm font-semibold text-gray-800">Categories</h3>
-          <p className="mb-3 text-xs text-gray-500">
-            Pick the genres you specialize in and rate your proficiency (1-10) — your portfolio uploads are organized by these.
-          </p>
+          <h3 className="mb-1 text-sm font-semibold text-gray-800">{categoriesLabel}</h3>
+          <p className="mb-3 text-xs text-gray-500">{categoriesHelp}</p>
           {availableCategories.length === 0 ? (
             <p className="text-sm text-gray-400">No categories configured for this category yet.</p>
           ) : (

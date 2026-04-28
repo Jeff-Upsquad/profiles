@@ -277,6 +277,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
           <div className="mt-6 border-t border-gray-200 pt-6">
             <DesignerExtras
               categoryId={profile.category_id}
+              categorySlug={profile.category?.slug}
               skills={values._skills ?? []}
               tools={values._tools ?? []}
               aiTools={values._ai_tools ?? []}

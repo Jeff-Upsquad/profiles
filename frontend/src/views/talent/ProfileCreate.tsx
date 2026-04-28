@@ -272,6 +272,7 @@ export default function ProfileCreate() {
               <div className="mt-6 border-t border-gray-200 pt-6">
                 <DesignerExtras
                   categoryId={selectedCategory.id}
+                  categorySlug={selectedCategory.slug}
                   skills={values._skills ?? []}
                   tools={values._tools ?? []}
                   aiTools={values._ai_tools ?? []}
