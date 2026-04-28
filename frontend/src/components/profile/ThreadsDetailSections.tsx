@@ -8,6 +8,12 @@ interface ThreadsDetailSectionsProps {
   bioFieldKey?: string;
   languages?: { language: string; proficiency: string }[];
   /**
+   * Parent category slug — used to relabel the Categories section to
+   * "Categories and Skills" on Designer profiles, where Skills was folded
+   * into Categories.
+   */
+  categorySlug?: string;
+  /**
    * Optional name → group lookups for skills/tools/AI tools. When any item
    * resolves to a non-empty group, that section is rendered with subheadings
    * (e.g. "DESIGNER" / "EDITOR" inside CORE SKILLS). Falls back to flat
@@ -271,7 +277,8 @@ function FileLink({ label, url, delay }: { label: string; url: string; delay: nu
   );
 }
 
-export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, languages, groupMaps }: ThreadsDetailSectionsProps) {
+export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, languages, categorySlug, groupMaps }: ThreadsDetailSectionsProps) {
+  const categoriesLabel = categorySlug === 'designer' ? 'Categories and Skills' : 'Categories';
   const activeFields = fields
     .filter((f) => f.is_active)
     .sort((a, b) => a.sort_order - b.sort_order);
@@ -307,7 +314,7 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   if (categories.length > 0) {
     const delay = sectionIndex * 0.04;
     sections.push(
-      <SkillsSection key="_categories" label="Categories" skills={categories} delay={delay} />
+      <SkillsSection key="_categories" label={categoriesLabel} skills={categories} delay={delay} />
     );
     sectionIndex++;
   }
