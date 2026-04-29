@@ -113,6 +113,8 @@ export default function UserApprovals() {
         </div>
         <Link
           href="/approvals/preview"
+          target="_blank"
+          rel="noopener noreferrer"
           className="inline-flex shrink-0 items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
         >
           Preview Signup Form
