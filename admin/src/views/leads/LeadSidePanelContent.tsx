@@ -1,6 +1,7 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import StatusTabs from './StatusTabs';
@@ -28,6 +29,7 @@ interface LeadFull {
   profile_type_custom: string | null;
   linked_talent: { id: string; full_name: string } | null;
   auto_approved: boolean;
+  deleted_at: string | null;
   created_at: string;
 }
 
@@ -79,7 +81,14 @@ function KV({ label, children }: { label: string; children: React.ReactNode }) {
   );
 }
 
-export default function LeadSidePanelContent({ leadId }: { leadId: string }) {
+export default function LeadSidePanelContent({
+  leadId,
+  onClose,
+}: {
+  leadId: string;
+  onClose?: () => void;
+}) {
+  const queryClient = useQueryClient();
   const { data: lead, isLoading } = useQuery<LeadFull>({
     queryKey: ['admin-lead', leadId],
     queryFn: async () => {
@@ -88,6 +97,70 @@ export default function LeadSidePanelContent({ leadId }: { leadId: string }) {
     },
     enabled: !!leadId,
   });
+
+  const refreshLists = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-lead', leadId] });
+    queryClient.invalidateQueries({ queryKey: ['admin-leads'] });
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await api.delete(`/admin/leads/${leadId}`);
+    },
+    onSuccess: () => {
+      toast.success('Candidate moved to recycle bin');
+      refreshLists();
+      onClose?.();
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || 'Failed to delete candidate');
+    },
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: async () => {
+      await api.patch(`/admin/leads/${leadId}/restore`);
+    },
+    onSuccess: () => {
+      toast.success('Candidate restored');
+      refreshLists();
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || 'Failed to restore candidate');
+    },
+  });
+
+  const permanentDeleteMutation = useMutation({
+    mutationFn: async () => {
+      await api.delete(`/admin/leads/${leadId}/permanent`);
+    },
+    onSuccess: () => {
+      toast.success('Candidate permanently deleted');
+      refreshLists();
+      onClose?.();
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || 'Failed to permanently delete');
+    },
+  });
+
+  const handleDelete = () => {
+    if (window.confirm('Move this candidate to the recycle bin? You can restore them later.')) {
+      deleteMutation.mutate();
+    }
+  };
+  const handleRestore = () => {
+    restoreMutation.mutate();
+  };
+  const handlePermanentDelete = () => {
+    if (
+      window.confirm(
+        'Permanently delete this candidate and all related data (notes, interview invitations)? This cannot be undone.'
+      )
+    ) {
+      permanentDeleteMutation.mutate();
+    }
+  };
 
   if (isLoading) {
     return (
@@ -136,6 +209,9 @@ export default function LeadSidePanelContent({ leadId }: { leadId: string }) {
               )}
               {lead.auto_approved && (
                 <Badge variant="indigo">Auto-approved</Badge>
+              )}
+              {lead.deleted_at && (
+                <Badge variant="red">Deleted</Badge>
               )}
               <span className="text-gray-500">
                 Applied{' '}
@@ -287,6 +363,92 @@ export default function LeadSidePanelContent({ leadId }: { leadId: string }) {
           </div>
         </Section>
       )}
+
+      {/* Danger zone */}
+      <Section title="Danger Zone">
+        {lead.deleted_at ? (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">
+              This candidate is in the recycle bin (deleted{' '}
+              {new Date(lead.deleted_at).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })}
+              ).
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={handleRestore}
+                disabled={restoreMutation.isPending}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-50"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 10h10a8 8 0 018 8v2M3 10l6-6m-6 6l6 6"
+                  />
+                </svg>
+                Restore
+              </button>
+              <button
+                onClick={handlePermanentDelete}
+                disabled={permanentDeleteMutation.isPending}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-600 shadow-sm transition-colors hover:bg-red-50 disabled:opacity-50"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+                Delete Forever
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">
+              Move this candidate to the recycle bin. They can be restored later
+              from the Deleted tab.
+            </p>
+            <button
+              onClick={handleDelete}
+              disabled={deleteMutation.isPending}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-600 shadow-sm transition-colors hover:bg-red-50 disabled:opacity-50"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+              Delete Candidate
+            </button>
+          </div>
+        )}
+      </Section>
     </div>
   );
 }

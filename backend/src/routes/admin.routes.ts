@@ -341,6 +341,11 @@ router.patch(
 );
 router.delete('/leads/notes/:noteId', leadController.deleteLeadNote);
 
+// Soft-delete / restore / permanent delete (recycle bin pattern)
+router.delete('/leads/:id', leadController.softDeleteLead);
+router.patch('/leads/:id/restore', leadController.restoreLead);
+router.delete('/leads/:id/permanent', leadController.permanentlyDeleteLead);
+
 // ---------------------------------------------------------------------------
 // Public Forms Config
 // ---------------------------------------------------------------------------

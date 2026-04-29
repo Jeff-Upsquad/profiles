@@ -113,6 +113,7 @@ export async function getLeadSubmissions(filters: {
   search?: string;
   role?: string;
   signed_up?: string;
+  deleted?: string;
   page?: number;
   limit?: number;
 }) {
@@ -125,6 +126,14 @@ export async function getLeadSubmissions(filters: {
     .select('*, linked_talent:linked_talent_user_id(id, full_name)', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
+
+  // Soft-delete filter: by default exclude deleted leads. Pass deleted=true to
+  // see only deleted ones (recycle bin), or deleted=any to include both.
+  if (filters.deleted === 'true') {
+    query = query.not('deleted_at', 'is', null);
+  } else if (filters.deleted !== 'any') {
+    query = query.is('deleted_at', null);
+  }
 
   if (filters.form_type) {
     query = query.eq('form_type', filters.form_type);
@@ -294,4 +303,58 @@ export async function deleteLeadNote(noteId: string) {
 
   if (error) throw new AppError(500, `Failed to delete note: ${error.message}`);
   return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Soft-delete / Restore / Permanent delete (admin)
+// ---------------------------------------------------------------------------
+
+export async function softDeleteLead(id: string) {
+  const { data, error } = await supabaseAdmin
+    .from('lead_submissions')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+    .is('deleted_at', null)
+    .select('id')
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') throw new AppError(404, 'Lead not found or already deleted');
+    throw new AppError(500, `Failed to delete lead: ${error.message}`);
+  }
+  return data;
+}
+
+export async function restoreLead(id: string) {
+  const { data, error } = await supabaseAdmin
+    .from('lead_submissions')
+    .update({ deleted_at: null })
+    .eq('id', id)
+    .not('deleted_at', 'is', null)
+    .select('id')
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') throw new AppError(404, 'Lead not found or not deleted');
+    throw new AppError(500, `Failed to restore lead: ${error.message}`);
+  }
+  return data;
+}
+
+export async function permanentlyDeleteLead(id: string) {
+  // Only allow permanent delete on already-soft-deleted rows to prevent
+  // accidental hard-deletes from the main list.
+  const { data, error } = await supabaseAdmin
+    .from('lead_submissions')
+    .delete()
+    .eq('id', id)
+    .not('deleted_at', 'is', null)
+    .select('id')
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') throw new AppError(404, 'Lead not found or not in recycle bin');
+    throw new AppError(500, `Failed to permanently delete lead: ${error.message}`);
+  }
+  return data;
 }

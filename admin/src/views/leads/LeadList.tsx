@@ -74,6 +74,11 @@ const SIGNED_UP_TABS: { value: string; label: string }[] = [
   { value: 'true', label: 'Signed Up' },
 ];
 
+const VIEW_TABS: { value: string; label: string }[] = [
+  { value: '', label: 'Active' },
+  { value: 'true', label: 'Recycle Bin' },
+];
+
 export default function LeadList() {
   const router = useRouter();
   const pathname = usePathname();
@@ -85,6 +90,7 @@ export default function LeadList() {
   const search = searchParams.get('search') || '';
   const role = searchParams.get('role') || '';
   const signedUp = searchParams.get('signed_up') || '';
+  const deleted = searchParams.get('deleted') || '';
   const page = Number(searchParams.get('page') || '1');
   const selectedId = searchParams.get('selected');
 
@@ -101,7 +107,7 @@ export default function LeadList() {
   );
 
   const { data, isLoading, isPlaceholderData } = useQuery<LeadsResponse>({
-    queryKey: ['admin-leads', formType, status, profileType, search, page, role, signedUp],
+    queryKey: ['admin-leads', formType, status, profileType, search, page, role, signedUp, deleted],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (formType) params.set('form_type', formType);
@@ -110,6 +116,7 @@ export default function LeadList() {
       if (search) params.set('search', search);
       if (role) params.set('role', role);
       if (signedUp) params.set('signed_up', signedUp);
+      if (deleted) params.set('deleted', deleted);
       params.set('page', String(page));
       params.set('limit', '25');
       const { data } = await api.get(`/admin/leads?${params.toString()}`);
@@ -163,21 +170,40 @@ export default function LeadList() {
         ))}
       </div>
 
-      {/* Signed Up Toggle */}
-      <div className="flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
-        {SIGNED_UP_TABS.map((tab) => (
-          <button
-            key={tab.value || 'candidates'}
-            onClick={() => updateQuery({ signed_up: tab.value, page: '1' })}
-            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-              signedUp === tab.value
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-900'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Signed Up Toggle + View Toggle */}
+      <div className="flex flex-wrap gap-3">
+        <div className="flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
+          {SIGNED_UP_TABS.map((tab) => (
+            <button
+              key={tab.value || 'candidates'}
+              onClick={() => updateQuery({ signed_up: tab.value, page: '1' })}
+              className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                signedUp === tab.value
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
+          {VIEW_TABS.map((tab) => (
+            <button
+              key={tab.value || 'active'}
+              onClick={() => updateQuery({ deleted: tab.value, page: '1' })}
+              className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                deleted === tab.value
+                  ? tab.value
+                    ? 'bg-white text-red-600 shadow-sm'
+                    : 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Role Sub-Filter (Creative only) */}
