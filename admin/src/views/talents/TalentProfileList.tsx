@@ -68,7 +68,7 @@ function tierKeyOf(profile: TalentProfile): TierKey {
   return 'none';
 }
 
-export default function TalentProfileList({ categoryId }: { categoryId: string }) {
+export default function TalentProfileList({ categoryId, stateName }: { categoryId: string; stateName?: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -96,9 +96,20 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
 
   // Resolve location for each profile once. Memoized so we don't re-parse
   // on every render. Returns a parallel array aligned with `profiles`.
-  const profileLocations = useMemo(() => {
+  const allProfileLocations = useMemo(() => {
     return (profiles ?? []).map((p) => resolveLocation(p.talent_users?.current_location));
   }, [profiles]);
+
+  const { scopedProfiles, profileLocations } = useMemo(() => {
+    if (!stateName) return { scopedProfiles: profiles ?? [], profileLocations: allProfileLocations };
+    const pairs = (profiles ?? [])
+      .map((p, i) => [p, allProfileLocations[i]] as const)
+      .filter(([, loc]) => loc.state === decodeURIComponent(stateName));
+    return {
+      scopedProfiles: pairs.map(([p]) => p),
+      profileLocations: pairs.map(([, l]) => l),
+    };
+  }, [profiles, allProfileLocations, stateName]);
 
   const { tierCounts, statusCounts, matrix, countryCounts, stateCounts } = useMemo(() => {
     const tc: Record<TierKey, number> = { elite: 0, pro: 0, junior: 0, custom: 0, none: 0 };
@@ -107,7 +118,7 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
     const cc: Record<string, number> = {};
     const stc: Record<string, number> = {};
 
-    (profiles ?? []).forEach((p, i) => {
+    scopedProfiles.forEach((p, i) => {
       const tk = tierKeyOf(p);
       tc[tk]++;
       sc[p.status] = (sc[p.status] ?? 0) + 1;
@@ -121,7 +132,7 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
     });
 
     return { tierCounts: tc, statusCounts: sc, matrix: mx, countryCounts: cc, stateCounts: stc };
-  }, [profiles, profileLocations]);
+  }, [scopedProfiles, profileLocations]);
 
   // States to show in the dropdown — only those with at least one profile,
   // plus an "Unknown" bucket if any profile didn't match a state.
@@ -135,7 +146,7 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
   }, [stateCounts]);
 
   const filteredProfiles = useMemo(() => {
-    let list = profiles ?? [];
+    let list = scopedProfiles;
     let locs = profileLocations;
     if (statusFilter) {
       const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => p.status === statusFilter);
@@ -158,7 +169,7 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
       locs = idx.map(([, l]) => l);
     }
     return list;
-  }, [profiles, profileLocations, statusFilter, tierFilter, countryFilter, stateFilter]);
+  }, [scopedProfiles, profileLocations, statusFilter, tierFilter, countryFilter, stateFilter]);
 
   const pendingInView = useMemo(
     () => filteredProfiles.filter((p) => p.status === 'pending_review'),
@@ -257,7 +268,8 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
   };
 
   const categoryName = profiles?.[0]?.categories?.name ?? 'Category';
-  const total = profiles?.length ?? 0;
+  const decodedStateName = stateName ? decodeURIComponent(stateName) : null;
+  const total = scopedProfiles.length;
   const hasPendingInView = pendingInView.length > 0;
 
   return (
@@ -265,12 +277,14 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
       {/* Header */}
       <div>
         <button
-          onClick={() => router.push('/talents')}
+          onClick={() => router.push(decodedStateName ? `/talents/${categoryId}` : '/talents')}
           className="mb-2 text-sm text-gray-500 hover:text-indigo-600"
         >
-          &larr; Back to Categories
+          &larr; {decodedStateName ? `Back to ${categoryName}` : 'Back to Categories'}
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">{categoryName} Profiles</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {decodedStateName ? `${decodedStateName} — ${categoryName} Profiles` : `${categoryName} Profiles`}
+        </h1>
         <p className="mt-1 text-sm text-gray-500">
           {filteredProfiles.length === total
             ? `${total} profiles`
@@ -440,21 +454,31 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
                 </div>
                 <ul className="max-h-64 divide-y divide-gray-100 overflow-y-auto">
                   {availableStates.map(([state, count]) => {
-                    const isActive = stateFilter === state;
                     const isUnknown = state === UNKNOWN_STATE;
+                    if (isUnknown) {
+                      return (
+                        <li key={state}>
+                          <button
+                            onClick={() => setStateFilter(stateFilter === state ? '' : state)}
+                            className={`flex w-full items-center justify-between px-3 py-2 text-sm text-gray-500 transition ${
+                              stateFilter === state ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <span>{state}</span>
+                            <span className="font-semibold">{count}</span>
+                          </button>
+                        </li>
+                      );
+                    }
                     return (
                       <li key={state}>
-                        <button
-                          onClick={() => setStateFilter(isActive ? '' : state)}
-                          className={`flex w-full items-center justify-between px-3 py-2 text-sm transition ${
-                            isActive
-                              ? 'bg-indigo-50 text-indigo-700'
-                              : 'hover:bg-gray-50'
-                          } ${isUnknown ? 'text-gray-500' : ''}`}
+                        <Link
+                          href={`/talents/${categoryId}/state/${encodeURIComponent(state)}`}
+                          className="flex w-full items-center justify-between px-3 py-2 text-sm transition hover:bg-gray-50"
                         >
                           <span>{state}</span>
                           <span className="font-semibold">{count}</span>
-                        </button>
+                        </Link>
                       </li>
                     );
                   })}
@@ -502,34 +526,37 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
           ))}
         </select>
 
-        <select
-          value={countryFilter}
-          onChange={(e) => {
-            const v = e.target.value as Country | '';
-            setCountryFilter(v);
-            // Clear state when country changes — different countries have different states.
-            setStateFilter('');
-          }}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          <option value="">All Countries</option>
-          {COUNTRIES.map((c) => (
-            <option key={c.value} value={c.value}>{c.label}</option>
-          ))}
-        </select>
+        {!decodedStateName && (
+          <select
+            value={countryFilter}
+            onChange={(e) => {
+              const v = e.target.value as Country | '';
+              setCountryFilter(v);
+              setStateFilter('');
+            }}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">All Countries</option>
+            {COUNTRIES.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+        )}
 
-        <select
-          value={stateFilter}
-          onChange={(e) => setStateFilter(e.target.value)}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          <option value="">All States</option>
-          {availableStates.map(([state, count]) => (
-            <option key={state} value={state}>
-              {state} ({count})
-            </option>
-          ))}
-        </select>
+        {!decodedStateName && (
+          <select
+            value={stateFilter}
+            onChange={(e) => setStateFilter(e.target.value)}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">All States</option>
+            {availableStates.map(([state, count]) => (
+              <option key={state} value={state}>
+                {state} ({count})
+              </option>
+            ))}
+          </select>
+        )}
 
         <input
           type="text"
@@ -652,7 +679,18 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {profile.talent_users?.current_location ?? '-'}
+                      <div>{profile.talent_users?.current_location ?? '-'}</div>
+                      {!decodedStateName && (() => {
+                        const loc = resolveLocation(profile.talent_users?.current_location);
+                        return loc.state !== UNKNOWN_STATE ? (
+                          <Link
+                            href={`/talents/${categoryId}/state/${encodeURIComponent(loc.state)}`}
+                            className="text-xs text-indigo-600 hover:text-indigo-800"
+                          >
+                            {loc.state} &rarr;
+                          </Link>
+                        ) : null;
+                      })()}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-1">
