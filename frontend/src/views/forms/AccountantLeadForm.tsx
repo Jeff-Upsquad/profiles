@@ -231,7 +231,7 @@ export default function AccountantLeadForm() {
       });
       setSubmitting(false);
       setChecking(true);
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 10000));
       setApprovalResult({
         approved: data.auto_approved,
         redirect_url: data.redirect_url,
