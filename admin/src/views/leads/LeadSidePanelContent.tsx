@@ -27,6 +27,7 @@ interface LeadFull {
   profile_type: string | null;
   profile_type_custom: string | null;
   linked_talent: { id: string; full_name: string } | null;
+  auto_approved: boolean;
   created_at: string;
 }
 
@@ -132,6 +133,9 @@ export default function LeadSidePanelContent({ leadId }: { leadId: string }) {
                 <Badge variant="green">Signed up</Badge>
               ) : (
                 <Badge variant="gray">Not signed up</Badge>
+              )}
+              {lead.auto_approved && (
+                <Badge variant="indigo">Auto-approved</Badge>
               )}
               <span className="text-gray-500">
                 Applied{' '}

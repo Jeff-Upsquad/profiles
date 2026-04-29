@@ -54,6 +54,24 @@ export async function createLeadSubmission(input: CreateLeadInput) {
       .from('lead_submissions')
       .update({ auto_approved: true })
       .eq('id', data.id);
+
+    // Auto-invite: create a pending talent invitation so the candidate can
+    // sign up. Not initiated by an admin, so invited_by is NULL.
+    // Silently swallow errors (e.g. already-pending unique violation) — the
+    // lead submission itself must always succeed.
+    try {
+      await supabaseAdmin.from('invitations').insert({
+        email: email.toLowerCase(),
+        role: 'talent',
+        status: 'pending',
+        invited_by: null,
+      });
+    } catch (err) {
+      // Existing pending invitation, RLS, or any other invitation-side issue.
+      // Auto-approval already succeeded — the candidate's experience is
+      // unaffected, and an admin can manually invite if needed.
+      console.error('[auto-invite] failed:', err);
+    }
   }
 
   return {
