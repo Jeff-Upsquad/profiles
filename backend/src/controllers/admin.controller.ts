@@ -727,7 +727,12 @@ export async function getRecycleBin(_req: Request, res: Response, next: NextFunc
 
 export async function restoreProfile(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await adminService.restoreProfile(req.params.profileId as string);
+    const replaceProfileId = req.body?.replace_profile_id as string | undefined;
+    const result = await adminService.restoreProfile(req.params.profileId as string, replaceProfileId);
+    if ((result as any).conflict) {
+      res.status(409).json(result);
+      return;
+    }
     res.json({ profile: result });
   } catch (err) {
     next(err);

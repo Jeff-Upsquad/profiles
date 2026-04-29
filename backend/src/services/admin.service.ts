@@ -823,7 +823,38 @@ export async function getRecycleBin() {
   return data;
 }
 
-export async function restoreProfile(profileId: string) {
+export async function restoreProfile(profileId: string, replaceProfileId?: string) {
+  const { data: archived, error: fetchErr } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('*, talent_users!inner(full_name), categories!inner(name)')
+    .eq('id', profileId)
+    .not('deleted_at', 'is', null)
+    .single();
+
+  if (fetchErr || !archived) throw new AppError(404, 'Archived profile not found');
+
+  const { data: existing } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('*, talent_users!inner(full_name), categories!inner(name)')
+    .eq('talent_user_id', archived.talent_user_id)
+    .eq('category_id', archived.category_id)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (existing && !replaceProfileId) {
+    return { conflict: true, archived, existing };
+  }
+
+  if (existing && replaceProfileId) {
+    const { error: archiveErr } = await supabaseAdmin
+      .from('talent_profiles')
+      .update({ deleted_at: new Date().toISOString(), status: 'deleted' })
+      .eq('id', replaceProfileId)
+      .is('deleted_at', null);
+
+    if (archiveErr) throw new AppError(500, 'Failed to archive the replaced profile');
+  }
+
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')
     .update({

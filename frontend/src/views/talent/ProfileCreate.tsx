@@ -4,10 +4,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
 import { useTalentCreatableCategories, useCategoryWithFields } from '@/hooks/useCategories';
-import { useMyProfiles, useCreateProfile, useUpdateProfile, useSubmitProfile } from '@/hooks/useProfiles';
+import { useMyProfiles, useCreateProfile, useUpdateProfile, useSubmitProfile, usePortfolioItems } from '@/hooks/useProfiles';
+import { useTalentMe } from '@/hooks/useTalentMe';
 import DynamicFormRenderer from '@/components/forms/DynamicFormRenderer';
 import DesignerExtras from '@/components/forms/DesignerExtras';
 import PortfolioUploader from '@/components/forms/PortfolioUploader';
+import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { SkeletonCard } from '@/components/ui/Skeleton';
@@ -32,6 +34,8 @@ export default function ProfileCreate() {
   const updateProfile = useUpdateProfile();
   const submitProfile = useSubmitProfile();
 
+  const { data: talentMe } = useTalentMe();
+
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [values, setValues] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -39,10 +43,19 @@ export default function ProfileCreate() {
   const [draftProfileId, setDraftProfileId] = useState<string | null>(null);
   const [autoSaving, setAutoSaving] = useState(false);
   const autoSaveInFlight = useRef(false);
+  const [languages, setLanguages] = useState<LanguageEntry[]>([]);
+  const hasInitializedLangs = useRef(false);
 
   const { data: categoryWithFields, isLoading: fieldsLoading } = useCategoryWithFields(
     selectedCategory?.slug
   );
+  const { data: portfolioItems } = usePortfolioItems(draftProfileId ?? undefined);
+
+  useEffect(() => {
+    if (!talentMe || hasInitializedLangs.current) return;
+    setLanguages(talentMe.languages_spoken ?? []);
+    hasInitializedLangs.current = true;
+  }, [talentMe]);
 
   // Exclude categories the user already has profiles for
   const existingCategoryIds = new Set(
@@ -124,6 +137,15 @@ export default function ProfileCreate() {
       }
     }
 
+    const filledLanguages = languages.filter((e) => e.language);
+    if (!filledLanguages.some((e) => e.proficiency === 'native')) {
+      newErrors._languages = 'At least one language must be set as native';
+    }
+
+    if (!portfolioItems || portfolioItems.length === 0) {
+      newErrors._portfolio = 'At least one portfolio item is required';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -140,10 +162,16 @@ export default function ProfileCreate() {
     return result.id;
   };
 
+  const saveLanguages = () =>
+    api.put('/talent/me', {
+      languages_spoken: languages.filter((e) => e.language),
+    });
+
   const handleSaveDraft = async () => {
     if (!selectedCategory) return;
     try {
       const id = await persistDraft(selectedCategory.id);
+      try { await saveLanguages(); } catch { /* best effort */ }
       router.push(`/talent/profiles/${id}`);
     } catch {
       // error handled in hook
@@ -157,6 +185,7 @@ export default function ProfileCreate() {
     try {
       if (willAutoApprove) setCelebrationPhase('loading');
       const id = await persistDraft(selectedCategory.id);
+      try { await saveLanguages(); } catch { toast.error('Failed to save languages'); }
       const submitted: any = await submitProfile.mutateAsync(id);
       if (willAutoApprove && submitted?.auto_approved) {
         await refetchUser();
@@ -232,6 +261,8 @@ export default function ProfileCreate() {
             setErrors({});
             setDraftProfileId(null);
             setAutoSaving(false);
+            setLanguages(talentMe?.languages_spoken ?? []);
+            hasInitializedLangs.current = false;
           }}
           className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
         >
@@ -288,6 +319,14 @@ export default function ProfileCreate() {
               </div>
             )}
 
+            {/* Languages */}
+            <div className="mt-6 border-t border-gray-200 pt-6">
+              <LanguagePicker value={languages} onChange={setLanguages} />
+              {errors._languages && (
+                <p className="mt-1 text-sm text-red-600">{errors._languages}</p>
+              )}
+            </div>
+
             {/* Portfolio — appears once a draft exists (auto-created on first skill) */}
             {draftProfileId && skillCount > 0 && (
               <div className="mt-6 border-t border-gray-200 pt-6">
@@ -297,10 +336,16 @@ export default function ProfileCreate() {
                   categories={(values._categories ?? []).map((c: { category: string }) => c.category)}
                   categoryId={selectedCategory.id}
                 />
+                {errors._portfolio && (
+                  <p className="mt-2 text-sm text-red-600">{errors._portfolio}</p>
+                )}
               </div>
             )}
             {autoSaving && (
               <p className="mt-4 text-xs text-gray-500">Preparing portfolio uploader…</p>
+            )}
+            {!draftProfileId && errors._portfolio && (
+              <p className="mt-4 text-sm text-red-600">{errors._portfolio}</p>
             )}
 
             <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-gray-200 pt-6">

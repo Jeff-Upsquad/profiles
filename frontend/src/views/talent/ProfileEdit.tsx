@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { useProfile, useUpdateProfile, useSubmitProfile } from '@/hooks/useProfiles';
+import { useProfile, useUpdateProfile, useSubmitProfile, usePortfolioItems } from '@/hooks/useProfiles';
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import { useTalentMe } from '@/hooks/useTalentMe';
 import { useAuth } from '@/context/AuthContext';
@@ -24,6 +24,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   const { data: profile, isLoading: profileLoading } = useProfile(profileId);
   const updateProfile = useUpdateProfile();
   const submitProfile = useSubmitProfile();
+  const { data: portfolioItems } = usePortfolioItems(profileId);
 
   const { data: talentMe } = useTalentMe();
   const [values, setValues] = useState<Record<string, any>>({});
@@ -132,6 +133,15 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
           newErrors[field.field_key] = 'Please enter a valid URL';
         }
       }
+    }
+
+    const filledLanguages = languages.filter((e) => e.language);
+    if (!filledLanguages.some((e) => e.proficiency === 'native')) {
+      newErrors._languages = 'At least one language must be set as native';
+    }
+
+    if (!portfolioItems || portfolioItems.length === 0) {
+      newErrors._portfolio = 'At least one portfolio item is required';
     }
 
     setErrors(newErrors);
@@ -270,6 +280,9 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
         {/* Languages */}
         <div className="mt-6 border-t border-gray-200 pt-6">
           <LanguagePicker value={languages} onChange={setLanguages} />
+          {errors._languages && (
+            <p className="mt-1 text-sm text-red-600">{errors._languages}</p>
+          )}
         </div>
 
         {/* Skills with proficiency & Tools */}
@@ -312,6 +325,9 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
                   </p>
                 </div>
               </div>
+            )}
+            {errors._portfolio && (
+              <p className="mt-2 text-sm text-red-600">{errors._portfolio}</p>
             )}
           </div>
         )}

@@ -129,13 +129,17 @@ export default function ProfileList() {
                     Reactivate
                   </Button>
                 )}
-                {!profile.is_ghost && (profile.status === 'draft' || profile.status === 'inactive') && (
+                {!profile.is_ghost && (
                   <Button
                     variant="danger"
                     size="sm"
                     loading={deleteProfile.isPending}
                     onClick={() => {
-                      if (confirm('Are you sure you want to delete this profile?')) {
+                      const isLive = profile.status === 'approved' || profile.status === 'pending_review';
+                      const msg = isLive
+                        ? 'This profile is currently live. Deleting it will remove it from public view and move it to the archive. Are you sure?'
+                        : 'Are you sure you want to delete this profile?';
+                      if (confirm(msg)) {
                         deleteProfile.mutate(profile.id);
                       }
                     }}
