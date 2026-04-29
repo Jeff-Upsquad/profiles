@@ -215,7 +215,7 @@ export default function RecycleBin() {
                   Status: {conflict.existing.status.replace('_', ' ')}
                 </p>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   className="mt-3 w-full"
                   onClick={() => setConflict(null)}
