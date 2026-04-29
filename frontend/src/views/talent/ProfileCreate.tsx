@@ -76,12 +76,15 @@ export default function ProfileCreate() {
     });
   };
 
-  // Auto-create a draft profile the first time the user picks a skill so the
-  // PortfolioUploader (which needs a profile_id for portfolio_items rows) can
-  // render inline. Once draftProfileId is set, subsequent saves are updates.
+  // Auto-create a draft profile the first time the user picks a skill or
+  // portfolio category so the PortfolioUploader (which needs a profile_id
+  // for portfolio_items rows) can render inline. Once draftProfileId is set,
+  // subsequent saves are updates.
   const skillCount = (values._skills ?? []).length;
+  const categoryCount = (values._categories ?? []).length;
+  const portfolioReady = skillCount > 0 || categoryCount > 0;
   useEffect(() => {
-    if (skillCount === 0) return;
+    if (!portfolioReady) return;
     if (draftProfileId) return;
     if (autoSaveInFlight.current) return;
     if (!selectedCategory) return;
@@ -107,7 +110,7 @@ export default function ProfileCreate() {
         setAutoSaving(false);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [skillCount, draftProfileId, selectedCategory]);
+  }, [portfolioReady, draftProfileId, selectedCategory]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -327,8 +330,8 @@ export default function ProfileCreate() {
               )}
             </div>
 
-            {/* Portfolio — appears once a draft exists (auto-created on first skill) */}
-            {draftProfileId && skillCount > 0 && (
+            {/* Portfolio — appears once a draft exists (auto-created on first skill or category) */}
+            {draftProfileId && portfolioReady && (
               <div className="mt-6 border-t border-gray-200 pt-6">
                 <PortfolioUploader
                   profileId={draftProfileId}
