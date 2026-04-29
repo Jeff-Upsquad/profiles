@@ -7,6 +7,28 @@ interface FieldDef {
   options?: { label: string; value: string }[];
 }
 
+const COUNTRIES = [
+  { label: 'India', value: 'India' },
+  { label: 'United States', value: 'United States' },
+  { label: 'United Kingdom', value: 'United Kingdom' },
+  { label: 'United Arab Emirates', value: 'United Arab Emirates' },
+  { label: 'Singapore', value: 'Singapore' },
+  { label: 'Canada', value: 'Canada' },
+  { label: 'Australia', value: 'Australia' },
+  { label: 'Other', value: 'Other' },
+];
+
+const INDIAN_STATES = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+  'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
+  'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
+  'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+  'Andaman and Nicobar Islands', 'Chandigarh',
+  'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Jammu and Kashmir',
+  'Ladakh', 'Lakshadweep', 'Puducherry',
+].map((s) => ({ label: s, value: s }));
+
 const GENDER_OPTIONS = [
   { label: 'Male', value: 'male' },
   { label: 'Female', value: 'female' },
@@ -34,8 +56,8 @@ const WORK_TYPE = [
 
 export const FORM_FIELD_DEFINITIONS: Record<string, FieldDef[]> = {
   creative: [
-    { key: 'country', label: 'Country', type: 'string' },
-    { key: 'state', label: 'State', type: 'string' },
+    { key: 'country', label: 'Country', type: 'string', options: COUNTRIES },
+    { key: 'state', label: 'State', type: 'string', options: INDIAN_STATES },
     { key: 'current_district', label: 'District', type: 'string' },
     { key: 'gender', label: 'Gender', type: 'string', options: GENDER_OPTIONS },
     { key: 'age', label: 'Age', type: 'number' },
@@ -44,8 +66,8 @@ export const FORM_FIELD_DEFINITIONS: Record<string, FieldDef[]> = {
     { key: 'experience_years', label: 'Experience (years)', type: 'number' },
   ],
   accountant: [
-    { key: 'country', label: 'Country', type: 'string' },
-    { key: 'state', label: 'State', type: 'string' },
+    { key: 'country', label: 'Country', type: 'string', options: COUNTRIES },
+    { key: 'state', label: 'State', type: 'string', options: INDIAN_STATES },
     { key: 'current_district', label: 'District', type: 'string' },
     { key: 'gender', label: 'Gender', type: 'string', options: GENDER_OPTIONS },
     { key: 'age', label: 'Age', type: 'number' },
