@@ -15,6 +15,7 @@ interface Props {
   leadPhone: string;
   leadProfileType: string | null;
   leadProfileTypeCustom: string | null;
+  linkedTalent: { id: string; full_name: string } | null;
 }
 
 const TIER_LABELS: Record<string, string> = {
@@ -41,6 +42,7 @@ export default function TalentOnboardingSection({
   leadPhone,
   leadProfileType,
   leadProfileTypeCustom,
+  linkedTalent,
 }: Props) {
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
@@ -58,6 +60,7 @@ export default function TalentOnboardingSection({
     staleTime: 30_000,
   });
 
+  const signedUp = !!linkedTalent;
   const invited = existingInvitations.length > 0;
 
   const inviteMutation = useMutation({
@@ -133,11 +136,11 @@ export default function TalentOnboardingSection({
         <Button
           onClick={() => inviteMutation.mutate()}
           loading={inviteMutation.isPending}
-          disabled={!leadEmail || invited}
-          className={invited ? '!bg-green-600 !text-white hover:!bg-green-600 !cursor-default' : ''}
-          title={invited ? 'Invitation already created for this candidate' : undefined}
+          disabled={!leadEmail || invited || signedUp}
+          className={signedUp || invited ? '!bg-green-600 !text-white hover:!bg-green-600 !cursor-default' : ''}
+          title={signedUp ? 'Candidate has already signed up' : invited ? 'Invitation already created for this candidate' : undefined}
         >
-          {invited ? '✓ Invited' : 'Invite as Talent'}
+          {signedUp ? '✓ Signed up' : invited ? '✓ Invited' : 'Invite as Talent'}
         </Button>
 
         <button

@@ -26,6 +26,7 @@ interface LeadFull {
   archive_reason: string | null;
   profile_type: string | null;
   profile_type_custom: string | null;
+  linked_talent: { id: string; full_name: string } | null;
   created_at: string;
 }
 
@@ -211,6 +212,7 @@ export default function LeadSidePanelContent({ leadId }: { leadId: string }) {
           leadPhone={lead.phone}
           leadProfileType={lead.profile_type}
           leadProfileTypeCustom={lead.profile_type_custom}
+          linkedTalent={lead.linked_talent}
         />
       )}
 
