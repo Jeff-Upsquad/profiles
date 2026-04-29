@@ -67,6 +67,8 @@ export async function getLeadSubmissions(filters: {
   form_type?: string;
   status?: string;
   search?: string;
+  role?: string;
+  signed_up?: string;
   page?: number;
   limit?: number;
 }) {
@@ -85,6 +87,14 @@ export async function getLeadSubmissions(filters: {
   }
   if (filters.status) {
     query = query.eq('status', filters.status);
+  }
+  if (filters.role) {
+    query = query.filter('form_data->role', 'cs', JSON.stringify([filters.role]));
+  }
+  if (filters.signed_up === 'true') {
+    query = query.not('linked_talent_user_id', 'is', null);
+  } else if (filters.signed_up === 'false') {
+    query = query.is('linked_talent_user_id', null);
   }
   if (filters.search) {
     query = query.or(
