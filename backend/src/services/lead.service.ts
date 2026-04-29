@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
+import { evaluateAutoApproval, parseConfig } from './auto-approval.service.js';
 import type {
   CreateLeadInput,
   UpdateLeadStatusInput,
@@ -36,7 +37,31 @@ export async function createLeadSubmission(input: CreateLeadInput) {
     .single();
 
   if (error) throw new AppError(500, `Failed to create lead: ${error.message}`);
-  return data;
+
+  // Auto-approval check
+  const { data: formRow } = await supabaseAdmin
+    .from('public_forms')
+    .select('auto_approval_rules')
+    .eq('form_type', form_type)
+    .single();
+
+  const config = parseConfig(formRow?.auto_approval_rules);
+  const allFields: Record<string, unknown> = { form_type, name, phone, email, ...rest };
+  const approved = evaluateAutoApproval(config, allFields);
+
+  if (approved) {
+    await supabaseAdmin
+      .from('lead_submissions')
+      .update({ auto_approved: true })
+      .eq('id', data.id);
+  }
+
+  return {
+    id: data.id,
+    auto_approved: approved,
+    redirect_url: approved ? config.approved_redirect_url || undefined : undefined,
+    approved_message: approved ? config.approved_message : undefined,
+  };
 }
 
 // ---------------------------------------------------------------------------
