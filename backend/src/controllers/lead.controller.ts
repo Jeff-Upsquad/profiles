@@ -52,12 +52,14 @@ export async function getUploadUrl(req: Request, res: Response, next: NextFuncti
 
 export async function getLeads(req: Request, res: Response, next: NextFunction) {
   try {
-    const { form_type, status, profile_type, search, page, limit } = req.query;
+    const { form_type, status, profile_type, search, page, limit, role, signed_up } = req.query;
     const result = await leadService.getLeadSubmissions({
       form_type: form_type as string | undefined,
       status: status as string | undefined,
       profile_type: profile_type as string | undefined,
       search: search as string | undefined,
+      role: role as string | undefined,
+      signed_up: signed_up as string | undefined,
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
     });

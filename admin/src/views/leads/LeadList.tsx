@@ -61,6 +61,18 @@ const FORM_TYPE_TABS: { value: string; label: string }[] = [
   { value: 'accountant', label: 'Accountant' },
 ];
 
+const ROLE_TABS: { value: string; label: string }[] = [
+  { value: '', label: 'All' },
+  { value: 'Editor', label: 'Editor' },
+  { value: 'Designer', label: 'Designer' },
+  { value: 'Editor + Designer', label: 'Editor + Designer' },
+];
+
+const SIGNED_UP_TABS: { value: string; label: string }[] = [
+  { value: '', label: 'Candidates' },
+  { value: 'true', label: 'Signed Up' },
+];
+
 export default function LeadList() {
   const router = useRouter();
   const pathname = usePathname();
@@ -70,6 +82,8 @@ export default function LeadList() {
   const status = searchParams.get('status') || '';
   const profileType = searchParams.get('profile_type') || '';
   const search = searchParams.get('search') || '';
+  const role = searchParams.get('role') || '';
+  const signedUp = searchParams.get('signed_up') || '';
   const page = Number(searchParams.get('page') || '1');
   const selectedId = searchParams.get('selected');
 
@@ -86,13 +100,15 @@ export default function LeadList() {
   );
 
   const { data, isLoading, isPlaceholderData } = useQuery<LeadsResponse>({
-    queryKey: ['admin-leads', formType, status, profileType, search, page],
+    queryKey: ['admin-leads', formType, status, profileType, search, page, role, signedUp],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (formType) params.set('form_type', formType);
       if (status) params.set('status', status);
       if (profileType) params.set('profile_type', profileType);
       if (search) params.set('search', search);
+      if (role) params.set('role', role);
+      if (signedUp) params.set('signed_up', signedUp);
       params.set('page', String(page));
       params.set('limit', '25');
       const { data } = await api.get(`/admin/leads?${params.toString()}`);
@@ -134,7 +150,7 @@ export default function LeadList() {
         {FORM_TYPE_TABS.map((tab) => (
           <button
             key={tab.value || 'all'}
-            onClick={() => updateQuery({ form_type: tab.value, page: '1' })}
+            onClick={() => updateQuery({ form_type: tab.value, page: '1', role: null })}
             className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
               formType === tab.value
                 ? 'bg-white text-gray-900 shadow-sm'
@@ -145,6 +161,42 @@ export default function LeadList() {
           </button>
         ))}
       </div>
+
+      {/* Signed Up Toggle */}
+      <div className="flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
+        {SIGNED_UP_TABS.map((tab) => (
+          <button
+            key={tab.value || 'candidates'}
+            onClick={() => updateQuery({ signed_up: tab.value, page: '1' })}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              signedUp === tab.value
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Role Sub-Filter (Creative only) */}
+      {formType === 'creative' && (
+        <div className="flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
+          {ROLE_TABS.map((tab) => (
+            <button
+              key={tab.value || 'all'}
+              onClick={() => updateQuery({ role: tab.value, page: '1' })}
+              className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                role === tab.value
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Status, Tier & Search Filters */}
       <div className="flex flex-wrap items-end gap-3">
