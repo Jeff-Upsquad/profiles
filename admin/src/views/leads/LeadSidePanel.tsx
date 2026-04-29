@@ -106,7 +106,7 @@ export default function LeadSidePanel({
         </div>
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5">
-          <LeadSidePanelContent leadId={leadId} />
+          <LeadSidePanelContent leadId={leadId} onClose={onClose} />
         </div>
       </aside>
     </div>,

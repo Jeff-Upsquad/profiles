@@ -52,7 +52,7 @@ export async function getUploadUrl(req: Request, res: Response, next: NextFuncti
 
 export async function getLeads(req: Request, res: Response, next: NextFunction) {
   try {
-    const { form_type, status, profile_type, search, page, limit, role, signed_up } = req.query;
+    const { form_type, status, profile_type, search, page, limit, role, signed_up, deleted } = req.query;
     const result = await leadService.getLeadSubmissions({
       form_type: form_type as string | undefined,
       status: status as string | undefined,
@@ -60,6 +60,7 @@ export async function getLeads(req: Request, res: Response, next: NextFunction) 
       search: search as string | undefined,
       role: role as string | undefined,
       signed_up: signed_up as string | undefined,
+      deleted: deleted as string | undefined,
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
     });
@@ -144,6 +145,33 @@ export async function updateLeadNote(req: Request, res: Response, next: NextFunc
 export async function deleteLeadNote(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await leadService.deleteLeadNote(req.params.noteId as string);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function softDeleteLead(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await leadService.softDeleteLead(req.params.id as string);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function restoreLead(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await leadService.restoreLead(req.params.id as string);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function permanentlyDeleteLead(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await leadService.permanentlyDeleteLead(req.params.id as string);
     res.json(result);
   } catch (err) {
     next(err);
