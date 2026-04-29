@@ -29,6 +29,7 @@ import {
   updateLeadProfileTypeSchema,
   createLeadNoteSchema,
   updateLeadNoteSchema,
+  autoApprovalConfigSchema,
 } from '../validators/lead.validators.js';
 import {
   createInterviewQuestionSchema,
@@ -346,6 +347,12 @@ router.delete('/leads/notes/:noteId', leadController.deleteLeadNote);
 
 router.get('/forms', formConfigController.getPublicForms);
 router.patch('/forms/:id/toggle', formConfigController.toggleFormEnabled);
+router.get('/forms/:id/auto-approval', formConfigController.getAutoApprovalRules);
+router.put(
+  '/forms/:id/auto-approval',
+  validate({ body: autoApprovalConfigSchema }),
+  formConfigController.updateAutoApprovalRules
+);
 
 // ---------------------------------------------------------------------------
 // Interview Questions (admin)

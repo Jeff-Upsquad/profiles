@@ -6,6 +6,7 @@ import Link from 'next/link';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import toast from 'react-hot-toast';
+import AutoApprovalEditor from './AutoApprovalEditor';
 
 interface PublicForm {
   id: string;
@@ -14,6 +15,7 @@ interface PublicForm {
   description: string;
   url_path: string;
   enabled: boolean;
+  auto_approval_rules?: { enabled: boolean };
   created_at: string;
   updated_at: string;
 }
@@ -23,6 +25,7 @@ const FRONTEND_ORIGIN = 'https://squadhire.upsquadconnect.com';
 export default function FormManager() {
   const queryClient = useQueryClient();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const { data: forms, isLoading } = useQuery<PublicForm[]>({
     queryKey: ['admin-forms'],
@@ -158,6 +161,44 @@ export default function FormManager() {
                   </>
                 )}
               </button>
+            </div>
+
+            {/* Auto-Approval */}
+            <div className="mt-4 border-t border-gray-100 pt-4">
+              <button
+                onClick={() =>
+                  setExpandedId(expandedId === form.id ? null : form.id)
+                }
+                className="flex w-full items-center gap-2 text-sm font-medium text-gray-700 hover:text-indigo-600"
+              >
+                <svg
+                  className={`h-4 w-4 transition-transform ${
+                    expandedId === form.id ? 'rotate-90' : ''
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+                Auto-Approval Rules
+                {form.auto_approval_rules?.enabled && (
+                  <Badge variant="green">Active</Badge>
+                )}
+              </button>
+              {expandedId === form.id && (
+                <div className="mt-3">
+                  <AutoApprovalEditor
+                    formId={form.id}
+                    formType={form.form_type}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Meta */}

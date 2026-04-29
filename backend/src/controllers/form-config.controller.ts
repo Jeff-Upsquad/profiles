@@ -22,6 +22,26 @@ export async function toggleFormEnabled(req: Request, res: Response, next: NextF
   }
 }
 
+// Admin — get auto-approval rules
+export async function getAutoApprovalRules(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await formConfigService.getAutoApprovalRules(req.params.id as string);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Admin — update auto-approval rules
+export async function updateAutoApprovalRules(req: Request, res: Response, next: NextFunction) {
+  try {
+    const form = await formConfigService.updateAutoApprovalRules(req.params.id as string, req.body);
+    res.json(form);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Public — check if a specific form is enabled
 export async function checkFormStatus(req: Request, res: Response, next: NextFunction) {
   try {

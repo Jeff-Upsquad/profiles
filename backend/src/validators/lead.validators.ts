@@ -137,3 +137,28 @@ export type UpdateLeadProfileTypeInput = z.infer<typeof updateLeadProfileTypeSch
 export type CreateLeadNoteInput = z.infer<typeof createLeadNoteSchema>;
 export type UpdateLeadNoteInput = z.infer<typeof updateLeadNoteSchema>;
 export type CheckExistingContactInput = z.infer<typeof checkExistingContactSchema>;
+
+// ---------------------------------------------------------------------------
+// Auto-approval rules config (admin)
+// ---------------------------------------------------------------------------
+
+const autoApprovalOperators = [
+  'eq', 'neq', 'in', 'not_in', 'contains_any', 'contains_all',
+  'gte', 'lte', 'gt', 'lt',
+] as const;
+
+const autoApprovalRuleSchema = z.object({
+  field: z.string().min(1),
+  operator: z.enum(autoApprovalOperators),
+  value: z.union([z.string(), z.number(), z.array(z.string())]),
+});
+
+export const autoApprovalConfigSchema = z.object({
+  enabled: z.boolean(),
+  match_mode: z.enum(['all', 'any']),
+  rules: z.array(autoApprovalRuleSchema),
+  approved_redirect_url: z.string(),
+  approved_message: z.string().optional(),
+});
+
+export type AutoApprovalConfigInput = z.infer<typeof autoApprovalConfigSchema>;

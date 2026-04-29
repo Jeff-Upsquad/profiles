@@ -22,6 +22,29 @@ export async function toggleFormEnabled(id: string, enabled: boolean) {
   return data;
 }
 
+export async function getAutoApprovalRules(formId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('public_forms')
+    .select('id, form_type, auto_approval_rules')
+    .eq('id', formId)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateAutoApprovalRules(formId: string, rules: Record<string, unknown>) {
+  const { data, error } = await supabaseAdmin
+    .from('public_forms')
+    .update({ auto_approval_rules: rules })
+    .eq('id', formId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function isFormEnabled(formType: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin
     .from('public_forms')

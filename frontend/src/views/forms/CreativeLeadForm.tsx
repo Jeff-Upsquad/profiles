@@ -10,6 +10,7 @@ import ChipSelect from '@/components/ui/ChipSelect';
 import { CREATIVE_ROLES, WORK_TYPE_SEEKING_OPTIONS, GENDER_OPTIONS } from '@/constants/lead-form-options';
 import { COUNTRIES, INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-locations';
 import AlreadySubmittedModal from '@/components/forms/AlreadySubmittedModal';
+import SubmissionResultScreen from '@/components/forms/SubmissionResultScreen';
 import { useDuplicateContactCheck } from '@/hooks/useDuplicateContactCheck';
 
 interface FormValues {
@@ -48,6 +49,12 @@ export default function CreativeLeadForm() {
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [approvalResult, setApprovalResult] = useState<{
+    approved: boolean;
+    redirect_url?: string;
+    message?: string;
+  } | null>(null);
   const [serverError, setServerError] = useState('');
   const [formDisabled, setFormDisabled] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
@@ -110,7 +117,7 @@ export default function CreativeLeadForm() {
 
     setSubmitting(true);
     try {
-      await axios.post('/api/leads/submit', {
+      const { data } = await axios.post('/api/leads/submit', {
         form_type: 'creative',
         name: form.name.trim(),
         phone: form.phone.replace(/\s/g, ''),
@@ -128,12 +135,20 @@ export default function CreativeLeadForm() {
         utm_medium: searchParams.get('utm_medium') || undefined,
         utm_campaign: searchParams.get('utm_campaign') || undefined,
       });
+      setSubmitting(false);
+      setChecking(true);
+      await new Promise((r) => setTimeout(r, 1500));
+      setApprovalResult({
+        approved: data.auto_approved,
+        redirect_url: data.redirect_url,
+        message: data.approved_message,
+      });
+      setChecking(false);
       setSubmitted(true);
     } catch (err: any) {
       setServerError(
         err.response?.data?.error || 'Something went wrong. Please try again.'
       );
-    } finally {
       setSubmitting(false);
     }
   };
@@ -161,21 +176,9 @@ export default function CreativeLeadForm() {
     );
   }
 
-  if (submitted) {
+  if (checking || submitted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3] px-4">
-        <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-semibold text-neutral-900">Thank You!</h2>
-          <p className="mt-2 text-neutral-500">
-            Your application has been submitted successfully. We&apos;ll review your profile and get back to you soon.
-          </p>
-        </div>
-      </div>
+      <SubmissionResultScreen checking={checking} result={approvalResult} />
     );
   }
 
