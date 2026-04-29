@@ -166,6 +166,17 @@ export default function TalentProfileView({
   const skills: { skill: string; level: number }[] = profile.field_data?._skills ?? [];
   const tools: string[] = profile.field_data?._tools ?? [];
   const aiTools: string[] = profile.field_data?._ai_tools ?? [];
+  const rawCategories: any[] = profile.field_data?._categories ?? [];
+  const categories: { skill: string; level: number }[] = rawCategories
+    .map((c) =>
+      typeof c === 'string'
+        ? { skill: c, level: 5 }
+        : { skill: c.category ?? c.skill ?? '', level: c.level ?? 5 }
+    )
+    .filter((c) => c.skill)
+    .sort((a, b) => b.level - a.level);
+  const categoriesLabel =
+    profile.categories?.slug === 'designer' ? 'Categories and Skills' : 'Categories';
   // Group portfolio by skill
   const portfolioBySkill: Record<string, any[]> = {};
   for (const item of profile.portfolio_items ?? []) {
@@ -323,6 +334,31 @@ export default function TalentProfileView({
           ))}
         </dl>
       </div>
+
+      {/* Categories */}
+      {categories.length > 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <h2 className="mb-3 text-lg font-semibold text-gray-900">{categoriesLabel}</h2>
+          <div className="space-y-2">
+            {categories.map((c) => (
+              <div key={c.skill} className="flex items-center gap-3">
+                <span className="w-40 text-sm font-medium text-gray-700">{c.skill}</span>
+                <div className="flex-1">
+                  <div className="h-2 rounded-full bg-gray-200">
+                    <div
+                      className="h-2 rounded-full bg-indigo-600"
+                      style={{ width: `${(c.level / 10) * 100}%` }}
+                    />
+                  </div>
+                </div>
+                <span className="w-8 text-center text-sm font-semibold text-indigo-600">
+                  {c.level}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Skills */}
       {skills.length > 0 && (
