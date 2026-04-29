@@ -65,6 +65,17 @@ export interface CategoryWithFields extends Category {
 
 export type ProfileStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'inactive';
 
+export interface GhostSourceProfile {
+  id: string;
+  category_id: string;
+  category: Category;
+  status: ProfileStatus;
+  field_data: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  portfolio_items: PortfolioItem[];
+}
+
 export interface Profile {
   id: string;
   user_id: string;
@@ -77,6 +88,10 @@ export interface Profile {
   reviewed_at?: string;
   created_at: string;
   updated_at: string;
+  is_ghost?: boolean;
+  source_designer_profile_id?: string | null;
+  source_editor_profile_id?: string | null;
+  source_profiles?: GhostSourceProfile[];
 }
 
 export interface TalentSignupData {

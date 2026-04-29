@@ -20,6 +20,12 @@ export default function ProfileList() {
   const reactivate = useReactivateProfile();
   const deleteProfile = useDeleteProfile();
 
+  // Hide auto-generated ghost rows that aren't yet approved (the ghost's
+  // status is only 'approved' once both source profiles are approved).
+  const visibleProfiles = (profiles ?? []).filter(
+    (p) => !p.is_ghost || p.status === 'approved',
+  );
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -46,7 +52,7 @@ export default function ProfileList() {
 
       {!isApproved && <PendingApprovalBanner />}
 
-      {profiles?.length === 0 ? (
+      {visibleProfiles.length === 0 ? (
         <Card className="py-12 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
             <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -63,7 +69,7 @@ export default function ProfileList() {
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {profiles?.map((profile) => (
+          {visibleProfiles.map((profile) => (
             <Card key={profile.id} className="flex flex-col justify-between">
               <div>
                 <div className="mb-3 flex items-start justify-between">
@@ -74,9 +80,15 @@ export default function ProfileList() {
                     {profile.status.replace('_', ' ')}
                   </Badge>
                 </div>
-                <p className="text-xs text-gray-500">
-                  Created {new Date(profile.created_at).toLocaleDateString()}
-                </p>
+                {profile.is_ghost ? (
+                  <p className="text-xs text-gray-500">
+                    Auto-generated from your Designer and Video Editor profiles
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    Created {new Date(profile.created_at).toLocaleDateString()}
+                  </p>
+                )}
                 {profile.rejection_reason && (
                   <div className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-700">
                     Rejection reason: {profile.rejection_reason}
@@ -90,14 +102,14 @@ export default function ProfileList() {
                     View
                   </Button>
                 </Link>
-{(profile.status === 'draft' || profile.status === 'rejected' || profile.status === 'approved' || profile.status === 'pending_review') && (
+                {!profile.is_ghost && (profile.status === 'draft' || profile.status === 'rejected' || profile.status === 'approved' || profile.status === 'pending_review') && (
                   <Link href={`/talent/profiles/${profile.id}/edit`}>
                     <Button variant="secondary" size="sm">
                       Edit
                     </Button>
                   </Link>
                 )}
-                {profile.status === 'approved' && (
+                {!profile.is_ghost && profile.status === 'approved' && (
                   <Button
                     variant="secondary"
                     size="sm"
@@ -107,7 +119,7 @@ export default function ProfileList() {
                     Deactivate
                   </Button>
                 )}
-                {profile.status === 'inactive' && (
+                {!profile.is_ghost && profile.status === 'inactive' && (
                   <Button
                     variant="secondary"
                     size="sm"
@@ -117,7 +129,7 @@ export default function ProfileList() {
                     Reactivate
                   </Button>
                 )}
-                {(profile.status === 'draft' || profile.status === 'inactive') && (
+                {!profile.is_ghost && (profile.status === 'draft' || profile.status === 'inactive') && (
                   <Button
                     variant="danger"
                     size="sm"
