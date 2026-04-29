@@ -9,6 +9,7 @@ import Badge from '@/components/ui/Badge';
 import TierBadge from '@/components/ui/TierBadge';
 import DropdownMenu from '@/components/ui/DropdownMenu';
 import Modal from '@/components/ui/Modal';
+import { resolveLocation, COUNTRIES, UNKNOWN_STATE, type Country } from '@/lib/location';
 
 interface TalentProfile {
   id: string;
@@ -73,8 +74,11 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [tierFilter, setTierFilter] = useState<TierKey | ''>('');
+  const [countryFilter, setCountryFilter] = useState<Country | ''>('');
+  const [stateFilter, setStateFilter] = useState<string>('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [showGeography, setShowGeography] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectingProfileId, setRejectingProfileId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -90,28 +94,71 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
 
   // --- Computed stats ---
 
-  const { tierCounts, statusCounts, matrix } = useMemo(() => {
+  // Resolve location for each profile once. Memoized so we don't re-parse
+  // on every render. Returns a parallel array aligned with `profiles`.
+  const profileLocations = useMemo(() => {
+    return (profiles ?? []).map((p) => resolveLocation(p.talent_users?.current_location));
+  }, [profiles]);
+
+  const { tierCounts, statusCounts, matrix, countryCounts, stateCounts } = useMemo(() => {
     const tc: Record<TierKey, number> = { elite: 0, pro: 0, junior: 0, custom: 0, none: 0 };
     const sc: Record<string, number> = {};
     const mx: Record<string, Record<TierKey, number>> = {};
+    const cc: Record<string, number> = {};
+    const stc: Record<string, number> = {};
 
-    for (const p of profiles ?? []) {
+    (profiles ?? []).forEach((p, i) => {
       const tk = tierKeyOf(p);
       tc[tk]++;
       sc[p.status] = (sc[p.status] ?? 0) + 1;
       if (!mx[p.status]) mx[p.status] = { elite: 0, pro: 0, junior: 0, custom: 0, none: 0 };
       mx[p.status][tk]++;
-    }
 
-    return { tierCounts: tc, statusCounts: sc, matrix: mx };
-  }, [profiles]);
+      const loc = profileLocations[i];
+      const countryKey = loc.country ?? 'Unknown';
+      cc[countryKey] = (cc[countryKey] ?? 0) + 1;
+      stc[loc.state] = (stc[loc.state] ?? 0) + 1;
+    });
+
+    return { tierCounts: tc, statusCounts: sc, matrix: mx, countryCounts: cc, stateCounts: stc };
+  }, [profiles, profileLocations]);
+
+  // States to show in the dropdown — only those with at least one profile,
+  // plus an "Unknown" bucket if any profile didn't match a state.
+  const availableStates = useMemo(() => {
+    const entries = Object.entries(stateCounts).sort((a, b) => {
+      if (a[0] === UNKNOWN_STATE) return 1;
+      if (b[0] === UNKNOWN_STATE) return -1;
+      return b[1] - a[1] || a[0].localeCompare(b[0]);
+    });
+    return entries;
+  }, [stateCounts]);
 
   const filteredProfiles = useMemo(() => {
     let list = profiles ?? [];
-    if (statusFilter) list = list.filter((p) => p.status === statusFilter);
-    if (tierFilter) list = list.filter((p) => tierKeyOf(p) === tierFilter);
+    let locs = profileLocations;
+    if (statusFilter) {
+      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => p.status === statusFilter);
+      list = idx.map(([p]) => p);
+      locs = idx.map(([, l]) => l);
+    }
+    if (tierFilter) {
+      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => tierKeyOf(p) === tierFilter);
+      list = idx.map(([p]) => p);
+      locs = idx.map(([, l]) => l);
+    }
+    if (countryFilter) {
+      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([, l]) => l.country === countryFilter);
+      list = idx.map(([p]) => p);
+      locs = idx.map(([, l]) => l);
+    }
+    if (stateFilter) {
+      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([, l]) => l.state === stateFilter);
+      list = idx.map(([p]) => p);
+      locs = idx.map(([, l]) => l);
+    }
     return list;
-  }, [profiles, statusFilter, tierFilter]);
+  }, [profiles, profileLocations, statusFilter, tierFilter, countryFilter, stateFilter]);
 
   const pendingInView = useMemo(
     () => filteredProfiles.filter((p) => p.status === 'pending_review'),
@@ -338,6 +385,86 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
         </div>
       )}
 
+      {/* Geography snapshot (collapsible) */}
+      {!isLoading && total > 0 && (
+        <div>
+          <button
+            onClick={() => setShowGeography((v) => !v)}
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+          >
+            {showGeography ? 'Hide Geography' : 'Show Geography'}
+          </button>
+          {showGeography && (
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              {/* Countries */}
+              <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+                <div className="border-b border-gray-100 bg-gray-50 px-3 py-2 text-xs font-medium uppercase text-gray-500">
+                  Countries
+                </div>
+                <ul className="divide-y divide-gray-100">
+                  {Object.entries(countryCounts)
+                    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+                    .map(([country, count]) => {
+                      const isKnown = country !== 'Unknown';
+                      const isActive = countryFilter === country;
+                      return (
+                        <li key={country}>
+                          <button
+                            disabled={!isKnown}
+                            onClick={() => {
+                              if (!isKnown) return;
+                              setCountryFilter(isActive ? '' : (country as Country));
+                              setStateFilter('');
+                            }}
+                            className={`flex w-full items-center justify-between px-3 py-2 text-sm transition ${
+                              isActive
+                                ? 'bg-indigo-50 text-indigo-700'
+                                : isKnown
+                                  ? 'hover:bg-gray-50'
+                                  : 'text-gray-400'
+                            }`}
+                          >
+                            <span>{country}</span>
+                            <span className="font-semibold">{count}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                </ul>
+              </div>
+
+              {/* States */}
+              <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+                <div className="border-b border-gray-100 bg-gray-50 px-3 py-2 text-xs font-medium uppercase text-gray-500">
+                  States
+                </div>
+                <ul className="max-h-64 divide-y divide-gray-100 overflow-y-auto">
+                  {availableStates.map(([state, count]) => {
+                    const isActive = stateFilter === state;
+                    const isUnknown = state === UNKNOWN_STATE;
+                    return (
+                      <li key={state}>
+                        <button
+                          onClick={() => setStateFilter(isActive ? '' : state)}
+                          className={`flex w-full items-center justify-between px-3 py-2 text-sm transition ${
+                            isActive
+                              ? 'bg-indigo-50 text-indigo-700'
+                              : 'hover:bg-gray-50'
+                          } ${isUnknown ? 'text-gray-500' : ''}`}
+                        >
+                          <span>{state}</span>
+                          <span className="font-semibold">{count}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Filters: status tabs + tier dropdown + search */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
@@ -375,6 +502,35 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
           ))}
         </select>
 
+        <select
+          value={countryFilter}
+          onChange={(e) => {
+            const v = e.target.value as Country | '';
+            setCountryFilter(v);
+            // Clear state when country changes — different countries have different states.
+            setStateFilter('');
+          }}
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="">All Countries</option>
+          {COUNTRIES.map((c) => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
+
+        <select
+          value={stateFilter}
+          onChange={(e) => setStateFilter(e.target.value)}
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="">All States</option>
+          {availableStates.map(([state, count]) => (
+            <option key={state} value={state}>
+              {state} ({count})
+            </option>
+          ))}
+        </select>
+
         <input
           type="text"
           placeholder="Search by name..."
@@ -383,9 +539,15 @@ export default function TalentProfileList({ categoryId }: { categoryId: string }
           className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
 
-        {(statusFilter || tierFilter) && (
+        {(statusFilter || tierFilter || countryFilter || stateFilter) && (
           <button
-            onClick={() => { setStatusFilter(''); setTierFilter(''); setSelectedIds(new Set()); }}
+            onClick={() => {
+              setStatusFilter('');
+              setTierFilter('');
+              setCountryFilter('');
+              setStateFilter('');
+              setSelectedIds(new Set());
+            }}
             className="text-xs text-gray-500 hover:text-indigo-600"
           >
             Clear filters
