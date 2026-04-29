@@ -128,6 +128,11 @@ export default function LeadSidePanelContent({ leadId }: { leadId: string }) {
               <Badge variant={lead.form_type === 'creative' ? 'indigo' : 'gray'}>
                 {lead.form_type}
               </Badge>
+              {lead.linked_talent ? (
+                <Badge variant="green">Signed up</Badge>
+              ) : (
+                <Badge variant="gray">Not signed up</Badge>
+              )}
               <span className="text-gray-500">
                 Applied{' '}
                 {new Date(lead.created_at).toLocaleDateString('en-IN', {

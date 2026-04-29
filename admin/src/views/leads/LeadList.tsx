@@ -68,6 +68,7 @@ export default function LeadList() {
 
   const formType = searchParams.get('form_type') || '';
   const status = searchParams.get('status') || '';
+  const profileType = searchParams.get('profile_type') || '';
   const search = searchParams.get('search') || '';
   const page = Number(searchParams.get('page') || '1');
   const selectedId = searchParams.get('selected');
@@ -85,11 +86,12 @@ export default function LeadList() {
   );
 
   const { data, isLoading, isPlaceholderData } = useQuery<LeadsResponse>({
-    queryKey: ['admin-leads', formType, status, search, page],
+    queryKey: ['admin-leads', formType, status, profileType, search, page],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (formType) params.set('form_type', formType);
       if (status) params.set('status', status);
+      if (profileType) params.set('profile_type', profileType);
       if (search) params.set('search', search);
       params.set('page', String(page));
       params.set('limit', '25');
@@ -144,7 +146,7 @@ export default function LeadList() {
         ))}
       </div>
 
-      {/* Status & Search Filters */}
+      {/* Status, Tier & Search Filters */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-44">
           <label className="mb-1 block text-xs font-medium text-gray-600">Status</label>
@@ -160,6 +162,21 @@ export default function LeadList() {
             <option value="partner_onboarding">Onboarding</option>
             <option value="onboard_completed">Completed</option>
             <option value="archived">Archived</option>
+          </select>
+        </div>
+        <div className="w-44">
+          <label className="mb-1 block text-xs font-medium text-gray-600">Tier</label>
+          <select
+            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            value={profileType}
+            onChange={(e) => updateQuery({ profile_type: e.target.value, page: '1' })}
+          >
+            <option value="">All tiers</option>
+            <option value="junior">Junior</option>
+            <option value="pro">Pro</option>
+            <option value="elite">Elite</option>
+            <option value="custom">Custom</option>
+            <option value="none">Unassigned</option>
           </select>
         </div>
         <div className="w-72">

@@ -66,6 +66,7 @@ export async function checkContactExists(input: { email?: string; phone?: string
 export async function getLeadSubmissions(filters: {
   form_type?: string;
   status?: string;
+  profile_type?: string;
   search?: string;
   page?: number;
   limit?: number;
@@ -85,6 +86,13 @@ export async function getLeadSubmissions(filters: {
   }
   if (filters.status) {
     query = query.eq('status', filters.status);
+  }
+  if (filters.profile_type) {
+    if (filters.profile_type === 'none') {
+      query = query.is('profile_type', null);
+    } else {
+      query = query.eq('profile_type', filters.profile_type);
+    }
   }
   if (filters.search) {
     query = query.or(
