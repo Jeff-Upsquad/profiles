@@ -549,6 +549,19 @@ export async function setProfileActive(req: Request, res: Response, next: NextFu
   }
 }
 
+export async function setProfileTier(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.setProfileTier(
+      req.params.profileId as string,
+      req.body.tier ?? null,
+      req.body.tier_custom ?? null,
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function setTalentUserActive(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await adminService.setTalentUserActive(

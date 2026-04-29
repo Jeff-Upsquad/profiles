@@ -125,6 +125,22 @@ export const paginationSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Talent profile tier
+// ---------------------------------------------------------------------------
+
+export const setProfileTierSchema = z
+  .object({
+    tier: z.enum(['junior', 'pro', 'elite', 'custom']).nullable(),
+    tier_custom: z.string().max(100).optional().nullable(),
+  })
+  .refine(
+    (data) =>
+      data.tier !== 'custom' ||
+      (!!data.tier_custom && data.tier_custom.trim().length > 0),
+    { message: 'Custom tier label is required', path: ['tier_custom'] },
+  );
+
+// ---------------------------------------------------------------------------
 // Inferred types
 // ---------------------------------------------------------------------------
 
@@ -136,3 +152,4 @@ export type CreateOptionInput = z.infer<typeof createOptionSchema>;
 export type UpdateOptionInput = z.infer<typeof updateOptionSchema>;
 export type ReorderInput = z.infer<typeof reorderSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;
+export type SetProfileTierInput = z.infer<typeof setProfileTierSchema>;

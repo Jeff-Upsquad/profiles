@@ -704,6 +704,45 @@ export async function suspendUser(userId: string, suspend: boolean) {
   return { message: suspend ? 'User suspended' : 'User unsuspended' };
 }
 
+// Set tier on a talent's profile from the Talents admin UI.
+//
+// Interim behavior: writes the same tier to ALL of the talent's
+// non-deleted profiles, preserving today's "one tier per user" experience.
+// Future direction is per-profile tier — when ready, swap the .eq() filter
+// from talent_user_id back to id.
+export async function setProfileTier(
+  profileId: string,
+  tier: 'junior' | 'pro' | 'elite' | 'custom' | null,
+  tier_custom: string | null,
+) {
+  const { data: profile, error: lookupError } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('talent_user_id')
+    .eq('id', profileId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (lookupError) throw new AppError(500, lookupError.message);
+  if (!profile) throw new AppError(404, 'Profile not found');
+
+  const finalCustom = tier === 'custom' ? tier_custom : null;
+
+  const { data, error } = await supabaseAdmin
+    .from('talent_profiles')
+    .update({ tier, tier_custom: finalCustom })
+    .eq('talent_user_id', profile.talent_user_id)
+    .is('deleted_at', null)
+    .select('id');
+
+  if (error) throw new AppError(500, error.message);
+
+  return {
+    tier,
+    tier_custom: finalCustom,
+    updated_profile_count: data?.length ?? 0,
+  };
+}
+
 // Flip talent_profiles.is_active. Touches ONLY is_active — never status —
 // so admin reactivation does not force re-approval. (Talent self-service
 // deactivateProfile/reactivateProfile in talent.service.ts intentionally

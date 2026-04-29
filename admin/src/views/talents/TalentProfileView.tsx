@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -7,6 +8,15 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import TierBadge from '@/components/ui/TierBadge';
 import { cleanPhoneForLink } from '@/lib/phone';
+
+type Tier = 'junior' | 'pro' | 'elite' | 'custom';
+const TIER_OPTIONS: { value: Tier | null; label: string }[] = [
+  { value: null, label: 'None' },
+  { value: 'junior', label: 'Junior' },
+  { value: 'pro', label: 'Pro' },
+  { value: 'elite', label: 'Elite' },
+  { value: 'custom', label: 'Custom' },
+];
 
 interface LinkedLead {
   id: string;
@@ -24,6 +34,8 @@ interface ProfileData {
   category_id: string;
   status: string;
   is_active: boolean;
+  tier: Tier | null;
+  tier_custom: string | null;
   field_data: Record<string, any>;
   created_at: string;
   updated_at: string;
@@ -84,6 +96,21 @@ export default function TalentProfileView({
       return data.profile ?? data;
     },
     enabled: !!profileId,
+  });
+
+  const setTier = useMutation({
+    mutationFn: async (payload: { tier: Tier | null; tier_custom: string | null }) => {
+      await api.patch(`/admin/talents/profiles/${profileId}/tier`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['talent-profile', profileId] });
+      queryClient.invalidateQueries({ queryKey: ['talent-profiles'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-leads'] });
+      toast.success('Tier updated');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || err.response?.data?.message || 'Failed to update tier');
+    },
   });
 
   const setProfileActive = useMutation({
@@ -200,8 +227,8 @@ export default function TalentProfileView({
               {talentUser?.full_name ?? 'Profile'}
             </h1>
             <TierBadge
-              tier={profile.linked_leads?.[0]?.profile_type ?? null}
-              tierCustom={null}
+              tier={profile.tier ?? profile.linked_leads?.[0]?.profile_type ?? null}
+              tierCustom={profile.tier_custom}
             />
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -249,6 +276,16 @@ export default function TalentProfileView({
           </button>
         </div>
       </div>
+
+      {/* Tier — admin override; writes to all of this talent's profiles */}
+      <TierEditor
+        currentTier={profile.tier}
+        currentCustom={profile.tier_custom}
+        inheritedTier={profile.linked_leads?.[0]?.profile_type ?? null}
+        talentName={talentUser?.full_name ?? 'this talent'}
+        isPending={setTier.isPending}
+        onChange={(tier, tier_custom) => setTier.mutate({ tier, tier_custom })}
+      />
 
       {/* Originated From — surfaces matching lead_submissions linked at signup */}
       {profile.linked_leads && profile.linked_leads.length > 0 && (
@@ -444,6 +481,135 @@ export default function TalentProfileView({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+interface TierEditorProps {
+  currentTier: Tier | null;
+  currentCustom: string | null;
+  inheritedTier: Tier | null;
+  talentName: string;
+  isPending: boolean;
+  onChange: (tier: Tier | null, tier_custom: string | null) => void;
+}
+
+function TierEditor({
+  currentTier,
+  currentCustom,
+  inheritedTier,
+  talentName,
+  isPending,
+  onChange,
+}: TierEditorProps) {
+  const [customValue, setCustomValue] = useState(currentCustom ?? '');
+  const [editingCustom, setEditingCustom] = useState(false);
+
+  useEffect(() => {
+    setCustomValue(currentCustom ?? '');
+    setEditingCustom(false);
+  }, [currentTier, currentCustom]);
+
+  const handleClick = (value: Tier | null) => {
+    if (value === currentTier && value !== 'custom') return;
+    if (value === 'custom') {
+      setEditingCustom(true);
+      return;
+    }
+    setEditingCustom(false);
+    onChange(value, null);
+  };
+
+  const saveCustom = () => {
+    const trimmed = customValue.trim();
+    if (!trimmed) {
+      toast.error('Enter a custom label');
+      return;
+    }
+    onChange('custom', trimmed);
+    setEditingCustom(false);
+  };
+
+  const showInheritNote = currentTier === null && inheritedTier !== null;
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-6">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-gray-900">Tier</h2>
+        <TierBadge tier={currentTier ?? inheritedTier} tierCustom={currentCustom} />
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {TIER_OPTIONS.map((opt) => {
+          const active =
+            opt.value === currentTier ||
+            (opt.value === 'custom' && editingCustom);
+          return (
+            <button
+              key={opt.value ?? 'none'}
+              type="button"
+              onClick={() => handleClick(opt.value)}
+              disabled={isPending}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                active
+                  ? 'border-indigo-300 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-200 ring-offset-1'
+                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+              } disabled:opacity-50`}
+            >
+              {opt.label}
+              {opt.value === 'custom' && currentTier === 'custom' && currentCustom && (
+                <span className="ml-1 text-indigo-500">· {currentCustom}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {editingCustom && (
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            type="text"
+            value={customValue}
+            onChange={(e) => setCustomValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                saveCustom();
+              }
+            }}
+            placeholder="e.g. Specialist"
+            maxLength={100}
+            autoFocus
+            className="block w-full max-w-xs rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <button
+            type="button"
+            onClick={saveCustom}
+            disabled={isPending}
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditingCustom(false);
+              setCustomValue(currentCustom ?? '');
+            }}
+            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      <p className="mt-3 text-xs text-gray-500">
+        {showInheritNote ? (
+          <>Currently inherited from candidate. Setting a tier here updates all of {talentName}&rsquo;s profiles and overrides the candidate tier.</>
+        ) : (
+          <>Updates tier for all of {talentName}&rsquo;s profiles. Set to None to inherit from the candidate record.</>
+        )}
+      </p>
     </div>
   );
 }

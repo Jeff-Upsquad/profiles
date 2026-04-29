@@ -16,6 +16,7 @@ import {
   createOptionSchema,
   updateOptionSchema,
   reorderSchema,
+  setProfileTierSchema,
 } from '../validators/admin.validators.js';
 import {
   createInvitationSchema,
@@ -191,6 +192,11 @@ router.get('/talents/categories', adminController.getTalentCategories);
 router.get('/talents/categories/:categoryId/profiles', adminController.getTalentProfilesByCategory);
 router.get('/talents/profiles/:profileId', adminController.getTalentProfile);
 router.patch('/talents/profiles/:profileId/active', adminController.setProfileActive);
+router.patch(
+  '/talents/profiles/:profileId/tier',
+  validate({ body: setProfileTierSchema }),
+  adminController.setProfileTier,
+);
 router.delete('/talents/profiles/:profileId', adminController.softDeleteTalentProfile);
 
 // ---------------------------------------------------------------------------
