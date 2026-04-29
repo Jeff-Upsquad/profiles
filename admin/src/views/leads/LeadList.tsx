@@ -19,6 +19,7 @@ interface Lead {
   email: string | null;
   phone: string;
   form_data: Record<string, any>;
+  auto_approved: boolean;
   created_at: string;
   linked_talent: { id: string; full_name: string } | null;
 }
@@ -296,6 +297,9 @@ export default function LeadList() {
                             </Badge>
                             {lead.linked_talent && (
                               <Badge variant="green">Signed up</Badge>
+                            )}
+                            {lead.auto_approved && (
+                              <Badge variant="indigo">Auto-approved</Badge>
                             )}
                           </div>
                           <p className="mt-0.5 truncate text-xs text-gray-500">
