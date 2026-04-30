@@ -22,6 +22,16 @@ import { startCallbackSweeper } from './services/squadhub-callback.service.js';
 
 const app = express();
 
+// Trust the proxy (nginx/Caddy) so X-Forwarded-For works for rate-limit.
+app.set('trust proxy', 1);
+
+// Lightweight request logger — fires before any other middleware so we
+// see every request the backend receives, even when downstream throws.
+app.use((req, _res, next) => {
+  console.log(`[req] ${req.method} ${req.url} from ${req.ip} ua=${req.get('user-agent')?.slice(0, 60)}`);
+  next();
+});
+
 // ---------------------------------------------------------------------------
 // Global middleware
 // ---------------------------------------------------------------------------
