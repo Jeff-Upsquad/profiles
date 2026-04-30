@@ -90,6 +90,17 @@ export default function VirtualOfficeHoursPicker({ value, onChange }: Props) {
     onChange(next);
   };
 
+  const monday = rows.find((r) => r.day === 'mon');
+  const canApplyToWeekdays = !!(monday?.from || monday?.to);
+  const applyMondayToWeekdays = () => {
+    if (!monday) return;
+    const weekdays: DayId[] = ['tue', 'wed', 'thu', 'fri'];
+    const next = rows.map((r) =>
+      weekdays.includes(r.day) ? { ...r, from: monday.from, to: monday.to } : r
+    );
+    onChange(next);
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3">
@@ -116,33 +127,43 @@ export default function VirtualOfficeHoursPicker({ value, onChange }: Props) {
           const day = DAYS.find((d) => d.id === row.day)!;
           const hrs = dailyHours(row.from, row.to);
           return (
-            <div
-              key={row.day}
-              className="flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap"
-            >
-              <div className="w-24 flex-shrink-0 text-sm font-medium text-gray-700">
-                {day.label}
+            <div key={row.day}>
+              <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap">
+                <div className="w-24 flex-shrink-0 text-sm font-medium text-gray-700">
+                  {day.label}
+                </div>
+                <div className="flex flex-1 items-center gap-2">
+                  <input
+                    type="time"
+                    value={row.from}
+                    onChange={(e) => update(row.day, { from: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    aria-label={`${day.label} from time`}
+                  />
+                  <span className="text-xs text-gray-400">to</span>
+                  <input
+                    type="time"
+                    value={row.to}
+                    onChange={(e) => update(row.day, { to: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    aria-label={`${day.label} to time`}
+                  />
+                </div>
+                <div className="w-20 flex-shrink-0 text-right text-sm font-medium text-gray-600">
+                  {row.from && row.to && hrs > 0 ? `${fmt(hrs)} hrs` : ''}
+                </div>
               </div>
-              <div className="flex flex-1 items-center gap-2">
-                <input
-                  type="time"
-                  value={row.from}
-                  onChange={(e) => update(row.day, { from: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  aria-label={`${day.label} from time`}
-                />
-                <span className="text-xs text-gray-400">to</span>
-                <input
-                  type="time"
-                  value={row.to}
-                  onChange={(e) => update(row.day, { to: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  aria-label={`${day.label} to time`}
-                />
-              </div>
-              <div className="w-20 flex-shrink-0 text-right text-sm font-medium text-gray-600">
-                {row.from && row.to && hrs > 0 ? `${fmt(hrs)} hrs` : ''}
-              </div>
+              {row.day === 'mon' && canApplyToWeekdays && (
+                <div className="flex justify-end px-4 pb-3 -mt-1">
+                  <button
+                    type="button"
+                    onClick={applyMondayToWeekdays}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+                  >
+                    Apply to all weekdays (Tue–Fri)
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}
