@@ -7,6 +7,12 @@ interface ThreadsDetailSectionsProps {
   fieldData: Record<string, any>;
   bioFieldKey?: string;
   languages?: { language: string; proficiency: string }[];
+  /**
+   * Parent category slug — used to relabel the Categories section to
+   * "Categories and Skills" on Designer profiles, where Skills was folded
+   * into Categories.
+   */
+  categorySlug?: string;
 }
 
 function isEmpty(value: any): boolean {
@@ -25,34 +31,46 @@ function getLevelLabel(dots: number): string {
   }
 }
 
-function SkillsSection({ skills, delay }: { skills: { skill: string; level: number }[]; delay: number }) {
+function SkillRow({ skill, level }: { skill: string; level: number }) {
+  const dots = Math.max(1, Math.min(5, Math.ceil(level / 2)));
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-[14px] font-medium text-zinc-800">{skill}</span>
+      <div className="flex items-center gap-2">
+        <div className="flex gap-0.5">
+          {[1, 2, 3, 4, 5].map((l) => (
+            <div
+              key={l}
+              className={`w-3 h-3 rounded-full ${l <= dots ? 'bg-zinc-800' : 'bg-zinc-200'}`}
+            />
+          ))}
+        </div>
+        <span className="text-[12px] text-zinc-500 w-24 text-right">
+          {getLevelLabel(dots)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function SkillsSection({
+  label,
+  skills,
+  delay,
+}: {
+  label: string;
+  skills: { skill: string; level: number }[];
+  delay: number;
+}) {
   return (
     <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
       <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
-        Core Skills
+        {label}
       </h3>
       <div className="flex flex-col gap-3">
-        {skills.map((s) => {
-          const dots = Math.max(1, Math.min(5, Math.ceil(s.level / 2)));
-          return (
-            <div key={s.skill} className="flex items-center justify-between">
-              <span className="text-[14px] font-medium text-zinc-800">{s.skill}</span>
-              <div className="flex items-center gap-2">
-                <div className="flex gap-0.5">
-                  {[1, 2, 3, 4, 5].map((level) => (
-                    <div
-                      key={level}
-                      className={`w-3 h-3 rounded-full ${level <= dots ? 'bg-zinc-800' : 'bg-zinc-200'}`}
-                    />
-                  ))}
-                </div>
-                <span className="text-[12px] text-zinc-500 w-24 text-right">
-                  {getLevelLabel(dots)}
-                </span>
-              </div>
-            </div>
-          );
-        })}
+        {skills.map((s) => (
+          <SkillRow key={s.skill} skill={s.skill} level={s.level} />
+        ))}
       </div>
     </div>
   );
@@ -155,7 +173,8 @@ function FileLink({ label, url, delay }: { label: string; url: string; delay: nu
   );
 }
 
-export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, languages }: ThreadsDetailSectionsProps) {
+export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, languages, categorySlug }: ThreadsDetailSectionsProps) {
+  const categoriesLabel = categorySlug === 'designer' ? 'Categories and Skills' : 'Categories';
   const activeFields = fields
     .filter((f) => f.is_active)
     .sort((a, b) => a.sort_order - b.sort_order);
@@ -163,21 +182,56 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   let sectionIndex = 0;
   const sections: React.ReactNode[] = [];
 
+  // Special field_data keys: _skills, _categories, _accounting_software, _tools, _ai_tools
   const skills: { skill: string; level: number }[] = [...(fieldData?._skills ?? [])].sort(
     (a, b) => b.level - a.level
   );
+  // Categories: legacy rows may still carry plain string[] from the
+  // pre-proficiency version — coerce both shapes into {skill, level}
+  // so SkillsSection renders them uniformly.
+  const rawCategories: any[] = fieldData?._categories ?? [];
+  const categories: { skill: string; level: number }[] = rawCategories
+    .map((c) =>
+      typeof c === 'string'
+        ? { skill: c, level: 5 }
+        : { skill: c.category ?? c.skill ?? '', level: c.level ?? 5 },
+    )
+    .filter((c) => c.skill)
+    .sort((a, b) => b.level - a.level);
+  const accountingSoftware: string[] = fieldData?._accounting_software ?? [];
   const tools: string[] = fieldData?._tools ?? [];
   const aiTools: string[] = fieldData?._ai_tools ?? [];
 
+  // Rename "Tools" → "Other Tools" only when Accounting Software is also present
+  const toolsLabel = accountingSoftware.length > 0 ? 'Other Tools' : 'Tools';
+
+  if (categories.length > 0) {
+    const delay = sectionIndex * 0.04;
+    sections.push(
+      <SkillsSection key="_categories" label={categoriesLabel} skills={categories} delay={delay} />
+    );
+    sectionIndex++;
+  }
+
   if (skills.length > 0) {
     const delay = sectionIndex * 0.04;
-    sections.push(<SkillsSection key="_skills" skills={skills} delay={delay} />);
+    sections.push(
+      <SkillsSection key="_skills" label="Core Skills" skills={skills} delay={delay} />
+    );
+    sectionIndex++;
+  }
+
+  if (accountingSoftware.length > 0) {
+    const delay = sectionIndex * 0.04;
+    sections.push(
+      <TagSection key="_accounting_software" label="Accounting Software" tags={accountingSoftware} delay={delay} />
+    );
     sectionIndex++;
   }
 
   if (tools.length > 0) {
     const delay = sectionIndex * 0.04;
-    sections.push(<TagSection key="_tools" label="Tools" tags={tools} delay={delay} />);
+    sections.push(<TagSection key="_tools" label={toolsLabel} tags={tools} delay={delay} />);
     sectionIndex++;
   }
 
