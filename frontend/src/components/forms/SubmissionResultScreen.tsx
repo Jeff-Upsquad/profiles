@@ -41,46 +41,43 @@ function CheckingScreen() {
   const stage = STAGES[stageIdx];
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3] px-4">
-      <div className="w-full max-w-md rounded-3xl bg-white p-10 text-center ring-1 ring-primary-200">
-        {/* Animated logo */}
+    <div className="flex min-h-screen items-center justify-center bg-canvas-100 px-4">
+      <div className="card-saas w-full max-w-md p-10 text-center">
+        {/* Iridescent orb */}
         <div className="relative mx-auto mb-8 h-24 w-24">
-          <div className="absolute inset-0 animate-ping rounded-full bg-primary-400 opacity-20" />
-          <div className="absolute inset-1 rounded-full bg-gradient-to-tr from-[#1a1a1a] via-[#3d3730] to-[#5c5347] [animation:spin_3s_linear_infinite]" />
+          <div className="absolute inset-0 animate-ping rounded-full bg-prism opacity-20" />
+          <div className="bg-prism absolute inset-1 rounded-full [animation:spin_4s_linear_infinite]" />
           <div className="absolute inset-2 flex items-center justify-center rounded-full bg-white">
             <svg
-              className="h-10 w-10 text-[#1a1a1a]"
+              className="h-10 w-10 text-iris-500"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              strokeWidth={2}
             >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
                 d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
               />
             </svg>
           </div>
         </div>
 
-        <h2 className="font-serif-display text-2xl tracking-tight text-[#1a1a1a]">
-          Checking your approval
+        <h2 className="font-display-saas text-2xl font-bold tracking-tight text-canvas-900">
+          Reviewing your <span className="text-prism">application</span>
         </h2>
 
-        <div className="relative mt-3 h-12 overflow-hidden">
-          <div
-            key={stageIdx}
-            className="animate-[fadeIn_0.4s_ease-out]"
-          >
-            <p className="text-sm font-medium text-[#1a1a1a]">{stage.label}</p>
-            <p className="mt-0.5 text-xs text-primary-400">{stage.detail}</p>
+        <div className="relative mt-4 h-12 overflow-hidden">
+          <div key={stageIdx} className="animate-[fadeIn_0.4s_ease-out]">
+            <p className="text-sm font-medium text-canvas-900">{stage.label}</p>
+            <p className="mt-0.5 text-xs text-canvas-500">{stage.detail}</p>
           </div>
         </div>
 
-        <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-primary-100">
+        <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-canvas-200">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-[#1a1a1a] via-[#3d3730] to-[#5c5347] transition-[width] duration-100 ease-linear"
+            className="bg-prism h-full rounded-full transition-[width] duration-100 ease-linear"
             style={{ width: `${progressPct}%` }}
           />
         </div>
@@ -91,18 +88,16 @@ function CheckingScreen() {
               key={i}
               className={`h-1.5 rounded-full transition-all duration-500 ${
                 i < stageIdx
-                  ? 'w-4 bg-[#1a1a1a]'
+                  ? 'w-4 bg-canvas-900'
                   : i === stageIdx
-                  ? 'w-8 bg-[#1a1a1a] animate-pulse'
-                  : 'w-1.5 bg-primary-200'
+                  ? 'w-8 bg-canvas-900 animate-pulse'
+                  : 'w-1.5 bg-canvas-200'
               }`}
             />
           ))}
         </div>
 
-        <p className="mt-6 text-xs text-primary-400">
-          This usually takes about 10 seconds
-        </p>
+        <p className="mt-6 text-xs text-canvas-400">~10 seconds</p>
       </div>
 
       <style jsx>{`
@@ -134,9 +129,11 @@ export default function SubmissionResultScreen({
 
   if (result?.approved) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3] px-4">
-        <div className="w-full max-w-md rounded-3xl bg-white p-10 text-center ring-1 ring-primary-200 animate-[scaleIn_0.5s_ease-out]">
-          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-emerald-600 shadow-lg shadow-green-500/30">
+      <div className="flex min-h-screen items-center justify-center bg-canvas-100 px-4">
+        <div className="card-saas w-full max-w-md p-10 text-center animate-[scaleIn_0.5s_ease-out]">
+          <span className="pill-live mb-6">You&rsquo;re in</span>
+
+          <div className="bg-prism mx-auto mb-7 flex h-20 w-20 items-center justify-center rounded-full shadow-[0_8px_24px_-8px_rgba(210,77,255,0.45)]">
             <svg
               className="h-10 w-10 text-white"
               fill="none"
@@ -144,55 +141,38 @@ export default function SubmissionResultScreen({
               stroke="currentColor"
               strokeWidth={3}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5 13l4 4L19 7"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="font-serif-display text-2xl tracking-tight text-[#1a1a1a]">
-            {result.message || 'Your profile is auto-approved!'}
+
+          <h2 className="font-display-saas text-2xl font-bold tracking-tight text-canvas-900">
+            {result.message || (
+              <>
+                Profile <span className="text-prism">approved</span>
+              </>
+            )}
           </h2>
-          <p className="mt-3 text-primary-500">
-            Congratulations! You have been approved to join the UpSquad Partner
-            Program.
+          <p className="mt-3 text-canvas-600">
+            Welcome aboard. You&rsquo;ve been approved to join the UpSquad Partner Program.
           </p>
+
           {result.redirect_url && (
             <a
               href={result.redirect_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-7 inline-flex items-center gap-2 rounded-xl bg-[#1a1a1a] px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-black/10 transition-all hover:bg-[#2a2a2a] hover:-translate-y-0.5"
+              className="btn-prism mt-7 inline-flex"
             >
               Visit UpSquad Partner Program
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                />
-              </svg>
+              <span className="arrow">→</span>
             </a>
           )}
         </div>
 
         <style jsx>{`
           @keyframes scaleIn {
-            from {
-              opacity: 0;
-              transform: scale(0.95);
-            }
-            to {
-              opacity: 1;
-              transform: scale(1);
-            }
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
           }
         `}</style>
       </div>
@@ -200,27 +180,25 @@ export default function SubmissionResultScreen({
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3] px-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center ring-1 ring-primary-200">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+    <div className="flex min-h-screen items-center justify-center bg-canvas-100 px-4">
+      <div className="card-saas w-full max-w-md p-10 text-center">
+        <div className="bg-prism mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full shadow-[0_8px_24px_-8px_rgba(210,77,255,0.4)]">
           <svg
-            className="h-8 w-8 text-green-600"
+            className="h-8 w-8 text-white"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
+            strokeWidth={3}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h2 className="font-serif-display text-2xl text-[#1a1a1a]">Thank You!</h2>
-        <p className="mt-2 text-primary-500">
-          Your application has been submitted successfully. We&apos;ll review
-          your profile and get back to you soon.
+
+        <h2 className="font-display-saas text-2xl font-bold tracking-tight text-canvas-900">
+          Thank <span className="text-prism">you</span>.
+        </h2>
+        <p className="mt-3 text-canvas-600">
+          Your application has landed. We&rsquo;ll review your profile and get back to you soon.
         </p>
       </div>
     </div>

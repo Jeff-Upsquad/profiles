@@ -6,7 +6,6 @@ import axios from 'axios';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
-import Button from '@/components/ui/Button';
 import MultiSelectSearch from '@/components/ui/MultiSelectSearch';
 import ChipSelect from '@/components/ui/ChipSelect';
 import AlreadySubmittedModal from '@/components/forms/AlreadySubmittedModal';
@@ -17,7 +16,6 @@ import {
   WORK_TYPE_OPTIONS,
   WORK_TYPE_SEEKING_OPTIONS,
   KERALA_DISTRICTS,
-  ACCOUNTING_SOFTWARE,
   ACCOUNTING_SOFTWARE_PRIMARY,
   ACCOUNTING_SOFTWARE_OTHER,
   ACCOUNTING_SKILLS,
@@ -84,12 +82,46 @@ const TERMS = [
   'Work will be Online, At Office or Hybrid model, based on opening',
 ];
 
-const inputClass = 'border-primary-200 shadow-none focus:ring-1 focus:ring-[#1a1a1a]/20 focus:border-[#1a1a1a]/40';
-const selectClass = inputClass;
 const chipStyle = {
-  selected: 'border-[#1a1a1a] bg-[#1a1a1a] text-white shadow-none',
-  unselected: 'border-primary-300 bg-white text-primary-800 hover:border-primary-500 hover:bg-primary-50',
+  selected:
+    'border-canvas-900 bg-canvas-900 text-white shadow-[0_2px_8px_-2px_rgba(24,24,27,0.18)]',
+  unselected:
+    'border-canvas-200 bg-white text-canvas-700 hover:border-canvas-400 hover:bg-canvas-50',
 };
+
+interface SectionProps {
+  index: string;
+  title: string;
+  description?: string;
+  delay?: number;
+  children: React.ReactNode;
+}
+
+function Section({ index, title, description, delay = 0, children }: SectionProps) {
+  return (
+    <section
+      className="section-rise card-saas mt-5 px-6 py-9 sm:mt-6 sm:px-10 sm:py-11"
+      style={{ animationDelay: `${delay}s` }}
+    >
+      <div className="grid grid-cols-1 gap-x-12 gap-y-7 lg:grid-cols-[260px_1fr]">
+        <div className="lg:sticky lg:top-10 lg:self-start">
+          <p className="font-mono-editorial text-[11px] uppercase tracking-[0.16em] text-canvas-400">
+            Chapter {index}
+          </p>
+          <h2 className="font-display-saas mt-3 text-2xl font-bold text-canvas-900 sm:text-[28px]">
+            {title}
+          </h2>
+          {description && (
+            <p className="mt-3 max-w-[260px] text-sm leading-relaxed text-canvas-500">
+              {description}
+            </p>
+          )}
+        </div>
+        <div className="space-y-6">{children}</div>
+      </div>
+    </section>
+  );
+}
 
 export default function AccountantLeadForm() {
   const searchParams = useSearchParams();
@@ -201,7 +233,10 @@ export default function AccountantLeadForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError('');
-    if (!validate()) return;
+    if (!validate()) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -254,21 +289,22 @@ export default function AccountantLeadForm() {
 
   if (checkingStatus) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1a1a1a] border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-canvas-100">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-canvas-300 border-t-iris-500" />
       </div>
     );
   }
 
   if (formDisabled) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3] px-4">
-        <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center ring-1 ring-primary-200">
-          <h2 className="font-serif-display text-2xl text-[#1a1a1a]">
-            Applications Closed
+      <div className="flex min-h-screen items-center justify-center bg-canvas-100 px-4">
+        <div className="card-saas w-full max-w-lg p-12 text-center">
+          <span className="badge-prism mb-6">Currently Paused</span>
+          <h2 className="font-display-saas text-3xl font-bold tracking-tight text-canvas-900 sm:text-4xl">
+            Applications closed.
           </h2>
-          <p className="mt-2 text-primary-500">
-            This form is currently not accepting applications. Please check back later.
+          <p className="mt-3 text-canvas-500">
+            We&apos;re not accepting submissions right now. Please check back soon.
           </p>
         </div>
       </div>
@@ -276,46 +312,96 @@ export default function AccountantLeadForm() {
   }
 
   if (checking || submitted) {
-    return (
-      <SubmissionResultScreen checking={checking} result={approvalResult} />
-    );
+    return <SubmissionResultScreen checking={checking} result={approvalResult} />;
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F6F3] px-4 py-16 sm:py-20">
-      <div className="mx-auto w-full max-w-2xl">
-        {/* Header */}
-        <div className="editorial-header mb-12 text-center">
-          <h1 className="font-serif-display text-4xl tracking-tight text-[#1a1a1a] sm:text-5xl">
-            SquadHire
-          </h1>
-          <div className="mx-auto mt-3 w-12 border-t border-primary-300" />
-          <p className="mt-3 text-xs font-medium uppercase tracking-[0.2em] text-primary-500">
-            Talent Platform
-          </p>
+    <div className="min-h-screen bg-canvas-100">
+      <div className="mx-auto w-full max-w-5xl px-5 py-6 sm:px-8 lg:px-10">
+        {/* Top bar */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-canvas-900">
+              <span className="bg-prism h-3.5 w-3.5 rounded-[5px]" />
+            </span>
+            <span className="font-display-saas text-base font-bold tracking-tight text-canvas-900">
+              SquadHire
+            </span>
+            <span className="hidden font-mono-editorial text-[11px] tracking-[0.06em] text-canvas-400 sm:inline">
+              · AC—001
+            </span>
+          </div>
+          <span className="pill-live">Accepting Applications</span>
         </div>
 
-        <div className="editorial-card rounded-2xl bg-white p-8 ring-1 ring-primary-200 sm:p-12">
-          <h2 className="font-serif-display text-2xl text-[#1a1a1a] sm:text-3xl">
-            Join as an Accountant
-          </h2>
-          <p className="mt-1 text-sm text-primary-500">
-            Fill in your details to apply. Fields marked with * are required.
-          </p>
+        {/* Hero card */}
+        <header className="saas-lift card-hero relative mt-6 overflow-hidden px-6 py-10 sm:mt-8 sm:px-12 sm:py-14 lg:px-16 lg:py-16">
+          {/* Iridescent decorative blob, top-right */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-[0.18] blur-3xl"
+            style={{
+              backgroundImage:
+                'linear-gradient(96deg, #FF8B47 0%, #FF5B8B 28%, #D24DFF 52%, #8B66F8 76%, #5BB7FF 100%)',
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -bottom-32 -left-20 h-72 w-72 rounded-full opacity-[0.12] blur-3xl"
+            style={{
+              backgroundImage:
+                'linear-gradient(96deg, #5BB7FF 0%, #8B66F8 50%, #FF5B8B 100%)',
+            }}
+          />
 
+          <div className="relative grid grid-cols-1 gap-12 lg:grid-cols-[1fr_320px] lg:items-end">
+            <div>
+              <span className="badge-prism">Talent · Accountant Track</span>
+              <h1 className="font-display-saas mt-7 text-4xl font-bold leading-[1.05] text-canvas-900 sm:text-5xl lg:text-[56px]">
+                The only platform built for accountants{' '}
+                <span className="text-prism text-prism-animated">who care about craft.</span>
+              </h1>
+              <p className="mt-6 max-w-xl text-base leading-relaxed text-canvas-600 sm:text-lg">
+                We match you with employers that respect your expertise — full-time, freelance, hybrid.
+                Six chapters. About five minutes.
+              </p>
+            </div>
+
+            <div className="surface-saas grid grid-cols-2 gap-6 px-6 py-6">
+              <div>
+                <p className="font-display-saas text-3xl font-bold text-canvas-900">06</p>
+                <p className="mt-1 text-xs font-medium text-canvas-500">Chapters</p>
+              </div>
+              <div>
+                <p className="font-display-saas text-3xl font-bold text-canvas-900">~5m</p>
+                <p className="mt-1 text-xs font-medium text-canvas-500">Time</p>
+              </div>
+              <div>
+                <p className="font-display-saas text-3xl font-bold text-canvas-900">10s</p>
+                <p className="mt-1 text-xs font-medium text-canvas-500">Auto-review</p>
+              </div>
+              <div>
+                <p className="font-display-saas text-3xl font-bold text-canvas-900 text-prism">∞</p>
+                <p className="mt-1 text-xs font-medium text-canvas-500">Possibilities</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <form onSubmit={handleSubmit} className="pb-20">
           {serverError && (
-            <div className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
               {serverError}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-10">
-            {/* ── Section 1: Personal Details ── */}
-            <div className="editorial-section space-y-5" style={{ animationDelay: '0.08s' }}>
-              <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary-500">
-                Personal Details
-              </p>
-
+          <Section
+            index="01"
+            title="Personal Details"
+            description="The basics — so we know who we&rsquo;re talking to."
+            delay={0.05}
+          >
+            <div className="field-saas">
               <Input
                 label="Your Name"
                 required
@@ -323,70 +409,68 @@ export default function AccountantLeadForm() {
                 value={form.name}
                 onChange={set('name')}
                 error={errors.name}
-                className={inputClass}
               />
+            </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Contact Number<span className="ml-0.5 text-red-500">*</span>
-                </label>
-                <p className="mb-1 text-xs text-primary-400">Ideally a WhatsApp Number</p>
-                <div className="flex">
-                  <span className="inline-flex items-center rounded-l-lg border border-r-0 border-primary-200 bg-primary-50 px-3 text-sm text-primary-500">
-                    +91
-                  </span>
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={10}
-                    className={`block w-full rounded-r-lg border px-3 py-2 text-sm transition-colors placeholder:text-primary-400 focus:outline-none focus:ring-1 focus:ring-[#1a1a1a]/20 ${
-                      errors.phone
-                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                        : 'border-primary-200 focus:border-[#1a1a1a]/40'
-                    }`}
-                    placeholder="10-digit mobile"
-                    value={form.phone.replace(/^\+91/, '')}
-                    onChange={(e) => {
-                      let digits = e.target.value.replace(/\D/g, '');
-                      while (digits.length > 10 && digits.startsWith('91')) {
-                        digits = digits.slice(2);
-                      }
-                      digits = digits.slice(0, 10);
-                      setForm((prev) => ({ ...prev, phone: '+91' + digits }));
-                      setErrors((prev) => ({ ...prev, phone: undefined }));
-                      dup.clearPhone();
-                    }}
-                    onBlur={() => {
-                      const digits = form.phone.replace(/^\+91/, '');
-                      if (digits.length === 10) dup.checkPhone(digits);
-                    }}
-                  />
-                </div>
-                {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
+            <div className="field-saas">
+              <label className="block">Contact Number<span className="ml-1 text-iris-500">*</span></label>
+              <p className="-mt-1 mb-2 text-xs text-canvas-500">Ideally a WhatsApp number.</p>
+              <div className="flex items-stretch gap-2">
+                <span className="inline-flex items-center rounded-xl border border-canvas-200 bg-canvas-50 px-3.5 text-sm font-medium text-canvas-600">
+                  +91
+                </span>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  className="flex-1"
+                  placeholder="10-digit mobile"
+                  value={form.phone.replace(/^\+91/, '')}
+                  onChange={(e) => {
+                    let digits = e.target.value.replace(/\D/g, '');
+                    while (digits.length > 10 && digits.startsWith('91')) {
+                      digits = digits.slice(2);
+                    }
+                    digits = digits.slice(0, 10);
+                    setForm((prev) => ({ ...prev, phone: '+91' + digits }));
+                    setErrors((prev) => ({ ...prev, phone: undefined }));
+                    dup.clearPhone();
+                  }}
+                  onBlur={() => {
+                    const digits = form.phone.replace(/^\+91/, '');
+                    if (digits.length === 10) dup.checkPhone(digits);
+                  }}
+                />
               </div>
+              {errors.phone && <p className="mt-2 text-xs text-red-600">{errors.phone}</p>}
+            </div>
 
-              <Input
-                label="Age"
-                required
-                type="number"
-                placeholder="Your age"
-                value={form.age}
-                onChange={set('age')}
-                error={errors.age}
-                className={inputClass}
-              />
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div className="field-saas">
+                <Input
+                  label="Age"
+                  required
+                  type="number"
+                  placeholder="Years"
+                  value={form.age}
+                  onChange={set('age')}
+                  error={errors.age}
+                />
+              </div>
+              <div className="field-saas">
+                <Select
+                  label="Gender"
+                  required
+                  placeholder="Select"
+                  options={GENDER_OPTIONS}
+                  value={form.gender}
+                  onChange={set('gender')}
+                  error={errors.gender}
+                />
+              </div>
+            </div>
 
-              <Select
-                label="Gender"
-                required
-                placeholder="Select option..."
-                options={GENDER_OPTIONS}
-                value={form.gender}
-                onChange={set('gender')}
-                error={errors.gender}
-                className={selectClass}
-              />
-
+            <div className="field-saas">
               <Input
                 label="Email"
                 type="email"
@@ -399,19 +483,17 @@ export default function AccountantLeadForm() {
                 }}
                 onBlur={() => dup.checkEmail(form.email)}
                 error={errors.email}
-                className={inputClass}
               />
             </div>
+          </Section>
 
-            {/* ── Section 2: Location ── */}
-            <div
-              className="editorial-section mt-10 space-y-5 border-t border-primary-200 pt-10"
-              style={{ animationDelay: '0.16s' }}
-            >
-              <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary-500">
-                Location
-              </p>
-
+          <Section
+            index="02"
+            title="Location"
+            description="Where you&rsquo;re from, and where you&rsquo;d like to work."
+            delay={0.1}
+          >
+            <div className="field-saas">
               <Select
                 label="Country"
                 required
@@ -432,108 +514,115 @@ export default function AccountantLeadForm() {
                   }));
                 }}
                 error={errors.country}
-                className={selectClass}
               />
+            </div>
 
-              {form.country === 'India' ? (
-                <Select
-                  label="State"
-                  required
-                  placeholder="Select state"
-                  options={INDIAN_STATES}
-                  value={form.state}
-                  onChange={(e) => {
-                    setForm((prev) => ({ ...prev, state: e.target.value, current_district: '' }));
-                    setErrors((prev) => ({ ...prev, state: undefined, current_district: undefined }));
-                  }}
-                  error={errors.state}
-                  className={selectClass}
-                />
-              ) : (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div className="field-saas">
+                {form.country === 'India' ? (
+                  <Select
+                    label="State"
+                    required
+                    placeholder="Select state"
+                    options={INDIAN_STATES}
+                    value={form.state}
+                    onChange={(e) => {
+                      setForm((prev) => ({ ...prev, state: e.target.value, current_district: '' }));
+                      setErrors((prev) => ({ ...prev, state: undefined, current_district: undefined }));
+                    }}
+                    error={errors.state}
+                  />
+                ) : (
+                  <Input
+                    label="State / Region"
+                    required
+                    placeholder="State or region"
+                    value={form.state}
+                    onChange={set('state')}
+                    error={errors.state}
+                  />
+                )}
+              </div>
+              <div className="field-saas">
+                {form.country === 'India' && form.state ? (
+                  <Select
+                    label="District"
+                    required
+                    placeholder="Select district"
+                    options={(DISTRICTS_BY_STATE[form.state] || []).map((d) => ({
+                      label: d,
+                      value: d,
+                    }))}
+                    value={form.current_district}
+                    onChange={set('current_district')}
+                    error={errors.current_district}
+                  />
+                ) : (
+                  <Input
+                    label="District"
+                    required
+                    placeholder={form.country === 'India' ? 'Select a state first' : 'District'}
+                    value={form.current_district}
+                    onChange={set('current_district')}
+                    disabled={form.country === 'India' && !form.state}
+                    error={errors.current_district}
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div className="field-saas">
                 <Input
-                  label="State / Region"
+                  label="Native Place"
                   required
-                  placeholder="State or region"
-                  value={form.state}
-                  onChange={set('state')}
-                  error={errors.state}
-                  className={inputClass}
+                  placeholder="Your native place"
+                  value={form.native_place}
+                  onChange={set('native_place')}
+                  error={errors.native_place}
                 />
-              )}
-
-              {form.country === 'India' && form.state ? (
-                <Select
-                  label="District"
-                  required
-                  placeholder="Select district"
-                  options={(DISTRICTS_BY_STATE[form.state] || []).map((d) => ({
-                    label: d,
-                    value: d,
-                  }))}
-                  value={form.current_district}
-                  onChange={set('current_district')}
-                  error={errors.current_district}
-                  className={selectClass}
-                />
-              ) : (
+              </div>
+              <div className="field-saas">
                 <Input
-                  label="District"
+                  label="Current Location"
                   required
-                  placeholder={form.country === 'India' ? 'Select a state first' : 'District'}
-                  value={form.current_district}
-                  onChange={set('current_district')}
-                  disabled={form.country === 'India' && !form.state}
-                  error={errors.current_district}
-                  className={inputClass}
+                  placeholder="Where you&rsquo;re staying"
+                  value={form.location}
+                  onChange={set('location')}
+                  error={errors.location}
                 />
-              )}
+              </div>
+            </div>
 
-              <Input
-                label="Native Place"
-                required
-                placeholder="Your native place"
-                value={form.native_place}
-                onChange={set('native_place')}
-                error={errors.native_place}
-                className={inputClass}
-              />
-
-              <Input
-                label="Location"
-                required
-                placeholder="Current place of stay"
-                value={form.location}
-                onChange={set('location')}
-                error={errors.location}
-                helperText="Add the current place you are staying (to get job offer near that location)"
-                className={inputClass}
-              />
-
+            <div>
+              <p className="mb-2 text-sm font-medium text-canvas-700">
+                Preferred Work Districts<span className="ml-1 text-iris-500">*</span>
+              </p>
+              <p className="mb-3 text-sm text-canvas-500">
+                Where you&rsquo;d like to work. Outside India? Pick the last option.
+              </p>
               <ChipSelect
-                label="Preferred Work Districts"
-                required
                 multi
                 options={KERALA_DISTRICTS}
                 selected={form.district}
                 onChange={(v) => setMulti('district')(v as string[])}
                 error={errors.district}
-                helperText="Select the districts where you prefer to work or get job opening requests from (If you are outside India - select the last option)"
                 chipClassName={chipStyle}
               />
             </div>
+          </Section>
 
-            {/* ── Section 3: Work Preferences ── */}
-            <div
-              className="editorial-section mt-10 space-y-5 border-t border-primary-200 pt-10"
-              style={{ animationDelay: '0.24s' }}
-            >
-              <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary-500">
-                Work Preferences
+          <Section
+            index="03"
+            title="Work Preferences"
+            description="The shape of work that suits you."
+            delay={0.15}
+          >
+            <div>
+              <p className="mb-3 text-sm font-medium text-canvas-700">
+                Type of Work<span className="ml-1 text-iris-500">*</span>
               </p>
-
               <ChipSelect
-                label="Type of Work"
-                required
                 multi
                 options={WORK_TYPE_OPTIONS}
                 selected={form.work_type}
@@ -541,10 +630,12 @@ export default function AccountantLeadForm() {
                 error={errors.work_type}
                 chipClassName={chipStyle}
               />
-
+            </div>
+            <div>
+              <p className="mb-3 text-sm font-medium text-canvas-700">
+                What are you looking for?<span className="ml-1 text-iris-500">*</span>
+              </p>
               <ChipSelect
-                label="What type of work are you looking for?"
-                required
                 multi
                 options={WORK_TYPE_SEEKING_OPTIONS}
                 selected={form.work_type_seeking}
@@ -553,16 +644,15 @@ export default function AccountantLeadForm() {
                 chipClassName={chipStyle}
               />
             </div>
+          </Section>
 
-            {/* ── Section 4: Professional Background ── */}
-            <div
-              className="editorial-section mt-10 space-y-5 border-t border-primary-200 pt-10"
-              style={{ animationDelay: '0.32s' }}
-            >
-              <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary-500">
-                Professional Background
-              </p>
-
+          <Section
+            index="04"
+            title="Professional Background"
+            description="Your training, your tools, your craft."
+            delay={0.2}
+          >
+            <div className="field-saas">
               <Textarea
                 label="Educational Qualifications"
                 required
@@ -570,87 +660,92 @@ export default function AccountantLeadForm() {
                 value={form.education}
                 onChange={set('education')}
                 error={errors.education}
-                className={inputClass}
               />
-
+            </div>
+            <div className="field-saas">
               <Input
-                label="Years of Experience as an Accountant"
+                label="Years of Experience"
                 required
-                placeholder="e.g. 3"
+                placeholder="0 if fresher"
                 value={form.experience_years}
                 onChange={set('experience_years')}
                 error={errors.experience_years}
-                helperText="Add Zero if you are a fresher"
-                className={inputClass}
               />
+            </div>
 
-              <div>
-                <ChipSelect
-                  label="Accounting Softwares"
-                  required
-                  multi
-                  options={ACCOUNTING_SOFTWARE_PRIMARY}
-                  selected={form.accounting_software}
-                  onChange={(v) => setMulti('accounting_software')(v as string[])}
-                  error={errors.accounting_software}
-                  helperText="Select the ones you have experience in (you can select multiple ones)"
-                  chipClassName={chipStyle}
-                />
-                <div className="mt-2">
-                  <MultiSelectSearch
-                    options={ACCOUNTING_SOFTWARE_OTHER}
-                    selected={form.accounting_software}
-                    onChange={setMulti('accounting_software')}
-                    placeholder="Search more software..."
-                  />
-                </div>
-              </div>
-
+            <div>
+              <p className="mb-2 text-sm font-medium text-canvas-700">
+                Accounting Software<span className="ml-1 text-iris-500">*</span>
+              </p>
+              <p className="mb-3 text-sm text-canvas-500">
+                The ones you have hands-on experience with.
+              </p>
               <ChipSelect
-                label="Add on Accounting Skills"
+                multi
+                options={ACCOUNTING_SOFTWARE_PRIMARY}
+                selected={form.accounting_software}
+                onChange={(v) => setMulti('accounting_software')(v as string[])}
+                error={errors.accounting_software}
+                chipClassName={chipStyle}
+              />
+              <div className="field-saas mt-3">
+                <MultiSelectSearch
+                  options={ACCOUNTING_SOFTWARE_OTHER}
+                  selected={form.accounting_software}
+                  onChange={setMulti('accounting_software')}
+                  placeholder="Search more software..."
+                />
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-3 text-sm font-medium text-canvas-700">Add-on Skills</p>
+              <ChipSelect
                 multi
                 options={ACCOUNTING_SKILLS}
                 selected={form.addon_skills}
                 onChange={(v) => setMulti('addon_skills')(v as string[])}
-                helperText="Select the options you have (you can select multiple ones)"
                 chipClassName={chipStyle}
               />
             </div>
+          </Section>
 
-            {/* ── Section 5: Compensation ── */}
-            <div
-              className="editorial-section mt-10 space-y-5 border-t border-primary-200 pt-10"
-              style={{ animationDelay: '0.40s' }}
-            >
-              <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary-500">
-                Compensation
+          <Section
+            index="05"
+            title="Compensation"
+            description="What you earn now, and what you&rsquo;d like to."
+            delay={0.25}
+          >
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div className="field-saas">
+                <Input
+                  label="Current Salary / month"
+                  required
+                  type="number"
+                  placeholder="₹"
+                  value={form.current_salary}
+                  onChange={set('current_salary')}
+                  error={errors.current_salary}
+                />
+              </div>
+              <div className="field-saas">
+                <Input
+                  label="Expected Salary / month"
+                  required
+                  type="number"
+                  placeholder="₹"
+                  value={form.expected_salary}
+                  onChange={set('expected_salary')}
+                  error={errors.expected_salary}
+                />
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-3 text-sm font-medium text-canvas-700">
+                Languages<span className="ml-1 text-iris-500">*</span>
               </p>
-
-              <Input
-                label="Current Salary per month"
-                required
-                type="number"
-                placeholder="Amount in INR"
-                value={form.current_salary}
-                onChange={set('current_salary')}
-                error={errors.current_salary}
-                className={inputClass}
-              />
-
-              <Input
-                label="Expected Salary per month"
-                required
-                type="number"
-                placeholder="Amount in INR"
-                value={form.expected_salary}
-                onChange={set('expected_salary')}
-                error={errors.expected_salary}
-                className={inputClass}
-              />
-
               <ChipSelect
-                label="Languages You Speak"
-                required
                 multi
                 options={LANGUAGES}
                 selected={form.languages}
@@ -659,73 +754,81 @@ export default function AccountantLeadForm() {
                 chipClassName={chipStyle}
               />
             </div>
+          </Section>
 
-            {/* ── Section 6: Additional Details ── */}
-            <div
-              className="editorial-section mt-10 space-y-5 border-t border-primary-200 pt-10"
-              style={{ animationDelay: '0.48s' }}
-            >
-              <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary-500">
-                Additional Details
-              </p>
-
+          <Section
+            index="06"
+            title="Final Details"
+            description="Resume, terms, send-off."
+            delay={0.3}
+          >
+            <div className="field-saas">
               <Textarea
-                label="Details of Experiences"
+                label="Details of Experience"
                 required
                 placeholder="Write about your previous job experiences"
                 value={form.experience_details}
                 onChange={set('experience_details')}
                 error={errors.experience_details}
-                helperText="Write about the job experiences you had previously"
-                className={inputClass}
               />
+            </div>
 
-              {/* Resume Upload */}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Upload Resume
-                </label>
-                <label
-                  className={`flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed px-4 py-6 text-sm transition-colors ${
-                    errors.resume_url
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-primary-200 bg-primary-50 hover:border-primary-400 hover:bg-primary-100'
-                  }`}
-                >
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp"
-                    onChange={handleResumeUpload}
-                    disabled={uploading}
-                  />
-                  {uploading ? (
-                    <span className="text-primary-500">Uploading...</span>
-                  ) : resumeFileName ? (
-                    <span className="text-green-700">{resumeFileName} (uploaded)</span>
-                  ) : (
-                    <span className="text-primary-400">Drop your files here to upload</span>
-                  )}
-                </label>
-                {errors.resume_url && (
-                  <p className="mt-1 text-xs text-red-600">{errors.resume_url}</p>
+            <div>
+              <p className="mb-3 text-sm font-medium text-canvas-700">Upload Resume</p>
+              <label
+                className={`group flex cursor-pointer items-center justify-between rounded-2xl border border-dashed px-5 py-5 text-sm transition-all ${
+                  errors.resume_url
+                    ? 'border-red-300 bg-red-50/40'
+                    : resumeFileName
+                    ? 'border-green-400 bg-green-50/60'
+                    : 'border-canvas-300 bg-canvas-50 hover:border-iris-500 hover:bg-iris-50/40'
+                }`}
+              >
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp"
+                  onChange={handleResumeUpload}
+                  disabled={uploading}
+                />
+                {uploading ? (
+                  <span className="text-canvas-500">Uploading…</span>
+                ) : resumeFileName ? (
+                  <>
+                    <span className="font-medium text-green-700">✓ {resumeFileName}</span>
+                    <span className="text-xs font-medium text-green-600">Uploaded</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-canvas-600 group-hover:text-iris-600">
+                      Drop a file or click to browse
+                    </span>
+                    <span className="text-xs font-medium text-canvas-400">PDF · DOC · JPG</span>
+                  </>
                 )}
-              </div>
+              </label>
+              {errors.resume_url && (
+                <p className="mt-2 text-xs text-red-600">{errors.resume_url}</p>
+              )}
+            </div>
 
-              {/* Terms */}
-              <div className="rounded-lg border border-primary-200 bg-primary-50 p-4">
-                <h3 className="mb-3 text-sm font-medium text-primary-800">Terms:</h3>
-                <ol className="list-decimal space-y-2 pl-5 text-sm text-primary-700">
-                  {TERMS.map((term, i) => (
-                    <li key={i}>{term}</li>
-                  ))}
-                </ol>
-              </div>
+            <div className="surface-saas p-5">
+              <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-canvas-900">
+                <span className="bg-prism h-1.5 w-1.5 rounded-full" />
+                Terms
+              </p>
+              <ol className="list-decimal space-y-2 pl-5 text-sm leading-relaxed text-canvas-600">
+                {TERMS.map((term, i) => (
+                  <li key={i}>{term}</li>
+                ))}
+              </ol>
+            </div>
 
+            <div className="field-saas">
               <Select
-                label="Accept Above Terms"
+                label="Accept above terms"
                 required
-                placeholder="Select option..."
+                placeholder="Select"
                 options={[
                   { label: 'Yes, I accept', value: 'yes' },
                   { label: 'No', value: 'no' },
@@ -733,41 +836,61 @@ export default function AccountantLeadForm() {
                 value={form.terms_accepted}
                 onChange={set('terms_accepted')}
                 error={errors.terms_accepted}
-                className={selectClass}
               />
             </div>
+          </Section>
 
-            {/* ── Submit ── */}
-            <div className="mt-10 border-t border-primary-200 pt-10">
-              {dup.anyDuplicate && (
-                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  You have already submitted a request with us.{' '}
-                  <button
-                    type="button"
-                    onClick={() => dup.setShowModal(true)}
-                    className="font-semibold underline hover:text-amber-900"
-                  >
-                    Contact Talent Support
-                  </button>
-                </div>
+          {/* Submit */}
+          <div className="card-saas mt-5 flex flex-col gap-6 px-6 py-9 sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-9">
+            {dup.anyDuplicate && (
+              <div className="w-full rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 sm:w-auto sm:flex-1">
+                You&rsquo;ve already submitted.{' '}
+                <button
+                  type="button"
+                  onClick={() => dup.setShowModal(true)}
+                  className="font-semibold underline underline-offset-4 hover:text-amber-900"
+                >
+                  Contact Talent Support
+                </button>
+              </div>
+            )}
+
+            {!dup.anyDuplicate && (
+              <div className="flex-1">
+                <p className="font-display-saas text-xl font-bold text-canvas-900 sm:text-2xl">
+                  Ready when you are.
+                </p>
+                <p className="mt-1 text-sm text-canvas-500">
+                  We&rsquo;ll review and respond within minutes.
+                </p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={dup.anyDuplicate || submitting}
+              className="btn-iris w-full sm:w-auto sm:min-w-[220px]"
+            >
+              {submitting ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  Submitting…
+                </>
+              ) : (
+                <>
+                  Submit Application
+                  <span className="arrow">→</span>
+                </>
               )}
+            </button>
+          </div>
 
-              <Button
-                type="submit"
-                loading={submitting}
-                disabled={dup.anyDuplicate}
-                className="w-full"
-              >
-                Submit
-              </Button>
-            </div>
-          </form>
-
-          <p className="mt-10 text-center text-[10px] text-primary-400">
-            Powered by UpSquad
+          <p className="mt-10 text-center text-xs text-canvas-400">
+            SquadHire · Powered by UpSquad · 2026
           </p>
-        </div>
+        </form>
       </div>
+
       <AlreadySubmittedModal
         open={dup.showModal}
         onClose={() => dup.setShowModal(false)}

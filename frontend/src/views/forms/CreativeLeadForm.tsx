@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
-import Button from '@/components/ui/Button';
 import ChipSelect from '@/components/ui/ChipSelect';
 import { CREATIVE_ROLES, WORK_TYPE_SEEKING_OPTIONS, GENDER_OPTIONS } from '@/constants/lead-form-options';
 import { COUNTRIES, INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-locations';
@@ -43,12 +42,46 @@ const initial: FormValues = {
   portfolio_link: '',
 };
 
-const inputClass = 'border-primary-200 shadow-none focus:ring-1 focus:ring-[#1a1a1a]/20 focus:border-[#1a1a1a]/40';
-const selectClass = inputClass;
 const chipStyle = {
-  selected: 'border-[#1a1a1a] bg-[#1a1a1a] text-white shadow-none',
-  unselected: 'border-primary-300 bg-white text-primary-800 hover:border-primary-500 hover:bg-primary-50',
+  selected:
+    'border-canvas-900 bg-canvas-900 text-white shadow-[0_2px_8px_-2px_rgba(24,24,27,0.18)]',
+  unselected:
+    'border-canvas-200 bg-white text-canvas-700 hover:border-canvas-400 hover:bg-canvas-50',
 };
+
+interface SectionProps {
+  index: string;
+  title: string;
+  description?: string;
+  delay?: number;
+  children: React.ReactNode;
+}
+
+function Section({ index, title, description, delay = 0, children }: SectionProps) {
+  return (
+    <section
+      className="section-rise card-saas mt-5 px-6 py-9 sm:mt-6 sm:px-10 sm:py-11"
+      style={{ animationDelay: `${delay}s` }}
+    >
+      <div className="grid grid-cols-1 gap-x-12 gap-y-7 lg:grid-cols-[260px_1fr]">
+        <div className="lg:sticky lg:top-10 lg:self-start">
+          <p className="font-mono-editorial text-[11px] uppercase tracking-[0.16em] text-canvas-400">
+            Chapter {index}
+          </p>
+          <h2 className="font-display-saas mt-3 text-2xl font-bold text-canvas-900 sm:text-[28px]">
+            {title}
+          </h2>
+          {description && (
+            <p className="mt-3 max-w-[260px] text-sm leading-relaxed text-canvas-500">
+              {description}
+            </p>
+          )}
+        </div>
+        <div className="space-y-6">{children}</div>
+      </div>
+    </section>
+  );
+}
 
 export default function CreativeLeadForm() {
   const searchParams = useSearchParams();
@@ -120,7 +153,10 @@ export default function CreativeLeadForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError('');
-    if (!validate()) return;
+    if (!validate()) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -162,21 +198,22 @@ export default function CreativeLeadForm() {
 
   if (checkingStatus) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1a1a1a] border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-canvas-100">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-canvas-300 border-t-iris-500" />
       </div>
     );
   }
 
   if (formDisabled) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3] px-4">
-        <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center ring-1 ring-primary-200">
-          <h2 className="font-serif-display text-2xl text-[#1a1a1a]">
-            Applications Closed
+      <div className="flex min-h-screen items-center justify-center bg-canvas-100 px-4">
+        <div className="card-saas w-full max-w-lg p-12 text-center">
+          <span className="badge-prism mb-6">Currently Paused</span>
+          <h2 className="font-display-saas text-3xl font-bold tracking-tight text-canvas-900 sm:text-4xl">
+            Applications closed.
           </h2>
-          <p className="mt-2 text-primary-500">
-            This form is currently not accepting applications. Please check back later.
+          <p className="mt-3 text-canvas-500">
+            We&apos;re not accepting submissions right now. Please check back soon.
           </p>
         </div>
       </div>
@@ -184,46 +221,95 @@ export default function CreativeLeadForm() {
   }
 
   if (checking || submitted) {
-    return (
-      <SubmissionResultScreen checking={checking} result={approvalResult} />
-    );
+    return <SubmissionResultScreen checking={checking} result={approvalResult} />;
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3] px-4 py-16 sm:py-20">
-      <div className="w-full max-w-xl">
-        {/* Header */}
-        <div className="editorial-header mb-12 text-center">
-          <h1 className="font-serif-display text-4xl tracking-tight text-[#1a1a1a] sm:text-5xl">
-            SquadHire
-          </h1>
-          <div className="mx-auto mt-3 w-12 border-t border-primary-300" />
-          <p className="mt-3 text-xs font-medium uppercase tracking-[0.2em] text-primary-500">
-            Talent Platform
-          </p>
+    <div className="min-h-screen bg-canvas-100">
+      <div className="mx-auto w-full max-w-5xl px-5 py-6 sm:px-8 lg:px-10">
+        {/* Top bar */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-canvas-900">
+              <span className="bg-prism h-3.5 w-3.5 rounded-[5px]" />
+            </span>
+            <span className="font-display-saas text-base font-bold tracking-tight text-canvas-900">
+              SquadHire
+            </span>
+            <span className="hidden font-mono-editorial text-[11px] tracking-[0.06em] text-canvas-400 sm:inline">
+              · CR—001
+            </span>
+          </div>
+          <span className="pill-live">Accepting Applications</span>
         </div>
 
-        <div className="editorial-card rounded-2xl bg-white p-8 ring-1 ring-primary-200 sm:p-12">
-          <h2 className="font-serif-display text-2xl text-[#1a1a1a] sm:text-3xl">
-            Join as a Designer / Editor
-          </h2>
-          <p className="mt-1 text-sm text-primary-500">
-            Fill in your details to apply. All fields are required.
-          </p>
+        {/* Hero card */}
+        <header className="saas-lift card-hero relative mt-6 overflow-hidden px-6 py-10 sm:mt-8 sm:px-12 sm:py-14 lg:px-16 lg:py-16">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-[0.18] blur-3xl"
+            style={{
+              backgroundImage:
+                'linear-gradient(96deg, #FF8B47 0%, #FF5B8B 28%, #D24DFF 52%, #8B66F8 76%, #5BB7FF 100%)',
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -bottom-32 -left-20 h-72 w-72 rounded-full opacity-[0.12] blur-3xl"
+            style={{
+              backgroundImage:
+                'linear-gradient(96deg, #5BB7FF 0%, #8B66F8 50%, #FF5B8B 100%)',
+            }}
+          />
 
+          <div className="relative grid grid-cols-1 gap-12 lg:grid-cols-[1fr_320px] lg:items-end">
+            <div>
+              <span className="badge-prism">Talent · Creative Track</span>
+              <h1 className="font-display-saas mt-7 text-4xl font-bold leading-[1.05] text-canvas-900 sm:text-5xl lg:text-[56px]">
+                For designers and editors{' '}
+                <span className="text-prism text-prism-animated">who care about craft.</span>
+              </h1>
+              <p className="mt-6 max-w-xl text-base leading-relaxed text-canvas-600 sm:text-lg">
+                Tell us who you are, share your work — we&rsquo;ll match you with employers
+                who care about craft as much as you do. Four chapters, about three minutes.
+              </p>
+            </div>
+
+            <div className="surface-saas grid grid-cols-2 gap-6 px-6 py-6">
+              <div>
+                <p className="font-display-saas text-3xl font-bold text-canvas-900">04</p>
+                <p className="mt-1 text-xs font-medium text-canvas-500">Chapters</p>
+              </div>
+              <div>
+                <p className="font-display-saas text-3xl font-bold text-canvas-900">~3m</p>
+                <p className="mt-1 text-xs font-medium text-canvas-500">Time</p>
+              </div>
+              <div>
+                <p className="font-display-saas text-3xl font-bold text-canvas-900">10s</p>
+                <p className="mt-1 text-xs font-medium text-canvas-500">Auto-review</p>
+              </div>
+              <div>
+                <p className="font-display-saas text-prism text-3xl font-bold">∞</p>
+                <p className="mt-1 text-xs font-medium text-canvas-500">Possibilities</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <form onSubmit={handleSubmit} className="pb-20">
           {serverError && (
-            <div className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
               {serverError}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-10">
-            {/* ── Section 1: Personal Details ── */}
-            <div className="editorial-section space-y-5" style={{ animationDelay: '0.08s' }}>
-              <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary-500">
-                Personal Details
-              </p>
-
+          <Section
+            index="01"
+            title="Personal Details"
+            description="Who you are."
+            delay={0.05}
+          >
+            <div className="field-saas">
               <Input
                 label="Name"
                 required
@@ -231,47 +317,42 @@ export default function CreativeLeadForm() {
                 value={form.name}
                 onChange={set('name')}
                 error={errors.name}
-                className={inputClass}
               />
+            </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  WhatsApp Number<span className="ml-0.5 text-red-500">*</span>
-                </label>
-                <div className="flex">
-                  <span className="inline-flex items-center rounded-l-lg border border-r-0 border-primary-200 bg-primary-50 px-3 text-sm text-primary-500">
-                    +91
-                  </span>
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={10}
-                    className={`block w-full rounded-r-lg border px-3 py-2 text-sm transition-colors placeholder:text-primary-400 focus:outline-none focus:ring-1 focus:ring-[#1a1a1a]/20 ${
-                      errors.phone
-                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                        : 'border-primary-200 focus:border-[#1a1a1a]/40'
-                    }`}
-                    placeholder="10-digit mobile"
-                    value={form.phone.replace(/^\+91/, '')}
-                    onChange={(e) => {
-                      let digits = e.target.value.replace(/\D/g, '');
-                      while (digits.length > 10 && digits.startsWith('91')) {
-                        digits = digits.slice(2);
-                      }
-                      digits = digits.slice(0, 10);
-                      setForm((prev) => ({ ...prev, phone: '+91' + digits }));
-                      setErrors((prev) => ({ ...prev, phone: undefined }));
-                      dup.clearPhone();
-                    }}
-                    onBlur={() => {
-                      const digits = form.phone.replace(/^\+91/, '');
-                      if (digits.length === 10) dup.checkPhone(digits);
-                    }}
-                  />
-                </div>
-                {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
+            <div className="field-saas">
+              <label className="block">WhatsApp Number<span className="ml-1 text-iris-500">*</span></label>
+              <div className="mt-2 flex items-stretch gap-2">
+                <span className="inline-flex items-center rounded-xl border border-canvas-200 bg-canvas-50 px-3.5 text-sm font-medium text-canvas-600">
+                  +91
+                </span>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  className="flex-1"
+                  placeholder="10-digit mobile"
+                  value={form.phone.replace(/^\+91/, '')}
+                  onChange={(e) => {
+                    let digits = e.target.value.replace(/\D/g, '');
+                    while (digits.length > 10 && digits.startsWith('91')) {
+                      digits = digits.slice(2);
+                    }
+                    digits = digits.slice(0, 10);
+                    setForm((prev) => ({ ...prev, phone: '+91' + digits }));
+                    setErrors((prev) => ({ ...prev, phone: undefined }));
+                    dup.clearPhone();
+                  }}
+                  onBlur={() => {
+                    const digits = form.phone.replace(/^\+91/, '');
+                    if (digits.length === 10) dup.checkPhone(digits);
+                  }}
+                />
               </div>
+              {errors.phone && <p className="mt-2 text-xs text-red-600">{errors.phone}</p>}
+            </div>
 
+            <div className="field-saas">
               <Input
                 label="Email"
                 type="email"
@@ -284,41 +365,42 @@ export default function CreativeLeadForm() {
                 }}
                 onBlur={() => dup.checkEmail(form.email)}
                 error={errors.email}
-                className={inputClass}
-              />
-
-              <Input
-                label="Age"
-                required
-                type="number"
-                placeholder="Your age"
-                value={form.age}
-                onChange={set('age')}
-                error={errors.age}
-                className={inputClass}
-              />
-
-              <Select
-                label="Gender"
-                required
-                placeholder="Select option..."
-                options={GENDER_OPTIONS}
-                value={form.gender}
-                onChange={set('gender')}
-                error={errors.gender}
-                className={selectClass}
               />
             </div>
 
-            {/* ── Section 2: Location ── */}
-            <div
-              className="editorial-section mt-10 space-y-5 border-t border-primary-200 pt-10"
-              style={{ animationDelay: '0.16s' }}
-            >
-              <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary-500">
-                Location
-              </p>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div className="field-saas">
+                <Input
+                  label="Age"
+                  required
+                  type="number"
+                  placeholder="Years"
+                  value={form.age}
+                  onChange={set('age')}
+                  error={errors.age}
+                />
+              </div>
+              <div className="field-saas">
+                <Select
+                  label="Gender"
+                  required
+                  placeholder="Select"
+                  options={GENDER_OPTIONS}
+                  value={form.gender}
+                  onChange={set('gender')}
+                  error={errors.gender}
+                />
+              </div>
+            </div>
+          </Section>
 
+          <Section
+            index="02"
+            title="Location"
+            description="Where you&rsquo;re based."
+            delay={0.1}
+          >
+            <div className="field-saas">
               <Select
                 label="Country"
                 required
@@ -334,75 +416,75 @@ export default function CreativeLeadForm() {
                   setErrors((prev) => ({ ...prev, country: undefined, state: undefined, current_district: undefined }));
                 }}
                 error={errors.country}
-                className={selectClass}
               />
-
-              {form.country === 'India' ? (
-                <Select
-                  label="State"
-                  required
-                  placeholder="Select state"
-                  options={INDIAN_STATES}
-                  value={form.state}
-                  onChange={(e) => {
-                    setForm((prev) => ({ ...prev, state: e.target.value, current_district: '' }));
-                    setErrors((prev) => ({ ...prev, state: undefined, current_district: undefined }));
-                  }}
-                  error={errors.state}
-                  className={selectClass}
-                />
-              ) : (
-                <Input
-                  label="State / Region"
-                  required
-                  placeholder="State or region"
-                  value={form.state}
-                  onChange={set('state')}
-                  error={errors.state}
-                  className={inputClass}
-                />
-              )}
-
-              {form.country === 'India' && form.state ? (
-                <Select
-                  label="District"
-                  required
-                  placeholder="Select district"
-                  options={(DISTRICTS_BY_STATE[form.state] || []).map((d) => ({
-                    label: d,
-                    value: d,
-                  }))}
-                  value={form.current_district}
-                  onChange={set('current_district')}
-                  error={errors.current_district}
-                  className={selectClass}
-                />
-              ) : (
-                <Input
-                  label="District"
-                  required
-                  placeholder={form.country === 'India' ? 'Select a state first' : 'District'}
-                  value={form.current_district}
-                  onChange={set('current_district')}
-                  disabled={form.country === 'India' && !form.state}
-                  error={errors.current_district}
-                  className={inputClass}
-                />
-              )}
             </div>
 
-            {/* ── Section 3: Professional Details ── */}
-            <div
-              className="editorial-section mt-10 space-y-5 border-t border-primary-200 pt-10"
-              style={{ animationDelay: '0.24s' }}
-            >
-              <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary-500">
-                Professional Details
-              </p>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div className="field-saas">
+                {form.country === 'India' ? (
+                  <Select
+                    label="State"
+                    required
+                    placeholder="Select state"
+                    options={INDIAN_STATES}
+                    value={form.state}
+                    onChange={(e) => {
+                      setForm((prev) => ({ ...prev, state: e.target.value, current_district: '' }));
+                      setErrors((prev) => ({ ...prev, state: undefined, current_district: undefined }));
+                    }}
+                    error={errors.state}
+                  />
+                ) : (
+                  <Input
+                    label="State / Region"
+                    required
+                    placeholder="State or region"
+                    value={form.state}
+                    onChange={set('state')}
+                    error={errors.state}
+                  />
+                )}
+              </div>
+              <div className="field-saas">
+                {form.country === 'India' && form.state ? (
+                  <Select
+                    label="District"
+                    required
+                    placeholder="Select district"
+                    options={(DISTRICTS_BY_STATE[form.state] || []).map((d) => ({
+                      label: d,
+                      value: d,
+                    }))}
+                    value={form.current_district}
+                    onChange={set('current_district')}
+                    error={errors.current_district}
+                  />
+                ) : (
+                  <Input
+                    label="District"
+                    required
+                    placeholder={form.country === 'India' ? 'Select a state first' : 'District'}
+                    value={form.current_district}
+                    onChange={set('current_district')}
+                    disabled={form.country === 'India' && !form.state}
+                    error={errors.current_district}
+                  />
+                )}
+              </div>
+            </div>
+          </Section>
 
+          <Section
+            index="03"
+            title="Practice"
+            description="The work you do, the work you want."
+            delay={0.15}
+          >
+            <div>
+              <p className="mb-3 text-sm font-medium text-canvas-700">
+                Role<span className="ml-1 text-iris-500">*</span>
+              </p>
               <ChipSelect
-                label="Role"
-                required
                 multi
                 options={CREATIVE_ROLES}
                 selected={form.role}
@@ -413,10 +495,13 @@ export default function CreativeLeadForm() {
                 error={errors.role}
                 chipClassName={chipStyle}
               />
+            </div>
 
+            <div>
+              <p className="mb-3 text-sm font-medium text-canvas-700">
+                What are you looking for?<span className="ml-1 text-iris-500">*</span>
+              </p>
               <ChipSelect
-                label="What type of work are you looking for?"
-                required
                 multi
                 options={WORK_TYPE_SEEKING_OPTIONS}
                 selected={form.work_type_seeking}
@@ -427,71 +512,92 @@ export default function CreativeLeadForm() {
                 error={errors.work_type_seeking}
                 chipClassName={chipStyle}
               />
+            </div>
 
+            <div className="field-saas">
               <Input
                 label="Years of Experience"
                 required
-                placeholder="e.g. 2"
+                placeholder="0 if fresher"
                 value={form.experience_years}
                 onChange={set('experience_years')}
                 error={errors.experience_years}
-                helperText="Add Zero if you are a fresher"
-                className={inputClass}
               />
             </div>
+          </Section>
 
-            {/* ── Section 4: Your Work ── */}
-            <div
-              className="editorial-section mt-10 space-y-5 border-t border-primary-200 pt-10"
-              style={{ animationDelay: '0.32s' }}
-            >
-              <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary-500">
-                Your Work
-              </p>
-
+          <Section
+            index="04"
+            title="Portfolio"
+            description="Show us your work."
+            delay={0.2}
+          >
+            <div className="field-saas">
               <Input
                 label="Portfolio Link"
                 required
-                placeholder="https://drive.google.com/..."
+                placeholder="https://..."
                 value={form.portfolio_link}
                 onChange={set('portfolio_link')}
                 error={errors.portfolio_link}
-                helperText="If you don't have a portfolio, upload files to a drive and share that link"
-                className={inputClass}
               />
+              <p className="mt-2 text-sm text-canvas-500">
+                No portfolio? Upload your files to a Drive and paste the link.
+              </p>
             </div>
+          </Section>
 
-            {/* ── Submit ── */}
-            <div className="mt-10 border-t border-primary-200 pt-10">
-              {dup.anyDuplicate && (
-                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  You have already submitted a request with us.{' '}
-                  <button
-                    type="button"
-                    onClick={() => dup.setShowModal(true)}
-                    className="font-semibold underline hover:text-amber-900"
-                  >
-                    Contact Talent Support
-                  </button>
-                </div>
+          {/* Submit */}
+          <div className="card-saas mt-5 flex flex-col gap-6 px-6 py-9 sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-9">
+            {dup.anyDuplicate && (
+              <div className="w-full rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 sm:w-auto sm:flex-1">
+                You&rsquo;ve already submitted.{' '}
+                <button
+                  type="button"
+                  onClick={() => dup.setShowModal(true)}
+                  className="font-semibold underline underline-offset-4 hover:text-amber-900"
+                >
+                  Contact Talent Support
+                </button>
+              </div>
+            )}
+
+            {!dup.anyDuplicate && (
+              <div className="flex-1">
+                <p className="font-display-saas text-xl font-bold text-canvas-900 sm:text-2xl">
+                  Ready when you are.
+                </p>
+                <p className="mt-1 text-sm text-canvas-500">
+                  We&rsquo;ll review and respond within minutes.
+                </p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={dup.anyDuplicate || submitting}
+              className="btn-iris w-full sm:w-auto sm:min-w-[220px]"
+            >
+              {submitting ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  Submitting…
+                </>
+              ) : (
+                <>
+                  Submit Application
+                  <span className="arrow">→</span>
+                </>
               )}
+            </button>
+          </div>
 
-              <Button
-                type="submit"
-                loading={submitting}
-                disabled={dup.anyDuplicate}
-                className="w-full"
-              >
-                Submit Application
-              </Button>
-            </div>
-          </form>
-
-          <p className="mt-10 text-center text-[10px] text-primary-400">
-            Powered by UpSquad
+          <p className="mt-10 text-center text-xs text-canvas-400">
+            SquadHire · Powered by UpSquad · 2026
           </p>
-        </div>
+        </form>
       </div>
+
       <AlreadySubmittedModal
         open={dup.showModal}
         onClose={() => dup.setShowModal(false)}

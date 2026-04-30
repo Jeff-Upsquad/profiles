@@ -2,11 +2,14 @@
 
 html {
   color-scheme: light;
-  background-color: #F7F6F3;
+  background-color: #F4F4F5;
 }
 
 body {
-  background-color: #F7F6F3;
+  background-color: #F4F4F5;
+  font-family: var(--font-dm-sans), 'Helvetica Neue', system-ui, sans-serif;
+  color: #18181B;
+  -webkit-font-smoothing: antialiased;
 }
 
 @source "../src/**/*.{js,ts,jsx,tsx,mdx}";
@@ -32,6 +35,33 @@ body {
   --color-accent-muted: #8a8a8a;
 
   --color-dark-900: #0f172a;
+
+  /* SaaS palette (ClickUp-inspired) */
+  --color-canvas-50:  #FBFAFB;
+  --color-canvas-100: #F4F4F5;
+  --color-canvas-200: #E9E9EB;
+  --color-canvas-300: #D9D9DD;
+  --color-canvas-400: #A1A1AA;
+  --color-canvas-500: #71717A;
+  --color-canvas-600: #52525B;
+  --color-canvas-700: #3F3F46;
+  --color-canvas-800: #27272A;
+  --color-canvas-900: #18181B;
+
+  --color-iris-50:  #F2EEFF;
+  --color-iris-100: #E4DBFF;
+  --color-iris-200: #C9B6FF;
+  --color-iris-300: #AC8DFF;
+  --color-iris-400: #8B66F8;
+  --color-iris-500: #7B5BFF;
+  --color-iris-600: #6240E5;
+  --color-iris-700: #4D2EC2;
+
+  --color-prism-orange: #FF8B47;
+  --color-prism-pink:   #FF5B8B;
+  --color-prism-magenta:#D24DFF;
+  --color-prism-violet: #8B66F8;
+  --color-prism-blue:   #5BB7FF;
 }
 
 /* ── Threads Profile Design Tokens ── */
@@ -50,16 +80,9 @@ body {
 
 /* ── Threads Profile Animations ── */
 @keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-
 .animate-fade-up {
   animation: fadeUp 0.4s ease-out both;
 }
@@ -73,31 +96,292 @@ body {
   display: none;
 }
 
-/* ── Serif Display Font ── */
+/* ── Display & Mono Fonts ── */
 .font-serif-display {
-  font-family: var(--font-instrument-serif), serif;
+  font-family: var(--font-instrument-serif), 'Times New Roman', serif;
+}
+.font-mono-editorial {
+  font-family: var(--font-plex-mono), 'SF Mono', 'JetBrains Mono', Consolas, monospace;
+  font-feature-settings: 'ss01' on, 'ss02' on;
+}
+.font-display-saas {
+  font-family: var(--font-dm-sans), 'Helvetica Neue', sans-serif;
+  letter-spacing: -0.025em;
+}
+.font-body-dm {
+  font-family: var(--font-dm-sans), 'Helvetica Neue', sans-serif;
 }
 
-/* ── Editorial Form Styles ── */
+/* ── Editorial Form Styles (legacy, still used elsewhere) ── */
 @keyframes editorialFadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.editorial-header { animation: editorialFadeUp 0.5s ease-out both; }
+.editorial-card { animation: editorialFadeUp 0.6s ease-out both; }
+.editorial-section { animation: editorialFadeUp 0.5s ease-out both; }
+
+/* ─────────────────────────────────────────────────── */
+/* ── SaaS Light Theme (ClickUp-inspired) ──────────── */
+/* ─────────────────────────────────────────────────── */
+
+@keyframes saasLift {
+  0%   { opacity: 0; transform: translateY(18px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.saas-lift {
+  animation: saasLift 0.7s cubic-bezier(0.2, 0.65, 0.25, 1) both;
 }
 
-.editorial-header {
-  animation: editorialFadeUp 0.5s ease-out both;
+@keyframes prismDrift {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
 }
 
-.editorial-card {
-  animation: editorialFadeUp 0.6s ease-out both;
+/* Iridescent rainbow gradient — used SPARINGLY as accent moments */
+.text-prism {
+  background-image: linear-gradient(
+    96deg,
+    #FF8B47 0%,
+    #FF5B8B 28%,
+    #D24DFF 52%,
+    #8B66F8 76%,
+    #5BB7FF 100%
+  );
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.text-prism-animated {
+  animation: prismDrift 18s linear infinite;
 }
 
-.editorial-section {
-  animation: editorialFadeUp 0.5s ease-out both;
+/* Iridescent fill (for badges, masks, special elements) */
+.bg-prism {
+  background-image: linear-gradient(
+    96deg,
+    #FF8B47 0%,
+    #FF5B8B 28%,
+    #D24DFF 52%,
+    #8B66F8 76%,
+    #5BB7FF 100%
+  );
+}
+
+/* SaaS card — white with subtle border + shadow */
+.card-saas {
+  background: #FFFFFF;
+  border: 1px solid #ECECEF;
+  border-radius: 24px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 1px 2px rgba(24, 24, 27, 0.04),
+    0 8px 24px -12px rgba(24, 24, 27, 0.06);
+}
+
+/* Hero card — slightly more presence */
+.card-hero {
+  background: #FFFFFF;
+  border: 1px solid #ECECEF;
+  border-radius: 28px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 2px 4px rgba(24, 24, 27, 0.04),
+    0 24px 48px -24px rgba(24, 24, 27, 0.10);
+}
+
+/* Surface card — very subtle, near-white */
+.surface-saas {
+  background: #FAFAFB;
+  border: 1px solid #ECECEF;
+  border-radius: 16px;
+}
+
+/* Status pill — live / accepting */
+.pill-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 9999px;
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+  color: #15803D;
+  font-family: var(--font-dm-sans), sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.pill-live::before {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 9999px;
+  background: #22C55E;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
+  animation: pulseLive 1.6s ease-in-out infinite;
+}
+@keyframes pulseLive {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* Iridescent accent badge (the "wow" moment) */
+.badge-prism {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.95rem;
+  border-radius: 9999px;
+  background: #18181B;
+  color: #FFFFFF;
+  font-family: var(--font-dm-sans), sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+}
+.badge-prism::before {
+  content: '';
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 9999px;
+  background-image: linear-gradient(96deg, #FF8B47 0%, #FF5B8B 35%, #8B66F8 70%, #5BB7FF 100%);
+  box-shadow: 0 0 0 2px rgba(255, 91, 139, 0.18), 0 0 10px rgba(139, 102, 248, 0.4);
+}
+
+/* Light SaaS field — pill-shaped input */
+.field-saas input,
+.field-saas select,
+.field-saas textarea {
+  width: 100%;
+  border-radius: 12px !important;
+  border: 1px solid #E4E4E7 !important;
+  background-color: #FFFFFF !important;
+  color: #18181B !important;
+  padding: 0.75rem 0.95rem !important;
+  font-family: var(--font-dm-sans), sans-serif !important;
+  font-size: 0.95rem !important;
+  font-weight: 400 !important;
+  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.03) !important;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+.field-saas input:focus,
+.field-saas select:focus,
+.field-saas textarea:focus {
+  outline: none !important;
+  border-color: #8B66F8 !important;
+  box-shadow:
+    0 0 0 4px rgba(139, 102, 248, 0.15),
+    0 1px 2px rgba(24, 24, 27, 0.04) !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+}
+.field-saas input:disabled,
+.field-saas select:disabled,
+.field-saas textarea:disabled {
+  background-color: #FAFAFB !important;
+  color: #A1A1AA !important;
+  cursor: not-allowed;
+}
+.field-saas input::placeholder,
+.field-saas textarea::placeholder {
+  color: #A1A1AA !important;
+}
+.field-saas label {
+  display: block !important;
+  font-family: var(--font-dm-sans), sans-serif !important;
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+  color: #3F3F46 !important;
+  margin-bottom: 0.45rem !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+/* Primary CTA — purple iris with hover glow */
+.btn-iris {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.95rem 1.6rem;
+  border-radius: 9999px;
+  font-family: var(--font-dm-sans), sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: #FFFFFF;
+  background: #18181B;
+  border: 0;
+  cursor: pointer;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 1px 2px rgba(24, 24, 27, 0.16),
+    0 8px 20px -8px rgba(24, 24, 27, 0.30);
+  transition: transform 0.18s ease, box-shadow 0.22s ease, background-color 0.18s ease;
+}
+.btn-iris:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #27272A;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 2px 4px rgba(24, 24, 27, 0.18),
+    0 14px 28px -10px rgba(123, 91, 255, 0.35);
+}
+.btn-iris:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn-iris .arrow {
+  transition: transform 0.2s ease;
+}
+.btn-iris:hover:not(:disabled) .arrow {
+  transform: translateX(3px);
+}
+
+/* Iridescent CTA variant — for hero moments */
+.btn-prism {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.95rem 1.6rem;
+  border-radius: 9999px;
+  font-family: var(--font-dm-sans), sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #18181B;
+  background: linear-gradient(96deg, #FF8B47 0%, #FF5B8B 28%, #D24DFF 52%, #8B66F8 76%, #5BB7FF 100%);
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  border: 0;
+  cursor: pointer;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    0 8px 20px -8px rgba(210, 77, 255, 0.4);
+  transition: background-position 0.4s ease, transform 0.18s ease, box-shadow 0.25s ease;
+}
+.btn-prism:hover:not(:disabled) {
+  background-position: 100% 50%;
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.65) inset,
+    0 14px 28px -10px rgba(139, 102, 248, 0.5);
+}
+.btn-prism:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.3);
+}
+
+/* Section reveal animation */
+@keyframes sectionRise {
+  0%   { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.section-rise {
+  animation: sectionRise 0.7s cubic-bezier(0.2, 0.65, 0.25, 1) both;
 }
