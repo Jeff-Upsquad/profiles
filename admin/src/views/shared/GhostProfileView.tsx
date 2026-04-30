@@ -193,6 +193,7 @@ export default function GhostProfileView({
           fieldData={activeSource?.field_data ?? {}}
           bioFieldKey={bioFieldKey}
           languages={talentUser.languages_spoken}
+          categorySlug={activeSource?.category.slug}
         />
 
         {hasPortfolio && (
