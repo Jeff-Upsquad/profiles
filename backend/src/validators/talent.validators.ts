@@ -22,8 +22,15 @@ export const updateTalentUserSchema = z.object({
 });
 
 export const updateBasicProfileSchema = z.object({
-  // Section 2: Contact Details
+  // Section 2: Address
+  // Official (permanent) address — matches ID proofs (Aadhaar, PAN).
   permanent_address: z.string().max(500).nullable().optional(),
+  permanent_country: z.string().max(100).nullable().optional(),
+  permanent_state: z.string().max(100).nullable().optional(),
+  permanent_district: z.string().max(200).nullable().optional(),
+  permanent_city: z.string().max(200).nullable().optional(),
+  permanent_pin_code: z.string().regex(/^\d{6}$/, 'PIN code must be 6 digits').nullable().optional(),
+  // Current address — where the talent lives now.
   current_address: z.string().max(500).nullable().optional(),
   country: z.string().max(100).nullable().optional(),
   state: z.string().max(100).nullable().optional(),
@@ -70,6 +77,8 @@ export const updateBasicProfileSchema = z.object({
 
   // Section 8: Expected Salary
   expected_salary_monthly: z.number().int().min(0).nullable().optional(),
+  expected_salary_full_time: z.number().int().min(0).nullable().optional(),
+  expected_salary_part_time: z.number().int().min(0).nullable().optional(),
 });
 
 export type CreateProfileInput = z.infer<typeof createProfileSchema>;
