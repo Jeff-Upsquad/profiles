@@ -11,7 +11,7 @@ export default function Skeleton({
   height,
   className = '',
 }: SkeletonProps) {
-  const baseClasses = 'animate-pulse bg-gray-200';
+  const baseClasses = 'animate-pulse bg-[#f0f0f0]';
   const shape = variant === 'circle' ? 'rounded-full' : 'rounded-lg';
 
   return (
@@ -24,7 +24,7 @@ export default function Skeleton({
 
 export function SkeletonCard() {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+    <div className="rounded-[14px] border border-[#ECECEF] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
       <Skeleton height="20px" width="60%" className="mb-3" />
       <Skeleton height="14px" width="80%" className="mb-2" />
       <Skeleton height="14px" width="40%" className="mb-4" />

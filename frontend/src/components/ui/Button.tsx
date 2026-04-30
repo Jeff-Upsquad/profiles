@@ -12,21 +12,21 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantStyles: Record<Variant, string> = {
   primary:
-    'bg-neutral-900 text-white hover:bg-neutral-800 focus:ring-neutral-500 font-medium',
+    'bg-[#202020] text-white hover:bg-[#202020]/85 focus-visible:ring-[#202020]/30',
   secondary:
-    'bg-neutral-100 text-neutral-900 hover:bg-neutral-200 focus:ring-neutral-400 font-medium',
+    'bg-[#f0f0f0] text-[#202020] hover:bg-[#dedede] focus-visible:ring-[#202020]/15',
   danger:
-    'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 font-medium',
+    'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500/30',
   ghost:
-    'bg-transparent text-neutral-700 hover:bg-neutral-100 focus:ring-neutral-400 font-medium',
+    'bg-transparent text-[#646464] hover:bg-[#f0f0f0] focus-visible:ring-[#202020]/15',
   outline:
-    'border border-neutral-300 bg-transparent text-neutral-900 hover:bg-neutral-100 focus:ring-neutral-500 font-medium',
+    'border border-[#E4E4E7] bg-transparent text-[#202020] hover:bg-[#f0f0f0] focus-visible:ring-[#202020]/15',
 };
 
 const sizeStyles: Record<Size, string> = {
-  sm: 'px-3.5 py-1.5 text-sm rounded-full',
-  md: 'px-5 py-2.5 text-sm rounded-full',
-  lg: 'px-7 py-3 text-base rounded-full',
+  sm: 'px-3 py-1.5 text-[13px] rounded-lg',
+  md: 'px-4 py-2 text-sm rounded-[10px]',
+  lg: 'px-5 py-2.5 text-[15px] rounded-xl',
 };
 
 export default function Button({
@@ -41,12 +41,12 @@ export default function Button({
   return (
     <button
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center gap-2 font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+      className={`font-[family-name:var(--font-inter)] inline-flex items-center justify-center gap-1.5 font-semibold tracking-[-0.01em] transition-all duration-200 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
       {...rest}
     >
       {loading && (
         <svg
-          className="h-4 w-4 animate-spin"
+          className="h-3.5 w-3.5 animate-spin"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"

@@ -9,12 +9,12 @@ interface BadgeProps {
 }
 
 const variantStyles: Record<BadgeVariant, string> = {
-  green: 'bg-green-100 text-green-800',
-  yellow: 'bg-yellow-100 text-yellow-800',
-  red: 'bg-red-100 text-red-800',
-  gray: 'bg-gray-100 text-gray-800',
-  indigo: 'bg-indigo-100 text-indigo-800',
-  blue: 'bg-blue-100 text-blue-800',
+  green: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
+  yellow: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
+  red: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
+  gray: 'bg-[#f0f0f0] text-[#646464] ring-1 ring-inset ring-[#E4E4E7]',
+  indigo: 'bg-[#F2EEFF] text-[#6647F0] ring-1 ring-inset ring-[#C9B6FF]',
+  blue: 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200',
 };
 
 export function statusToBadgeVariant(status: string): BadgeVariant {
@@ -40,7 +40,7 @@ export default function Badge({
 }: BadgeProps) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variantStyles[variant]} ${className}`}
+      className={`font-[family-name:var(--font-inter)] inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium tracking-[-0.01em] ${variantStyles[variant]} ${className}`}
     >
       {children}
     </span>

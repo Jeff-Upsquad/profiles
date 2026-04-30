@@ -1,27 +1,19 @@
 import type { Metadata } from 'next';
-import { Instrument_Serif, IBM_Plex_Mono, DM_Sans } from 'next/font/google';
+import { Plus_Jakarta_Sans, Inter } from 'next/font/google';
 import Providers from './providers';
 import '../index.css';
 
-const instrumentSerif = Instrument_Serif({
-  weight: '400',
-  style: ['normal', 'italic'],
+const plusJakarta = Plus_Jakarta_Sans({
+  weight: ['400', '500', '600', '700', '800'],
   subsets: ['latin'],
-  variable: '--font-instrument-serif',
+  variable: '--font-jakarta',
   display: 'swap',
 });
 
-const plexMono = IBM_Plex_Mono({
-  weight: ['400', '500'],
+const inter = Inter({
+  weight: ['400', '500', '600'],
   subsets: ['latin'],
-  variable: '--font-plex-mono',
-  display: 'swap',
-});
-
-const dmSans = DM_Sans({
-  weight: ['400', '500', '600', '700'],
-  subsets: ['latin'],
-  variable: '--font-dm-sans',
+  variable: '--font-inter',
   display: 'swap',
 });
 
@@ -38,7 +30,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${instrumentSerif.variable} ${plexMono.variable} ${dmSans.variable}`}
+      className={`${plusJakarta.variable} ${inter.variable}`}
     >
       <body>
         <Providers>{children}</Providers>
