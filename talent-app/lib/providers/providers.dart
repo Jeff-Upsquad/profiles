@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/secure_storage.dart';
 import '../services/api_client.dart';
@@ -101,10 +102,21 @@ class AuthNotifier extends Notifier<AuthState> {
         refreshToken: response.refreshToken,
       );
       state = AuthState(status: AuthStatus.authenticated, user: response.user);
+    } on DioException catch (e) {
+      String msg;
+      if (e.response?.statusCode == 401) {
+        msg = 'Invalid email or password.';
+      } else if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        msg = 'Cannot reach the server. Check your connection.';
+      } else {
+        msg = e.response?.data?['error']?.toString() ?? 'Login failed: ${e.message}';
+      }
+      state = state.copyWith(status: AuthStatus.unauthenticated, error: msg);
     } catch (e) {
       state = state.copyWith(
         status: AuthStatus.unauthenticated,
-        error: 'Invalid email or password.',
+        error: 'Login failed: $e',
       );
     }
   }
