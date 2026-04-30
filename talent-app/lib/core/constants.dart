@@ -3,5 +3,5 @@ const String appTagline = 'Powered by UpSquad';
 
 const String apiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
-  defaultValue: 'https://squadhire.upsquadconnect.in/api',
+  defaultValue: 'https://squadhire.upsquadconnect.com/api',
 );
