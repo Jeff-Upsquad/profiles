@@ -305,6 +305,7 @@ router.delete('/recycle-bin/:profileId', adminController.permanentlyDeleteProfil
 // ---------------------------------------------------------------------------
 
 router.get('/subscription-cards', subscriptionController.adminListCards);
+router.get('/subscription-cards/:id', subscriptionController.adminGetCard);
 router.get('/subscription-cards/:id/recipients', subscriptionController.adminListRecipients);
 router.post(
   '/subscription-cards/:cardId/recipients/:recipientId/remove-from-dashboard',

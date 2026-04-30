@@ -11,6 +11,7 @@ interface PublishedCard {
   id: string;
   external_id: string;
   status: 'active' | 'archived';
+  distribution: 'broadcast' | 'manual';
   published_at: string;
   expires_at: string | null;
   business_name: string | null;
@@ -45,6 +46,7 @@ export default function PublishedCardsList() {
   const searchParams = useSearchParams();
 
   const status = searchParams.get('status') || '';
+  const distribution = searchParams.get('distribution') || '';
   const search = searchParams.get('search') || '';
   const selectedId = searchParams.get('selected');
 
@@ -61,10 +63,11 @@ export default function PublishedCardsList() {
   );
 
   const { data, isLoading } = useQuery<CardsResponse>({
-    queryKey: ['admin-published-cards', status, search],
+    queryKey: ['admin-published-cards', status, distribution, search],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (status) params.set('status', status);
+      if (distribution) params.set('distribution', distribution);
       if (search) params.set('search', search);
       const { data } = await api.get(`/admin/subscription-cards?${params.toString()}`);
       return data;
@@ -100,6 +103,15 @@ export default function PublishedCardsList() {
             <option value="">All statuses</option>
             <option value="active">Active</option>
             <option value="archived">Archived</option>
+          </select>
+          <select
+            value={distribution}
+            onChange={(e) => updateQuery({ distribution: e.target.value })}
+            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">All types</option>
+            <option value="broadcast">Broadcast</option>
+            <option value="manual">Soft Published</option>
           </select>
           <div className="flex-1 min-w-[200px]">
             <Input
@@ -193,6 +205,13 @@ function CardGroup({
   );
 }
 
+const IconEye = (
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+    <path d="M2.5 10s3-5.5 7.5-5.5S17.5 10 17.5 10s-3 5.5-7.5 5.5S2.5 10 2.5 10z" />
+    <circle cx="10" cy="10" r="2.5" />
+  </svg>
+);
+
 function PublishedCardRow({
   card, selected, onClick,
 }: { card: PublishedCard; selected: boolean; onClick: () => void }) {
@@ -212,9 +231,16 @@ function PublishedCardRow({
           {business.charAt(0).toUpperCase()}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-gray-900">
-            {business} · {subName}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-medium text-gray-900">
+              {business} · {subName}
+            </p>
+            {card.distribution === 'manual' && (
+              <span className="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                Soft Published
+              </span>
+            )}
+          </div>
           <p className="mt-0.5 truncate text-xs text-gray-500">
             {planLabel}
             {planLabel && card.published_at ? ' · ' : ''}
@@ -222,20 +248,32 @@ function PublishedCardRow({
           </p>
         </div>
       </div>
-      {card.selected_talent_user_id && (
-        <span className="inline-flex shrink-0 items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-800">
-          Selected
+      <div className="flex shrink-0 items-center gap-2">
+        <a
+          href={`/admin/published-cards/${card.id}/preview`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          title="Preview card as talent sees it"
+        >
+          {IconEye}
+        </a>
+        {card.selected_talent_user_id && (
+          <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-800">
+            Selected
+          </span>
+        )}
+        <span
+          className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700"
+          title={`Talents: ${t.accepted} accepted, ${t.rejected} rejected, ${t.pending} pending`}
+        >
+          <span className="text-gray-500">Talents</span>
+          <span className="text-emerald-700">{t.accepted}✓</span>
+          <span className="text-red-600">{t.rejected}✗</span>
+          <span className="text-amber-700">{t.pending}⌛</span>
         </span>
-      )}
-      <span
-        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700"
-        title={`Talents: ${t.accepted} accepted, ${t.rejected} rejected, ${t.pending} pending`}
-      >
-        <span className="text-gray-500">Talents</span>
-        <span className="text-emerald-700">{t.accepted}✓</span>
-        <span className="text-red-600">{t.rejected}✗</span>
-        <span className="text-amber-700">{t.pending}⌛</span>
-      </span>
+      </div>
     </button>
   );
 }

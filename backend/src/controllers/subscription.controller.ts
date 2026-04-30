@@ -30,9 +30,21 @@ export async function adminListCards(req: Request, res: Response, next: NextFunc
     const status = typeof req.query.status === 'string' && (req.query.status === 'active' || req.query.status === 'archived')
       ? req.query.status
       : undefined;
+    const distribution = typeof req.query.distribution === 'string' && (req.query.distribution === 'broadcast' || req.query.distribution === 'manual')
+      ? req.query.distribution
+      : undefined;
     const search = typeof req.query.search === 'string' ? req.query.search : undefined;
-    const items = await subscriptionService.listAllForAdmin({ status, search });
+    const items = await subscriptionService.listAllForAdmin({ status, distribution, search });
     res.json({ items });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function adminGetCard(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const card = await subscriptionService.getCardForAdmin(req.params.id as string);
+    res.json(card);
   } catch (err) {
     next(err);
   }
