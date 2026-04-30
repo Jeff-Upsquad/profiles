@@ -59,6 +59,8 @@ export interface Profile {
   reviewed_at?: string;
   created_at: string;
   updated_at: string;
+  is_ghost?: boolean;
+  source_profiles?: GhostSourceProfile[];
 }
 
 export interface PortfolioItem {
@@ -69,4 +71,15 @@ export interface PortfolioItem {
   file_type: 'image' | 'pdf' | 'video';
   file_name: string;
   sort_order: number;
+}
+
+export interface GhostSourceProfile {
+  id: string;
+  category_id: string;
+  category: { id: string; name: string; slug: string };
+  status: ProfileStatus;
+  field_data: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  portfolio_items: PortfolioItem[];
 }

@@ -5,7 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
 import ThreadsProfileView from '@/views/shared/ThreadsProfileView';
-import type { CategoryField, CategoryWithFields, PortfolioItem, Profile } from '@/types';
+import GhostProfileView from '@/views/shared/GhostProfileView';
+import type {
+  CategoryField,
+  CategoryWithFields,
+  GhostSourceProfile,
+  PortfolioItem,
+  Profile,
+} from '@/types';
 
 interface AdminProfileResponse {
   id: string;
@@ -16,6 +23,8 @@ interface AdminProfileResponse {
   created_at: string;
   updated_at: string;
   talent_user_id?: string;
+  is_ghost?: boolean;
+  source_profiles?: GhostSourceProfile[];
   talent_users?: {
     full_name: string;
     phone?: string;
@@ -87,6 +96,22 @@ export default function TalentProfilePreviewPage(props: {
     profile_photo_url: profileRaw?.talent_users?.profile_photo_url,
     languages_spoken: profileRaw?.talent_users?.languages_spoken,
   };
+
+  const isGhost = profileRaw?.is_ghost === true;
+
+  if (isGhost) {
+    return (
+      <GhostProfileView
+        ghostProfile={profile}
+        sourceProfiles={profileRaw?.source_profiles ?? []}
+        talentUser={talentUser}
+        mode="admin"
+        isLoading={profileLoading}
+        error={profileError ? 'Failed to load profile' : undefined}
+        onBack={() => router.push(`/talents/${params.categoryId}/${params.profileId}`)}
+      />
+    );
+  }
 
   return (
     <ThreadsProfileView
