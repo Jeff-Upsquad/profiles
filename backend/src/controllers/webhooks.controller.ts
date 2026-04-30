@@ -45,6 +45,34 @@ export async function manualAssignTalent(
   }
 }
 
+export async function handleCardSelection(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { card_id, talent_id, selected_at } = req.body;
+    await subscriptionService.handleSelectionWebhook(card_id, talent_id, selected_at);
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function handleCardSelectionUndo(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { card_id } = req.body;
+    await subscriptionService.handleSelectionUndoWebhook(card_id);
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function removeAssignedTalent(
   req: Request,
   res: Response,

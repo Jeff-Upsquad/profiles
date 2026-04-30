@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabase.js';
+import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { findMatchingTalents } from './subscription-matcher.service.js';
 import { deliverCallback } from './squadhub-callback.service.js';
@@ -368,7 +369,7 @@ export async function listForTalent(
   let q = supabaseAdmin
     .from('subscription_card_recipients')
     .select(
-      'id, status, responded_at, cancelled_at, created_at, subscription_cards!inner(id, external_id, content, status, published_at, expires_at)'
+      'id, status, responded_at, cancelled_at, selected_at, passed_over_at, created_at, subscription_cards!inner(id, external_id, content, status, published_at, expires_at)'
     )
     .eq('talent_user_id', talentUserId)
     .order('created_at', { ascending: false });
@@ -391,6 +392,8 @@ export async function listForTalent(
     status: r.status,
     responded_at: r.responded_at,
     cancelled_at: r.cancelled_at,
+    selected_at: (r as any).selected_at ?? null,
+    passed_over_at: (r as any).passed_over_at ?? null,
     card: r.subscription_cards,
   }));
 }
@@ -420,6 +423,7 @@ export interface AdminCardRow {
   subscription_name: string | null;
   plan_label: string | null;
   talents: { pending: number; accepted: number; rejected: number };
+  selected_talent_user_id: string | null;
 }
 
 export interface AdminListCardsInput {
@@ -430,7 +434,7 @@ export interface AdminListCardsInput {
 export async function listAllForAdmin(input: AdminListCardsInput): Promise<AdminCardRow[]> {
   let q = supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, status, published_at, expires_at, content')
+    .select('id, external_id, status, published_at, expires_at, content, selected_talent_user_id')
     .order('published_at', { ascending: false });
 
   if (input.status === 'active' || input.status === 'archived') {
@@ -487,6 +491,7 @@ export async function listAllForAdmin(input: AdminListCardsInput): Promise<Admin
       subscription_name: (content.subscription_name as string) ?? null,
       plan_label: (content.plan_name as string) ?? null,
       talents: countsByCard.get(c.id) ?? { pending: 0, accepted: 0, rejected: 0 },
+      selected_talent_user_id: c.selected_talent_user_id ?? null,
     };
   });
 }
@@ -499,13 +504,15 @@ export interface AdminCardRecipient {
   tier_custom: string | null;
   status: 'pending' | 'accepted' | 'rejected';
   responded_at: string | null;
+  selected_at: string | null;
+  passed_over_at: string | null;
   created_at: string;
 }
 
 export async function listRecipientsForAdmin(cardId: string): Promise<AdminCardRecipient[]> {
   const { data, error } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('id, talent_user_id, status, responded_at, created_at')
+    .select('id, talent_user_id, status, responded_at, selected_at, passed_over_at, created_at')
     .eq('card_id', cardId)
     .order('created_at', { ascending: false });
   if (error) throw new AppError(500, error.message);
@@ -535,6 +542,8 @@ export async function listRecipientsForAdmin(cardId: string): Promise<AdminCardR
     tier_custom: tiers[r.talent_user_id]?.tier_custom ?? null,
     status: r.status,
     responded_at: r.responded_at,
+    selected_at: r.selected_at ?? null,
+    passed_over_at: r.passed_over_at ?? null,
     created_at: r.created_at,
   }));
 }
@@ -821,4 +830,267 @@ export async function removeAssignedTalent(
     talent_user_id: input.talent_id,
     removed: count ?? 0,
   };
+}
+
+// ─── Admin selection ─────────────────────────────────────────────────────
+
+export interface SelectRecipientResult {
+  card_id: string;
+  selected_talent_user_id: string;
+}
+
+export async function adminSelectRecipient(
+  cardId: string,
+  recipientId: string,
+): Promise<SelectRecipientResult> {
+  const { data: card, error: cardErr } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id, external_id, status, selected_at')
+    .eq('id', cardId)
+    .maybeSingle();
+  if (cardErr) throw new AppError(500, cardErr.message);
+  if (!card) throw new AppError(404, 'Card not found');
+  if ((card as any).status !== 'active') throw new AppError(409, 'Card must be active');
+  if ((card as any).selected_at) throw new AppError(409, 'A recipient has already been selected');
+
+  const { data: recipient } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id, talent_user_id, status')
+    .eq('id', recipientId)
+    .eq('card_id', cardId)
+    .maybeSingle();
+  if (!recipient) throw new AppError(404, 'Recipient not found');
+  if ((recipient as any).status !== 'accepted') {
+    throw new AppError(400, 'Recipient must have accepted before they can be selected');
+  }
+
+  const now = new Date().toISOString();
+  const talentUserId = (recipient as any).talent_user_id as string;
+
+  // Stamp selected
+  await supabaseAdmin
+    .from('subscription_card_recipients')
+    .update({ selected_at: now })
+    .eq('id', recipientId);
+
+  // Pass over others
+  await supabaseAdmin
+    .from('subscription_card_recipients')
+    .update({ passed_over_at: now })
+    .eq('card_id', cardId)
+    .eq('status', 'accepted')
+    .neq('id', recipientId)
+    .is('passed_over_at', null);
+
+  // Mark card
+  await supabaseAdmin
+    .from('subscription_cards')
+    .update({ selected_talent_user_id: talentUserId, selected_at: now })
+    .eq('id', cardId);
+
+  // Fire callback to SquadHub
+  const externalId = (card as any).external_id as string | undefined;
+  if (externalId) {
+    const { data: talent } = await supabaseAdmin
+      .from('talent_users')
+      .select('full_name')
+      .eq('id', talentUserId)
+      .maybeSingle();
+
+    deliverSelectionCallback({
+      external_id: externalId,
+      recipient_id: recipientId,
+      talent_user_id: talentUserId,
+      talent_name: talent?.full_name ?? undefined,
+      selected_at: now,
+    }).catch((err) => {
+      console.error('[subscription] deliverSelectionCallback threw', err);
+    });
+  }
+
+  return { card_id: cardId, selected_talent_user_id: talentUserId };
+}
+
+export async function adminUndoSelection(cardId: string): Promise<void> {
+  const { data: card } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id, external_id, selected_at')
+    .eq('id', cardId)
+    .maybeSingle();
+  if (!card) throw new AppError(404, 'Card not found');
+  if (!(card as any).selected_at) throw new AppError(409, 'No selection to undo');
+
+  await supabaseAdmin
+    .from('subscription_card_recipients')
+    .update({ selected_at: null, passed_over_at: null })
+    .eq('card_id', cardId)
+    .not('selected_at', 'is', null);
+
+  await supabaseAdmin
+    .from('subscription_card_recipients')
+    .update({ passed_over_at: null })
+    .eq('card_id', cardId)
+    .not('passed_over_at', 'is', null);
+
+  await supabaseAdmin
+    .from('subscription_cards')
+    .update({ selected_talent_user_id: null, selected_at: null })
+    .eq('id', cardId);
+
+  const externalId = (card as any).external_id as string | undefined;
+  if (externalId) {
+    deliverSelectionUndoCallback(externalId).catch((err) => {
+      console.error('[subscription] deliverSelectionUndoCallback threw', err);
+    });
+  }
+}
+
+// ─── Webhook-driven selection (SquadHub selected a talent) ───────────────
+
+export async function handleSelectionWebhook(
+  externalCardId: string,
+  talentId: string | null,
+  selectedAt: string,
+): Promise<void> {
+  const { data: card } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id, selected_at')
+    .eq('external_id', externalCardId)
+    .maybeSingle();
+  if (!card) return;
+  if ((card as any).selected_at) return;
+
+  if (talentId) {
+    // SquadHub selected this specific talent
+    const { data: recipient } = await supabaseAdmin
+      .from('subscription_card_recipients')
+      .select('id')
+      .eq('card_id', (card as any).id)
+      .eq('talent_user_id', talentId)
+      .is('cancelled_at', null)
+      .maybeSingle();
+
+    if (recipient) {
+      await supabaseAdmin
+        .from('subscription_card_recipients')
+        .update({ selected_at: selectedAt })
+        .eq('id', (recipient as any).id);
+
+      await supabaseAdmin
+        .from('subscription_card_recipients')
+        .update({ passed_over_at: selectedAt })
+        .eq('card_id', (card as any).id)
+        .eq('status', 'accepted')
+        .neq('id', (recipient as any).id)
+        .is('passed_over_at', null);
+    }
+
+    await supabaseAdmin
+      .from('subscription_cards')
+      .update({ selected_talent_user_id: talentId, selected_at: selectedAt })
+      .eq('id', (card as any).id);
+  } else {
+    // SquadHub selected a partner (not a talent) — just pass over all talents
+    await supabaseAdmin
+      .from('subscription_card_recipients')
+      .update({ passed_over_at: selectedAt })
+      .eq('card_id', (card as any).id)
+      .eq('status', 'accepted')
+      .is('passed_over_at', null);
+
+    await supabaseAdmin
+      .from('subscription_cards')
+      .update({ selected_at: selectedAt })
+      .eq('id', (card as any).id);
+  }
+}
+
+export async function handleSelectionUndoWebhook(
+  externalCardId: string,
+): Promise<void> {
+  const { data: card } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id')
+    .eq('external_id', externalCardId)
+    .maybeSingle();
+  if (!card) return;
+
+  await supabaseAdmin
+    .from('subscription_card_recipients')
+    .update({ selected_at: null, passed_over_at: null })
+    .eq('card_id', (card as any).id)
+    .not('selected_at', 'is', null);
+
+  await supabaseAdmin
+    .from('subscription_card_recipients')
+    .update({ passed_over_at: null })
+    .eq('card_id', (card as any).id)
+    .not('passed_over_at', 'is', null);
+
+  await supabaseAdmin
+    .from('subscription_cards')
+    .update({ selected_talent_user_id: null, selected_at: null })
+    .eq('id', (card as any).id);
+}
+
+// ─── Selection callback delivery to SquadHub ─────────────────────────────
+
+interface SelectionCallbackPayload {
+  external_id: string;
+  recipient_id: string;
+  talent_user_id: string;
+  talent_name?: string;
+  selected_at: string;
+}
+
+async function deliverSelectionCallback(payload: SelectionCallbackPayload): Promise<void> {
+  const url = env.SQUADHUB_CALLBACK_URL;
+  if (!url) return;
+
+  const selectionUrl = url.replace(/\/card-responses\/?$/, '/card-selection');
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3_000);
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (env.SQUADHUB_CALLBACK_SECRET) {
+      headers['X-SquadHub-Signature'] = env.SQUADHUB_CALLBACK_SECRET;
+    }
+    await fetch(selectionUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    console.warn('[subscription] selection callback failed', err instanceof Error ? err.message : err);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function deliverSelectionUndoCallback(externalId: string): Promise<void> {
+  const url = env.SQUADHUB_CALLBACK_URL;
+  if (!url) return;
+
+  const undoUrl = url.replace(/\/card-responses\/?$/, '/card-selection-undo');
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3_000);
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (env.SQUADHUB_CALLBACK_SECRET) {
+      headers['X-SquadHub-Signature'] = env.SQUADHUB_CALLBACK_SECRET;
+    }
+    await fetch(undoUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ external_id: externalId }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    console.warn('[subscription] selection undo callback failed', err instanceof Error ? err.message : err);
+  } finally {
+    clearTimeout(timer);
+  }
 }

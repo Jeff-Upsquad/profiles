@@ -13,6 +13,8 @@ type Recipient = {
   tier_custom: string | null;
   status: 'pending' | 'accepted' | 'rejected';
   responded_at: string | null;
+  selected_at: string | null;
+  passed_over_at: string | null;
   created_at: string;
 };
 
@@ -53,12 +55,34 @@ export default function RecipientsPanel({
         .post(`/admin/subscription-cards/${cardId}/recipients/${recipientId}/remove-from-dashboard`)
         .then((r) => r.data as { removed: number }),
     onSuccess: () => {
-      // Refresh recipients list (no field changes here, but invalidate to
-      // pick up any related counts the parent list shows for this card).
       queryClient.invalidateQueries({ queryKey: ['admin-card-recipients', cardId] });
       queryClient.invalidateQueries({ queryKey: ['admin-published-cards'] });
     },
   });
+
+  const selectRecipient = useMutation({
+    mutationFn: (recipientId: string) =>
+      api.post(`/admin/subscription-cards/${cardId}/select`, { recipient_id: recipientId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-card-recipients', cardId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-published-cards'] });
+    },
+    onError: (err: any) =>
+      alert(err?.response?.data?.message || err.message || 'Failed to select recipient'),
+  });
+
+  const undoSelection = useMutation({
+    mutationFn: () =>
+      api.post(`/admin/subscription-cards/${cardId}/undo-selection`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-card-recipients', cardId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-published-cards'] });
+    },
+    onError: (err: any) =>
+      alert(err?.response?.data?.message || err.message || 'Failed to undo selection'),
+  });
+
+  const hasSelection = (data?.items || []).some((r) => r.selected_at);
 
   const groups = useMemo(() => {
     const items = data?.items || [];
@@ -81,6 +105,20 @@ export default function RecipientsPanel({
             </svg>
           </button>
         </div>
+        {hasSelection && (
+          <div className="flex items-center justify-between border-b border-gray-200 bg-blue-50 px-5 py-2.5">
+            <p className="text-xs text-blue-700 font-medium">A talent has been selected for this card.</p>
+            <button
+              onClick={() => {
+                if (window.confirm('Undo the selection? The card will reopen.')) undoSelection.mutate();
+              }}
+              disabled={undoSelection.isPending}
+              className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Undo selection
+            </button>
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto p-5 space-y-6 text-sm">
           {isLoading ? (
             <p className="text-center text-xs text-gray-500">Loading…</p>
@@ -95,6 +133,12 @@ export default function RecipientsPanel({
                 pendingRemovalId={
                   removeFromDashboard.isPending ? removeFromDashboard.variables ?? null : null
                 }
+                onSelect={!hasSelection ? (id) => {
+                  if (window.confirm('Select this talent? Other acceptees will be passed over.')) {
+                    selectRecipient.mutate(id);
+                  }
+                } : undefined}
+                isSelecting={selectRecipient.isPending}
               />
               <Subgroup label="Rejected" items={groups.rejected} />
               <Subgroup label="Pending" items={groups.pending} />
@@ -116,12 +160,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function Subgroup({
-  label, items, onRemoveFromDashboard, pendingRemovalId,
+  label, items, onRemoveFromDashboard, pendingRemovalId, onSelect, isSelecting,
 }: {
   label: 'Accepted' | 'Rejected' | 'Pending';
   items: Recipient[];
   onRemoveFromDashboard?: (recipientId: string) => void;
   pendingRemovalId?: string | null;
+  onSelect?: (recipientId: string) => void;
+  isSelecting?: boolean;
 }) {
   if (items.length === 0) {
     return (
@@ -148,7 +194,27 @@ function Subgroup({
               )}
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              {onRemoveFromDashboard && it.status === 'accepted' && (
+              {it.selected_at && (
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-800">
+                  Selected
+                </span>
+              )}
+              {it.passed_over_at && !it.selected_at && (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                  Not selected
+                </span>
+              )}
+              {onSelect && !it.selected_at && !it.passed_over_at && (
+                <button
+                  type="button"
+                  disabled={isSelecting}
+                  onClick={() => onSelect(it.id)}
+                  className="rounded-md bg-blue-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Select
+                </button>
+              )}
+              {onRemoveFromDashboard && it.status === 'accepted' && !it.selected_at && !it.passed_over_at && (
                 <button
                   type="button"
                   disabled={pendingRemovalId === it.id}
@@ -162,9 +228,11 @@ function Subgroup({
                   {pendingRemovalId === it.id ? 'Removing…' : 'Remove from dashboard'}
                 </button>
               )}
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_CHIP[it.status]}`}>
-                {it.status}
-              </span>
+              {!it.selected_at && !it.passed_over_at && (
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_CHIP[it.status]}`}>
+                  {it.status}
+                </span>
+              )}
             </div>
           </li>
         ))}

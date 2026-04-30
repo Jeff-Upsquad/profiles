@@ -114,6 +114,12 @@ export default function RespondedListView({ items }: Props) {
                         <Badge variant="red">Rejected</Badge>
                       )}
                       {cancelled && <Badge variant="gray">Cancelled</Badge>}
+                      {item.selected_at && (
+                        <Badge variant="blue">Selected</Badge>
+                      )}
+                      {item.passed_over_at && !item.selected_at && (
+                        <Badge variant="gray">Not selected</Badge>
+                      )}
                       <span className="hidden w-16 text-right text-xs text-gray-500 sm:inline">
                         {time}
                       </span>

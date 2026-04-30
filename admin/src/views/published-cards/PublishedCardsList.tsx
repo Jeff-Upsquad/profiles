@@ -17,6 +17,7 @@ interface PublishedCard {
   subscription_name: string | null;
   plan_label: string | null;
   talents: { pending: number; accepted: number; rejected: number };
+  selected_talent_user_id: string | null;
 }
 
 interface CardsResponse {
@@ -221,6 +222,11 @@ function PublishedCardRow({
           </p>
         </div>
       </div>
+      {card.selected_talent_user_id && (
+        <span className="inline-flex shrink-0 items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-800">
+          Selected
+        </span>
+      )}
       <span
         className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700"
         title={`Talents: ${t.accepted} accepted, ${t.rejected} rejected, ${t.pending} pending`}

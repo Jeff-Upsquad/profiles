@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-type BadgeVariant = 'green' | 'yellow' | 'red' | 'gray' | 'indigo';
+type BadgeVariant = 'green' | 'yellow' | 'red' | 'gray' | 'indigo' | 'blue';
 
 interface BadgeProps {
   variant?: BadgeVariant;
@@ -14,6 +14,7 @@ const variantStyles: Record<BadgeVariant, string> = {
   red: 'bg-red-100 text-red-800',
   gray: 'bg-gray-100 text-gray-800',
   indigo: 'bg-indigo-100 text-indigo-800',
+  blue: 'bg-blue-100 text-blue-800',
 };
 
 export function statusToBadgeVariant(status: string): BadgeVariant {

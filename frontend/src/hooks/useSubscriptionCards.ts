@@ -48,6 +48,8 @@ export interface SubscriptionCardItem {
   status: SubscriptionStatus;
   responded_at: string | null;
   cancelled_at: string | null;
+  selected_at: string | null;
+  passed_over_at: string | null;
   card: {
     id: string;
     external_id: string;

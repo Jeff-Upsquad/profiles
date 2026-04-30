@@ -310,6 +310,8 @@ router.post(
   '/subscription-cards/:cardId/recipients/:recipientId/remove-from-dashboard',
   subscriptionController.adminRemoveFromBusinessDashboard
 );
+router.post('/subscription-cards/:cardId/select', subscriptionController.adminSelectRecipient);
+router.post('/subscription-cards/:cardId/undo-selection', subscriptionController.adminUndoSelection);
 
 // ---------------------------------------------------------------------------
 // Lead Submissions

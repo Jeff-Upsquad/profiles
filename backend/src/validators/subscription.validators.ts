@@ -88,6 +88,27 @@ export const recipientIdParamSchema = z.object({
   recipientId: z.string().uuid(),
 });
 
+export const selectRecipientSchema = z.object({
+  recipient_id: z.string().uuid(),
+});
+
+export const cardSelectionWebhookSchema = z.object({
+  type: z.literal('card_selection').optional(),
+  card_id: z.string().min(1).max(200),
+  talent_id: z.string().uuid().nullable(),
+  selected_at: z.string().datetime({ offset: true }),
+});
+
+export const cardSelectionUndoWebhookSchema = z.object({
+  type: z.literal('card_selection_undo').optional(),
+  card_id: z.string().min(1).max(200),
+  undone_at: z.string().datetime({ offset: true }).optional(),
+});
+
+export type SelectRecipientInput = z.infer<typeof selectRecipientSchema>;
+export type CardSelectionWebhookInput = z.infer<typeof cardSelectionWebhookSchema>;
+export type CardSelectionUndoWebhookInput = z.infer<typeof cardSelectionUndoWebhookSchema>;
+
 export type IngestSubscriptionCardInput = z.infer<typeof ingestSubscriptionCardSchema>;
 export type ListSubscriptionsQueryInput = z.infer<typeof listSubscriptionsQuerySchema>;
 export type RespondToSubscriptionInput = z.infer<typeof respondToSubscriptionSchema>;

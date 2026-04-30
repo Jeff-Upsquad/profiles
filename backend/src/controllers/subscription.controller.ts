@@ -64,6 +64,27 @@ export async function adminRemoveFromBusinessDashboard(
   }
 }
 
+export async function adminSelectRecipient(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { cardId } = req.params as { cardId: string };
+    const { recipient_id } = req.body as { recipient_id: string };
+    const result = await subscriptionService.adminSelectRecipient(cardId, recipient_id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function adminUndoSelection(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { cardId } = req.params as { cardId: string };
+    await subscriptionService.adminUndoSelection(cardId);
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function respond(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     if (!req.user) throw new AppError(401, 'Authentication required');

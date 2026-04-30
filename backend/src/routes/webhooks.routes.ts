@@ -8,6 +8,8 @@ import {
   removeAssignedTalentSchema,
   removeTalentFromCardSchema,
   externalIdParamSchema,
+  cardSelectionWebhookSchema,
+  cardSelectionUndoWebhookSchema,
 } from '../validators/subscription.validators.js';
 
 const router = Router();
@@ -45,6 +47,21 @@ router.post(
   verifySquadhubSecret,
   validate({ params: externalIdParamSchema, body: removeTalentFromCardSchema }),
   webhooksController.removeTalentFromCard
+);
+
+// SquadHub admin selected (or un-selected) a recipient for a card.
+router.post(
+  '/squadhub/cards/selection',
+  verifySquadhubSecret,
+  validate({ body: cardSelectionWebhookSchema }),
+  webhooksController.handleCardSelection
+);
+
+router.post(
+  '/squadhub/cards/undo-selection',
+  verifySquadhubSecret,
+  validate({ body: cardSelectionUndoWebhookSchema }),
+  webhooksController.handleCardSelectionUndo
 );
 
 export default router;
