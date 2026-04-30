@@ -16,6 +16,8 @@ import talentAccessRouter from './routes/talent-access.routes.js';
 import subscriptionRouter from './routes/subscription.routes.js';
 import webhookRouter from './routes/webhooks.routes.js';
 import integrationsRouter from './routes/integrations.routes.js';
+import pushRouter from './routes/push.routes.js';
+import * as pushController from './controllers/push.controller.js';
 import { startCallbackSweeper } from './services/squadhub-callback.service.js';
 
 const app = express();
@@ -66,6 +68,8 @@ app.use('/api/talent-access', talentAccessRouter);
 app.use('/api/talent/subscriptions', subscriptionRouter);
 app.use('/api/webhooks', webhookRouter);
 app.use('/api/integrations', integrationsRouter);
+app.use('/api/talent/push', pushRouter);
+app.get('/api/app-config', pushController.appConfig);
 
 // ---------------------------------------------------------------------------
 // Global error handler (must be registered after all routes)

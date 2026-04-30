@@ -3,6 +3,7 @@ import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { findMatchingTalents } from './subscription-matcher.service.js';
 import { deliverCallback } from './squadhub-callback.service.js';
+import { notifyNewCard, notifySelected } from './push.service.js';
 import { getTalentTiersByUserIds } from './talent-tier.service.js';
 import type {
   IngestSubscriptionCardInput,
@@ -264,6 +265,9 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
               }
             } else {
               recipientCount = count ?? newTalentIds.length;
+              notifyNewCard(existing.id, newTalentIds, input.content ?? {}).catch((err) => {
+                console.error('[subscription] notifyNewCard (update) threw', err);
+              });
             }
           }
         }
@@ -320,6 +324,9 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       // fix can backfill. Log loudly and move on.
     } else {
       recipientCount = count ?? recipients.length;
+      notifyNewCard(inserted.id, talentIds, input.content ?? {}).catch((err) => {
+        console.error('[subscription] notifyNewCard threw', err);
+      });
     }
   }
 
@@ -778,7 +785,7 @@ export async function manualAssignTalent(
 ): Promise<ManualAssignTalentResult> {
   const { data: card, error: cardErr } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id')
+    .select('id, content')
     .eq('external_id', input.card_id)
     .maybeSingle();
   if (cardErr) throw new AppError(500, cardErr.message);
@@ -822,6 +829,10 @@ export async function manualAssignTalent(
       status: 'pending',
     });
   if (insErr) throw new AppError(500, insErr.message);
+
+  notifyNewCard((card as any).id, [input.talent_id], (card as any).content ?? {}).catch((err) => {
+    console.error('[subscription] notifyNewCard (manual) threw', err);
+  });
 
   return {
     card_id: (card as any).id as string,
@@ -883,7 +894,7 @@ export async function adminSelectRecipient(
 ): Promise<SelectRecipientResult> {
   const { data: card, error: cardErr } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, status, selected_at')
+    .select('id, external_id, status, selected_at, content')
     .eq('id', cardId)
     .maybeSingle();
   if (cardErr) throw new AppError(500, cardErr.message);
@@ -925,6 +936,10 @@ export async function adminSelectRecipient(
     .from('subscription_cards')
     .update({ selected_talent_user_id: talentUserId, selected_at: now })
     .eq('id', cardId);
+
+  notifySelected(cardId, talentUserId, (card as any).content ?? {}).catch((err) => {
+    console.error('[subscription] notifySelected threw', err);
+  });
 
   // Fire callback to SquadHub
   const externalId = (card as any).external_id as string | undefined;
@@ -992,7 +1007,7 @@ export async function handleSelectionWebhook(
 ): Promise<void> {
   const { data: card } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, selected_at')
+    .select('id, selected_at, content')
     .eq('external_id', externalCardId)
     .maybeSingle();
   if (!card) return;
@@ -1027,6 +1042,10 @@ export async function handleSelectionWebhook(
       .from('subscription_cards')
       .update({ selected_talent_user_id: talentId, selected_at: selectedAt })
       .eq('id', (card as any).id);
+
+    notifySelected((card as any).id, talentId, (card as any).content ?? {}).catch((err) => {
+      console.error('[subscription] notifySelected (webhook) threw', err);
+    });
   } else {
     // SquadHub selected a partner (not a talent) — just pass over all talents
     await supabaseAdmin

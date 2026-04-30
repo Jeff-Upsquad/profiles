@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "855230965587",
+    "project_id": "squadhire-talent",
+    "storage_bucket": "squadhire-talent.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:855230965587:android:d7e755ea1c31b0a2cae3a6",
+        "android_client_info": {
+          "package_name": "com.squadhire.talent_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB1nCYJC9suHWh7cMPQehMPc0dQ7NuXvgQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

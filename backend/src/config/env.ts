@@ -37,6 +37,13 @@ const envSchema = z.object({
   SQUADHUB_WEBHOOK_SECRET: z.string().min(32).optional(),
   SQUADHUB_CALLBACK_URL: z.string().url().optional(),
   SQUADHUB_CALLBACK_SECRET: z.string().min(32).optional(),
+
+  // Firebase Cloud Messaging (push notifications for talent app)
+  FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional(),
+
+  // Talent app distribution
+  TALENT_APP_MIN_VERSION: z.string().default('1.0.0'),
+  TALENT_APP_DOWNLOAD_URL: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
