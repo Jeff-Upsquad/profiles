@@ -11,19 +11,31 @@ import '../widgets/app_bottom_nav.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
+/// Bridges Riverpod's auth state into a Listenable that GoRouter
+/// can subscribe to via refreshListenable. The router is created
+/// once and re-evaluates redirects every time auth state changes.
+class _RouterRefreshNotifier extends ChangeNotifier {
+  _RouterRefreshNotifier(Ref ref) {
+    ref.listen(authProvider, (_, _) => notifyListeners());
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final refresh = _RouterRefreshNotifier(ref);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/splash',
+    refreshListenable: refresh,
     redirect: (context, state) {
+      final authState = ref.read(authProvider);
       final isAuth = authState.status == AuthStatus.authenticated;
       final isSplash = state.matchedLocation == '/splash';
       final isLogin = state.matchedLocation == '/login';
 
       if (authState.status == AuthStatus.unknown) return null;
       if (!isAuth && !isSplash && !isLogin) return '/login';
+      if (!isAuth && isSplash) return '/login';
       if (isAuth && (isSplash || isLogin)) return '/pending';
       return null;
     },
