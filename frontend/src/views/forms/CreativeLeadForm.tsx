@@ -43,6 +43,13 @@ const initial: FormValues = {
   portfolio_link: '',
 };
 
+const inputClass = 'border-primary-200 shadow-none focus:ring-1 focus:ring-[#1a1a1a]/20 focus:border-[#1a1a1a]/40';
+const selectClass = inputClass;
+const chipStyle = {
+  selected: 'border-[#1a1a1a] bg-[#1a1a1a] text-white shadow-none',
+  unselected: 'border-primary-300 bg-white text-primary-800 hover:border-primary-500 hover:bg-primary-50',
+};
+
 export default function CreativeLeadForm() {
   const searchParams = useSearchParams();
   const [form, setForm] = useState(initial);
@@ -156,7 +163,7 @@ export default function CreativeLeadForm() {
   if (checkingStatus) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1a1a1a] border-t-transparent" />
       </div>
     );
   }
@@ -164,11 +171,11 @@ export default function CreativeLeadForm() {
   if (formDisabled) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3] px-4">
-        <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center shadow-sm">
-          <h2 className="text-2xl font-semibold text-neutral-900">
+        <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center ring-1 ring-primary-200">
+          <h2 className="font-serif-display text-2xl text-[#1a1a1a]">
             Applications Closed
           </h2>
-          <p className="mt-2 text-neutral-500">
+          <p className="mt-2 text-primary-500">
             This form is currently not accepting applications. Please check back later.
           </p>
         </div>
@@ -183,248 +190,306 @@ export default function CreativeLeadForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3] px-4 py-12">
-      <div className="w-full max-w-lg">
+    <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3] px-4 py-16 sm:py-20">
+      <div className="w-full max-w-xl">
         {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-semibold tracking-tight text-neutral-900">
+        <div className="editorial-header mb-12 text-center">
+          <h1 className="font-serif-display text-4xl tracking-tight text-[#1a1a1a] sm:text-5xl">
             SquadHire
           </h1>
-          <p className="mt-0.5 text-xs text-neutral-400">Powered by UpSquad</p>
-          <p className="mt-1 text-sm text-neutral-500">Talent Platform</p>
+          <div className="mx-auto mt-3 w-12 border-t border-primary-300" />
+          <p className="mt-3 text-xs font-medium uppercase tracking-[0.2em] text-primary-500">
+            Talent Platform
+          </p>
         </div>
 
-        <div className="rounded-2xl bg-white p-6 shadow-sm sm:p-8">
-          <h2 className="mb-1 text-xl font-semibold text-neutral-900">
+        <div className="editorial-card rounded-2xl bg-white p-8 ring-1 ring-primary-200 sm:p-12">
+          <h2 className="font-serif-display text-2xl text-[#1a1a1a] sm:text-3xl">
             Join as a Designer / Editor
           </h2>
-          <p className="mb-6 text-sm text-neutral-500">
+          <p className="mt-1 text-sm text-primary-500">
             Fill in your details to apply. All fields are required.
           </p>
 
           {serverError && (
-            <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
               {serverError}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <Input
-              label="Name"
-              required
-              placeholder="Your full name"
-              value={form.name}
-              onChange={set('name')}
-              error={errors.name}
-            />
+          <form onSubmit={handleSubmit} className="mt-10">
+            {/* ── Section 1: Personal Details ── */}
+            <div className="editorial-section space-y-5" style={{ animationDelay: '0.08s' }}>
+              <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary-500">
+                Personal Details
+              </p>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                WhatsApp Number<span className="ml-0.5 text-red-500">*</span>
-              </label>
-              <div className="flex">
-                <span className="inline-flex items-center rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 px-3 text-sm text-gray-500">
-                  +91
-                </span>
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  maxLength={10}
-                  className={`block w-full rounded-r-lg border px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                    errors.phone
-                      ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:border-indigo-500'
-                  }`}
-                  placeholder="10-digit mobile"
-                  value={form.phone.replace(/^\+91/, '')}
-                  onChange={(e) => {
-                    let digits = e.target.value.replace(/\D/g, '');
-                    // Candidate pasted "+91..." or typed 91 at the start — strip duplicates.
-                    while (digits.length > 10 && digits.startsWith('91')) {
-                      digits = digits.slice(2);
-                    }
-                    digits = digits.slice(0, 10);
-                    setForm((prev) => ({ ...prev, phone: '+91' + digits }));
-                    setErrors((prev) => ({ ...prev, phone: undefined }));
-                    dup.clearPhone();
-                  }}
-                  onBlur={() => {
-                    const digits = form.phone.replace(/^\+91/, '');
-                    if (digits.length === 10) dup.checkPhone(digits);
-                  }}
-                />
+              <Input
+                label="Name"
+                required
+                placeholder="Your full name"
+                value={form.name}
+                onChange={set('name')}
+                error={errors.name}
+                className={inputClass}
+              />
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  WhatsApp Number<span className="ml-0.5 text-red-500">*</span>
+                </label>
+                <div className="flex">
+                  <span className="inline-flex items-center rounded-l-lg border border-r-0 border-primary-200 bg-primary-50 px-3 text-sm text-primary-500">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    className={`block w-full rounded-r-lg border px-3 py-2 text-sm transition-colors placeholder:text-primary-400 focus:outline-none focus:ring-1 focus:ring-[#1a1a1a]/20 ${
+                      errors.phone
+                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                        : 'border-primary-200 focus:border-[#1a1a1a]/40'
+                    }`}
+                    placeholder="10-digit mobile"
+                    value={form.phone.replace(/^\+91/, '')}
+                    onChange={(e) => {
+                      let digits = e.target.value.replace(/\D/g, '');
+                      while (digits.length > 10 && digits.startsWith('91')) {
+                        digits = digits.slice(2);
+                      }
+                      digits = digits.slice(0, 10);
+                      setForm((prev) => ({ ...prev, phone: '+91' + digits }));
+                      setErrors((prev) => ({ ...prev, phone: undefined }));
+                      dup.clearPhone();
+                    }}
+                    onBlur={() => {
+                      const digits = form.phone.replace(/^\+91/, '');
+                      if (digits.length === 10) dup.checkPhone(digits);
+                    }}
+                  />
+                </div>
+                {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
               </div>
-              {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
+
+              <Input
+                label="Email"
+                type="email"
+                required
+                placeholder="you@email.com"
+                value={form.email}
+                onChange={(e) => {
+                  set('email')(e);
+                  dup.clearEmail();
+                }}
+                onBlur={() => dup.checkEmail(form.email)}
+                error={errors.email}
+                className={inputClass}
+              />
+
+              <Input
+                label="Age"
+                required
+                type="number"
+                placeholder="Your age"
+                value={form.age}
+                onChange={set('age')}
+                error={errors.age}
+                className={inputClass}
+              />
+
+              <Select
+                label="Gender"
+                required
+                placeholder="Select option..."
+                options={GENDER_OPTIONS}
+                value={form.gender}
+                onChange={set('gender')}
+                error={errors.gender}
+                className={selectClass}
+              />
             </div>
 
-            <Input
-              label="Email"
-              type="email"
-              required
-              placeholder="your@email.com"
-              value={form.email}
-              onChange={(e) => {
-                set('email')(e);
-                dup.clearEmail();
-              }}
-              onBlur={() => dup.checkEmail(form.email)}
-              error={errors.email}
-            />
-
-            <Input
-              label="Age"
-              required
-              type="number"
-              placeholder="Enter age"
-              value={form.age}
-              onChange={set('age')}
-              error={errors.age}
-            />
-
-            <Select
-              label="Gender"
-              required
-              placeholder="Select option..."
-              options={GENDER_OPTIONS}
-              value={form.gender}
-              onChange={set('gender')}
-              error={errors.gender}
-            />
-
-            <Select
-              label="Country"
-              required
-              options={COUNTRIES}
-              value={form.country}
-              onChange={(e) => {
-                setForm((prev) => ({
-                  ...prev,
-                  country: e.target.value,
-                  state: '',
-                  current_district: '',
-                }));
-                setErrors((prev) => ({ ...prev, country: undefined, state: undefined, current_district: undefined }));
-              }}
-              error={errors.country}
-            />
-
-            {form.country === 'India' ? (
-              <Select
-                label="State"
-                required
-                placeholder="Select state"
-                options={INDIAN_STATES}
-                value={form.state}
-                onChange={(e) => {
-                  setForm((prev) => ({ ...prev, state: e.target.value, current_district: '' }));
-                  setErrors((prev) => ({ ...prev, state: undefined, current_district: undefined }));
-                }}
-                error={errors.state}
-              />
-            ) : (
-              <Input
-                label="State / Region"
-                required
-                placeholder="State or region"
-                value={form.state}
-                onChange={set('state')}
-                error={errors.state}
-              />
-            )}
-
-            {form.country === 'India' && form.state ? (
-              <Select
-                label="District"
-                required
-                placeholder="Select district"
-                options={(DISTRICTS_BY_STATE[form.state] || []).map((d) => ({
-                  label: d,
-                  value: d,
-                }))}
-                value={form.current_district}
-                onChange={set('current_district')}
-                error={errors.current_district}
-              />
-            ) : (
-              <Input
-                label="District"
-                required
-                placeholder={form.country === 'India' ? 'Select a state first' : 'District'}
-                value={form.current_district}
-                onChange={set('current_district')}
-                disabled={form.country === 'India' && !form.state}
-                error={errors.current_district}
-              />
-            )}
-
-            <ChipSelect
-              label="Role"
-              required
-              multi
-              options={CREATIVE_ROLES}
-              selected={form.role}
-              onChange={(v) => {
-                setForm((prev) => ({ ...prev, role: v as string[] }));
-                setErrors((prev) => ({ ...prev, role: undefined }));
-              }}
-              error={errors.role}
-            />
-
-            <ChipSelect
-              label="What type of work are you looking for?"
-              required
-              multi
-              options={WORK_TYPE_SEEKING_OPTIONS}
-              selected={form.work_type_seeking}
-              onChange={(v) => {
-                setForm((prev) => ({ ...prev, work_type_seeking: v as string[] }));
-                setErrors((prev) => ({ ...prev, work_type_seeking: undefined }));
-              }}
-              error={errors.work_type_seeking}
-            />
-
-            <Input
-              label="Years of Experience"
-              required
-              placeholder="e.g. 2"
-              value={form.experience_years}
-              onChange={set('experience_years')}
-              error={errors.experience_years}
-              helperText="Add Zero if you are a fresher"
-            />
-
-            <Input
-              label="Portfolio Link"
-              required
-              placeholder="https://drive.google.com/..."
-              value={form.portfolio_link}
-              onChange={set('portfolio_link')}
-              error={errors.portfolio_link}
-              helperText="If you don't have a portfolio, upload files to a drive and share that link"
-            />
-
-            {dup.anyDuplicate && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                You have already submitted a request with us.{' '}
-                <button
-                  type="button"
-                  onClick={() => dup.setShowModal(true)}
-                  className="font-semibold underline hover:text-amber-900"
-                >
-                  Contact Talent Support
-                </button>
-              </div>
-            )}
-
-            <Button
-              type="submit"
-              loading={submitting}
-              disabled={dup.anyDuplicate}
-              className="w-full"
+            {/* ── Section 2: Location ── */}
+            <div
+              className="editorial-section mt-10 space-y-5 border-t border-primary-200 pt-10"
+              style={{ animationDelay: '0.16s' }}
             >
-              Submit Application
-            </Button>
+              <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary-500">
+                Location
+              </p>
+
+              <Select
+                label="Country"
+                required
+                options={COUNTRIES}
+                value={form.country}
+                onChange={(e) => {
+                  setForm((prev) => ({
+                    ...prev,
+                    country: e.target.value,
+                    state: '',
+                    current_district: '',
+                  }));
+                  setErrors((prev) => ({ ...prev, country: undefined, state: undefined, current_district: undefined }));
+                }}
+                error={errors.country}
+                className={selectClass}
+              />
+
+              {form.country === 'India' ? (
+                <Select
+                  label="State"
+                  required
+                  placeholder="Select state"
+                  options={INDIAN_STATES}
+                  value={form.state}
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, state: e.target.value, current_district: '' }));
+                    setErrors((prev) => ({ ...prev, state: undefined, current_district: undefined }));
+                  }}
+                  error={errors.state}
+                  className={selectClass}
+                />
+              ) : (
+                <Input
+                  label="State / Region"
+                  required
+                  placeholder="State or region"
+                  value={form.state}
+                  onChange={set('state')}
+                  error={errors.state}
+                  className={inputClass}
+                />
+              )}
+
+              {form.country === 'India' && form.state ? (
+                <Select
+                  label="District"
+                  required
+                  placeholder="Select district"
+                  options={(DISTRICTS_BY_STATE[form.state] || []).map((d) => ({
+                    label: d,
+                    value: d,
+                  }))}
+                  value={form.current_district}
+                  onChange={set('current_district')}
+                  error={errors.current_district}
+                  className={selectClass}
+                />
+              ) : (
+                <Input
+                  label="District"
+                  required
+                  placeholder={form.country === 'India' ? 'Select a state first' : 'District'}
+                  value={form.current_district}
+                  onChange={set('current_district')}
+                  disabled={form.country === 'India' && !form.state}
+                  error={errors.current_district}
+                  className={inputClass}
+                />
+              )}
+            </div>
+
+            {/* ── Section 3: Professional Details ── */}
+            <div
+              className="editorial-section mt-10 space-y-5 border-t border-primary-200 pt-10"
+              style={{ animationDelay: '0.24s' }}
+            >
+              <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary-500">
+                Professional Details
+              </p>
+
+              <ChipSelect
+                label="Role"
+                required
+                multi
+                options={CREATIVE_ROLES}
+                selected={form.role}
+                onChange={(v) => {
+                  setForm((prev) => ({ ...prev, role: v as string[] }));
+                  setErrors((prev) => ({ ...prev, role: undefined }));
+                }}
+                error={errors.role}
+                chipClassName={chipStyle}
+              />
+
+              <ChipSelect
+                label="What type of work are you looking for?"
+                required
+                multi
+                options={WORK_TYPE_SEEKING_OPTIONS}
+                selected={form.work_type_seeking}
+                onChange={(v) => {
+                  setForm((prev) => ({ ...prev, work_type_seeking: v as string[] }));
+                  setErrors((prev) => ({ ...prev, work_type_seeking: undefined }));
+                }}
+                error={errors.work_type_seeking}
+                chipClassName={chipStyle}
+              />
+
+              <Input
+                label="Years of Experience"
+                required
+                placeholder="e.g. 2"
+                value={form.experience_years}
+                onChange={set('experience_years')}
+                error={errors.experience_years}
+                helperText="Add Zero if you are a fresher"
+                className={inputClass}
+              />
+            </div>
+
+            {/* ── Section 4: Your Work ── */}
+            <div
+              className="editorial-section mt-10 space-y-5 border-t border-primary-200 pt-10"
+              style={{ animationDelay: '0.32s' }}
+            >
+              <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary-500">
+                Your Work
+              </p>
+
+              <Input
+                label="Portfolio Link"
+                required
+                placeholder="https://drive.google.com/..."
+                value={form.portfolio_link}
+                onChange={set('portfolio_link')}
+                error={errors.portfolio_link}
+                helperText="If you don't have a portfolio, upload files to a drive and share that link"
+                className={inputClass}
+              />
+            </div>
+
+            {/* ── Submit ── */}
+            <div className="mt-10 border-t border-primary-200 pt-10">
+              {dup.anyDuplicate && (
+                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  You have already submitted a request with us.{' '}
+                  <button
+                    type="button"
+                    onClick={() => dup.setShowModal(true)}
+                    className="font-semibold underline hover:text-amber-900"
+                  >
+                    Contact Talent Support
+                  </button>
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                loading={submitting}
+                disabled={dup.anyDuplicate}
+                className="w-full"
+              >
+                Submit Application
+              </Button>
+            </div>
           </form>
+
+          <p className="mt-10 text-center text-[10px] text-primary-400">
+            Powered by UpSquad
+          </p>
         </div>
       </div>
       <AlreadySubmittedModal

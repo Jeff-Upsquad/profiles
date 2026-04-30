@@ -9,6 +9,7 @@ interface ChipSelectProps {
   error?: string;
   helperText?: string;
   required?: boolean;
+  chipClassName?: { selected: string; unselected: string };
 }
 
 export default function ChipSelect({
@@ -20,6 +21,7 @@ export default function ChipSelect({
   error,
   helperText,
   required,
+  chipClassName,
 }: ChipSelectProps) {
   const selectedArr = Array.isArray(selected) ? selected : selected ? [selected] : [];
 
@@ -55,8 +57,8 @@ export default function ChipSelect({
               onClick={() => toggle(opt.value)}
               className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all ${
                 isSelected
-                  ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
-                  : 'border-gray-300 bg-white text-gray-700 hover:border-indigo-300 hover:bg-indigo-50'
+                  ? (chipClassName?.selected ?? 'border-indigo-600 bg-indigo-600 text-white shadow-sm')
+                  : (chipClassName?.unselected ?? 'border-gray-300 bg-white text-gray-700 hover:border-indigo-300 hover:bg-indigo-50')
               }`}
             >
               {opt.label}

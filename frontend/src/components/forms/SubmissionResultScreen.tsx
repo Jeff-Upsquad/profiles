@@ -41,19 +41,15 @@ function CheckingScreen() {
   const stage = STAGES[stageIdx];
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#F7F6F3] via-[#EEF2FF] to-[#F7F6F3] px-4">
-      <div className="w-full max-w-md rounded-3xl bg-white p-10 text-center shadow-xl ring-1 ring-black/5">
+    <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3] px-4">
+      <div className="w-full max-w-md rounded-3xl bg-white p-10 text-center ring-1 ring-primary-200">
         {/* Animated logo */}
         <div className="relative mx-auto mb-8 h-24 w-24">
-          {/* Outer pulsing ring */}
-          <div className="absolute inset-0 animate-ping rounded-full bg-indigo-400 opacity-20" />
-          {/* Middle rotating gradient ring */}
-          <div className="absolute inset-1 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 [animation:spin_3s_linear_infinite]" />
-          {/* Inner white circle */}
+          <div className="absolute inset-0 animate-ping rounded-full bg-primary-400 opacity-20" />
+          <div className="absolute inset-1 rounded-full bg-gradient-to-tr from-[#1a1a1a] via-[#3d3730] to-[#5c5347] [animation:spin_3s_linear_infinite]" />
           <div className="absolute inset-2 flex items-center justify-center rounded-full bg-white">
-            {/* Animated checkmark/sparkle */}
             <svg
-              className="h-10 w-10 text-indigo-600"
+              className="h-10 w-10 text-[#1a1a1a]"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -68,48 +64,43 @@ function CheckingScreen() {
           </div>
         </div>
 
-        {/* Heading */}
-        <h2 className="text-2xl font-semibold tracking-tight text-neutral-900">
+        <h2 className="font-serif-display text-2xl tracking-tight text-[#1a1a1a]">
           Checking your approval
         </h2>
 
-        {/* Stage label — fades through messages */}
         <div className="relative mt-3 h-12 overflow-hidden">
           <div
             key={stageIdx}
             className="animate-[fadeIn_0.4s_ease-out]"
           >
-            <p className="text-sm font-medium text-indigo-600">{stage.label}</p>
-            <p className="mt-0.5 text-xs text-neutral-400">{stage.detail}</p>
+            <p className="text-sm font-medium text-[#1a1a1a]">{stage.label}</p>
+            <p className="mt-0.5 text-xs text-primary-400">{stage.detail}</p>
           </div>
         </div>
 
-        {/* Progress bar */}
-        <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
+        <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-primary-100">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-[width] duration-100 ease-linear"
+            className="h-full rounded-full bg-gradient-to-r from-[#1a1a1a] via-[#3d3730] to-[#5c5347] transition-[width] duration-100 ease-linear"
             style={{ width: `${progressPct}%` }}
           />
         </div>
 
-        {/* Stage dots */}
         <div className="mt-5 flex items-center justify-center gap-2">
           {STAGES.map((_, i) => (
             <div
               key={i}
               className={`h-1.5 rounded-full transition-all duration-500 ${
                 i < stageIdx
-                  ? 'w-4 bg-indigo-500'
+                  ? 'w-4 bg-[#1a1a1a]'
                   : i === stageIdx
-                  ? 'w-8 bg-indigo-500 animate-pulse'
-                  : 'w-1.5 bg-neutral-200'
+                  ? 'w-8 bg-[#1a1a1a] animate-pulse'
+                  : 'w-1.5 bg-primary-200'
               }`}
             />
           ))}
         </div>
 
-        {/* Subtle helper text */}
-        <p className="mt-6 text-xs text-neutral-400">
+        <p className="mt-6 text-xs text-primary-400">
           This usually takes about 10 seconds
         </p>
       </div>
@@ -143,8 +134,8 @@ export default function SubmissionResultScreen({
 
   if (result?.approved) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#F7F6F3] via-[#ECFDF5] to-[#F7F6F3] px-4">
-        <div className="w-full max-w-md rounded-3xl bg-white p-10 text-center shadow-xl ring-1 ring-black/5 animate-[scaleIn_0.5s_ease-out]">
+      <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3] px-4">
+        <div className="w-full max-w-md rounded-3xl bg-white p-10 text-center ring-1 ring-primary-200 animate-[scaleIn_0.5s_ease-out]">
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-emerald-600 shadow-lg shadow-green-500/30">
             <svg
               className="h-10 w-10 text-white"
@@ -160,10 +151,10 @@ export default function SubmissionResultScreen({
               />
             </svg>
           </div>
-          <h2 className="text-2xl font-semibold tracking-tight text-neutral-900">
+          <h2 className="font-serif-display text-2xl tracking-tight text-[#1a1a1a]">
             {result.message || 'Your profile is auto-approved!'}
           </h2>
-          <p className="mt-3 text-neutral-500">
+          <p className="mt-3 text-primary-500">
             Congratulations! You have been approved to join the UpSquad Partner
             Program.
           </p>
@@ -172,7 +163,7 @@ export default function SubmissionResultScreen({
               href={result.redirect_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-7 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition-all hover:shadow-xl hover:shadow-indigo-500/40 hover:-translate-y-0.5"
+              className="mt-7 inline-flex items-center gap-2 rounded-xl bg-[#1a1a1a] px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-black/10 transition-all hover:bg-[#2a2a2a] hover:-translate-y-0.5"
             >
               Visit UpSquad Partner Program
               <svg
@@ -208,10 +199,9 @@ export default function SubmissionResultScreen({
     );
   }
 
-  // Default: standard thank-you screen
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3] px-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center shadow-sm">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center ring-1 ring-primary-200">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
           <svg
             className="h-8 w-8 text-green-600"
@@ -227,8 +217,8 @@ export default function SubmissionResultScreen({
             />
           </svg>
         </div>
-        <h2 className="text-2xl font-semibold text-neutral-900">Thank You!</h2>
-        <p className="mt-2 text-neutral-500">
+        <h2 className="font-serif-display text-2xl text-[#1a1a1a]">Thank You!</h2>
+        <p className="mt-2 text-primary-500">
           Your application has been submitted successfully. We&apos;ll review
           your profile and get back to you soon.
         </p>
