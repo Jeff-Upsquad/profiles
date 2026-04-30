@@ -338,6 +338,8 @@ interface RecipientRow {
   status: 'pending' | 'accepted' | 'rejected';
   responded_at: string | null;
   cancelled_at: string | null;
+  selected_at: string | null;
+  passed_over_at: string | null;
   created_at: string;
   subscription_cards: {
     id: string;
@@ -357,6 +359,8 @@ export async function listForTalent(
   status: 'pending' | 'accepted' | 'rejected';
   responded_at: string | null;
   cancelled_at: string | null;
+  selected_at: string | null;
+  passed_over_at: string | null;
   card: RecipientRow['subscription_cards'];
 }>> {
   // Cancelled-but-pending rows are hidden everywhere — the talent never
@@ -392,8 +396,8 @@ export async function listForTalent(
     status: r.status,
     responded_at: r.responded_at,
     cancelled_at: r.cancelled_at,
-    selected_at: (r as any).selected_at ?? null,
-    passed_over_at: (r as any).passed_over_at ?? null,
+    selected_at: r.selected_at ?? null,
+    passed_over_at: r.passed_over_at ?? null,
     card: r.subscription_cards,
   }));
 }
