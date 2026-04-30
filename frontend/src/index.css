@@ -2,92 +2,100 @@
 
 html {
   color-scheme: light;
-  background-color: #F4F4F5;
+  background-color: #F8F9FA;
 }
 
 body {
-  background-color: #F4F4F5;
-  font-family: var(--font-dm-sans), 'Helvetica Neue', system-ui, sans-serif;
-  color: #18181B;
+  background-color: #F8F9FA;
+  font-family: var(--font-jakarta), 'Helvetica Neue', system-ui, sans-serif;
+  color: #202020;
   -webkit-font-smoothing: antialiased;
 }
 
 @source "../src/**/*.{js,ts,jsx,tsx,mdx}";
 
 @theme {
-  --color-primary-50: #faf9f7;
-  --color-primary-100: #f5f3ef;
-  --color-primary-200: #e8e5de;
-  --color-primary-300: #d4cfc5;
-  --color-primary-400: #b8b0a2;
-  --color-primary-500: #9c9283;
-  --color-primary-600: #7a6f5f;
-  --color-primary-700: #5c5347;
-  --color-primary-800: #3d3730;
-  --color-primary-900: #1f1b17;
+  /* ── ClickUp V5 Neutral Scale ── */
+  --color-cu-50:  #F8F9FA;
+  --color-cu-100: #f0f0f0;
+  --color-cu-200: #E4E4E7;
+  --color-cu-300: #dedede;
+  --color-cu-400: #A1A1AA;
+  --color-cu-500: #838383;
+  --color-cu-600: #646464;
+  --color-cu-700: #3F3F46;
+  --color-cu-800: #27272A;
+  --color-cu-900: #202020;
+  --color-cu-950: #09090B;
 
-  --color-warm-bg: #F7F6F3;
-  --color-warm-card: #FFFFFF;
-  --color-warm-border: #E8E5DE;
-
-  --color-accent: #1a1a1a;
-  --color-accent-soft: #4a4a4a;
-  --color-accent-muted: #8a8a8a;
-
-  --color-dark-900: #0f172a;
-
-  /* SaaS palette (ClickUp-inspired) */
-  --color-canvas-50:  #FBFAFB;
-  --color-canvas-100: #F4F4F5;
-  --color-canvas-200: #E9E9EB;
-  --color-canvas-300: #D9D9DD;
-  --color-canvas-400: #A1A1AA;
-  --color-canvas-500: #71717A;
-  --color-canvas-600: #52525B;
-  --color-canvas-700: #3F3F46;
-  --color-canvas-800: #27272A;
-  --color-canvas-900: #18181B;
-
+  /* ── ClickUp Accent Purple ── */
   --color-iris-50:  #F2EEFF;
   --color-iris-100: #E4DBFF;
   --color-iris-200: #C9B6FF;
   --color-iris-300: #AC8DFF;
   --color-iris-400: #8B66F8;
-  --color-iris-500: #7B5BFF;
-  --color-iris-600: #6240E5;
+  --color-iris-500: #6647F0;
+  --color-iris-600: #5535D4;
   --color-iris-700: #4D2EC2;
 
-  --color-prism-orange: #FF8B47;
-  --color-prism-pink:   #FF5B8B;
-  --color-prism-magenta:#D24DFF;
-  --color-prism-violet: #8B66F8;
-  --color-prism-blue:   #5BB7FF;
+  /* ── ClickUp Brand Accents ── */
+  --color-cu-orange: #F76808;
+  --color-cu-pink:   #FF02F0;
+  --color-cu-blue:   #0091FF;
+  --color-cu-green:  #42CC77;
+  --color-cu-teal:   #17CFCF;
+
+  /* ── Semantic Surface Tokens ── */
+  --color-surface-main: #FFFFFF;
+  --color-surface-box:  #F8F9FA;
+  --color-surface-muted: #f0f0f0;
+  --color-border-default: #E4E4E7;
+  --color-border-light: #ECECEF;
 }
 
-/* ── Threads Profile Design Tokens ── */
+/* ── ClickUp V5 Design Tokens ── */
 :root {
-  --threads-bg: #ffffff;
-  --threads-bg-hover: #f7f7f7;
-  --threads-bg-tag: #f0f0f0;
-  --threads-border: #e5e5e5;
-  --threads-border-light: #efefef;
-  --threads-text-primary: #0a0a0a;
-  --threads-text-secondary: #737373;
-  --threads-text-tertiary: #a3a3a3;
-  --threads-accent: #0a0a0a;
-  --threads-accent-green: #00c853;
+  --cu-bg: #ffffff;
+  --cu-bg-box: #F8F9FA;
+  --cu-bg-surface: #f0f0f0;
+  --cu-bg-surface-hover: #dedede;
+  --cu-border: #E4E4E7;
+  --cu-border-light: #ECECEF;
+  --cu-text-main: #202020;
+  --cu-text-secondary: #646464;
+  --cu-text-tertiary: #838383;
+  --cu-text-muted: #A1A1AA;
+  --cu-accent: #6647F0;
+  --cu-accent-hover: #5535D4;
+  --cu-green: #42CC77;
+
+  --cu-shadow-sm: 0px 1px 2px rgba(0, 0, 0, 0.05);
+  --cu-shadow: 0px 1px 3px 0 rgba(0,0,0,0.1), 0px 1px 2px -1px rgba(0,0,0,0.1);
+  --cu-shadow-md: 0px 4px 10px 0 rgba(0,0,0,0.07);
+  --cu-shadow-lg: 0px 10px 30px -5px rgba(0,0,0,0.1);
+
+  --cu-radius-sm: 8px;
+  --cu-radius: 12px;
+  --cu-radius-lg: 14px;
+  --cu-radius-xl: 18px;
+  --cu-radius-full: 100px;
 }
 
-/* ── Threads Profile Animations ── */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+/* ── Font Utilities ── */
+.font-display {
+  font-family: var(--font-jakarta), 'Helvetica Neue', sans-serif;
+  letter-spacing: -0.02em;
+  font-feature-settings: "calt" off;
 }
-.animate-fade-up {
-  animation: fadeUp 0.4s ease-out both;
+.font-ui {
+  font-family: var(--font-inter), 'Helvetica Neue', sans-serif;
+  letter-spacing: -0.01em;
+}
+.font-body {
+  font-family: var(--font-jakarta), 'Helvetica Neue', sans-serif;
 }
 
-/* ── Scrollbar Hide (portfolio tab bar) ── */
+/* ── Scrollbar Hide ── */
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -96,123 +104,169 @@ body {
   display: none;
 }
 
-/* ── Display & Mono Fonts ── */
-.font-serif-display {
-  font-family: var(--font-instrument-serif), 'Times New Roman', serif;
-}
-.font-mono-editorial {
-  font-family: var(--font-plex-mono), 'SF Mono', 'JetBrains Mono', Consolas, monospace;
-  font-feature-settings: 'ss01' on, 'ss02' on;
-}
-.font-display-saas {
-  font-family: var(--font-dm-sans), 'Helvetica Neue', sans-serif;
-  letter-spacing: -0.025em;
-}
-.font-body-dm {
-  font-family: var(--font-dm-sans), 'Helvetica Neue', sans-serif;
-}
-
-/* ── Editorial Form Styles (legacy, still used elsewhere) ── */
-@keyframes editorialFadeUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.editorial-header { animation: editorialFadeUp 0.5s ease-out both; }
-.editorial-card { animation: editorialFadeUp 0.6s ease-out both; }
-.editorial-section { animation: editorialFadeUp 0.5s ease-out both; }
-
-/* ─────────────────────────────────────────────────── */
-/* ── SaaS Light Theme (ClickUp-inspired) ──────────── */
-/* ─────────────────────────────────────────────────── */
-
-@keyframes saasLift {
-  0%   { opacity: 0; transform: translateY(18px); }
+/* ── ClickUp V5 Animations ── */
+@keyframes cuLift {
+  0%   { opacity: 0; transform: translateY(12px); }
   100% { opacity: 1; transform: translateY(0); }
 }
-.saas-lift {
-  animation: saasLift 0.7s cubic-bezier(0.2, 0.65, 0.25, 1) both;
+.cu-lift {
+  animation: cuLift 0.5s cubic-bezier(0.2, 0.65, 0.25, 1) both;
 }
 
-@keyframes prismDrift {
-  0%   { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
+@keyframes cuFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.cu-fade-in {
+  animation: cuFadeIn 0.3s ease both;
 }
 
-/* Iridescent rainbow gradient — used SPARINGLY as accent moments */
-.text-prism {
-  background-image: linear-gradient(
-    96deg,
-    #FF8B47 0%,
-    #FF5B8B 28%,
-    #D24DFF 52%,
-    #8B66F8 76%,
-    #5BB7FF 100%
-  );
-  background-size: 200% 100%;
-  background-position: 0% 50%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.text-prism-animated {
-  animation: prismDrift 18s linear infinite;
-}
-
-/* Iridescent fill (for badges, masks, special elements) */
-.bg-prism {
-  background-image: linear-gradient(
-    96deg,
-    #FF8B47 0%,
-    #FF5B8B 28%,
-    #D24DFF 52%,
-    #8B66F8 76%,
-    #5BB7FF 100%
-  );
-}
-
-/* SaaS card — white with subtle border + shadow */
-.card-saas {
+/* ── V5 Card ── */
+.card-v5 {
   background: #FFFFFF;
-  border: 1px solid #ECECEF;
-  border-radius: 24px;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.6) inset,
-    0 1px 2px rgba(24, 24, 27, 0.04),
-    0 8px 24px -12px rgba(24, 24, 27, 0.06);
+  border: 1px solid var(--cu-border-light);
+  border-radius: var(--cu-radius-lg);
+  box-shadow: var(--cu-shadow-sm);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card-v5:hover {
+  box-shadow: var(--cu-shadow);
 }
 
-/* Hero card — slightly more presence */
-.card-hero {
+.card-v5-elevated {
   background: #FFFFFF;
-  border: 1px solid #ECECEF;
-  border-radius: 28px;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.6) inset,
-    0 2px 4px rgba(24, 24, 27, 0.04),
-    0 24px 48px -24px rgba(24, 24, 27, 0.10);
+  border: 1px solid var(--cu-border-light);
+  border-radius: var(--cu-radius-xl);
+  box-shadow: var(--cu-shadow-md);
 }
 
-/* Surface card — very subtle, near-white */
-.surface-saas {
-  background: #FAFAFB;
-  border: 1px solid #ECECEF;
-  border-radius: 16px;
+/* ── V5 Surface ── */
+.surface-v5 {
+  background: var(--cu-bg-box);
+  border: 1px solid var(--cu-border-light);
+  border-radius: var(--cu-radius);
 }
 
-/* Status pill — live / accepting */
+/* ── V5 Button Base ── */
+.btn-v5 {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--cu-radius-sm);
+  font-family: var(--font-inter), sans-serif;
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1rem;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.15s ease;
+}
+.btn-v5:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.btn-v5:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-v5-primary {
+  background: #202020;
+  color: #ffffff;
+}
+.btn-v5-primary:hover:not(:disabled) {
+  background: rgba(32, 32, 32, 0.85);
+}
+
+.btn-v5-secondary {
+  background: #f0f0f0;
+  color: #202020;
+}
+.btn-v5-secondary:hover:not(:disabled) {
+  background: #dedede;
+}
+
+.btn-v5-lg {
+  padding: 12px 20px;
+  border-radius: var(--cu-radius);
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+/* ── V5 Tab Control ── */
+.tab-v5 {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  border-radius: var(--cu-radius-sm);
+  background: var(--cu-bg-box);
+  color: var(--cu-text-secondary);
+  font-family: var(--font-inter), sans-serif;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+.tab-v5-active {
+  background: #ffffff;
+  color: #202020;
+  box-shadow: var(--cu-shadow);
+}
+
+/* ── V5 Input ── */
+.input-v5 {
+  width: 100%;
+  border-radius: var(--cu-radius-sm);
+  border: 1px solid var(--cu-border);
+  background-color: #ffffff;
+  color: #202020;
+  padding: 0.625rem 0.875rem;
+  font-family: var(--font-jakarta), sans-serif;
+  font-size: 0.875rem;
+  font-weight: 400;
+  box-shadow: var(--cu-shadow-sm);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.input-v5:focus {
+  outline: none;
+  border-color: var(--cu-accent);
+  box-shadow: 0 0 0 3px rgba(100, 71, 240, 0.12), var(--cu-shadow-sm);
+}
+.input-v5:disabled {
+  background-color: var(--cu-bg-box);
+  color: var(--cu-text-muted);
+  cursor: not-allowed;
+}
+.input-v5::placeholder {
+  color: var(--cu-text-muted);
+}
+
+/* ── V5 Badge ── */
+.badge-v5 {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--cu-radius-full);
+  padding: 0.2rem 0.6rem;
+  font-family: var(--font-inter), sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* ── Status Pill ── */
 .pill-live {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.4rem 0.85rem;
-  border-radius: 9999px;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--cu-radius-full);
   background: #F0FDF4;
   border: 1px solid #BBF7D0;
   color: #15803D;
-  font-family: var(--font-dm-sans), sans-serif;
+  font-family: var(--font-inter), sans-serif;
   font-size: 0.75rem;
   font-weight: 500;
-  letter-spacing: 0.01em;
 }
 .pill-live::before {
   content: '';
@@ -220,168 +274,282 @@ body {
   height: 0.4rem;
   border-radius: 9999px;
   background: #22C55E;
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
   animation: pulseLive 1.6s ease-in-out infinite;
 }
 @keyframes pulseLive {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.45; }
+  50% { opacity: 0.4; }
 }
 
-/* Iridescent accent badge (the "wow" moment) */
-.badge-prism {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.45rem 0.95rem;
-  border-radius: 9999px;
-  background: #18181B;
-  color: #FFFFFF;
-  font-family: var(--font-dm-sans), sans-serif;
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.005em;
+/* ── Conic Gradient Ring (ClickUp signature brand element) ── */
+.ring-conic {
+  background: conic-gradient(
+    from 90deg,
+    rgba(0, 145, 255, 1) 0deg,
+    rgba(255, 2, 240, 1) 135deg,
+    rgba(237, 95, 0, 1) 187deg,
+    rgba(179, 140, 255, 1) 269deg,
+    rgba(0, 145, 255, 1) 360deg
+  );
 }
-.badge-prism::before {
+
+/* ── Noise Texture Overlay ── */
+.noise-overlay::after {
   content: '';
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 9999px;
-  background-image: linear-gradient(96deg, #FF8B47 0%, #FF5B8B 35%, #8B66F8 70%, #5BB7FF 100%);
-  box-shadow: 0 0 0 2px rgba(255, 91, 139, 0.18), 0 0 10px rgba(139, 102, 248, 0.4);
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.4' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+  pointer-events: none;
+  border-radius: inherit;
 }
 
-/* Light SaaS field — pill-shaped input */
-.field-saas input,
-.field-saas select,
-.field-saas textarea {
-  width: 100%;
-  border-radius: 12px !important;
-  border: 1px solid #E4E4E7 !important;
-  background-color: #FFFFFF !important;
-  color: #18181B !important;
-  padding: 0.75rem 0.95rem !important;
-  font-family: var(--font-dm-sans), sans-serif !important;
-  font-size: 0.95rem !important;
-  font-weight: 400 !important;
-  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.03) !important;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
-}
-.field-saas input:focus,
-.field-saas select:focus,
-.field-saas textarea:focus {
-  outline: none !important;
-  border-color: #8B66F8 !important;
-  box-shadow:
-    0 0 0 4px rgba(139, 102, 248, 0.15),
-    0 1px 2px rgba(24, 24, 27, 0.04) !important;
-  --tw-ring-shadow: 0 0 #0000 !important;
-}
-.field-saas input:disabled,
-.field-saas select:disabled,
-.field-saas textarea:disabled {
-  background-color: #FAFAFB !important;
-  color: #A1A1AA !important;
-  cursor: not-allowed;
-}
-.field-saas input::placeholder,
-.field-saas textarea::placeholder {
-  color: #A1A1AA !important;
-}
-.field-saas label {
-  display: block !important;
-  font-family: var(--font-dm-sans), sans-serif !important;
-  font-size: 0.8rem !important;
-  font-weight: 500 !important;
-  color: #3F3F46 !important;
-  margin-bottom: 0.45rem !important;
-  letter-spacing: 0 !important;
-  text-transform: none !important;
-}
-
-/* Primary CTA — purple iris with hover glow */
-.btn-iris {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  padding: 0.95rem 1.6rem;
-  border-radius: 9999px;
-  font-family: var(--font-dm-sans), sans-serif;
-  font-size: 0.95rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  color: #FFFFFF;
-  background: #18181B;
-  border: 0;
-  cursor: pointer;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.18) inset,
-    0 1px 2px rgba(24, 24, 27, 0.16),
-    0 8px 20px -8px rgba(24, 24, 27, 0.30);
-  transition: transform 0.18s ease, box-shadow 0.22s ease, background-color 0.18s ease;
-}
-.btn-iris:hover:not(:disabled) {
-  transform: translateY(-1px);
-  background: #27272A;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.2) inset,
-    0 2px 4px rgba(24, 24, 27, 0.18),
-    0 14px 28px -10px rgba(123, 91, 255, 0.35);
-}
-.btn-iris:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-.btn-iris .arrow {
-  transition: transform 0.2s ease;
-}
-.btn-iris:hover:not(:disabled) .arrow {
-  transform: translateX(3px);
-}
-
-/* Iridescent CTA variant — for hero moments */
-.btn-prism {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  padding: 0.95rem 1.6rem;
-  border-radius: 9999px;
-  font-family: var(--font-dm-sans), sans-serif;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #18181B;
-  background: linear-gradient(96deg, #FF8B47 0%, #FF5B8B 28%, #D24DFF 52%, #8B66F8 76%, #5BB7FF 100%);
-  background-size: 200% 100%;
-  background-position: 0% 50%;
-  border: 0;
-  cursor: pointer;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.55) inset,
-    0 8px 20px -8px rgba(210, 77, 255, 0.4);
-  transition: background-position 0.4s ease, transform 0.18s ease, box-shadow 0.25s ease;
-}
-.btn-prism:hover:not(:disabled) {
-  background-position: 100% 50%;
-  transform: translateY(-1px);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.65) inset,
-    0 14px 28px -10px rgba(139, 102, 248, 0.5);
-}
-.btn-prism:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  filter: grayscale(0.3);
-}
-
-/* Section reveal animation */
+/* ── Section animation ── */
 @keyframes sectionRise {
-  0%   { opacity: 0; transform: translateY(20px); }
+  0%   { opacity: 0; transform: translateY(16px); }
   100% { opacity: 1; transform: translateY(0); }
 }
 .section-rise {
-  animation: sectionRise 0.7s cubic-bezier(0.2, 0.65, 0.25, 1) both;
+  animation: sectionRise 0.5s cubic-bezier(0.2, 0.65, 0.25, 1) both;
+}
+
+/* ── Legacy compat ── */
+.animate-fade-up {
+  animation: cuLift 0.4s ease-out both;
+}
+
+/* ─────────────────────────────────────────────────── */
+/* ── ClickUp Hero & Display Patterns ─────────────── */
+/* ─────────────────────────────────────────────────── */
+
+/* Big display text — fluid clamp typography (ClickUp style) */
+.display-hero {
+  font-family: var(--font-jakarta), sans-serif;
+  font-size: clamp(2.25rem, 5vw + 1rem, 4rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+.display-xl {
+  font-family: var(--font-jakarta), sans-serif;
+  font-size: clamp(1.75rem, 3vw + 0.75rem, 2.5rem);
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.display-lg {
+  font-family: var(--font-jakarta), sans-serif;
+  font-size: clamp(1.5rem, 2vw + 0.5rem, 2rem);
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.022em;
+}
+
+/* Hero radial orange glow (Brain Agents signature) */
+.hero-glow-orange::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(60% 65% at 50% 100%, rgba(255, 100, 65, 0.18) 0%, rgba(255, 255, 255, 0) 70%);
+  pointer-events: none;
+  border-radius: inherit;
+}
+.hero-glow-purple::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(55% 60% at 100% 0%, rgba(102, 71, 240, 0.14) 0%, rgba(255, 255, 255, 0) 65%);
+  pointer-events: none;
+  border-radius: inherit;
+}
+.hero-glow-blur {
+  position: absolute;
+  width: 60%;
+  height: 60%;
+  background: #ff6441;
+  filter: blur(120px);
+  opacity: 0.18;
+  pointer-events: none;
+  border-radius: 50%;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Eyebrow badge with rainbow gradient highlight */
+.eyebrow-rainbow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+  font-family: var(--font-inter), sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #202020;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.eyebrow-rainbow::before {
+  content: '';
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
+  background-image: linear-gradient(96deg, #FF8B47 0%, #FF5B8B 28%, #D24DFF 52%, #8B66F8 76%, #5BB7FF 100%);
+  box-shadow: 0 0 0 2px rgba(210, 77, 255, 0.15), 0 0 8px rgba(139, 102, 248, 0.4);
+}
+
+/* Iridescent rainbow text */
+.text-rainbow {
+  background-image: linear-gradient(96deg, #FF8B47 0%, #FF5B8B 28%, #D24DFF 52%, #8B66F8 76%, #5BB7FF 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Iridescent rainbow background */
+.bg-rainbow {
+  background-image: linear-gradient(96deg, #FF8B47 0%, #FF5B8B 28%, #D24DFF 52%, #8B66F8 76%, #5BB7FF 100%);
+}
+
+/* ─────────────────────────────────────────────────── */
+/* ── Pastel-Tint Stat Cards (ClickUp Brain Agents) ── */
+/* ─────────────────────────────────────────────────── */
+
+.tint-orange { background: #FDEDE7; --tint-icon: #F76808; --tint-text: #C04A05; }
+.tint-blue   { background: #EDF6FD; --tint-icon: #0091FF; --tint-text: #0070C9; }
+.tint-green  { background: #EDFDED; --tint-icon: #2DA94F; --tint-text: #1F7E36; }
+.tint-purple { background: #EFEDFD; --tint-icon: #6647F0; --tint-text: #4D2EC2; }
+.tint-pink   { background: #FDEDF6; --tint-icon: #E94B8E; --tint-text: #B82D6A; }
+.tint-amber  { background: #FDF6E7; --tint-icon: #D97706; --tint-text: #92400E; }
+
+.stat-card {
+  position: relative;
+  border-radius: 18px;
+  padding: 1.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  transition: transform 0.25s cubic-bezier(0.2, 0.65, 0.25, 1), box-shadow 0.25s ease;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.08);
+}
+
+/* ─────────────────────────────────────────────────── */
+/* ── Iridescent CTA (ClickUp Hero CTA) ────────────── */
+/* ─────────────────────────────────────────────────── */
+
+.btn-iridescent {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 12px;
+  font-family: var(--font-inter), sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #FFFFFF;
+  background: #202020;
+  border: 0;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.22s ease;
+  overflow: hidden;
+  isolation: isolate;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 1px 2px rgba(0, 0, 0, 0.16),
+    0 8px 20px -8px rgba(102, 71, 240, 0.4);
+}
+.btn-iridescent::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(96deg, #FF8B47 0%, #FF5B8B 28%, #D24DFF 52%, #8B66F8 76%, #5BB7FF 100%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  z-index: -1;
+}
+.btn-iridescent:hover:not(:disabled)::before {
+  opacity: 1;
+}
+.btn-iridescent:hover:not(:disabled) {
+  transform: translateY(-1px);
+  color: #202020;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.4) inset,
+    0 14px 28px -10px rgba(139, 102, 248, 0.5);
+}
+.btn-iridescent:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.btn-iridescent .arrow-icon {
+  transition: transform 0.2s ease;
+}
+.btn-iridescent:hover:not(:disabled) .arrow-icon {
+  transform: translateX(3px);
+}
+
+/* ─────────────────────────────────────────────────── */
+/* ── Conic Gradient Border (ClickUp signature) ────── */
+/* ─────────────────────────────────────────────────── */
+
+.border-conic {
+  position: relative;
+  background: white;
+  border-radius: 18px;
+  isolation: isolate;
+}
+.border-conic::before {
+  content: '';
+  position: absolute;
+  inset: -1.5px;
+  background: conic-gradient(
+    from 90deg,
+    rgba(0, 145, 255, 1) 0deg,
+    rgba(255, 2, 240, 1) 135deg,
+    rgba(237, 95, 0, 1) 187deg,
+    rgba(179, 140, 255, 1) 269deg,
+    rgba(0, 145, 255, 1) 360deg
+  );
+  border-radius: inherit;
+  z-index: -1;
+  opacity: 0.7;
+}
+
+/* ─────────────────────────────────────────────────── */
+/* ── Stagger reveal animation ─────────────────────── */
+/* ─────────────────────────────────────────────────── */
+
+@keyframes stagger {
+  0%   { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.stagger-1 { animation: stagger 0.6s cubic-bezier(0.2, 0.65, 0.25, 1) 0.05s both; }
+.stagger-2 { animation: stagger 0.6s cubic-bezier(0.2, 0.65, 0.25, 1) 0.12s both; }
+.stagger-3 { animation: stagger 0.6s cubic-bezier(0.2, 0.65, 0.25, 1) 0.19s both; }
+.stagger-4 { animation: stagger 0.6s cubic-bezier(0.2, 0.65, 0.25, 1) 0.26s both; }
+.stagger-5 { animation: stagger 0.6s cubic-bezier(0.2, 0.65, 0.25, 1) 0.33s both; }
+.stagger-6 { animation: stagger 0.6s cubic-bezier(0.2, 0.65, 0.25, 1) 0.40s both; }
+
+/* ─────────────────────────────────────────────────── */
+/* ── Hero Container Pattern (ClickUp Brain Hero) ──── */
+/* ─────────────────────────────────────────────────── */
+
+.hero-container {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.hero-container .hero-content {
+  position: relative;
+  z-index: 2;
 }

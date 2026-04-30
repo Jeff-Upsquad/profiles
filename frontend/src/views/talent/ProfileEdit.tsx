@@ -12,9 +12,15 @@ import DesignerExtras from '@/components/forms/DesignerExtras';
 import PortfolioUploader from '@/components/forms/PortfolioUploader';
 import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
 import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
-import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
+
+const TINTS = ['tint-purple', 'tint-blue', 'tint-orange', 'tint-green', 'tint-pink', 'tint-amber'] as const;
+function tintFor(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash << 5) - hash + seed.charCodeAt(i);
+  return TINTS[Math.abs(hash) % TINTS.length];
+}
 
 export default function ProfileEdit({ profileId }: { profileId: string }) {
   const router = useRouter();
@@ -42,10 +48,6 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
   useEffect(() => {
     if (!profile || hasInitializedValues.current) return;
-    // Upgrade legacy `_categories: string[]` to `[{category, level: 5}]` so
-    // existing rows render in the new checkbox+slider control. Server SQL
-    // also runs this migration; this is the client-side fallback for any
-    // profile whose row hasn't been touched yet.
     const fd = { ...(profile.field_data ?? {}) };
     if (Array.isArray(fd._categories) && fd._categories.length > 0 && typeof fd._categories[0] === 'string') {
       fd._categories = fd._categories.map((category: string) => ({ category, level: 5 }));
@@ -62,14 +64,12 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
     hasInitializedLangs.current = true;
   }, [talentMe]);
 
-  // Track dirty state
   useEffect(() => {
     const valuesDirty = hasInitializedValues.current && JSON.stringify(values) !== initialValues.current;
     const langDirty = hasInitializedLangs.current && JSON.stringify(languages) !== initialLanguages.current;
     setDirty(!!(valuesDirty || langDirty));
   }, [values, languages]);
 
-  // Warn on browser close / refresh
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (dirty) { e.preventDefault(); }
@@ -78,7 +78,6 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
 
-  // Guard browser back / swipe navigation
   useEffect(() => {
     if (!dirty) return;
     window.history.pushState(null, '', window.location.href);
@@ -121,7 +120,6 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
         }
       }
 
-      // Portfolio link validation: reject Dribbble and Behance
       if (field.field_key === 'portfolio_link' && val && typeof val === 'string') {
         try {
           const url = new URL(val);
@@ -158,7 +156,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
     try {
       await updateProfile.mutateAsync({ id: profileId, field_data: values });
     } catch {
-      return; // toast shown by mutation hook
+      return;
     }
     try {
       await saveLanguages();
@@ -175,7 +173,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
     try {
       await updateProfile.mutateAsync({ id: profileId, field_data: values });
     } catch {
-      return; // toast shown by mutation hook
+      return;
     }
     try {
       await saveLanguages();
@@ -187,7 +185,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
     try {
       await submitProfile.mutateAsync(profileId);
     } catch {
-      return; // toast shown by mutation hook
+      return;
     }
     router.push(`/talent/profiles/${profileId}`);
   };
@@ -195,99 +193,138 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   if (profileLoading || fieldsLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+        <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#202020] border-t-transparent" />
       </div>
     );
   }
 
   if (!profile) {
     return (
-      <Card className="py-12 text-center">
-        <h3 className="text-lg font-semibold text-gray-900">Profile not found</h3>
-      </Card>
+      <div className="rounded-2xl border border-[#ECECEF] bg-white py-16 px-6 text-center">
+        <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">Profile not found</h3>
+      </div>
     );
   }
 
+  const tint = tintFor(profile.category?.name ?? '');
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => { if (confirmDiscard()) router.back(); }}
-          className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-        >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Edit {profile.category?.name} Profile
-          </h1>
-          <div className="mt-1 flex items-center gap-2">
-            <Badge variant={statusToBadgeVariant(profile.status)}>
-              {profile.status.replace('_', ' ')}
-            </Badge>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={handleSave}
-            loading={updateProfile.isPending}
-          >
-            Save Changes
-          </Button>
-          {(profile.status === 'draft' || profile.status === 'rejected') && (
-            <Button
-              onClick={handleSaveAndSubmit}
-              loading={updateProfile.isPending || submitProfile.isPending}
-              disabled={!isApproved}
-              title={!isApproved ? 'Available after account approval' : undefined}
+      {/* Compact Hero with back button */}
+      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-5 sm:px-7 sm:py-6">
+        <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { if (confirmDiscard()) router.back(); }}
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#f0f0f0] text-[#646464] transition-colors hover:bg-[#dedede] hover:text-[#202020]"
             >
-              Save & Submit
-            </Button>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div
+              className={`${tint} flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl`}
+              style={{ color: 'var(--tint-icon)' }}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
+                  Editing
+                </p>
+                <Badge variant={statusToBadgeVariant(profile.status)}>
+                  {profile.status.replace('_', ' ')}
+                </Badge>
+              </div>
+              <h1 className="font-[family-name:var(--font-jakarta)] text-[22px] sm:text-[26px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] truncate">
+                {profile.category?.name}
+              </h1>
+            </div>
+          </div>
+          {dirty && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              Unsaved changes
+            </span>
           )}
         </div>
-      </div>
+      </section>
 
       {!isApproved && <PendingApprovalBanner />}
 
       {profile.rejection_reason && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-          <h3 className="mb-1 text-sm font-semibold text-red-800">Rejection Reason</h3>
-          <p className="text-sm text-red-700">{profile.rejection_reason}</p>
+        <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-red-100">
+            <svg className="h-4 w-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M4.93 19h14.14a2 2 0 001.74-3L13.74 5a2 2 0 00-3.48 0L3.19 16a2 2 0 001.74 3z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-red-900">Rejected</h3>
+            <p className="mt-0.5 text-sm text-red-700">{profile.rejection_reason}</p>
+          </div>
         </div>
       )}
 
       {profile.status === 'approved' && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <h3 className="mb-1 text-sm font-semibold text-amber-800">Warning</h3>
-          <p className="text-sm text-amber-700">
-            This profile is currently approved and visible to businesses. Saving changes will reset
-            its status to pending review, and it will go offline until re-approved.
-          </p>
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-amber-100">
+            <svg className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-amber-900">This profile is live</h3>
+            <p className="mt-0.5 text-sm text-amber-800">
+              Saving will reset its status to pending review and take it offline until re-approved.
+            </p>
+          </div>
         </div>
       )}
 
-      <Card>
-        <DynamicFormRenderer
-          fields={categoryWithFields?.fields ?? []}
-          values={values}
-          onChange={handleChange}
-          errors={errors}
-        />
+      <div className="space-y-6">
+        {/* Profile Details */}
+        <section className="rounded-2xl border border-[#ECECEF] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="mb-5 flex items-start gap-3">
+            <div className="tint-purple flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+                Profile Details
+              </h2>
+              <p className="mt-0.5 text-sm text-[#838383]">Tell brands about your work and experience</p>
+            </div>
+          </div>
+          <DynamicFormRenderer
+            fields={categoryWithFields?.fields ?? []}
+            values={values}
+            onChange={handleChange}
+            errors={errors}
+          />
+        </section>
 
-        {/* Languages */}
-        <div className="mt-6 border-t border-gray-200 pt-6">
-          <LanguagePicker value={languages} onChange={setLanguages} />
-          {errors._languages && (
-            <p className="mt-1 text-sm text-red-600">{errors._languages}</p>
-          )}
-        </div>
-
-        {/* Skills with proficiency & Tools */}
+        {/* Skills & Tools */}
         {profile && (
-          <div className="mt-6 border-t border-gray-200 pt-6">
+          <section className="rounded-2xl border border-[#ECECEF] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div className="mb-5 flex items-start gap-3">
+              <div className="tint-orange flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+                  Skills & Tools
+                </h2>
+                <p className="mt-0.5 text-sm text-[#838383]">Pick what you specialise in</p>
+              </div>
+            </div>
             <DesignerExtras
               categoryId={profile.category_id}
               categorySlug={profile.category?.slug}
@@ -303,12 +340,50 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
               onAccountingSoftwareChange={(v) => handleChange('_accounting_software', v)}
               showAccountingSoftware={profile.category?.slug === 'accountant'}
             />
-          </div>
+          </section>
         )}
+
+        {/* Languages */}
+        <section className="rounded-2xl border border-[#ECECEF] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="mb-5 flex items-start gap-3">
+            <div className="tint-blue flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+                Languages
+              </h2>
+              <p className="mt-0.5 text-sm text-[#838383]">Add languages you can work in</p>
+            </div>
+          </div>
+          <LanguagePicker value={languages} onChange={setLanguages} />
+          {errors._languages && (
+            <p className="mt-2 text-sm text-red-600">{errors._languages}</p>
+          )}
+        </section>
 
         {/* Portfolio */}
         {profile && (
-          <div className="mt-6 border-t border-gray-200 pt-6">
+          <section className="rounded-2xl border border-[#ECECEF] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div className="mb-5 flex items-start gap-3">
+              <div className="tint-pink flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+                  Portfolio
+                </h2>
+                <p className="mt-0.5 text-sm text-[#838383]">
+                  {(values._skills ?? []).length > 0 || (values._categories ?? []).length > 0
+                    ? 'Upload samples that show your best work'
+                    : 'Pick at least one skill or category above to enable uploads'}
+                </p>
+              </div>
+            </div>
             {(values._skills ?? []).length > 0 || (values._categories ?? []).length > 0 ? (
               <PortfolioUploader
                 profileId={profileId}
@@ -317,22 +392,41 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
                 categoryId={profile.category_id}
               />
             ) : (
-              <div>
-                <h3 className="text-base font-semibold text-gray-900">Portfolio</h3>
-                <div className="mt-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
-                  <p className="text-sm text-gray-600">
-                    Select at least one category or skill above to start uploading portfolio items.
-                  </p>
-                </div>
+              <div className="rounded-xl border-2 border-dashed border-[#E4E4E7] bg-[#F8F9FA] p-8 text-center">
+                <p className="text-sm text-[#838383]">
+                  Pick at least one skill or category above to upload portfolio items.
+                </p>
               </div>
             )}
             {errors._portfolio && (
-              <p className="mt-2 text-sm text-red-600">{errors._portfolio}</p>
+              <p className="mt-3 text-sm text-red-600">{errors._portfolio}</p>
             )}
-          </div>
+          </section>
         )}
+      </div>
 
-      </Card>
+      {/* Sticky action bar */}
+      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#ECECEF] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
+        <div className="text-xs text-[#838383] px-2">
+          {dirty ? 'You have unsaved changes' : 'No changes yet'}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleSave} loading={updateProfile.isPending}>
+            Save Changes
+          </Button>
+          {(profile.status === 'draft' || profile.status === 'rejected') && (
+            <button
+              type="button"
+              onClick={handleSaveAndSubmit}
+              disabled={!isApproved || updateProfile.isPending || submitProfile.isPending}
+              title={!isApproved ? 'Available after account approval' : undefined}
+              className="btn-iridescent disabled:opacity-50"
+            >
+              {(updateProfile.isPending || submitProfile.isPending) ? 'Submitting…' : 'Save & Submit'}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

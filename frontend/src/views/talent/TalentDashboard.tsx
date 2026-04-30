@@ -1,14 +1,21 @@
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useMyProfiles } from '@/hooks/useProfiles';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
 import { SkeletonCard } from '@/components/ui/Skeleton';
+
+interface StatTile {
+  label: string;
+  value: number;
+  hint: string;
+  tint: string;
+  icon: React.ReactNode;
+}
 
 export default function TalentDashboard() {
   const { user } = useAuth();
   const { data: profiles, isLoading } = useMyProfiles();
+  const isApproved = user?.approval_status === 'approved';
 
   const stats = {
     total: profiles?.length ?? 0,
@@ -18,20 +25,97 @@ export default function TalentDashboard() {
   };
 
   const recentProfiles = (profiles ?? []).slice(0, 5);
+  const firstName = user?.full_name?.split(' ')[0] ?? '';
+
+  const tiles: StatTile[] = [
+    {
+      label: 'Total Profiles',
+      value: stats.total,
+      hint: 'across all categories',
+      tint: 'tint-purple',
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Approved',
+      value: stats.approved,
+      hint: 'live & discoverable',
+      tint: 'tint-green',
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Pending Review',
+      value: stats.pending,
+      hint: 'awaiting approval',
+      tint: 'tint-amber',
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Drafts',
+      value: stats.draft,
+      hint: 'in progress',
+      tint: 'tint-blue',
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Welcome */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Welcome back{user?.full_name ? `, ${user.full_name}` : ''}!
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Here's an overview of your profiles and activity.
-        </p>
-      </div>
+    <div className="space-y-8">
+      {/* ── Hero Section (compact) ── */}
+      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
+        <div className="hero-glow-blur" />
+        <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="max-w-2xl">
+            <div className="mb-3 inline-flex items-center gap-2 stagger-1">
+              <span className="eyebrow-rainbow">
+                {isApproved ? 'Talent Workspace' : 'Pending Approval'}
+              </span>
+              {isApproved && (
+                <span className="pill-live">Live</span>
+              )}
+            </div>
 
-      {/* Stats */}
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
+              Welcome back{firstName ? <>, <span className="text-rainbow">{firstName}</span></> : ''}.
+            </h1>
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] stagger-3">
+              Track your profiles, manage your portfolio, and discover opportunities.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 stagger-4">
+            <Link href="/talent/profiles/new" className="btn-iridescent text-sm py-2 px-3.5">
+              Create Profile
+              <svg className="arrow-icon h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </Link>
+            <Link
+              href="/talent/profiles"
+              className="font-[family-name:var(--font-inter)] inline-flex items-center gap-1.5 rounded-lg border border-[#E4E4E7] bg-white px-3.5 py-2 text-sm font-semibold text-[#202020] transition-all duration-200 hover:bg-[#f0f0f0] active:scale-[0.97]"
+            >
+              View Profiles
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Stat Cards (Pastel Tints) ── */}
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -40,79 +124,182 @@ export default function TalentDashboard() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <p className="text-sm font-medium text-gray-500">Total Profiles</p>
-            <p className="mt-1 text-3xl font-bold text-gray-900">{stats.total}</p>
-          </Card>
-          <Card>
-            <p className="text-sm font-medium text-gray-500">Approved</p>
-            <p className="mt-1 text-3xl font-bold text-green-600">{stats.approved}</p>
-          </Card>
-          <Card>
-            <p className="text-sm font-medium text-gray-500">Pending Review</p>
-            <p className="mt-1 text-3xl font-bold text-yellow-600">{stats.pending}</p>
-          </Card>
-          <Card>
-            <p className="text-sm font-medium text-gray-500">Drafts</p>
-            <p className="mt-1 text-3xl font-bold text-gray-600">{stats.draft}</p>
-          </Card>
+          {tiles.map((tile, i) => (
+            <div
+              key={tile.label}
+              className={`stat-card ${tile.tint} stagger-${i + 1}`}
+            >
+              <div className="flex items-start justify-between">
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/70 backdrop-blur-sm"
+                  style={{ color: 'var(--tint-icon)' }}
+                >
+                  {tile.icon}
+                </div>
+              </div>
+              <div className="mt-6">
+                <p
+                  className="font-[family-name:var(--font-jakarta)] text-[44px] leading-none font-semibold tracking-[-0.035em]"
+                  style={{ color: 'var(--tint-text)' }}
+                >
+                  {tile.value}
+                </p>
+                <p className="mt-3 font-[family-name:var(--font-inter)] text-[13px] font-semibold text-[#202020]">
+                  {tile.label}
+                </p>
+                <p className="mt-0.5 font-[family-name:var(--font-inter)] text-xs text-[#646464]">
+                  {tile.hint}
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Quick actions */}
-      <Card>
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">Quick Actions</h2>
-        <div className="flex flex-wrap gap-3">
-          <Link href="/talent/profiles/new">
-            <Button>Create New Profile</Button>
-          </Link>
-          <Link href="/talent/profiles">
-            <Button variant="outline">View All Profiles</Button>
-          </Link>
-        </div>
-      </Card>
-
-      {/* Recent activity */}
-      <Card>
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">Recent Profiles</h2>
-        {recentProfiles.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            No profiles yet.{' '}
-            <Link href="/talent/profiles/new" className="text-indigo-600 hover:underline">
-              Create your first profile
+      {/* ── Two-column: Recent Profiles + Quick Tips ── */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Recent Profiles — main column */}
+        <div className="lg:col-span-2 rounded-2xl border border-[#ECECEF] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between border-b border-[#ECECEF] px-6 py-5">
+            <div>
+              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+                Recent Profiles
+              </h2>
+              <p className="mt-0.5 text-sm text-[#838383]">Your latest job profiles and their status</p>
+            </div>
+            <Link
+              href="/talent/profiles"
+              className="font-[family-name:var(--font-inter)] inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-[#646464] transition-colors hover:bg-[#f0f0f0] hover:text-[#202020]"
+            >
+              View all
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
             </Link>
-          </p>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {recentProfiles.map((profile) => (
-              <div
-                key={profile.id}
-                className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
-              >
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {profile.category?.name ?? 'Profile'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Created {new Date(profile.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant={statusToBadgeVariant(profile.status)}>
-                    {profile.status.replace('_', ' ')}
-                  </Badge>
-                  <Link
-                    href={`/talent/profiles/${profile.id}`}
-                    className="text-sm text-indigo-600 hover:underline"
-                  >
-                    View
-                  </Link>
-                </div>
-              </div>
-            ))}
           </div>
-        )}
-      </Card>
+
+          {recentProfiles.length === 0 ? (
+            <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2EEFF]">
+                <svg className="h-6 w-6 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+              </div>
+              <h3 className="mb-1 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">
+                No profiles yet
+              </h3>
+              <p className="mb-5 max-w-sm text-sm text-[#838383]">
+                Create your first profile to start getting discovered by businesses.
+              </p>
+              <Link href="/talent/profiles/new" className="btn-iridescent">
+                Create your first profile
+                <svg className="arrow-icon h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </Link>
+            </div>
+          ) : (
+            <ul className="divide-y divide-[#ECECEF]">
+              {recentProfiles.map((profile, i) => (
+                <li
+                  key={profile.id}
+                  className={`group flex items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-[#F8F9FA] stagger-${Math.min(i + 1, 6)}`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#f0f0f0] text-[#646464] transition-colors group-hover:bg-[#F2EEFF] group-hover:text-[#6647F0]">
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#202020] truncate">
+                        {profile.category?.name ?? 'Profile'}
+                      </p>
+                      <p className="mt-0.5 font-[family-name:var(--font-inter)] text-xs text-[#A1A1AA]">
+                        Created {new Date(profile.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <Badge variant={statusToBadgeVariant(profile.status)}>
+                      {profile.status.replace('_', ' ')}
+                    </Badge>
+                    <Link
+                      href={`/talent/profiles/${profile.id}`}
+                      className="font-[family-name:var(--font-inter)] hidden sm:inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-[#6647F0] transition-colors hover:bg-[#F2EEFF]"
+                    >
+                      View
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Side column — Pro tips / Featured */}
+        <div className="space-y-4">
+          {/* Featured tip card with conic border */}
+          <div className="relative rounded-2xl bg-[#202020] p-6 text-white overflow-hidden noise-overlay">
+            <div className="absolute -top-12 -right-12 h-32 w-32 rounded-full bg-rainbow opacity-30 blur-3xl" />
+            <div className="relative">
+              <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm mb-4">
+                <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em]">
+                Tips for approval
+              </h3>
+              <p className="mt-1.5 text-sm text-white/70 leading-relaxed">
+                Add a strong portfolio, fill out all required fields, and pick a Native language to get approved faster.
+              </p>
+              <Link
+                href="/talent/training"
+                className="mt-5 inline-flex items-center gap-1 font-[family-name:var(--font-inter)] text-[13px] font-semibold text-white hover:gap-2 transition-all"
+              >
+                Watch training videos
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </Link>
+            </div>
+          </div>
+
+          {/* Quick links */}
+          <div className="rounded-2xl border border-[#ECECEF] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <h3 className="mb-3 font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#202020]">
+              Quick actions
+            </h3>
+            <div className="space-y-1">
+              {[
+                { label: 'Update basic profile', to: '/talent/basic-profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
+                { label: 'View subscriptions', to: '/talent/subscriptions', icon: 'M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-3.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-1.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 007.586 13H4' },
+                { label: 'Account settings', to: '/talent/settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
+              ].map((item) => (
+                <Link
+                  key={item.to}
+                  href={item.to}
+                  className="group flex items-center justify-between rounded-lg px-2 py-2 text-[13px] font-medium text-[#646464] transition-colors hover:bg-[#F8F9FA] hover:text-[#202020]"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <svg className="h-4 w-4 text-[#A1A1AA] group-hover:text-[#6647F0] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
+                    </svg>
+                    {item.label}
+                  </span>
+                  <svg className="h-3 w-3 text-[#A1A1AA] opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

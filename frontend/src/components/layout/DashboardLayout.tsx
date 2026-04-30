@@ -13,7 +13,6 @@ export interface SidebarItem {
 interface DashboardLayoutProps {
   sidebarItems?: SidebarItem[];
   sidebarContent?: React.ReactNode | ((opts: { onNavigate: () => void }) => React.ReactNode);
-  /** Hide the mobile sidebar toggle (FAB) when the page drives its own mobile navigation. */
   hideMobileSidebar?: boolean;
   children: React.ReactNode;
 }
@@ -27,17 +26,17 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
   };
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-screen flex-col bg-[#F8F9FA]">
       <Navbar />
       <div className="flex flex-1 overflow-hidden">
         {/* Mobile sidebar toggle */}
         {!hideMobileSidebar && (
           <button
-            className="fixed bottom-4 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg md:hidden"
+            className="fixed bottom-4 right-4 z-30 flex h-11 w-11 items-center justify-center rounded-xl bg-[#202020] text-white shadow-lg md:hidden active:scale-95 transition-transform"
             onClick={() => setSidebarOpen(!sidebarOpen)}
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
         )}
@@ -45,7 +44,7 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
         {/* Overlay */}
         {sidebarOpen && !hideMobileSidebar && (
           <div
-            className="fixed inset-0 z-20 bg-black/30 md:hidden"
+            className="fixed inset-0 z-20 bg-black/20 backdrop-blur-sm md:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -53,7 +52,7 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
         {/* Sidebar */}
         {sidebarContent ? (
           <div
-            className={`${hideMobileSidebar ? 'hidden md:flex' : 'flex'} fixed inset-y-0 left-0 z-20 mt-16 transform transition-transform md:relative md:mt-0 md:translate-x-0 ${
+            className={`${hideMobileSidebar ? 'hidden md:flex' : 'flex'} fixed inset-y-0 left-0 z-20 mt-[60px] transform transition-transform md:relative md:mt-0 md:translate-x-0 ${
               sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             }`}
           >
@@ -63,20 +62,20 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
           </div>
         ) : (
           <aside
-            className={`fixed inset-y-0 left-0 z-20 mt-16 w-64 transform border-r border-gray-200 bg-white transition-transform md:relative md:mt-0 md:translate-x-0 ${
+            className={`fixed inset-y-0 left-0 z-20 mt-[60px] w-60 transform border-r border-[#ECECEF] bg-white transition-transform md:relative md:mt-0 md:translate-x-0 ${
               sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             }`}
           >
-            <nav className="flex flex-col gap-1 p-4">
+            <nav className="flex flex-col gap-0.5 p-3">
               {(sidebarItems ?? []).map((item) => (
                 <Link
                   key={item.to}
                   href={item.to}
                   onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  className={`font-[family-name:var(--font-inter)] flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-200 ${
                     isActive(item.to)
-                      ? 'bg-indigo-50 text-indigo-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-[#F8F9FA] text-[#202020] shadow-[0_1px_3px_0_rgba(0,0,0,0.1),0_1px_2px_-1px_rgba(0,0,0,0.1)]'
+                      : 'text-[#646464] hover:bg-[#F8F9FA] hover:text-[#202020]'
                   }`}
                 >
                   {item.icon}
@@ -89,8 +88,10 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
         )}
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
-          {children}
+        <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-6 lg:p-8">
+          <div className="mx-auto max-w-5xl">
+            {children}
+          </div>
         </main>
       </div>
     </div>
