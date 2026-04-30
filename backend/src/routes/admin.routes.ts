@@ -5,6 +5,7 @@ import * as subscriptionController from '../controllers/subscription.controller.
 import * as formConfigController from '../controllers/form-config.controller.js';
 import * as interviewController from '../controllers/interview.controller.js';
 import * as talentAccessController from '../controllers/talent-access.controller.js';
+import * as trainingController from '../controllers/training.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -18,6 +19,12 @@ import {
   reorderSchema,
   setProfileTierSchema,
 } from '../validators/admin.validators.js';
+import {
+  createChapterSchema,
+  updateChapterSchema,
+  createLessonSchema,
+  updateLessonSchema,
+} from '../validators/training.validators.js';
 import {
   createInvitationSchema,
   assignCategoriesSchema,
@@ -392,5 +399,22 @@ router.get('/interview-invitations', interviewController.listInvitations);
 router.patch('/interview-invitations/:id/reviewed', interviewController.setInvitationReviewed);
 router.get('/leads/:leadId/interview-invitation', interviewController.getInvitation);
 router.post('/leads/:leadId/interview-invitation', interviewController.createInvitation);
+
+// ---------------------------------------------------------------------------
+// Training Program
+// ---------------------------------------------------------------------------
+
+router.get('/training/chapters', trainingController.getChapters);
+router.post('/training/chapters', validate({ body: createChapterSchema }), trainingController.createChapter);
+router.get('/training/chapters/:id', trainingController.getChapter);
+router.put('/training/chapters/:id', validate({ body: updateChapterSchema }), trainingController.updateChapter);
+router.delete('/training/chapters/:id', trainingController.deleteChapter);
+router.patch('/training/chapters/reorder', validate({ body: reorderSchema }), trainingController.reorderChapters);
+
+router.get('/training/chapters/:chapterId/lessons', trainingController.getLessons);
+router.post('/training/chapters/:chapterId/lessons', validate({ body: createLessonSchema }), trainingController.createLesson);
+router.put('/training/lessons/:lessonId', validate({ body: updateLessonSchema }), trainingController.updateLesson);
+router.delete('/training/lessons/:lessonId', trainingController.deleteLesson);
+router.patch('/training/lessons/reorder', validate({ body: reorderSchema }), trainingController.reorderLessons);
 
 export default router;

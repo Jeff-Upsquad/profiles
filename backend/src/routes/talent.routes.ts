@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as talentController from '../controllers/talent.controller.js';
+import * as trainingController from '../controllers/training.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -49,5 +50,10 @@ router.post('/profiles/:id/portfolio', talentController.addPortfolioItem);
 router.delete('/profiles/:id/portfolio/:itemId', talentController.deletePortfolioItem);
 router.patch('/profiles/:id/portfolio/reorder', talentController.reorderPortfolioItems);
 router.patch('/profiles/:id/portfolio/:itemId', talentController.updatePortfolioItem);
+
+// Training program
+router.get('/training', trainingController.getMyTraining);
+router.post('/training/lessons/:lessonId/complete', trainingController.markComplete);
+router.delete('/training/lessons/:lessonId/complete', trainingController.markIncomplete);
 
 export default router;
