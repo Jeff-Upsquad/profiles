@@ -7,6 +7,8 @@ interface TalentUserInfo {
   profile_photo_url?: string;
   current_location?: string;
   languages_spoken?: { language: string; proficiency: string }[];
+  age?: number | null;
+  gender?: string | null;
 }
 
 export function useTalentMe() {

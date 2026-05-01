@@ -17,6 +17,8 @@ interface TalentUser {
   current_location?: string;
   profile_photo_url?: string;
   languages_spoken?: { language: string; proficiency: string }[];
+  age?: number | null;
+  gender?: string | null;
 }
 
 interface ThreadsProfileViewProps {

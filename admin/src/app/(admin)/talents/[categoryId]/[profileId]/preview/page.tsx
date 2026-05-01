@@ -95,6 +95,8 @@ export default function TalentProfilePreviewPage(props: {
     current_location: profileRaw?.talent_users?.current_location,
     profile_photo_url: profileRaw?.talent_users?.profile_photo_url,
     languages_spoken: profileRaw?.talent_users?.languages_spoken,
+    age: profileRaw?.talent_users?.age,
+    gender: profileRaw?.talent_users?.gender,
   };
 
   const isGhost = profileRaw?.is_ghost === true;
