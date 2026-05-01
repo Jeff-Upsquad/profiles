@@ -4,15 +4,18 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMyCategories, useSharedProfiles } from '@/hooks/useBusiness';
+import CategoryTag from '@/components/ui/CategoryTag';
 
 function TalentPanel({
   categoryId,
   categoryName,
+  categorySlug,
   onBack,
   onNavigate,
 }: {
   categoryId: string;
   categoryName: string;
+  categorySlug: string;
   onBack?: () => void;
   onNavigate?: () => void;
 }) {
@@ -65,13 +68,18 @@ function TalentPanel({
                   }`}
                 >
                   {photo ? (
-                    <img src={photo} alt="" className="h-8 w-8 rounded-full object-cover" />
+                    <img src={photo} alt="" className="h-8 w-8 flex-shrink-0 rounded-full object-cover" />
                   ) : (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-600">
+                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-600">
                       {name[0]?.toUpperCase()}
                     </div>
                   )}
-                  <span className="truncate">{name}</span>
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate">{name}</span>
+                    <div className="mt-0.5">
+                      <CategoryTag categorySlug={categorySlug} categoryName={categoryName} compact />
+                    </div>
+                  </div>
                 </Link>
               );
             })}
@@ -183,6 +191,7 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
           <TalentPanel
             categoryId={activeCategory.id}
             categoryName={activeCategory.name}
+            categorySlug={activeCategory.slug}
             onBack={handleMobileBack}
             onNavigate={onNavigate}
           />
@@ -246,7 +255,7 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
 
         {/* Panel 2: Talents (shown when a category is selected) */}
         {activeCategory && (
-          <TalentPanel categoryId={activeCategory.id} categoryName={activeCategory.name} />
+          <TalentPanel categoryId={activeCategory.id} categoryName={activeCategory.name} categorySlug={activeCategory.slug} />
         )}
       </div>
     </>

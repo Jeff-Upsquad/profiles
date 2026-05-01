@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { Profile, CategoryField, CategoryWithFields } from '@/types';
+import CategoryTag from '@/components/ui/CategoryTag';
 
 interface TalentUser {
   full_name: string;
@@ -69,9 +70,12 @@ export default function ThreadsProfileHeader({
             {talentUser.full_name}
           </h1>
           {category && (
-            <p className="mt-2 text-[15px] text-zinc-500">
-              {category.name}
-            </p>
+            <div className="mt-2 flex items-center gap-1.5">
+              <CategoryTag
+                categorySlug={profile.is_ghost ? 'designer-editor' : category.slug}
+                categoryName={category.name}
+              />
+            </div>
           )}
         </div>
 
