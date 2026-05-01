@@ -57,6 +57,7 @@ export default function TrainingChapterList() {
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Title</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Categories</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Language</th>
+                <th className="text-left px-6 py-3 font-medium text-gray-500">Module</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Lessons</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Status</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Sort</th>
@@ -89,6 +90,13 @@ export default function TrainingChapterList() {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-gray-500 uppercase text-xs font-medium">{ch.language ?? 'en'}</td>
+                  <td className="px-6 py-4 text-gray-500 text-xs">
+                    {ch.linked_module ? (
+                      <Badge variant="indigo">
+                        {{ 'basic-profile': 'Basic Profile', profiles: 'Job Profiles', subscriptions: 'Subscriptions', settings: 'Settings', notifications: 'Notifications' }[ch.linked_module] ?? ch.linked_module}
+                      </Badge>
+                    ) : '—'}
+                  </td>
                   <td className="px-6 py-4 text-gray-500">{ch.lesson_count}</td>
                   <td className="px-6 py-4">
                     <Badge variant={ch.is_active ? 'green' : 'gray'}>

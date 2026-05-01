@@ -394,6 +394,81 @@ export async function markLessonIncomplete(userId: string, lessonId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Module access
+// ---------------------------------------------------------------------------
+
+export async function getModuleAccess(userId: string, categoryIds: string[]) {
+  if (categoryIds.length === 0) return { unlocked: [] as string[], locked: [] as any[] };
+
+  const { data: joinRows, error: jErr } = await supabaseAdmin
+    .from('training_chapter_categories')
+    .select('chapter_id')
+    .in('category_id', categoryIds);
+
+  if (jErr) throw new AppError(500, `Failed to fetch chapter categories: ${jErr.message}`);
+
+  const chapterIds = [...new Set((joinRows ?? []).map((r: any) => r.chapter_id))];
+  if (chapterIds.length === 0) return { unlocked: [] as string[], locked: [] as any[] };
+
+  const { data: chapters, error: cErr } = await supabaseAdmin
+    .from('training_chapters')
+    .select('id, title, linked_module')
+    .in('id', chapterIds)
+    .eq('is_active', true)
+    .not('linked_module', 'is', null);
+
+  if (cErr) throw new AppError(500, `Failed to fetch chapters: ${cErr.message}`);
+  if (!chapters || chapters.length === 0) return { unlocked: [] as string[], locked: [] as any[] };
+
+  const linkedChapterIds = chapters.map((ch: any) => ch.id);
+
+  const [lessonsResult, progressResult] = await Promise.all([
+    supabaseAdmin
+      .from('training_lessons')
+      .select('id, chapter_id')
+      .in('chapter_id', linkedChapterIds)
+      .eq('is_active', true),
+    supabaseAdmin
+      .from('training_lesson_progress')
+      .select('lesson_id')
+      .eq('talent_user_id', userId),
+  ]);
+
+  if (lessonsResult.error) throw new AppError(500, `Failed to fetch lessons: ${lessonsResult.error.message}`);
+  if (progressResult.error) throw new AppError(500, `Failed to fetch progress: ${progressResult.error.message}`);
+
+  const completedSet = new Set((progressResult.data ?? []).map((p: any) => p.lesson_id));
+
+  const lessonsByChapter: Record<string, string[]> = {};
+  for (const l of lessonsResult.data ?? []) {
+    if (!lessonsByChapter[l.chapter_id]) lessonsByChapter[l.chapter_id] = [];
+    lessonsByChapter[l.chapter_id].push(l.id);
+  }
+
+  const unlocked: string[] = [];
+  const locked: { module: string; chapter_title: string; completed: number; total: number }[] = [];
+
+  for (const ch of chapters) {
+    const lessonIds = lessonsByChapter[ch.id] ?? [];
+    const completedCount = lessonIds.filter((id) => completedSet.has(id)).length;
+    const total = lessonIds.length;
+
+    if (total === 0 || completedCount === total) {
+      unlocked.push(ch.linked_module);
+    } else {
+      locked.push({
+        module: ch.linked_module,
+        chapter_title: ch.title,
+        completed: completedCount,
+        total,
+      });
+    }
+  }
+
+  return { unlocked, locked };
+}
+
+// ---------------------------------------------------------------------------
 // Onboarding
 // ---------------------------------------------------------------------------
 

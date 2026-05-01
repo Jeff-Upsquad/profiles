@@ -53,6 +53,7 @@ router.patch('/profiles/:id/portfolio/:itemId', talentController.updatePortfolio
 
 // Training program
 router.get('/training/onboarding', trainingController.getOnboardingTraining);
+router.get('/training/module-access', trainingController.getModuleAccess);
 router.post('/training/complete-onboarding', trainingController.completeOnboarding);
 router.get('/training', trainingController.getMyTraining);
 router.post('/training/lessons/:lessonId/complete', trainingController.markComplete);

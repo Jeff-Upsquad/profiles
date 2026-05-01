@@ -20,6 +20,7 @@ export default function ChapterForm({ chapter, onClose }: ChapterFormProps) {
   const [isActive, setIsActive] = useState(chapter?.is_active ?? true);
   const [isOnboarding, setIsOnboarding] = useState(chapter?.is_onboarding ?? false);
   const [language, setLanguage] = useState(chapter?.language ?? 'en');
+  const [linkedModule, setLinkedModule] = useState(chapter?.linked_module ?? '');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
     chapter?.categories?.map((c) => c.id) ?? [],
   );
@@ -45,6 +46,7 @@ export default function ChapterForm({ chapter, onClose }: ChapterFormProps) {
       is_active: isActive,
       is_onboarding: isOnboarding,
       language,
+      linked_module: linkedModule || null,
       category_ids: selectedCategoryIds,
     };
 
@@ -171,6 +173,27 @@ export default function ChapterForm({ chapter, onClose }: ChapterFormProps) {
           <option value="gu">Gujarati</option>
           <option value="pa">Punjabi</option>
         </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Linked Module
+        </label>
+        <select
+          value={linkedModule}
+          onChange={(e) => setLinkedModule(e.target.value)}
+          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+        >
+          <option value="">None</option>
+          <option value="basic-profile">Basic Profile</option>
+          <option value="profiles">Job Profiles</option>
+          <option value="subscriptions">Subscriptions</option>
+          <option value="settings">Settings</option>
+          <option value="notifications">Notifications</option>
+        </select>
+        <p className="mt-1 text-xs text-gray-500">
+          The talent sidebar module that will be unlocked when this chapter is completed.
+        </p>
       </div>
 
       <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">

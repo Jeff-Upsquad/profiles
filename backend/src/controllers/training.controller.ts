@@ -172,6 +172,29 @@ export async function markIncomplete(req: Request, res: Response, next: NextFunc
 }
 
 // ---------------------------------------------------------------------------
+// Talent — Module access
+// ---------------------------------------------------------------------------
+
+export async function getModuleAccess(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.id;
+
+    const { data: profiles, error } = await supabaseAdmin
+      .from('talent_profiles')
+      .select('category_id')
+      .eq('user_id', userId);
+
+    if (error) throw new AppError(500, `Failed to fetch profiles: ${error.message}`);
+
+    const categoryIds = [...new Set((profiles ?? []).map((p: any) => p.category_id))];
+    const access = await trainingService.getModuleAccess(userId, categoryIds);
+    res.json(access);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Talent — Onboarding
 // ---------------------------------------------------------------------------
 

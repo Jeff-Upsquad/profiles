@@ -5,8 +5,17 @@ import { useAuth } from '@/context/AuthContext';
 import DashboardLayout, { type SidebarItem } from '@/components/layout/DashboardLayout';
 import Badge from '@/components/ui/Badge';
 import { useUnreadSubscriptionCount } from '@/hooks/useSubscriptionCards';
+import { useModuleAccess } from '@/hooks/useTraining';
 
-const ONBOARDING_ALLOWED_ROUTES = ['/talent/dashboard', '/talent/training', '/talent/contact-support'];
+const ALWAYS_ACCESSIBLE = ['/talent/dashboard', '/talent/training', '/talent/contact-support'];
+
+const ROUTE_TO_MODULE: Record<string, string> = {
+  '/talent/basic-profile': 'basic-profile',
+  '/talent/profiles': 'profiles',
+  '/talent/subscriptions': 'subscriptions',
+  '/talent/settings': 'settings',
+  '/talent/notifications': 'notifications',
+};
 
 export default function TalentLayout({
   children,
@@ -19,6 +28,7 @@ export default function TalentLayout({
   const isTalent = !!user && user.role === 'talent';
   const onboarded = user?.onboarding_completed !== false;
   const { data: unread = 0 } = useUnreadSubscriptionCount({ enabled: isTalent });
+  const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
 
   if (isLoading) {
     return (
@@ -38,8 +48,22 @@ export default function TalentLayout({
     return null;
   }
 
-  // Route guard: redirect locked routes to dashboard during onboarding
-  if (!onboarded && pathname && !ONBOARDING_ALLOWED_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'))) {
+  const unlockedSet = new Set(moduleAccess?.unlocked ?? []);
+  const lockedMap = new Map(
+    (moduleAccess?.locked ?? []).map((l) => [l.module, l]),
+  );
+
+  const isModuleLocked = (route: string): boolean => {
+    if (ALWAYS_ACCESSIBLE.some((r) => route === r || route.startsWith(r + '/'))) return false;
+    const mod = Object.entries(ROUTE_TO_MODULE).find(([r]) => route === r || route.startsWith(r + '/'))?.[1];
+    if (!mod) return !onboarded;
+    if (accessLoading) return !onboarded;
+    if (unlockedSet.has(mod)) return false;
+    if (lockedMap.has(mod)) return true;
+    return !onboarded;
+  };
+
+  if (pathname && isModuleLocked(pathname)) {
     router.push('/talent/dashboard');
     return null;
   }
@@ -122,9 +146,23 @@ export default function TalentLayout({
     },
   ];
 
-  const visibleItems = onboarded
-    ? sidebarItems
-    : sidebarItems.filter((item) => ONBOARDING_ALLOWED_ROUTES.some((r) => item.to === r));
+  const gatedItems = sidebarItems.map((item) => {
+    const mod = ROUTE_TO_MODULE[item.to];
+    if (!mod) return item;
+    if (accessLoading) {
+      return onboarded ? item : { ...item, disabled: true, tooltip: 'Loading...' };
+    }
+    if (unlockedSet.has(mod)) return item;
+    const lock = lockedMap.get(mod);
+    if (lock) {
+      return {
+        ...item,
+        disabled: true,
+        tooltip: `Complete "${lock.chapter_title}" to unlock (${lock.completed}/${lock.total})`,
+      };
+    }
+    return onboarded ? item : { ...item, disabled: true, tooltip: 'Complete training to unlock' };
+  });
 
-  return <DashboardLayout sidebarItems={visibleItems}>{children}</DashboardLayout>;
+  return <DashboardLayout sidebarItems={gatedItems}>{children}</DashboardLayout>;
 }
