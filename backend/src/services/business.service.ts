@@ -51,21 +51,27 @@ export async function getSharedProfiles(businessUserId: string, categoryId: stri
 
   if (error) throw new AppError(500, error.message);
 
-  return (data ?? []).map((sp: any) => {
-    const p = sp.talent_profiles;
-    if (!p) return null;
-    return {
-      id: p.id,
-      user_id: p.talent_user_id,
-      category_id: p.category_id,
-      category: p.categories,
-      status: p.status,
-      field_data: p.field_data,
-      talent_user: p.talent_users,
-      created_at: p.created_at,
-      updated_at: p.updated_at,
-    };
-  }).filter(Boolean);
+  const rows = (data ?? [])
+    .map((sp: any) => sp.talent_profiles)
+    .filter((p: any) => p);
+
+  const tiers = await getTalentTiersByUserIds(
+    rows.map((p: any) => p.talent_user_id).filter(Boolean),
+  );
+
+  return rows.map((p: any) => ({
+    id: p.id,
+    user_id: p.talent_user_id,
+    category_id: p.category_id,
+    category: p.categories,
+    status: p.status,
+    field_data: p.field_data,
+    talent_user: p.talent_users,
+    created_at: p.created_at,
+    updated_at: p.updated_at,
+    tier: tiers[p.talent_user_id]?.tier ?? null,
+    tier_custom: tiers[p.talent_user_id]?.tier_custom ?? null,
+  }));
 }
 
 export async function getSharedProfile(businessUserId: string, categoryId: string, profileId: string) {
@@ -82,6 +88,7 @@ export async function getSharedProfile(businessUserId: string, categoryId: strin
   const p = (data as any).talent_profiles;
   if (!p) throw new AppError(404, 'Profile not found');
 
+  const tiers = await getTalentTiersByUserIds([p.talent_user_id]);
   const baseProfile = {
     id: p.id,
     user_id: p.talent_user_id,
@@ -93,6 +100,8 @@ export async function getSharedProfile(businessUserId: string, categoryId: strin
     created_at: p.created_at,
     updated_at: p.updated_at,
     is_ghost: p.is_ghost === true,
+    tier: tiers[p.talent_user_id]?.tier ?? null,
+    tier_custom: tiers[p.talent_user_id]?.tier_custom ?? null,
   };
 
   if (baseProfile.is_ghost) {

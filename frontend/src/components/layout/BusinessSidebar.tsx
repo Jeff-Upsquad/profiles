@@ -4,18 +4,16 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMyCategories, useSharedProfiles } from '@/hooks/useBusiness';
-import CategoryTag from '@/components/ui/CategoryTag';
+import TierBadge from '@/components/ui/TierBadge';
 
 function TalentPanel({
   categoryId,
   categoryName,
-  categorySlug,
   onBack,
   onNavigate,
 }: {
   categoryId: string;
   categoryName: string;
-  categorySlug: string;
   onBack?: () => void;
   onNavigate?: () => void;
 }) {
@@ -76,9 +74,11 @@ function TalentPanel({
                   )}
                   <div className="min-w-0 flex-1">
                     <span className="block truncate">{name}</span>
-                    <div className="mt-0.5">
-                      <CategoryTag categorySlug={categorySlug} categoryName={categoryName} compact />
-                    </div>
+                    {profile.tier && (
+                      <div className="mt-0.5">
+                        <TierBadge tier={profile.tier} tierCustom={profile.tier_custom} />
+                      </div>
+                    )}
                   </div>
                 </Link>
               );
@@ -191,7 +191,6 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
           <TalentPanel
             categoryId={activeCategory.id}
             categoryName={activeCategory.name}
-            categorySlug={activeCategory.slug}
             onBack={handleMobileBack}
             onNavigate={onNavigate}
           />
@@ -255,7 +254,7 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
 
         {/* Panel 2: Talents (shown when a category is selected) */}
         {activeCategory && (
-          <TalentPanel categoryId={activeCategory.id} categoryName={activeCategory.name} categorySlug={activeCategory.slug} />
+          <TalentPanel categoryId={activeCategory.id} categoryName={activeCategory.name} />
         )}
       </div>
     </>

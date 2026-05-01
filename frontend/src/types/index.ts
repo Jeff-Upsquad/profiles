@@ -93,6 +93,8 @@ export interface Profile {
   source_designer_profile_id?: string | null;
   source_editor_profile_id?: string | null;
   source_profiles?: GhostSourceProfile[];
+  tier?: 'junior' | 'pro' | 'elite' | 'custom' | null;
+  tier_custom?: string | null;
 }
 
 export interface TalentSignupData {
