@@ -96,14 +96,39 @@ export async function checkCandidateStatus(input: { email?: string; phone?: stri
   const normalizedPhone = phoneDigits && phoneDigits.length === 10 ? phoneDigits : null;
 
   if (!normalizedEmail && !normalizedPhone) {
-    return { found: false, submissions: [] };
+    return { has_invitation: false, has_account: false, submissions: [] };
   }
 
+  // Pending talent invitation lookup (email-only)
+  let has_invitation = false;
+  if (normalizedEmail) {
+    try {
+      const inv = await checkInvitation(normalizedEmail, 'talent');
+      has_invitation = inv !== null;
+    } catch {
+      has_invitation = false;
+    }
+  }
+
+  // Account-exists lookup via shared RPC (returns 'talent' | 'business' | 'lead')
+  let has_account = false;
+  try {
+    const { data: contactData } = await supabaseAdmin.rpc('check_contact_exists', {
+      p_email: normalizedEmail,
+      p_phone_digits: normalizedPhone,
+    });
+    const source = (contactData ?? [])[0]?.source;
+    has_account = source === 'talent' || source === 'business';
+  } catch {
+    has_account = false;
+  }
+
+  // Lead submissions match
   const conditions: string[] = [];
   if (normalizedEmail) conditions.push(`email.ilike.${normalizedEmail}`);
   if (normalizedPhone) conditions.push(`phone.like.%${normalizedPhone}`);
 
-  const { data, error } = await supabaseAdmin
+  const { data: leads, error } = await supabaseAdmin
     .from('lead_submissions')
     .select('name, form_type, status, created_at')
     .or(conditions.join(','))
@@ -112,12 +137,13 @@ export async function checkCandidateStatus(input: { email?: string; phone?: stri
 
   if (error) {
     console.error('Candidate status check error:', error);
-    return { found: false, submissions: [] };
+    return { has_invitation, has_account, submissions: [] };
   }
 
   return {
-    found: (data ?? []).length > 0,
-    submissions: (data ?? []).map(s => ({
+    has_invitation,
+    has_account,
+    submissions: (leads ?? []).map(s => ({
       name: s.name,
       form_type: s.form_type,
       status: s.status,

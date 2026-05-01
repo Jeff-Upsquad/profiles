@@ -29,6 +29,12 @@ interface CandidateSubmission {
   submitted_at: string;
 }
 
+interface CheckResult {
+  has_invitation: boolean;
+  has_account: boolean;
+  submissions: CandidateSubmission[];
+}
+
 const STATUS_LABELS: Record<string, string> = {
   new: 'Application received — under review',
   contacted: 'Our team has reached out to you — please check your messages',
@@ -49,6 +55,8 @@ export default function SignupTalent() {
   const [submitting, setSubmitting] = useState(false);
   const [candidateLoading, setCandidateLoading] = useState(false);
   const [candidateSubmissions, setCandidateSubmissions] = useState<CandidateSubmission[]>([]);
+  const [checkLoading, setCheckLoading] = useState(false);
+  const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
 
   const [form, setForm] = useState({
     full_name: '',
@@ -66,6 +74,35 @@ export default function SignupTalent() {
       router.push('/dashboard');
     }
   }, [authLoading, user, router]);
+
+  // Debounced inline status check whenever email or phone changes.
+  useEffect(() => {
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
+    const phoneDigits = form.phone.replace(/\D/g, '');
+    const phoneValid = phoneDigits.length >= 10;
+
+    if (!emailValid && !phoneValid) {
+      setCheckResult(null);
+      setCheckLoading(false);
+      return;
+    }
+
+    setCheckLoading(true);
+    const handle = setTimeout(async () => {
+      try {
+        const { data } = await api.post('/auth/check-candidate-status', {
+          email: emailValid ? form.email.trim() : undefined,
+          phone: phoneValid ? form.phone.trim() : undefined,
+        });
+        setCheckResult(data);
+      } catch {
+        setCheckResult(null);
+      } finally {
+        setCheckLoading(false);
+      }
+    }, 600);
+    return () => clearTimeout(handle);
+  }, [form.email, form.phone]);
 
   const set = (key: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -389,6 +426,101 @@ export default function SignupTalent() {
                   onChange={set('phone')}
                   placeholder="+91 XXXXX XXXXX"
                 />
+
+                {/* ── Inline status check ── */}
+                {(checkLoading || checkResult) && (
+                  <div className="pt-1">
+                    {checkLoading && (
+                      <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                        Checking your status...
+                      </div>
+                    )}
+                    {!checkLoading && checkResult?.has_account && (
+                      <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                        <svg className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-amber-900">An account already exists</p>
+                          <p className="mt-0.5 text-sm text-amber-800">
+                            You can{' '}
+                            <Link href="/login" className="font-semibold underline hover:text-amber-900">
+                              sign in instead
+                            </Link>
+                            , or contact{' '}
+                            <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:text-amber-900">
+                              WhatsApp Talent Support
+                            </a>
+                            .
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {!checkLoading && !checkResult?.has_account && checkResult?.has_invitation && (
+                      <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+                        <svg className="mt-0.5 h-5 w-5 shrink-0 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                          <p className="text-sm font-medium text-green-900">You're invited!</p>
+                          <p className="mt-0.5 text-sm text-green-800">
+                            Complete the form below to create your account.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {!checkLoading && !checkResult?.has_account && !checkResult?.has_invitation && checkResult && checkResult.submissions.length > 0 && (
+                      <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                        <div className="flex items-start gap-3">
+                          <svg className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-blue-900">We found your application</p>
+                            <p className="mt-0.5 text-sm text-blue-800">
+                              You'll receive an invitation to sign up once your application is approved.
+                            </p>
+                            <div className="mt-2 space-y-1.5">
+                              {checkResult.submissions.map((s, i) => (
+                                <div key={i} className="flex flex-wrap items-center gap-2 text-xs">
+                                  <span className="font-medium text-blue-900">{s.name}</span>
+                                  <span className="rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700">
+                                    {FORM_TYPE_LABELS[s.form_type] || s.form_type}
+                                  </span>
+                                  <span className="text-blue-700">{STATUS_LABELS[s.status] || s.status}</span>
+                                </div>
+                              ))}
+                            </div>
+                            <p className="mt-2 text-xs text-blue-700">
+                              Need help?{' '}
+                              <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:text-blue-900">
+                                Contact WhatsApp Talent Support
+                              </a>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {!checkLoading && !checkResult?.has_account && !checkResult?.has_invitation && checkResult && checkResult.submissions.length === 0 && (
+                      <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                        <svg className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-amber-900">No invitation yet</p>
+                          <p className="mt-0.5 text-sm text-amber-800">
+                            We couldn't find an invitation or application for this email/phone. Make sure you used the same details from your application form, or{' '}
+                            <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:text-amber-900">
+                              contact WhatsApp Talent Support
+                            </a>
+                            .
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="pt-2">
                   <h3 className="mb-3 text-sm font-semibold text-gray-800">Location</h3>
