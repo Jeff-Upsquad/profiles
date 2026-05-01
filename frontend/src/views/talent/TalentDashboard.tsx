@@ -16,6 +16,7 @@ export default function TalentDashboard() {
   const { user } = useAuth();
   const { data: profiles, isLoading } = useMyProfiles();
   const isApproved = user?.approval_status === 'approved';
+  const onboarded = user?.onboarding_completed !== false;
 
   const stats = {
     total: profiles?.length ?? 0,
@@ -73,6 +74,36 @@ export default function TalentDashboard() {
       ),
     },
   ];
+
+  if (!onboarded) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-8 py-12 text-center shadow-[0_8px_30px_-6px_rgba(0,0,0,0.08)]">
+          <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
+          <div className="relative">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F2EEFF]">
+              <svg className="h-7 w-7 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020]">
+              Complete Your <span className="text-rainbow">Training</span> to Get Started
+            </h1>
+            <p className="mt-3 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] max-w-sm mx-auto leading-relaxed">
+              Watch the onboarding video to unlock all modules and start building your profile.
+            </p>
+            <Link href="/talent/training" className="btn-iridescent mt-6 inline-flex text-sm py-2.5 px-5">
+              Go to Training
+              <svg className="arrow-icon h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

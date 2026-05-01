@@ -1,10 +1,12 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import DashboardLayout, { type SidebarItem } from '@/components/layout/DashboardLayout';
 import Badge from '@/components/ui/Badge';
 import { useUnreadSubscriptionCount } from '@/hooks/useSubscriptionCards';
+
+const ONBOARDING_ALLOWED_ROUTES = ['/talent/dashboard', '/talent/training', '/talent/contact-support'];
 
 export default function TalentLayout({
   children,
@@ -12,8 +14,10 @@ export default function TalentLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isLoading } = useAuth();
   const isTalent = !!user && user.role === 'talent';
+  const onboarded = user?.onboarding_completed !== false;
   const { data: unread = 0 } = useUnreadSubscriptionCount({ enabled: isTalent });
 
   if (isLoading) {
@@ -31,6 +35,12 @@ export default function TalentLayout({
 
   if (user.role !== 'talent') {
     router.push('/dashboard');
+    return null;
+  }
+
+  // Route guard: redirect locked routes to dashboard during onboarding
+  if (!onboarded && pathname && !ONBOARDING_ALLOWED_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'))) {
+    router.push('/talent/dashboard');
     return null;
   }
 
@@ -112,5 +122,9 @@ export default function TalentLayout({
     },
   ];
 
-  return <DashboardLayout sidebarItems={sidebarItems}>{children}</DashboardLayout>;
+  const visibleItems = onboarded
+    ? sidebarItems
+    : sidebarItems.filter((item) => ONBOARDING_ALLOWED_ROUTES.some((r) => item.to === r));
+
+  return <DashboardLayout sidebarItems={visibleItems}>{children}</DashboardLayout>;
 }

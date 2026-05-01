@@ -18,6 +18,8 @@ export default function ChapterForm({ chapter, onClose }: ChapterFormProps) {
   const [description, setDescription] = useState(chapter?.description ?? '');
   const [sortOrder, setSortOrder] = useState(chapter?.sort_order ?? 0);
   const [isActive, setIsActive] = useState(chapter?.is_active ?? true);
+  const [isOnboarding, setIsOnboarding] = useState(chapter?.is_onboarding ?? false);
+  const [language, setLanguage] = useState(chapter?.language ?? 'en');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
     chapter?.categories?.map((c) => c.id) ?? [],
   );
@@ -41,6 +43,8 @@ export default function ChapterForm({ chapter, onClose }: ChapterFormProps) {
       description: description || undefined,
       sort_order: sortOrder,
       is_active: isActive,
+      is_onboarding: isOnboarding,
+      language,
       category_ids: selectedCategoryIds,
     };
 
@@ -127,6 +131,46 @@ export default function ChapterForm({ chapter, onClose }: ChapterFormProps) {
         <label htmlFor="chapter-active" className="text-sm text-gray-700">
           Active
         </label>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="chapter-onboarding"
+          checked={isOnboarding}
+          onChange={(e) => setIsOnboarding(e.target.checked)}
+          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+        />
+        <label htmlFor="chapter-onboarding" className="text-sm text-gray-700">
+          Onboarding Chapter
+        </label>
+      </div>
+      {isOnboarding && (
+        <p className="text-xs text-amber-600 -mt-2">
+          Only one chapter can be the onboarding chapter. Enabling this will remove the flag from any other chapter.
+        </p>
+      )}
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Language
+        </label>
+        <select
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
+          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+        >
+          <option value="en">English</option>
+          <option value="hi">Hindi</option>
+          <option value="ta">Tamil</option>
+          <option value="te">Telugu</option>
+          <option value="kn">Kannada</option>
+          <option value="ml">Malayalam</option>
+          <option value="bn">Bengali</option>
+          <option value="mr">Marathi</option>
+          <option value="gu">Gujarati</option>
+          <option value="pa">Punjabi</option>
+        </select>
       </div>
 
       <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">

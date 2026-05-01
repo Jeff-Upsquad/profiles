@@ -52,6 +52,8 @@ router.patch('/profiles/:id/portfolio/reorder', talentController.reorderPortfoli
 router.patch('/profiles/:id/portfolio/:itemId', talentController.updatePortfolioItem);
 
 // Training program
+router.get('/training/onboarding', trainingController.getOnboardingTraining);
+router.post('/training/complete-onboarding', trainingController.completeOnboarding);
 router.get('/training', trainingController.getMyTraining);
 router.post('/training/lessons/:lessonId/complete', trainingController.markComplete);
 router.delete('/training/lessons/:lessonId/complete', trainingController.markIncomplete);

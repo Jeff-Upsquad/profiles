@@ -170,3 +170,45 @@ export async function markIncomplete(req: Request, res: Response, next: NextFunc
     next(err);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Talent — Onboarding
+// ---------------------------------------------------------------------------
+
+export async function getOnboardingTraining(req: Request, res: Response, next: NextFunction) {
+  try {
+    const chapter = await trainingService.getOnboardingChapter();
+    if (!chapter) {
+      res.json({ chapter: null });
+      return;
+    }
+
+    const progress = await trainingService.getLessonProgress(req.user!.id);
+    const completedSet = new Set(progress.map((p: any) => p.lesson_id));
+
+    const lessons = (chapter.lessons ?? []).map((l: any) => ({
+      ...l,
+      completed: completedSet.has(l.id),
+    }));
+
+    res.json({
+      chapter: {
+        ...chapter,
+        lessons,
+        completed_count: lessons.filter((l: any) => l.completed).length,
+        total_count: lessons.length,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function completeOnboarding(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await trainingService.completeOnboarding(req.user!.id);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+}

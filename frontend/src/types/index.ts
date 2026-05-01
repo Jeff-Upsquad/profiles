@@ -9,6 +9,7 @@ export interface User {
   approval_status?: ApprovalStatus;
   must_reset_password?: boolean;
   auto_approve_signups?: boolean;
+  onboarding_completed?: boolean;
 }
 
 export interface AuthResponse {

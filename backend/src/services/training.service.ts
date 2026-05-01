@@ -70,6 +70,13 @@ export async function getChapter(id: string) {
 export async function createChapter(input: CreateChapterInput) {
   const { category_ids, ...chapterData } = input;
 
+  if (chapterData.is_onboarding) {
+    await supabaseAdmin
+      .from('training_chapters')
+      .update({ is_onboarding: false })
+      .eq('is_onboarding', true);
+  }
+
   const { data, error } = await supabaseAdmin
     .from('training_chapters')
     .insert(chapterData)
@@ -94,6 +101,14 @@ export async function createChapter(input: CreateChapterInput) {
 
 export async function updateChapter(id: string, input: UpdateChapterInput) {
   const { category_ids, ...chapterData } = input;
+
+  if (chapterData.is_onboarding) {
+    await supabaseAdmin
+      .from('training_chapters')
+      .update({ is_onboarding: false })
+      .eq('is_onboarding', true)
+      .neq('id', id);
+  }
 
   if (Object.keys(chapterData).length > 0) {
     const { error } = await supabaseAdmin
@@ -306,4 +321,58 @@ export async function markLessonIncomplete(userId: string, lessonId: string) {
 
   if (error) throw new AppError(500, `Failed to unmark lesson: ${error.message}`);
   return { message: 'Lesson marked incomplete' };
+}
+
+// ---------------------------------------------------------------------------
+// Onboarding
+// ---------------------------------------------------------------------------
+
+export async function getOnboardingChapter() {
+  const { data: chapter, error } = await supabaseAdmin
+    .from('training_chapters')
+    .select('*')
+    .eq('is_onboarding', true)
+    .eq('is_active', true)
+    .single();
+
+  if (error || !chapter) return null;
+
+  const { data: lessons, error: lErr } = await supabaseAdmin
+    .from('training_lessons')
+    .select('*')
+    .eq('chapter_id', chapter.id)
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true });
+
+  if (lErr) throw new AppError(500, `Failed to fetch onboarding lessons: ${lErr.message}`);
+
+  return { ...chapter, lessons: lessons ?? [] };
+}
+
+export async function completeOnboarding(userId: string) {
+  const chapter = await getOnboardingChapter();
+  if (!chapter) throw new AppError(400, 'No onboarding chapter configured');
+
+  if (chapter.lessons.length > 0) {
+    const { data: progress, error: pErr } = await supabaseAdmin
+      .from('training_lesson_progress')
+      .select('lesson_id')
+      .eq('talent_user_id', userId)
+      .in('lesson_id', chapter.lessons.map((l: any) => l.id));
+
+    if (pErr) throw new AppError(500, `Failed to verify progress: ${pErr.message}`);
+
+    const completedIds = new Set((progress ?? []).map((p: any) => p.lesson_id));
+    const allComplete = chapter.lessons.every((l: any) => completedIds.has(l.id));
+
+    if (!allComplete) throw new AppError(400, 'Complete all onboarding lessons first');
+  }
+
+  const { error } = await supabaseAdmin
+    .from('talent_users')
+    .update({ onboarding_completed: true })
+    .eq('id', userId);
+
+  if (error) throw new AppError(500, `Failed to complete onboarding: ${error.message}`);
+  return { message: 'Onboarding completed' };
 }

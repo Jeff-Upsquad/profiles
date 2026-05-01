@@ -56,6 +56,7 @@ export default function TrainingChapterList() {
               <tr className="border-b border-gray-200 bg-gray-50">
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Title</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Categories</th>
+                <th className="text-left px-6 py-3 font-medium text-gray-500">Language</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Lessons</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Status</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Sort</th>
@@ -66,12 +67,17 @@ export default function TrainingChapterList() {
               {chapters.map((ch) => (
                 <tr key={ch.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 font-medium text-gray-900">
-                    <Link
-                      href={`/training/${ch.id}`}
-                      className="text-indigo-600 hover:text-indigo-800"
-                    >
-                      {ch.title}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/training/${ch.id}`}
+                        className="text-indigo-600 hover:text-indigo-800"
+                      >
+                        {ch.title}
+                      </Link>
+                      {ch.is_onboarding && (
+                        <Badge variant="indigo">Onboarding</Badge>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-wrap gap-1">
@@ -82,6 +88,7 @@ export default function TrainingChapterList() {
                       ))}
                     </div>
                   </td>
+                  <td className="px-6 py-4 text-gray-500 uppercase text-xs font-medium">{ch.language ?? 'en'}</td>
                   <td className="px-6 py-4 text-gray-500">{ch.lesson_count}</td>
                   <td className="px-6 py-4">
                     <Badge variant={ch.is_active ? 'green' : 'gray'}>

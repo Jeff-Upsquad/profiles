@@ -9,6 +9,8 @@ export const createChapterSchema = z.object({
   description: z.string().max(1000).optional(),
   sort_order: z.number().int().min(0).optional(),
   is_active: z.boolean().optional(),
+  is_onboarding: z.boolean().optional(),
+  language: z.string().max(10).optional(),
   category_ids: z
     .array(z.string().uuid('Each category_id must be a valid UUID'))
     .min(1, 'At least one category is required'),
@@ -19,6 +21,8 @@ export const updateChapterSchema = z.object({
   description: z.string().max(1000).optional(),
   sort_order: z.number().int().min(0).optional(),
   is_active: z.boolean().optional(),
+  is_onboarding: z.boolean().optional(),
+  language: z.string().max(10).optional(),
   category_ids: z
     .array(z.string().uuid('Each category_id must be a valid UUID'))
     .min(1, 'At least one category is required')
