@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as businessService from '../services/business.service.js';
+import * as talentAccessService from '../services/talent-access.service.js';
 
 export async function getMe(req: Request, res: Response, next: NextFunction) {
   try {
@@ -171,6 +172,77 @@ export async function getShortlistedProfilesForCard(req: Request, res: Response,
       req.params.cardId as string,
     );
     res.json({ profiles });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── Talent Access (bridged via business user email) ───────────────────────
+
+async function resolveAccessSession(req: Request) {
+  const business = await businessService.getBusinessUser(req.user!.id);
+  const email = business.contact_email;
+  if (!email) return null;
+  return talentAccessService.getSessionForEmail(email);
+}
+
+export async function getTalentAccessStatus(req: Request, res: Response, next: NextFunction) {
+  try {
+    const business = await businessService.getBusinessUser(req.user!.id);
+    const email = business.contact_email;
+    if (!email) {
+      res.json({ has_access: false });
+      return;
+    }
+    const session = await talentAccessService.getSessionForEmail(email);
+    if (!session) {
+      res.json({ has_access: false });
+      return;
+    }
+    const info = await talentAccessService.getSessionInfo(session);
+    res.json({ has_access: true, ...info });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getTalentAccessProfiles(req: Request, res: Response, next: NextFunction) {
+  try {
+    const session = await resolveAccessSession(req);
+    if (!session) {
+      res.json({ profiles: [], page: 1, per_page: 20, total: 0 });
+      return;
+    }
+    const result = await talentAccessService.listProfiles(session, req.query as any);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getTalentAccessProfile(req: Request, res: Response, next: NextFunction) {
+  try {
+    const session = await resolveAccessSession(req);
+    if (!session) {
+      res.status(403).json({ error: 'No talent access for this account' });
+      return;
+    }
+    const result = await talentAccessService.getProfile(session, req.params.id as string);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getTalentAccessFilterOptions(req: Request, res: Response, next: NextFunction) {
+  try {
+    const session = await resolveAccessSession(req);
+    if (!session) {
+      res.json({ tiers: [], locations: [], languages: [], skills: [], tools: [], ai_tools: [] });
+      return;
+    }
+    const result = await talentAccessService.getFilterOptions(session, req.query.category_id as string);
+    res.json(result);
   } catch (err) {
     next(err);
   }

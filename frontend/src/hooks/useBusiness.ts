@@ -255,3 +255,80 @@ export function useShortlistedProfilesForCard(cardId: string | undefined) {
     enabled: !!cardId,
   });
 }
+
+// ─── Talent Access (bridged via business user email) ────────────────────────
+
+export interface TalentAccessStatus {
+  has_access: boolean;
+  email?: string;
+  expires_at?: string;
+  categories?: Array<{ id: string; name: string; slug: string }>;
+}
+
+export interface TalentAccessProfileFilters {
+  category_id: string;
+  tier?: string[];
+  location?: string[];
+  language?: string[];
+  skill?: string[];
+  ai_tool?: string[];
+  search?: string;
+  page?: number;
+}
+
+export function useBusinessTalentAccess() {
+  return useQuery<TalentAccessStatus>({
+    queryKey: ['business-talent-access-status'],
+    queryFn: async () => {
+      const { data } = await api.get('/business/talent-access/status');
+      return data;
+    },
+  });
+}
+
+function appendCsv(params: URLSearchParams, key: string, values: string[] | undefined) {
+  if (!values || values.length === 0) return;
+  params.set(key, values.join(','));
+}
+
+export function useBusinessTalentAccessProfiles(filters: TalentAccessProfileFilters) {
+  return useQuery({
+    queryKey: ['business-talent-access-profiles', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set('category_id', filters.category_id);
+      appendCsv(params, 'tier', filters.tier);
+      appendCsv(params, 'location', filters.location);
+      appendCsv(params, 'language', filters.language);
+      appendCsv(params, 'skill', filters.skill);
+      appendCsv(params, 'ai_tool', filters.ai_tool);
+      if (filters.search) params.set('search', filters.search);
+      if (filters.page) params.set('page', String(filters.page));
+      const { data } = await api.get(`/business/talent-access/profiles?${params.toString()}`);
+      return data;
+    },
+    enabled: !!filters.category_id,
+  });
+}
+
+export function useBusinessTalentAccessProfile(profileId: string | undefined) {
+  return useQuery({
+    queryKey: ['business-talent-access-profile', profileId],
+    queryFn: async () => {
+      const { data } = await api.get(`/business/talent-access/profiles/${profileId}`);
+      return data;
+    },
+    enabled: !!profileId,
+  });
+}
+
+export function useBusinessTalentAccessFilterOptions(categoryId: string | undefined) {
+  return useQuery({
+    queryKey: ['business-talent-access-filter-options', categoryId],
+    queryFn: async () => {
+      const { data } = await api.get(`/business/talent-access/filter-options?category_id=${categoryId}`);
+      return data;
+    },
+    enabled: !!categoryId,
+  });
+}

@@ -532,6 +532,49 @@ export async function getSessionInfo(session: AccessSession) {
 }
 
 // ============================================================
+// Email-based session resolver (for business dashboard integration)
+// ============================================================
+
+export async function getSessionForEmail(emailRaw: string): Promise<AccessSession | null> {
+  const email = normalizeEmail(emailRaw);
+
+  const { data, error } = await supabaseAdmin
+    .from('talent_access_grants')
+    .select('id')
+    .eq('email', email)
+    .is('revoked_at', null)
+    .gt('expires_at', new Date().toISOString());
+  if (error) throw new AppError(500, error.message);
+
+  const grants = (data ?? []) as { id: string }[];
+  if (grants.length === 0) return null;
+
+  const categorySet = new Set<string>();
+  for (const g of grants) {
+    const ids = await fetchGrantCategoryIds(g.id);
+    ids.forEach((id) => categorySet.add(id));
+  }
+  const categoryIds = Array.from(categorySet);
+  if (categoryIds.length === 0) return null;
+
+  return { grantId: grants[0]!.id, email, categoryIds };
+}
+
+export async function getExpiryForEmail(emailRaw: string): Promise<string | null> {
+  const email = normalizeEmail(emailRaw);
+  const { data, error } = await supabaseAdmin
+    .from('talent_access_grants')
+    .select('expires_at')
+    .eq('email', email)
+    .is('revoked_at', null)
+    .gt('expires_at', new Date().toISOString())
+    .order('expires_at', { ascending: false })
+    .limit(1);
+  if (error) throw new AppError(500, error.message);
+  return data?.[0]?.expires_at ?? null;
+}
+
+// ============================================================
 // Public: profile browse + detail
 // ============================================================
 

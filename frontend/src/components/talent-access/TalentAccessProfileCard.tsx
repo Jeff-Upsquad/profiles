@@ -33,15 +33,17 @@ function initials(name: string): string {
 
 export default function TalentAccessProfileCard({
   profile,
+  basePath = '/talent-access',
 }: {
   profile: ProfileCardSummary;
+  basePath?: string;
 }) {
   const tier = profile.tier ? TIER_BADGE[profile.tier] : null;
   const tierLabel = profile.tier === 'custom' && profile.tier_custom ? profile.tier_custom : tier?.label;
 
   return (
     <Link
-      href={`/talent-access/${profile.id}`}
+      href={`${basePath}/${profile.id}`}
       className="group block rounded-2xl border border-zinc-200 bg-white p-4 transition-shadow hover:shadow-sm"
     >
       <div className="flex items-start gap-3">

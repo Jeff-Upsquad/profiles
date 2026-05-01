@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useMyCategories, useSharedProfiles } from '@/hooks/useBusiness';
+import { useMyCategories, useSharedProfiles, useBusinessTalentAccess } from '@/hooks/useBusiness';
 import TierBadge from '@/components/ui/TierBadge';
 
 function TalentPanel({
@@ -92,6 +92,7 @@ function TalentPanel({
 
 export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { data: categories, isLoading } = useMyCategories();
+  const { data: talentAccess } = useBusinessTalentAccess();
   const pathname = usePathname();
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   // On mobile, track which panel is showing: 'categories' or 'talents'
@@ -111,6 +112,7 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
   }, [pathname, categories]);
 
   const isDashboardActive = pathname === '/business/dashboard';
+  const isTalentAccessActive = pathname?.startsWith('/business/talent-access');
   const activeCategory = categories?.find((c) => c.id === activeCategoryId);
 
   const handleCategoryClick = (catId: string) => {
@@ -148,6 +150,23 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
               </svg>
               Dashboard
             </Link>
+
+            {talentAccess?.has_access && (
+              <Link
+                href="/business/talent-access"
+                onClick={() => { setActiveCategoryId(null); onNavigate?.(); }}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  isTalentAccessActive
+                    ? 'bg-indigo-50 text-indigo-700'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Talent Profiles
+              </Link>
+            )}
 
             <div className="mt-5 mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
               Categories
@@ -216,6 +235,23 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
               </svg>
               Dashboard
             </Link>
+
+            {talentAccess?.has_access && (
+              <Link
+                href="/business/talent-access"
+                onClick={() => setActiveCategoryId(null)}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  isTalentAccessActive
+                    ? 'bg-indigo-50 text-indigo-700'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Talent Profiles
+              </Link>
+            )}
 
             <div className="mt-5 mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
               Categories

@@ -57,4 +57,10 @@ router.get(
   businessController.getShortlistedProfilesForCard,
 );
 
+// Talent Access browsing (bridged via business user email)
+router.get('/talent-access/status', businessController.getTalentAccessStatus);
+router.get('/talent-access/profiles', businessController.getTalentAccessProfiles);
+router.get('/talent-access/profiles/:id', businessController.getTalentAccessProfile);
+router.get('/talent-access/filter-options', businessController.getTalentAccessFilterOptions);
+
 export default router;

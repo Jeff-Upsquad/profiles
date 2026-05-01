@@ -26,6 +26,8 @@ interface Props {
   categoryId: string;
   value: FilterState;
   onChange: (next: FilterState) => void;
+  filterOptions?: any;
+  filterOptionsLoading?: boolean;
 }
 
 function toggle<T>(list: T[] | undefined, item: T): T[] {
@@ -100,8 +102,11 @@ function CheckboxRow({ checked, onChange, children }: CheckboxRowProps) {
   );
 }
 
-export default function TalentAccessFilters({ categoryId, value, onChange }: Props) {
-  const { data: options, isLoading } = useTalentAccessFilterOptions(categoryId);
+export default function TalentAccessFilters({ categoryId, value, onChange, filterOptions, filterOptionsLoading }: Props) {
+  const useExternal = filterOptionsLoading !== undefined;
+  const query = useTalentAccessFilterOptions(useExternal ? undefined : categoryId);
+  const options = useExternal ? filterOptions : query.data;
+  const isLoading = useExternal ? !!filterOptionsLoading : query.isLoading;
   const [tierExpanded, setTierExpanded] = useState(false);
 
   const tierCount = value.tier?.length ?? 0;
