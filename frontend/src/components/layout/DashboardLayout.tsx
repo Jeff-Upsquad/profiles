@@ -14,10 +14,11 @@ interface DashboardLayoutProps {
   sidebarItems?: SidebarItem[];
   sidebarContent?: React.ReactNode | ((opts: { onNavigate: () => void }) => React.ReactNode);
   hideMobileSidebar?: boolean;
+  hideNavbar?: boolean;
   children: React.ReactNode;
 }
 
-export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobileSidebar, children }: DashboardLayoutProps) {
+export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobileSidebar, hideNavbar, children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
 
@@ -27,7 +28,7 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
 
   return (
     <div className="flex h-screen flex-col bg-[#F8F9FA]">
-      <Navbar />
+      {!hideNavbar && <Navbar />}
       <div className="flex flex-1 overflow-hidden">
         {/* Overlay */}
         {sidebarOpen && !hideMobileSidebar && (
@@ -40,7 +41,7 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
         {/* Sidebar */}
         {sidebarContent ? (
           <div
-            className={`${hideMobileSidebar ? 'hidden md:flex' : 'flex'} fixed inset-y-0 left-0 z-20 mt-[60px] transform transition-transform md:relative md:mt-0 md:translate-x-0 ${
+            className={`${hideMobileSidebar ? 'hidden md:flex' : 'flex'} fixed inset-y-0 left-0 z-20 ${hideNavbar ? '' : 'mt-[60px]'} transform transition-transform md:relative md:mt-0 md:translate-x-0 ${
               sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             }`}
           >
@@ -50,7 +51,7 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
           </div>
         ) : sidebarItems && sidebarItems.length > 0 ? (
           <aside
-            className={`fixed inset-y-0 left-0 z-20 mt-[60px] w-60 transform border-r border-[#ECECEF] bg-white transition-transform md:relative md:mt-0 md:translate-x-0 ${
+            className={`fixed inset-y-0 left-0 z-20 ${hideNavbar ? '' : 'mt-[60px]'} w-60 transform border-r border-[#ECECEF] bg-white transition-transform md:relative md:mt-0 md:translate-x-0 ${
               sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             }`}
           >

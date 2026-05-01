@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import type { FilterState } from '@/views/talent-access/TalentAccessFilters';
 
@@ -14,6 +14,8 @@ const ARRAY_KEYS: (keyof FilterState)[] = [
   'skill',
   'ai_tool',
 ];
+
+const STORAGE_KEY = 'business-talent-access-filters';
 
 function parseArray(val: string | null): string[] | undefined {
   if (!val) return undefined;
@@ -34,6 +36,25 @@ function filtersToParams(filters: FilterState, category: string, search: string)
   return params;
 }
 
+function loadStoredFilters(): Record<string, FilterState> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveStoredFilters(map: Record<string, FilterState>) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    // Storage may be full or unavailable; ignore.
+  }
+}
+
 export function useFilterParams() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -50,6 +71,15 @@ export function useFilterParams() {
     }
     return f;
   }, [searchParams]);
+
+  // Persist current category's filters to localStorage on every change so a
+  // round-trip through another category restores them.
+  useEffect(() => {
+    if (!activeCategoryId) return;
+    const stored = loadStoredFilters();
+    stored[activeCategoryId] = filters;
+    saveStoredFilters(stored);
+  }, [filters, activeCategoryId]);
 
   const replaceParams = useCallback(
     (params: URLSearchParams) => {
@@ -68,8 +98,11 @@ export function useFilterParams() {
 
   const setCategory = useCallback(
     (id: string) => {
-      // Changing category clears filters but keeps search
-      replaceParams(filtersToParams({}, id, search));
+      // Restore the target category's saved filters (empty if never visited)
+      // so each tab keeps its own filter set across switches.
+      const stored = loadStoredFilters();
+      const savedFilters = stored[id] ?? {};
+      replaceParams(filtersToParams(savedFilters, id, search));
     },
     [replaceParams, search],
   );

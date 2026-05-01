@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 const NAV_ITEMS = [
   {
@@ -35,16 +36,43 @@ const NAV_ITEMS = [
 
 export default function BusinessBottomNav() {
   const pathname = usePathname() ?? '';
+  const { user, logout } = useAuth();
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + '/');
 
+  const displayName =
+    (user?.role === 'business' && user?.contact_person_name) || user?.full_name || user?.email || '';
+  const displayEmail = (user?.role === 'business' && user?.contact_email) || user?.email || '';
+  const displayPhone = user?.role === 'business' ? user?.contact_phone : undefined;
+
   return (
     <>
-      {/* Spacer so content isn't hidden behind the fixed bar (mobile only) */}
-      <div className="h-16 md:hidden" />
-      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-zinc-200 bg-white md:hidden">
-        <div className="mx-auto flex max-w-lg items-center justify-around py-2">
+      {/* Spacer so content isn't hidden behind the fixed bar (mobile only).
+          The user strip + nav row total ~104px on mobile. */}
+      <div className="h-[104px] md:hidden" />
+      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-zinc-200 bg-white md:hidden">
+        {/* User strip — replaces the navbar's user info on mobile so logout
+            stays reachable. */}
+        {user && (
+          <div className="flex items-center justify-between gap-3 border-b border-zinc-100 px-4 py-2">
+            <div className="min-w-0">
+              {displayName && (
+                <p className="truncate text-xs font-semibold text-zinc-900">{displayName}</p>
+              )}
+              <p className="truncate text-[10px] text-zinc-500">
+                {[displayEmail, displayPhone].filter(Boolean).join(' · ')}
+              </p>
+            </div>
+            <button
+              onClick={() => logout()}
+              className="shrink-0 rounded-md border border-zinc-200 px-2.5 py-1 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              Logout
+            </button>
+          </div>
+        )}
+        <nav className="mx-auto flex max-w-lg items-center justify-around py-2">
           {NAV_ITEMS.map((item) => {
             const active = isActive(item.href);
             return (
@@ -62,8 +90,8 @@ export default function BusinessBottomNav() {
               </Link>
             );
           })}
-        </div>
-      </nav>
+        </nav>
+      </div>
     </>
   );
 }

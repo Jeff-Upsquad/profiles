@@ -11,6 +11,10 @@ interface TalentUser {
   languages_spoken?: { language: string; proficiency: string }[];
   age?: number | null;
   gender?: string | null;
+  country?: string | null;
+  state?: string | null;
+  current_district?: string | null;
+  city?: string | null;
 }
 
 interface ThreadsProfileHeaderProps {
@@ -131,16 +135,29 @@ export default function ThreadsProfileHeader({
         ].filter(Boolean).join(' · ') || 'Age & gender not specified'}
       </div>
 
-      {/* Location */}
-      {talentUser.current_location && (
-        <div className="mt-1 flex items-center gap-1 text-[13px] text-zinc-500">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
-            <circle cx="12" cy="10" r="3" />
-          </svg>
-          {talentUser.current_location}
-        </div>
-      )}
+      {/* Location — prefer structured (city · district · state · country),
+          fall back to free-text current_location if no structured data exists. */}
+      {(() => {
+        const structured = [
+          talentUser.city,
+          talentUser.current_district,
+          talentUser.state,
+          talentUser.country,
+        ]
+          .filter((p): p is string => !!p && p.trim().length > 0)
+          .join(', ');
+        const text = structured || talentUser.current_location;
+        if (!text) return null;
+        return (
+          <div className="mt-1 flex items-center gap-1 text-[13px] text-zinc-500">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            {text}
+          </div>
+        );
+      })()}
 
       {/* Bio */}
       {bio && (
