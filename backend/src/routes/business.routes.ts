@@ -8,6 +8,10 @@ import {
   discoverQuerySchema,
   sendInterestSchema,
 } from '../validators/business.validators.js';
+import {
+  profilesQuerySchema,
+  filterOptionsQuerySchema,
+} from '../validators/talent-access.validators.js';
 
 const router = Router();
 
@@ -59,8 +63,16 @@ router.get(
 
 // Talent Access browsing (bridged via business user email)
 router.get('/talent-access/status', businessController.getTalentAccessStatus);
-router.get('/talent-access/profiles', businessController.getTalentAccessProfiles);
+router.get(
+  '/talent-access/profiles',
+  validate({ query: profilesQuerySchema }),
+  businessController.getTalentAccessProfiles,
+);
 router.get('/talent-access/profiles/:id', businessController.getTalentAccessProfile);
-router.get('/talent-access/filter-options', businessController.getTalentAccessFilterOptions);
+router.get(
+  '/talent-access/filter-options',
+  validate({ query: filterOptionsQuerySchema }),
+  businessController.getTalentAccessFilterOptions,
+);
 
 export default router;
