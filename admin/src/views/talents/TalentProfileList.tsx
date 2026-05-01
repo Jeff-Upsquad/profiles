@@ -119,6 +119,7 @@ export default function TalentProfileList({ categoryId, stateName }: { categoryI
     const stc: Record<string, number> = {};
 
     scopedProfiles.forEach((p, i) => {
+      if (p.status === 'inactive') return;
       const tk = tierKeyOf(p);
       tc[tk]++;
       sc[p.status] = (sc[p.status] ?? 0) + 1;
@@ -269,7 +270,7 @@ export default function TalentProfileList({ categoryId, stateName }: { categoryI
 
   const categoryName = profiles?.[0]?.categories?.name ?? 'Category';
   const decodedStateName = stateName ? decodeURIComponent(stateName) : null;
-  const total = scopedProfiles.length;
+  const total = scopedProfiles.filter((p) => p.status !== 'inactive').length;
   const hasPendingInView = pendingInView.length > 0;
 
   return (
