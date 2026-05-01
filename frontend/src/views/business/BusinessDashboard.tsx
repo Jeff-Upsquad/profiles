@@ -1,18 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import {
-  useMySubscriptionCards,
-  useMyCategories,
-  useSharedProfiles,
-  type BusinessSubscriptionCardSummary,
-} from '@/hooks/useBusiness';
-import type { Category, Profile } from '@/types';
+import { useMySubscriptionCards, type BusinessSubscriptionCardSummary } from '@/hooks/useBusiness';
 
-type TopTab = 'dashboard' | 'subscription' | 'all-profiles';
-type CardTab = 'open' | 'closed';
+type Tab = 'open' | 'closed';
 
 function formatPrice(amount: number | null, currency: string | null): string | null {
   if (amount == null) return null;
@@ -55,7 +48,12 @@ function planSubtitle(card: BusinessSubscriptionCardSummary): string | null {
 
 export default function BusinessDashboard() {
   const { user } = useAuth();
-  const [topTab, setTopTab] = useState<TopTab>('dashboard');
+  const { data: cards, isLoading } = useMySubscriptionCards();
+  const [tab, setTab] = useState<Tab>('open');
+
+  const open = (cards ?? []).filter((c) => classifyCard(c) !== 'closed');
+  const closed = (cards ?? []).filter((c) => classifyCard(c) === 'closed');
+  const visible = tab === 'open' ? open : closed;
 
   const greeting = (
     <div className="mb-5">
@@ -63,91 +61,49 @@ export default function BusinessDashboard() {
         Welcome{user?.company_name ? `, ${user.company_name}` : ''}
       </h1>
       <p className="mt-1 text-sm text-gray-500">
-        Track your subscription cards, accepted talents, and shared profiles.
+        Subscription cards published to your account. Tap one to see the talents you've shortlisted under it.
       </p>
     </div>
   );
 
-  return (
-    <>
-      {greeting}
-      <TopTabs active={topTab} onChange={setTopTab} />
-      {topTab === 'dashboard' && <DashboardTab />}
-      {topTab === 'subscription' && <SubscriptionTab />}
-      {topTab === 'all-profiles' && <AllProfilesTab />}
-    </>
-  );
-}
-
-function TopTabs({ active, onChange }: { active: TopTab; onChange: (t: TopTab) => void }) {
-  const tabs: Array<{ id: TopTab; label: string }> = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'subscription', label: 'My subscription' },
-    { id: 'all-profiles', label: 'All profiles' },
-  ];
-  return (
-    <nav className="mb-5 flex gap-2 overflow-x-auto" role="tablist" aria-label="Business sections">
-      {tabs.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          role="tab"
-          aria-selected={active === t.id}
-          onClick={() => onChange(t.id)}
-          className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
-            active === t.id
-              ? 'bg-zinc-900 text-white'
-              : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-          }`}
-        >
-          {t.label}
-        </button>
-      ))}
-    </nav>
-  );
-}
-
-// ─── Dashboard tab ─────────────────────────────────────────────────────────
-
-function DashboardTab() {
-  const { data: cards, isLoading } = useMySubscriptionCards();
-  const [tab, setTab] = useState<CardTab>('open');
-
-  const open = (cards ?? []).filter((c) => classifyCard(c) !== 'closed');
-  const closed = (cards ?? []).filter((c) => classifyCard(c) === 'closed');
-  const visible = tab === 'open' ? open : closed;
-
   if (isLoading) {
     return (
-      <div className="space-y-2">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-24 animate-pulse rounded-xl bg-gray-100" />
-        ))}
-      </div>
+      <>
+        {greeting}
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-24 animate-pulse rounded-xl bg-gray-100" />
+          ))}
+        </div>
+      </>
     );
   }
 
   if (!cards || cards.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-gray-200 bg-white p-10 text-center">
-        <p className="text-sm font-medium text-gray-600">No subscription cards yet.</p>
-        <p className="mt-1 text-xs text-gray-400">
-          Cards will appear here once they're published to your account.
-        </p>
-      </div>
+      <>
+        {greeting}
+        <div className="rounded-xl border border-dashed border-gray-200 bg-white p-10 text-center">
+          <p className="text-sm font-medium text-gray-600">No subscription cards yet.</p>
+          <p className="mt-1 text-xs text-gray-400">
+            Cards will appear here once they're published to your account.
+          </p>
+        </div>
+      </>
     );
   }
 
   return (
     <>
-      <CardSubTabs
+      {greeting}
+      <Tabs
         active={tab}
         onChange={setTab}
         openCount={open.length}
         closedCount={closed.length}
       />
       {visible.length === 0 ? (
-        <EmptyCardState tab={tab} />
+        <EmptyTabState tab={tab} />
       ) : (
         <div className="grid gap-2 md:grid-cols-2">
           {visible.map((card) => (
@@ -159,32 +115,32 @@ function DashboardTab() {
   );
 }
 
-function CardSubTabs({
+function Tabs({
   active,
   onChange,
   openCount,
   closedCount,
 }: {
-  active: CardTab;
-  onChange: (t: CardTab) => void;
+  active: Tab;
+  onChange: (tab: Tab) => void;
   openCount: number;
   closedCount: number;
 }) {
   return (
     <div className="mb-4 border-b border-gray-200" role="tablist" aria-label="Subscription cards">
       <div className="flex gap-1 overflow-x-auto">
-        <CardTabButton active={active === 'open'} onClick={() => onChange('open')} count={openCount}>
+        <TabButton active={active === 'open'} onClick={() => onChange('open')} count={openCount}>
           Open
-        </CardTabButton>
-        <CardTabButton active={active === 'closed'} onClick={() => onChange('closed')} count={closedCount}>
+        </TabButton>
+        <TabButton active={active === 'closed'} onClick={() => onChange('closed')} count={closedCount}>
           Closed
-        </CardTabButton>
+        </TabButton>
       </div>
     </div>
   );
 }
 
-function CardTabButton({
+function TabButton({
   active,
   onClick,
   count,
@@ -219,7 +175,7 @@ function CardTabButton({
   );
 }
 
-function EmptyCardState({ tab }: { tab: CardTab }) {
+function EmptyTabState({ tab }: { tab: Tab }) {
   const message =
     tab === 'open'
       ? 'No open subscription cards right now.'
@@ -291,215 +247,5 @@ function SubscriptionCardRow({
         )}
       </div>
     </Link>
-  );
-}
-
-// ─── My subscription tab ───────────────────────────────────────────────────
-
-function SubscriptionTab() {
-  const { data: categories, isLoading: categoriesLoading } = useMyCategories();
-  const [activeCategoryId, setActiveCategoryId] = useState('');
-
-  useEffect(() => {
-    if (categories && categories.length > 0 && !activeCategoryId) {
-      setActiveCategoryId(categories[0]!.id);
-    }
-  }, [categories, activeCategoryId]);
-
-  if (categoriesLoading) {
-    return (
-      <div className="space-y-2">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-16 animate-pulse rounded-xl bg-gray-100" />
-        ))}
-      </div>
-    );
-  }
-
-  if (!categories || categories.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed border-gray-200 bg-white p-10 text-center">
-        <p className="text-sm font-medium text-gray-600">No subscribed categories yet.</p>
-        <p className="mt-1 text-xs text-gray-400">
-          Categories appear here once you have an active subscription.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <CategoryChipTabs
-        categories={categories}
-        activeId={activeCategoryId}
-        onChange={setActiveCategoryId}
-      />
-      {activeCategoryId && <AcceptedProfilesList categoryId={activeCategoryId} />}
-    </>
-  );
-}
-
-function CategoryChipTabs({
-  categories,
-  activeId,
-  onChange,
-}: {
-  categories: Category[];
-  activeId: string;
-  onChange: (id: string) => void;
-}) {
-  return (
-    <nav className="mb-4 flex gap-2 overflow-x-auto" aria-label="Subscription categories">
-      {categories.map((cat) => (
-        <button
-          key={cat.id}
-          type="button"
-          onClick={() => onChange(cat.id)}
-          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-            activeId === cat.id
-              ? 'bg-indigo-600 text-white'
-              : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-          }`}
-        >
-          {cat.name}
-        </button>
-      ))}
-    </nav>
-  );
-}
-
-function AcceptedProfilesList({ categoryId }: { categoryId: string }) {
-  const { data: profiles, isLoading } = useSharedProfiles(categoryId);
-
-  if (isLoading) {
-    return (
-      <div className="space-y-2">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-16 animate-pulse rounded-xl bg-gray-100" />
-        ))}
-      </div>
-    );
-  }
-
-  if (!profiles || profiles.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed border-gray-200 bg-white p-8 text-center">
-        <p className="text-sm font-medium text-gray-600">No accepted profiles in this category yet.</p>
-        <p className="mt-1 text-xs text-gray-400">
-          Profiles appear here once talents accept their subscription invitation.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      {profiles.map((profile) => (
-        <ProfileRow key={profile.id} profile={profile} categoryId={categoryId} />
-      ))}
-    </div>
-  );
-}
-
-function ProfileRow({ profile, categoryId }: { profile: Profile; categoryId: string }) {
-  const name = (profile as any)?.talent_user?.full_name ?? 'Unknown talent';
-  const location = (profile as any)?.talent_user?.current_location;
-  const photo = (profile as any)?.talent_user?.profile_photo_url;
-  const categoryName = (profile as any)?.category?.name;
-  const initial = name.charAt(0).toUpperCase();
-
-  return (
-    <Link
-      href={`/business/dashboard/${categoryId}/${profile.id}`}
-      className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 transition-shadow hover:shadow-md"
-    >
-      {photo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={photo} alt={name} className="h-10 w-10 shrink-0 rounded-full object-cover" />
-      ) : (
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-sm font-semibold text-indigo-600">
-          {initial}
-        </div>
-      )}
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-gray-900">{name}</p>
-        <p className="truncate text-[11px] text-gray-500">
-          {categoryName}
-          {categoryName && location ? ' · ' : ''}
-          {location}
-        </p>
-      </div>
-      <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-      </svg>
-    </Link>
-  );
-}
-
-// ─── All profiles tab ──────────────────────────────────────────────────────
-
-function AllProfilesTab() {
-  const { data: categories, isLoading } = useMyCategories();
-
-  if (isLoading) {
-    return (
-      <div className="space-y-2">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-16 animate-pulse rounded-xl bg-gray-100" />
-        ))}
-      </div>
-    );
-  }
-
-  if (!categories || categories.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed border-gray-200 bg-white p-10 text-center">
-        <p className="text-sm font-medium text-gray-600">No profiles available yet.</p>
-        <p className="mt-1 text-xs text-gray-400">
-          Profiles appear here once your subscription becomes active.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {categories.map((cat) => (
-        <CategoryProfilesSection key={cat.id} category={cat} />
-      ))}
-    </div>
-  );
-}
-
-function CategoryProfilesSection({ category }: { category: Category }) {
-  const { data: profiles, isLoading } = useSharedProfiles(category.id);
-
-  if (isLoading) {
-    return (
-      <section>
-        <h2 className="mb-2 text-sm font-semibold text-gray-900">{category.name}</h2>
-        <div className="space-y-2">
-          {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="h-16 animate-pulse rounded-xl bg-gray-100" />
-          ))}
-        </div>
-      </section>
-    );
-  }
-
-  if (!profiles || profiles.length === 0) return null;
-
-  return (
-    <section>
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-900">{category.name}</h2>
-        <span className="text-xs text-gray-400">{profiles.length}</span>
-      </div>
-      <div className="space-y-2">
-        {profiles.map((profile) => (
-          <ProfileRow key={profile.id} profile={profile} categoryId={category.id} />
-        ))}
-      </div>
-    </section>
   );
 }

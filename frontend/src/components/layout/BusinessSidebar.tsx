@@ -1,298 +1,102 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useMyCategories, useSharedProfiles, useBusinessTalentAccess } from '@/hooks/useBusiness';
-import TierBadge from '@/components/ui/TierBadge';
 
-function TalentPanel({
-  categoryId,
-  categoryName,
-  onBack,
-  onNavigate,
-}: {
-  categoryId: string;
-  categoryName: string;
-  onBack?: () => void;
-  onNavigate?: () => void;
-}) {
-  const { data: profiles, isLoading } = useSharedProfiles(categoryId);
-  const pathname = usePathname();
+export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => void }) {
+  const pathname = usePathname() ?? '';
+
+  const dashboardActive =
+    pathname === '/business/dashboard' || pathname.startsWith('/business/dashboard/');
+  const subscriptionActive = pathname.startsWith('/business/subscription');
+  const allProfilesActive = pathname.startsWith('/business/all-profiles');
 
   return (
-    <div className="flex h-full w-full flex-shrink-0 flex-col border-r border-gray-200 bg-white md:w-56">
-      <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
-        {onBack && (
-          <button onClick={onBack} className="text-gray-400 hover:text-gray-600 md:hidden">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    <div className="flex h-full w-72 flex-col border-r border-gray-200 bg-white md:w-56">
+      <nav className="flex flex-1 flex-col overflow-y-auto p-3">
+        <SidebarLink
+          href="/business/dashboard"
+          active={dashboardActive}
+          onNavigate={onNavigate}
+          icon={
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+              />
             </svg>
-          </button>
-        )}
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-          {categoryName}
-        </h3>
-      </div>
-      <div className="flex-1 overflow-y-auto p-2">
-        {isLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-2.5 px-3 py-2">
-                <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />
-                <div className="h-3.5 w-24 animate-pulse rounded bg-gray-200" />
-              </div>
-            ))}
-          </div>
-        ) : !profiles?.length ? (
-          <p className="px-3 py-4 text-xs text-gray-400">No talents shared yet</p>
-        ) : (
-          <div className="space-y-0.5">
-            {profiles.map((profile: any) => {
-              const href = `/business/dashboard/${categoryId}/${profile.id}`;
-              const isActive = pathname === href;
-              const name = profile.talent_user?.full_name ?? 'Unknown';
-              const photo = profile.talent_user?.profile_photo_url;
+          }
+        >
+          Dashboard
+        </SidebarLink>
 
-              return (
-                <Link
-                  key={profile.id}
-                  href={href}
-                  onClick={onNavigate}
-                  className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
-                    isActive
-                      ? 'bg-indigo-50 text-indigo-700 font-medium'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  {photo ? (
-                    <img src={photo} alt="" className="h-8 w-8 flex-shrink-0 rounded-full object-cover" />
-                  ) : (
-                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-600">
-                      {name[0]?.toUpperCase()}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <span className="block truncate">{name}</span>
-                    {profile.tier && (
-                      <div className="mt-0.5">
-                        <TierBadge tier={profile.tier} tierCustom={profile.tier_custom} />
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </div>
+        <SidebarLink
+          href="/business/subscription"
+          active={subscriptionActive}
+          onNavigate={onNavigate}
+          icon={
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+              />
+            </svg>
+          }
+        >
+          My subscription
+        </SidebarLink>
+
+        <SidebarLink
+          href="/business/all-profiles"
+          active={allProfilesActive}
+          onNavigate={onNavigate}
+          icon={
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+          }
+        >
+          All profiles
+        </SidebarLink>
+      </nav>
     </div>
   );
 }
 
-export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => void }) {
-  const { data: categories, isLoading } = useMyCategories();
-  const { data: talentAccess } = useBusinessTalentAccess();
-  const pathname = usePathname();
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-  // On mobile, track which panel is showing: 'categories' or 'talents'
-  const [mobilePanel, setMobilePanel] = useState<'categories' | 'talents'>('categories');
-
-  // Auto-select category from URL
-  useEffect(() => {
-    if (!categories?.length) return;
-    const match = pathname?.match(/^\/business\/dashboard\/([^/]+)/);
-    if (match) {
-      const catId = match[1];
-      if (categories.some((c) => c.id === catId)) {
-        setActiveCategoryId(catId);
-        setMobilePanel('talents');
-      }
-    }
-  }, [pathname, categories]);
-
-  const isDashboardActive = pathname === '/business/dashboard';
-  const isTalentAccessActive = pathname?.startsWith('/business/talent-access');
-  const activeCategory = categories?.find((c) => c.id === activeCategoryId);
-
-  const handleCategoryClick = (catId: string) => {
-    const isActive = activeCategoryId === catId;
-    if (isActive) {
-      setActiveCategoryId(null);
-      setMobilePanel('categories');
-    } else {
-      setActiveCategoryId(catId);
-      setMobilePanel('talents');
-    }
-  };
-
-  const handleMobileBack = () => {
-    setMobilePanel('categories');
-  };
-
+function SidebarLink({
+  href,
+  active,
+  onNavigate,
+  icon,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  onNavigate?: () => void;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <>
-      {/* ── Mobile: single-panel drill-down ── */}
-      <div className="flex h-full w-72 flex-col border-r border-gray-200 bg-white md:hidden">
-        {mobilePanel === 'categories' || !activeCategory ? (
-          <nav className="flex flex-1 flex-col overflow-y-auto p-3">
-            <Link
-              href="/business/dashboard"
-              onClick={() => { setActiveCategoryId(null); onNavigate?.(); }}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                isDashboardActive && !activeCategoryId
-                  ? 'bg-indigo-50 text-indigo-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              Dashboard
-            </Link>
-
-            {talentAccess?.has_access && (
-              <Link
-                href="/business/talent-access"
-                onClick={() => { setActiveCategoryId(null); onNavigate?.(); }}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  isTalentAccessActive
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Talent Profiles
-              </Link>
-            )}
-
-            <div className="mt-5 mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-              Categories
-            </div>
-
-            {isLoading ? (
-              <div className="space-y-1">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="mx-3 h-9 animate-pulse rounded-lg bg-gray-100" />
-                ))}
-              </div>
-            ) : !categories?.length ? (
-              <p className="px-3 text-xs text-gray-400">No categories assigned</p>
-            ) : (
-              <div className="space-y-0.5">
-                {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => handleCategoryClick(cat.id)}
-                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                      activeCategoryId === cat.id
-                        ? 'bg-indigo-50 text-indigo-700'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                  >
-                    <span className="flex items-center gap-3">
-                      <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
-                      <span className="truncate">{cat.name}</span>
-                    </span>
-                    <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                ))}
-              </div>
-            )}
-          </nav>
-        ) : (
-          <TalentPanel
-            categoryId={activeCategory.id}
-            categoryName={activeCategory.name}
-            onBack={handleMobileBack}
-            onNavigate={onNavigate}
-          />
-        )}
-      </div>
-
-      {/* ── Desktop: two-panel side by side ── */}
-      <div className="hidden md:flex">
-        {/* Panel 1: Categories */}
-        <div className="flex h-full w-56 flex-shrink-0 flex-col border-r border-gray-200 bg-white">
-          <nav className="flex flex-1 flex-col overflow-y-auto p-3">
-            <Link
-              href="/business/dashboard"
-              onClick={() => setActiveCategoryId(null)}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                isDashboardActive && !activeCategoryId
-                  ? 'bg-indigo-50 text-indigo-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              Dashboard
-            </Link>
-
-            {talentAccess?.has_access && (
-              <Link
-                href="/business/talent-access"
-                onClick={() => setActiveCategoryId(null)}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  isTalentAccessActive
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Talent Profiles
-              </Link>
-            )}
-
-            <div className="mt-5 mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-              Categories
-            </div>
-
-            {isLoading ? (
-              <div className="space-y-1">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="mx-3 h-9 animate-pulse rounded-lg bg-gray-100" />
-                ))}
-              </div>
-            ) : !categories?.length ? (
-              <p className="px-3 text-xs text-gray-400">No categories assigned</p>
-            ) : (
-              <div className="space-y-0.5">
-                {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => handleCategoryClick(cat.id)}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                      activeCategoryId === cat.id
-                        ? 'bg-indigo-50 text-indigo-700'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                  >
-                    <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
-                    <span className="truncate">{cat.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </nav>
-        </div>
-
-        {/* Panel 2: Talents (shown when a category is selected) */}
-        {activeCategory && (
-          <TalentPanel categoryId={activeCategory.id} categoryName={activeCategory.name} />
-        )}
-      </div>
-    </>
+    <Link
+      href={href}
+      onClick={onNavigate}
+      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+        active
+          ? 'bg-indigo-50 text-indigo-700'
+          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+      }`}
+    >
+      {icon}
+      {children}
+    </Link>
   );
 }
