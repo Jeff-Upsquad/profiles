@@ -12,8 +12,8 @@ export default function LoginTalent() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleContinue = (e: FormEvent) => {
-    e.preventDefault();
+  const handleContinue = (e?: FormEvent) => {
+    if (e) e.preventDefault();
     if (!email.trim()) return;
     setStep('password');
   };
@@ -61,6 +61,12 @@ export default function LoginTalent() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleContinue();
+                }
+              }}
               placeholder="you@email.com"
               required
               autoFocus
