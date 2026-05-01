@@ -9,7 +9,7 @@ import Badge from '@/components/ui/Badge';
 import TierBadge from '@/components/ui/TierBadge';
 import DropdownMenu from '@/components/ui/DropdownMenu';
 import Modal from '@/components/ui/Modal';
-import { resolveLocation, COUNTRIES, UNKNOWN_STATE, type Country } from '@/lib/location';
+import { resolveLocation, COUNTRIES, INDIA_STATE_LABELS, UNKNOWN_STATE, type Country } from '@/lib/location';
 
 interface TalentProfile {
   id: string;
@@ -25,6 +25,10 @@ interface TalentProfile {
   categories?: { name: string };
   tier: 'junior' | 'pro' | 'elite' | 'custom' | null;
   tier_custom: string | null;
+  // Structured location from talent_profiles_basic. Preferred over
+  // resolveLocation(current_location) which only parses freeform text.
+  basic_country?: string | null;
+  basic_state?: string | null;
 }
 
 type TierKey = 'elite' | 'pro' | 'junior' | 'custom' | 'none';
@@ -96,8 +100,16 @@ export default function TalentProfileList({ categoryId, stateName }: { categoryI
 
   // Resolve location for each profile once. Memoized so we don't re-parse
   // on every render. Returns a parallel array aligned with `profiles`.
+  // Prefers the structured state from talent_profiles_basic (set during
+  // signup), falling back to parsing the freeform current_location only
+  // when the structured field is missing.
   const allProfileLocations = useMemo(() => {
-    return (profiles ?? []).map((p) => resolveLocation(p.talent_users?.current_location));
+    return (profiles ?? []).map((p) => {
+      if (p.basic_state && INDIA_STATE_LABELS.includes(p.basic_state)) {
+        return { country: 'India' as Country, state: p.basic_state };
+      }
+      return resolveLocation(p.talent_users?.current_location);
+    });
   }, [profiles]);
 
   const { scopedProfiles, profileLocations } = useMemo(() => {
@@ -680,15 +692,18 @@ export default function TalentProfileList({ categoryId, stateName }: { categoryI
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      <div>{profile.talent_users?.current_location ?? '-'}</div>
+                      <div>{profile.talent_users?.current_location || profile.basic_state || '-'}</div>
                       {!decodedStateName && (() => {
-                        const loc = resolveLocation(profile.talent_users?.current_location);
-                        return loc.state !== UNKNOWN_STATE ? (
+                        const stateName =
+                          profile.basic_state && INDIA_STATE_LABELS.includes(profile.basic_state)
+                            ? profile.basic_state
+                            : resolveLocation(profile.talent_users?.current_location).state;
+                        return stateName !== UNKNOWN_STATE ? (
                           <Link
-                            href={`/talents/${categoryId}/state/${encodeURIComponent(loc.state)}`}
+                            href={`/talents/${categoryId}/state/${encodeURIComponent(stateName)}`}
                             className="text-xs text-indigo-600 hover:text-indigo-800"
                           >
-                            {loc.state} &rarr;
+                            {stateName} &rarr;
                           </Link>
                         ) : null;
                       })()}

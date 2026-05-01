@@ -1144,14 +1144,37 @@ export async function getTalentProfilesByCategory(categoryId: string, search?: s
   if (error) throw new AppError(500, error.message);
 
   const rows = (data ?? []) as any[];
-  const tiers = await getTalentTiersByUserIds(
-    rows.map((r) => r.talent_user_id).filter(Boolean),
-  );
-  return rows.map((r) => ({
-    ...r,
-    tier: tiers[r.talent_user_id]?.tier ?? null,
-    tier_custom: tiers[r.talent_user_id]?.tier_custom ?? null,
-  }));
+  const userIds = rows.map((r) => r.talent_user_id).filter(Boolean);
+  const tiers = await getTalentTiersByUserIds(userIds);
+
+  // Geography filter / breakdown reads structured location from
+  // talent_profiles_basic (country/state). Fold those into each row so the
+  // admin UI can prefer them over parsing the freeform current_location.
+  const basicMap = new Map<string, { country: string | null; state: string | null }>();
+  if (userIds.length > 0) {
+    const { data: basicRows, error: basicErr } = await supabaseAdmin
+      .from('talent_profiles_basic')
+      .select('talent_user_id, country, state')
+      .in('talent_user_id', userIds);
+    if (basicErr) throw new AppError(500, basicErr.message);
+    for (const b of basicRows ?? []) {
+      basicMap.set((b as any).talent_user_id, {
+        country: ((b as any).country as string | null) ?? null,
+        state: ((b as any).state as string | null) ?? null,
+      });
+    }
+  }
+
+  return rows.map((r) => {
+    const basic = basicMap.get(r.talent_user_id) ?? null;
+    return {
+      ...r,
+      tier: tiers[r.talent_user_id]?.tier ?? null,
+      tier_custom: tiers[r.talent_user_id]?.tier_custom ?? null,
+      basic_country: basic?.country ?? null,
+      basic_state: basic?.state ?? null,
+    };
+  });
 }
 
 export async function getTalentProfile(profileId: string) {
