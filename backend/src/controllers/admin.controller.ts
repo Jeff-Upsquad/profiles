@@ -484,6 +484,63 @@ export async function softDeleteTalentProfile(req: Request, res: Response, next:
   }
 }
 
+export async function updateTalentUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.adminUpdateTalentUser(
+      req.params.userId as string,
+      req.body,
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateTalentProfile(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.adminUpdateTalentProfile(
+      req.params.profileId as string,
+      req.body,
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getProfilePortfolio(req: Request, res: Response, next: NextFunction) {
+  try {
+    const items = await adminService.adminGetPortfolioItems(req.params.profileId as string);
+    res.json({ items });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function addProfilePortfolio(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.adminAddPortfolioItem(
+      req.params.profileId as string,
+      req.body,
+    );
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteProfilePortfolio(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.adminDeletePortfolioItem(
+      req.params.profileId as string,
+      req.params.itemId as string,
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // User Management
 // ---------------------------------------------------------------------------

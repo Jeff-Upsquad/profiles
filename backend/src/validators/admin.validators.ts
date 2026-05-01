@@ -141,6 +141,42 @@ export const setProfileTierSchema = z
   );
 
 // ---------------------------------------------------------------------------
+// Admin: edit talent base profile + category profiles
+// ---------------------------------------------------------------------------
+
+// Mirrors talent's updateTalentUserSchema. Admin can rewrite any talent
+// user's base info; status preservation is handled in the service layer.
+export const adminUpdateTalentUserSchema = z.object({
+  full_name: z.string().min(1).max(200).optional(),
+  phone: z.string().optional(),
+  age: z.number().int().min(16).max(100).nullable().optional(),
+  gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).nullable().optional(),
+  native_place: z.string().max(200).nullable().optional(),
+  current_location: z.string().max(200).nullable().optional(),
+  languages_spoken: z
+    .array(z.object({ language: z.string(), proficiency: z.string() }))
+    .optional(),
+  profile_photo_url: z.string().url().nullable().optional(),
+});
+
+export const adminUpdateTalentProfileSchema = z.object({
+  field_data: z.record(z.string(), z.any()).optional(),
+  resume_url: z.string().url('Must be a valid URL').nullable().optional(),
+});
+
+export const adminAddPortfolioItemSchema = z.object({
+  skill_name: z.string().min(1).max(200),
+  file_url: z.string().url().optional(),
+  file_type: z.enum(['image', 'pdf', 'video']),
+  file_name: z.string().min(1).max(500),
+  source_type: z.enum(['upload', 'link']).optional(),
+  provider: z.string().optional(),
+  external_url: z.string().url().optional(),
+  embed_url: z.string().url().optional(),
+  category_name: z.string().max(200).nullable().optional(),
+});
+
+// ---------------------------------------------------------------------------
 // Inferred types
 // ---------------------------------------------------------------------------
 
@@ -153,3 +189,6 @@ export type UpdateOptionInput = z.infer<typeof updateOptionSchema>;
 export type ReorderInput = z.infer<typeof reorderSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;
 export type SetProfileTierInput = z.infer<typeof setProfileTierSchema>;
+export type AdminUpdateTalentUserInput = z.infer<typeof adminUpdateTalentUserSchema>;
+export type AdminUpdateTalentProfileInput = z.infer<typeof adminUpdateTalentProfileSchema>;
+export type AdminAddPortfolioItemInput = z.infer<typeof adminAddPortfolioItemSchema>;

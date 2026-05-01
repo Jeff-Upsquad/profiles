@@ -293,6 +293,13 @@ export default function TalentProfileView({
             </a>
           )}
           <Button
+            variant="primary"
+            size="sm"
+            onClick={() => router.push(`/talents/${categoryId}/${profileId}/edit`)}
+          >
+            Edit Profile
+          </Button>
+          <Button
             variant={profile.is_active ? 'secondary' : 'primary'}
             size="sm"
             loading={setProfileActive.isPending}
