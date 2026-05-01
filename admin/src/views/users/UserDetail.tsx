@@ -32,11 +32,18 @@ interface BasicProfile {
   pin_code?: string | null;
   country?: string | null;
   state?: string | null;
+  permanent_country?: string | null;
+  permanent_state?: string | null;
+  permanent_district?: string | null;
+  permanent_city?: string | null;
+  permanent_pin_code?: string | null;
   availability?: string[] | null;
   job_type?: string[] | null;
   employment_type?: string[] | null;
   virtual_office_hours?: { day: string; from: string; to: string }[] | null;
   expected_salary_monthly?: number | null;
+  expected_salary_full_time?: number | null;
+  expected_salary_part_time?: number | null;
   aadhaar_number?: string | null;
   aadhaar_file_url?: string | null;
   pan_number?: string | null;
@@ -162,9 +169,9 @@ interface FieldRow {
 
 function Section({ title, rows }: { title: string; rows: FieldRow[] }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6">
-      <h2 className="mb-4 text-lg font-semibold text-gray-900">{title}</h2>
-      <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
+      <h2 className="mb-3 text-lg font-semibold text-gray-900">{title}</h2>
+      <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
         {rows.map(({ label, value }) => (
           <div key={label}>
             <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
@@ -235,7 +242,7 @@ export default function UserDetail({ userId }: { userId: string }) {
     { label: 'Languages', value: formatLanguages(user.languages_spoken) },
   ];
 
-  const address: FieldRow[] = [
+  const currentAddress: FieldRow[] = [
     { label: 'Current Location', value: user.current_location },
     { label: 'Country', value: basic?.country },
     { label: 'State', value: basic?.state },
@@ -243,7 +250,15 @@ export default function UserDetail({ userId }: { userId: string }) {
     { label: 'City', value: basic?.city },
     { label: 'Pin Code', value: basic?.pin_code },
     { label: 'Current Address', value: basic?.current_address },
+  ];
+
+  const permanentAddress: FieldRow[] = [
     { label: 'Permanent Address', value: basic?.permanent_address },
+    { label: 'Country', value: basic?.permanent_country },
+    { label: 'State', value: basic?.permanent_state },
+    { label: 'District', value: basic?.permanent_district },
+    { label: 'City', value: basic?.permanent_city },
+    { label: 'Pin Code', value: basic?.permanent_pin_code },
   ];
 
   const work: FieldRow[] = [
@@ -264,12 +279,20 @@ export default function UserDetail({ userId }: { userId: string }) {
       value: formatCurrency(basic?.expected_salary_monthly),
     },
     {
+      label: 'Expected Salary (Full-time)',
+      value: formatCurrency(basic?.expected_salary_full_time),
+    },
+    {
+      label: 'Expected Salary (Part-time)',
+      value: formatCurrency(basic?.expected_salary_part_time),
+    },
+    {
       label: 'Virtual Office Hours',
       value: formatVirtualHours(basic?.virtual_office_hours),
     },
   ];
 
-  const id: FieldRow[] = [
+  const identityBank: FieldRow[] = [
     { label: 'Aadhaar Number', value: basic?.aadhaar_number },
     {
       label: 'Aadhaar File',
@@ -277,9 +300,6 @@ export default function UserDetail({ userId }: { userId: string }) {
     },
     { label: 'PAN Number', value: basic?.pan_number },
     { label: 'PAN File', value: <FileLink url={basic?.pan_file_url ?? null} /> },
-  ];
-
-  const bank: FieldRow[] = [
     { label: 'Account Holder', value: basic?.bank_account_holder },
     { label: 'Bank Name', value: basic?.bank_name },
     { label: 'Account Number', value: basic?.bank_account_number },
@@ -310,7 +330,7 @@ export default function UserDetail({ userId }: { userId: string }) {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4">
           {photoUrl ? (
@@ -358,10 +378,10 @@ export default function UserDetail({ userId }: { userId: string }) {
       </div>
 
       <Section title="Personal Information" rows={personal} />
-      <Section title="Address" rows={address} />
+      <Section title="Current Address" rows={currentAddress} />
+      <Section title="Permanent Address" rows={permanentAddress} />
       <Section title="Employment Preferences" rows={work} />
-      <Section title="Identity Documents" rows={id} />
-      <Section title="Bank Details" rows={bank} />
+      <Section title="Identity & Banking" rows={identityBank} />
       <Section title="Account" rows={account} />
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
