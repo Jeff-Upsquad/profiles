@@ -16,16 +16,19 @@ const categoryIcons: Record<string, string> = {
   'finance': '💳',
 };
 
+const TINTS = ['tint-orange', 'tint-blue', 'tint-green', 'tint-purple', 'tint-pink', 'tint-amber'] as const;
+const STAGGERS = ['stagger-1', 'stagger-2', 'stagger-3', 'stagger-4', 'stagger-5', 'stagger-6'] as const;
+
 export default function CategoriesSection() {
   const { data: categories, isLoading } = useCategories();
 
   if (isLoading) {
     return (
-      <section id="categories" className="py-20">
+      <section id="categories" className="bg-cu-50 py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-48 animate-pulse bg-white rounded-2xl"></div>
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="h-48 animate-pulse rounded-[18px] bg-white"></div>
             ))}
           </div>
         </div>
@@ -38,51 +41,69 @@ export default function CategoriesSection() {
   }
 
   return (
-    <section id="categories" className="py-20 sm:py-28">
+    <section id="categories" className="bg-cu-50 py-20 sm:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <p className="text-sm font-medium uppercase tracking-widest text-neutral-400 mb-3">
+          <p className="font-ui text-xs uppercase tracking-[0.14em] text-iris-500 font-semibold mb-3">
             Our Squads
           </p>
-          <h2 className="text-3xl sm:text-4xl font-semibold text-neutral-900 mb-4">
+          <h2 className="display-xl text-cu-900 mb-4">
             Explore Professional Categories
           </h2>
-          <p className="text-base text-neutral-500 max-w-2xl mx-auto">
+          <p className="font-ui text-base text-cu-600 max-w-2xl mx-auto">
             Find skilled professionals across a wide range of expertise and services
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {categories.map((category) => (
-            <Link
-              key={category.id}
-              href={`/categories/${category.slug || category.id}`}
-              className="group"
-            >
-              <div className="rounded-2xl bg-white p-7 transition-all duration-300 hover:shadow-md">
-                <div className="mb-4 text-2xl">
-                  {categoryIcons[category.name?.toLowerCase() || ''] || '⭐'}
+          {categories.map((category, index) => {
+            const tint = TINTS[index % TINTS.length];
+            const stagger = STAGGERS[index % STAGGERS.length];
+            return (
+              <Link
+                key={category.id}
+                href={`/categories/${category.slug || category.id}`}
+                className="group"
+              >
+                <div className={`stat-card ${tint} ${stagger} h-full`}>
+                  <div
+                    className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/60 text-2xl shadow-sm"
+                    aria-hidden="true"
+                  >
+                    {categoryIcons[category.name?.toLowerCase() || ''] || '⭐'}
+                  </div>
+
+                  <h3 className="mb-2 text-lg font-semibold text-cu-900">
+                    {category.name}
+                  </h3>
+
+                  {category.description && (
+                    <p className="font-ui text-sm text-cu-600 mb-4 line-clamp-2 leading-relaxed">
+                      {category.description}
+                    </p>
+                  )}
+
+                  <div
+                    className="font-ui flex items-center gap-1.5 text-sm font-medium"
+                    style={{ color: 'var(--tint-text)' }}
+                  >
+                    <span>Explore</span>
+                    <svg
+                      className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
                 </div>
-
-                <h3 className="mb-2 text-lg font-semibold text-neutral-900 group-hover:text-neutral-600 transition-colors">
-                  {category.name}
-                </h3>
-
-                {category.description && (
-                  <p className="text-sm text-neutral-500 mb-4 line-clamp-2 leading-relaxed">
-                    {category.description}
-                  </p>
-                )}
-
-                <div className="flex items-center gap-1.5 text-neutral-400 text-sm group-hover:text-neutral-600 transition-colors">
-                  <span>Explore</span>
-                  <svg className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       </div>
     </section>
