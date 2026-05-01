@@ -96,13 +96,32 @@ function ProgressBar({ completed, total, color = 'rainbow' }: { completed: numbe
   );
 }
 
+const WATCH_COOLDOWN_SECONDS = 60;
+
 function LessonCard({ lesson, index, language }: { lesson: TrainingLesson; index: number; language: string }) {
   const markComplete = useMarkLessonComplete();
   const markIncomplete = useMarkLessonIncomplete();
   const isPending = markComplete.isPending || markIncomplete.isPending;
   const videoUrl = pickLessonUrl(lesson, language);
 
+  const [secondsLeft, setSecondsLeft] = useState(lesson.completed ? 0 : WATCH_COOLDOWN_SECONDS);
+
+  // Reset countdown if the video URL changes (e.g., user switched language)
+  useEffect(() => {
+    setSecondsLeft(lesson.completed ? 0 : WATCH_COOLDOWN_SECONDS);
+  }, [videoUrl, lesson.completed]);
+
+  useEffect(() => {
+    if (lesson.completed) return;
+    const interval = setInterval(() => {
+      setSecondsLeft((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lesson.completed, videoUrl]);
+
+  const cooldownActive = !lesson.completed && secondsLeft > 0;
   const toggle = () => {
+    if (cooldownActive) return;
     if (lesson.completed) markIncomplete.mutate(lesson.id);
     else markComplete.mutate(lesson.id);
   };
@@ -140,12 +159,13 @@ function LessonCard({ lesson, index, language }: { lesson: TrainingLesson; index
         </div>
         <button
           onClick={toggle}
-          disabled={isPending}
+          disabled={isPending || cooldownActive}
           className={`mt-3 font-[family-name:var(--font-inter)] inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-all duration-200 active:scale-[0.97] ${
             lesson.completed
               ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100'
               : 'bg-[#202020] text-white hover:bg-[#202020]/85'
-          } disabled:opacity-50`}
+          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          title={cooldownActive ? `Watch the video before marking complete (${secondsLeft}s)` : undefined}
         >
           {lesson.completed ? (
             <>
@@ -153,6 +173,13 @@ function LessonCard({ lesson, index, language }: { lesson: TrainingLesson; index
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
               Completed
+            </>
+          ) : cooldownActive ? (
+            <>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Watch first ({secondsLeft}s)
             </>
           ) : (
             <>
