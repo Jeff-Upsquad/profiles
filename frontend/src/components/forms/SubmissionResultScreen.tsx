@@ -161,10 +161,10 @@ export default function SubmissionResultScreen({
               href={result.redirect_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-prism mt-7 inline-flex"
+              className="btn-iridescent mt-7"
             >
               Visit UpSquad Partner Program
-              <span className="arrow">→</span>
+              <span className="arrow-icon">→</span>
             </a>
           )}
         </div>

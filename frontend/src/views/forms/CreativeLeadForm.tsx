@@ -45,9 +45,9 @@ const initial: FormValues = {
 
 const chipStyle = {
   selected:
-    'border-canvas-900 bg-canvas-900 text-white shadow-[0_2px_8px_-2px_rgba(24,24,27,0.18)]',
+    'border-cu-900 bg-cu-900 text-white shadow-[0_2px_8px_-2px_rgba(24,24,27,0.18)]',
   unselected:
-    'border-canvas-200 bg-white text-canvas-700 hover:border-canvas-400 hover:bg-canvas-50',
+    'border-cu-200 bg-white text-cu-700 hover:border-cu-400 hover:bg-cu-50',
 };
 
 interface SectionProps {
@@ -587,7 +587,7 @@ export default function CreativeLeadForm() {
             <button
               type="submit"
               disabled={dup.anyDuplicate || submitting}
-              className="btn-iris w-full sm:w-auto sm:min-w-[220px]"
+              className="btn-iridescent w-full sm:w-auto sm:min-w-[220px]"
             >
               {submitting ? (
                 <>
@@ -597,7 +597,7 @@ export default function CreativeLeadForm() {
               ) : (
                 <>
                   Submit Application
-                  <span className="arrow">→</span>
+                  <span className="arrow-icon">→</span>
                 </>
               )}
             </button>
