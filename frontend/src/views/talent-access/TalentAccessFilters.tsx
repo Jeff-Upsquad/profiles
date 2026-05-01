@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   useTalentAccessFilterOptions,
   type Tier,
+  type FilterOptions,
 } from '@/hooks/useTalentAccess';
 import TierExplainer from '@/components/talent-access/TierExplainer';
 
@@ -26,7 +27,7 @@ interface Props {
   categoryId: string;
   value: FilterState;
   onChange: (next: FilterState) => void;
-  filterOptions?: any;
+  filterOptions?: FilterOptions;
   filterOptionsLoading?: boolean;
 }
 
