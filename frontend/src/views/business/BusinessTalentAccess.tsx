@@ -6,10 +6,9 @@ import {
   useBusinessTalentAccessProfiles,
   useBusinessTalentAccessFilterOptions,
 } from '@/hooks/useBusiness';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import TalentAccessFilters, { type FilterState } from '@/views/talent-access/TalentAccessFilters';
 import TalentAccessProfileCard from '@/components/talent-access/TalentAccessProfileCard';
-
-type Tier = 'junior' | 'pro' | 'elite' | 'custom';
 
 function totalSelected(f: FilterState): number {
   return (
@@ -27,24 +26,27 @@ function totalSelected(f: FilterState): number {
 export default function BusinessTalentAccess() {
   const { data: status, isLoading: statusLoading } = useBusinessTalentAccess();
   const categories = status?.categories ?? [];
-  const [activeCategoryId, setActiveCategoryId] = useState('');
-  const [filters, setFilters] = useState<FilterState>({});
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  const {
+    filters,
+    activeCategoryId,
+    search,
+    setFilters,
+    setCategory,
+    setSearch,
+  } = useFilterParams();
+
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
 
   useEffect(() => {
     if (categories.length > 0 && !activeCategoryId) {
-      setActiveCategoryId(categories[0]!.id);
+      setCategory(categories[0]!.id);
     }
-  }, [categories, activeCategoryId]);
+  }, [categories, activeCategoryId, setCategory]);
 
   useEffect(() => {
-    setFilters({});
-  }, [activeCategoryId]);
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    const t = setTimeout(() => setDebouncedSearch(search), 250);
     return () => clearTimeout(t);
   }, [search]);
 
@@ -72,6 +74,8 @@ export default function BusinessTalentAccess() {
   const profiles = profilesQuery.data?.profiles ?? [];
   const total = profilesQuery.data?.total ?? 0;
   const filterCount = totalSelected(filters);
+
+  const profileIds = useMemo(() => profiles.map((p: any) => p.id), [profiles]);
 
   if (statusLoading) {
     return (
@@ -118,7 +122,7 @@ export default function BusinessTalentAccess() {
           {categories.map((cat) => (
             <button
               key={cat.id}
-              onClick={() => setActiveCategoryId(cat.id)}
+              onClick={() => setCategory(cat.id)}
               className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                 activeCategoryId === cat.id
                   ? 'bg-zinc-900 text-white'
@@ -146,11 +150,8 @@ export default function BusinessTalentAccess() {
           )}
         </div>
 
-        {/* Profiles grid */}
+        {/* Profiles list */}
         <section className="min-w-0">
-          {/* Search bar with Filters button on the right (mobile only). On
-              desktop the sidebar handles filtering and this button isn't
-              rendered. */}
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <input
@@ -185,18 +186,14 @@ export default function BusinessTalentAccess() {
             </p>
           </div>
 
-          {/* Filters drawer (mobile). Slides in from the right; tap-outside or
-              the X button closes it. ESC also closes via the keydown handler
-              on the dialog. lg:hidden so desktop never renders it. */}
+          {/* Filters drawer (mobile) */}
           {filtersOpenMobile && (
             <div className="lg:hidden" role="dialog" aria-modal="true" aria-label="Filters">
-              {/* Backdrop */}
               <div
                 className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
                 onClick={() => setFiltersOpenMobile(false)}
                 aria-hidden
               />
-              {/* Panel — full-height, right-anchored, scrolls internally */}
               <div className="fixed inset-y-0 right-0 z-50 flex w-[88%] max-w-sm flex-col border-l border-zinc-200 bg-white shadow-xl">
                 <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
                   <h2 className="text-sm font-semibold text-zinc-900">Filters</h2>
@@ -241,11 +238,11 @@ export default function BusinessTalentAccess() {
                 'Failed to load profiles.'}
             </div>
           ) : profilesQuery.isLoading ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="flex flex-col gap-3">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-36 animate-pulse rounded-2xl border border-zinc-200 bg-white"
+                  className="h-16 animate-pulse rounded-xl border border-zinc-200 bg-white"
                 />
               ))}
             </div>
@@ -259,14 +256,20 @@ export default function BusinessTalentAccess() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {profiles.map((p: any) => (
-                <TalentAccessProfileCard
-                  key={p.id}
-                  profile={p}
-                  basePath="/business/talent-access"
-                />
-              ))}
+            <div className="flex flex-col gap-3">
+              {profiles.map((p: any, idx: number) => {
+                const sp = new URLSearchParams();
+                sp.set('ids', profileIds.join(','));
+                sp.set('idx', String(idx));
+                return (
+                  <TalentAccessProfileCard
+                    key={p.id}
+                    profile={p}
+                    basePath="/business/talent-access"
+                    searchParams={sp.toString()}
+                  />
+                );
+              })}
             </div>
           )}
         </section>

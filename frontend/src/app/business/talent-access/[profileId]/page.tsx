@@ -1,20 +1,47 @@
 'use client';
 
-import { use } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, use, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useBusinessTalentAccessProfile } from '@/hooks/useBusiness';
 import ThreadsProfileView from '@/views/shared/ThreadsProfileView';
 
-export default function BusinessTalentAccessProfilePage({
-  params,
-}: {
-  params: Promise<{ profileId: string }>;
-}) {
+function ProfileContent({ profileId }: { profileId: string }) {
   const router = useRouter();
-  const { profileId } = use(params);
+  const searchParams = useSearchParams();
   const { data, isLoading, error } = useBusinessTalentAccessProfile(profileId);
 
   const status = (error as any)?.response?.status;
+
+  const navigation = useMemo(() => {
+    const idsParam = searchParams.get('ids');
+    const idxParam = searchParams.get('idx');
+    if (!idsParam || idxParam == null) return undefined;
+
+    const ids = idsParam.split(',').filter(Boolean);
+    const idx = parseInt(idxParam, 10);
+    if (isNaN(idx) || ids.length === 0) return undefined;
+
+    return {
+      current: idx + 1,
+      total: ids.length,
+      onPrev: idx > 0
+        ? () => {
+            const sp = new URLSearchParams();
+            sp.set('ids', idsParam);
+            sp.set('idx', String(idx - 1));
+            router.push(`/business/talent-access/${ids[idx - 1]}?${sp.toString()}`);
+          }
+        : null,
+      onNext: idx < ids.length - 1
+        ? () => {
+            const sp = new URLSearchParams();
+            sp.set('ids', idsParam);
+            sp.set('idx', String(idx + 1));
+            router.push(`/business/talent-access/${ids[idx + 1]}?${sp.toString()}`);
+          }
+        : null,
+    };
+  }, [searchParams, router]);
 
   return (
     <ThreadsProfileView
@@ -51,6 +78,21 @@ export default function BusinessTalentAccessProfilePage({
             : undefined
       }
       onBack={() => router.push('/business/talent-access')}
+      navigation={navigation}
     />
+  );
+}
+
+export default function BusinessTalentAccessProfilePage({
+  params,
+}: {
+  params: Promise<{ profileId: string }>;
+}) {
+  const { profileId } = use(params);
+
+  return (
+    <Suspense>
+      <ProfileContent profileId={profileId} />
+    </Suspense>
   );
 }

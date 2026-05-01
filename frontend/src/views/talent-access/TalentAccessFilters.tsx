@@ -163,14 +163,17 @@ export default function TalentAccessFilters({ categoryId, value, onChange, filte
     <aside className="min-w-0 space-y-5 overflow-hidden">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-zinc-900">Filters</h2>
-        {totalSelected > 0 && (
-          <button
-            onClick={() => onChange({})}
-            className="text-xs font-medium text-zinc-500 hover:text-zinc-900"
-          >
-            Reset all
-          </button>
-        )}
+        <button
+          onClick={() => onChange({})}
+          disabled={totalSelected === 0}
+          className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+            totalSelected > 0
+              ? 'border-zinc-300 text-zinc-700 hover:bg-zinc-50'
+              : 'cursor-default border-zinc-200 text-zinc-400'
+          }`}
+        >
+          Clear all filters
+        </button>
       </div>
 
       {/* Tier */}
