@@ -2,14 +2,58 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
 
+export interface LessonVideo {
+  language: string;
+  loom_url: string;
+}
+
 export interface TrainingLesson {
   id: string;
   chapter_id: string;
   title: string;
   description?: string;
   loom_url: string;
+  videos: LessonVideo[];
   sort_order: number;
   completed: boolean;
+}
+
+export const LANGUAGE_LABELS: Record<string, string> = {
+  en: 'English',
+  hi: 'Hindi',
+  ta: 'Tamil',
+  te: 'Telugu',
+  kn: 'Kannada',
+  ml: 'Malayalam',
+  bn: 'Bengali',
+  mr: 'Marathi',
+  gu: 'Gujarati',
+  pa: 'Punjabi',
+};
+
+export function pickLessonUrl(lesson: TrainingLesson, language: string): string {
+  const videos = lesson.videos ?? [];
+  const match = videos.find((v) => v.language === language);
+  if (match) return match.loom_url;
+  const en = videos.find((v) => v.language === 'en');
+  if (en) return en.loom_url;
+  if (videos[0]) return videos[0].loom_url;
+  return lesson.loom_url ?? '';
+}
+
+export function getAvailableLanguages(chapters: TrainingChapter[] | TrainingChapter | null | undefined): string[] {
+  if (!chapters) return ['en'];
+  const list = Array.isArray(chapters) ? chapters : [chapters];
+  const langs = new Set<string>();
+  for (const ch of list) {
+    for (const lesson of ch.lessons ?? []) {
+      for (const v of lesson.videos ?? []) {
+        langs.add(v.language);
+      }
+    }
+  }
+  if (langs.size === 0) langs.add('en');
+  return Array.from(langs);
 }
 
 export interface TrainingChapter {

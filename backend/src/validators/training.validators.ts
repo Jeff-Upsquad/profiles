@@ -35,13 +35,24 @@ export const updateChapterSchema = z.object({
 
 const loomUrlRegex = /^https:\/\/(www\.)?loom\.com\/share\/[\w-]+/;
 
-export const createLessonSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(200),
-  description: z.string().max(1000).optional(),
+const lessonVideoSchema = z.object({
+  language: z.string().min(1).max(10),
   loom_url: z
     .string()
     .url('Must be a valid URL')
     .refine((url) => loomUrlRegex.test(url), 'Must be a valid Loom share URL'),
+});
+
+export const createLessonSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(200),
+  description: z.string().max(1000).optional(),
+  videos: z
+    .array(lessonVideoSchema)
+    .min(1, 'At least one language video is required')
+    .refine(
+      (videos) => new Set(videos.map((v) => v.language)).size === videos.length,
+      'Each language can only appear once',
+    ),
   sort_order: z.number().int().min(0).optional(),
   is_active: z.boolean().optional(),
 });
@@ -49,10 +60,13 @@ export const createLessonSchema = z.object({
 export const updateLessonSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().max(1000).optional(),
-  loom_url: z
-    .string()
-    .url('Must be a valid URL')
-    .refine((url) => loomUrlRegex.test(url), 'Must be a valid Loom share URL')
+  videos: z
+    .array(lessonVideoSchema)
+    .min(1, 'At least one language video is required')
+    .refine(
+      (videos) => new Set(videos.map((v) => v.language)).size === videos.length,
+      'Each language can only appear once',
+    )
     .optional(),
   sort_order: z.number().int().min(0).optional(),
   is_active: z.boolean().optional(),

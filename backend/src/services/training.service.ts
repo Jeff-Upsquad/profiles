@@ -177,6 +177,48 @@ export async function reorderChapters(input: ReorderInput) {
 // Admin — Lessons
 // ---------------------------------------------------------------------------
 
+async function attachVideos(lessons: any[]) {
+  if (lessons.length === 0) return lessons;
+  const lessonIds = lessons.map((l) => l.id);
+  const { data: videos, error } = await supabaseAdmin
+    .from('training_lesson_videos')
+    .select('lesson_id, language, loom_url')
+    .in('lesson_id', lessonIds);
+
+  if (error) throw new AppError(500, `Failed to fetch lesson videos: ${error.message}`);
+
+  const byLesson: Record<string, { language: string; loom_url: string }[]> = {};
+  for (const v of videos ?? []) {
+    if (!byLesson[v.lesson_id]) byLesson[v.lesson_id] = [];
+    byLesson[v.lesson_id].push({ language: v.language, loom_url: v.loom_url });
+  }
+
+  return lessons.map((l) => ({ ...l, videos: byLesson[l.id] ?? [] }));
+}
+
+async function replaceLessonVideos(lessonId: string, videos: { language: string; loom_url: string }[]) {
+  const { error: delErr } = await supabaseAdmin
+    .from('training_lesson_videos')
+    .delete()
+    .eq('lesson_id', lessonId);
+
+  if (delErr) throw new AppError(500, `Failed to clear videos: ${delErr.message}`);
+
+  if (videos.length === 0) return;
+
+  const rows = videos.map((v) => ({
+    lesson_id: lessonId,
+    language: v.language,
+    loom_url: v.loom_url,
+  }));
+
+  const { error: insErr } = await supabaseAdmin
+    .from('training_lesson_videos')
+    .insert(rows);
+
+  if (insErr) throw new AppError(500, `Failed to save videos: ${insErr.message}`);
+}
+
 export async function getLessons(chapterId: string) {
   const { data, error } = await supabaseAdmin
     .from('training_lessons')
@@ -185,34 +227,60 @@ export async function getLessons(chapterId: string) {
     .order('sort_order', { ascending: true });
 
   if (error) throw new AppError(500, `Failed to fetch lessons: ${error.message}`);
-  return data;
+  return attachVideos(data ?? []);
 }
 
 export async function createLesson(chapterId: string, input: CreateLessonInput) {
+  const { videos, ...lessonData } = input;
+
+  const primaryUrl = videos[0]?.loom_url ?? '';
+
   const { data, error } = await supabaseAdmin
     .from('training_lessons')
-    .insert({ ...input, chapter_id: chapterId })
+    .insert({ ...lessonData, loom_url: primaryUrl, chapter_id: chapterId })
     .select()
     .single();
 
   if (error) throw new AppError(500, `Failed to create lesson: ${error.message}`);
-  return data;
+
+  await replaceLessonVideos(data.id, videos);
+  const [withVideos] = await attachVideos([data]);
+  return withVideos;
 }
 
 export async function updateLesson(lessonId: string, input: UpdateLessonInput) {
-  const { data, error } = await supabaseAdmin
-    .from('training_lessons')
-    .update(input)
-    .eq('id', lessonId)
-    .select()
-    .single();
+  const { videos, ...lessonData } = input;
 
-  if (error) {
-    if (error.code === 'PGRST116') throw new AppError(404, 'Lesson not found');
-    throw new AppError(500, `Failed to update lesson: ${error.message}`);
+  if (videos && videos.length > 0) {
+    (lessonData as any).loom_url = videos[0].loom_url;
   }
 
-  return data;
+  if (Object.keys(lessonData).length > 0) {
+    const { error } = await supabaseAdmin
+      .from('training_lessons')
+      .update(lessonData)
+      .eq('id', lessonId);
+
+    if (error) {
+      if (error.code === 'PGRST116') throw new AppError(404, 'Lesson not found');
+      throw new AppError(500, `Failed to update lesson: ${error.message}`);
+    }
+  }
+
+  if (videos) {
+    await replaceLessonVideos(lessonId, videos);
+  }
+
+  const { data, error: fetchErr } = await supabaseAdmin
+    .from('training_lessons')
+    .select('*')
+    .eq('id', lessonId)
+    .single();
+
+  if (fetchErr) throw new AppError(500, `Failed to fetch lesson: ${fetchErr.message}`);
+
+  const [withVideos] = await attachVideos([data]);
+  return withVideos;
 }
 
 export async function deleteLesson(lessonId: string) {
@@ -278,8 +346,10 @@ export async function getTrainingForCategories(categoryIds: string[]) {
 
   if (lErr) throw new AppError(500, `Failed to fetch lessons: ${lErr.message}`);
 
+  const lessonsWithVideos = await attachVideos(lessons ?? []);
+
   const lessonsByChapter: Record<string, any[]> = {};
-  for (const l of lessons ?? []) {
+  for (const l of lessonsWithVideos) {
     if (!lessonsByChapter[l.chapter_id]) lessonsByChapter[l.chapter_id] = [];
     lessonsByChapter[l.chapter_id].push(l);
   }
@@ -346,7 +416,7 @@ export async function getOnboardingChapter() {
 
   if (lErr) throw new AppError(500, `Failed to fetch onboarding lessons: ${lErr.message}`);
 
-  return { ...chapter, lessons: lessons ?? [] };
+  return { ...chapter, lessons: await attachVideos(lessons ?? []) };
 }
 
 export async function completeOnboarding(userId: string) {

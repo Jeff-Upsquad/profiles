@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -9,12 +9,70 @@ import {
   useCompleteOnboarding,
   useMarkLessonComplete,
   useMarkLessonIncomplete,
+  pickLessonUrl,
+  getAvailableLanguages,
+  LANGUAGE_LABELS,
   type TrainingChapter,
   type TrainingLesson,
 } from '@/hooks/useTraining';
 
+const LANG_STORAGE_KEY = 'training_language';
+
 function loomEmbedUrl(shareUrl: string): string {
   return shareUrl.replace('/share/', '/embed/');
+}
+
+function useTrainingLanguage(available: string[]) {
+  const [language, setLanguageState] = useState<string>('en');
+
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem(LANG_STORAGE_KEY) : null;
+    if (stored && available.includes(stored)) {
+      setLanguageState(stored);
+    } else if (available.length > 0 && !available.includes(language)) {
+      setLanguageState(available[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [available.join(',')]);
+
+  const setLanguage = (lang: string) => {
+    setLanguageState(lang);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LANG_STORAGE_KEY, lang);
+    }
+  };
+
+  return [language, setLanguage] as const;
+}
+
+function LanguagePicker({
+  language,
+  available,
+  onChange,
+}: {
+  language: string;
+  available: string[];
+  onChange: (lang: string) => void;
+}) {
+  if (available.length <= 1) return null;
+  return (
+    <div className="flex items-center gap-2">
+      <svg className="h-4 w-4 text-[#646464]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+      </svg>
+      <select
+        value={language}
+        onChange={(e) => onChange(e.target.value)}
+        className="font-[family-name:var(--font-inter)] rounded-lg border border-[#E4E4E7] bg-white px-3 py-1.5 text-[13px] font-medium text-[#202020] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6647F0]/30 focus:border-[#6647F0]"
+      >
+        {available.map((lang) => (
+          <option key={lang} value={lang}>
+            {LANGUAGE_LABELS[lang] ?? lang.toUpperCase()}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 }
 
 function ProgressBar({ completed, total, color = 'rainbow' }: { completed: number; total: number; color?: 'rainbow' | 'purple' }) {
@@ -38,10 +96,11 @@ function ProgressBar({ completed, total, color = 'rainbow' }: { completed: numbe
   );
 }
 
-function LessonCard({ lesson, index }: { lesson: TrainingLesson; index: number }) {
+function LessonCard({ lesson, index, language }: { lesson: TrainingLesson; index: number; language: string }) {
   const markComplete = useMarkLessonComplete();
   const markIncomplete = useMarkLessonIncomplete();
   const isPending = markComplete.isPending || markIncomplete.isPending;
+  const videoUrl = pickLessonUrl(lesson, language);
 
   const toggle = () => {
     if (lesson.completed) markIncomplete.mutate(lesson.id);
@@ -52,7 +111,7 @@ function LessonCard({ lesson, index }: { lesson: TrainingLesson; index: number }
     <div className="group rounded-2xl border border-[#ECECEF] overflow-hidden bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)]">
       <div className="aspect-video bg-[#09090B] relative">
         <iframe
-          src={loomEmbedUrl(lesson.loom_url)}
+          src={loomEmbedUrl(videoUrl)}
           className="w-full h-full"
           allowFullScreen
           allow="autoplay; fullscreen"
@@ -109,7 +168,7 @@ function LessonCard({ lesson, index }: { lesson: TrainingLesson; index: number }
   );
 }
 
-function ChapterAccordion({ chapter, defaultOpen = true }: { chapter: TrainingChapter; defaultOpen?: boolean }) {
+function ChapterAccordion({ chapter, language, defaultOpen = true }: { chapter: TrainingChapter; language: string; defaultOpen?: boolean }) {
   const [expanded, setExpanded] = useState(defaultOpen);
   const isComplete = chapter.completed_count === chapter.total_count && chapter.total_count > 0;
 
@@ -156,7 +215,7 @@ function ChapterAccordion({ chapter, defaultOpen = true }: { chapter: TrainingCh
       {expanded && chapter.lessons.length > 0 && (
         <div className="px-5 sm:px-6 pb-6 grid gap-4 sm:grid-cols-2">
           {chapter.lessons.map((lesson, idx) => (
-            <LessonCard key={lesson.id} lesson={lesson} index={idx} />
+            <LessonCard key={lesson.id} lesson={lesson} index={idx} language={language} />
           ))}
         </div>
       )}
@@ -168,6 +227,8 @@ function OnboardingTraining() {
   const router = useRouter();
   const { data: chapter, isLoading } = useOnboardingTraining();
   const completeOnboarding = useCompleteOnboarding();
+  const availableLanguages = getAvailableLanguages(chapter);
+  const [language, setLanguage] = useTrainingLanguage(availableLanguages);
 
   const allComplete = chapter ? chapter.completed_count === chapter.total_count && chapter.total_count > 0 : false;
 
@@ -185,16 +246,19 @@ function OnboardingTraining() {
       {/* Onboarding Hero */}
       <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-glow-blur" />
-        <div className="hero-content">
-          <div className="mb-2.5 stagger-1">
-            <span className="eyebrow-rainbow">Onboarding</span>
+        <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="mb-2.5 stagger-1">
+              <span className="eyebrow-rainbow">Onboarding</span>
+            </div>
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
+              Complete the <span className="text-rainbow">Training</span> to Unlock Your Account
+            </h1>
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] max-w-xl stagger-3">
+              Watch the video below and mark it as complete to unlock all modules and start building your profile.
+            </p>
           </div>
-          <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
-            Complete the <span className="text-rainbow">Training</span> to Unlock Your Account
-          </h1>
-          <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] max-w-xl stagger-3">
-            Watch the video below and mark it as complete to unlock all modules and start building your profile.
-          </p>
+          <LanguagePicker language={language} available={availableLanguages} onChange={setLanguage} />
         </div>
       </section>
 
@@ -218,7 +282,7 @@ function OnboardingTraining() {
         </div>
       ) : (
         <>
-          <ChapterAccordion chapter={chapter} defaultOpen />
+          <ChapterAccordion chapter={chapter} language={language} defaultOpen />
 
           {/* Build Profile CTA */}
           <div className="rounded-2xl border border-[#ECECEF] bg-white p-6 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -279,6 +343,8 @@ export default function TrainingProgram() {
 
 function FullTrainingProgram() {
   const { data: chapters, isLoading } = useMyTraining();
+  const availableLanguages = getAvailableLanguages(chapters ?? null);
+  const [language, setLanguage] = useTrainingLanguage(availableLanguages);
 
   // Compute overall progress
   const totals = (chapters ?? []).reduce(
@@ -305,8 +371,9 @@ function FullTrainingProgram() {
               Short videos to help you build a stronger profile and win more work.
             </p>
           </div>
-          {totals.total > 0 && (
-            <div className="stagger-4">
+          <div className="flex items-center gap-4 stagger-4">
+            <LanguagePicker language={language} available={availableLanguages} onChange={setLanguage} />
+            {totals.total > 0 && (
               <div className="relative flex h-16 w-16 items-center justify-center">
                 <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
                   <circle cx="50" cy="50" r="42" fill="none" stroke="#ECECEF" strokeWidth="9" />
@@ -329,8 +396,8 @@ function FullTrainingProgram() {
                   {overallPct}%
                 </span>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </section>
 
@@ -360,7 +427,7 @@ function FullTrainingProgram() {
         <div className="space-y-4">
           {chapters.map((chapter, i) => (
             <div key={chapter.id} className={`stagger-${Math.min(i + 1, 6)}`}>
-              <ChapterAccordion chapter={chapter} />
+              <ChapterAccordion chapter={chapter} language={language} />
             </div>
           ))}
         </div>

@@ -18,12 +18,18 @@ export interface TrainingChapter {
   updated_at: string;
 }
 
+export interface LessonVideo {
+  language: string;
+  loom_url: string;
+}
+
 export interface TrainingLesson {
   id: string;
   chapter_id: string;
   title: string;
   description?: string;
   loom_url: string;
+  videos: LessonVideo[];
   sort_order: number;
   is_active: boolean;
   created_at: string;
@@ -146,7 +152,7 @@ export function useCreateLesson() {
       chapterId: string;
       title: string;
       description?: string;
-      loom_url: string;
+      videos: LessonVideo[];
       sort_order?: number;
       is_active?: boolean;
     }) => {
@@ -178,7 +184,7 @@ export function useUpdateLesson() {
       chapterId: string;
       title?: string;
       description?: string;
-      loom_url?: string;
+      videos?: LessonVideo[];
       sort_order?: number;
       is_active?: boolean;
     }) => {
