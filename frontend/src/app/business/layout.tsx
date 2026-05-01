@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import BusinessSidebar from '@/components/layout/BusinessSidebar';
 import BusinessBottomNav from '@/components/layout/BusinessBottomNav';
 
 export default function BusinessLayout({
@@ -32,7 +33,10 @@ export default function BusinessLayout({
   }
 
   return (
-    <DashboardLayout hideMobileSidebar>
+    <DashboardLayout
+      hideMobileSidebar
+      sidebarContent={({ onNavigate }) => <BusinessSidebar onNavigate={onNavigate} />}
+    >
       {children}
       <BusinessBottomNav />
     </DashboardLayout>

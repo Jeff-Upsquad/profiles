@@ -12,6 +12,16 @@ function ProfileContent({ profileId }: { profileId: string }) {
 
   const status = (error as any)?.response?.status;
 
+  // Build a URLSearchParams that carries everything except ids/idx — these are
+  // the parent list's filter state, used to navigate back without losing filters.
+  const listParams = useMemo(() => {
+    const sp = new URLSearchParams();
+    searchParams.forEach((v, k) => {
+      if (k !== 'ids' && k !== 'idx') sp.set(k, v);
+    });
+    return sp.toString();
+  }, [searchParams]);
+
   const navigation = useMemo(() => {
     const idsParam = searchParams.get('ids');
     const idxParam = searchParams.get('idx');
@@ -21,27 +31,20 @@ function ProfileContent({ profileId }: { profileId: string }) {
     const idx = parseInt(idxParam, 10);
     if (isNaN(idx) || ids.length === 0) return undefined;
 
+    const buildHref = (targetIdx: number) => {
+      const sp = new URLSearchParams(listParams);
+      sp.set('ids', idsParam);
+      sp.set('idx', String(targetIdx));
+      return `/business/talent-access/${ids[targetIdx]}?${sp.toString()}`;
+    };
+
     return {
       current: idx + 1,
       total: ids.length,
-      onPrev: idx > 0
-        ? () => {
-            const sp = new URLSearchParams();
-            sp.set('ids', idsParam);
-            sp.set('idx', String(idx - 1));
-            router.push(`/business/talent-access/${ids[idx - 1]}?${sp.toString()}`);
-          }
-        : null,
-      onNext: idx < ids.length - 1
-        ? () => {
-            const sp = new URLSearchParams();
-            sp.set('ids', idsParam);
-            sp.set('idx', String(idx + 1));
-            router.push(`/business/talent-access/${ids[idx + 1]}?${sp.toString()}`);
-          }
-        : null,
+      onPrev: idx > 0 ? () => router.push(buildHref(idx - 1)) : null,
+      onNext: idx < ids.length - 1 ? () => router.push(buildHref(idx + 1)) : null,
     };
-  }, [searchParams, router]);
+  }, [searchParams, router, listParams]);
 
   return (
     <ThreadsProfileView
@@ -55,6 +58,8 @@ function ProfileContent({ profileId }: { profileId: string }) {
               field_data: data.profile.field_data,
               created_at: data.profile.created_at,
               updated_at: data.profile.updated_at,
+              tier: data.profile.tier ?? null,
+              tier_custom: data.profile.tier_custom ?? null,
             }
           : null
       }
@@ -77,7 +82,7 @@ function ProfileContent({ profileId }: { profileId: string }) {
             ? (error as any)?.response?.data?.error || 'Failed to load profile'
             : undefined
       }
-      onBack={() => router.push('/business/talent-access')}
+      onBack={() => router.push(`/business/talent-access${listParams ? `?${listParams}` : ''}`)}
       navigation={navigation}
     />
   );

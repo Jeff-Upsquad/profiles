@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   useBusinessTalentAccess,
   useBusinessTalentAccessProfiles,
@@ -76,6 +77,12 @@ export default function BusinessTalentAccess() {
   const filterCount = totalSelected(filters);
 
   const profileIds = useMemo(() => profiles.map((p: any) => p.id), [profiles]);
+
+  // Capture the current URL params (filters + category + search) so each card
+  // can carry them into the detail page — the back button uses them to return
+  // to the same filtered list view.
+  const urlSearchParams = useSearchParams();
+  const parentParamsString = useMemo(() => urlSearchParams.toString(), [urlSearchParams]);
 
   if (statusLoading) {
     return (
@@ -258,7 +265,7 @@ export default function BusinessTalentAccess() {
           ) : (
             <div className="flex flex-col gap-3">
               {profiles.map((p: any, idx: number) => {
-                const sp = new URLSearchParams();
+                const sp = new URLSearchParams(parentParamsString);
                 sp.set('ids', profileIds.join(','));
                 sp.set('idx', String(idx));
                 return (
