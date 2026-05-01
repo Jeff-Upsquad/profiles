@@ -78,11 +78,12 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
         {/* Main content */}
         <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-5xl">
-            {/* Mobile menu trigger — replaces the previous bottom-right FAB.
-                A labeled button at the top of the content area is far more
-                discoverable than a corner icon, and sits exactly where users
-                expect a navigation control on mobile. Hidden on desktop where
-                the sidebar is always visible. */}
+            {/* Mobile menu trigger — only renders when the layout opted INTO
+                a mobile drawer. Business pages use BusinessMobileNav for
+                always-visible top-of-page navigation, so they pass
+                hideMobileSidebar and skip this. Other roles that still rely
+                on the drawer keep the labeled button (more discoverable
+                than the corner FAB it replaced). */}
             {!hideMobileSidebar && (
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
