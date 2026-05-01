@@ -5,12 +5,20 @@ export const signupTalentSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
   full_name: z.string().min(1, 'Full name is required').max(200),
   phone: z.string().optional(),
+  country: z.string().max(100).optional(),
+  state: z.string().max(100).optional(),
+  current_district: z.string().max(100).optional(),
   age: z.number().int().min(16).max(100).optional(),
   gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
   native_place: z.string().max(200).optional(),
   current_location: z.string().max(200).optional(),
   languages_spoken: z.array(z.object({ language: z.string(), proficiency: z.string() })).optional(),
 });
+
+export const checkCandidateStatusSchema = z.object({
+  email: z.string().optional(),
+  phone: z.string().optional(),
+}).refine(d => d.email || d.phone, { message: 'Email or phone is required' });
 
 export const signupBusinessSchema = z.object({
   email: z.string().email('Valid email is required'),
