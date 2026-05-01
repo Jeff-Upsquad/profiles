@@ -36,6 +36,8 @@ export default function BusinessTalentAccessProfilePage({
         current_location: data?.talent_user.current_location ?? undefined,
         profile_photo_url: data?.talent_user.profile_photo_url ?? undefined,
         languages_spoken: data?.talent_user.languages_spoken ?? [],
+        age: data?.talent_user.age,
+        gender: data?.talent_user.gender,
       }}
       category={data?.category ?? null}
       portfolioItems={data?.portfolio_items ?? []}

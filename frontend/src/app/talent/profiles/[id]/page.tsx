@@ -26,6 +26,8 @@ export default function ViewProfilePage(props: { params: Promise<Params> }) {
     current_location: talentMe?.current_location,
     profile_photo_url: talentMe?.profile_photo_url,
     languages_spoken: talentMe?.languages_spoken,
+    age: talentMe?.age,
+    gender: talentMe?.gender,
   };
 
   if (profile?.is_ghost) {
