@@ -4,57 +4,99 @@ import Link from 'next/link';
 
 export default function LoginChooseRolePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-indigo-50">
-      <header className="flex items-center justify-between px-6 py-5">
-        <Link href="/" className="inline-flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gray-900 text-sm font-bold text-white">
-            S
+    <div className="relative min-h-screen overflow-hidden bg-cu-50">
+      {/* Ambient glows */}
+      <div className="pointer-events-none absolute -top-[180px] left-1/2 h-[450px] w-[450px] -translate-x-1/2 rounded-full opacity-30 blur-[120px]"
+        style={{ background: 'radial-gradient(circle, rgba(139, 102, 248, 0.3) 0%, transparent 70%)' }}
+      />
+      <div className="pointer-events-none absolute -bottom-[120px] -left-[120px] h-[350px] w-[350px] rounded-full opacity-25 blur-[100px]"
+        style={{ background: 'radial-gradient(circle, rgba(255, 139, 71, 0.25) 0%, transparent 70%)' }}
+      />
+      <div className="pointer-events-none absolute -bottom-[120px] -right-[120px] h-[350px] w-[350px] rounded-full opacity-25 blur-[100px]"
+        style={{ background: 'radial-gradient(circle, rgba(0, 145, 255, 0.2) 0%, transparent 70%)' }}
+      />
+
+      {/* Top nav */}
+      <header className="relative z-10 flex items-center justify-center px-6 py-5">
+        <Link href="/" className="inline-flex items-center gap-2.5">
+          <div className="ring-conic flex h-8 w-8 items-center justify-center rounded-[var(--cu-radius-sm)]">
+            <div className="flex h-[28px] w-[28px] items-center justify-center rounded-[6px] bg-cu-900 text-sm font-bold text-white">
+              S
+            </div>
           </div>
           <div className="flex flex-col leading-tight">
-            <span className="text-base font-semibold text-gray-900">SquadHire</span>
-            <span className="text-[10px] text-gray-400">Powered by UpSquad</span>
+            <span className="font-display text-[15px] font-bold text-cu-900">SquadHire</span>
+            <span className="font-ui text-[10px] text-cu-400">Powered by UpSquad</span>
           </div>
         </Link>
       </header>
 
-      <main className="flex justify-center px-4 pt-12 pb-24 sm:pt-20">
-        <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white/80 p-8 shadow-sm backdrop-blur">
-          <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-            <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-            </svg>
+      {/* Main content */}
+      <main className="relative z-10 flex justify-center px-4 pt-10 pb-24 sm:pt-16">
+        <div className="w-full max-w-[460px]">
+          {/* Title section */}
+          <div className="stagger-1 mb-8 text-center">
+            <div className="eyebrow-rainbow mx-auto mb-4 w-fit">
+              Secure Login
+            </div>
+            <h1 className="font-display text-[2rem] font-bold text-cu-900 sm:text-[2.25rem]">
+              Welcome to SquadHire
+            </h1>
+            <p className="mt-2 font-ui text-sm text-cu-500">
+              Choose how you'd like to sign in today
+            </p>
           </div>
 
-          <h1 className="text-2xl font-semibold text-gray-900">Welcome to SquadHire</h1>
-          <p className="mt-0.5 text-xs text-gray-400">Powered by UpSquad</p>
-          <p className="mt-1 text-sm text-gray-500">How are you signing in today?</p>
-
-          <div className="mt-6 space-y-3">
+          {/* Role cards */}
+          <div className="stagger-2 space-y-3">
             <Link
               href="/login/talent"
-              className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-4 transition-colors hover:border-gray-900 hover:bg-gray-50"
+              className="group card-v5 flex items-center gap-4 p-5 transition-all hover:border-iris-300 hover:shadow-[0_8px_24px_-8px_rgba(102,71,240,0.15)]"
             >
-              <div>
-                <div className="text-sm font-semibold text-gray-900">I'm a Talent</div>
-                <div className="text-xs text-gray-500">Sign in with email and password</div>
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--cu-radius)] bg-iris-50 transition-colors group-hover:bg-iris-100">
+                <svg className="h-5.5 w-5.5 text-iris-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
               </div>
-              <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="flex-1">
+                <div className="font-display text-[15px] font-semibold text-cu-900">
+                  I'm a Talent
+                </div>
+                <div className="mt-0.5 font-ui text-xs text-cu-500">
+                  Sign in with your email and password
+                </div>
+              </div>
+              <svg className="h-5 w-5 text-cu-400 transition-transform group-hover:translate-x-0.5 group-hover:text-iris-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>
 
             <Link
               href="/login/business"
-              className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-4 transition-colors hover:border-gray-900 hover:bg-gray-50"
+              className="group card-v5 flex items-center gap-4 p-5 transition-all hover:border-[#B3D9FF] hover:shadow-[0_8px_24px_-8px_rgba(0,145,255,0.15)]"
             >
-              <div>
-                <div className="text-sm font-semibold text-gray-900">I'm a Business</div>
-                <div className="text-xs text-gray-500">Sign in with invited email or phone</div>
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--cu-radius)] bg-[#EDF6FD] transition-colors group-hover:bg-[#DBEEFB]">
+                <svg className="h-5.5 w-5.5 text-cu-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
               </div>
-              <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="flex-1">
+                <div className="font-display text-[15px] font-semibold text-cu-900">
+                  I'm a Business
+                </div>
+                <div className="mt-0.5 font-ui text-xs text-cu-500">
+                  Passwordless login with your invited credentials
+                </div>
+              </div>
+              <svg className="h-5 w-5 text-cu-400 transition-transform group-hover:translate-x-0.5 group-hover:text-cu-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>
+          </div>
+
+          {/* Footer */}
+          <div className="stagger-3 mt-8 text-center font-ui text-xs text-cu-400">
+            By signing in, you agree to UpSquad's terms of service
           </div>
         </div>
       </main>
