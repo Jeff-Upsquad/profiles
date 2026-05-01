@@ -41,6 +41,8 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
     current_location: (profile as any)?.talent_user?.current_location,
     profile_photo_url: (profile as any)?.talent_user?.profile_photo_url,
     languages_spoken: (profile as any)?.talent_user?.languages_spoken,
+    age: (profile as any)?.talent_user?.age,
+    gender: (profile as any)?.talent_user?.gender,
   };
 
   const isGhost = (profile as any)?.is_ghost === true;

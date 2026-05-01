@@ -79,7 +79,7 @@ export async function getSharedProfiles(businessUserId: string, categoryId: stri
 export async function getSharedProfile(businessUserId: string, categoryId: string, profileId: string) {
   const { data, error } = await supabaseAdmin
     .from('business_shared_profiles')
-    .select('talent_profile_id, talent_profiles!inner(*, talent_users!inner(full_name, current_location, languages_spoken, profile_photo_url, phone), categories(id, name, slug))')
+    .select('talent_profile_id, talent_profiles!inner(*, talent_users!inner(full_name, current_location, languages_spoken, profile_photo_url, phone, age, gender), categories(id, name, slug))')
     .eq('business_user_id', businessUserId)
     .eq('category_id', categoryId)
     .eq('talent_profile_id', profileId)
