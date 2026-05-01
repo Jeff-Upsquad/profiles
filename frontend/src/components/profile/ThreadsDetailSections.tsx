@@ -393,6 +393,7 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
     const value = fieldData?.[field.field_key];
     if (isEmpty(value)) continue;
     if (field.field_key === bioFieldKey) continue;
+    if (field.field_key === 'years_experience') continue;
 
     const delay = sectionIndex * 0.04;
 

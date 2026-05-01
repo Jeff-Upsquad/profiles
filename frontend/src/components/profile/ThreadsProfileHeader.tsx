@@ -107,15 +107,26 @@ export default function ThreadsProfileHeader({
       </div>
 
       {/* Meta row */}
-      {talentUser.current_location && (
+      {(talentUser.current_location || profile.field_data?.years_experience != null) && (
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-          <span className="flex items-center gap-1 text-[13px] text-zinc-500">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-            {talentUser.current_location}
-          </span>
+          {talentUser.current_location && (
+            <span className="flex items-center gap-1 text-[13px] text-zinc-500">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              {talentUser.current_location}
+            </span>
+          )}
+          {profile.field_data?.years_experience != null && (
+            <span className="flex items-center gap-1 text-[13px] text-zinc-500">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
+              </svg>
+              {profile.field_data.years_experience} yrs experience
+            </span>
+          )}
         </div>
       )}
 
