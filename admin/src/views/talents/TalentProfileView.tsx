@@ -272,9 +272,9 @@ export default function TalentProfileView({
             <Badge variant={statusVariant[profile.status] ?? 'gray'}>
               {profile.status.replace('_', ' ')}
             </Badge>
-            {!profile.is_active && <Badge variant="gray">Hidden from public</Badge>}
+            {!profile.is_active && <Badge variant="gray">Inactive</Badge>}
             {talentUser?.is_active === false && (
-              <Badge variant="gray">Talent account hidden</Badge>
+              <Badge variant="gray">Talent account inactive</Badge>
             )}
           </div>
         </div>

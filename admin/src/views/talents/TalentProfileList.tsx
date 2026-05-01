@@ -698,9 +698,9 @@ export default function TalentProfileList({ categoryId, stateName }: { categoryI
                         <Badge variant={statusVariant[profile.status] ?? 'gray'}>
                           {profile.status.replace('_', ' ')}
                         </Badge>
-                        {!profile.is_active && <Badge variant="gray">Hidden</Badge>}
+                        {!profile.is_active && <Badge variant="gray">Inactive</Badge>}
                         {profile.talent_users?.is_active === false && (
-                          <Badge variant="gray">Talent hidden</Badge>
+                          <Badge variant="gray">Talent inactive</Badge>
                         )}
                       </div>
                     </td>
