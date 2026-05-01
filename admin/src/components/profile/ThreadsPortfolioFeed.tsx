@@ -2,11 +2,16 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { PortfolioItem } from '@/types';
+import { legacyProviderDisplayName } from '@/lib/videoEmbed';
 import ThreadsPortfolioCard from './ThreadsPortfolioCard';
 
 interface ThreadsPortfolioFeedProps {
   items: PortfolioItem[];
   activeTab: string;
+}
+
+function providerLabel(provider: string | null | undefined): string {
+  return provider ? legacyProviderDisplayName(provider) : 'source';
 }
 
 export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfolioFeedProps) {
@@ -17,7 +22,12 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
   const [showScrollHint, setShowScrollHint] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const filtered = activeTab === 'All' ? items : items.filter((i) => i.skill_name === activeTab);
+  const filtered =
+    activeTab === 'All'
+      ? items
+      : activeTab === 'Other'
+        ? items.filter((i) => !i.category_name)
+        : items.filter((i) => i.category_name === activeTab);
   const selectedItem = selectedIndex !== null ? filtered[selectedIndex] : null;
   const hasPrev = selectedIndex !== null && selectedIndex > 0;
   const hasNext = selectedIndex !== null && selectedIndex < filtered.length - 1;
@@ -185,15 +195,57 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
                 />
               )
             )}
-            {selectedItem.file_type === 'video' && (
-              <video
-                key={selectedItem.id}
-                src={selectedItem.file_url}
-                controls
-                autoPlay
-                className="max-h-[85vh] max-w-[85vw] rounded-lg"
-              />
-            )}
+            {selectedItem.file_type === 'video' &&
+              selectedItem.source_type === 'link' &&
+              selectedItem.provider !== 'dropbox' &&
+              selectedItem.embed_url && (
+                <div className="flex flex-col items-center gap-2">
+                  <iframe
+                    key={selectedItem.id}
+                    src={selectedItem.embed_url}
+                    title={selectedItem.file_name}
+                    sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allow="autoplay; fullscreen; picture-in-picture"
+                    allowFullScreen
+                    className="h-[85vh] w-[90vw] max-w-[1200px] rounded-lg bg-black"
+                  />
+                  {selectedItem.external_url && (
+                    <a
+                      href={selectedItem.external_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90 backdrop-blur transition-colors hover:bg-white/20"
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                      Open in {providerLabel(selectedItem.provider)}
+                    </a>
+                  )}
+                </div>
+              )}
+            {selectedItem.file_type === 'video' &&
+              (selectedItem.source_type !== 'link' || selectedItem.provider === 'dropbox') && (
+                <video
+                  key={selectedItem.id}
+                  src={selectedItem.file_url}
+                  controls
+                  autoPlay
+                  className="max-h-[85vh] max-w-[85vw] rounded-lg"
+                />
+              )}
             {selectedItem.file_type === 'pdf' && (
               <div className="flex flex-col items-center gap-4 rounded-lg bg-white p-8">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

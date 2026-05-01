@@ -71,6 +71,13 @@ export interface PortfolioItem {
   file_type: 'image' | 'pdf' | 'video';
   file_name: string;
   sort_order: number;
+  category_name?: string | null;
+  skills?: string[];
+  source_type?: 'upload' | 'link';
+  provider?: string | null;
+  external_url?: string | null;
+  embed_url?: string | null;
+  thumbnail_url?: string | null;
 }
 
 export interface GhostSourceProfile {

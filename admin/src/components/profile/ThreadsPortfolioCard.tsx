@@ -1,11 +1,21 @@
 import type { PortfolioItem } from '@/types';
+import { legacyProviderDisplayName } from '@/lib/videoEmbed';
 
 interface ThreadsPortfolioCardProps {
   item: PortfolioItem;
   onClick: () => void;
 }
 
+const LINK_USES_STATIC_POSTER = (provider?: string | null) =>
+  provider !== null && provider !== undefined && provider !== 'dropbox';
+
 export default function ThreadsPortfolioCard({ item, onClick }: ThreadsPortfolioCardProps) {
+  const isLinkVideo = item.file_type === 'video' && item.source_type === 'link';
+  const showStaticPoster = isLinkVideo && LINK_USES_STATIC_POSTER(item.provider);
+  const providerLabel = item.provider
+    ? legacyProviderDisplayName(item.provider)
+    : undefined;
+
   return (
     <button
       onClick={onClick}
@@ -19,7 +29,35 @@ export default function ThreadsPortfolioCard({ item, onClick }: ThreadsPortfolio
           className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
         />
       )}
-      {item.file_type === 'video' && (
+      {item.file_type === 'video' && showStaticPoster && (
+        <>
+          {item.thumbnail_url ? (
+            <img
+              src={item.thumbnail_url}
+              alt={item.file_name}
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 text-xs font-semibold tracking-wide text-white/90">
+              {providerLabel ?? 'Video'}
+            </div>
+          )}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+            </div>
+          </div>
+          {providerLabel && (
+            <span className="absolute bottom-1.5 left-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
+              {providerLabel}
+            </span>
+          )}
+        </>
+      )}
+      {item.file_type === 'video' && !showStaticPoster && (
         <>
           <video
             src={item.file_url}
