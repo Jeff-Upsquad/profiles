@@ -100,6 +100,9 @@ export interface TalentSignupData {
   password: string;
   full_name: string;
   phone?: string;
+  country?: string;
+  state?: string;
+  current_district?: string;
   age?: number;
   gender?: string;
   native_place?: string;

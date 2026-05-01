@@ -35,6 +35,15 @@ export async function requestAccess(req: Request, res: Response, next: NextFunct
   }
 }
 
+export async function checkCandidateStatus(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await authService.checkCandidateStatus(req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await authService.login(req.body);

@@ -8,6 +8,7 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   changePasswordSchema,
+  checkCandidateStatusSchema,
 } from '../validators/auth.validators.js';
 import { businessLoginSchema, requestAccessSchema } from '../validators/invite.validators.js';
 
@@ -17,6 +18,12 @@ router.post(
   '/signup/talent',
   validate({ body: signupTalentSchema }),
   authController.signupTalent
+);
+
+router.post(
+  '/check-candidate-status',
+  validate({ body: checkCandidateStatusSchema }),
+  authController.checkCandidateStatus
 );
 
 router.post(
