@@ -18,6 +18,9 @@ import {
   updateOptionSchema,
   reorderSchema,
   setProfileTierSchema,
+  adminUpdateTalentUserSchema,
+  adminUpdateTalentProfileSchema,
+  adminAddPortfolioItemSchema,
 } from '../validators/admin.validators.js';
 import {
   createChapterSchema,
@@ -206,6 +209,28 @@ router.patch(
   adminController.setProfileTier,
 );
 router.delete('/talents/profiles/:profileId', adminController.softDeleteTalentProfile);
+
+// Admin edit (status preserved, full parity with talent self-edit)
+router.put(
+  '/talents/users/:userId',
+  validate({ body: adminUpdateTalentUserSchema }),
+  adminController.updateTalentUser,
+);
+router.put(
+  '/talents/profiles/:profileId',
+  validate({ body: adminUpdateTalentProfileSchema }),
+  adminController.updateTalentProfile,
+);
+router.get('/talents/profiles/:profileId/portfolio', adminController.getProfilePortfolio);
+router.post(
+  '/talents/profiles/:profileId/portfolio',
+  validate({ body: adminAddPortfolioItemSchema }),
+  adminController.addProfilePortfolio,
+);
+router.delete(
+  '/talents/profiles/:profileId/portfolio/:itemId',
+  adminController.deleteProfilePortfolio,
+);
 
 // ---------------------------------------------------------------------------
 // Invitations

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { env } from '../config/env.js';
 import { getTalentTiersByUserIds } from './talent-tier.service.js';
+import * as talentService from './talent.service.js';
 import type {
   CreateCategoryInput,
   UpdateCategoryInput,
@@ -11,6 +12,9 @@ import type {
   CreateOptionInput,
   UpdateOptionInput,
   ReorderInput,
+  AdminUpdateTalentUserInput,
+  AdminUpdateTalentProfileInput,
+  AdminAddPortfolioItemInput,
 } from '../validators/admin.validators.js';
 
 // ---------------------------------------------------------------------------
@@ -868,6 +872,99 @@ export async function restoreProfile(profileId: string, replaceProfileId?: strin
 
   if (error) throw new AppError(400, error.message);
   return data;
+}
+
+// Admin updates a talent_user row. Plain update — no status side-effects.
+export async function adminUpdateTalentUser(userId: string, input: AdminUpdateTalentUserInput) {
+  const { data, error } = await supabaseAdmin
+    .from('talent_users')
+    .update(input)
+    .eq('id', userId)
+    .select('*')
+    .single();
+
+  if (error || !data) throw new AppError(404, 'Talent user not found');
+  return data;
+}
+
+// Admin updates a talent_profile's field_data / resume_url. Crucially does
+// NOT change `status` — talent's own updateProfile bumps approved→pending_review,
+// but admin edits are trusted and stay in place.
+export async function adminUpdateTalentProfile(
+  profileId: string,
+  input: AdminUpdateTalentProfileInput,
+) {
+  const { data: profile, error: fetchErr } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('id, category_id')
+    .eq('id', profileId)
+    .is('deleted_at', null)
+    .single();
+
+  if (fetchErr || !profile) throw new AppError(404, 'Profile not found');
+
+  const updatePayload: Record<string, unknown> = {};
+  if (input.field_data !== undefined) updatePayload.field_data = input.field_data;
+  if (input.resume_url !== undefined) updatePayload.resume_url = input.resume_url;
+
+  if (Object.keys(updatePayload).length === 0) {
+    throw new AppError(400, 'Nothing to update');
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('talent_profiles')
+    .update(updatePayload)
+    .eq('id', profileId)
+    .select('*')
+    .single();
+
+  if (error) throw new AppError(500, `Failed to update profile: ${error.message}`);
+  return data;
+}
+
+// Admin reads portfolio items for any profile (no user-ownership filter).
+export async function adminGetPortfolioItems(profileId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('portfolio_items')
+    .select('*')
+    .eq('profile_id', profileId)
+    .order('skill_name', { ascending: true })
+    .order('sort_order', { ascending: true });
+
+  if (error) throw new AppError(500, 'Failed to fetch portfolio items');
+  return data;
+}
+
+// Admin adds a portfolio item on behalf of a talent. Resolves the talent's
+// user id and delegates to talentService.addPortfolioItem so we share the
+// link/upload validation logic.
+export async function adminAddPortfolioItem(
+  profileId: string,
+  input: AdminAddPortfolioItemInput,
+) {
+  const { data: profile, error } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('talent_user_id')
+    .eq('id', profileId)
+    .is('deleted_at', null)
+    .single();
+
+  if (error || !profile) throw new AppError(404, 'Profile not found');
+
+  return talentService.addPortfolioItem(profileId, profile.talent_user_id, input);
+}
+
+export async function adminDeletePortfolioItem(profileId: string, itemId: string) {
+  const { data: profile, error } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('talent_user_id')
+    .eq('id', profileId)
+    .is('deleted_at', null)
+    .single();
+
+  if (error || !profile) throw new AppError(404, 'Profile not found');
+
+  return talentService.deletePortfolioItem(profileId, profile.talent_user_id, itemId);
 }
 
 export async function adminSoftDeleteProfile(profileId: string) {
