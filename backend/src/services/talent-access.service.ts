@@ -754,6 +754,7 @@ export async function getProfile(session: AccessSession, profileId: string) {
     .from('talent_profiles')
     .select(
       `id, category_id, field_data, status, created_at, updated_at, resume_url,
+       is_ghost, source_designer_profile_id, source_editor_profile_id, talent_user_id,
        talent_users!inner(id, full_name, current_location, native_place, profile_photo_url, languages_spoken, age, gender),
        categories!inner(id, name, slug)`,
     )
@@ -822,6 +823,90 @@ export async function getProfile(session: AccessSession, profileId: string) {
 
   const basic = (basicRes?.data as any) ?? null;
 
+  const talentUser = {
+    ...profile.talent_users,
+    country: basic?.country ?? null,
+    state: basic?.state ?? null,
+    current_district: basic?.current_district ?? null,
+    city: basic?.city ?? null,
+    pin_code: basic?.pin_code ?? null,
+    permanent_address: basic?.permanent_address ?? null,
+  };
+
+  if (profile.is_ghost === true) {
+    const designerId = profile.source_designer_profile_id as string | null;
+    const editorId = profile.source_editor_profile_id as string | null;
+    const ids = [designerId, editorId].filter((v): v is string => !!v);
+
+    let sourceProfiles: any[] = [];
+    if (ids.length > 0) {
+      const [{ data: sources, error: srcErr }, { data: portfolio, error: pfErr }] =
+        await Promise.all([
+          supabaseAdmin
+            .from('talent_profiles')
+            .select('*, categories!inner(id, name, slug)')
+            .in('id', ids)
+            .is('deleted_at', null),
+          supabaseAdmin
+            .from('portfolio_items')
+            .select('*, portfolio_item_skills(skill_name)')
+            .in('profile_id', ids)
+            .order('category_name', { ascending: true })
+            .order('skill_name', { ascending: true })
+            .order('sort_order', { ascending: true }),
+        ]);
+      if (srcErr) throw new AppError(500, 'Failed to load ghost source profiles');
+      if (pfErr) throw new AppError(500, 'Failed to load ghost source portfolio');
+
+      const portfolioByProfile: Record<string, any[]> = {};
+      for (const row of (portfolio ?? []) as any[]) {
+        const { portfolio_item_skills, ...rest } = row;
+        const item = {
+          ...rest,
+          skills: Array.isArray(portfolio_item_skills)
+            ? portfolio_item_skills.map((s: { skill_name: string }) => s.skill_name)
+            : [],
+        };
+        const pid = rest.profile_id as string;
+        if (!portfolioByProfile[pid]) portfolioByProfile[pid] = [];
+        portfolioByProfile[pid].push(item);
+      }
+
+      sourceProfiles = (sources ?? []).map((s: any) => ({
+        id: s.id,
+        category_id: s.category_id,
+        category: s.categories,
+        status: s.status,
+        field_data: s.field_data,
+        created_at: s.created_at,
+        updated_at: s.updated_at,
+        portfolio_items: portfolioByProfile[s.id] ?? [],
+      }));
+      sourceProfiles.sort((a, b) =>
+        a.category?.slug === 'designer' ? -1 : b.category?.slug === 'designer' ? 1 : 0,
+      );
+    }
+
+    return {
+      profile: {
+        id: profile.id,
+        category_id: profile.category_id,
+        status: profile.status,
+        field_data: profile.field_data,
+        resume_url: profile.resume_url,
+        created_at: profile.created_at,
+        updated_at: profile.updated_at,
+      },
+      talent_user: talentUser,
+      category,
+      portfolio_items: [],
+      tier: (tierRow as any)?.tier ?? null,
+      tier_custom: (tierRow as any)?.tier_custom ?? null,
+      is_ghost: true,
+      source_profiles: sourceProfiles,
+    };
+  }
+
   return {
     profile: {
       id: profile.id,
@@ -832,15 +917,7 @@ export async function getProfile(session: AccessSession, profileId: string) {
       created_at: profile.created_at,
       updated_at: profile.updated_at,
     },
-    talent_user: {
-      ...profile.talent_users,
-      country: basic?.country ?? null,
-      state: basic?.state ?? null,
-      current_district: basic?.current_district ?? null,
-      city: basic?.city ?? null,
-      pin_code: basic?.pin_code ?? null,
-      permanent_address: basic?.permanent_address ?? null,
-    },
+    talent_user: talentUser,
     category,
     portfolio_items: (portfolioRes.data ?? []).map((row: any) => {
       const { portfolio_item_skills, ...rest } = row;

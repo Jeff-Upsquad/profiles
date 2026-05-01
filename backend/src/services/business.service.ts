@@ -316,7 +316,7 @@ export async function getApprovedProfile(categorySlug: string, profileId: string
 
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')
-    .select('*, talent_users!inner(full_name, current_location, languages_spoken, profile_photo_url, phone), categories!inner(id, name, slug)')
+    .select('*, talent_users!inner(full_name, current_location, languages_spoken, profile_photo_url, phone, age, gender), categories!inner(id, name, slug)')
     .eq('id', profileId)
     .eq('category_id', category.id)
     .eq('status', 'approved')
@@ -326,6 +326,8 @@ export async function getApprovedProfile(categorySlug: string, profileId: string
     .single();
 
   if (error || !data) throw new AppError(404, 'Profile not found');
+
+  const tiers = await getTalentTiersByUserIds([(data as any).talent_user_id]);
 
   const baseProfile = {
     id: data.id,
@@ -338,6 +340,8 @@ export async function getApprovedProfile(categorySlug: string, profileId: string
     created_at: data.created_at,
     updated_at: data.updated_at,
     is_ghost: (data as any).is_ghost === true,
+    tier: tiers[(data as any).talent_user_id]?.tier ?? null,
+    tier_custom: tiers[(data as any).talent_user_id]?.tier_custom ?? null,
   };
 
   // Ghost rows are pointers — load the two source profiles' full data

@@ -28,6 +28,8 @@ export default function ViewProfilePage(props: { params: Promise<Params> }) {
     current_location: (profile as any)?.talent_user?.current_location,
     profile_photo_url: (profile as any)?.talent_user?.profile_photo_url,
     languages_spoken: (profile as any)?.talent_user?.languages_spoken,
+    age: (profile as any)?.talent_user?.age,
+    gender: (profile as any)?.talent_user?.gender,
   };
 
   // Ghost profiles ("Designer + Editor") have no field_data of their own —

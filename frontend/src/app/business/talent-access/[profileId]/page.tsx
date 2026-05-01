@@ -4,6 +4,7 @@ import { Suspense, use, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useBusinessTalentAccessProfile } from '@/hooks/useBusiness';
 import ThreadsProfileView from '@/views/shared/ThreadsProfileView';
+import GhostProfileView from '@/views/shared/GhostProfileView';
 
 function ProfileContent({ profileId }: { profileId: string }) {
   const router = useRouter();
@@ -46,6 +47,51 @@ function ProfileContent({ profileId }: { profileId: string }) {
     };
   }, [searchParams, router, listParams]);
 
+  const isGhost = (data as any)?.is_ghost === true;
+  const sourceProfiles = (data as any)?.source_profiles ?? [];
+
+  const errorMessage =
+    status === 403
+      ? 'You no longer have access to this profile.'
+      : status && status !== 404
+        ? (error as any)?.response?.data?.error || 'Failed to load profile'
+        : undefined;
+
+  const onBack = () =>
+    router.push(`/business/talent-access${listParams ? `?${listParams}` : ''}`);
+
+  if (isGhost && data) {
+    return (
+      <GhostProfileView
+        ghostProfile={{
+          id: data.profile.id,
+          user_id: data.talent_user.id,
+          category_id: data.profile.category_id,
+          status: data.profile.status as any,
+          field_data: data.profile.field_data,
+          created_at: data.profile.created_at,
+          updated_at: data.profile.updated_at,
+          tier: (data as any).tier ?? null,
+          tier_custom: (data as any).tier_custom ?? null,
+        }}
+        sourceProfiles={sourceProfiles}
+        talentUser={{
+          full_name: data.talent_user.full_name ?? '',
+          current_location: data.talent_user.current_location ?? undefined,
+          profile_photo_url: data.talent_user.profile_photo_url ?? undefined,
+          languages_spoken: data.talent_user.languages_spoken ?? [],
+          age: data.talent_user.age,
+          gender: data.talent_user.gender,
+        }}
+        mode="business"
+        isLoading={isLoading}
+        error={errorMessage}
+        onBack={onBack}
+        navigation={navigation}
+      />
+    );
+  }
+
   return (
     <ThreadsProfileView
       profile={
@@ -79,14 +125,8 @@ function ProfileContent({ profileId }: { profileId: string }) {
       portfolioItems={data?.portfolio_items ?? []}
       mode="business"
       isLoading={isLoading}
-      error={
-        status === 403
-          ? 'You no longer have access to this profile.'
-          : status && status !== 404
-            ? (error as any)?.response?.data?.error || 'Failed to load profile'
-            : undefined
-      }
-      onBack={() => router.push(`/business/talent-access${listParams ? `?${listParams}` : ''}`)}
+      error={errorMessage}
+      onBack={onBack}
       navigation={navigation}
     />
   );

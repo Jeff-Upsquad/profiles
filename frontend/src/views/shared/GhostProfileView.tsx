@@ -46,6 +46,12 @@ interface GhostProfileViewProps {
   isLoading: boolean;
   error?: string;
   onBack: () => void;
+  navigation?: {
+    current: number;
+    total: number;
+    onPrev: (() => void) | null;
+    onNext: (() => void) | null;
+  };
 }
 
 /**
@@ -72,6 +78,7 @@ export default function GhostProfileView({
   isLoading,
   error,
   onBack,
+  navigation,
 }: GhostProfileViewProps) {
   const [interestModalOpen, setInterestModalOpen] = useState(false);
   const [interestMessage, setInterestMessage] = useState('');
@@ -143,7 +150,7 @@ export default function GhostProfileView({
   if (error || !ghostProfile || sourceProfiles.length === 0) {
     return (
       <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
-        <ThreadsProfileShell topBar={<ThreadsTopBar displayName="" onBack={onBack} />}>
+        <ThreadsProfileShell topBar={<ThreadsTopBar displayName="" onBack={onBack} navigation={navigation} />}>
           <div className="flex flex-col items-center justify-center py-20 px-5">
             <p className="mt-4 text-[15px] font-medium text-zinc-950">
               {error || 'Profile not found'}
@@ -173,7 +180,7 @@ export default function GhostProfileView({
   return (
     <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
       <ThreadsProfileShell
-        topBar={<ThreadsTopBar displayName={talentUser.full_name} onBack={onBack} />}
+        topBar={<ThreadsTopBar displayName={talentUser.full_name} onBack={onBack} navigation={navigation} />}
       >
         <ThreadsProfileHeader
           profile={headerProfile}
