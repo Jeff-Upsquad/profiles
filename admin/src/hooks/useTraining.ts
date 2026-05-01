@@ -12,6 +12,7 @@ export interface TrainingChapter {
   is_active: boolean;
   is_onboarding: boolean;
   language: string;
+  linked_module?: string | null;
   categories: { id: string; name: string; slug: string }[];
   lesson_count: number;
   created_at: string;
@@ -69,6 +70,7 @@ export function useCreateChapter() {
       is_active?: boolean;
       is_onboarding?: boolean;
       language?: string;
+      linked_module?: string | null;
       category_ids: string[];
     }) => {
       const { data } = await api.post('/admin/training/chapters', payload);
@@ -98,6 +100,7 @@ export function useUpdateChapter() {
       is_active?: boolean;
       is_onboarding?: boolean;
       language?: string;
+      linked_module?: string | null;
       category_ids?: string[];
     }) => {
       const { data } = await api.put(`/admin/training/chapters/${id}`, payload);

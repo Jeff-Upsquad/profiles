@@ -4,6 +4,14 @@ import { z } from 'zod';
 // Chapter schemas
 // ---------------------------------------------------------------------------
 
+const linkedModuleEnum = z.enum([
+  'basic-profile',
+  'profiles',
+  'subscriptions',
+  'settings',
+  'notifications',
+]);
+
 export const createChapterSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200),
   description: z.string().max(1000).optional(),
@@ -11,6 +19,7 @@ export const createChapterSchema = z.object({
   is_active: z.boolean().optional(),
   is_onboarding: z.boolean().optional(),
   language: z.string().max(10).optional(),
+  linked_module: linkedModuleEnum.nullable().optional(),
   category_ids: z
     .array(z.string().uuid('Each category_id must be a valid UUID'))
     .min(1, 'At least one category is required'),
@@ -23,6 +32,7 @@ export const updateChapterSchema = z.object({
   is_active: z.boolean().optional(),
   is_onboarding: z.boolean().optional(),
   language: z.string().max(10).optional(),
+  linked_module: linkedModuleEnum.nullable().optional(),
   category_ids: z
     .array(z.string().uuid('Each category_id must be a valid UUID'))
     .min(1, 'At least one category is required')

@@ -86,6 +86,7 @@ export function useMarkLessonComplete() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['myTraining'] });
       qc.invalidateQueries({ queryKey: ['onboardingTraining'] });
+      qc.invalidateQueries({ queryKey: ['moduleAccess'] });
     },
   });
 }
@@ -100,6 +101,33 @@ export function useMarkLessonIncomplete() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['myTraining'] });
       qc.invalidateQueries({ queryKey: ['onboardingTraining'] });
+      qc.invalidateQueries({ queryKey: ['moduleAccess'] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Module access
+// ---------------------------------------------------------------------------
+
+interface LockedModule {
+  module: string;
+  chapter_title: string;
+  completed: number;
+  total: number;
+}
+
+interface ModuleAccess {
+  unlocked: string[];
+  locked: LockedModule[];
+}
+
+export function useModuleAccess() {
+  return useQuery<ModuleAccess>({
+    queryKey: ['moduleAccess'],
+    queryFn: async () => {
+      const { data } = await api.get('/talent/training/module-access');
+      return data;
     },
   });
 }
