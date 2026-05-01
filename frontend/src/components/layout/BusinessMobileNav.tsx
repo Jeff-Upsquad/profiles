@@ -32,8 +32,11 @@ export default function BusinessMobileNav() {
   const activeCategoryId =
     categoryMatch && categoryMatch[1] !== 'cards' ? categoryMatch[1] : null;
 
+  // sticky-top:0 — the strip lives inside <main>, which already starts at
+  // the navbar's bottom edge. Using top-[60px] here would leave a 60px gap
+  // between the navbar and the strip when sticky engages.
   return (
-    <div className="sticky top-[60px] z-30 -mx-4 mb-4 border-b border-gray-200 bg-white shadow-sm md:hidden">
+    <div className="sticky top-0 z-30 -mx-4 mb-4 border-b border-gray-200 bg-white shadow-sm md:hidden">
       <div className="flex gap-2 overflow-x-auto px-4 py-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <Pill href="/business/dashboard" active={dashboardActive && !activeCategoryId}>
           Dashboard
