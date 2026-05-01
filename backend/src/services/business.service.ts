@@ -82,7 +82,7 @@ export async function getSharedProfile(businessUserId: string, categoryId: strin
   const p = (data as any).talent_profiles;
   if (!p) throw new AppError(404, 'Profile not found');
 
-  return {
+  const baseProfile = {
     id: p.id,
     user_id: p.talent_user_id,
     category_id: p.category_id,
@@ -92,7 +92,64 @@ export async function getSharedProfile(businessUserId: string, categoryId: strin
     talent_user: p.talent_users,
     created_at: p.created_at,
     updated_at: p.updated_at,
+    is_ghost: p.is_ghost === true,
   };
+
+  if (baseProfile.is_ghost) {
+    const designerId = p.source_designer_profile_id as string | null;
+    const editorId = p.source_editor_profile_id as string | null;
+    const ids = [designerId, editorId].filter((v): v is string => !!v);
+    if (ids.length > 0) {
+      const [{ data: sources, error: srcErr }, { data: portfolio, error: pfErr }] =
+        await Promise.all([
+          supabaseAdmin
+            .from('talent_profiles')
+            .select('*, categories!inner(id, name, slug)')
+            .in('id', ids)
+            .is('deleted_at', null),
+          supabaseAdmin
+            .from('portfolio_items')
+            .select('*, portfolio_item_skills(skill_name)')
+            .in('profile_id', ids)
+            .order('category_name', { ascending: true })
+            .order('skill_name', { ascending: true })
+            .order('sort_order', { ascending: true }),
+        ]);
+      if (srcErr) throw new AppError(500, 'Failed to load ghost source profiles');
+      if (pfErr) throw new AppError(500, 'Failed to load ghost source portfolio');
+
+      const portfolioByProfile: Record<string, any[]> = {};
+      for (const row of (portfolio ?? []) as any[]) {
+        const { portfolio_item_skills, ...rest } = row;
+        const item = {
+          ...rest,
+          skills: Array.isArray(portfolio_item_skills)
+            ? portfolio_item_skills.map((s: { skill_name: string }) => s.skill_name)
+            : [],
+        };
+        const pid = rest.profile_id as string;
+        if (!portfolioByProfile[pid]) portfolioByProfile[pid] = [];
+        portfolioByProfile[pid].push(item);
+      }
+
+      const sourceProfiles = (sources ?? []).map((s: any) => ({
+        id: s.id,
+        category_id: s.category_id,
+        category: s.categories,
+        status: s.status,
+        field_data: s.field_data,
+        created_at: s.created_at,
+        updated_at: s.updated_at,
+        portfolio_items: portfolioByProfile[s.id] ?? [],
+      }));
+      sourceProfiles.sort((a, b) =>
+        a.category?.slug === 'designer' ? -1 : b.category?.slug === 'designer' ? 1 : 0,
+      );
+      return { ...baseProfile, source_profiles: sourceProfiles };
+    }
+  }
+
+  return baseProfile;
 }
 
 export async function getPortfolioForProfile(businessUserId: string, categoryId: string, profileId: string) {

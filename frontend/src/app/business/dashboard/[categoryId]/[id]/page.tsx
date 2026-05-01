@@ -12,6 +12,7 @@ import {
 } from '@/hooks/useBusiness';
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import ThreadsProfileView from '@/views/shared/ThreadsProfileView';
+import GhostProfileView from '@/views/shared/GhostProfileView';
 
 interface Params {
   categoryId: string;
@@ -41,6 +42,29 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
     profile_photo_url: (profile as any)?.talent_user?.profile_photo_url,
     languages_spoken: (profile as any)?.talent_user?.languages_spoken,
   };
+
+  const isGhost = (profile as any)?.is_ghost === true;
+  const sourceProfiles = (profile as any)?.source_profiles ?? [];
+
+  if (isGhost) {
+    return (
+      <GhostProfileView
+        ghostProfile={profile ?? null}
+        sourceProfiles={sourceProfiles}
+        talentUser={talentUser}
+        mode="business"
+        onShortlist={() => profile && addToShortlist.mutate(profile.id)}
+        onUnshortlist={() => profile && removeFromShortlist.mutate(profile.id)}
+        shortlistLoading={addToShortlist.isPending || removeFromShortlist.isPending}
+        isShortlisted={isShortlisted}
+        onSendInterest={(message) => profile && sendInterest.mutate({ profileId: profile.id, message })}
+        interestLoading={sendInterest.isPending}
+        isLoading={profileLoading}
+        error={profileError ? 'Failed to load profile' : undefined}
+        onBack={() => router.push(`/business/dashboard/${params.categoryId}`)}
+      />
+    );
+  }
 
   return (
     <ThreadsProfileView
