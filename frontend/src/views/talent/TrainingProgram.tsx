@@ -86,20 +86,31 @@ function LanguagePicker({
 
 function LanguageSelectionPrompt() {
   return (
-    <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#6647F0]/40 bg-gradient-to-br from-[#F2EEFF]/60 to-white px-6 py-12 text-center">
+    <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#6647F0]/40 bg-gradient-to-br from-[#F2EEFF]/60 to-white px-6 py-10 sm:py-8 text-center sm:text-left">
       <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
-      <div className="relative">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center text-[#6647F0]">
+      <div className="relative sm:flex sm:items-end sm:justify-between sm:gap-6">
+        {/* Mobile: arrow on top, centered */}
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center text-[#6647F0] sm:hidden">
           <svg className="h-10 w-10 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
           </svg>
         </div>
-        <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
-          Pick your language to start
-        </h3>
-        <p className="mt-1.5 text-sm text-[#646464] max-w-sm mx-auto">
-          Choose a language from the dropdown above to begin watching the training videos.
-        </p>
+
+        <div className="flex-1 min-w-0">
+          <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+            Pick your language to start
+          </h3>
+          <p className="mt-1.5 text-sm text-[#646464] max-w-sm mx-auto sm:mx-0">
+            Choose a language from the dropdown above to begin watching the training videos.
+          </p>
+        </div>
+
+        {/* Desktop: arrow on bottom-right, pointing up-right toward the picker */}
+        <div className="hidden sm:flex h-14 w-14 flex-shrink-0 items-end justify-end text-[#6647F0]">
+          <svg className="h-12 w-12 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7m0 0H8m9 0v9" />
+          </svg>
+        </div>
       </div>
     </div>
   );
