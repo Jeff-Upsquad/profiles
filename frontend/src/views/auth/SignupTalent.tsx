@@ -140,6 +140,9 @@ export default function SignupTalent() {
     }
   };
 
+  const canProceed =
+    !checkLoading && checkResult?.has_invitation === true && checkResult?.has_account === false;
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -377,14 +380,8 @@ export default function SignupTalent() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Step 1: Email + Phone — always enabled. The check fires here. */}
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Input
-                    label="Full Name"
-                    value={form.full_name}
-                    onChange={set('full_name')}
-                    placeholder="Your full name"
-                    required
-                  />
                   <Input
                     label="Email"
                     type="email"
@@ -393,39 +390,29 @@ export default function SignupTalent() {
                     placeholder="you@example.com"
                     required
                   />
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
                   <Input
-                    label="Password"
-                    type="password"
-                    value={form.password}
-                    onChange={set('password')}
-                    placeholder="Minimum 8 characters"
-                    required
-                  />
-                  <Input
-                    label="Confirm Password"
-                    type="password"
-                    value={form.confirm_password}
-                    onChange={set('confirm_password')}
-                    placeholder="Re-enter password"
-                    required
-                    error={
-                      form.confirm_password && form.password !== form.confirm_password
-                        ? 'Passwords do not match'
-                        : undefined
-                    }
+                    label="Phone"
+                    type="tel"
+                    value={form.phone}
+                    onChange={set('phone')}
+                    placeholder="+91 XXXXX XXXXX"
                   />
                 </div>
 
-                <Input
-                  label="Phone"
-                  type="tel"
-                  value={form.phone}
-                  onChange={set('phone')}
-                  placeholder="+91 XXXXX XXXXX"
-                />
+                {/* Initial prompt before any check has run */}
+                {!checkLoading && !checkResult && (
+                  <div className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                    <svg className="mt-0.5 h-5 w-5 shrink-0 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Enter your email or phone to continue</p>
+                      <p className="mt-0.5 text-sm text-gray-500">
+                        We'll check whether you've been invited before showing the rest of the form.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* ── Inline status check ── */}
                 {(checkLoading || checkResult) && (
@@ -522,59 +509,98 @@ export default function SignupTalent() {
                   </div>
                 )}
 
-                <div className="pt-2">
-                  <h3 className="mb-3 text-sm font-semibold text-gray-800">Location</h3>
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <Select
-                      label="Country"
-                      value={form.country}
-                      onChange={handleCountryChange}
-                      options={COUNTRIES}
-                    />
-                    {form.country === 'India' ? (
-                      <Select
-                        label="State"
-                        value={form.state}
-                        onChange={handleStateChange}
-                        placeholder="Select state"
-                        options={INDIAN_STATES}
-                      />
-                    ) : (
-                      <Input
-                        label="State / Region"
-                        value={form.state}
-                        onChange={handleStateChange as any}
-                        placeholder="State or region"
-                      />
-                    )}
-                    {form.country === 'India' && form.state ? (
-                      <Select
-                        label="District"
-                        value={form.current_district}
-                        onChange={set('current_district') as any}
-                        placeholder="Select district"
-                        options={(DISTRICTS_BY_STATE[form.state] || []).map((d) => ({
-                          label: d,
-                          value: d,
-                        }))}
-                      />
-                    ) : (
-                      <Input
-                        label="District"
-                        value={form.current_district}
-                        onChange={set('current_district')}
-                        placeholder={form.country === 'India' ? 'Select a state first' : 'District'}
-                        disabled={form.country === 'India' && !form.state}
-                      />
-                    )}
-                  </div>
-                </div>
+                {/* Step 2: gated fields — disabled until check confirms a valid invitation. */}
+                <fieldset
+                  disabled={!canProceed}
+                  className={`space-y-4 ${canProceed ? '' : 'opacity-50 pointer-events-none select-none'}`}
+                  aria-hidden={!canProceed}
+                >
+                  <Input
+                    label="Full Name"
+                    value={form.full_name}
+                    onChange={set('full_name')}
+                    placeholder="Your full name"
+                    required
+                  />
 
-                <div className="flex items-center justify-end pt-4 border-t border-gray-100">
-                  <Button type="submit" loading={submitting}>
-                    Create Account
-                  </Button>
-                </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Input
+                      label="Password"
+                      type="password"
+                      value={form.password}
+                      onChange={set('password')}
+                      placeholder="Minimum 8 characters"
+                      required
+                    />
+                    <Input
+                      label="Confirm Password"
+                      type="password"
+                      value={form.confirm_password}
+                      onChange={set('confirm_password')}
+                      placeholder="Re-enter password"
+                      required
+                      error={
+                        form.confirm_password && form.password !== form.confirm_password
+                          ? 'Passwords do not match'
+                          : undefined
+                      }
+                    />
+                  </div>
+
+                  <div className="pt-2">
+                    <h3 className="mb-3 text-sm font-semibold text-gray-800">Location</h3>
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <Select
+                        label="Country"
+                        value={form.country}
+                        onChange={handleCountryChange}
+                        options={COUNTRIES}
+                      />
+                      {form.country === 'India' ? (
+                        <Select
+                          label="State"
+                          value={form.state}
+                          onChange={handleStateChange}
+                          placeholder="Select state"
+                          options={INDIAN_STATES}
+                        />
+                      ) : (
+                        <Input
+                          label="State / Region"
+                          value={form.state}
+                          onChange={handleStateChange as any}
+                          placeholder="State or region"
+                        />
+                      )}
+                      {form.country === 'India' && form.state ? (
+                        <Select
+                          label="District"
+                          value={form.current_district}
+                          onChange={set('current_district') as any}
+                          placeholder="Select district"
+                          options={(DISTRICTS_BY_STATE[form.state] || []).map((d) => ({
+                            label: d,
+                            value: d,
+                          }))}
+                        />
+                      ) : (
+                        <Input
+                          label="District"
+                          value={form.current_district}
+                          onChange={set('current_district')}
+                          placeholder={form.country === 'India' ? 'Select a state first' : 'District'}
+                          disabled={form.country === 'India' && !form.state}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end pt-4 border-t border-gray-100">
+                    <Button type="submit" loading={submitting} disabled={!canProceed}>
+                      Create Account
+                    </Button>
+                  </div>
+                </fieldset>
               </form>
 
               <div className="mt-6 text-center text-sm text-gray-500">
