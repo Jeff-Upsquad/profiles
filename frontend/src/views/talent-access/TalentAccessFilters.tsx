@@ -1,12 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   useTalentAccessFilterOptions,
   type Tier,
   type FilterOptions,
 } from '@/hooks/useTalentAccess';
 import TierExplainer from '@/components/talent-access/TierExplainer';
+import MultiSelectSearch from '@/components/ui/MultiSelectSearch';
+import {
+  COUNTRIES,
+  INDIAN_STATES,
+  DISTRICTS_BY_STATE,
+} from '@/constants/india-locations';
 
 const TIERS: { value: Tier; label: string }[] = [
   { value: 'junior', label: 'Junior' },
@@ -134,6 +140,25 @@ export default function TalentAccessFilters({ categoryId, value, onChange, filte
     skillCount +
     aiToolCount;
 
+  // District options cascade off selected states. With ≥1 state picked we
+  // restrict to those states' districts; otherwise we flatten every known
+  // district so the user can filter on district alone if they want.
+  const districtOptions = useMemo(() => {
+    const selectedStates = value.state ?? [];
+    const sourceStates =
+      selectedStates.length > 0 ? selectedStates : Object.keys(DISTRICTS_BY_STATE);
+    const seen = new Set<string>();
+    const out: { label: string; value: string }[] = [];
+    for (const st of sourceStates) {
+      for (const d of DISTRICTS_BY_STATE[st] ?? []) {
+        if (seen.has(d)) continue;
+        seen.add(d);
+        out.push({ label: d, value: d });
+      }
+    }
+    return out.sort((a, b) => a.label.localeCompare(b.label));
+  }, [value.state]);
+
   return (
     <aside className="min-w-0 space-y-5 overflow-hidden">
       <div className="flex items-center justify-between gap-2">
@@ -182,71 +207,65 @@ export default function TalentAccessFilters({ categoryId, value, onChange, filte
         </div>
       </Section>
 
-      {/* Country (structured, from talent_profiles_basic) */}
-      {(options?.countries ?? []).length > 0 && (
-        <Section
-          title="Country"
-          count={countryCount}
-          onClear={() => onChange({ ...value, country: undefined })}
-          scroll={(options?.countries ?? []).length > 6}
-        >
-          {options!.countries.map((c) => (
-            <CheckboxRow
-              key={c}
-              checked={!!value.country?.includes(c)}
-              onChange={() =>
-                onChange({ ...value, country: toggle(value.country, c) })
-              }
-            >
-              {c}
-            </CheckboxRow>
-          ))}
-        </Section>
-      )}
+      {/* Country / State / District — sourced from a static list (not from
+          existing talents). The business user can pre-emptively pick a
+          location even before any talent in that area has signed up; the
+          filter still narrows the result set if there's no match — that's
+          fine, intentional, and matches the talent-signup form's options. */}
+      {/* Country */}
+      <Section
+        title="Country"
+        count={countryCount}
+        onClear={() => onChange({ ...value, country: undefined })}
+      >
+        <MultiSelectSearch
+          options={COUNTRIES}
+          selected={value.country ?? []}
+          onChange={(vals) =>
+            onChange({ ...value, country: vals.length ? vals : undefined })
+          }
+          placeholder="Add a country…"
+        />
+      </Section>
 
-      {/* State (structured) */}
-      {(options?.states ?? []).length > 0 && (
-        <Section
-          title="State"
-          count={stateCount}
-          onClear={() => onChange({ ...value, state: undefined })}
-          scroll={(options?.states ?? []).length > 6}
-        >
-          {options!.states.map((s) => (
-            <CheckboxRow
-              key={s}
-              checked={!!value.state?.includes(s)}
-              onChange={() =>
-                onChange({ ...value, state: toggle(value.state, s) })
-              }
-            >
-              {s}
-            </CheckboxRow>
-          ))}
-        </Section>
-      )}
+      {/* State */}
+      <Section
+        title="State"
+        count={stateCount}
+        onClear={() => onChange({ ...value, state: undefined })}
+      >
+        <MultiSelectSearch
+          options={INDIAN_STATES}
+          selected={value.state ?? []}
+          onChange={(vals) =>
+            onChange({ ...value, state: vals.length ? vals : undefined })
+          }
+          placeholder="Add a state…"
+        />
+      </Section>
 
-      {/* District (structured) */}
-      {(options?.districts ?? []).length > 0 && (
-        <Section
-          title="District"
-          count={districtCount}
-          onClear={() => onChange({ ...value, district: undefined })}
-          scroll={(options?.districts ?? []).length > 6}
-        >
-          {options!.districts.map((d) => (
-            <CheckboxRow
-              key={d}
-              checked={!!value.district?.includes(d)}
-              onChange={() =>
-                onChange({ ...value, district: toggle(value.district, d) })
-              }
-            >
-              {d}
-            </CheckboxRow>
-          ))}
-        </Section>
-      )}
+      {/* District — cascades off selected states. With states picked, the
+          dropdown narrows to only those states' districts. With nothing
+          picked, it lists every district across all known states so the
+          user isn't blocked from filtering on district alone. */}
+      <Section
+        title="District"
+        count={districtCount}
+        onClear={() => onChange({ ...value, district: undefined })}
+      >
+        <MultiSelectSearch
+          options={districtOptions}
+          selected={value.district ?? []}
+          onChange={(vals) =>
+            onChange({ ...value, district: vals.length ? vals : undefined })
+          }
+          placeholder={
+            (value.state?.length ?? 0) > 0
+              ? 'Add a district…'
+              : 'Pick a state first, or search any district…'
+          }
+        />
+      </Section>
 
       {/* Location (legacy free-text current_location). Hidden when no values
           remain — once everyone has structured country/state/district set,
