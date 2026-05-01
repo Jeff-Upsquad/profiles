@@ -584,6 +584,16 @@ export async function getUserDetail(req: Request, res: Response, next: NextFunct
   }
 }
 
+export async function searchUsers(req: Request, res: Response, next: NextFunction) {
+  try {
+    const q = typeof req.query.q === 'string' ? req.query.q : '';
+    const result = await adminService.searchUsers(q);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function suspendUser(req: Request, res: Response, next: NextFunction) {
   try {
     const { suspend } = req.body;

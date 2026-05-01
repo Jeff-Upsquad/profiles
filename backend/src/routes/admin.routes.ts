@@ -316,6 +316,7 @@ router.get('/shortlists', adminController.getShortlistTracking);
 // User Management
 // ---------------------------------------------------------------------------
 
+router.get('/search', adminController.searchUsers);
 router.get('/users/talent', adminController.getTalentUsers);
 router.get('/users/business', adminController.getBusinessUsers);
 router.get('/users/:userId', adminController.getUserDetail);

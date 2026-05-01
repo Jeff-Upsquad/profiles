@@ -260,7 +260,7 @@ export default function InterviewQuestionsManager() {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <p className="text-sm font-medium text-gray-900">{q.question_text}</p>
                     <div className="flex flex-wrap items-center gap-1">
-                      {!q.is_active && <Badge variant="gray">Hidden</Badge>}
+                      {!q.is_active && <Badge variant="gray">Inactive</Badge>}
                       {q.is_required && <Badge variant="indigo">Required</Badge>}
                       <Badge variant="blue">
                         {FIELD_TYPE_OPTIONS.find((t) => t.value === q.field_type)?.label ||

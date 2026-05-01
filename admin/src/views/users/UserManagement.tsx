@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '@/services/api';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -8,6 +8,7 @@ import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import DropdownMenu, { type DropdownMenuItem } from '@/components/ui/DropdownMenu';
 import toast from 'react-hot-toast';
+import { useUserActions } from './useUserActions';
 
 interface ResetTarget {
   id: string;
@@ -44,11 +45,11 @@ type Tab = 'talent' | 'business';
 
 export default function UserManagement() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('talent');
   const [search, setSearch] = useState('');
   const [resetTarget, setResetTarget] = useState<ResetTarget | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const { suspendUser, setUserActive, deleteUser } = useUserActions();
 
   const { data: talentUsers, isLoading: talentLoading } = useQuery<TalentUser[]>({
     queryKey: ['admin-users-talent'],
@@ -63,47 +64,6 @@ export default function UserManagement() {
     queryFn: async () => {
       const { data } = await api.get('/admin/users/business');
       return data.users ?? data;
-    },
-  });
-
-  const suspendUser = useMutation({
-    mutationFn: async ({ userId, suspend }: { userId: string; suspend: boolean }) => {
-      await api.patch(`/admin/users/${userId}/suspend`, { suspend });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-users-talent'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-users-business'] });
-      toast.success('User updated');
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Failed to update user');
-    },
-  });
-
-  const setUserActive = useMutation({
-    mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
-      await api.patch(`/admin/users/talent/${userId}/active`, { is_active: isActive });
-    },
-    onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['admin-users-talent'] });
-      toast.success(vars.isActive ? 'Talent visible to public' : 'Talent hidden from public');
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Failed to update visibility');
-    },
-  });
-
-  const deleteUser = useMutation({
-    mutationFn: async (userId: string) => {
-      await api.delete(`/admin/users/${userId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-users-talent'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-users-business'] });
-      toast.success('User permanently deleted');
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Failed to delete user');
     },
   });
 
@@ -255,7 +215,7 @@ export default function UserManagement() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
-                          {!user.is_active && <Badge variant="gray">Hidden</Badge>}
+                          {!user.is_active && <Badge variant="gray">Inactive</Badge>}
                         </div>
                         {user.email && <div className="text-xs text-gray-500">{user.email}</div>}
                       </td>

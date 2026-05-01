@@ -605,6 +605,39 @@ export async function getTalentUsers() {
   return data;
 }
 
+export async function searchUsers(query: string) {
+  const q = query.trim();
+  if (q.length < 2) return { talents: [], businesses: [] };
+
+  const escaped = q.replace(/[%,]/g, '\\$&');
+  const like = `%${escaped}%`;
+
+  const [talentRes, businessRes] = await Promise.all([
+    supabaseAdmin
+      .from('talent_users')
+      .select('id, full_name, phone, current_location, profile_photo_url, is_active')
+      .or(`full_name.ilike.${like},phone.ilike.${like}`)
+      .order('created_at', { ascending: false })
+      .limit(5),
+    supabaseAdmin
+      .from('business_users')
+      .select('id, company_name, contact_person_name, contact_email')
+      .or(
+        `company_name.ilike.${like},contact_person_name.ilike.${like},contact_email.ilike.${like}`,
+      )
+      .order('created_at', { ascending: false })
+      .limit(5),
+  ]);
+
+  if (talentRes.error) throw new AppError(500, talentRes.error.message);
+  if (businessRes.error) throw new AppError(500, businessRes.error.message);
+
+  return {
+    talents: talentRes.data ?? [],
+    businesses: businessRes.data ?? [],
+  };
+}
+
 export async function getBusinessUsers() {
   const { data, error } = await supabaseAdmin
     .from('business_users')
