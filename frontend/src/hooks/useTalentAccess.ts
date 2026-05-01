@@ -36,6 +36,9 @@ export interface ProfileCardSummary {
   profile_photo_url: string | null;
   current_location: string | null;
   languages_spoken: { language: string; proficiency?: string }[];
+  age?: number | null;
+  gender?: string | null;
+  years_experience?: number | null;
   tier: Tier | null;
   tier_custom: string | null;
   top_skills: string[];
@@ -79,6 +82,12 @@ export interface ProfileDetailResponse {
     profile_photo_url: string | null;
     current_location: string | null;
     native_place: string | null;
+    country?: string | null;
+    state?: string | null;
+    current_district?: string | null;
+    city?: string | null;
+    pin_code?: string | null;
+    permanent_address?: string | null;
     age: number | null;
     gender: string | null;
     languages_spoken: { language: string; proficiency: string }[];

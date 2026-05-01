@@ -129,6 +129,18 @@ export default function TalentAccessProfileCard({
     );
   }
 
+  const experienceText =
+    profile.years_experience != null
+      ? `${profile.years_experience} yr${profile.years_experience === 1 ? '' : 's'} exp`
+      : null;
+
+  const ageGenderText = [
+    profile.age != null ? `Age ${profile.age}` : null,
+    profile.gender || null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
     <Link
       href={href}
@@ -145,27 +157,11 @@ export default function TalentAccessProfileCard({
         )}
       </div>
 
-      {profile.top_skills.length > 0 && (
-        <div className="hidden shrink-0 items-center gap-1 sm:flex">
-          {profile.top_skills.slice(0, 3).map((skill) => (
-            <span
-              key={skill}
-              className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-700"
-            >
-              {skill}
-            </span>
-          ))}
+      {(experienceText || ageGenderText) && (
+        <div className="hidden shrink-0 flex-col items-end text-[11px] text-zinc-500 sm:flex">
+          {experienceText && <span>{experienceText}</span>}
+          {ageGenderText && <span>{ageGenderText}</span>}
         </div>
-      )}
-
-      {profile.languages_spoken.length > 0 && (
-        <p className="hidden shrink-0 text-[11px] text-zinc-500 md:block">
-          {profile.languages_spoken
-            .map((l) => l.language)
-            .filter(Boolean)
-            .slice(0, 3)
-            .join(' · ')}
-        </p>
       )}
 
       <TierBadge tier={profile.tier} tierCustom={profile.tier_custom ?? undefined} />

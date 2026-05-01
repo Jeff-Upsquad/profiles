@@ -2,17 +2,41 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname() ?? '';
+  const { user, logout } = useAuth();
 
   const dashboardActive =
     pathname === '/business/dashboard' || pathname.startsWith('/business/dashboard/');
   const subscriptionActive = pathname.startsWith('/business/subscription');
   const allProfilesActive = pathname.startsWith('/business/talent-access');
 
+  const displayName =
+    (user?.role === 'business' && user?.contact_person_name) || user?.full_name || user?.email || '';
+  const displayEmail = (user?.role === 'business' && user?.contact_email) || user?.email || '';
+  const displayPhone = user?.role === 'business' ? user?.contact_phone : undefined;
+
   return (
     <div className="flex h-full w-72 flex-col border-r border-gray-200 bg-white md:w-56">
+      {/* Brand */}
+      <Link
+        href="/business/dashboard"
+        onClick={onNavigate}
+        className="flex items-center gap-2.5 border-b border-gray-100 px-4 py-4"
+      >
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#202020] text-[11px] font-bold text-white">
+          SH
+        </div>
+        <div className="flex flex-col leading-tight">
+          <span className="font-[family-name:var(--font-jakarta)] text-[15px] font-semibold tracking-[-0.02em] text-[#202020]">
+            SquadHire
+          </span>
+          <span className="text-[10px] text-[#838383]">Powered by UpSquad</span>
+        </div>
+      </Link>
+
       <nav className="flex flex-1 flex-col overflow-y-auto p-3">
         <SidebarLink
           href="/business/dashboard"
@@ -68,6 +92,32 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
           All profiles
         </SidebarLink>
       </nav>
+
+      {/* User footer */}
+      <div className="border-t border-gray-100 p-3">
+        {user && (
+          <div className="mb-2 px-1">
+            {displayName && (
+              <p className="truncate text-sm font-semibold text-zinc-900">{displayName}</p>
+            )}
+            {displayEmail && (
+              <p className="truncate text-[11px] text-zinc-500">{displayEmail}</p>
+            )}
+            {displayPhone && (
+              <p className="truncate text-[11px] text-zinc-500">{displayPhone}</p>
+            )}
+          </div>
+        )}
+        <button
+          onClick={() => logout()}
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Logout
+        </button>
+      </div>
     </div>
   );
 }

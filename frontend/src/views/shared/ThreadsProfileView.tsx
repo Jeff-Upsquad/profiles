@@ -19,6 +19,10 @@ interface TalentUser {
   languages_spoken?: { language: string; proficiency: string }[];
   age?: number | null;
   gender?: string | null;
+  country?: string | null;
+  state?: string | null;
+  current_district?: string | null;
+  city?: string | null;
 }
 
 interface ThreadsProfileViewProps {

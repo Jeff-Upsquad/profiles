@@ -640,7 +640,7 @@ export async function listProfiles(session: AccessSession, query: ProfilesQuery)
     .from('talent_profiles')
     .select(
       `id, field_data, created_at, talent_user_id,
-       talent_users!inner(full_name, profile_photo_url, current_location, languages_spoken),
+       talent_users!inner(full_name, profile_photo_url, current_location, languages_spoken, age, gender),
        categories!inner(id, name, slug)`,
     )
     .eq('category_id', query.category_id)
@@ -724,12 +724,18 @@ export async function listProfiles(session: AccessSession, query: ProfilesQuery)
   return {
     profiles: paged.map((p) => {
       const t = tierMap.get(p.id);
+      const yearsRaw = p.field_data?.years_experience;
+      const years_experience =
+        yearsRaw == null || yearsRaw === '' ? null : Number(yearsRaw);
       return {
         id: p.id,
         full_name: p.talent_users?.full_name ?? '',
         profile_photo_url: p.talent_users?.profile_photo_url ?? null,
         current_location: p.talent_users?.current_location ?? null,
         languages_spoken: p.talent_users?.languages_spoken ?? [],
+        age: p.talent_users?.age ?? null,
+        gender: p.talent_users?.gender ?? null,
+        years_experience: Number.isFinite(years_experience) ? years_experience : null,
         tier: t?.tier ?? null,
         tier_custom: t?.tier_custom ?? null,
         top_skills: extractTopSkills(p.field_data),
@@ -772,6 +778,15 @@ export async function getProfile(session: AccessSession, profileId: string) {
   const profile = profileRes.data as any;
   if (!profile) throw new AppError(404, 'Profile not found');
 
+  // Structured location lives on talent_profiles_basic (one row per talent_user).
+  const basicRes = profile.talent_users?.id
+    ? await supabaseAdmin
+        .from('talent_profiles_basic')
+        .select('country, state, current_district, city, pin_code, permanent_address, current_address')
+        .eq('talent_user_id', profile.talent_users.id)
+        .maybeSingle()
+    : null;
+
   // Authorization: profile's category must be in the session
   assertCategoryAuthorized(session, profile.category_id);
 
@@ -805,6 +820,8 @@ export async function getProfile(session: AccessSession, profileId: string) {
     .eq('talent_profile_id', profileId)
     .maybeSingle();
 
+  const basic = (basicRes?.data as any) ?? null;
+
   return {
     profile: {
       id: profile.id,
@@ -815,7 +832,15 @@ export async function getProfile(session: AccessSession, profileId: string) {
       created_at: profile.created_at,
       updated_at: profile.updated_at,
     },
-    talent_user: profile.talent_users,
+    talent_user: {
+      ...profile.talent_users,
+      country: basic?.country ?? null,
+      state: basic?.state ?? null,
+      current_district: basic?.current_district ?? null,
+      city: basic?.city ?? null,
+      pin_code: basic?.pin_code ?? null,
+      permanent_address: basic?.permanent_address ?? null,
+    },
     category,
     portfolio_items: (portfolioRes.data ?? []).map((row: any) => {
       const { portfolio_item_skills, ...rest } = row;

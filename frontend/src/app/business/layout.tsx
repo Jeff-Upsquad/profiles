@@ -35,6 +35,7 @@ export default function BusinessLayout({
   return (
     <DashboardLayout
       hideMobileSidebar
+      hideNavbar
       sidebarContent={({ onNavigate }) => <BusinessSidebar onNavigate={onNavigate} />}
     >
       {children}

@@ -58,8 +58,8 @@ function ProfileContent({ profileId }: { profileId: string }) {
               field_data: data.profile.field_data,
               created_at: data.profile.created_at,
               updated_at: data.profile.updated_at,
-              tier: data.profile.tier ?? null,
-              tier_custom: data.profile.tier_custom ?? null,
+              tier: (data as any).tier ?? null,
+              tier_custom: (data as any).tier_custom ?? null,
             }
           : null
       }
@@ -70,6 +70,10 @@ function ProfileContent({ profileId }: { profileId: string }) {
         languages_spoken: data?.talent_user.languages_spoken ?? [],
         age: data?.talent_user.age,
         gender: data?.talent_user.gender,
+        country: data?.talent_user.country ?? null,
+        state: data?.talent_user.state ?? null,
+        current_district: data?.talent_user.current_district ?? null,
+        city: data?.talent_user.city ?? null,
       }}
       category={data?.category ?? null}
       portfolioItems={data?.portfolio_items ?? []}
