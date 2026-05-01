@@ -13,7 +13,7 @@ export default function BusinessMobileNav() {
   const dashboardActive =
     pathname === '/business/dashboard' || pathname.startsWith('/business/dashboard/');
   const subscriptionActive = pathname.startsWith('/business/subscription');
-  const allProfilesActive = pathname.startsWith('/business/all-profiles');
+  const allProfilesActive = pathname.startsWith('/business/talent-access');
 
   return (
     <div className="sticky top-0 z-30 -mx-4 mb-4 border-b border-gray-200 bg-white shadow-sm md:hidden">
@@ -24,7 +24,7 @@ export default function BusinessMobileNav() {
         <Pill href="/business/subscription" active={subscriptionActive}>
           My subscription
         </Pill>
-        <Pill href="/business/all-profiles" active={allProfilesActive}>
+        <Pill href="/business/talent-access" active={allProfilesActive}>
           All profiles
         </Pill>
       </div>

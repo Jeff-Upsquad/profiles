@@ -9,7 +9,7 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
   const dashboardActive =
     pathname === '/business/dashboard' || pathname.startsWith('/business/dashboard/');
   const subscriptionActive = pathname.startsWith('/business/subscription');
-  const allProfilesActive = pathname.startsWith('/business/all-profiles');
+  const allProfilesActive = pathname.startsWith('/business/talent-access');
 
   return (
     <div className="flex h-full w-72 flex-col border-r border-gray-200 bg-white md:w-56">
@@ -51,7 +51,7 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
         </SidebarLink>
 
         <SidebarLink
-          href="/business/all-profiles"
+          href="/business/talent-access"
           active={allProfilesActive}
           onNavigate={onNavigate}
           icon={
