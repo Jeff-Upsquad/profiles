@@ -6,7 +6,7 @@ import type { SignupTalentInput, LoginInput } from '../validators/auth.validator
 import type { UserRole } from '../../../shared/src/types/auth.js';
 
 export async function signupTalent(input: SignupTalentInput) {
-  const { email, password, full_name, ...profileData } = input;
+  const { email, password, full_name, country, state, current_district, ...profileData } = input;
 
   // Gate: check for valid invitation
   const invitation = await checkInvitation(email, 'talent');
@@ -31,10 +31,6 @@ export async function signupTalent(input: SignupTalentInput) {
 
   const userId = authData.user.id;
 
-  // Honor the auto-approve setting at signup time. Without this, brand-new
-  // signups land in `pending` even when the toggle is on — only the
-  // toggle-flip bulk approve and the profile-submission inline approve cover
-  // that case, leaving fresh signups stuck until they submit a profile.
   const autoApprove = (await getAdminSetting<boolean>('auto_approve_signups')) === true;
 
   // Insert into talent_users table
@@ -60,13 +56,25 @@ export async function signupTalent(input: SignupTalentInput) {
     throw new AppError(500, 'Failed to create talent profile');
   }
 
+  // Create basic profile with location data
+  if (country || state || current_district) {
+    const { error: basicError } = await supabaseAdmin
+      .from('talent_profiles_basic')
+      .insert({
+        talent_user_id: userId,
+        country: country || 'India',
+        state: state || null,
+        current_district: current_district || null,
+      });
+    if (basicError) {
+      console.error('Basic profile insert error (non-fatal):', basicError);
+    }
+  }
+
   // Mark invitation as accepted
   await markInvitationAccepted(invitation.id);
 
-  // Best-effort: link any pre-existing lead_submissions to this new talent
-  // user. Match by email (case-insensitive) OR last 10 digits of phone, since
-  // signup phone may not be normalized to lead_submissions' +91xxxxxxxxxx.
-  // Failure is non-fatal — signup still succeeds.
+  // Best-effort: link any pre-existing lead_submissions
   const phoneDigits = (profileData.phone ?? '').replace(/\D/g, '');
   const last10 = phoneDigits.length >= 10 ? phoneDigits.slice(-10) : null;
   try {
@@ -79,25 +87,42 @@ export async function signupTalent(input: SignupTalentInput) {
     console.error('Lead linking failed (non-fatal):', e);
   }
 
-  // Sign in to get tokens
-  const { data: session, error: signInError } = await supabaseAnon.auth.signInWithPassword({
-    email,
-    password,
-  });
+  return { message: 'Account created successfully. Please sign in to continue.' };
+}
 
-  if (signInError || !session.session) {
-    throw new AppError(500, 'Account created but failed to sign in');
+export async function checkCandidateStatus(input: { email?: string; phone?: string }) {
+  const normalizedEmail = input.email?.trim().toLowerCase() || null;
+  const phoneDigits = input.phone ? input.phone.replace(/\D/g, '').slice(-10) : null;
+  const normalizedPhone = phoneDigits && phoneDigits.length === 10 ? phoneDigits : null;
+
+  if (!normalizedEmail && !normalizedPhone) {
+    return { found: false, submissions: [] };
+  }
+
+  const conditions: string[] = [];
+  if (normalizedEmail) conditions.push(`email.ilike.${normalizedEmail}`);
+  if (normalizedPhone) conditions.push(`phone.like.%${normalizedPhone}`);
+
+  const { data, error } = await supabaseAdmin
+    .from('lead_submissions')
+    .select('name, form_type, status, created_at')
+    .or(conditions.join(','))
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  if (error) {
+    console.error('Candidate status check error:', error);
+    return { found: false, submissions: [] };
   }
 
   return {
-    access_token: session.session.access_token,
-    refresh_token: session.session.refresh_token,
-    user: {
-      id: userId,
-      email,
-      role: 'talent' as UserRole,
-      approval_status: autoApprove ? ('approved' as const) : ('pending' as const),
-    },
+    found: (data ?? []).length > 0,
+    submissions: (data ?? []).map(s => ({
+      name: s.name,
+      form_type: s.form_type,
+      status: s.status,
+      submitted_at: s.created_at,
+    })),
   };
 }
 
