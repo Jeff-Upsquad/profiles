@@ -276,6 +276,10 @@ export interface TalentAccessProfileFilters {
   category_id: string;
   tier?: string[];
   location?: string[];
+  /** Structured location facets — talent_profiles_basic.country/state/current_district. */
+  country?: string[];
+  state?: string[];
+  district?: string[];
   language?: string[];
   skill?: string[];
   ai_tool?: string[];
@@ -306,6 +310,9 @@ export function useBusinessTalentAccessProfiles(filters: TalentAccessProfileFilt
       params.set('category_id', filters.category_id);
       appendCsv(params, 'tier', filters.tier);
       appendCsv(params, 'location', filters.location);
+      appendCsv(params, 'country', filters.country);
+      appendCsv(params, 'state', filters.state);
+      appendCsv(params, 'district', filters.district);
       appendCsv(params, 'language', filters.language);
       appendCsv(params, 'skill', filters.skill);
       appendCsv(params, 'ai_tool', filters.ai_tool);

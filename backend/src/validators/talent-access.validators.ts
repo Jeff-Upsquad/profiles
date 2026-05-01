@@ -66,7 +66,13 @@ const csvArray = <T extends z.ZodTypeAny>(item: T) =>
 export const profilesQuerySchema = z.object({
   category_id: z.string().uuid('category_id is required'),
   tier: csvArray(z.enum(TIER_VALUES)),
+  // `location` is the legacy free-text current_location filter on talent_users.
+  // Kept for backwards compat — the new structured filters below are sourced
+  // from talent_profiles_basic (country/state/current_district).
   location: csvArray(z.string().trim().min(1)),
+  country: csvArray(z.string().trim().min(1)),
+  state: csvArray(z.string().trim().min(1)),
+  district: csvArray(z.string().trim().min(1)),
   language: csvArray(z.string().trim().min(1)),
   skill: csvArray(z.string().trim().min(1)),
   ai_tool: csvArray(z.string().trim().min(1)),

@@ -17,7 +17,12 @@ const TIERS: { value: Tier; label: string }[] = [
 
 export interface FilterState {
   tier?: Tier[];
+  /** Free-text current_location (legacy). */
   location?: string[];
+  /** Structured location: talent_profiles_basic.country/state/current_district. */
+  country?: string[];
+  state?: string[];
+  district?: string[];
   language?: string[];
   skill?: string[];
   ai_tool?: string[];
@@ -112,12 +117,22 @@ export default function TalentAccessFilters({ categoryId, value, onChange, filte
 
   const tierCount = value.tier?.length ?? 0;
   const locationCount = value.location?.length ?? 0;
+  const countryCount = value.country?.length ?? 0;
+  const stateCount = value.state?.length ?? 0;
+  const districtCount = value.district?.length ?? 0;
   const languageCount = value.language?.length ?? 0;
   const skillCount = value.skill?.length ?? 0;
   const aiToolCount = value.ai_tool?.length ?? 0;
 
   const totalSelected =
-    tierCount + locationCount + languageCount + skillCount + aiToolCount;
+    tierCount +
+    locationCount +
+    countryCount +
+    stateCount +
+    districtCount +
+    languageCount +
+    skillCount +
+    aiToolCount;
 
   return (
     <aside className="min-w-0 space-y-5 overflow-hidden">
@@ -167,31 +182,99 @@ export default function TalentAccessFilters({ categoryId, value, onChange, filte
         </div>
       </Section>
 
-      {/* Location */}
-      <Section
-        title="Location"
-        count={locationCount}
-        onClear={() => onChange({ ...value, location: undefined })}
-        scroll={(options?.locations ?? []).length > 6}
-      >
-        {isLoading ? (
-          <p className="text-xs text-zinc-400">Loading…</p>
-        ) : (options?.locations ?? []).length === 0 ? (
-          <p className="text-xs text-zinc-400">No locations available.</p>
-        ) : (
-          options!.locations.map((loc) => (
+      {/* Country (structured, from talent_profiles_basic) */}
+      {(options?.countries ?? []).length > 0 && (
+        <Section
+          title="Country"
+          count={countryCount}
+          onClear={() => onChange({ ...value, country: undefined })}
+          scroll={(options?.countries ?? []).length > 6}
+        >
+          {options!.countries.map((c) => (
             <CheckboxRow
-              key={loc}
-              checked={!!value.location?.includes(loc)}
+              key={c}
+              checked={!!value.country?.includes(c)}
               onChange={() =>
-                onChange({ ...value, location: toggle(value.location, loc) })
+                onChange({ ...value, country: toggle(value.country, c) })
               }
             >
-              {loc}
+              {c}
             </CheckboxRow>
-          ))
-        )}
-      </Section>
+          ))}
+        </Section>
+      )}
+
+      {/* State (structured) */}
+      {(options?.states ?? []).length > 0 && (
+        <Section
+          title="State"
+          count={stateCount}
+          onClear={() => onChange({ ...value, state: undefined })}
+          scroll={(options?.states ?? []).length > 6}
+        >
+          {options!.states.map((s) => (
+            <CheckboxRow
+              key={s}
+              checked={!!value.state?.includes(s)}
+              onChange={() =>
+                onChange({ ...value, state: toggle(value.state, s) })
+              }
+            >
+              {s}
+            </CheckboxRow>
+          ))}
+        </Section>
+      )}
+
+      {/* District (structured) */}
+      {(options?.districts ?? []).length > 0 && (
+        <Section
+          title="District"
+          count={districtCount}
+          onClear={() => onChange({ ...value, district: undefined })}
+          scroll={(options?.districts ?? []).length > 6}
+        >
+          {options!.districts.map((d) => (
+            <CheckboxRow
+              key={d}
+              checked={!!value.district?.includes(d)}
+              onChange={() =>
+                onChange({ ...value, district: toggle(value.district, d) })
+              }
+            >
+              {d}
+            </CheckboxRow>
+          ))}
+        </Section>
+      )}
+
+      {/* Location (legacy free-text current_location). Hidden when no values
+          remain — once everyone has structured country/state/district set,
+          this section disappears organically without a code change. */}
+      {(options?.locations ?? []).length > 0 && (
+        <Section
+          title="Location (free-text)"
+          count={locationCount}
+          onClear={() => onChange({ ...value, location: undefined })}
+          scroll={(options?.locations ?? []).length > 6}
+        >
+          {isLoading ? (
+            <p className="text-xs text-zinc-400">Loading…</p>
+          ) : (
+            options!.locations.map((loc) => (
+              <CheckboxRow
+                key={loc}
+                checked={!!value.location?.includes(loc)}
+                onChange={() =>
+                  onChange({ ...value, location: toggle(value.location, loc) })
+                }
+              >
+                {loc}
+              </CheckboxRow>
+            ))
+          )}
+        </Section>
+      )}
 
       {/* Language */}
       <Section

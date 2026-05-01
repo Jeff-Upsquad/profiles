@@ -613,11 +613,33 @@ export async function listProfiles(session: AccessSession, query: ProfilesQuery)
     }
   }
 
+  // 1b. Country/state/district filters live on talent_profiles_basic (one row
+  //     per talent_user). Pre-filter to a set of matching talent_user_ids and
+  //     intersect that into the main query. Skip the round-trip when no
+  //     structured-location filters are active.
+  let allowedTalentUserIds: string[] | null = null;
+  const hasStructuredLocation =
+    (query.country && query.country.length > 0) ||
+    (query.state && query.state.length > 0) ||
+    (query.district && query.district.length > 0);
+  if (hasStructuredLocation) {
+    let bq = supabaseAdmin.from('talent_profiles_basic').select('talent_user_id');
+    if (query.country && query.country.length > 0) bq = bq.in('country', query.country);
+    if (query.state && query.state.length > 0) bq = bq.in('state', query.state);
+    if (query.district && query.district.length > 0) bq = bq.in('current_district', query.district);
+    const { data: basicRows, error: basicErr } = await bq;
+    if (basicErr) throw new AppError(500, basicErr.message);
+    allowedTalentUserIds = (basicRows ?? []).map((r: any) => r.talent_user_id as string);
+    if (allowedTalentUserIds.length === 0) {
+      return { profiles: [], page, per_page: PER_PAGE, total: 0 };
+    }
+  }
+
   // 2. Base query
   let qb = supabaseAdmin
     .from('talent_profiles')
     .select(
-      `id, field_data, created_at,
+      `id, field_data, created_at, talent_user_id,
        talent_users!inner(full_name, profile_photo_url, current_location, languages_spoken),
        categories!inner(id, name, slug)`,
     )
@@ -628,6 +650,7 @@ export async function listProfiles(session: AccessSession, query: ProfilesQuery)
     .is('deleted_at', null);
 
   if (allowedIds) qb = qb.in('id', allowedIds);
+  if (allowedTalentUserIds) qb = qb.in('talent_user_id', allowedTalentUserIds);
   if (query.location && query.location.length > 0) {
     qb = qb.in('talent_users.current_location', query.location);
   }
@@ -834,7 +857,7 @@ export async function getFilterOptions(session: AccessSession, categoryId: strin
     supabaseAdmin
       .from('talent_profiles')
       .select(
-        'talent_users!inner(current_location, languages_spoken)',
+        'talent_user_id, talent_users!inner(current_location, languages_spoken)',
       )
       .eq('category_id', categoryId)
       .eq('status', 'approved')
@@ -850,6 +873,7 @@ export async function getFilterOptions(session: AccessSession, categoryId: strin
 
   const locations = new Set<string>();
   const languages = new Set<string>();
+  const talentUserIds: string[] = [];
   for (const row of profilesRes.data ?? []) {
     const tu = (row as any).talent_users;
     if (tu?.current_location) locations.add(tu.current_location.trim());
@@ -858,11 +882,37 @@ export async function getFilterOptions(session: AccessSession, categoryId: strin
         if (l?.language) languages.add(String(l.language).trim());
       }
     }
+    const tid = (row as any).talent_user_id as string | undefined;
+    if (tid) talentUserIds.push(tid);
+  }
+
+  // Structured location facets (country/state/district) come from
+  // talent_profiles_basic — one row per talent_user. We restrict the lookup
+  // to the talent_users that actually have a profile in this category so the
+  // filter dropdowns don't list locations from talents the business can't see.
+  const countries = new Set<string>();
+  const states = new Set<string>();
+  const districts = new Set<string>();
+  if (talentUserIds.length > 0) {
+    const { data: basicRows, error: basicErr } = await supabaseAdmin
+      .from('talent_profiles_basic')
+      .select('country, state, current_district')
+      .in('talent_user_id', talentUserIds);
+    if (basicErr) throw new AppError(500, basicErr.message);
+    for (const row of basicRows ?? []) {
+      const r = row as any;
+      if (r.country) countries.add(String(r.country).trim());
+      if (r.state) states.add(String(r.state).trim());
+      if (r.current_district) districts.add(String(r.current_district).trim());
+    }
   }
 
   return {
     tiers: ['junior', 'pro', 'elite', 'custom'] as Tier[],
     locations: Array.from(locations).filter(Boolean).sort(),
+    countries: Array.from(countries).filter(Boolean).sort(),
+    states: Array.from(states).filter(Boolean).sort(),
+    districts: Array.from(districts).filter(Boolean).sort(),
     languages: Array.from(languages).filter(Boolean).sort(),
     skills: (skillsRes.data ?? []).map((r: any) => r.name as string),
     tools: (toolsRes.data ?? []).map((r: any) => r.name as string),

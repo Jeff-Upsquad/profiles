@@ -51,7 +51,12 @@ export interface ProfilesResponse {
 
 export interface FilterOptions {
   tiers: Tier[];
+  /** Free-text current_location filter (legacy). */
   locations: string[];
+  /** Structured location facets sourced from talent_profiles_basic. */
+  countries: string[];
+  states: string[];
+  districts: string[];
   languages: string[];
   skills: string[];
   tools: string[];

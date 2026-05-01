@@ -33,8 +33,8 @@ export default function BusinessMobileNav() {
     categoryMatch && categoryMatch[1] !== 'cards' ? categoryMatch[1] : null;
 
   return (
-    <div className="sticky top-[60px] z-10 -mx-4 mb-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm md:hidden">
-      <div className="flex gap-1.5 overflow-x-auto px-4 py-2 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+    <div className="sticky top-[60px] z-30 -mx-4 mb-4 border-b border-gray-200 bg-white shadow-sm md:hidden">
+      <div className="flex gap-2 overflow-x-auto px-4 py-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <Pill href="/business/dashboard" active={dashboardActive && !activeCategoryId}>
           Dashboard
         </Pill>
@@ -69,9 +69,9 @@ function Pill({
   return (
     <Link
       href={href}
-      className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
+      className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
         active
-          ? 'border-indigo-600 bg-indigo-600 text-white'
+          ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
           : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
       }`}
     >

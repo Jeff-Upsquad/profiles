@@ -15,6 +15,9 @@ function totalSelected(f: FilterState): number {
   return (
     (f.tier?.length ?? 0) +
     (f.location?.length ?? 0) +
+    (f.country?.length ?? 0) +
+    (f.state?.length ?? 0) +
+    (f.district?.length ?? 0) +
     (f.language?.length ?? 0) +
     (f.skill?.length ?? 0) +
     (f.ai_tool?.length ?? 0)
@@ -51,6 +54,9 @@ export default function BusinessTalentAccess() {
     category_id: activeCategoryId,
     tier: filters.tier,
     location: filters.location,
+    country: filters.country,
+    state: filters.state,
+    district: filters.district,
     language: filters.language,
     skill: filters.skill,
     ai_tool: filters.ai_tool,
@@ -142,13 +148,23 @@ export default function BusinessTalentAccess() {
 
         {/* Profiles grid */}
         <section className="min-w-0">
-          {/* Mobile: filters toggle + search + count */}
+          {/* Search bar with Filters button on the right (mobile only). On
+              desktop the sidebar handles filtering and this button isn't
+              rendered. */}
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name…"
+                className="min-w-0 flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:w-72 sm:flex-initial"
+              />
               <button
                 type="button"
-                onClick={() => setFiltersOpenMobile((v) => !v)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 lg:hidden"
+                onClick={() => setFiltersOpenMobile(true)}
+                className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 lg:hidden"
+                aria-haspopup="dialog"
                 aria-expanded={filtersOpenMobile}
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -161,13 +177,6 @@ export default function BusinessTalentAccess() {
                   </span>
                 )}
               </button>
-              <input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name…"
-                className="min-w-0 flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:w-72 sm:flex-initial"
-              />
             </div>
             <p className="text-xs text-zinc-500">
               {profilesQuery.isLoading
@@ -176,18 +185,53 @@ export default function BusinessTalentAccess() {
             </p>
           </div>
 
-          {/* Filters — mobile (inline collapsible) */}
+          {/* Filters drawer (mobile). Slides in from the right; tap-outside or
+              the X button closes it. ESC also closes via the keydown handler
+              on the dialog. lg:hidden so desktop never renders it. */}
           {filtersOpenMobile && (
-            <div className="mb-4 rounded-2xl border border-zinc-200 bg-white p-4 lg:hidden">
-              {activeCategoryId && (
-                <TalentAccessFilters
-                  categoryId={activeCategoryId}
-                  value={filters}
-                  onChange={setFilters}
-                  filterOptions={filterOptionsQuery.data}
-                  filterOptionsLoading={filterOptionsQuery.isLoading}
-                />
-              )}
+            <div className="lg:hidden" role="dialog" aria-modal="true" aria-label="Filters">
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
+                onClick={() => setFiltersOpenMobile(false)}
+                aria-hidden
+              />
+              {/* Panel — full-height, right-anchored, scrolls internally */}
+              <div className="fixed inset-y-0 right-0 z-50 flex w-[88%] max-w-sm flex-col border-l border-zinc-200 bg-white shadow-xl">
+                <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
+                  <h2 className="text-sm font-semibold text-zinc-900">Filters</h2>
+                  <button
+                    onClick={() => setFiltersOpenMobile(false)}
+                    className="-mr-1 rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+                    aria-label="Close filters"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4">
+                  {activeCategoryId && (
+                    <TalentAccessFilters
+                      categoryId={activeCategoryId}
+                      value={filters}
+                      onChange={setFilters}
+                      filterOptions={filterOptionsQuery.data}
+                      filterOptionsLoading={filterOptionsQuery.isLoading}
+                    />
+                  )}
+                </div>
+                <div className="border-t border-zinc-200 px-4 py-3">
+                  <button
+                    onClick={() => setFiltersOpenMobile(false)}
+                    className="w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 active:scale-[0.98]"
+                  >
+                    {profilesQuery.isLoading
+                      ? 'Updating…'
+                      : `Show ${total} ${total === 1 ? 'profile' : 'profiles'}`}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
