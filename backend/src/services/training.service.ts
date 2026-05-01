@@ -400,6 +400,18 @@ export async function markLessonIncomplete(userId: string, lessonId: string) {
 export async function getModuleAccess(userId: string, categoryIds: string[]) {
   if (categoryIds.length === 0) return { unlocked: [] as string[], locked: [] as any[] };
 
+  // Grandfather: users with at least one approved profile bypass module locks
+  const { data: approvedProfiles, error: apErr } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('id')
+    .eq('talent_user_id', userId)
+    .eq('status', 'approved')
+    .is('deleted_at', null)
+    .limit(1);
+
+  if (apErr) throw new AppError(500, `Failed to check approval status: ${apErr.message}`);
+  const hasApprovedProfile = (approvedProfiles?.length ?? 0) > 0;
+
   const { data: joinRows, error: jErr } = await supabaseAdmin
     .from('training_chapter_categories')
     .select('chapter_id')
@@ -453,7 +465,7 @@ export async function getModuleAccess(userId: string, categoryIds: string[]) {
     const completedCount = lessonIds.filter((id) => completedSet.has(id)).length;
     const total = lessonIds.length;
 
-    if (total === 0 || completedCount === total) {
+    if (hasApprovedProfile || total === 0 || completedCount === total) {
       unlocked.push(ch.linked_module);
     } else {
       locked.push({
