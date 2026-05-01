@@ -274,7 +274,7 @@ export default function CreativeLeadForm() {
                 <span className="text-prism text-prism-animated">who care about craft.</span>
               </h1>
               <p className="mt-6 max-w-xl text-base leading-relaxed text-canvas-600 sm:text-lg">
-                Tell us who you are, share your work — we&rsquo;ll match you with employers
+                Tell us who you are, share your work — we&rsquo;ll match you with Businesses, Brands, and Employers
                 who care about craft as much as you do. Four chapters, about three minutes.
               </p>
             </div>
