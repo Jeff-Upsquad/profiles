@@ -1,16 +1,15 @@
 import type { NextConfig } from 'next';
 
-// CSP frame-src allowlist for portfolio link embeds. The link-paste feature
-// is currently scoped to YouTube only — Vimeo/Loom/Dropbox/Drive entries
-// have been trimmed. Backend re-validation in talent.service is the actual
-// security boundary; CSP is defense-in-depth against an iframe URL slipping
-// past the parser. Historical rows with non-YouTube providers will render a
-// blank iframe in the lightbox (we audited and there are none in prod at
-// the time of this trim).
+// CSP frame-src allowlist. YouTube is for portfolio link embeds (link-paste
+// feature). Loom is for training program lesson videos (admin-curated only,
+// not user-supplied). Backend validators are the actual security boundary;
+// CSP is defense-in-depth against a stray iframe URL.
 const FRAME_SRC_ALLOWLIST = [
   "'self'",
   'https://www.youtube.com',
   'https://www.youtube-nocookie.com',
+  'https://www.loom.com',
+  'https://loom.com',
 ].join(' ');
 
 const nextConfig: NextConfig = {
