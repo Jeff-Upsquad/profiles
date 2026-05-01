@@ -131,8 +131,13 @@ export default function TalentProfileList({ categoryId, stateName }: { categoryI
     const stc: Record<string, number> = {};
 
     scopedProfiles.forEach((p, i) => {
-      if (!p.is_active) return;
       const tk = tierKeyOf(p);
+      if (!p.is_active) {
+        sc.inactive = (sc.inactive ?? 0) + 1;
+        if (!mx.inactive) mx.inactive = { elite: 0, pro: 0, junior: 0, custom: 0, none: 0 };
+        mx.inactive[tk]++;
+        return;
+      }
       tc[tk]++;
       sc[p.status] = (sc[p.status] ?? 0) + 1;
       if (!mx[p.status]) mx[p.status] = { elite: 0, pro: 0, junior: 0, custom: 0, none: 0 };
@@ -161,8 +166,16 @@ export default function TalentProfileList({ categoryId, stateName }: { categoryI
   const filteredProfiles = useMemo(() => {
     let list = scopedProfiles;
     let locs = profileLocations;
-    if (statusFilter) {
-      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => p.status === statusFilter);
+    if (statusFilter === 'inactive') {
+      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => !p.is_active);
+      list = idx.map(([p]) => p);
+      locs = idx.map(([, l]) => l);
+    } else if (statusFilter) {
+      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => p.is_active && p.status === statusFilter);
+      list = idx.map(([p]) => p);
+      locs = idx.map(([, l]) => l);
+    } else {
+      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => p.is_active);
       list = idx.map(([p]) => p);
       locs = idx.map(([, l]) => l);
     }
