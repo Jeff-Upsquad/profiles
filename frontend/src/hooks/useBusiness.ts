@@ -197,6 +197,10 @@ export interface BusinessSubscriptionCardSummary {
   brand_name: string | null;
   subscription_name: string | null;
   plan_name: string | null;
+  /** Partner skill bracket — Junior/Pro/Elite — rendered alongside
+   *  plan_name on the card row. Null on legacy rows that predate the
+   *  SquadHub fix that sends this field. */
+  plan_tier: string | null;
   customer_monthly_price: number | null;
   currency: string | null;
   status: 'active' | 'archived';

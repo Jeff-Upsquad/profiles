@@ -7,12 +7,24 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Logged-in users land on their own dashboard when they tap the logo —
+  // bouncing them back to the marketing landing page is just friction.
+  // Anonymous visitors still get the landing page.
+  const logoHref =
+    user?.role === 'business'
+      ? '/business/dashboard'
+      : user?.role === 'talent'
+        ? '/talent/dashboard'
+        : user?.role === 'admin'
+          ? '/admin'
+          : '/';
+
   return (
     <nav className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-md border-b border-[#ECECEF]">
       <div className="mx-auto max-w-[1120px] px-5 sm:px-6">
         <div className="flex h-[60px] items-center justify-between gap-8">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href={logoHref} className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#202020] text-[11px] font-bold text-white">
               SH
             </div>

@@ -568,6 +568,9 @@ export async function listMySubscriptionCards(businessUserId: string) {
       brand_name: (content.brand_name as string) ?? null,
       subscription_name: (content.subscription_name as string) ?? null,
       plan_name: (content.plan_name as string) ?? null,
+      // Partner skill bracket (Junior/Pro/Elite). Sent separately from
+      // plan_name by SquadHub so the dashboard can render "Plan · Tier".
+      plan_tier: (content.plan_tier as string) ?? null,
       customer_monthly_price:
         typeof content.customer_monthly_price === 'number' ? content.customer_monthly_price : null,
       currency: (content.currency as string) ?? null,

@@ -1,8 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useMySubscriptionCards, type BusinessSubscriptionCardSummary } from '@/hooks/useBusiness';
+
+type Tab = 'open' | 'closed';
 
 function formatPrice(amount: number | null, currency: string | null): string | null {
   if (amount == null) return null;
@@ -47,9 +50,28 @@ function cardTitle(card: BusinessSubscriptionCardSummary): string {
   return right ? `${left} · ${right}` : left;
 }
 
+/**
+ * Build the "Plan · Tier" subtitle. Both fields can be null on legacy cards
+ * (anything ingested before the SquadHub plan/tier fix). We render whatever
+ * we have and skip the row when both are null.
+ *
+ *   plan='Pro',    tier='Elite'   →  'Pro · Elite'
+ *   plan='Pro',    tier=null      →  'Pro'
+ *   plan=null,     tier='Elite'   →  'Elite tier'
+ *   plan=null,     tier=null      →  null  (subtitle hidden)
+ */
+function planSubtitle(card: BusinessSubscriptionCardSummary): string | null {
+  const { plan_name, plan_tier } = card;
+  if (plan_name && plan_tier) return `${plan_name} · ${plan_tier}`;
+  if (plan_name) return plan_name;
+  if (plan_tier) return `${plan_tier} tier`;
+  return null;
+}
+
 export default function BusinessDashboard() {
   const { user } = useAuth();
   const { data: cards, isLoading } = useMySubscriptionCards();
+  const [tab, setTab] = useState<Tab>('open');
 
   // Open holds anything still in play: live cards plus recalled-but-accepted
   // ones (the lead is alive via the acceptee). Closed is terminal — search
@@ -57,6 +79,7 @@ export default function BusinessDashboard() {
   // because the API already does that.
   const open = (cards ?? []).filter((c) => classifyCard(c) !== 'closed');
   const closed = (cards ?? []).filter((c) => classifyCard(c) === 'closed');
+  const visible = tab === 'open' ? open : closed;
 
   const greeting = (
     <div className="mb-5">
@@ -99,31 +122,96 @@ export default function BusinessDashboard() {
   return (
     <>
       {greeting}
-      {open.length > 0 && <CardSection label="Open" items={open} />}
-      {closed.length > 0 && <CardSection label="Closed" items={closed} muted />}
+      <Tabs
+        active={tab}
+        onChange={setTab}
+        openCount={open.length}
+        closedCount={closed.length}
+      />
+      {visible.length === 0 ? (
+        <EmptyTabState tab={tab} />
+      ) : (
+        <div className="grid gap-2 md:grid-cols-2">
+          {visible.map((card) => (
+            <SubscriptionCardRow key={card.id} card={card} muted={tab === 'closed'} />
+          ))}
+        </div>
+      )}
     </>
   );
 }
 
-function CardSection({
-  label,
-  items,
-  muted = false,
+function Tabs({
+  active,
+  onChange,
+  openCount,
+  closedCount,
 }: {
-  label: string;
-  items: BusinessSubscriptionCardSummary[];
-  muted?: boolean;
+  active: Tab;
+  onChange: (tab: Tab) => void;
+  openCount: number;
+  closedCount: number;
+}) {
+  // Underlined tab pattern — keeps the page lightweight and matches the
+  // muted, content-first feel of the rest of the dashboard. role="tablist"
+  // gives screen readers + keyboard nav free.
+  return (
+    <div className="mb-4 border-b border-gray-200" role="tablist" aria-label="Subscription cards">
+      <div className="flex gap-1 overflow-x-auto">
+        <TabButton active={active === 'open'} onClick={() => onChange('open')} count={openCount}>
+          Open
+        </TabButton>
+        <TabButton active={active === 'closed'} onClick={() => onChange('closed')} count={closedCount}>
+          Closed
+        </TabButton>
+      </div>
+    </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  count,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  count: number;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="mb-6">
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-        {label} <span className="text-gray-400">({items.length})</span>
-      </p>
-      <div className="grid gap-2 md:grid-cols-2">
-        {items.map((card) => (
-          <SubscriptionCardRow key={card.id} card={card} muted={muted} />
-        ))}
-      </div>
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={`relative -mb-px flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors ${
+        active
+          ? 'border-b-2 border-indigo-600 text-indigo-700'
+          : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700'
+      }`}
+    >
+      <span>{children}</span>
+      <span
+        className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+          active ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500'
+        }`}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function EmptyTabState({ tab }: { tab: Tab }) {
+  const message =
+    tab === 'open'
+      ? 'No open subscription cards right now.'
+      : 'No closed cards yet — finished hires will land here.';
+  return (
+    <div className="rounded-xl border border-dashed border-gray-200 bg-white p-8 text-center">
+      <p className="text-sm text-gray-500">{message}</p>
     </div>
   );
 }
@@ -163,8 +251,8 @@ function SubscriptionCardRow({
               </span>
             )}
           </div>
-          {card.plan_name && (
-            <p className="mt-0.5 truncate text-xs text-gray-500">{card.plan_name}</p>
+          {planSubtitle(card) && (
+            <p className="mt-0.5 truncate text-xs text-gray-500">{planSubtitle(card)}</p>
           )}
         </div>
         {price && (
