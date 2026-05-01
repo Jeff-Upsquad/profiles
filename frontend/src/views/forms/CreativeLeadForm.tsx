@@ -8,6 +8,7 @@ import Select from '@/components/ui/Select';
 import ChipSelect from '@/components/ui/ChipSelect';
 import { CREATIVE_ROLES, WORK_TYPE_SEEKING_OPTIONS, GENDER_OPTIONS } from '@/constants/lead-form-options';
 import { COUNTRIES, INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-locations';
+import { COUNTRY_CODES } from '@/constants/country-codes';
 import AlreadySubmittedModal from '@/components/forms/AlreadySubmittedModal';
 import SubmissionResultScreen from '@/components/forms/SubmissionResultScreen';
 import { useDuplicateContactCheck } from '@/hooks/useDuplicateContactCheck';
@@ -86,6 +87,7 @@ function Section({ index, title, description, delay = 0, children }: SectionProp
 export default function CreativeLeadForm() {
   const searchParams = useSearchParams();
   const [form, setForm] = useState(initial);
+  const [countryCode, setCountryCode] = useState('+91');
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -122,8 +124,10 @@ export default function CreativeLeadForm() {
 
     if (!form.name.trim()) errs.name = 'Name is required';
     if (!form.phone.trim()) errs.phone = 'WhatsApp number is required';
-    else if (!/^\+?91[6-9]\d{9}$/.test(form.phone.replace(/\s/g, '')))
-      errs.phone = 'Enter a valid 10-digit mobile number';
+    else {
+      const digits = form.phone.replace(countryCode, '');
+      if (digits.length < 7 || digits.length > 15) errs.phone = 'Enter a valid phone number';
+    }
     if (!form.email.trim()) errs.email = 'Email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       errs.email = 'Enter a valid email';
@@ -323,29 +327,36 @@ export default function CreativeLeadForm() {
             <div className="field-saas">
               <label className="block">WhatsApp Number<span className="ml-1 text-iris-500">*</span></label>
               <div className="mt-2 flex items-stretch gap-2">
-                <span className="inline-flex items-center rounded-xl border border-canvas-200 bg-canvas-50 px-3.5 text-sm font-medium text-canvas-600">
-                  +91
-                </span>
+                <select
+                  className="w-[100px] shrink-0 rounded-xl border border-canvas-200 bg-canvas-50 px-2 text-sm font-medium text-canvas-600"
+                  value={countryCode}
+                  onChange={(e) => {
+                    const newCode = e.target.value;
+                    const digits = form.phone.replace(countryCode, '');
+                    setCountryCode(newCode);
+                    setForm((prev) => ({ ...prev, phone: newCode + digits }));
+                  }}
+                >
+                  {COUNTRY_CODES.map((cc) => (
+                    <option key={cc.code} value={cc.code}>{cc.label}</option>
+                  ))}
+                </select>
                 <input
                   type="tel"
                   inputMode="numeric"
-                  maxLength={10}
+                  maxLength={15}
                   className="flex-1"
-                  placeholder="10-digit mobile"
-                  value={form.phone.replace(/^\+91/, '')}
+                  placeholder="Phone number"
+                  value={form.phone.replace(countryCode, '')}
                   onChange={(e) => {
-                    let digits = e.target.value.replace(/\D/g, '');
-                    while (digits.length > 10 && digits.startsWith('91')) {
-                      digits = digits.slice(2);
-                    }
-                    digits = digits.slice(0, 10);
-                    setForm((prev) => ({ ...prev, phone: '+91' + digits }));
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 15);
+                    setForm((prev) => ({ ...prev, phone: countryCode + digits }));
                     setErrors((prev) => ({ ...prev, phone: undefined }));
                     dup.clearPhone();
                   }}
                   onBlur={() => {
-                    const digits = form.phone.replace(/^\+91/, '');
-                    if (digits.length === 10) dup.checkPhone(digits);
+                    const digits = form.phone.replace(countryCode, '');
+                    if (digits.length >= 7) dup.checkPhone(digits);
                   }}
                 />
               </div>
