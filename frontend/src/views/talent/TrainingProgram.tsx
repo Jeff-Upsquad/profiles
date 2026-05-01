@@ -24,11 +24,13 @@ function loomEmbedUrl(shareUrl: string): string {
 
 function useTrainingLanguage(available: string[]) {
   const [language, setLanguageState] = useState<string>('en');
+  const [hasSelected, setHasSelected] = useState<boolean>(false);
 
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem(LANG_STORAGE_KEY) : null;
     if (stored && available.includes(stored)) {
       setLanguageState(stored);
+      setHasSelected(true);
     } else if (available.length > 0 && !available.includes(language)) {
       setLanguageState(available[0]);
     }
@@ -37,33 +39,40 @@ function useTrainingLanguage(available: string[]) {
 
   const setLanguage = (lang: string) => {
     setLanguageState(lang);
+    setHasSelected(true);
     if (typeof window !== 'undefined') {
       localStorage.setItem(LANG_STORAGE_KEY, lang);
     }
   };
 
-  return [language, setLanguage] as const;
+  return [language, setLanguage, hasSelected] as const;
 }
 
 function LanguagePicker({
   language,
   available,
   onChange,
+  highlight = false,
 }: {
   language: string;
   available: string[];
   onChange: (lang: string) => void;
+  highlight?: boolean;
 }) {
   if (available.length <= 1) return null;
   return (
-    <div className="flex items-center gap-2">
+    <div className={`relative flex items-center gap-2 ${highlight ? 'lang-picker-highlight' : ''}`}>
       <svg className="h-4 w-4 text-[#646464]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
       </svg>
       <select
         value={language}
         onChange={(e) => onChange(e.target.value)}
-        className="font-[family-name:var(--font-inter)] rounded-lg border border-[#E4E4E7] bg-white px-3 py-1.5 text-[13px] font-medium text-[#202020] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6647F0]/30 focus:border-[#6647F0]"
+        className={`font-[family-name:var(--font-inter)] rounded-lg border bg-white px-3 py-1.5 text-[13px] font-medium text-[#202020] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6647F0]/30 focus:border-[#6647F0] ${
+          highlight
+            ? 'border-[#6647F0] ring-2 ring-[#6647F0]/30 animate-pulse'
+            : 'border-[#E4E4E7]'
+        }`}
       >
         {available.map((lang) => (
           <option key={lang} value={lang}>
@@ -71,6 +80,27 @@ function LanguagePicker({
           </option>
         ))}
       </select>
+    </div>
+  );
+}
+
+function LanguageSelectionPrompt() {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#6647F0]/40 bg-gradient-to-br from-[#F2EEFF]/60 to-white px-6 py-12 text-center">
+      <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
+      <div className="relative">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center text-[#6647F0]">
+          <svg className="h-10 w-10 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+          </svg>
+        </div>
+        <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+          Pick your language to start
+        </h3>
+        <p className="mt-1.5 text-sm text-[#646464] max-w-sm mx-auto">
+          Choose a language from the dropdown above to begin watching the training videos.
+        </p>
+      </div>
     </div>
   );
 }
@@ -255,7 +285,8 @@ function OnboardingTraining() {
   const { data: chapter, isLoading } = useOnboardingTraining();
   const completeOnboarding = useCompleteOnboarding();
   const availableLanguages = getAvailableLanguages(chapter);
-  const [language, setLanguage] = useTrainingLanguage(availableLanguages);
+  const [language, setLanguage, hasSelectedLanguage] = useTrainingLanguage(availableLanguages);
+  const needsLanguageSelection = availableLanguages.length > 1 && !hasSelectedLanguage;
 
   const allComplete = chapter ? chapter.completed_count === chapter.total_count && chapter.total_count > 0 : false;
 
@@ -285,12 +316,19 @@ function OnboardingTraining() {
               Watch the video below and mark it as complete to unlock all modules and start building your profile.
             </p>
           </div>
-          <LanguagePicker language={language} available={availableLanguages} onChange={setLanguage} />
+          <LanguagePicker
+            language={language}
+            available={availableLanguages}
+            onChange={setLanguage}
+            highlight={needsLanguageSelection}
+          />
         </div>
       </section>
 
       {isLoading ? (
         <div className="h-32 bg-[#f0f0f0] rounded-2xl animate-pulse" />
+      ) : needsLanguageSelection && chapter ? (
+        <LanguageSelectionPrompt />
       ) : !chapter ? (
         <div className="relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
@@ -371,7 +409,8 @@ export default function TrainingProgram() {
 function FullTrainingProgram() {
   const { data: chapters, isLoading } = useMyTraining();
   const availableLanguages = getAvailableLanguages(chapters ?? null);
-  const [language, setLanguage] = useTrainingLanguage(availableLanguages);
+  const [language, setLanguage, hasSelectedLanguage] = useTrainingLanguage(availableLanguages);
+  const needsLanguageSelection = availableLanguages.length > 1 && !hasSelectedLanguage;
 
   // Compute overall progress
   const totals = (chapters ?? []).reduce(
@@ -399,7 +438,12 @@ function FullTrainingProgram() {
             </p>
           </div>
           <div className="flex items-center gap-4 stagger-4">
-            <LanguagePicker language={language} available={availableLanguages} onChange={setLanguage} />
+            <LanguagePicker
+              language={language}
+              available={availableLanguages}
+              onChange={setLanguage}
+              highlight={needsLanguageSelection}
+            />
             {totals.total > 0 && (
               <div className="relative flex h-16 w-16 items-center justify-center">
                 <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
@@ -434,6 +478,8 @@ function FullTrainingProgram() {
             <div key={i} className="h-32 bg-[#f0f0f0] rounded-2xl animate-pulse" />
           ))}
         </div>
+      ) : needsLanguageSelection && chapters?.length ? (
+        <LanguageSelectionPrompt />
       ) : !chapters?.length ? (
         <div className="relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
