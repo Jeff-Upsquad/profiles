@@ -492,8 +492,14 @@ export async function listMySubscriptionCards(businessUserId: string) {
 
   const { data: cards, error } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, content, match_rules, status, published_at, expires_at, created_at, business_user_id')
+    .select(
+      'id, external_id, content, match_rules, status, published_at, expires_at, created_at, business_user_id, recalled_at, is_secondary',
+    )
     .or(orFilter)
+    // Hide SquadHub-side secondary cards from the business dashboard — only
+    // primary cards represent a distinct hire opportunity. Secondaries are
+    // structural duplicates with the same brand/role.
+    .eq('is_secondary', false)
     .order('published_at', { ascending: false });
 
   if (error) throw new AppError(500, error.message);
@@ -567,6 +573,10 @@ export async function listMySubscriptionCards(businessUserId: string) {
       currency: (content.currency as string) ?? null,
       status: card.status as 'active' | 'archived',
       published_at: card.published_at as string | null,
+      // recalled_at is non-null when SquadHub recalled an already-accepted
+      // card. The dashboard keeps such cards in "Open" with a Recalled tag
+      // since the lead is still alive via the acceptee.
+      recalled_at: (card.recalled_at as string | null | undefined) ?? null,
       category_ids: categoryIds,
       counts: {
         ...counts.get(card.id as string)!,

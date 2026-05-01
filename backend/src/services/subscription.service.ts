@@ -163,6 +163,13 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     // created AFTER the card arrives — they accept their invitation later).
     business_email: input.business_email ?? null,
     distribution: input.distribution,
+    // recalled_at: SquadHub stamps this when an admin recalls a card that
+    // had acceptances. Always written so a recall can also be cleared by
+    // sending null on a re-publish.
+    recalled_at: input.recalled_at ?? null,
+    // is_secondary: SquadHub flags child cards. Written on every ingest so
+    // a card that flips primary↔secondary can't get stuck on the wrong side.
+    is_secondary: input.is_secondary,
     // status: write only when SquadHub sent one. On insert we still default
     // to 'active' via the column default; on update we preserve the existing
     // status when `status` is omitted so a plain content refresh doesn't
@@ -193,6 +200,8 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       business_user_id: businessUserId,
       business_email: row.business_email,
       distribution: row.distribution,
+      recalled_at: row.recalled_at,
+      is_secondary: row.is_secondary,
     };
     if (input.status) updatePatch.status = input.status;
 

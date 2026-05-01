@@ -12,11 +12,33 @@ function formatPrice(amount: number | null, currency: string | null): string | n
 
 function formatPublishedAt(iso: string | null): string {
   if (!iso) return '';
-  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
-  if (days < 1) return 'today';
+  const date = new Date(iso);
+  // Calendar-day diff in the user's local timezone — using raw 24h math
+  // would misclassify a card published yesterday at 11pm as "today" for
+  // any view loaded soon after midnight.
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfPublished = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const days = Math.floor((startOfToday - startOfPublished) / 86_400_000);
+  if (days <= 0) return 'today';
   if (days === 1) return 'yesterday';
   if (days < 7) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/**
+ * A card lands in one of three buckets:
+ *   - 'live'     — status='active'. Currently visible to talents. Open section.
+ *   - 'recalled' — status='archived' with recalled_at set. SquadHub pulled the
+ *                  card after acceptances; the lead is still in flight via the
+ *                  acceptee. Open section, with a Recalled tag.
+ *   - 'closed'   — status='archived' with no recalled_at. Search is over —
+ *                  hire completed, lead cancelled, etc. Closed section.
+ */
+function classifyCard(card: BusinessSubscriptionCardSummary): 'live' | 'recalled' | 'closed' {
+  if (card.status === 'active') return 'live';
+  if (card.recalled_at) return 'recalled';
+  return 'closed';
 }
 
 function cardTitle(card: BusinessSubscriptionCardSummary): string {
@@ -29,8 +51,12 @@ export default function BusinessDashboard() {
   const { user } = useAuth();
   const { data: cards, isLoading } = useMySubscriptionCards();
 
-  const active = (cards ?? []).filter((c) => c.status === 'active');
-  const archived = (cards ?? []).filter((c) => c.status === 'archived');
+  // Open holds anything still in play: live cards plus recalled-but-accepted
+  // ones (the lead is alive via the acceptee). Closed is terminal — search
+  // ended without a recall. Sorted within each bucket by published_at desc
+  // because the API already does that.
+  const open = (cards ?? []).filter((c) => classifyCard(c) !== 'closed');
+  const closed = (cards ?? []).filter((c) => classifyCard(c) === 'closed');
 
   const greeting = (
     <div className="mb-5">
@@ -73,8 +99,8 @@ export default function BusinessDashboard() {
   return (
     <>
       {greeting}
-      {active.length > 0 && <CardSection label="Active" items={active} />}
-      {archived.length > 0 && <CardSection label="Archived" items={archived} muted />}
+      {open.length > 0 && <CardSection label="Open" items={open} />}
+      {closed.length > 0 && <CardSection label="Closed" items={closed} muted />}
     </>
   );
 }
@@ -113,6 +139,7 @@ function SubscriptionCardRow({
   const published = formatPublishedAt(card.published_at);
   const accepted = card.counts.accepted;
   const shortlisted = card.counts.shortlisted;
+  const isRecalled = classifyCard(card) === 'recalled';
 
   return (
     <Link
@@ -123,9 +150,19 @@ function SubscriptionCardRow({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-gray-900">
-            {cardTitle(card)}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-semibold text-gray-900">
+              {cardTitle(card)}
+            </p>
+            {isRecalled && (
+              <span
+                className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800"
+                title="Card was recalled by SquadHub. Accepted talents stay in your shortlist."
+              >
+                Recalled
+              </span>
+            )}
+          </div>
           {card.plan_name && (
             <p className="mt-0.5 truncate text-xs text-gray-500">{card.plan_name}</p>
           )}

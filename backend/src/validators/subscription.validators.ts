@@ -31,6 +31,18 @@ export const ingestSubscriptionCardSchema = z.object({
   // /manual-assignments call. Defaulting to broadcast preserves prior
   // behaviour for any caller that hasn't started sending the field.
   distribution: z.enum(['broadcast', 'manual']).default('broadcast'),
+  // Stamped by SquadHub when an admin recalled a card that already had
+  // acceptances. Drives the "Recalled" tag on the business dashboard and
+  // keeps such cards in the Open section instead of moving to Closed.
+  // Absent on never-recalled cards. `null` is also accepted so SquadHub
+  // can clear the flag if a recall is undone.
+  recalled_at: z.string().datetime({ offset: true }).nullable().optional(),
+  // True when SquadHub created this card as a child of another card
+  // (parent_card_id IS NOT NULL on its side). Profiles hides secondaries
+  // from the business dashboard list. Defaulted to false so callers that
+  // haven't been updated yet keep behaving as before — once SquadHub starts
+  // sending the flag explicitly, secondaries get filtered.
+  is_secondary: z.boolean().default(false),
 });
 
 export const removeTalentFromCardSchema = z.object({

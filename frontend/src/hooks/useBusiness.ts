@@ -201,6 +201,9 @@ export interface BusinessSubscriptionCardSummary {
   currency: string | null;
   status: 'active' | 'archived';
   published_at: string | null;
+  /** Set when SquadHub recalled an already-accepted card. The card stays in
+   *  the Open section but renders a "Recalled" tag. */
+  recalled_at: string | null;
   category_ids: string[];
   counts: { accepted: number; pending: number; rejected: number; shortlisted: number };
 }
