@@ -231,7 +231,7 @@ export default function TalentAccessBrowse({ meta, onLogout }: Props) {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {profiles.map((p) => (
-                  <TalentAccessProfileCard key={p.id} profile={p} />
+                  <TalentAccessProfileCard key={p.id} profile={p} variant="card" />
                 ))}
               </div>
             )}

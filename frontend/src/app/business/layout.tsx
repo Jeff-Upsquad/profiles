@@ -3,8 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import BusinessSidebar from '@/components/layout/BusinessSidebar';
-import BusinessMobileNav from '@/components/layout/BusinessMobileNav';
+import BusinessBottomNav from '@/components/layout/BusinessBottomNav';
 
 export default function BusinessLayout({
   children,
@@ -33,16 +32,9 @@ export default function BusinessLayout({
   }
 
   return (
-    <DashboardLayout
-      hideMobileSidebar
-      sidebarContent={({ onNavigate }) => <BusinessSidebar onNavigate={onNavigate} />}
-    >
-      {/* Mobile-only horizontal nav. Sits sticky under the navbar so the
-          user can switch between Dashboard / Talents / each Category in
-          one tap, without opening any drawer. Desktop sees the two-panel
-          sidebar instead. */}
-      <BusinessMobileNav />
+    <DashboardLayout hideMobileSidebar>
       {children}
+      <BusinessBottomNav />
     </DashboardLayout>
   );
 }

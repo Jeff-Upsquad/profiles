@@ -31,57 +31,122 @@ function initials(name: string): string {
     .join('');
 }
 
+function TierBadge({ tier, tierCustom }: { tier: Tier | null; tierCustom?: string }) {
+  if (!tier) return null;
+  const badge = TIER_BADGE[tier];
+  const label = tier === 'custom' && tierCustom ? tierCustom : badge.label;
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${badge.className}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function Avatar({ name, url }: { name: string; url?: string | null }) {
+  if (url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={url} alt={name} className="h-10 w-10 shrink-0 rounded-full object-cover" />
+    );
+  }
+  return (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-sm font-semibold text-zinc-600">
+      {initials(name) || '?'}
+    </div>
+  );
+}
+
 export default function TalentAccessProfileCard({
   profile,
   basePath = '/talent-access',
+  searchParams,
+  variant = 'row',
 }: {
   profile: ProfileCardSummary;
   basePath?: string;
+  searchParams?: string;
+  variant?: 'row' | 'card';
 }) {
-  const tier = profile.tier ? TIER_BADGE[profile.tier] : null;
-  const tierLabel = profile.tier === 'custom' && profile.tier_custom ? profile.tier_custom : tier?.label;
+  const href = `${basePath}/${profile.id}${searchParams ? `?${searchParams}` : ''}`;
+
+  if (variant === 'card') {
+    return (
+      <Link
+        href={href}
+        className="group block rounded-2xl border border-zinc-200 bg-white p-4 transition-shadow hover:shadow-sm"
+      >
+        <div className="flex items-start gap-3">
+          {profile.profile_photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={profile.profile_photo_url}
+              alt={profile.full_name}
+              className="h-12 w-12 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-sm font-semibold text-zinc-600">
+              {initials(profile.full_name) || '?'}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="truncate text-[15px] font-semibold text-zinc-900 group-hover:text-zinc-700">
+                {profile.full_name || 'Unnamed talent'}
+              </h3>
+              <TierBadge tier={profile.tier} tierCustom={profile.tier_custom ?? undefined} />
+            </div>
+            {profile.current_location && (
+              <p className="mt-0.5 truncate text-xs text-zinc-500">
+                {profile.current_location}
+              </p>
+            )}
+          </div>
+        </div>
+        {profile.top_skills.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1">
+            {profile.top_skills.slice(0, 3).map((skill) => (
+              <span
+                key={skill}
+                className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-700"
+              >
+                {skill}
+              </span>
+            ))}
+          </div>
+        )}
+        {profile.languages_spoken.length > 0 && (
+          <p className="mt-3 truncate text-[11px] text-zinc-500">
+            {profile.languages_spoken
+              .map((l) => l.language)
+              .filter(Boolean)
+              .slice(0, 4)
+              .join(' · ')}
+          </p>
+        )}
+      </Link>
+    );
+  }
 
   return (
     <Link
-      href={`${basePath}/${profile.id}`}
-      className="group block rounded-2xl border border-zinc-200 bg-white p-4 transition-shadow hover:shadow-sm"
+      href={href}
+      className="group flex items-center gap-4 rounded-xl border border-zinc-200 bg-white px-4 py-3 transition-shadow hover:shadow-sm"
     >
-      <div className="flex items-start gap-3">
-        {profile.profile_photo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={profile.profile_photo_url}
-            alt={profile.full_name}
-            className="h-12 w-12 rounded-full object-cover"
-          />
-        ) : (
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-sm font-semibold text-zinc-600">
-            {initials(profile.full_name) || '?'}
-          </div>
+      <Avatar name={profile.full_name} url={profile.profile_photo_url} />
+
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate text-sm font-semibold text-zinc-900 group-hover:text-zinc-700">
+          {profile.full_name || 'Unnamed talent'}
+        </h3>
+        {profile.current_location && (
+          <p className="truncate text-xs text-zinc-500">{profile.current_location}</p>
         )}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="truncate text-[15px] font-semibold text-zinc-900 group-hover:text-zinc-700">
-              {profile.full_name || 'Unnamed talent'}
-            </h3>
-            {tier && (
-              <span
-                className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${tier.className}`}
-              >
-                {tierLabel}
-              </span>
-            )}
-          </div>
-          {profile.current_location && (
-            <p className="mt-0.5 truncate text-xs text-zinc-500">
-              {profile.current_location}
-            </p>
-          )}
-        </div>
       </div>
 
       {profile.top_skills.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1">
+        <div className="hidden shrink-0 items-center gap-1 sm:flex">
           {profile.top_skills.slice(0, 3).map((skill) => (
             <span
               key={skill}
@@ -94,14 +159,26 @@ export default function TalentAccessProfileCard({
       )}
 
       {profile.languages_spoken.length > 0 && (
-        <p className="mt-3 truncate text-[11px] text-zinc-500">
+        <p className="hidden shrink-0 text-[11px] text-zinc-500 md:block">
           {profile.languages_spoken
             .map((l) => l.language)
             .filter(Boolean)
-            .slice(0, 4)
+            .slice(0, 3)
             .join(' · ')}
         </p>
       )}
+
+      <TierBadge tier={profile.tier} tierCustom={profile.tier_custom ?? undefined} />
+
+      <svg
+        className="h-4 w-4 shrink-0 text-zinc-400 transition-colors group-hover:text-zinc-600"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
     </Link>
   );
 }

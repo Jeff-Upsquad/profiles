@@ -10,6 +10,9 @@ export interface User {
   must_reset_password?: boolean;
   auto_approve_signups?: boolean;
   onboarding_completed?: boolean;
+  contact_person_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
 }
 
 export interface AuthResponse {

@@ -52,7 +52,19 @@ export default function Navbar() {
             <div className="ml-4 flex items-center gap-3">
               {user ? (
                 <>
-                  <span className="font-[family-name:var(--font-inter)] text-sm text-[#838383]">{user.email}</span>
+                  <div className="text-right">
+                    <span className="font-[family-name:var(--font-inter)] block text-sm text-[#838383]">
+                      {user.role === 'business' && user.contact_person_name
+                        ? user.contact_person_name
+                        : user.email}
+                    </span>
+                    {user.role === 'business' && (user.contact_phone || user.contact_email) && (
+                      <span className="font-[family-name:var(--font-inter)] block text-[11px] text-[#a0a0a0]">
+                        {user.contact_email ?? user.email}
+                        {user.contact_phone && ` · ${user.contact_phone}`}
+                      </span>
+                    )}
+                  </div>
                   <Badge variant="indigo">{user.role}</Badge>
                   <button
                     onClick={() => logout()}
@@ -100,9 +112,21 @@ export default function Navbar() {
           <div className="border-t border-[#ECECEF] py-3 md:hidden">
             {user ? (
               <div className="space-y-3">
-                <div className="flex items-center gap-2 px-1">
-                  <span className="text-sm text-[#838383]">{user.email}</span>
-                  <Badge variant="indigo">{user.role}</Badge>
+                <div className="px-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-[#838383]">
+                      {user.role === 'business' && user.contact_person_name
+                        ? user.contact_person_name
+                        : user.email}
+                    </span>
+                    <Badge variant="indigo">{user.role}</Badge>
+                  </div>
+                  {user.role === 'business' && (user.contact_phone || user.contact_email) && (
+                    <p className="mt-0.5 text-[11px] text-[#a0a0a0]">
+                      {user.contact_email ?? user.email}
+                      {user.contact_phone && ` · ${user.contact_phone}`}
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => { logout(); setMobileOpen(false); }}
