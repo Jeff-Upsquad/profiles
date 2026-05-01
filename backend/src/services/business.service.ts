@@ -44,9 +44,11 @@ export async function getSubscribedCategories(businessUserId: string) {
 export async function getSharedProfiles(businessUserId: string, categoryId: string) {
   const { data, error } = await supabaseAdmin
     .from('business_shared_profiles')
-    .select('talent_profile_id, talent_profiles(*, talent_users(full_name, current_location, languages_spoken, profile_photo_url), categories(id, name, slug))')
+    .select('talent_profile_id, talent_profiles!inner(*, talent_users!inner(full_name, current_location, languages_spoken, profile_photo_url), categories(id, name, slug))')
     .eq('business_user_id', businessUserId)
     .eq('category_id', categoryId)
+    .eq('talent_profiles.is_active', true)
+    .eq('talent_profiles.talent_users.is_active', true)
     .order('created_at', { ascending: false });
 
   if (error) throw new AppError(500, error.message);
@@ -77,10 +79,12 @@ export async function getSharedProfiles(businessUserId: string, categoryId: stri
 export async function getSharedProfile(businessUserId: string, categoryId: string, profileId: string) {
   const { data, error } = await supabaseAdmin
     .from('business_shared_profiles')
-    .select('talent_profile_id, talent_profiles(*, talent_users(full_name, current_location, languages_spoken, profile_photo_url, phone), categories(id, name, slug))')
+    .select('talent_profile_id, talent_profiles!inner(*, talent_users!inner(full_name, current_location, languages_spoken, profile_photo_url, phone), categories(id, name, slug))')
     .eq('business_user_id', businessUserId)
     .eq('category_id', categoryId)
     .eq('talent_profile_id', profileId)
+    .eq('talent_profiles.is_active', true)
+    .eq('talent_profiles.talent_users.is_active', true)
     .single();
 
   if (error || !data) throw new AppError(404, 'Shared profile not found');
@@ -213,6 +217,8 @@ export async function discoverProfiles(categorySlug: string, query: DiscoverQuer
     .select('*, talent_users!inner(full_name, current_location, languages_spoken, profile_photo_url), categories!inner(id, name, slug)', { count: 'exact' })
     .eq('category_id', category.id)
     .eq('status', 'approved')
+    .eq('is_active', true)
+    .eq('talent_users.is_active', true)
     .is('deleted_at', null);
 
   // Search
@@ -314,6 +320,8 @@ export async function getApprovedProfile(categorySlug: string, profileId: string
     .eq('id', profileId)
     .eq('category_id', category.id)
     .eq('status', 'approved')
+    .eq('is_active', true)
+    .eq('talent_users.is_active', true)
     .is('deleted_at', null)
     .single();
 
@@ -403,6 +411,8 @@ export async function getShortlist(businessUserId: string) {
     .from('shortlists')
     .select('*, talent_profiles!inner(*, talent_users!inner(full_name, current_location), categories!inner(id, name, slug))')
     .eq('business_user_id', businessUserId)
+    .eq('talent_profiles.is_active', true)
+    .eq('talent_profiles.talent_users.is_active', true)
     .order('created_at', { ascending: false });
 
   if (error) throw new AppError(500, error.message);
@@ -434,9 +444,11 @@ export async function addToShortlist(businessUserId: string, profileId: string) 
   // Verify the profile exists and is approved
   const { data: profile } = await supabaseAdmin
     .from('talent_profiles')
-    .select('id')
+    .select('id, talent_users!inner(id)')
     .eq('id', profileId)
     .eq('status', 'approved')
+    .eq('is_active', true)
+    .eq('talent_users.is_active', true)
     .is('deleted_at', null)
     .single();
 
@@ -662,6 +674,8 @@ export async function getShortlistedProfilesForCard(
     )
     .eq('business_user_id', businessUserId)
     .in('talent_profiles.category_id', categoryIds)
+    .eq('talent_profiles.is_active', true)
+    .eq('talent_profiles.talent_users.is_active', true)
     .order('created_at', { ascending: false });
 
   if (error) throw new AppError(500, error.message);
@@ -694,9 +708,11 @@ export async function sendInterest(
   // Verify profile
   const { data: profile } = await supabaseAdmin
     .from('talent_profiles')
-    .select('id')
+    .select('id, talent_users!inner(id)')
     .eq('id', profileId)
     .eq('status', 'approved')
+    .eq('is_active', true)
+    .eq('talent_users.is_active', true)
     .is('deleted_at', null)
     .single();
 
@@ -733,6 +749,8 @@ export async function getInterests(businessUserId: string) {
     .from('interest_requests')
     .select('*, talent_profiles!inner(*, talent_users!inner(full_name), categories!inner(id, name, slug))')
     .eq('business_user_id', businessUserId)
+    .eq('talent_profiles.is_active', true)
+    .eq('talent_profiles.talent_users.is_active', true)
     .order('created_at', { ascending: false });
 
   if (error) throw new AppError(500, error.message);
