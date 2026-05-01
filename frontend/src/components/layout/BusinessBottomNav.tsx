@@ -41,9 +41,9 @@ export default function BusinessBottomNav() {
 
   return (
     <>
-      {/* Spacer so content isn't hidden behind the fixed bar */}
-      <div className="h-16" />
-      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-zinc-200 bg-white">
+      {/* Spacer so content isn't hidden behind the fixed bar (mobile only) */}
+      <div className="h-16 md:hidden" />
+      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-zinc-200 bg-white md:hidden">
         <div className="mx-auto flex max-w-lg items-center justify-around py-2">
           {NAV_ITEMS.map((item) => {
             const active = isActive(item.href);
