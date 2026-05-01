@@ -78,100 +78,149 @@ export default function BusinessTalentAccess() {
 
   const profileIds = useMemo(() => profiles.map((p: any) => p.id), [profiles]);
 
-  // Capture the current URL params (filters + category + search) so each card
-  // can carry them into the detail page — the back button uses them to return
-  // to the same filtered list view.
   const urlSearchParams = useSearchParams();
   const parentParamsString = useMemo(() => urlSearchParams.toString(), [urlSearchParams]);
 
   if (statusLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-700" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#E4E4E7] border-t-[#6647F0]" />
       </div>
     );
   }
 
   if (!status?.has_access) {
     return (
-      <div className="rounded-xl border border-dashed border-gray-200 bg-white p-10 text-center">
-        <p className="text-sm font-medium text-gray-600">No talent profile access.</p>
-        <p className="mt-1 text-xs text-gray-400">
-          Contact the administrator to get access to talent profiles.
-        </p>
+      <div className="space-y-6">
+        <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
+          <div className="hero-content">
+            <div className="mb-2.5 stagger-1">
+              <span className="eyebrow-rainbow">Talent Access</span>
+            </div>
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
+              Talent <span className="text-rainbow">Profiles</span>.
+            </h1>
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] stagger-3">
+              Browse talent profiles shared with your account.
+            </p>
+          </div>
+        </section>
+
+        <div className="relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-6 py-16 text-center">
+          <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
+          <div className="relative">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F2EEFF]">
+              <svg className="h-7 w-7 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h3 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#202020]">
+              No talent profile access
+            </h3>
+            <p className="mx-auto mt-1.5 max-w-sm text-sm text-[#838383]">
+              Contact the administrator to get access to talent profiles.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
-      {/* Header */}
-      <div className="mb-5">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-xl font-bold text-gray-900 md:text-2xl">Talent Profiles</h1>
-          {expiresInDays !== null && (
-            <span className="text-xs text-zinc-500">
-              Access expires in{' '}
-              <span className="font-medium text-zinc-700">
-                {expiresInDays} day{expiresInDays === 1 ? '' : 's'}
+    <div className="space-y-6">
+      {/* ── Hero ── */}
+      <section className="hero-container hero-glow-blue relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
+        <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="mb-2.5 flex flex-wrap items-center gap-1.5 stagger-1">
+              <span className="eyebrow-rainbow">
+                {profilesQuery.isLoading ? 'Loading' : `${total} ${total === 1 ? 'profile' : 'profiles'}`}
               </span>
-            </span>
-          )}
+              {expiresInDays !== null && (
+                <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                  Access expires in {expiresInDays} day{expiresInDays === 1 ? '' : 's'}
+                </span>
+              )}
+            </div>
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
+              Talent <span className="text-rainbow">Profiles</span>.
+            </h1>
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] stagger-3">
+              Browse talent profiles shared with your account.
+            </p>
+          </div>
         </div>
-        <p className="mt-1 text-sm text-gray-500">
-          Browse talent profiles shared with your account.
-        </p>
-      </div>
+      </section>
 
-      {/* Category tabs */}
+      {/* Category chip tabs */}
       {categories.length > 1 && (
-        <nav className="mb-5 flex gap-2 overflow-x-auto">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setCategory(cat.id)}
-              className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                activeCategoryId === cat.id
-                  ? 'bg-zinc-900 text-white'
-                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-              }`}
-            >
-              {cat.name}
-            </button>
-          ))}
+        <nav
+          className="flex gap-2 overflow-x-auto pb-1 stagger-4"
+          aria-label="Talent access categories"
+        >
+          {categories.map((cat) => {
+            const isActive = activeCategoryId === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setCategory(cat.id)}
+                className={`whitespace-nowrap rounded-full px-3.5 py-1.5 font-[family-name:var(--font-inter)] text-sm font-semibold transition-all duration-200 active:scale-[0.97] ${
+                  isActive
+                    ? 'bg-[#202020] text-white shadow-[0_2px_6px_-1px_rgba(0,0,0,0.15)]'
+                    : 'bg-[#F2EEFF] text-[#6647F0] hover:bg-[#E5DFFC]'
+                }`}
+              >
+                {cat.name}
+              </button>
+            );
+          })}
         </nav>
       )}
 
       {/* Body */}
-      <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
         {/* Filters — desktop */}
         <div className="hidden min-w-0 lg:block">
           {activeCategoryId && (
-            <TalentAccessFilters
-              categoryId={activeCategoryId}
-              value={filters}
-              onChange={setFilters}
-              filterOptions={filterOptionsQuery.data}
-              filterOptionsLoading={filterOptionsQuery.isLoading}
-            />
+            <div className="rounded-2xl border border-[#ECECEF] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+              <TalentAccessFilters
+                categoryId={activeCategoryId}
+                value={filters}
+                onChange={setFilters}
+                filterOptions={filterOptionsQuery.data}
+                filterOptionsLoading={filterOptionsQuery.isLoading}
+              />
+            </div>
           )}
         </div>
 
         {/* Profiles list */}
-        <section className="min-w-0">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <section className="min-w-0 space-y-4">
+          {/* Search + mobile filters */}
+          <div className="rounded-2xl border border-[#ECECEF] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="flex items-center gap-2">
-              <input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name…"
-                className="min-w-0 flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:w-72 sm:flex-initial"
-              />
+              <div className="relative flex-1">
+                <svg
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A1A1AA]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by name…"
+                  className="w-full rounded-lg border border-[#E4E4E7] bg-white py-2 pl-9 pr-3 text-sm text-[#202020] placeholder:text-[#A1A1AA] focus:border-[#6647F0] focus:outline-none focus:ring-2 focus:ring-[#6647F0]/12"
+                />
+              </div>
               <button
                 type="button"
                 onClick={() => setFiltersOpenMobile(true)}
-                className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 lg:hidden"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#E4E4E7] bg-white px-3 py-2 text-sm font-semibold text-[#202020] transition-colors hover:bg-[#f0f0f0] lg:hidden"
                 aria-haspopup="dialog"
                 aria-expanded={filtersOpenMobile}
               >
@@ -180,17 +229,12 @@ export default function BusinessTalentAccess() {
                 </svg>
                 Filters
                 {filterCount > 0 && (
-                  <span className="ml-0.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-zinc-900 px-1.5 text-[10px] font-semibold text-white">
+                  <span className="ml-0.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#6647F0] px-1.5 text-[10px] font-semibold text-white">
                     {filterCount}
                   </span>
                 )}
               </button>
             </div>
-            <p className="text-xs text-zinc-500">
-              {profilesQuery.isLoading
-                ? 'Loading profiles…'
-                : `${total} ${total === 1 ? 'profile' : 'profiles'}`}
-            </p>
           </div>
 
           {/* Filters drawer (mobile) */}
@@ -201,12 +245,12 @@ export default function BusinessTalentAccess() {
                 onClick={() => setFiltersOpenMobile(false)}
                 aria-hidden
               />
-              <div className="fixed inset-y-0 right-0 z-50 flex w-[88%] max-w-sm flex-col border-l border-zinc-200 bg-white shadow-xl">
-                <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-                  <h2 className="text-sm font-semibold text-zinc-900">Filters</h2>
+              <div className="fixed inset-y-0 right-0 z-50 flex w-[88%] max-w-sm flex-col border-l border-[#ECECEF] bg-white shadow-xl">
+                <div className="flex items-center justify-between border-b border-[#ECECEF] px-4 py-3">
+                  <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#202020]">Filters</h2>
                   <button
                     onClick={() => setFiltersOpenMobile(false)}
-                    className="-mr-1 rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+                    className="-mr-1 rounded-md p-1.5 text-[#838383] transition-colors hover:bg-[#f0f0f0] hover:text-[#202020]"
                     aria-label="Close filters"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -225,10 +269,10 @@ export default function BusinessTalentAccess() {
                     />
                   )}
                 </div>
-                <div className="border-t border-zinc-200 px-4 py-3">
+                <div className="border-t border-[#ECECEF] px-4 py-3">
                   <button
                     onClick={() => setFiltersOpenMobile(false)}
-                    className="w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 active:scale-[0.98]"
+                    className="w-full rounded-lg bg-[#202020] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[#000] active:scale-[0.98]"
                   >
                     {profilesQuery.isLoading
                       ? 'Updating…'
@@ -240,7 +284,7 @@ export default function BusinessTalentAccess() {
           )}
 
           {profilesQuery.isError ? (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
               {(profilesQuery.error as any)?.response?.data?.error ||
                 'Failed to load profiles.'}
             </div>
@@ -249,18 +293,26 @@ export default function BusinessTalentAccess() {
               {Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-16 animate-pulse rounded-xl border border-zinc-200 bg-white"
+                  className="h-16 animate-pulse rounded-2xl border border-[#ECECEF] bg-white"
                 />
               ))}
             </div>
           ) : profiles.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-zinc-300 bg-white py-12 text-center">
-              <p className="text-sm font-medium text-zinc-700">
-                No profiles match these filters
-              </p>
-              <p className="mt-1 text-xs text-zinc-500">
-                Try clearing some filters to widen your search.
-              </p>
+            <div className="relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-6 py-16 text-center">
+              <div className="hero-glow-orange absolute inset-0 pointer-events-none" />
+              <div className="relative">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F2EEFF]">
+                  <svg className="h-7 w-7 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <h3 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#202020]">
+                  No profiles match these filters
+                </h3>
+                <p className="mx-auto mt-1.5 max-w-sm text-sm text-[#838383]">
+                  Try clearing some filters to widen your search.
+                </p>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-3">

@@ -14,11 +14,11 @@ import {
   DISTRICTS_BY_STATE,
 } from '@/constants/india-locations';
 
-const TIERS: { value: Tier; label: string }[] = [
-  { value: 'junior', label: 'Junior' },
-  { value: 'pro', label: 'Pro' },
-  { value: 'elite', label: 'Elite' },
-  { value: 'custom', label: 'Custom' },
+const TIERS: { value: Tier; label: string; tint: string }[] = [
+  { value: 'junior', label: 'Junior', tint: 'tint-blue' },
+  { value: 'pro', label: 'Pro', tint: 'tint-purple' },
+  { value: 'elite', label: 'Elite', tint: 'tint-amber' },
+  { value: 'custom', label: 'Custom', tint: 'tint-pink' },
 ];
 
 export interface FilterState {
@@ -50,7 +50,7 @@ function toggle<T>(list: T[] | undefined, item: T): T[] {
 function CountBadge({ n }: { n: number }) {
   if (n === 0) return null;
   return (
-    <span className="ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-zinc-900 px-1.5 text-[10px] font-semibold text-white">
+    <span className="ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#6647F0] px-1.5 text-[10px] font-semibold text-white">
       {n}
     </span>
   );
@@ -68,14 +68,14 @@ function Section({ title, count, onClear, scroll, children }: SectionProps) {
   return (
     <section className="min-w-0">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="flex items-center text-xs font-semibold uppercase tracking-wide text-zinc-500">
+        <h3 className="flex items-center font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#838383]">
           {title}
           <CountBadge n={count} />
         </h3>
         {count > 0 && onClear && (
           <button
             onClick={onClear}
-            className="text-[11px] font-medium text-zinc-500 hover:text-zinc-900"
+            className="font-[family-name:var(--font-inter)] text-[11px] font-semibold text-[#6647F0] transition-colors hover:text-[#4D2EC2]"
           >
             Clear
           </button>
@@ -84,8 +84,8 @@ function Section({ title, count, onClear, scroll, children }: SectionProps) {
       <div
         className={
           scroll
-            ? 'max-h-48 space-y-1.5 overflow-y-auto rounded-md border border-zinc-200 bg-white p-2'
-            : 'space-y-1.5'
+            ? 'max-h-48 space-y-1 overflow-y-auto rounded-lg border border-[#ECECEF] bg-[#F8F9FA] p-2'
+            : 'space-y-1'
         }
       >
         {children}
@@ -102,15 +102,80 @@ interface CheckboxRowProps {
 
 function CheckboxRow({ checked, onChange, children }: CheckboxRowProps) {
   return (
-    <label className="flex min-w-0 cursor-pointer items-center gap-2 text-sm text-zinc-700">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onChange}
-        className="h-4 w-4 shrink-0 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
-      />
-      <span className="min-w-0 flex-1 truncate">{children}</span>
+    <label
+      className={`group flex min-w-0 cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors ${
+        checked ? 'bg-[#F2EEFF] text-[#202020]' : 'text-[#646464] hover:bg-[#F8F9FA]'
+      }`}
+    >
+      <span
+        className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all ${
+          checked
+            ? 'border-[#6647F0] bg-[#6647F0]'
+            : 'border-[#D4D4D8] bg-white group-hover:border-[#A1A1AA]'
+        }`}
+      >
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onChange}
+          className="absolute inset-0 cursor-pointer opacity-0"
+        />
+        {checked && (
+          <svg
+            className="h-3 w-3 text-white"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={3}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+      </span>
+      <span
+        className={`min-w-0 flex-1 truncate font-[family-name:var(--font-inter)] ${
+          checked ? 'font-semibold' : 'font-medium'
+        }`}
+      >
+        {children}
+      </span>
     </label>
+  );
+}
+
+function TierChip({
+  tier,
+  checked,
+  onClick,
+}: {
+  tier: { value: Tier; label: string; tint: string };
+  checked: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group relative flex items-center justify-center rounded-lg border px-2.5 py-2 font-[family-name:var(--font-inter)] text-[13px] font-semibold transition-all duration-150 active:scale-[0.97] ${
+        checked
+          ? `${tier.tint} border-transparent shadow-[0_1px_2px_rgba(0,0,0,0.06)]`
+          : 'border-[#ECECEF] bg-white text-[#646464] hover:border-[#D4D4D8] hover:bg-[#F8F9FA] hover:text-[#202020]'
+      }`}
+      style={checked ? { color: 'var(--tint-text)' } : undefined}
+    >
+      {tier.label}
+      {checked && (
+        <svg
+          className="absolute right-1 top-1 h-3 w-3"
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden
+        >
+          <circle cx="12" cy="12" r="6" opacity="0.25" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      )}
+    </button>
   );
 }
 
@@ -140,9 +205,6 @@ export default function TalentAccessFilters({ categoryId, value, onChange, filte
     skillCount +
     aiToolCount;
 
-  // District options cascade off selected states. With ≥1 state picked we
-  // restrict to those states' districts; otherwise we flatten every known
-  // district so the user can filter on district alone if they want.
   const districtOptions = useMemo(() => {
     const selectedStates = value.state ?? [];
     const sourceStates =
@@ -160,213 +222,251 @@ export default function TalentAccessFilters({ categoryId, value, onChange, filte
   }, [value.state]);
 
   return (
-    <aside className="min-w-0 space-y-5 overflow-hidden">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-zinc-900">Filters</h2>
+    <aside className="min-w-0 overflow-hidden">
+      {/* Header */}
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <div className="tint-purple flex h-8 w-8 items-center justify-center rounded-lg">
+            <svg
+              className="h-4 w-4"
+              style={{ color: 'var(--tint-icon)' }}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold tracking-[-0.01em] text-[#202020]">
+              Filters
+            </h2>
+            {totalSelected > 0 && (
+              <p className="font-[family-name:var(--font-inter)] text-[11px] text-[#838383]">
+                {totalSelected} active
+              </p>
+            )}
+          </div>
+        </div>
         <button
           onClick={() => onChange({})}
           disabled={totalSelected === 0}
-          className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+          className={`rounded-lg px-2.5 py-1 font-[family-name:var(--font-inter)] text-[11px] font-semibold transition-colors ${
             totalSelected > 0
-              ? 'border-zinc-300 text-zinc-700 hover:bg-zinc-50'
-              : 'cursor-default border-zinc-200 text-zinc-400'
+              ? 'text-[#6647F0] hover:bg-[#F2EEFF]'
+              : 'cursor-default text-[#D4D4D8]'
           }`}
         >
-          Clear all filters
+          Clear all
         </button>
       </div>
 
-      {/* Tier */}
-      <Section
-        title="Tier"
-        count={tierCount}
-        onClear={() => onChange({ ...value, tier: undefined })}
-      >
-        {TIERS.map((t) => (
-          <CheckboxRow
-            key={t.value}
-            checked={!!value.tier?.includes(t.value)}
-            onChange={() =>
-              onChange({ ...value, tier: toggle(value.tier, t.value) })
-            }
-          >
-            {t.label}
-          </CheckboxRow>
-        ))}
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={() => setTierExpanded((v) => !v)}
-            className="flex w-full items-center justify-between rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-left text-xs font-medium text-zinc-600 hover:bg-zinc-100"
-          >
-            <span>What the tiers mean</span>
-            <span className="text-zinc-400">{tierExpanded ? '–' : '+'}</span>
-          </button>
-          {tierExpanded && (
-            <div className="mt-2">
-              <TierExplainer />
-            </div>
-          )}
-        </div>
-      </Section>
-
-      {/* Country / State / District — sourced from a static list (not from
-          existing talents). The business user can pre-emptively pick a
-          location even before any talent in that area has signed up; the
-          filter still narrows the result set if there's no match — that's
-          fine, intentional, and matches the talent-signup form's options. */}
-      {/* Country */}
-      <Section
-        title="Country"
-        count={countryCount}
-        onClear={() => onChange({ ...value, country: undefined })}
-      >
-        <MultiSelectSearch
-          options={COUNTRIES}
-          selected={value.country ?? []}
-          onChange={(vals) =>
-            onChange({ ...value, country: vals.length ? vals : undefined })
-          }
-          placeholder="Add a country…"
-        />
-      </Section>
-
-      {/* State */}
-      <Section
-        title="State"
-        count={stateCount}
-        onClear={() => onChange({ ...value, state: undefined })}
-      >
-        <MultiSelectSearch
-          options={INDIAN_STATES}
-          selected={value.state ?? []}
-          onChange={(vals) =>
-            onChange({ ...value, state: vals.length ? vals : undefined })
-          }
-          placeholder="Add a state…"
-        />
-      </Section>
-
-      {/* District — cascades off selected states. With states picked, the
-          dropdown narrows to only those states' districts. With nothing
-          picked, it lists every district across all known states so the
-          user isn't blocked from filtering on district alone. */}
-      <Section
-        title="District"
-        count={districtCount}
-        onClear={() => onChange({ ...value, district: undefined })}
-      >
-        <MultiSelectSearch
-          options={districtOptions}
-          selected={value.district ?? []}
-          onChange={(vals) =>
-            onChange({ ...value, district: vals.length ? vals : undefined })
-          }
-          placeholder={
-            (value.state?.length ?? 0) > 0
-              ? 'Add a district…'
-              : 'Pick a state first, or search any district…'
-          }
-        />
-      </Section>
-
-      {/* Location (legacy free-text current_location). Hidden when no values
-          remain — once everyone has structured country/state/district set,
-          this section disappears organically without a code change. */}
-      {(options?.locations ?? []).length > 0 && (
+      <div className="space-y-5">
+        {/* Tier — chip grid */}
         <Section
-          title="Location (free-text)"
-          count={locationCount}
-          onClear={() => onChange({ ...value, location: undefined })}
-          scroll={(options?.locations ?? []).length > 6}
+          title="Tier"
+          count={tierCount}
+          onClear={() => onChange({ ...value, tier: undefined })}
+        >
+          <div className="grid grid-cols-2 gap-1.5">
+            {TIERS.map((t) => (
+              <TierChip
+                key={t.value}
+                tier={t}
+                checked={!!value.tier?.includes(t.value)}
+                onClick={() =>
+                  onChange({ ...value, tier: toggle(value.tier, t.value) })
+                }
+              />
+            ))}
+          </div>
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => setTierExpanded((v) => !v)}
+              className="flex w-full items-center justify-between rounded-lg border border-[#ECECEF] bg-[#F8F9FA] px-3 py-2 text-left font-[family-name:var(--font-inter)] text-[12px] font-medium text-[#646464] transition-colors hover:bg-[#F0F0F0]"
+            >
+              <span className="flex items-center gap-1.5">
+                <svg
+                  className="h-3.5 w-3.5 text-[#A1A1AA]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                What the tiers mean
+              </span>
+              <svg
+                className={`h-3.5 w-3.5 text-[#A1A1AA] transition-transform ${
+                  tierExpanded ? 'rotate-180' : ''
+                }`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {tierExpanded && (
+              <div className="mt-2">
+                <TierExplainer />
+              </div>
+            )}
+          </div>
+        </Section>
+
+        {/* Country */}
+        <Section
+          title="Country"
+          count={countryCount}
+          onClear={() => onChange({ ...value, country: undefined })}
+        >
+          <MultiSelectSearch
+            options={COUNTRIES}
+            selected={value.country ?? []}
+            onChange={(vals) =>
+              onChange({ ...value, country: vals.length ? vals : undefined })
+            }
+            placeholder="Add a country…"
+          />
+        </Section>
+
+        {/* State */}
+        <Section
+          title="State"
+          count={stateCount}
+          onClear={() => onChange({ ...value, state: undefined })}
+        >
+          <MultiSelectSearch
+            options={INDIAN_STATES}
+            selected={value.state ?? []}
+            onChange={(vals) =>
+              onChange({ ...value, state: vals.length ? vals : undefined })
+            }
+            placeholder="Add a state…"
+          />
+        </Section>
+
+        {/* District */}
+        <Section
+          title="District"
+          count={districtCount}
+          onClear={() => onChange({ ...value, district: undefined })}
+        >
+          <MultiSelectSearch
+            options={districtOptions}
+            selected={value.district ?? []}
+            onChange={(vals) =>
+              onChange({ ...value, district: vals.length ? vals : undefined })
+            }
+            placeholder={
+              (value.state?.length ?? 0) > 0
+                ? 'Add a district…'
+                : 'Pick a state first, or search any district…'
+            }
+          />
+        </Section>
+
+        {/* Location (legacy free-text) */}
+        {(options?.locations ?? []).length > 0 && (
+          <Section
+            title="Location (free-text)"
+            count={locationCount}
+            onClear={() => onChange({ ...value, location: undefined })}
+            scroll={(options?.locations ?? []).length > 6}
+          >
+            {isLoading ? (
+              <p className="px-2 text-xs text-[#A1A1AA]">Loading…</p>
+            ) : (
+              options!.locations.map((loc) => (
+                <CheckboxRow
+                  key={loc}
+                  checked={!!value.location?.includes(loc)}
+                  onChange={() =>
+                    onChange({ ...value, location: toggle(value.location, loc) })
+                  }
+                >
+                  {loc}
+                </CheckboxRow>
+              ))
+            )}
+          </Section>
+        )}
+
+        {/* Language */}
+        <Section
+          title="Language"
+          count={languageCount}
+          onClear={() => onChange({ ...value, language: undefined })}
+          scroll={(options?.languages ?? []).length > 6}
         >
           {isLoading ? (
-            <p className="text-xs text-zinc-400">Loading…</p>
+            <p className="px-2 text-xs text-[#A1A1AA]">Loading…</p>
+          ) : (options?.languages ?? []).length === 0 ? (
+            <p className="px-2 text-xs text-[#A1A1AA]">No languages available.</p>
           ) : (
-            options!.locations.map((loc) => (
+            options!.languages.map((lang) => (
               <CheckboxRow
-                key={loc}
-                checked={!!value.location?.includes(loc)}
+                key={lang}
+                checked={!!value.language?.includes(lang)}
                 onChange={() =>
-                  onChange({ ...value, location: toggle(value.location, loc) })
+                  onChange({ ...value, language: toggle(value.language, lang) })
                 }
               >
-                {loc}
+                {lang}
               </CheckboxRow>
             ))
           )}
         </Section>
-      )}
 
-      {/* Language */}
-      <Section
-        title="Language"
-        count={languageCount}
-        onClear={() => onChange({ ...value, language: undefined })}
-        scroll={(options?.languages ?? []).length > 6}
-      >
-        {isLoading ? (
-          <p className="text-xs text-zinc-400">Loading…</p>
-        ) : (options?.languages ?? []).length === 0 ? (
-          <p className="text-xs text-zinc-400">No languages available.</p>
-        ) : (
-          options!.languages.map((lang) => (
-            <CheckboxRow
-              key={lang}
-              checked={!!value.language?.includes(lang)}
-              onChange={() =>
-                onChange({ ...value, language: toggle(value.language, lang) })
-              }
-            >
-              {lang}
-            </CheckboxRow>
-          ))
+        {/* Skills */}
+        {(options?.skills ?? []).length > 0 && (
+          <Section
+            title="Skill set"
+            count={skillCount}
+            onClear={() => onChange({ ...value, skill: undefined })}
+            scroll={options!.skills.length > 6}
+          >
+            {options!.skills.map((skill) => (
+              <CheckboxRow
+                key={skill}
+                checked={!!value.skill?.includes(skill)}
+                onChange={() =>
+                  onChange({ ...value, skill: toggle(value.skill, skill) })
+                }
+              >
+                {skill}
+              </CheckboxRow>
+            ))}
+          </Section>
         )}
-      </Section>
 
-      {/* Skills */}
-      {(options?.skills ?? []).length > 0 && (
-        <Section
-          title="Skill set"
-          count={skillCount}
-          onClear={() => onChange({ ...value, skill: undefined })}
-          scroll={options!.skills.length > 6}
-        >
-          {options!.skills.map((skill) => (
-            <CheckboxRow
-              key={skill}
-              checked={!!value.skill?.includes(skill)}
-              onChange={() =>
-                onChange({ ...value, skill: toggle(value.skill, skill) })
-              }
-            >
-              {skill}
-            </CheckboxRow>
-          ))}
-        </Section>
-      )}
-
-      {/* AI tools */}
-      {(options?.ai_tools ?? []).length > 0 && (
-        <Section
-          title="AI tools"
-          count={aiToolCount}
-          onClear={() => onChange({ ...value, ai_tool: undefined })}
-          scroll={options!.ai_tools.length > 6}
-        >
-          {options!.ai_tools.map((tool) => (
-            <CheckboxRow
-              key={tool}
-              checked={!!value.ai_tool?.includes(tool)}
-              onChange={() =>
-                onChange({ ...value, ai_tool: toggle(value.ai_tool, tool) })
-              }
-            >
-              {tool}
-            </CheckboxRow>
-          ))}
-        </Section>
-      )}
+        {/* AI tools */}
+        {(options?.ai_tools ?? []).length > 0 && (
+          <Section
+            title="AI tools"
+            count={aiToolCount}
+            onClear={() => onChange({ ...value, ai_tool: undefined })}
+            scroll={options!.ai_tools.length > 6}
+          >
+            {options!.ai_tools.map((tool) => (
+              <CheckboxRow
+                key={tool}
+                checked={!!value.ai_tool?.includes(tool)}
+                onChange={() =>
+                  onChange({ ...value, ai_tool: toggle(value.ai_tool, tool) })
+                }
+              >
+                {tool}
+              </CheckboxRow>
+            ))}
+          </Section>
+        )}
+      </div>
     </aside>
   );
 }
