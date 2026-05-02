@@ -566,6 +566,7 @@ export async function getTrainingForCategories(categoryIds: string[]) {
     .select('*')
     .in('id', chapterIds)
     .eq('is_active', true)
+    .is('course_id', null)
     .order('sort_order', { ascending: true });
 
   if (cErr) throw new AppError(500, `Failed to fetch chapters: ${cErr.message}`);
