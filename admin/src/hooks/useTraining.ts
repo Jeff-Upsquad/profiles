@@ -12,6 +12,8 @@ export interface TrainingCourse {
   is_active: boolean;
   is_onboarding: boolean;
   available_to_all: boolean;
+  countdown_enabled: boolean;
+  countdown_hours: number | null;
   deleted_at?: string | null;
   categories: { id: string; name: string; slug: string }[];
   chapter_count?: number;
@@ -93,6 +95,8 @@ interface CourseMutationPayload {
   is_active?: boolean;
   is_onboarding?: boolean;
   available_to_all?: boolean;
+  countdown_enabled?: boolean;
+  countdown_hours?: number | null;
   category_ids?: string[];
 }
 

@@ -197,6 +197,40 @@ export async function reorderCourses(input: ReorderInput) {
   return { message: 'Courses reordered' };
 }
 
+/**
+ * Records that the talent has clicked Start on a countdown-enabled course.
+ * No-op (idempotent) if the user has already started it; throws 400 if the
+ * course doesn't have countdown_enabled set.
+ */
+export async function startCourse(userId: string, courseId: string) {
+  const { data: course, error: courseErr } = await supabaseAdmin
+    .from('training_courses')
+    .select('id, countdown_enabled, deleted_at')
+    .eq('id', courseId)
+    .single();
+  if (courseErr || !course) throw new AppError(404, 'Course not found');
+  if (course.deleted_at) throw new AppError(404, 'Course not found');
+  if (!course.countdown_enabled) {
+    throw new AppError(400, 'This course does not have a countdown deadline');
+  }
+
+  // Idempotent: ignore conflict if already started
+  const { data: existing } = await supabaseAdmin
+    .from('training_course_starts')
+    .select('started_at')
+    .eq('talent_user_id', userId)
+    .eq('course_id', courseId)
+    .maybeSingle();
+  if (existing) return { message: 'Course already started', started_at: existing.started_at };
+
+  const startedAt = new Date().toISOString();
+  const { error } = await supabaseAdmin
+    .from('training_course_starts')
+    .insert({ talent_user_id: userId, course_id: courseId, started_at: startedAt });
+  if (error) throw new AppError(500, `Failed to start course: ${error.message}`);
+  return { message: 'Course started', started_at: startedAt };
+}
+
 // ---------------------------------------------------------------------------
 // Admin — Chapters
 // ---------------------------------------------------------------------------
@@ -582,9 +616,13 @@ async function hasApprovedProfile(userId: string): Promise<boolean> {
 }
 
 /**
- * Server-side guard for sequential chapter unlocking on onboarding courses.
- * Returns true if the lesson's chapter is currently locked for this user.
- * Approved talents (grandfather) bypass the lock entirely.
+ * Server-side guard for chapter locks. Returns true if the lesson's chapter
+ * is currently locked for this user — by either:
+ *   - the course's countdown deadline (course is countdown_enabled and the
+ *     user hasn't started it yet, OR has started but the deadline has passed)
+ *   - sequential gating in an onboarding course (prior chapter incomplete)
+ *
+ * Approved talents (grandfather) bypass all locks.
  */
 async function isLessonChapterLocked(userId: string, lessonId: string): Promise<boolean> {
   if (await hasApprovedProfile(userId)) return false;
@@ -605,13 +643,30 @@ async function isLessonChapterLocked(userId: string, lessonId: string): Promise<
 
   const { data: course, error: courseErr } = await supabaseAdmin
     .from('training_courses')
-    .select('id, is_onboarding, deleted_at')
+    .select('id, is_onboarding, deleted_at, countdown_enabled, countdown_hours')
     .eq('id', chapter.course_id)
     .single();
   if (courseErr || !course) return false;
-  if (!course.is_onboarding || course.deleted_at) return false;
+  if (course.deleted_at) return false;
 
-  // Find prior chapters in the same course
+  // Countdown gate: must have started; deadline mustn't have passed
+  if (course.countdown_enabled) {
+    const { data: startRow } = await supabaseAdmin
+      .from('training_course_starts')
+      .select('started_at')
+      .eq('talent_user_id', userId)
+      .eq('course_id', course.id)
+      .maybeSingle();
+    if (!startRow) return true; // not started yet
+    if (course.countdown_hours) {
+      const expiresMs = new Date(startRow.started_at).getTime() + course.countdown_hours * 3600_000;
+      if (expiresMs < Date.now()) return true; // deadline passed
+    }
+  }
+
+  if (!course.is_onboarding) return false;
+
+  // Find prior chapters in the same course (sequential gate, onboarding only)
   const { data: priorChapters, error: priorErr } = await supabaseAdmin
     .from('training_chapters')
     .select('id, sort_order')
@@ -815,10 +870,33 @@ interface CourseShape {
   description?: string | null;
   sort_order: number;
   is_onboarding: boolean;
+  countdown_enabled: boolean;
+  countdown_hours: number | null;
+  started_at: string | null;
+  expires_at: string | null;
+  expired: boolean;
   categories: any[];
   chapters: CourseChapterShape[];
   completed_count: number;
   total_count: number;
+}
+
+async function loadCourseStarts(
+  userId: string,
+  courseIds: string[],
+): Promise<Record<string, string>> {
+  if (courseIds.length === 0) return {};
+  const { data, error } = await supabaseAdmin
+    .from('training_course_starts')
+    .select('course_id, started_at')
+    .eq('talent_user_id', userId)
+    .in('course_id', courseIds);
+  if (error) throw new AppError(500, `Failed to fetch course starts: ${error.message}`);
+  const map: Record<string, string> = {};
+  for (const row of data ?? []) {
+    map[row.course_id] = row.started_at;
+  }
+  return map;
 }
 
 async function buildCoursePayloads(
@@ -829,13 +907,18 @@ async function buildCoursePayloads(
   if (courses.length === 0) return [];
 
   const courseIds = courses.map((c) => c.id);
-  const { data: chapters, error: chErr } = await supabaseAdmin
-    .from('training_chapters')
-    .select('id, course_id, title, description, sort_order, linked_module')
-    .in('course_id', courseIds)
-    .eq('is_active', true)
-    .order('sort_order', { ascending: true });
+  const [chaptersRes, startsByCourse] = await Promise.all([
+    supabaseAdmin
+      .from('training_chapters')
+      .select('id, course_id, title, description, sort_order, linked_module')
+      .in('course_id', courseIds)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true }),
+    loadCourseStarts(userId, courseIds),
+  ]);
+  const { data: chapters, error: chErr } = chaptersRes;
   if (chErr) throw new AppError(500, `Failed to fetch chapters: ${chErr.message}`);
+  const now = Date.now();
 
   const chapterIds = (chapters ?? []).map((c: any) => c.id);
   let lessons: any[] = [];
@@ -888,6 +971,18 @@ async function buildCoursePayloads(
     let courseCompleted = 0;
     let courseTotal = 0;
 
+    // Countdown computation
+    const countdownEnabled = course.countdown_enabled === true;
+    const countdownHours: number | null = course.countdown_hours ?? null;
+    const startedAt: string | null = startsByCourse[course.id] ?? null;
+    let expiresAt: string | null = null;
+    let expired = false;
+    if (countdownEnabled && countdownHours && startedAt) {
+      const expiresMs = new Date(startedAt).getTime() + countdownHours * 3600_000;
+      expiresAt = new Date(expiresMs).toISOString();
+      expired = !approved && expiresMs < now;
+    }
+
     const shapedChapters: CourseChapterShape[] = courseChapters.map((ch: any) => {
       const lessonList = lessonsByChapter[ch.id] ?? [];
       const completed_count = lessonList.filter((l: any) => l.completed).length;
@@ -896,8 +991,15 @@ async function buildCoursePayloads(
       courseTotal += total_count;
 
       let unlocked = true;
-      if (course.is_onboarding && !approved) {
-        unlocked = priorComplete;
+      if (!approved) {
+        if (course.is_onboarding) {
+          unlocked = priorComplete;
+        }
+        // Countdown lock: applies to all chapters in the course when expired,
+        // and keeps everything locked until Start has been clicked on a
+        // countdown-enabled course.
+        if (expired) unlocked = false;
+        if (countdownEnabled && !startedAt) unlocked = false;
       }
       // Update priorComplete for next chapter
       priorComplete = priorComplete && (total_count === 0 || completed_count === total_count);
@@ -921,6 +1023,11 @@ async function buildCoursePayloads(
       description: course.description,
       sort_order: course.sort_order,
       is_onboarding: course.is_onboarding,
+      countdown_enabled: countdownEnabled,
+      countdown_hours: countdownHours,
+      started_at: startedAt,
+      expires_at: expiresAt,
+      expired,
       categories: course.categories ?? [],
       chapters: shapedChapters,
       completed_count: courseCompleted,

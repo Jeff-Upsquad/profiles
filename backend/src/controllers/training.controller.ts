@@ -64,6 +64,18 @@ export async function reorderCourses(req: Request, res: Response, next: NextFunc
 }
 
 // ---------------------------------------------------------------------------
+// Talent — Course start (countdown)
+// ---------------------------------------------------------------------------
+
+export async function startCourse(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.id;
+    const data = await trainingService.startCourse(userId, req.params.id as string);
+    res.json(data);
+  } catch (err) { next(err); }
+}
+
+// ---------------------------------------------------------------------------
 // Admin — Chapters
 // ---------------------------------------------------------------------------
 

@@ -12,11 +12,17 @@ export const createCourseSchema = z
     is_active: z.boolean().optional(),
     is_onboarding: z.boolean().optional(),
     available_to_all: z.boolean().optional(),
+    countdown_enabled: z.boolean().optional(),
+    countdown_hours: z.number().int().positive().nullable().optional(),
     category_ids: z.array(z.string().uuid('Each category_id must be a valid UUID')).optional(),
   })
   .refine(
     (data) => !data.is_onboarding || (data.category_ids && data.category_ids.length > 0),
     { message: 'Onboarding courses require at least one category', path: ['category_ids'] },
+  )
+  .refine(
+    (data) => !data.countdown_enabled || (data.countdown_hours != null && data.countdown_hours > 0),
+    { message: 'Countdown duration is required when countdown is enabled', path: ['countdown_hours'] },
   );
 
 export const updateCourseSchema = z
@@ -27,8 +33,14 @@ export const updateCourseSchema = z
     is_active: z.boolean().optional(),
     is_onboarding: z.boolean().optional(),
     available_to_all: z.boolean().optional(),
+    countdown_enabled: z.boolean().optional(),
+    countdown_hours: z.number().int().positive().nullable().optional(),
     category_ids: z.array(z.string().uuid()).optional(),
-  });
+  })
+  .refine(
+    (data) => !data.countdown_enabled || (data.countdown_hours != null && data.countdown_hours > 0),
+    { message: 'Countdown duration is required when countdown is enabled', path: ['countdown_hours'] },
+  );
 
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;
