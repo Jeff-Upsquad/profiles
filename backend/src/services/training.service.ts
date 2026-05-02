@@ -952,6 +952,7 @@ export async function getMyCourses(userId: string, categoryIds: string[]): Promi
       training_course_categories: undefined,
     }))
     .filter((c: any) => {
+      if (c.available_to_all) return true;
       const courseCatIds = (c.categories ?? []).map((cat: any) => cat.id);
       if (c.is_onboarding) {
         return courseCatIds.some((id: string) => userCatSet.has(id));

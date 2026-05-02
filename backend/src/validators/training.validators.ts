@@ -11,6 +11,7 @@ export const createCourseSchema = z
     sort_order: z.number().int().min(0).optional(),
     is_active: z.boolean().optional(),
     is_onboarding: z.boolean().optional(),
+    available_to_all: z.boolean().optional(),
     category_ids: z.array(z.string().uuid('Each category_id must be a valid UUID')).optional(),
   })
   .refine(
@@ -25,6 +26,7 @@ export const updateCourseSchema = z
     sort_order: z.number().int().min(0).optional(),
     is_active: z.boolean().optional(),
     is_onboarding: z.boolean().optional(),
+    available_to_all: z.boolean().optional(),
     category_ids: z.array(z.string().uuid()).optional(),
   });
 

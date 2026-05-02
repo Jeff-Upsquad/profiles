@@ -11,6 +11,7 @@ export interface TrainingCourse {
   sort_order: number;
   is_active: boolean;
   is_onboarding: boolean;
+  available_to_all: boolean;
   deleted_at?: string | null;
   categories: { id: string; name: string; slug: string }[];
   chapter_count?: number;
@@ -91,6 +92,7 @@ interface CourseMutationPayload {
   sort_order?: number;
   is_active?: boolean;
   is_onboarding?: boolean;
+  available_to_all?: boolean;
   category_ids?: string[];
 }
 
