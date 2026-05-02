@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
@@ -83,6 +84,11 @@ export interface TrainingCourse {
   description?: string;
   sort_order: number;
   is_onboarding: boolean;
+  countdown_enabled: boolean;
+  countdown_hours: number | null;
+  started_at: string | null;
+  expires_at: string | null;
+  expired: boolean;
   categories: { id: string; name: string; slug: string }[];
   chapters: TrainingChapter[];
   completed_count: number;
@@ -173,6 +179,73 @@ export function getStoredCourseLanguage(courseId: string): string | null {
 export function setStoredCourseLanguage(courseId: string, language: string): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(`training_language:${courseId}`, language);
+}
+
+// ---------------------------------------------------------------------------
+// Course countdown helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Format the time remaining until `expiresAt` as a short human string.
+ * "2d 4h" / "3h 12m" / "12m" / "Overdue".
+ */
+export function formatRemaining(expiresAt: string | null | undefined, now: Date = new Date()): string {
+  if (!expiresAt) return '';
+  const diffMs = new Date(expiresAt).getTime() - now.getTime();
+  if (diffMs <= 0) return 'Overdue';
+  const totalMin = Math.floor(diffMs / 60_000);
+  const days = Math.floor(totalMin / (60 * 24));
+  const hours = Math.floor((totalMin % (60 * 24)) / 60);
+  const mins = totalMin % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
+}
+
+/**
+ * Format the duration the admin set, for display in the popup body.
+ * Reads countdown_hours and prefers days when divisible by 24.
+ */
+export function formatDuration(hours: number | null | undefined): string {
+  if (!hours || hours <= 0) return '';
+  if (hours % 24 === 0) {
+    const days = hours / 24;
+    return days === 1 ? '1 day' : `${days} days`;
+  }
+  return hours === 1 ? '1 hour' : `${hours} hours`;
+}
+
+/**
+ * Filter courses whose deadline is currently active for this user
+ * (countdown enabled, started, and not yet expired).
+ */
+export function getActiveCountdowns(courses: TrainingCourse[] | undefined | null): TrainingCourse[] {
+  if (!courses) return [];
+  return courses.filter((c) => c.countdown_enabled && c.started_at && !c.expired);
+}
+
+export function useStartCourse() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (courseId: string) => {
+      const { data } = await api.post(`/talent/training/courses/${courseId}/start`);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['myTraining'] });
+      qc.invalidateQueries({ queryKey: ['onboardingCourses'] });
+    },
+  });
+}
+
+/** Re-renders every `intervalMs` so countdown displays stay live. */
+export function useNow(intervalMs = 60_000): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
 }
 
 export function useMarkLessonComplete() {

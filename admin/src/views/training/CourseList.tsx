@@ -59,6 +59,7 @@ export default function CourseList() {
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Title</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Type</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Categories</th>
+                <th className="text-left px-6 py-3 font-medium text-gray-500">Deadline</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Chapters</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Status</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Sort</th>
@@ -95,6 +96,11 @@ export default function CourseList() {
                     ) : (
                       <span className="text-gray-400 text-xs">All</span>
                     )}
+                  </td>
+                  <td className="px-6 py-4 text-gray-500 text-xs">
+                    {course.countdown_enabled && course.countdown_hours
+                      ? <Badge variant="indigo">{course.countdown_hours % 24 === 0 ? `${course.countdown_hours / 24}d` : `${course.countdown_hours}h`}</Badge>
+                      : '—'}
                   </td>
                   <td className="px-6 py-4 text-gray-500">{course.chapter_count ?? 0}</td>
                   <td className="px-6 py-4">

@@ -56,6 +56,7 @@ router.get('/training/onboarding', trainingController.getOnboardingTraining);
 router.get('/training/onboarding-courses', trainingController.getMyOnboardingCourses);
 router.get('/training/module-access', trainingController.getModuleAccess);
 router.post('/training/complete-onboarding', trainingController.completeOnboarding);
+router.post('/training/courses/:id/start', trainingController.startCourse);
 router.get('/training', trainingController.getMyTraining);
 router.post('/training/lessons/:lessonId/complete', trainingController.markComplete);
 router.delete('/training/lessons/:lessonId/complete', trainingController.markIncomplete);
