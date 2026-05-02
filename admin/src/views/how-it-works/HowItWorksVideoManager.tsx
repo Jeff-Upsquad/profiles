@@ -143,7 +143,7 @@ export default function HowItWorksVideoManager() {
                     </a>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
-                    <Badge variant={video.is_active ? 'success' : 'default'}>
+                    <Badge variant={video.is_active ? 'green' : 'gray'}>
                       {video.is_active ? 'Active' : 'Inactive'}
                     </Badge>
                   </td>
