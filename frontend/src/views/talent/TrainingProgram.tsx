@@ -5,29 +5,31 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
   useMyTraining,
-  useOnboardingTraining,
+  useOnboardingCourses,
   useCompleteOnboarding,
   useMarkLessonComplete,
   useMarkLessonIncomplete,
   pickLessonUrl,
-  getAvailableLanguages,
+  getCourseLanguages,
+  getStoredCourseLanguage,
+  setStoredCourseLanguage,
   LANGUAGE_LABELS,
   type TrainingChapter,
   type TrainingLesson,
+  type TrainingCourse,
 } from '@/hooks/useTraining';
-
-const LANG_STORAGE_KEY = 'training_language';
 
 function loomEmbedUrl(shareUrl: string): string {
   return shareUrl.replace('/share/', '/embed/');
 }
 
-function useTrainingLanguage(available: string[]) {
-  const [language, setLanguageState] = useState<string>('en');
+/** Per-course language hook keyed by course id */
+function useCourseLanguage(courseId: string, available: string[]) {
+  const [language, setLanguageState] = useState<string>(available[0] ?? 'en');
   const [hasSelected, setHasSelected] = useState<boolean>(false);
 
   useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem(LANG_STORAGE_KEY) : null;
+    const stored = getStoredCourseLanguage(courseId);
     if (stored && available.includes(stored)) {
       setLanguageState(stored);
       setHasSelected(true);
@@ -35,14 +37,12 @@ function useTrainingLanguage(available: string[]) {
       setLanguageState(available[0]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [available.join(',')]);
+  }, [courseId, available.join(',')]);
 
   const setLanguage = (lang: string) => {
     setLanguageState(lang);
     setHasSelected(true);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(LANG_STORAGE_KEY, lang);
-    }
+    setStoredCourseLanguage(courseId, lang);
   };
 
   return [language, setLanguage, hasSelected] as const;
@@ -89,13 +89,11 @@ function LanguageSelectionPrompt() {
     <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#6647F0]/40 bg-gradient-to-br from-[#F2EEFF]/60 to-white px-6 py-10 sm:py-8 text-center sm:text-left">
       <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
       <div className="relative sm:flex sm:items-end sm:justify-between sm:gap-6">
-        {/* Mobile: arrow on top, centered */}
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center text-[#6647F0] sm:hidden">
           <svg className="h-10 w-10 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
           </svg>
         </div>
-
         <div className="flex-1 min-w-0">
           <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
             Pick your language to start
@@ -104,8 +102,6 @@ function LanguageSelectionPrompt() {
             Choose a language from the dropdown above to begin watching the training videos.
           </p>
         </div>
-
-        {/* Desktop: arrow on bottom-right, pointing up-right toward the picker */}
         <div className="hidden sm:flex h-14 w-14 flex-shrink-0 items-end justify-end text-[#6647F0]">
           <svg className="h-12 w-12 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7m0 0H8m9 0v9" />
@@ -147,7 +143,6 @@ function LessonCard({ lesson, index, language }: { lesson: TrainingLesson; index
 
   const [secondsLeft, setSecondsLeft] = useState(lesson.completed ? 0 : WATCH_COOLDOWN_SECONDS);
 
-  // Reset countdown if the video URL changes (e.g., user switched language)
   useEffect(() => {
     setSecondsLeft(lesson.completed ? 0 : WATCH_COOLDOWN_SECONDS);
   }, [videoUrl, lesson.completed]);
@@ -236,22 +231,47 @@ function LessonCard({ lesson, index, language }: { lesson: TrainingLesson; index
   );
 }
 
-function ChapterAccordion({ chapter, language, defaultOpen = true }: { chapter: TrainingChapter; language: string; defaultOpen?: boolean }) {
-  const [expanded, setExpanded] = useState(defaultOpen);
+function ChapterAccordion({
+  chapter,
+  language,
+  defaultOpen = true,
+  locked = false,
+  lockedReason,
+}: {
+  chapter: TrainingChapter;
+  language: string;
+  defaultOpen?: boolean;
+  locked?: boolean;
+  lockedReason?: string;
+}) {
+  const [expanded, setExpanded] = useState(defaultOpen && !locked);
   const isComplete = chapter.completed_count === chapter.total_count && chapter.total_count > 0;
 
   return (
-    <div className="rounded-2xl border border-[#ECECEF] bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+    <div
+      className={`rounded-2xl border bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${
+        locked ? 'border-[#ECECEF] opacity-60' : 'border-[#ECECEF]'
+      }`}
+      title={locked ? lockedReason : undefined}
+    >
       <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full px-5 sm:px-6 py-5 flex items-center gap-4 text-left transition-colors hover:bg-[#F8F9FA]"
-      >
-        <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${
-          isComplete ? 'bg-emerald-50 text-emerald-600' : 'tint-purple'
+        onClick={() => !locked && setExpanded(!expanded)}
+        disabled={locked}
+        className={`w-full px-5 sm:px-6 py-5 flex items-center gap-4 text-left transition-colors ${
+          locked ? 'cursor-not-allowed' : 'hover:bg-[#F8F9FA]'
         }`}
-          style={!isComplete ? { color: 'var(--tint-icon)' } : undefined}
+      >
+        <div
+          className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${
+            locked ? 'bg-gray-100 text-gray-400' : isComplete ? 'bg-emerald-50 text-emerald-600' : 'tint-purple'
+          }`}
+          style={!locked && !isComplete ? { color: 'var(--tint-icon)' } : undefined}
         >
-          {isComplete ? (
+          {locked ? (
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          ) : isComplete ? (
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
@@ -262,25 +282,40 @@ function ChapterAccordion({ chapter, language, defaultOpen = true }: { chapter: 
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020] truncate">{chapter.title}</h3>
+          <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020] truncate">
+            {chapter.title}
+          </h3>
           {chapter.description && (
             <p className="text-sm text-[#838383] mt-0.5 truncate">{chapter.description}</p>
           )}
-          <div className="mt-2.5 max-w-md">
-            <ProgressBar completed={chapter.completed_count} total={chapter.total_count} color={isComplete ? 'purple' : 'rainbow'} />
-          </div>
+          {locked && lockedReason ? (
+            <p className="mt-2 text-xs text-amber-700">{lockedReason}</p>
+          ) : (
+            <div className="mt-2.5 max-w-md">
+              <ProgressBar
+                completed={chapter.completed_count}
+                total={chapter.total_count}
+                color={isComplete ? 'purple' : 'rainbow'}
+              />
+            </div>
+          )}
         </div>
-        <svg
-          className={`w-5 h-5 text-[#A1A1AA] flex-shrink-0 transition-transform duration-200 ${
-            expanded ? 'rotate-180' : ''
-          }`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
+        {!locked && (
+          <svg
+            className={`w-5 h-5 text-[#A1A1AA] flex-shrink-0 transition-transform duration-200 ${
+              expanded ? 'rotate-180' : ''
+            }`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        )}
       </button>
 
-      {expanded && chapter.lessons.length > 0 && (
+      {!locked && expanded && chapter.lessons.length > 0 && (
         <div className="px-5 sm:px-6 pb-6 grid gap-4 sm:grid-cols-2">
           {chapter.lessons.map((lesson, idx) => (
             <LessonCard key={lesson.id} lesson={lesson} index={idx} language={language} />
@@ -291,15 +326,83 @@ function ChapterAccordion({ chapter, language, defaultOpen = true }: { chapter: 
   );
 }
 
-function OnboardingTraining() {
-  const router = useRouter();
-  const { data: chapter, isLoading } = useOnboardingTraining();
-  const completeOnboarding = useCompleteOnboarding();
-  const availableLanguages = getAvailableLanguages(chapter);
-  const [language, setLanguage, hasSelectedLanguage] = useTrainingLanguage(availableLanguages);
+function CourseSection({
+  course,
+  enforceSequential,
+  defaultOpenFirst = false,
+}: {
+  course: TrainingCourse;
+  enforceSequential: boolean;
+  defaultOpenFirst?: boolean;
+}) {
+  const availableLanguages = getCourseLanguages(course);
+  const [language, setLanguage, hasSelectedLanguage] = useCourseLanguage(course.id, availableLanguages);
   const needsLanguageSelection = availableLanguages.length > 1 && !hasSelectedLanguage;
 
-  const allComplete = chapter ? chapter.completed_count === chapter.total_count && chapter.total_count > 0 : false;
+  return (
+    <section className="space-y-4">
+      <div className="flex items-end justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#202020]">
+            {course.title}
+          </h2>
+          {course.description && (
+            <p className="mt-1 text-sm text-[#838383]">{course.description}</p>
+          )}
+        </div>
+        <LanguagePicker
+          language={language}
+          available={availableLanguages}
+          onChange={setLanguage}
+          highlight={needsLanguageSelection}
+        />
+      </div>
+
+      {needsLanguageSelection ? (
+        <LanguageSelectionPrompt />
+      ) : course.chapters.length === 0 ? (
+        <div className="rounded-2xl border border-[#ECECEF] bg-white px-6 py-8 text-center text-sm text-[#838383]">
+          No chapters yet.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {course.chapters.map((chapter, i) => {
+            const locked = enforceSequential && chapter.unlocked === false;
+            const previousTitle = i > 0 ? course.chapters[i - 1].title : null;
+            const lockedReason = locked && previousTitle
+              ? `Complete "${previousTitle}" to unlock`
+              : undefined;
+            return (
+              <div key={chapter.id} className={`stagger-${Math.min(i + 1, 6)}`}>
+                <ChapterAccordion
+                  chapter={chapter}
+                  language={language}
+                  locked={locked}
+                  lockedReason={lockedReason}
+                  defaultOpen={defaultOpenFirst && i === 0}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function OnboardingTraining() {
+  const router = useRouter();
+  const { data: courses = [], isLoading } = useOnboardingCourses();
+  const completeOnboarding = useCompleteOnboarding();
+
+  const totals = courses.reduce(
+    (acc, course) => ({
+      completed: acc.completed + course.completed_count,
+      total: acc.total + course.total_count,
+    }),
+    { completed: 0, total: 0 },
+  );
+  const allComplete = totals.total > 0 && totals.completed === totals.total;
 
   const handleBuildProfile = async () => {
     try {
@@ -312,7 +415,6 @@ function OnboardingTraining() {
 
   return (
     <div className="space-y-6">
-      {/* Onboarding Hero */}
       <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-glow-blur" />
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -324,23 +426,15 @@ function OnboardingTraining() {
               Complete the <span className="text-rainbow">Training</span> to Unlock Your Account
             </h1>
             <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] max-w-xl stagger-3">
-              Watch the video below and mark it as complete to unlock all modules and start building your profile.
+              Watch the videos in each chapter and mark them complete to unlock the next chapter and the rest of your account.
             </p>
           </div>
-          <LanguagePicker
-            language={language}
-            available={availableLanguages}
-            onChange={setLanguage}
-            highlight={needsLanguageSelection}
-          />
         </div>
       </section>
 
       {isLoading ? (
         <div className="h-32 bg-[#f0f0f0] rounded-2xl animate-pulse" />
-      ) : needsLanguageSelection && chapter ? (
-        <LanguageSelectionPrompt />
-      ) : !chapter ? (
+      ) : courses.length === 0 ? (
         <div className="relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
@@ -358,9 +452,15 @@ function OnboardingTraining() {
         </div>
       ) : (
         <>
-          <ChapterAccordion chapter={chapter} language={language} defaultOpen />
+          {courses.map((course) => (
+            <CourseSection
+              key={course.id}
+              course={course}
+              enforceSequential
+              defaultOpenFirst
+            />
+          ))}
 
-          {/* Build Profile CTA */}
           <div className="rounded-2xl border border-[#ECECEF] bg-white p-6 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             {allComplete ? (
               <>
@@ -394,10 +494,10 @@ function OnboardingTraining() {
                   </svg>
                 </div>
                 <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">
-                  Complete all lessons to unlock
+                  Complete all chapters to unlock
                 </h3>
                 <p className="mt-1 text-sm text-[#838383]">
-                  {chapter.completed_count} of {chapter.total_count} lessons complete
+                  {totals.completed} of {totals.total} lessons complete
                 </p>
               </>
             )}
@@ -418,21 +518,30 @@ export default function TrainingProgram() {
 }
 
 function FullTrainingProgram() {
-  const { data: chapters, isLoading } = useMyTraining();
-  const availableLanguages = getAvailableLanguages(chapters ?? null);
-  const [language, setLanguage, hasSelectedLanguage] = useTrainingLanguage(availableLanguages);
-  const needsLanguageSelection = availableLanguages.length > 1 && !hasSelectedLanguage;
+  const { data, isLoading } = useMyTraining();
+  const courses = data?.courses ?? [];
+  const legacyChapters = data?.chapters ?? [];
 
-  // Compute overall progress
-  const totals = (chapters ?? []).reduce(
-    (acc, c) => ({ completed: acc.completed + c.completed_count, total: acc.total + c.total_count }),
-    { completed: 0, total: 0 }
-  );
+  // Compute totals across all courses + legacy chapters
+  const totals = (() => {
+    let completed = 0;
+    let total = 0;
+    for (const course of courses) {
+      completed += course.completed_count;
+      total += course.total_count;
+    }
+    for (const ch of legacyChapters) {
+      completed += ch.completed_count;
+      total += ch.total_count;
+    }
+    return { completed, total };
+  })();
   const overallPct = totals.total > 0 ? Math.round((totals.completed / totals.total) * 100) : 0;
+
+  const isEmpty = courses.length === 0 && legacyChapters.length === 0;
 
   return (
     <div className="space-y-6">
-      {/* Compact Hero with overall ring */}
       <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
@@ -448,38 +557,30 @@ function FullTrainingProgram() {
               Short videos to help you build a stronger profile and win more work.
             </p>
           </div>
-          <div className="flex items-center gap-4 stagger-4">
-            <LanguagePicker
-              language={language}
-              available={availableLanguages}
-              onChange={setLanguage}
-              highlight={needsLanguageSelection}
-            />
-            {totals.total > 0 && (
-              <div className="relative flex h-16 w-16 items-center justify-center">
-                <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="42" fill="none" stroke="#ECECEF" strokeWidth="9" />
-                  <circle
-                    cx="50" cy="50" r="42" fill="none"
-                    stroke="url(#train-grad)"
-                    strokeWidth="9" strokeLinecap="round"
-                    strokeDasharray={`${(overallPct / 100) * 264} 264`}
-                    className="transition-all duration-700"
-                  />
-                  <defs>
-                    <linearGradient id="train-grad" x1="0" y1="0" x2="1" y2="1">
-                      <stop offset="0%" stopColor="#FF8B47" />
-                      <stop offset="50%" stopColor="#D24DFF" />
-                      <stop offset="100%" stopColor="#5BB7FF" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <span className="font-[family-name:var(--font-jakarta)] text-base font-semibold tracking-[-0.02em] text-[#202020]">
-                  {overallPct}%
-                </span>
-              </div>
-            )}
-          </div>
+          {totals.total > 0 && (
+            <div className="relative flex h-16 w-16 items-center justify-center stagger-4">
+              <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#ECECEF" strokeWidth="9" />
+                <circle
+                  cx="50" cy="50" r="42" fill="none"
+                  stroke="url(#train-grad)"
+                  strokeWidth="9" strokeLinecap="round"
+                  strokeDasharray={`${(overallPct / 100) * 264} 264`}
+                  className="transition-all duration-700"
+                />
+                <defs>
+                  <linearGradient id="train-grad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#FF8B47" />
+                    <stop offset="50%" stopColor="#D24DFF" />
+                    <stop offset="100%" stopColor="#5BB7FF" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <span className="font-[family-name:var(--font-jakarta)] text-base font-semibold tracking-[-0.02em] text-[#202020]">
+                {overallPct}%
+              </span>
+            </div>
+          )}
         </div>
       </section>
 
@@ -489,9 +590,7 @@ function FullTrainingProgram() {
             <div key={i} className="h-32 bg-[#f0f0f0] rounded-2xl animate-pulse" />
           ))}
         </div>
-      ) : needsLanguageSelection && chapters?.length ? (
-        <LanguageSelectionPrompt />
-      ) : !chapters?.length ? (
+      ) : isEmpty ? (
         <div className="relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
@@ -508,12 +607,30 @@ function FullTrainingProgram() {
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          {chapters.map((chapter, i) => (
-            <div key={chapter.id} className={`stagger-${Math.min(i + 1, 6)}`}>
-              <ChapterAccordion chapter={chapter} language={language} />
-            </div>
+        <div className="space-y-8">
+          {courses.map((course) => (
+            <CourseSection
+              key={course.id}
+              course={course}
+              enforceSequential={course.is_onboarding}
+            />
           ))}
+          {legacyChapters.length > 0 && (
+            <section className="space-y-4">
+              {courses.length > 0 && (
+                <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#202020]">
+                  Other chapters
+                </h2>
+              )}
+              <div className="space-y-4">
+                {legacyChapters.map((chapter, i) => (
+                  <div key={chapter.id} className={`stagger-${Math.min(i + 1, 6)}`}>
+                    <ChapterAccordion chapter={chapter} language="en" />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       )}
     </div>

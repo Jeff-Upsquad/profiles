@@ -6,12 +6,18 @@ import Modal from '@/components/ui/Modal';
 import ChapterForm from './ChapterForm';
 import {
   useChapters,
+  useCourse,
   useDeleteChapter,
   type TrainingChapter,
 } from '@/hooks/useTraining';
 
-export default function TrainingChapterList() {
-  const { data: chapters, isLoading } = useChapters();
+interface TrainingChapterListProps {
+  courseId?: string;
+}
+
+export default function TrainingChapterList({ courseId }: TrainingChapterListProps = {}) {
+  const { data: chapters, isLoading } = useChapters(courseId ?? undefined);
+  const { data: course } = useCourse(courseId);
   const deleteMutation = useDeleteChapter();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingChapter, setEditingChapter] = useState<TrainingChapter | null>(null);
@@ -31,10 +37,19 @@ export default function TrainingChapterList() {
     setEditingChapter(null);
   };
 
+  const heading = courseId ? course?.title ?? 'Course' : 'Training Program';
+
   return (
     <div>
+      {courseId && (
+        <div className="mb-3">
+          <Link href="/training" className="text-sm text-indigo-600 hover:text-indigo-800">
+            ← Back to courses
+          </Link>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Training Program</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{heading}</h1>
         <Button onClick={openCreate}>Create Chapter</Button>
       </div>
 
@@ -140,7 +155,7 @@ export default function TrainingChapterList() {
         onClose={closeModal}
         title={editingChapter ? 'Edit Chapter' : 'Create Chapter'}
       >
-        <ChapterForm chapter={editingChapter} onClose={closeModal} />
+        <ChapterForm chapter={editingChapter} courseId={courseId} onClose={closeModal} />
       </Modal>
     </div>
   );

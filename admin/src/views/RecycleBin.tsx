@@ -4,6 +4,7 @@ import api from '@/services/api';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import toast from 'react-hot-toast';
+import { useArchivedCourses, useRestoreCourse } from '@/hooks/useTraining';
 
 interface DeletedProfile {
   id: string;
@@ -76,12 +77,15 @@ export default function RecycleBin() {
     },
   });
 
+  const { data: archivedCourses = [] } = useArchivedCourses();
+  const restoreCourse = useRestoreCourse();
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Archive</h1>
         <p className="mt-1 text-sm text-gray-500">
-          {profiles?.length ?? 0} archived profiles. Restore or permanently delete.
+          {profiles?.length ?? 0} archived profiles, {archivedCourses.length} archived courses. Restore or permanently delete.
         </p>
       </div>
 
@@ -166,6 +170,63 @@ export default function RecycleBin() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Archived courses */}
+      {archivedCourses.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Archived courses</h2>
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Title</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Categories</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Archived At</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {archivedCourses.map((course) => (
+                  <tr key={course.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{course.title}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {course.is_onboarding ? (
+                        <Badge variant="indigo">Onboarding</Badge>
+                      ) : (
+                        <span className="text-gray-400 text-xs">Standard</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex flex-wrap gap-1">
+                        {course.categories.length > 0 ? (
+                          course.categories.map((cat) => (
+                            <Badge key={cat.id} variant="blue">{cat.name}</Badge>
+                          ))
+                        ) : (
+                          <span className="text-gray-400 text-xs">All</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {course.deleted_at ? new Date(course.deleted_at).toLocaleString() : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button
+                        size="sm"
+                        loading={restoreCourse.isPending}
+                        onClick={() => restoreCourse.mutate(course.id)}
+                      >
+                        Restore
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

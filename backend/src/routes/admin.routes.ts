@@ -23,6 +23,8 @@ import {
   adminAddPortfolioItemSchema,
 } from '../validators/admin.validators.js';
 import {
+  createCourseSchema,
+  updateCourseSchema,
   createChapterSchema,
   updateChapterSchema,
   createLessonSchema,
@@ -430,6 +432,17 @@ router.post('/leads/:leadId/interview-invitation', interviewController.createInv
 // Training Program
 // ---------------------------------------------------------------------------
 
+// Courses
+router.get('/training/courses', trainingController.getCourses);
+router.get('/training/courses/archived', trainingController.getArchivedCourses);
+router.post('/training/courses', validate({ body: createCourseSchema }), trainingController.createCourse);
+router.patch('/training/courses/reorder', validate({ body: reorderSchema }), trainingController.reorderCourses);
+router.get('/training/courses/:id', trainingController.getCourse);
+router.put('/training/courses/:id', validate({ body: updateCourseSchema }), trainingController.updateCourse);
+router.delete('/training/courses/:id', trainingController.archiveCourse);
+router.post('/training/courses/:id/restore', trainingController.restoreCourse);
+
+// Chapters
 router.get('/training/chapters', trainingController.getChapters);
 router.post('/training/chapters', validate({ body: createChapterSchema }), trainingController.createChapter);
 router.get('/training/chapters/:id', trainingController.getChapter);

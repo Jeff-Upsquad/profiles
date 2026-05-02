@@ -64,16 +64,93 @@ export interface TrainingChapter {
   lessons: TrainingLesson[];
   completed_count: number;
   total_count: number;
+  /** Computed by the API for onboarding courses; absent on legacy chapters */
+  unlocked?: boolean;
+  linked_module?: string | null;
+}
+
+export interface TrainingCourse {
+  id: string;
+  title: string;
+  description?: string;
+  sort_order: number;
+  is_onboarding: boolean;
+  categories: { id: string; name: string; slug: string }[];
+  chapters: TrainingChapter[];
+  completed_count: number;
+  total_count: number;
+}
+
+export interface MyTrainingResponse {
+  courses: TrainingCourse[];
+  /** Legacy chapters not yet assigned to a course */
+  chapters: TrainingChapter[];
 }
 
 export function useMyTraining() {
-  return useQuery<TrainingChapter[]>({
+  return useQuery<MyTrainingResponse>({
     queryKey: ['myTraining'],
     queryFn: async () => {
       const { data } = await api.get('/talent/training');
-      return data.chapters ?? data;
+      return {
+        courses: data.courses ?? [],
+        chapters: data.chapters ?? [],
+      };
     },
   });
+}
+
+/**
+ * Convenience: just the courses (sorted as returned by the server).
+ */
+export function useMyCourses() {
+  const query = useMyTraining();
+  return { ...query, data: query.data?.courses ?? [] };
+}
+
+export function useOnboardingCourses() {
+  return useQuery<TrainingCourse[]>({
+    queryKey: ['onboardingCourses'],
+    queryFn: async () => {
+      const { data } = await api.get('/talent/training/onboarding-courses');
+      return data.courses ?? [];
+    },
+  });
+}
+
+export function useCourse(courseId: string | undefined) {
+  const query = useMyTraining();
+  const course = query.data?.courses.find((c) => c.id === courseId) ?? null;
+  return { ...query, data: course };
+}
+
+/**
+ * Compute the languages available across every lesson in the course.
+ * Falls back to ['en'] if no per-language video variants exist.
+ */
+export function getCourseLanguages(course: TrainingCourse | null | undefined): string[] {
+  if (!course) return ['en'];
+  const langs = new Set<string>();
+  for (const ch of course.chapters ?? []) {
+    for (const lesson of ch.lessons ?? []) {
+      for (const v of lesson.videos ?? []) {
+        langs.add(v.language);
+      }
+    }
+  }
+  if (langs.size === 0) langs.add('en');
+  return Array.from(langs);
+}
+
+/** localStorage helpers for per-course language selection */
+export function getStoredCourseLanguage(courseId: string): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(`training_language:${courseId}`);
+}
+
+export function setStoredCourseLanguage(courseId: string, language: string): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(`training_language:${courseId}`, language);
 }
 
 export function useMarkLessonComplete() {
@@ -86,6 +163,7 @@ export function useMarkLessonComplete() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['myTraining'] });
       qc.invalidateQueries({ queryKey: ['onboardingTraining'] });
+      qc.invalidateQueries({ queryKey: ['onboardingCourses'] });
       qc.invalidateQueries({ queryKey: ['moduleAccess'] });
     },
   });
@@ -101,6 +179,7 @@ export function useMarkLessonIncomplete() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['myTraining'] });
       qc.invalidateQueries({ queryKey: ['onboardingTraining'] });
+      qc.invalidateQueries({ queryKey: ['onboardingCourses'] });
       qc.invalidateQueries({ queryKey: ['moduleAccess'] });
     },
   });
@@ -157,6 +236,8 @@ export function useCompleteOnboarding() {
     onSuccess: async () => {
       await refetchUser();
       qc.invalidateQueries({ queryKey: ['onboardingTraining'] });
+      qc.invalidateQueries({ queryKey: ['onboardingCourses'] });
+      qc.invalidateQueries({ queryKey: ['myTraining'] });
     },
   });
 }

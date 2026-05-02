@@ -1,6 +1,37 @@
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
+// Course schemas
+// ---------------------------------------------------------------------------
+
+export const createCourseSchema = z
+  .object({
+    title: z.string().min(1, 'Title is required').max(200),
+    description: z.string().max(2000).optional(),
+    sort_order: z.number().int().min(0).optional(),
+    is_active: z.boolean().optional(),
+    is_onboarding: z.boolean().optional(),
+    category_ids: z.array(z.string().uuid('Each category_id must be a valid UUID')).optional(),
+  })
+  .refine(
+    (data) => !data.is_onboarding || (data.category_ids && data.category_ids.length > 0),
+    { message: 'Onboarding courses require at least one category', path: ['category_ids'] },
+  );
+
+export const updateCourseSchema = z
+  .object({
+    title: z.string().min(1).max(200).optional(),
+    description: z.string().max(2000).optional(),
+    sort_order: z.number().int().min(0).optional(),
+    is_active: z.boolean().optional(),
+    is_onboarding: z.boolean().optional(),
+    category_ids: z.array(z.string().uuid()).optional(),
+  });
+
+export type CreateCourseInput = z.infer<typeof createCourseSchema>;
+export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;
+
+// ---------------------------------------------------------------------------
 // Chapter schemas
 // ---------------------------------------------------------------------------
 
@@ -20,9 +51,11 @@ export const createChapterSchema = z.object({
   is_onboarding: z.boolean().optional(),
   language: z.string().max(10).optional(),
   linked_module: linkedModuleEnum.nullable().optional(),
+  course_id: z.string().uuid().nullable().optional(),
   category_ids: z
     .array(z.string().uuid('Each category_id must be a valid UUID'))
-    .min(1, 'At least one category is required'),
+    .min(1, 'At least one category is required')
+    .optional(),
 });
 
 export const updateChapterSchema = z.object({
@@ -33,6 +66,7 @@ export const updateChapterSchema = z.object({
   is_onboarding: z.boolean().optional(),
   language: z.string().max(10).optional(),
   linked_module: linkedModuleEnum.nullable().optional(),
+  course_id: z.string().uuid().nullable().optional(),
   category_ids: z
     .array(z.string().uuid('Each category_id must be a valid UUID'))
     .min(1, 'At least one category is required')
