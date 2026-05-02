@@ -19,6 +19,7 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
   const [sortOrder, setSortOrder] = useState(course?.sort_order ?? 0);
   const [isActive, setIsActive] = useState(course?.is_active ?? true);
   const [isOnboarding, setIsOnboarding] = useState(course?.is_onboarding ?? false);
+  const [availableToAll, setAvailableToAll] = useState(course?.available_to_all ?? false);
   const [countdownEnabled, setCountdownEnabled] = useState(course?.countdown_enabled ?? false);
   // Initial duration: derive friendly unit from existing countdown_hours.
   const initialHours = course?.countdown_hours ?? null;
@@ -62,6 +63,7 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
       sort_order: sortOrder,
       is_active: isActive,
       is_onboarding: isOnboarding,
+      available_to_all: availableToAll,
       countdown_enabled: countdownEnabled,
       countdown_hours: countdownHoursValue,
       category_ids: selectedCategoryIds,
@@ -133,6 +135,26 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
       {isOnboarding && (
         <p className="text-xs text-amber-700 -mt-2">
           Onboarding courses enforce sequential chapter unlocking and are required for new talents in the selected categories. Each category may belong to only one onboarding course.
+        </p>
+      )}
+
+      {isOnboarding && (
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="course-available-to-all"
+            checked={availableToAll}
+            onChange={(e) => setAvailableToAll(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          <label htmlFor="course-available-to-all" className="text-sm text-gray-700">
+            Available to all users
+          </label>
+        </div>
+      )}
+      {isOnboarding && availableToAll && (
+        <p className="text-xs text-amber-700 -mt-2">
+          This course will be visible to all users, including existing approved talents who may not match the selected categories. Chapters will remain unlocked for approved users.
         </p>
       )}
 
