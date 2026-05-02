@@ -588,10 +588,12 @@ export async function getTrainingForCategories(categoryIds: string[]) {
     lessonsByChapter[l.chapter_id].push(l);
   }
 
-  return (chapters ?? []).map((ch: any) => ({
-    ...ch,
-    lessons: lessonsByChapter[ch.id] ?? [],
-  }));
+  return (chapters ?? [])
+    .map((ch: any) => ({
+      ...ch,
+      lessons: lessonsByChapter[ch.id] ?? [],
+    }))
+    .filter((ch: any) => ch.lessons.length > 0);
 }
 
 export async function getLessonProgress(userId: string) {
