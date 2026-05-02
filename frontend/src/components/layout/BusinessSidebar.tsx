@@ -12,6 +12,7 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
     pathname === '/business/dashboard' || pathname.startsWith('/business/dashboard/');
   const subscriptionActive = pathname.startsWith('/business/subscription');
   const allProfilesActive = pathname.startsWith('/business/talent-access');
+  const howItWorksActive = pathname.startsWith('/business/how-it-works');
 
   const displayName =
     (user?.role === 'business' && user?.contact_person_name) || user?.full_name || user?.email || '';
@@ -90,6 +91,24 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
           }
         >
           All profiles
+        </SidebarLink>
+
+        <SidebarLink
+          href="/business/how-it-works"
+          active={howItWorksActive}
+          onNavigate={onNavigate}
+          icon={
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          }
+        >
+          How it works
         </SidebarLink>
       </nav>
 

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as businessService from '../services/business.service.js';
 import * as talentAccessService from '../services/talent-access.service.js';
+import * as howItWorksService from '../services/how-it-works.service.js';
 
 export async function getMe(req: Request, res: Response, next: NextFunction) {
   try {
@@ -243,6 +244,15 @@ export async function getTalentAccessFilterOptions(req: Request, res: Response, 
     }
     const result = await talentAccessService.getFilterOptions(session, req.query.category_id as string);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getHowItWorksVideos(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await howItWorksService.getActiveVideos();
+    res.json(data);
   } catch (err) {
     next(err);
   }

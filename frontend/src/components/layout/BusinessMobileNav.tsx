@@ -14,6 +14,7 @@ export default function BusinessMobileNav() {
     pathname === '/business/dashboard' || pathname.startsWith('/business/dashboard/');
   const subscriptionActive = pathname.startsWith('/business/subscription');
   const allProfilesActive = pathname.startsWith('/business/talent-access');
+  const howItWorksActive = pathname.startsWith('/business/how-it-works');
 
   return (
     <div className="sticky top-0 z-30 -mx-4 mb-4 border-b border-gray-200 bg-white shadow-sm md:hidden">
@@ -26,6 +27,9 @@ export default function BusinessMobileNav() {
         </Pill>
         <Pill href="/business/talent-access" active={allProfilesActive}>
           All profiles
+        </Pill>
+        <Pill href="/business/how-it-works" active={howItWorksActive}>
+          How it works
         </Pill>
       </div>
     </div>

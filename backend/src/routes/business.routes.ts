@@ -75,4 +75,7 @@ router.get(
   businessController.getTalentAccessFilterOptions,
 );
 
+// How it works videos (active only)
+router.get('/how-it-works/videos', businessController.getHowItWorksVideos);
+
 export default router;

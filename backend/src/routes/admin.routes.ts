@@ -6,6 +6,7 @@ import * as formConfigController from '../controllers/form-config.controller.js'
 import * as interviewController from '../controllers/interview.controller.js';
 import * as talentAccessController from '../controllers/talent-access.controller.js';
 import * as trainingController from '../controllers/training.controller.js';
+import * as howItWorksController from '../controllers/how-it-works.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -30,6 +31,10 @@ import {
   createLessonSchema,
   updateLessonSchema,
 } from '../validators/training.validators.js';
+import {
+  createHowItWorksVideoSchema,
+  updateHowItWorksVideoSchema,
+} from '../validators/how-it-works.validators.js';
 import {
   createInvitationSchema,
   assignCategoriesSchema,
@@ -455,5 +460,14 @@ router.post('/training/chapters/:chapterId/lessons', validate({ body: createLess
 router.put('/training/lessons/:lessonId', validate({ body: updateLessonSchema }), trainingController.updateLesson);
 router.delete('/training/lessons/:lessonId', trainingController.deleteLesson);
 router.patch('/training/lessons/reorder', validate({ body: reorderSchema }), trainingController.reorderLessons);
+
+// ---------------------------------------------------------------------------
+// How it works videos
+// ---------------------------------------------------------------------------
+
+router.get('/how-it-works/videos', howItWorksController.getVideos);
+router.post('/how-it-works/videos', validate({ body: createHowItWorksVideoSchema }), howItWorksController.createVideo);
+router.put('/how-it-works/videos/:id', validate({ body: updateHowItWorksVideoSchema }), howItWorksController.updateVideo);
+router.delete('/how-it-works/videos/:id', howItWorksController.deleteVideo);
 
 export default router;
