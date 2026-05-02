@@ -31,13 +31,21 @@ export const LANGUAGE_LABELS: Record<string, string> = {
   pa: 'Punjabi',
 };
 
+/**
+ * Strict resolver — returns the URL for the exact selected language.
+ * Falls back ONLY to the legacy `loom_url` field if no language variant
+ * matches (e.g., a lesson with no per-language videos at all). Does NOT
+ * silently substitute a different language.
+ *
+ * The course-level language picker is built from the intersection of
+ * languages available across every lesson, so in practice the selected
+ * language will always be present.
+ */
 export function pickLessonUrl(lesson: TrainingLesson, language: string): string {
   const videos = lesson.videos ?? [];
   const match = videos.find((v) => v.language === language);
   if (match) return match.loom_url;
-  const en = videos.find((v) => v.language === 'en');
-  if (en) return en.loom_url;
-  if (videos[0]) return videos[0].loom_url;
+  // Legacy fallback only — no language is silently substituted.
   return lesson.loom_url ?? '';
 }
 
@@ -126,20 +134,34 @@ export function useCourse(courseId: string | undefined) {
 
 /**
  * Compute the languages available across every lesson in the course.
- * Falls back to ['en'] if no per-language video variants exist.
+ *
+ * Returns the INTERSECTION — only languages that EVERY lesson supports.
+ * This guarantees that selecting a language at the course level plays
+ * that exact language for all lessons, with no silent fallback.
+ *
+ * Lessons without any video variants are skipped from the intersection
+ * calc (they fall back to the legacy `loom_url` field). If the
+ * intersection is empty (no language is in every lesson), returns ['en']
+ * so the player still has a default; in that case the picker is hidden
+ * and lessons play their legacy `loom_url`.
  */
 export function getCourseLanguages(course: TrainingCourse | null | undefined): string[] {
   if (!course) return ['en'];
-  const langs = new Set<string>();
+  let intersection: Set<string> | null = null;
   for (const ch of course.chapters ?? []) {
     for (const lesson of ch.lessons ?? []) {
-      for (const v of lesson.videos ?? []) {
-        langs.add(v.language);
+      const lessonLangs = new Set((lesson.videos ?? []).map((v) => v.language));
+      if (lessonLangs.size === 0) continue; // skip lessons with no variants
+      if (intersection === null) {
+        intersection = lessonLangs;
+      } else {
+        const prev: Set<string> = intersection;
+        intersection = new Set(Array.from(prev).filter((l) => lessonLangs.has(l)));
       }
     }
   }
-  if (langs.size === 0) langs.add('en');
-  return Array.from(langs);
+  if (!intersection || intersection.size === 0) return ['en'];
+  return Array.from(intersection);
 }
 
 /** localStorage helpers for per-course language selection */
