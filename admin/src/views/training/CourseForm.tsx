@@ -19,6 +19,15 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
   const [sortOrder, setSortOrder] = useState(course?.sort_order ?? 0);
   const [isActive, setIsActive] = useState(course?.is_active ?? true);
   const [isOnboarding, setIsOnboarding] = useState(course?.is_onboarding ?? false);
+  const [countdownEnabled, setCountdownEnabled] = useState(course?.countdown_enabled ?? false);
+  // Initial duration: derive friendly unit from existing countdown_hours.
+  const initialHours = course?.countdown_hours ?? null;
+  const initialUnit: 'hours' | 'days' = initialHours != null && initialHours % 24 === 0 ? 'days' : 'hours';
+  const initialAmount = initialHours != null
+    ? (initialUnit === 'days' ? initialHours / 24 : initialHours)
+    : 24;
+  const [countdownAmount, setCountdownAmount] = useState<number>(initialAmount);
+  const [countdownUnit, setCountdownUnit] = useState<'hours' | 'days'>(initialUnit);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
     course?.categories?.map((c) => c.id) ?? [],
   );
@@ -37,10 +46,15 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
 
   const requiresCategories = isOnboarding;
   const categoryError = requiresCategories && selectedCategoryIds.length === 0;
+  const countdownError = countdownEnabled && (!Number.isFinite(countdownAmount) || countdownAmount <= 0);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (categoryError) return;
+    if (categoryError || countdownError) return;
+
+    const countdownHoursValue = countdownEnabled
+      ? (countdownUnit === 'days' ? Math.round(countdownAmount * 24) : Math.round(countdownAmount))
+      : null;
 
     const payload = {
       title,
@@ -48,6 +62,8 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
       sort_order: sortOrder,
       is_active: isActive,
       is_onboarding: isOnboarding,
+      countdown_enabled: countdownEnabled,
+      countdown_hours: countdownHoursValue,
       category_ids: selectedCategoryIds,
     };
 
@@ -151,9 +167,50 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
         )}
       </div>
 
+      <div className="rounded-lg border border-gray-200 p-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="course-countdown"
+            checked={countdownEnabled}
+            onChange={(e) => setCountdownEnabled(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          <label htmlFor="course-countdown" className="text-sm font-medium text-gray-700">
+            Enable completion deadline
+          </label>
+        </div>
+        {countdownEnabled && (
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="number"
+              min={1}
+              value={countdownAmount}
+              onChange={(e) => setCountdownAmount(Number(e.target.value))}
+              className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+            <select
+              value={countdownUnit}
+              onChange={(e) => setCountdownUnit(e.target.value as 'hours' | 'days')}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="hours">hours</option>
+              <option value="days">days</option>
+            </select>
+            <span className="text-xs text-gray-500">after the talent clicks Start</span>
+          </div>
+        )}
+        {countdownError && (
+          <p className="text-sm text-red-600">Duration must be greater than 0</p>
+        )}
+        <p className="text-xs text-gray-500">
+          When enabled, talents see a Start popup on first open. The course locks once the deadline passes.
+        </p>
+      </div>
+
       <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
         <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button type="submit" loading={isPending} disabled={categoryError}>
+        <Button type="submit" loading={isPending} disabled={categoryError || countdownError}>
           {isEditing ? 'Update' : 'Create'} Course
         </Button>
       </div>

@@ -13,11 +13,15 @@ import {
   getCourseLanguages,
   getStoredCourseLanguage,
   setStoredCourseLanguage,
+  formatRemaining,
+  getActiveCountdowns,
+  useNow,
   LANGUAGE_LABELS,
   type TrainingChapter,
   type TrainingLesson,
   type TrainingCourse,
 } from '@/hooks/useTraining';
+import CourseStartPopup from './CourseStartPopup';
 
 function loomEmbedUrl(shareUrl: string): string {
   return shareUrl.replace('/share/', '/embed/');
@@ -326,6 +330,44 @@ function ChapterAccordion({
   );
 }
 
+function CountdownChip({ course, now }: { course: TrainingCourse; now: Date }) {
+  const remaining = formatRemaining(course.expires_at, now);
+  return (
+    <div
+      className="flex items-center gap-2 rounded-full border border-[#E4E4E7] bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+      style={{
+        backgroundImage: 'linear-gradient(white, white), linear-gradient(135deg, #FF8B47, #D24DFF, #5BB7FF)',
+        backgroundOrigin: 'border-box',
+        backgroundClip: 'padding-box, border-box',
+        border: '1.5px solid transparent',
+      }}
+    >
+      <svg className="h-3.5 w-3.5 text-[#D24DFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span className="font-[family-name:var(--font-inter)] text-[12px] font-medium text-[#202020] truncate max-w-[180px]">
+        {course.title}
+      </span>
+      <span className="font-[family-name:var(--font-inter)] text-[12px] font-semibold text-[#646464] whitespace-nowrap">
+        {remaining}
+      </span>
+    </div>
+  );
+}
+
+function CountdownChips({ courses }: { courses: TrainingCourse[] }) {
+  const now = useNow(60_000);
+  const active = getActiveCountdowns(courses);
+  if (active.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {active.map((course) => (
+        <CountdownChip key={course.id} course={course} now={now} />
+      ))}
+    </div>
+  );
+}
+
 function CourseSection({
   course,
   enforceSequential,
@@ -338,9 +380,18 @@ function CourseSection({
   const availableLanguages = getCourseLanguages(course);
   const [language, setLanguage, hasSelectedLanguage] = useCourseLanguage(course.id, availableLanguages);
   const needsLanguageSelection = availableLanguages.length > 1 && !hasSelectedLanguage;
+  const [popupDismissed, setPopupDismissed] = useState(false);
+
+  // Show the start popup whenever the course needs starting and the user
+  // hasn't dismissed it this session. Once started (server-side), the
+  // popup naturally unmounts because course.started_at becomes truthy.
+  const needsStart = course.countdown_enabled && !course.started_at && !course.expired;
+  const showPopup = needsStart && !popupDismissed;
 
   return (
     <section className="space-y-4">
+      {showPopup && <CourseStartPopup course={course} onDismiss={() => setPopupDismissed(true)} />}
+
       <div className="flex items-end justify-between gap-4">
         <div className="min-w-0 flex-1">
           <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#202020]">
@@ -358,6 +409,18 @@ function CourseSection({
         />
       </div>
 
+      {course.expired && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <span className="font-semibold">Deadline passed.</span> Contact support to reopen this course.
+        </div>
+      )}
+
+      {needsStart && !showPopup && (
+        <div className="rounded-xl border border-[#E4E4E7] bg-[#F8F9FA] px-4 py-3 text-sm text-[#646464]">
+          Click <button onClick={() => setPopupDismissed(false)} className="text-[#6647F0] font-medium underline-offset-2 hover:underline">Start course</button> to begin.
+        </div>
+      )}
+
       {needsLanguageSelection ? (
         <LanguageSelectionPrompt />
       ) : course.chapters.length === 0 ? (
@@ -367,11 +430,15 @@ function CourseSection({
       ) : (
         <div className="space-y-4">
           {course.chapters.map((chapter, i) => {
-            const locked = enforceSequential && chapter.unlocked === false;
+            const sequentialLocked = enforceSequential && chapter.unlocked === false;
+            const expiredLocked = course.expired;
+            const notStartedLocked = needsStart;
+            const locked = sequentialLocked || expiredLocked || notStartedLocked;
             const previousTitle = i > 0 ? course.chapters[i - 1].title : null;
-            const lockedReason = locked && previousTitle
-              ? `Complete "${previousTitle}" to unlock`
-              : undefined;
+            let lockedReason: string | undefined;
+            if (expiredLocked) lockedReason = "This course's deadline has passed. Contact support to reopen.";
+            else if (notStartedLocked) lockedReason = 'Click Start to begin this course';
+            else if (sequentialLocked && previousTitle) lockedReason = `Complete "${previousTitle}" to unlock`;
             return (
               <div key={chapter.id} className={`stagger-${Math.min(i + 1, 6)}`}>
                 <ChapterAccordion
@@ -379,7 +446,7 @@ function CourseSection({
                   language={language}
                   locked={locked}
                   lockedReason={lockedReason}
-                  defaultOpen={defaultOpenFirst && i === 0}
+                  defaultOpen={defaultOpenFirst && i === 0 && !locked}
                 />
               </div>
             );
@@ -394,6 +461,7 @@ function OnboardingTraining() {
   const router = useRouter();
   const { data: courses = [], isLoading } = useOnboardingCourses();
   const completeOnboarding = useCompleteOnboarding();
+  const activeCountdowns = getActiveCountdowns(courses);
 
   const totals = courses.reduce(
     (acc, course) => ({
@@ -431,6 +499,10 @@ function OnboardingTraining() {
           </div>
         </div>
       </section>
+
+      {activeCountdowns.length > 0 && (
+        <CountdownChips courses={activeCountdowns} />
+      )}
 
       {isLoading ? (
         <div className="h-32 bg-[#f0f0f0] rounded-2xl animate-pulse" />
@@ -521,6 +593,7 @@ function FullTrainingProgram() {
   const { data, isLoading } = useMyTraining();
   const courses = data?.courses ?? [];
   const legacyChapters = data?.chapters ?? [];
+  const activeCountdowns = getActiveCountdowns(courses);
 
   // Compute totals across all courses + legacy chapters
   const totals = (() => {
@@ -583,6 +656,10 @@ function FullTrainingProgram() {
           )}
         </div>
       </section>
+
+      {activeCountdowns.length > 0 && (
+        <CountdownChips courses={activeCountdowns} />
+      )}
 
       {isLoading ? (
         <div className="space-y-4">
