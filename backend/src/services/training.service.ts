@@ -1076,42 +1076,30 @@ export async function getMyCourses(userId: string, categoryIds: string[]): Promi
 }
 
 export async function getOnboardingCourses(userId: string, categoryIds: string[]): Promise<CourseShape[]> {
-  if (categoryIds.length === 0) return [];
-
-  const { data: matches, error } = await supabaseAdmin
-    .from('training_course_categories')
-    .select('course_id, training_courses!inner(*)')
-    .in('category_id', categoryIds)
-    .eq('training_courses.is_onboarding', true)
-    .eq('training_courses.is_active', true)
-    .is('training_courses.deleted_at', null);
+  const { data: courses, error } = await supabaseAdmin
+    .from('training_courses')
+    .select('*, training_course_categories(category_id, categories(id, name, slug))')
+    .eq('is_onboarding', true)
+    .eq('is_active', true)
+    .is('deleted_at', null)
+    .order('sort_order', { ascending: true });
   if (error) throw new AppError(500, `Failed to fetch onboarding courses: ${error.message}`);
 
-  const seen = new Set<string>();
-  const courses: any[] = [];
-  for (const row of matches ?? []) {
-    if (!seen.has(row.course_id)) {
-      seen.add(row.course_id);
-      courses.push((row as any).training_courses);
-    }
-  }
-  // Re-load categories for each
-  const courseIds = courses.map((c) => c.id);
-  if (courseIds.length === 0) return [];
-  const { data: catRows } = await supabaseAdmin
-    .from('training_course_categories')
-    .select('course_id, categories(id, name, slug)')
-    .in('course_id', courseIds);
-  const catsByCourse: Record<string, any[]> = {};
-  for (const row of catRows ?? []) {
-    if (!catsByCourse[row.course_id]) catsByCourse[row.course_id] = [];
-    catsByCourse[row.course_id].push((row as any).categories);
-  }
-  const enriched = courses.map((c: any) => ({ ...c, categories: catsByCourse[c.id] ?? [] }));
-  enriched.sort((a, b) => a.sort_order - b.sort_order);
+  const userCatSet = new Set(categoryIds);
+  const visibleCourses = (courses ?? [])
+    .map((c: any) => ({
+      ...c,
+      categories: (c.training_course_categories ?? []).map((cc: any) => cc.categories),
+      training_course_categories: undefined,
+    }))
+    .filter((c: any) => {
+      if (c.available_to_all) return true;
+      const courseCatIds = (c.categories ?? []).map((cat: any) => cat.id);
+      return courseCatIds.some((id: string) => userCatSet.has(id));
+    });
 
   const approved = await hasApprovedProfile(userId);
-  return buildCoursePayloads(enriched, userId, approved);
+  return buildCoursePayloads(visibleCourses, userId, approved);
 }
 
 // ---------------------------------------------------------------------------
