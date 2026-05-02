@@ -282,7 +282,7 @@ export default function CreativeLeadForm() {
         </div>
 
         {/* Hero card */}
-        <header className="saas-lift card-hero relative mt-4 overflow-hidden px-6 py-6 sm:mt-8 sm:px-12 sm:py-14 lg:px-16 lg:py-16">
+        <header className="saas-lift card-hero relative mt-3 overflow-hidden px-6 py-4 sm:mt-8 sm:px-12 sm:py-14 lg:px-16 lg:py-16">
           <div
             aria-hidden
             className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-[0.18] blur-3xl"
@@ -300,35 +300,35 @@ export default function CreativeLeadForm() {
             }}
           />
 
-          <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px] lg:items-end">
+          <div className="relative grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px] lg:items-end">
             <div>
               <span className="badge-prism">Talent · Creative Track</span>
-              <h1 className="font-display-saas mt-4 text-3xl font-bold leading-[1.05] text-canvas-900 sm:text-5xl lg:text-[56px]">
+              <h1 className="font-display-saas mt-2 text-2xl font-bold leading-[1.1] text-canvas-900 sm:text-5xl sm:leading-[1.05] lg:text-[56px]">
                 For designers and editors{' '}
                 <span className="text-prism text-prism-animated">who care about craft.</span>
               </h1>
-              <p className="mt-3 max-w-xl text-base leading-relaxed text-canvas-600 sm:text-lg">
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-canvas-600 sm:mt-3 sm:text-lg">
                 Tell us who you are, share your work — we&rsquo;ll match you with Businesses, Brands, and Employers
                 who care about craft as much as you do. Four chapters, about three minutes.
               </p>
             </div>
 
-            <div className="surface-saas grid grid-cols-2 gap-6 px-5 py-4">
+            <div className="surface-saas grid grid-cols-2 gap-3 px-4 py-3 sm:gap-6 sm:px-5 sm:py-4">
               <div>
-                <p className="font-display-saas text-2xl font-bold text-canvas-900">04</p>
-                <p className="mt-1 text-xs font-medium text-canvas-500">Chapters</p>
+                <p className="font-display-saas text-lg font-bold text-canvas-900 sm:text-2xl">04</p>
+                <p className="mt-0.5 text-xs font-medium text-canvas-500 sm:mt-1">Chapters</p>
               </div>
               <div>
-                <p className="font-display-saas text-2xl font-bold text-canvas-900">~3m</p>
-                <p className="mt-1 text-xs font-medium text-canvas-500">Time</p>
+                <p className="font-display-saas text-lg font-bold text-canvas-900 sm:text-2xl">~3m</p>
+                <p className="mt-0.5 text-xs font-medium text-canvas-500 sm:mt-1">Time</p>
               </div>
               <div>
-                <p className="font-display-saas text-2xl font-bold text-canvas-900">10s</p>
-                <p className="mt-1 text-xs font-medium text-canvas-500">Auto-review</p>
+                <p className="font-display-saas text-lg font-bold text-canvas-900 sm:text-2xl">10s</p>
+                <p className="mt-0.5 text-xs font-medium text-canvas-500 sm:mt-1">Auto-review</p>
               </div>
               <div>
-                <p className="font-display-saas text-prism text-2xl font-bold">∞</p>
-                <p className="mt-1 text-xs font-medium text-canvas-500">Possibilities</p>
+                <p className="font-display-saas text-prism text-lg font-bold sm:text-2xl">∞</p>
+                <p className="mt-0.5 text-xs font-medium text-canvas-500 sm:mt-1">Possibilities</p>
               </div>
             </div>
           </div>
