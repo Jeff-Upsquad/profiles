@@ -195,7 +195,7 @@ async function fetchUserCategoryIds(userId: string): Promise<string[]> {
   const { data: profiles, error } = await supabaseAdmin
     .from('talent_profiles')
     .select('category_id')
-    .eq('user_id', userId);
+    .eq('talent_user_id', userId);
   if (error) throw new AppError(500, `Failed to fetch profiles: ${error.message}`);
   return [...new Set((profiles ?? []).map((p: any) => p.category_id))];
 }
