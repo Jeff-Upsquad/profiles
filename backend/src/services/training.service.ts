@@ -1,6 +1,8 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import type {
+  CreateCourseInput,
+  UpdateCourseInput,
   CreateChapterInput,
   UpdateChapterInput,
   CreateLessonInput,
@@ -9,14 +11,209 @@ import type {
 import type { ReorderInput } from '../validators/admin.validators.js';
 
 // ---------------------------------------------------------------------------
+// Admin — Courses
+// ---------------------------------------------------------------------------
+
+async function loadCourse(id: string) {
+  const { data, error } = await supabaseAdmin
+    .from('training_courses')
+    .select('*, training_course_categories(category_id, categories(id, name, slug))')
+    .eq('id', id)
+    .single();
+  if (error) {
+    if (error.code === 'PGRST116') throw new AppError(404, 'Course not found');
+    throw new AppError(500, `Failed to fetch course: ${error.message}`);
+  }
+  return {
+    ...data,
+    categories: (data.training_course_categories ?? []).map((cc: any) => cc.categories),
+    training_course_categories: undefined,
+  };
+}
+
+async function attachChapterCounts(courses: any[]) {
+  if (courses.length === 0) return courses;
+  const courseIds = courses.map((c) => c.id);
+  const { data, error } = await supabaseAdmin
+    .from('training_chapters')
+    .select('course_id')
+    .in('course_id', courseIds);
+  if (error) throw new AppError(500, `Failed to fetch chapter counts: ${error.message}`);
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    counts[row.course_id] = (counts[row.course_id] || 0) + 1;
+  }
+  return courses.map((c) => ({ ...c, chapter_count: counts[c.id] || 0 }));
+}
+
+async function assertOnboardingCategoryUniqueness(
+  categoryIds: string[],
+  excludeCourseId?: string,
+) {
+  if (categoryIds.length === 0) return;
+  let query = supabaseAdmin
+    .from('training_course_categories')
+    .select('category_id, course_id, training_courses!inner(id, is_onboarding, deleted_at)')
+    .in('category_id', categoryIds)
+    .eq('training_courses.is_onboarding', true)
+    .is('training_courses.deleted_at', null);
+  if (excludeCourseId) query = query.neq('course_id', excludeCourseId);
+  const { data, error } = await query;
+  if (error) throw new AppError(500, `Failed to validate category uniqueness: ${error.message}`);
+  if (data && data.length > 0) {
+    const conflicts = [...new Set(data.map((row: any) => row.category_id))];
+    throw new AppError(
+      400,
+      `Each category may belong to only one onboarding course. Conflicting category ids: ${conflicts.join(', ')}`,
+    );
+  }
+}
+
+export async function getCourses() {
+  const { data, error } = await supabaseAdmin
+    .from('training_courses')
+    .select('*, training_course_categories(category_id, categories(id, name, slug))')
+    .is('deleted_at', null)
+    .order('sort_order', { ascending: true });
+  if (error) throw new AppError(500, `Failed to fetch courses: ${error.message}`);
+  const courses = (data ?? []).map((c: any) => ({
+    ...c,
+    categories: (c.training_course_categories ?? []).map((cc: any) => cc.categories),
+    training_course_categories: undefined,
+  }));
+  return attachChapterCounts(courses);
+}
+
+export async function getArchivedCourses() {
+  const { data, error } = await supabaseAdmin
+    .from('training_courses')
+    .select('*, training_course_categories(category_id, categories(id, name, slug))')
+    .not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false });
+  if (error) throw new AppError(500, `Failed to fetch archived courses: ${error.message}`);
+  return (data ?? []).map((c: any) => ({
+    ...c,
+    categories: (c.training_course_categories ?? []).map((cc: any) => cc.categories),
+    training_course_categories: undefined,
+  }));
+}
+
+export async function getCourse(id: string) {
+  return loadCourse(id);
+}
+
+export async function createCourse(input: CreateCourseInput) {
+  const { category_ids = [], ...courseData } = input;
+  if (courseData.is_onboarding) {
+    await assertOnboardingCategoryUniqueness(category_ids);
+  }
+  const { data, error } = await supabaseAdmin
+    .from('training_courses')
+    .insert(courseData)
+    .select()
+    .single();
+  if (error) throw new AppError(500, `Failed to create course: ${error.message}`);
+
+  if (category_ids.length > 0) {
+    const rows = category_ids.map((cid) => ({ course_id: data.id, category_id: cid }));
+    const { error: joinErr } = await supabaseAdmin.from('training_course_categories').insert(rows);
+    if (joinErr) throw new AppError(500, `Failed to assign categories: ${joinErr.message}`);
+  }
+  return loadCourse(data.id);
+}
+
+export async function updateCourse(id: string, input: UpdateCourseInput) {
+  const { category_ids, ...courseData } = input;
+
+  // Read current state to know is_onboarding for uniqueness check
+  let willBeOnboarding = courseData.is_onboarding;
+  if (willBeOnboarding === undefined) {
+    const { data: existing } = await supabaseAdmin
+      .from('training_courses')
+      .select('is_onboarding')
+      .eq('id', id)
+      .single();
+    willBeOnboarding = existing?.is_onboarding ?? false;
+  }
+
+  if (willBeOnboarding && category_ids && category_ids.length > 0) {
+    await assertOnboardingCategoryUniqueness(category_ids, id);
+  }
+
+  if (Object.keys(courseData).length > 0) {
+    const { error } = await supabaseAdmin
+      .from('training_courses')
+      .update(courseData)
+      .eq('id', id);
+    if (error) {
+      if (error.code === 'PGRST116') throw new AppError(404, 'Course not found');
+      throw new AppError(500, `Failed to update course: ${error.message}`);
+    }
+  }
+
+  if (category_ids) {
+    const { error: delErr } = await supabaseAdmin
+      .from('training_course_categories')
+      .delete()
+      .eq('course_id', id);
+    if (delErr) throw new AppError(500, `Failed to clear categories: ${delErr.message}`);
+
+    if (category_ids.length > 0) {
+      const rows = category_ids.map((cid) => ({ course_id: id, category_id: cid }));
+      const { error: insErr } = await supabaseAdmin.from('training_course_categories').insert(rows);
+      if (insErr) throw new AppError(500, `Failed to assign categories: ${insErr.message}`);
+    }
+  }
+
+  return loadCourse(id);
+}
+
+export async function archiveCourse(id: string) {
+  const { error } = await supabaseAdmin
+    .from('training_courses')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw new AppError(500, `Failed to archive course: ${error.message}`);
+  return { message: 'Course archived' };
+}
+
+export async function restoreCourse(id: string) {
+  const { error } = await supabaseAdmin
+    .from('training_courses')
+    .update({ deleted_at: null })
+    .eq('id', id);
+  if (error) throw new AppError(500, `Failed to restore course: ${error.message}`);
+  return { message: 'Course restored' };
+}
+
+export async function reorderCourses(input: ReorderInput) {
+  const updates = input.items.map((item) =>
+    supabaseAdmin.from('training_courses').update({ sort_order: item.sort_order }).eq('id', item.id),
+  );
+  const results = await Promise.all(updates);
+  for (const r of results) {
+    if (r.error) throw new AppError(500, `Failed to reorder courses: ${r.error.message}`);
+  }
+  return { message: 'Courses reordered' };
+}
+
+// ---------------------------------------------------------------------------
 // Admin — Chapters
 // ---------------------------------------------------------------------------
 
-export async function getChapters() {
-  const { data, error } = await supabaseAdmin
+export async function getChapters(courseId?: string | null) {
+  let query = supabaseAdmin
     .from('training_chapters')
     .select('*, training_chapter_categories(category_id, categories(id, name, slug))')
     .order('sort_order', { ascending: true });
+
+  if (courseId === null) {
+    query = query.is('course_id', null);
+  } else if (typeof courseId === 'string') {
+    query = query.eq('course_id', courseId);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw new AppError(500, `Failed to fetch chapters: ${error.message}`);
 
@@ -85,16 +282,18 @@ export async function createChapter(input: CreateChapterInput) {
 
   if (error) throw new AppError(500, `Failed to create chapter: ${error.message}`);
 
-  const joinRows = category_ids.map((cid) => ({
-    chapter_id: data.id,
-    category_id: cid,
-  }));
+  if (category_ids && category_ids.length > 0) {
+    const joinRows = category_ids.map((cid) => ({
+      chapter_id: data.id,
+      category_id: cid,
+    }));
 
-  const { error: joinErr } = await supabaseAdmin
-    .from('training_chapter_categories')
-    .insert(joinRows);
+    const { error: joinErr } = await supabaseAdmin
+      .from('training_chapter_categories')
+      .insert(joinRows);
 
-  if (joinErr) throw new AppError(500, `Failed to assign categories: ${joinErr.message}`);
+    if (joinErr) throw new AppError(500, `Failed to assign categories: ${joinErr.message}`);
+  }
 
   return getChapter(data.id);
 }
@@ -370,7 +569,95 @@ export async function getLessonProgress(userId: string) {
   return data ?? [];
 }
 
+async function hasApprovedProfile(userId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('id')
+    .eq('talent_user_id', userId)
+    .eq('status', 'approved')
+    .is('deleted_at', null)
+    .limit(1);
+  if (error) throw new AppError(500, `Failed to check approval status: ${error.message}`);
+  return (data?.length ?? 0) > 0;
+}
+
+/**
+ * Server-side guard for sequential chapter unlocking on onboarding courses.
+ * Returns true if the lesson's chapter is currently locked for this user.
+ * Approved talents (grandfather) bypass the lock entirely.
+ */
+async function isLessonChapterLocked(userId: string, lessonId: string): Promise<boolean> {
+  if (await hasApprovedProfile(userId)) return false;
+
+  const { data: lesson, error: lErr } = await supabaseAdmin
+    .from('training_lessons')
+    .select('chapter_id')
+    .eq('id', lessonId)
+    .single();
+  if (lErr || !lesson) return false;
+
+  const { data: chapter, error: cErr } = await supabaseAdmin
+    .from('training_chapters')
+    .select('id, sort_order, course_id')
+    .eq('id', lesson.chapter_id)
+    .single();
+  if (cErr || !chapter || !chapter.course_id) return false;
+
+  const { data: course, error: courseErr } = await supabaseAdmin
+    .from('training_courses')
+    .select('id, is_onboarding, deleted_at')
+    .eq('id', chapter.course_id)
+    .single();
+  if (courseErr || !course) return false;
+  if (!course.is_onboarding || course.deleted_at) return false;
+
+  // Find prior chapters in the same course
+  const { data: priorChapters, error: priorErr } = await supabaseAdmin
+    .from('training_chapters')
+    .select('id, sort_order')
+    .eq('course_id', course.id)
+    .eq('is_active', true)
+    .lt('sort_order', chapter.sort_order)
+    .order('sort_order', { ascending: true });
+  if (priorErr) return false;
+  if (!priorChapters || priorChapters.length === 0) return false; // first chapter is always unlocked
+
+  const priorChapterIds = priorChapters.map((c: any) => c.id);
+  const { data: priorLessons } = await supabaseAdmin
+    .from('training_lessons')
+    .select('id, chapter_id')
+    .in('chapter_id', priorChapterIds)
+    .eq('is_active', true);
+
+  const lessonsByChapter: Record<string, string[]> = {};
+  for (const l of priorLessons ?? []) {
+    if (!lessonsByChapter[l.chapter_id]) lessonsByChapter[l.chapter_id] = [];
+    lessonsByChapter[l.chapter_id].push(l.id);
+  }
+
+  const allPriorLessonIds = Object.values(lessonsByChapter).flat();
+  if (allPriorLessonIds.length === 0) return false;
+
+  const { data: progress } = await supabaseAdmin
+    .from('training_lesson_progress')
+    .select('lesson_id')
+    .eq('talent_user_id', userId)
+    .in('lesson_id', allPriorLessonIds);
+
+  const completedSet = new Set((progress ?? []).map((p: any) => p.lesson_id));
+  // All prior chapters must have all their lessons completed
+  for (const chId of priorChapterIds) {
+    const lIds = lessonsByChapter[chId] ?? [];
+    if (lIds.some((id) => !completedSet.has(id))) return true;
+  }
+  return false;
+}
+
 export async function markLessonComplete(userId: string, lessonId: string) {
+  if (await isLessonChapterLocked(userId, lessonId)) {
+    throw new AppError(403, 'This chapter is locked. Complete the previous chapter first.');
+  }
+
   const { error } = await supabaseAdmin
     .from('training_lesson_progress')
     .upsert(
@@ -412,14 +699,40 @@ export async function getModuleAccess(userId: string, categoryIds: string[]) {
   if (apErr) throw new AppError(500, `Failed to check approval status: ${apErr.message}`);
   const hasApprovedProfile = (approvedProfiles?.length ?? 0) > 0;
 
-  const { data: joinRows, error: jErr } = await supabaseAdmin
+  // Find chapters via legacy training_chapter_categories link (chapters without a course)
+  const { data: chapterJoinRows, error: jErr } = await supabaseAdmin
     .from('training_chapter_categories')
     .select('chapter_id')
     .in('category_id', categoryIds);
 
   if (jErr) throw new AppError(500, `Failed to fetch chapter categories: ${jErr.message}`);
 
-  const chapterIds = [...new Set((joinRows ?? []).map((r: any) => r.chapter_id))];
+  // Find chapters via course-level category link (course → chapters)
+  const { data: courseJoinRows, error: cjErr } = await supabaseAdmin
+    .from('training_course_categories')
+    .select('course_id, training_courses!inner(deleted_at)')
+    .in('category_id', categoryIds)
+    .is('training_courses.deleted_at', null);
+
+  if (cjErr) throw new AppError(500, `Failed to fetch course categories: ${cjErr.message}`);
+
+  const courseIds = [...new Set((courseJoinRows ?? []).map((r: any) => r.course_id))];
+  let courseChapterIds: string[] = [];
+  if (courseIds.length > 0) {
+    const { data: courseChapters, error: ccErr } = await supabaseAdmin
+      .from('training_chapters')
+      .select('id')
+      .in('course_id', courseIds);
+    if (ccErr) throw new AppError(500, `Failed to fetch course chapters: ${ccErr.message}`);
+    courseChapterIds = (courseChapters ?? []).map((c: any) => c.id);
+  }
+
+  const chapterIds = [
+    ...new Set([
+      ...(chapterJoinRows ?? []).map((r: any) => r.chapter_id),
+      ...courseChapterIds,
+    ]),
+  ];
   if (chapterIds.length === 0) return { unlocked: [] as string[], locked: [] as any[] };
 
   const { data: chapters, error: cErr } = await supabaseAdmin
@@ -481,7 +794,217 @@ export async function getModuleAccess(userId: string, categoryIds: string[]) {
 }
 
 // ---------------------------------------------------------------------------
-// Onboarding
+// Talent — Courses
+// ---------------------------------------------------------------------------
+
+interface CourseChapterShape {
+  id: string;
+  title: string;
+  description?: string | null;
+  sort_order: number;
+  linked_module: string | null;
+  lessons: any[];
+  completed_count: number;
+  total_count: number;
+  unlocked: boolean;
+}
+
+interface CourseShape {
+  id: string;
+  title: string;
+  description?: string | null;
+  sort_order: number;
+  is_onboarding: boolean;
+  categories: any[];
+  chapters: CourseChapterShape[];
+  completed_count: number;
+  total_count: number;
+}
+
+async function buildCoursePayloads(
+  courses: any[],
+  userId: string,
+  approved: boolean,
+): Promise<CourseShape[]> {
+  if (courses.length === 0) return [];
+
+  const courseIds = courses.map((c) => c.id);
+  const { data: chapters, error: chErr } = await supabaseAdmin
+    .from('training_chapters')
+    .select('id, course_id, title, description, sort_order, linked_module')
+    .in('course_id', courseIds)
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true });
+  if (chErr) throw new AppError(500, `Failed to fetch chapters: ${chErr.message}`);
+
+  const chapterIds = (chapters ?? []).map((c: any) => c.id);
+  let lessons: any[] = [];
+  let progressRows: any[] = [];
+  if (chapterIds.length > 0) {
+    const [lessonsRes, progressRes] = await Promise.all([
+      supabaseAdmin
+        .from('training_lessons')
+        .select('*')
+        .in('chapter_id', chapterIds)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true }),
+      supabaseAdmin
+        .from('training_lesson_progress')
+        .select('lesson_id')
+        .eq('talent_user_id', userId)
+        .in('lesson_id', [] as string[]), // populated below if lessons exist
+    ]);
+    if (lessonsRes.error) throw new AppError(500, `Failed to fetch lessons: ${lessonsRes.error.message}`);
+    lessons = await attachVideos(lessonsRes.data ?? []);
+    if (lessons.length > 0) {
+      const lessonIds = lessons.map((l: any) => l.id);
+      const { data: progress, error: pErr } = await supabaseAdmin
+        .from('training_lesson_progress')
+        .select('lesson_id')
+        .eq('talent_user_id', userId)
+        .in('lesson_id', lessonIds);
+      if (pErr) throw new AppError(500, `Failed to fetch progress: ${pErr.message}`);
+      progressRows = progress ?? [];
+    }
+    void progressRes; // satisfy lint
+  }
+
+  const completedSet = new Set(progressRows.map((p: any) => p.lesson_id));
+  const lessonsByChapter: Record<string, any[]> = {};
+  for (const l of lessons) {
+    if (!lessonsByChapter[l.chapter_id]) lessonsByChapter[l.chapter_id] = [];
+    lessonsByChapter[l.chapter_id].push({ ...l, completed: completedSet.has(l.id) });
+  }
+
+  const chaptersByCourse: Record<string, any[]> = {};
+  for (const ch of chapters ?? []) {
+    if (!chaptersByCourse[ch.course_id]) chaptersByCourse[ch.course_id] = [];
+    chaptersByCourse[ch.course_id].push(ch);
+  }
+
+  return courses.map((course: any) => {
+    const courseChapters = chaptersByCourse[course.id] ?? [];
+    let priorComplete = true; // first chapter is always unlocked
+    let courseCompleted = 0;
+    let courseTotal = 0;
+
+    const shapedChapters: CourseChapterShape[] = courseChapters.map((ch: any) => {
+      const lessonList = lessonsByChapter[ch.id] ?? [];
+      const completed_count = lessonList.filter((l: any) => l.completed).length;
+      const total_count = lessonList.length;
+      courseCompleted += completed_count;
+      courseTotal += total_count;
+
+      let unlocked = true;
+      if (course.is_onboarding && !approved) {
+        unlocked = priorComplete;
+      }
+      // Update priorComplete for next chapter
+      priorComplete = priorComplete && (total_count === 0 || completed_count === total_count);
+
+      return {
+        id: ch.id,
+        title: ch.title,
+        description: ch.description,
+        sort_order: ch.sort_order,
+        linked_module: ch.linked_module ?? null,
+        lessons: lessonList,
+        completed_count,
+        total_count,
+        unlocked,
+      };
+    });
+
+    return {
+      id: course.id,
+      title: course.title,
+      description: course.description,
+      sort_order: course.sort_order,
+      is_onboarding: course.is_onboarding,
+      categories: course.categories ?? [],
+      chapters: shapedChapters,
+      completed_count: courseCompleted,
+      total_count: courseTotal,
+    };
+  });
+}
+
+/**
+ * Fetch all courses visible to the talent based on their profile categories.
+ * Onboarding courses require category match; non-onboarding are visible if
+ * they have no categories OR if any user category matches.
+ */
+export async function getMyCourses(userId: string, categoryIds: string[]): Promise<CourseShape[]> {
+  // Pull all active, non-archived courses with their categories
+  const { data: courses, error } = await supabaseAdmin
+    .from('training_courses')
+    .select('*, training_course_categories(category_id, categories(id, name, slug))')
+    .eq('is_active', true)
+    .is('deleted_at', null)
+    .order('sort_order', { ascending: true });
+  if (error) throw new AppError(500, `Failed to fetch courses: ${error.message}`);
+
+  const userCatSet = new Set(categoryIds);
+  const visibleCourses = (courses ?? [])
+    .map((c: any) => ({
+      ...c,
+      categories: (c.training_course_categories ?? []).map((cc: any) => cc.categories),
+      training_course_categories: undefined,
+    }))
+    .filter((c: any) => {
+      const courseCatIds = (c.categories ?? []).map((cat: any) => cat.id);
+      if (c.is_onboarding) {
+        return courseCatIds.some((id: string) => userCatSet.has(id));
+      }
+      // Non-onboarding: visible to all if no categories, else require match
+      return courseCatIds.length === 0 || courseCatIds.some((id: string) => userCatSet.has(id));
+    });
+
+  const approved = await hasApprovedProfile(userId);
+  return buildCoursePayloads(visibleCourses, userId, approved);
+}
+
+export async function getOnboardingCourses(userId: string, categoryIds: string[]): Promise<CourseShape[]> {
+  if (categoryIds.length === 0) return [];
+
+  const { data: matches, error } = await supabaseAdmin
+    .from('training_course_categories')
+    .select('course_id, training_courses!inner(*)')
+    .in('category_id', categoryIds)
+    .eq('training_courses.is_onboarding', true)
+    .eq('training_courses.is_active', true)
+    .is('training_courses.deleted_at', null);
+  if (error) throw new AppError(500, `Failed to fetch onboarding courses: ${error.message}`);
+
+  const seen = new Set<string>();
+  const courses: any[] = [];
+  for (const row of matches ?? []) {
+    if (!seen.has(row.course_id)) {
+      seen.add(row.course_id);
+      courses.push((row as any).training_courses);
+    }
+  }
+  // Re-load categories for each
+  const courseIds = courses.map((c) => c.id);
+  if (courseIds.length === 0) return [];
+  const { data: catRows } = await supabaseAdmin
+    .from('training_course_categories')
+    .select('course_id, categories(id, name, slug)')
+    .in('course_id', courseIds);
+  const catsByCourse: Record<string, any[]> = {};
+  for (const row of catRows ?? []) {
+    if (!catsByCourse[row.course_id]) catsByCourse[row.course_id] = [];
+    catsByCourse[row.course_id].push((row as any).categories);
+  }
+  const enriched = courses.map((c: any) => ({ ...c, categories: catsByCourse[c.id] ?? [] }));
+  enriched.sort((a, b) => a.sort_order - b.sort_order);
+
+  const approved = await hasApprovedProfile(userId);
+  return buildCoursePayloads(enriched, userId, approved);
+}
+
+// ---------------------------------------------------------------------------
+// Onboarding (legacy single-chapter API kept for backward compatibility)
 // ---------------------------------------------------------------------------
 
 export async function getOnboardingChapter() {
@@ -506,23 +1029,39 @@ export async function getOnboardingChapter() {
   return { ...chapter, lessons: await attachVideos(lessons ?? []) };
 }
 
-export async function completeOnboarding(userId: string) {
-  const chapter = await getOnboardingChapter();
-  if (!chapter) throw new AppError(400, 'No onboarding chapter configured');
+/**
+ * Mark `talent_users.onboarding_completed = true` once every chapter of every
+ * matched onboarding course is fully complete. Falls back to the legacy
+ * single-chapter onboarding gate if no onboarding courses exist yet.
+ */
+export async function completeOnboarding(userId: string, categoryIds: string[]) {
+  const onboardingCourses = await getOnboardingCourses(userId, categoryIds);
 
-  if (chapter.lessons.length > 0) {
-    const { data: progress, error: pErr } = await supabaseAdmin
-      .from('training_lesson_progress')
-      .select('lesson_id')
-      .eq('talent_user_id', userId)
-      .in('lesson_id', chapter.lessons.map((l: any) => l.id));
+  if (onboardingCourses.length > 0) {
+    for (const course of onboardingCourses) {
+      for (const ch of course.chapters) {
+        if (ch.total_count > 0 && ch.completed_count !== ch.total_count) {
+          throw new AppError(400, `Complete all lessons in "${ch.title}" first`);
+        }
+      }
+    }
+  } else {
+    // Legacy fallback: single onboarding chapter
+    const chapter = await getOnboardingChapter();
+    if (chapter && chapter.lessons.length > 0) {
+      const { data: progress, error: pErr } = await supabaseAdmin
+        .from('training_lesson_progress')
+        .select('lesson_id')
+        .eq('talent_user_id', userId)
+        .in('lesson_id', chapter.lessons.map((l: any) => l.id));
 
-    if (pErr) throw new AppError(500, `Failed to verify progress: ${pErr.message}`);
+      if (pErr) throw new AppError(500, `Failed to verify progress: ${pErr.message}`);
 
-    const completedIds = new Set((progress ?? []).map((p: any) => p.lesson_id));
-    const allComplete = chapter.lessons.every((l: any) => completedIds.has(l.id));
+      const completedIds = new Set((progress ?? []).map((p: any) => p.lesson_id));
+      const allComplete = chapter.lessons.every((l: any) => completedIds.has(l.id));
 
-    if (!allComplete) throw new AppError(400, 'Complete all onboarding lessons first');
+      if (!allComplete) throw new AppError(400, 'Complete all onboarding lessons first');
+    }
   }
 
   const { error } = await supabaseAdmin

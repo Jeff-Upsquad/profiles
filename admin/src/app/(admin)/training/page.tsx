@@ -1,7 +1,7 @@
 'use client';
 
-import TrainingChapterList from '@/views/training/TrainingChapterList';
+import CourseList from '@/views/training/CourseList';
 
 export default function TrainingPage() {
-  return <TrainingChapterList />;
+  return <CourseList />;
 }

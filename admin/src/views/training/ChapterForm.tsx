@@ -1,41 +1,33 @@
 import { useState, type FormEvent } from 'react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import { useCategories } from '@/hooks/useCategories';
 import {
   useCreateChapter,
   useUpdateChapter,
+  useCourse,
   type TrainingChapter,
 } from '@/hooks/useTraining';
 
 interface ChapterFormProps {
   chapter?: TrainingChapter | null;
+  /** When set, the chapter is created/updated under this course. */
+  courseId?: string;
   onClose: () => void;
 }
 
-export default function ChapterForm({ chapter, onClose }: ChapterFormProps) {
+export default function ChapterForm({ chapter, courseId, onClose }: ChapterFormProps) {
   const [title, setTitle] = useState(chapter?.title ?? '');
   const [description, setDescription] = useState(chapter?.description ?? '');
   const [sortOrder, setSortOrder] = useState(chapter?.sort_order ?? 0);
   const [isActive, setIsActive] = useState(chapter?.is_active ?? true);
-  const [isOnboarding, setIsOnboarding] = useState(chapter?.is_onboarding ?? false);
-  const [language, setLanguage] = useState(chapter?.language ?? 'en');
   const [linkedModule, setLinkedModule] = useState(chapter?.linked_module ?? '');
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
-    chapter?.categories?.map((c) => c.id) ?? [],
-  );
 
-  const { data: categories } = useCategories();
+  const effectiveCourseId = courseId ?? chapter?.course_id ?? null;
+  const { data: course } = useCourse(effectiveCourseId ?? undefined);
   const createMutation = useCreateChapter();
   const updateMutation = useUpdateChapter();
   const isEditing = !!chapter;
   const isPending = createMutation.isPending || updateMutation.isPending;
-
-  const toggleCategory = (id: string) => {
-    setSelectedCategoryIds((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
-    );
-  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -44,10 +36,8 @@ export default function ChapterForm({ chapter, onClose }: ChapterFormProps) {
       description: description || undefined,
       sort_order: sortOrder,
       is_active: isActive,
-      is_onboarding: isOnboarding,
-      language,
       linked_module: linkedModule || null,
-      category_ids: selectedCategoryIds,
+      course_id: effectiveCourseId,
     };
 
     try {
@@ -64,6 +54,12 @@ export default function ChapterForm({ chapter, onClose }: ChapterFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {effectiveCourseId && course && (
+        <div className="rounded-lg bg-indigo-50 border border-indigo-100 px-3 py-2 text-xs text-indigo-700">
+          Course: <span className="font-medium">{course.title}</span>
+        </div>
+      )}
+
       <Input
         label="Title"
         value={title}
@@ -73,9 +69,7 @@ export default function ChapterForm({ chapter, onClose }: ChapterFormProps) {
       />
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Description
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -83,36 +77,6 @@ export default function ChapterForm({ chapter, onClose }: ChapterFormProps) {
           className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           placeholder="Brief description of this chapter"
         />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Categories <span className="ml-0.5 text-red-500">*</span>
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {(categories ?? [])
-            .filter((c) => c.is_active)
-            .map((cat) => {
-              const selected = selectedCategoryIds.includes(cat.id);
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => toggleCategory(cat.id)}
-                  className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
-                    selected
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {cat.name}
-                </button>
-              );
-            })}
-        </div>
-        {selectedCategoryIds.length === 0 && (
-          <p className="mt-1 text-sm text-red-600">Select at least one category</p>
-        )}
       </div>
 
       <Input
@@ -130,55 +94,11 @@ export default function ChapterForm({ chapter, onClose }: ChapterFormProps) {
           onChange={(e) => setIsActive(e.target.checked)}
           className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
         />
-        <label htmlFor="chapter-active" className="text-sm text-gray-700">
-          Active
-        </label>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="chapter-onboarding"
-          checked={isOnboarding}
-          onChange={(e) => setIsOnboarding(e.target.checked)}
-          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-        />
-        <label htmlFor="chapter-onboarding" className="text-sm text-gray-700">
-          Onboarding Chapter
-        </label>
-      </div>
-      {isOnboarding && (
-        <p className="text-xs text-amber-600 -mt-2">
-          Only one chapter can be the onboarding chapter. Enabling this will remove the flag from any other chapter.
-        </p>
-      )}
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Language
-        </label>
-        <select
-          value={language}
-          onChange={(e) => setLanguage(e.target.value)}
-          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-        >
-          <option value="en">English</option>
-          <option value="hi">Hindi</option>
-          <option value="ta">Tamil</option>
-          <option value="te">Telugu</option>
-          <option value="kn">Kannada</option>
-          <option value="ml">Malayalam</option>
-          <option value="bn">Bengali</option>
-          <option value="mr">Marathi</option>
-          <option value="gu">Gujarati</option>
-          <option value="pa">Punjabi</option>
-        </select>
+        <label htmlFor="chapter-active" className="text-sm text-gray-700">Active</label>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Linked Module
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Linked Module</label>
         <select
           value={linkedModule}
           onChange={(e) => setLinkedModule(e.target.value)}
@@ -197,14 +117,8 @@ export default function ChapterForm({ chapter, onClose }: ChapterFormProps) {
       </div>
 
       <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-        <Button type="button" variant="secondary" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          loading={isPending}
-          disabled={selectedCategoryIds.length === 0}
-        >
+        <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="submit" loading={isPending}>
           {isEditing ? 'Update' : 'Create'} Chapter
         </Button>
       </div>

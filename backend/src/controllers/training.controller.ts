@@ -4,12 +4,77 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 
 // ---------------------------------------------------------------------------
+// Admin — Courses
+// ---------------------------------------------------------------------------
+
+export async function getCourses(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await trainingService.getCourses();
+    res.json(data);
+  } catch (err) { next(err); }
+}
+
+export async function getArchivedCourses(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await trainingService.getArchivedCourses();
+    res.json(data);
+  } catch (err) { next(err); }
+}
+
+export async function getCourse(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await trainingService.getCourse(req.params.id as string);
+    res.json(data);
+  } catch (err) { next(err); }
+}
+
+export async function createCourse(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await trainingService.createCourse(req.body);
+    res.status(201).json(data);
+  } catch (err) { next(err); }
+}
+
+export async function updateCourse(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await trainingService.updateCourse(req.params.id as string, req.body);
+    res.json(data);
+  } catch (err) { next(err); }
+}
+
+export async function archiveCourse(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await trainingService.archiveCourse(req.params.id as string);
+    res.json(data);
+  } catch (err) { next(err); }
+}
+
+export async function restoreCourse(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await trainingService.restoreCourse(req.params.id as string);
+    res.json(data);
+  } catch (err) { next(err); }
+}
+
+export async function reorderCourses(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await trainingService.reorderCourses(req.body);
+    res.json(data);
+  } catch (err) { next(err); }
+}
+
+// ---------------------------------------------------------------------------
 // Admin — Chapters
 // ---------------------------------------------------------------------------
 
-export async function getChapters(_req: Request, res: Response, next: NextFunction) {
+export async function getChapters(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await trainingService.getChapters();
+    const courseQuery = req.query.course_id;
+    let courseId: string | null | undefined = undefined;
+    if (typeof courseQuery === 'string') {
+      courseId = courseQuery === 'null' ? null : courseQuery;
+    }
+    const data = await trainingService.getChapters(courseId);
     res.json(data);
   } catch (err) {
     next(err);
@@ -114,26 +179,29 @@ export async function reorderLessons(req: Request, res: Response, next: NextFunc
 // Talent — Training
 // ---------------------------------------------------------------------------
 
+async function fetchUserCategoryIds(userId: string): Promise<string[]> {
+  const { data: profiles, error } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('category_id')
+    .eq('user_id', userId);
+  if (error) throw new AppError(500, `Failed to fetch profiles: ${error.message}`);
+  return [...new Set((profiles ?? []).map((p: any) => p.category_id))];
+}
+
 export async function getMyTraining(req: Request, res: Response, next: NextFunction) {
   try {
     const userId = req.user!.id;
+    const categoryIds = await fetchUserCategoryIds(userId);
 
-    const { data: profiles, error } = await supabaseAdmin
-      .from('talent_profiles')
-      .select('category_id')
-      .eq('user_id', userId);
-
-    if (error) throw new AppError(500, `Failed to fetch profiles: ${error.message}`);
-
-    const categoryIds = [...new Set((profiles ?? []).map((p: any) => p.category_id))];
-
-    const [chapters, progress] = await Promise.all([
+    const [courses, chapters, progress] = await Promise.all([
+      trainingService.getMyCourses(userId, categoryIds),
       trainingService.getTrainingForCategories(categoryIds),
       trainingService.getLessonProgress(userId),
     ]);
 
     const completedSet = new Set(progress.map((p: any) => p.lesson_id));
 
+    // Legacy chapter shape for backward compat (chapters not yet in a course)
     const chaptersWithProgress = chapters.map((ch: any) => {
       const lessons = (ch.lessons ?? []).map((l: any) => ({
         ...l,
@@ -147,7 +215,18 @@ export async function getMyTraining(req: Request, res: Response, next: NextFunct
       };
     });
 
-    res.json({ chapters: chaptersWithProgress });
+    res.json({ courses, chapters: chaptersWithProgress });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getMyOnboardingCourses(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.id;
+    const categoryIds = await fetchUserCategoryIds(userId);
+    const courses = await trainingService.getOnboardingCourses(userId, categoryIds);
+    res.json({ courses });
   } catch (err) {
     next(err);
   }
@@ -229,7 +308,9 @@ export async function getOnboardingTraining(req: Request, res: Response, next: N
 
 export async function completeOnboarding(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await trainingService.completeOnboarding(req.user!.id);
+    const userId = req.user!.id;
+    const categoryIds = await fetchUserCategoryIds(userId);
+    const data = await trainingService.completeOnboarding(userId, categoryIds);
     res.json(data);
   } catch (err) {
     next(err);

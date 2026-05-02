@@ -4,6 +4,20 @@ import toast from 'react-hot-toast';
 
 // ── Types ──────────────────────────────────────────────
 
+export interface TrainingCourse {
+  id: string;
+  title: string;
+  description?: string;
+  sort_order: number;
+  is_active: boolean;
+  is_onboarding: boolean;
+  deleted_at?: string | null;
+  categories: { id: string; name: string; slug: string }[];
+  chapter_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface TrainingChapter {
   id: string;
   title: string;
@@ -13,6 +27,7 @@ export interface TrainingChapter {
   is_onboarding: boolean;
   language: string;
   linked_module?: string | null;
+  course_id?: string | null;
   categories: { id: string; name: string; slug: string }[];
   lesson_count: number;
   created_at: string;
@@ -37,13 +52,114 @@ export interface TrainingLesson {
   updated_at: string;
 }
 
+// ── Course hooks ──────────────────────────────────────
+
+export function useCourses() {
+  return useQuery<TrainingCourse[]>({
+    queryKey: ['admin', 'training', 'courses'],
+    queryFn: async () => {
+      const { data } = await api.get('/admin/training/courses');
+      return data;
+    },
+  });
+}
+
+export function useArchivedCourses() {
+  return useQuery<TrainingCourse[]>({
+    queryKey: ['admin', 'training', 'courses', 'archived'],
+    queryFn: async () => {
+      const { data } = await api.get('/admin/training/courses/archived');
+      return data;
+    },
+  });
+}
+
+export function useCourse(id: string | undefined) {
+  return useQuery<TrainingCourse>({
+    queryKey: ['admin', 'training', 'courses', id],
+    queryFn: async () => {
+      const { data } = await api.get(`/admin/training/courses/${id}`);
+      return data;
+    },
+    enabled: !!id,
+  });
+}
+
+interface CourseMutationPayload {
+  title: string;
+  description?: string;
+  sort_order?: number;
+  is_active?: boolean;
+  is_onboarding?: boolean;
+  category_ids?: string[];
+}
+
+export function useCreateCourse() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: CourseMutationPayload) => {
+      const { data } = await api.post('/admin/training/courses', payload);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'training', 'courses'] });
+      toast.success('Course created');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to create course'),
+  });
+}
+
+export function useUpdateCourse() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...payload }: { id: string } & Partial<CourseMutationPayload>) => {
+      const { data } = await api.put(`/admin/training/courses/${id}`, payload);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'training', 'courses'] });
+      toast.success('Course updated');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to update course'),
+  });
+}
+
+export function useArchiveCourse() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/admin/training/courses/${id}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'training', 'courses'] });
+      toast.success('Course archived');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to archive course'),
+  });
+}
+
+export function useRestoreCourse() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.post(`/admin/training/courses/${id}/restore`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'training', 'courses'] });
+      toast.success('Course restored');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to restore course'),
+  });
+}
+
 // ── Chapter hooks ─────────────────────────────────────
 
-export function useChapters() {
+export function useChapters(courseId?: string | null) {
   return useQuery<TrainingChapter[]>({
-    queryKey: ['admin', 'training', 'chapters'],
+    queryKey: ['admin', 'training', 'chapters', { courseId }],
     queryFn: async () => {
-      const { data } = await api.get('/admin/training/chapters');
+      const params = courseId === undefined ? {} : { course_id: courseId === null ? 'null' : courseId };
+      const { data } = await api.get('/admin/training/chapters', { params });
       return data;
     },
   });
@@ -71,7 +187,8 @@ export function useCreateChapter() {
       is_onboarding?: boolean;
       language?: string;
       linked_module?: string | null;
-      category_ids: string[];
+      course_id?: string | null;
+      category_ids?: string[];
     }) => {
       const { data } = await api.post('/admin/training/chapters', payload);
       return data;
@@ -101,6 +218,7 @@ export function useUpdateChapter() {
       is_onboarding?: boolean;
       language?: string;
       linked_module?: string | null;
+      course_id?: string | null;
       category_ids?: string[];
     }) => {
       const { data } = await api.put(`/admin/training/chapters/${id}`, payload);
