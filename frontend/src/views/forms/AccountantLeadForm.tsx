@@ -127,6 +127,7 @@ export default function AccountantLeadForm() {
   const searchParams = useSearchParams();
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({});
+  const [shakeWarning, setShakeWarning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -191,7 +192,31 @@ export default function AccountantLeadForm() {
     }
   };
 
-  const validate = (): boolean => {
+  const FIELD_ORDER: (keyof FormValues)[] = [
+    'name',
+    'phone',
+    'age',
+    'gender',
+    'country',
+    'state',
+    'current_district',
+    'native_place',
+    'district',
+    'location',
+    'work_type',
+    'work_type_seeking',
+    'education',
+    'experience_years',
+    'accounting_software',
+    'current_salary',
+    'expected_salary',
+    'languages',
+    'email',
+    'experience_details',
+    'terms_accepted',
+  ];
+
+  const validate = (): { ok: boolean; errs: Partial<Record<keyof FormValues, string>> } => {
     const errs: Partial<Record<keyof FormValues, string>> = {};
 
     if (!form.name.trim()) errs.name = 'Name is required';
@@ -227,14 +252,32 @@ export default function AccountantLeadForm() {
     if (form.terms_accepted !== 'yes') errs.terms_accepted = 'You must accept the terms';
 
     setErrors(errs);
-    return Object.keys(errs).length === 0;
+    return { ok: Object.keys(errs).length === 0, errs };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError('');
-    if (!validate()) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    if (dup.anyDuplicate) {
+      setShakeWarning(true);
+      setTimeout(() => setShakeWarning(false), 450);
+      document
+        .getElementById('duplicate-warning')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    const { ok, errs } = validate();
+    if (!ok) {
+      const firstErrorKey = FIELD_ORDER.find((k) => errs[k]);
+      if (firstErrorKey) {
+        requestAnimationFrame(() => {
+          document
+            .getElementById(`field-${firstErrorKey}`)
+            ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+      }
       return;
     }
 
@@ -335,7 +378,7 @@ export default function AccountantLeadForm() {
         </div>
 
         {/* Hero card */}
-        <header className="saas-lift card-hero relative mt-6 overflow-hidden px-6 py-10 sm:mt-8 sm:px-12 sm:py-14 lg:px-16 lg:py-16">
+        <header className="saas-lift card-hero relative mt-4 overflow-hidden px-6 py-6 sm:mt-8 sm:px-12 sm:py-14 lg:px-16 lg:py-16">
           {/* Iridescent decorative blob, top-right */}
           <div
             aria-hidden
@@ -354,41 +397,41 @@ export default function AccountantLeadForm() {
             }}
           />
 
-          <div className="relative grid grid-cols-1 gap-12 lg:grid-cols-[1fr_320px] lg:items-end">
+          <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px] lg:items-end">
             <div>
               <span className="badge-prism">Talent · Accountant Track</span>
-              <h1 className="font-display-saas mt-7 text-4xl font-bold leading-[1.05] text-canvas-900 sm:text-5xl lg:text-[56px]">
+              <h1 className="font-display-saas mt-4 text-3xl font-bold leading-[1.05] text-canvas-900 sm:text-5xl lg:text-[56px]">
                 The only platform built for accountants{' '}
                 <span className="text-prism text-prism-animated">who care about craft.</span>
               </h1>
-              <p className="mt-6 max-w-xl text-base leading-relaxed text-canvas-600 sm:text-lg">
+              <p className="mt-3 max-w-xl text-base leading-relaxed text-canvas-600 sm:text-lg">
                 We match you with employers that respect your expertise — full-time, freelance, hybrid.
                 Six chapters. About five minutes.
               </p>
             </div>
 
-            <div className="surface-saas grid grid-cols-2 gap-6 px-6 py-6">
+            <div className="surface-saas grid grid-cols-2 gap-6 px-5 py-4">
               <div>
-                <p className="font-display-saas text-3xl font-bold text-canvas-900">06</p>
+                <p className="font-display-saas text-2xl font-bold text-canvas-900">06</p>
                 <p className="mt-1 text-xs font-medium text-canvas-500">Chapters</p>
               </div>
               <div>
-                <p className="font-display-saas text-3xl font-bold text-canvas-900">~5m</p>
+                <p className="font-display-saas text-2xl font-bold text-canvas-900">~5m</p>
                 <p className="mt-1 text-xs font-medium text-canvas-500">Time</p>
               </div>
               <div>
-                <p className="font-display-saas text-3xl font-bold text-canvas-900">10s</p>
+                <p className="font-display-saas text-2xl font-bold text-canvas-900">10s</p>
                 <p className="mt-1 text-xs font-medium text-canvas-500">Auto-review</p>
               </div>
               <div>
-                <p className="font-display-saas text-3xl font-bold text-canvas-900 text-prism">∞</p>
+                <p className="font-display-saas text-2xl font-bold text-canvas-900 text-prism">∞</p>
                 <p className="mt-1 text-xs font-medium text-canvas-500">Possibilities</p>
               </div>
             </div>
           </div>
         </header>
 
-        <form onSubmit={handleSubmit} className="pb-20">
+        <form onSubmit={handleSubmit} noValidate className="pb-20">
           {serverError && (
             <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
               {serverError}
@@ -401,7 +444,7 @@ export default function AccountantLeadForm() {
             description="The basics — so we know who we&rsquo;re talking to."
             delay={0.05}
           >
-            <div className="field-saas">
+            <div id="field-name" className="field-saas">
               <Input
                 label="Your Name"
                 required
@@ -412,7 +455,7 @@ export default function AccountantLeadForm() {
               />
             </div>
 
-            <div className="field-saas">
+            <div id="field-phone" className="field-saas">
               <label className="block">Contact Number<span className="ml-1 text-iris-500">*</span></label>
               <p className="-mt-1 mb-2 text-xs text-canvas-500">Ideally a WhatsApp number.</p>
               <div className="flex items-stretch gap-2">
@@ -446,7 +489,7 @@ export default function AccountantLeadForm() {
             </div>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div className="field-saas">
+              <div id="field-age" className="field-saas">
                 <Input
                   label="Age"
                   required
@@ -457,7 +500,7 @@ export default function AccountantLeadForm() {
                   error={errors.age}
                 />
               </div>
-              <div className="field-saas">
+              <div id="field-gender" className="field-saas">
                 <Select
                   label="Gender"
                   required
@@ -470,7 +513,7 @@ export default function AccountantLeadForm() {
               </div>
             </div>
 
-            <div className="field-saas">
+            <div id="field-email" className="field-saas">
               <Input
                 label="Email"
                 type="email"
@@ -493,7 +536,7 @@ export default function AccountantLeadForm() {
             description="Where you&rsquo;re from, and where you&rsquo;d like to work."
             delay={0.1}
           >
-            <div className="field-saas">
+            <div id="field-country" className="field-saas">
               <Select
                 label="Country"
                 required
@@ -518,7 +561,7 @@ export default function AccountantLeadForm() {
             </div>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div className="field-saas">
+              <div id="field-state" className="field-saas">
                 {form.country === 'India' ? (
                   <Select
                     label="State"
@@ -543,7 +586,7 @@ export default function AccountantLeadForm() {
                   />
                 )}
               </div>
-              <div className="field-saas">
+              <div id="field-current_district" className="field-saas">
                 {form.country === 'India' && form.state ? (
                   <Select
                     label="District"
@@ -572,7 +615,7 @@ export default function AccountantLeadForm() {
             </div>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div className="field-saas">
+              <div id="field-native_place" className="field-saas">
                 <Input
                   label="Native Place"
                   required
@@ -582,7 +625,7 @@ export default function AccountantLeadForm() {
                   error={errors.native_place}
                 />
               </div>
-              <div className="field-saas">
+              <div id="field-location" className="field-saas">
                 <Input
                   label="Current Location"
                   required
@@ -594,7 +637,7 @@ export default function AccountantLeadForm() {
               </div>
             </div>
 
-            <div>
+            <div id="field-district">
               <p className="mb-2 text-sm font-medium text-canvas-700">
                 Preferred Work Districts<span className="ml-1 text-iris-500">*</span>
               </p>
@@ -618,7 +661,7 @@ export default function AccountantLeadForm() {
             description="The shape of work that suits you."
             delay={0.15}
           >
-            <div>
+            <div id="field-work_type">
               <p className="mb-3 text-sm font-medium text-canvas-700">
                 Type of Work<span className="ml-1 text-iris-500">*</span>
               </p>
@@ -631,7 +674,7 @@ export default function AccountantLeadForm() {
                 chipClassName={chipStyle}
               />
             </div>
-            <div>
+            <div id="field-work_type_seeking">
               <p className="mb-3 text-sm font-medium text-canvas-700">
                 What are you looking for?<span className="ml-1 text-iris-500">*</span>
               </p>
@@ -652,7 +695,7 @@ export default function AccountantLeadForm() {
             description="Your training, your tools, your craft."
             delay={0.2}
           >
-            <div className="field-saas">
+            <div id="field-education" className="field-saas">
               <Textarea
                 label="Educational Qualifications"
                 required
@@ -662,7 +705,7 @@ export default function AccountantLeadForm() {
                 error={errors.education}
               />
             </div>
-            <div className="field-saas">
+            <div id="field-experience_years" className="field-saas">
               <Input
                 label="Years of Experience"
                 required
@@ -673,7 +716,7 @@ export default function AccountantLeadForm() {
               />
             </div>
 
-            <div>
+            <div id="field-accounting_software">
               <p className="mb-2 text-sm font-medium text-canvas-700">
                 Accounting Software<span className="ml-1 text-iris-500">*</span>
               </p>
@@ -717,7 +760,7 @@ export default function AccountantLeadForm() {
             delay={0.25}
           >
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div className="field-saas">
+              <div id="field-current_salary" className="field-saas">
                 <Input
                   label="Current Salary / month"
                   required
@@ -728,7 +771,7 @@ export default function AccountantLeadForm() {
                   error={errors.current_salary}
                 />
               </div>
-              <div className="field-saas">
+              <div id="field-expected_salary" className="field-saas">
                 <Input
                   label="Expected Salary / month"
                   required
@@ -741,7 +784,7 @@ export default function AccountantLeadForm() {
               </div>
             </div>
 
-            <div>
+            <div id="field-languages">
               <p className="mb-3 text-sm font-medium text-canvas-700">
                 Languages<span className="ml-1 text-iris-500">*</span>
               </p>
@@ -762,7 +805,7 @@ export default function AccountantLeadForm() {
             description="Resume, terms, send-off."
             delay={0.3}
           >
-            <div className="field-saas">
+            <div id="field-experience_details" className="field-saas">
               <Textarea
                 label="Details of Experience"
                 required
@@ -824,7 +867,7 @@ export default function AccountantLeadForm() {
               </ol>
             </div>
 
-            <div className="field-saas">
+            <div id="field-terms_accepted" className="field-saas">
               <Select
                 label="Accept above terms"
                 required
@@ -843,7 +886,10 @@ export default function AccountantLeadForm() {
           {/* Submit */}
           <div className="card-saas mt-5 flex flex-col gap-6 px-6 py-9 sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-9">
             {dup.anyDuplicate && (
-              <div className="w-full rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 sm:w-auto sm:flex-1">
+              <div
+                id="duplicate-warning"
+                className={`w-full rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 sm:w-auto sm:flex-1 ${shakeWarning ? 'animate-shake-x' : ''}`}
+              >
                 You&rsquo;ve already submitted.{' '}
                 <button
                   type="button"
@@ -868,7 +914,7 @@ export default function AccountantLeadForm() {
 
             <button
               type="submit"
-              disabled={dup.anyDuplicate || submitting}
+              disabled={submitting}
               className="btn-iridescent w-full sm:w-auto sm:min-w-[220px]"
             >
               {submitting ? (

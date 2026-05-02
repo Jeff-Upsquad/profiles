@@ -541,6 +541,19 @@ body {
 .stagger-6 { animation: stagger 0.6s cubic-bezier(0.2, 0.65, 0.25, 1) 0.40s both; }
 
 /* ─────────────────────────────────────────────────── */
+/* ── Shake (form-error attention) ─────────────────── */
+/* ─────────────────────────────────────────────────── */
+
+@keyframes shake-x {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+.animate-shake-x { animation: shake-x 0.4s ease-in-out; }
+
+/* ─────────────────────────────────────────────────── */
 /* ── Hero Container Pattern (ClickUp Brain Hero) ──── */
 /* ─────────────────────────────────────────────────── */
 

@@ -89,6 +89,7 @@ export default function CreativeLeadForm() {
   const [form, setForm] = useState(initial);
   const [countryCode, setCountryCode] = useState('+91');
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({});
+  const [shakeWarning, setShakeWarning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -119,7 +120,22 @@ export default function CreativeLeadForm() {
     setErrors((prev) => ({ ...prev, [key]: undefined }));
   };
 
-  const validate = (): boolean => {
+  const FIELD_ORDER: (keyof FormValues)[] = [
+    'name',
+    'phone',
+    'email',
+    'age',
+    'gender',
+    'country',
+    'state',
+    'current_district',
+    'role',
+    'work_type_seeking',
+    'experience_years',
+    'portfolio_link',
+  ];
+
+  const validate = (): { ok: boolean; errs: Partial<Record<keyof FormValues, string>> } => {
     const errs: Partial<Record<keyof FormValues, string>> = {};
 
     if (!form.name.trim()) errs.name = 'Name is required';
@@ -151,14 +167,32 @@ export default function CreativeLeadForm() {
     }
 
     setErrors(errs);
-    return Object.keys(errs).length === 0;
+    return { ok: Object.keys(errs).length === 0, errs };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError('');
-    if (!validate()) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    if (dup.anyDuplicate) {
+      setShakeWarning(true);
+      setTimeout(() => setShakeWarning(false), 450);
+      document
+        .getElementById('duplicate-warning')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    const { ok, errs } = validate();
+    if (!ok) {
+      const firstErrorKey = FIELD_ORDER.find((k) => errs[k]);
+      if (firstErrorKey) {
+        requestAnimationFrame(() => {
+          document
+            .getElementById(`field-${firstErrorKey}`)
+            ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+      }
       return;
     }
 
@@ -248,7 +282,7 @@ export default function CreativeLeadForm() {
         </div>
 
         {/* Hero card */}
-        <header className="saas-lift card-hero relative mt-6 overflow-hidden px-6 py-10 sm:mt-8 sm:px-12 sm:py-14 lg:px-16 lg:py-16">
+        <header className="saas-lift card-hero relative mt-4 overflow-hidden px-6 py-6 sm:mt-8 sm:px-12 sm:py-14 lg:px-16 lg:py-16">
           <div
             aria-hidden
             className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-[0.18] blur-3xl"
@@ -266,41 +300,41 @@ export default function CreativeLeadForm() {
             }}
           />
 
-          <div className="relative grid grid-cols-1 gap-12 lg:grid-cols-[1fr_320px] lg:items-end">
+          <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px] lg:items-end">
             <div>
               <span className="badge-prism">Talent · Creative Track</span>
-              <h1 className="font-display-saas mt-7 text-4xl font-bold leading-[1.05] text-canvas-900 sm:text-5xl lg:text-[56px]">
+              <h1 className="font-display-saas mt-4 text-3xl font-bold leading-[1.05] text-canvas-900 sm:text-5xl lg:text-[56px]">
                 For designers and editors{' '}
                 <span className="text-prism text-prism-animated">who care about craft.</span>
               </h1>
-              <p className="mt-6 max-w-xl text-base leading-relaxed text-canvas-600 sm:text-lg">
+              <p className="mt-3 max-w-xl text-base leading-relaxed text-canvas-600 sm:text-lg">
                 Tell us who you are, share your work — we&rsquo;ll match you with Businesses, Brands, and Employers
                 who care about craft as much as you do. Four chapters, about three minutes.
               </p>
             </div>
 
-            <div className="surface-saas grid grid-cols-2 gap-6 px-6 py-6">
+            <div className="surface-saas grid grid-cols-2 gap-6 px-5 py-4">
               <div>
-                <p className="font-display-saas text-3xl font-bold text-canvas-900">04</p>
+                <p className="font-display-saas text-2xl font-bold text-canvas-900">04</p>
                 <p className="mt-1 text-xs font-medium text-canvas-500">Chapters</p>
               </div>
               <div>
-                <p className="font-display-saas text-3xl font-bold text-canvas-900">~3m</p>
+                <p className="font-display-saas text-2xl font-bold text-canvas-900">~3m</p>
                 <p className="mt-1 text-xs font-medium text-canvas-500">Time</p>
               </div>
               <div>
-                <p className="font-display-saas text-3xl font-bold text-canvas-900">10s</p>
+                <p className="font-display-saas text-2xl font-bold text-canvas-900">10s</p>
                 <p className="mt-1 text-xs font-medium text-canvas-500">Auto-review</p>
               </div>
               <div>
-                <p className="font-display-saas text-prism text-3xl font-bold">∞</p>
+                <p className="font-display-saas text-prism text-2xl font-bold">∞</p>
                 <p className="mt-1 text-xs font-medium text-canvas-500">Possibilities</p>
               </div>
             </div>
           </div>
         </header>
 
-        <form onSubmit={handleSubmit} className="pb-20">
+        <form onSubmit={handleSubmit} noValidate className="pb-20">
           {serverError && (
             <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
               {serverError}
@@ -313,7 +347,7 @@ export default function CreativeLeadForm() {
             description="Who you are."
             delay={0.05}
           >
-            <div className="field-saas">
+            <div id="field-name" className="field-saas">
               <Input
                 label="Name"
                 required
@@ -324,7 +358,7 @@ export default function CreativeLeadForm() {
               />
             </div>
 
-            <div className="field-saas">
+            <div id="field-phone" className="field-saas">
               <label className="block">WhatsApp Number<span className="ml-1 text-iris-500">*</span></label>
               <div className="mt-2 flex items-stretch gap-2">
                 <select
@@ -363,7 +397,7 @@ export default function CreativeLeadForm() {
               {errors.phone && <p className="mt-2 text-xs text-red-600">{errors.phone}</p>}
             </div>
 
-            <div className="field-saas">
+            <div id="field-email" className="field-saas">
               <Input
                 label="Email"
                 type="email"
@@ -380,7 +414,7 @@ export default function CreativeLeadForm() {
             </div>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div className="field-saas">
+              <div id="field-age" className="field-saas">
                 <Input
                   label="Age"
                   required
@@ -391,7 +425,7 @@ export default function CreativeLeadForm() {
                   error={errors.age}
                 />
               </div>
-              <div className="field-saas">
+              <div id="field-gender" className="field-saas">
                 <Select
                   label="Gender"
                   required
@@ -411,7 +445,7 @@ export default function CreativeLeadForm() {
             description="Where you&rsquo;re based."
             delay={0.1}
           >
-            <div className="field-saas">
+            <div id="field-country" className="field-saas">
               <Select
                 label="Country"
                 required
@@ -431,7 +465,7 @@ export default function CreativeLeadForm() {
             </div>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div className="field-saas">
+              <div id="field-state" className="field-saas">
                 {form.country === 'India' ? (
                   <Select
                     label="State"
@@ -456,7 +490,7 @@ export default function CreativeLeadForm() {
                   />
                 )}
               </div>
-              <div className="field-saas">
+              <div id="field-current_district" className="field-saas">
                 {form.country === 'India' && form.state ? (
                   <Select
                     label="District"
@@ -491,7 +525,7 @@ export default function CreativeLeadForm() {
             description="The work you do, the work you want."
             delay={0.15}
           >
-            <div>
+            <div id="field-role">
               <p className="mb-3 text-sm font-medium text-canvas-700">
                 Role<span className="ml-1 text-iris-500">*</span>
               </p>
@@ -508,7 +542,7 @@ export default function CreativeLeadForm() {
               />
             </div>
 
-            <div>
+            <div id="field-work_type_seeking">
               <p className="mb-3 text-sm font-medium text-canvas-700">
                 What are you looking for?<span className="ml-1 text-iris-500">*</span>
               </p>
@@ -525,7 +559,7 @@ export default function CreativeLeadForm() {
               />
             </div>
 
-            <div className="field-saas">
+            <div id="field-experience_years" className="field-saas">
               <Input
                 label="Years of Experience"
                 required
@@ -543,7 +577,7 @@ export default function CreativeLeadForm() {
             description="Show us your work."
             delay={0.2}
           >
-            <div className="field-saas">
+            <div id="field-portfolio_link" className="field-saas">
               <Input
                 label="Portfolio Link"
                 required
@@ -561,7 +595,10 @@ export default function CreativeLeadForm() {
           {/* Submit */}
           <div className="card-saas mt-5 flex flex-col gap-6 px-6 py-9 sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-9">
             {dup.anyDuplicate && (
-              <div className="w-full rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 sm:w-auto sm:flex-1">
+              <div
+                id="duplicate-warning"
+                className={`w-full rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 sm:w-auto sm:flex-1 ${shakeWarning ? 'animate-shake-x' : ''}`}
+              >
                 You&rsquo;ve already submitted.{' '}
                 <button
                   type="button"
@@ -586,7 +623,7 @@ export default function CreativeLeadForm() {
 
             <button
               type="submit"
-              disabled={dup.anyDuplicate || submitting}
+              disabled={submitting}
               className="btn-iridescent w-full sm:w-auto sm:min-w-[220px]"
             >
               {submitting ? (
