@@ -435,7 +435,7 @@ export async function getUnreadCount(talentUserId: string): Promise<number> {
 
 export interface AdminCardRow {
   id: string;
-  external_id: string;
+  external_id: string | null;
   status: 'active' | 'archived';
   distribution: 'broadcast' | 'manual';
   published_at: string;
@@ -444,6 +444,9 @@ export interface AdminCardRow {
   subscription_name: string | null;
   plan_label: string | null;
   content: Record<string, unknown>;
+  match_rules: Record<string, unknown>;
+  source: string;
+  subscription_request_id: number | null;
   talents: { pending: number; accepted: number; rejected: number; shortlisted_by_business: number; rejected_by_business: number };
   selected_talent_user_id: string | null;
 }
@@ -458,7 +461,7 @@ export interface AdminListCardsInput {
 export async function listAllForAdmin(input: AdminListCardsInput): Promise<AdminCardRow[]> {
   let q = supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, status, distribution, published_at, expires_at, content, selected_talent_user_id')
+    .select('id, external_id, status, distribution, published_at, expires_at, content, match_rules, source, subscription_request_id, selected_talent_user_id')
     .order('published_at', { ascending: false });
 
   if (input.status === 'active' || input.status === 'archived') {
@@ -513,11 +516,12 @@ export async function listAllForAdmin(input: AdminListCardsInput): Promise<Admin
     if (status === 'accepted' && bizReview === 'rejected') bucket.rejected_by_business++;
   }
 
-  let result = list.map((c: any) => {
+  let result: AdminCardRow[] = list.map((c: any) => {
     const content = (c.content ?? {}) as Record<string, unknown>;
+    const match_rules = (c.match_rules ?? {}) as Record<string, unknown>;
     return {
       id: c.id,
-      external_id: c.external_id,
+      external_id: c.external_id ?? null,
       status: c.status,
       distribution: (c.distribution as 'broadcast' | 'manual') ?? 'broadcast',
       published_at: c.published_at,
@@ -526,6 +530,9 @@ export async function listAllForAdmin(input: AdminListCardsInput): Promise<Admin
       subscription_name: (content.subscription_name as string) ?? null,
       plan_label: (content.plan_name as string) ?? null,
       content,
+      match_rules,
+      source: c.source ?? 'webhook',
+      subscription_request_id: c.subscription_request_id ?? null,
       talents: countsByCard.get(c.id) ?? { pending: 0, accepted: 0, rejected: 0, shortlisted_by_business: 0, rejected_by_business: 0 },
       selected_talent_user_id: c.selected_talent_user_id ?? null,
     };
@@ -546,15 +553,16 @@ export async function listAllForAdmin(input: AdminListCardsInput): Promise<Admin
 export async function getCardForAdmin(cardId: string): Promise<AdminCardRow> {
   const { data: c, error } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, status, distribution, published_at, expires_at, content, selected_talent_user_id')
+    .select('id, external_id, status, distribution, published_at, expires_at, content, match_rules, source, subscription_request_id, selected_talent_user_id')
     .eq('id', cardId)
     .single();
   if (error) throw new AppError(error.code === 'PGRST116' ? 404 : 500, error.message);
 
   const content = ((c as any).content ?? {}) as Record<string, unknown>;
+  const match_rules = ((c as any).match_rules ?? {}) as Record<string, unknown>;
   return {
     id: (c as any).id,
-    external_id: (c as any).external_id,
+    external_id: (c as any).external_id ?? null,
     status: (c as any).status,
     distribution: ((c as any).distribution as 'broadcast' | 'manual') ?? 'broadcast',
     published_at: (c as any).published_at,
@@ -563,6 +571,9 @@ export async function getCardForAdmin(cardId: string): Promise<AdminCardRow> {
     subscription_name: (content.subscription_name as string) ?? null,
     plan_label: (content.plan_name as string) ?? null,
     content,
+    match_rules,
+    source: (c as any).source ?? 'webhook',
+    subscription_request_id: (c as any).subscription_request_id ?? null,
     talents: { pending: 0, accepted: 0, rejected: 0, shortlisted_by_business: 0, rejected_by_business: 0 },
     selected_talent_user_id: (c as any).selected_talent_user_id ?? null,
   };
