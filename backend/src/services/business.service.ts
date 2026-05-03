@@ -882,21 +882,27 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
 
   const talentIds = Array.from(new Set(rows.map((r: any) => r.talent_user_id as string)));
 
+  // Only include talents whose user account is still active. Filtering at
+  // the source means inactive talents stop appearing in review/shortlist
+  // sections — clicking through would 404 anyway.
   const { data: talents } = await supabaseAdmin
     .from('talent_users')
     .select('id, full_name, current_location, profile_photo_url, languages_spoken')
-    .in('id', talentIds);
+    .in('id', talentIds)
+    .eq('is_active', true);
 
   const talentMap = new Map<string, any>();
   for (const t of talents ?? []) talentMap.set((t as any).id, t);
 
-  // Find the best matching profile per talent in the card's categories
-  let profileMap = new Map<string, any>();
-  if (categoryIds.length > 0) {
+  // Find the best matching active+approved profile per talent in the
+  // card's categories. Recipients whose profile no longer qualifies are
+  // dropped entirely.
+  const profileMap = new Map<string, any>();
+  if (categoryIds.length > 0 && talentMap.size > 0) {
     const { data: profiles } = await supabaseAdmin
       .from('talent_profiles')
       .select('id, talent_user_id, category_id, categories!inner(id, name, slug)')
-      .in('talent_user_id', talentIds)
+      .in('talent_user_id', Array.from(talentMap.keys()))
       .in('category_id', categoryIds)
       .eq('status', 'approved')
       .eq('is_active', true)
@@ -908,29 +914,32 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
     }
   }
 
-  const tiers = await getTalentTiersByUserIds(talentIds);
+  const visibleTalentIds = Array.from(profileMap.keys());
+  const tiers = await getTalentTiersByUserIds(visibleTalentIds);
 
-  return rows.map((r: any) => {
-    const talent = talentMap.get(r.talent_user_id) ?? {};
-    const profile = profileMap.get(r.talent_user_id);
-    return {
-      recipient_id: r.id as string,
-      talent_user_id: r.talent_user_id as string,
-      talent_name: talent.full_name ?? null,
-      profile_photo_url: talent.profile_photo_url ?? null,
-      current_location: talent.current_location ?? null,
-      languages_spoken: talent.languages_spoken ?? null,
-      profile_id: profile?.id ?? null,
-      category: profile?.categories ?? null,
-      tier: tiers[r.talent_user_id]?.tier ?? null,
-      tier_custom: tiers[r.talent_user_id]?.tier_custom ?? null,
-      business_review_status: r.business_review_status ?? null,
-      business_reviewed_at: r.business_reviewed_at ?? null,
-      selected_at: r.selected_at ?? null,
-      passed_over_at: r.passed_over_at ?? null,
-      responded_at: r.responded_at ?? null,
-    };
-  });
+  return rows
+    .filter((r: any) => profileMap.has(r.talent_user_id))
+    .map((r: any) => {
+      const talent = talentMap.get(r.talent_user_id) ?? {};
+      const profile = profileMap.get(r.talent_user_id);
+      return {
+        recipient_id: r.id as string,
+        talent_user_id: r.talent_user_id as string,
+        talent_name: talent.full_name ?? null,
+        profile_photo_url: talent.profile_photo_url ?? null,
+        current_location: talent.current_location ?? null,
+        languages_spoken: talent.languages_spoken ?? null,
+        profile_id: profile?.id ?? null,
+        category: profile?.categories ?? null,
+        tier: tiers[r.talent_user_id]?.tier ?? null,
+        tier_custom: tiers[r.talent_user_id]?.tier_custom ?? null,
+        business_review_status: r.business_review_status ?? null,
+        business_reviewed_at: r.business_reviewed_at ?? null,
+        selected_at: r.selected_at ?? null,
+        passed_over_at: r.passed_over_at ?? null,
+        responded_at: r.responded_at ?? null,
+      };
+    });
 }
 
 export async function reviewCardRecipient(
