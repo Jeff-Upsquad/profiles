@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import api from '@/services/api';
 import Input from '@/components/ui/Input';
 import RecipientsPanel from './RecipientsPanel';
+import AdminRequestsList from './AdminRequestsList';
 
 interface PublishedCard {
   id: string;
@@ -40,7 +41,10 @@ function cardTitle(card: PublishedCard): string {
   return card.subscription_name ? `${business} · ${card.subscription_name}` : business;
 }
 
+type Tab = 'published' | 'requests';
+
 export default function PublishedCardsList() {
+  const [activeTab, setActiveTab] = useState<Tab>('published');
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -50,6 +54,19 @@ export default function PublishedCardsList() {
   const businessReview = searchParams.get('business_review') || '';
   const search = searchParams.get('search') || '';
   const selectedId = searchParams.get('selected');
+
+  if (activeTab === 'requests') {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-b border-gray-200 bg-white px-6 pt-5 pb-3">
+          <TabBar activeTab={activeTab} onChange={setActiveTab} />
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <AdminRequestsList />
+        </div>
+      </div>
+    );
+  }
 
   const updateQuery = useCallback(
     (updates: Record<string, string | null>) => {
@@ -92,7 +109,8 @@ export default function PublishedCardsList() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-gray-200 bg-white px-6 pt-5 pb-4">
-        <div className="mb-4">
+        <TabBar activeTab={activeTab} onChange={setActiveTab} />
+        <div className="mt-4 mb-4">
           <h1 className="text-xl font-semibold text-gray-900">Published Cards</h1>
           <p className="mt-0.5 text-sm text-gray-500">All subscription cards published from SquadHub.</p>
         </div>
@@ -223,6 +241,30 @@ const IconEye = (
     <circle cx="10" cy="10" r="2.5" />
   </svg>
 );
+
+function TabBar({ activeTab, onChange }: { activeTab: Tab; onChange: (t: Tab) => void }) {
+  const tabs: { key: Tab; label: string }[] = [
+    { key: 'published', label: 'Published' },
+    { key: 'requests', label: 'From Requests' },
+  ];
+  return (
+    <div className="inline-flex rounded-lg bg-slate-100 p-1">
+      {tabs.map(({ key, label }) => (
+        <button
+          key={key}
+          onClick={() => onChange(key)}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+            activeTab === key
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function PublishedCardRow({
   card, selected, onClick,

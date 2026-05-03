@@ -38,6 +38,10 @@ const envSchema = z.object({
   SQUADHUB_CALLBACK_URL: z.string().url().optional(),
   SQUADHUB_CALLBACK_SECRET: z.string().min(32).optional(),
 
+  // upsquad website — admin API for subscription requests (optional)
+  UPSQUAD_API_URL: z.string().url().optional(),
+  UPSQUAD_API_TOKEN: z.string().optional(),
+
   // Firebase Cloud Messaging (push notifications for talent app)
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional(),
 
