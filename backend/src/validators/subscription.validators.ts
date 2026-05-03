@@ -25,6 +25,13 @@ export const ingestSubscriptionCardSchema = z.object({
   // accept/reject can populate that business's dashboard view. Optional
   // for backwards compat — cards without a resolvable email behave as before.
   business_email: z.string().email().toLowerCase().optional(),
+  // SquadHub also passes the lead's phone, contact name, and company so we
+  // can resolve a business_user by phone when the email isn't on file, and —
+  // failing that — create a pending invitation that lets them sign in later.
+  // All optional for backwards compat.
+  business_phone: z.string().min(6).max(40).optional(),
+  business_contact_name: z.string().min(1).max(200).optional(),
+  business_company: z.string().min(1).max(200).optional(),
   // SquadHub's distribution mode. `broadcast` (default) = fan out to every
   // matching talent at ingest. `manual` ("soft publish") = card is delivered
   // for the business's own dashboard but talents only see it via a separate
