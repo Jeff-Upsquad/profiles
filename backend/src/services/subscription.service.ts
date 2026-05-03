@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
@@ -116,25 +117,55 @@ async function createBusinessInvitationIfNew(input: {
   // 7-day expiry from now.
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const row = {
-    email: email ?? '',
-    phone: phone,
-    role: 'business' as const,
-    status: 'pending' as const,
-    company_name: input.company || null,
-    contact_person_name: input.contactName || null,
-    expires_at: expiresAt,
-    invited_by: SYSTEM_ACTOR_UUID,
-  };
-
-  const { error } = await supabaseAdmin.from('invitations').insert(row);
-  if (error) {
+  // 1. Create the invitations row.
+  const { data: invitation, error: invErr } = await supabaseAdmin
+    .from('invitations')
+    .insert({
+      email: email ?? '',
+      phone: phone,
+      role: 'business',
+      status: 'pending',
+      company_name: input.company || null,
+      contact_person_name: input.contactName || null,
+      expires_at: expiresAt,
+      invited_by: SYSTEM_ACTOR_UUID,
+    })
+    .select('id')
+    .single();
+  if (invErr || !invitation) {
     console.error('[subscription] failed to create business invitation', {
-      email, phone, error: error.message,
+      email, phone, error: invErr?.message,
     });
     return;
   }
-  console.info('[subscription] created 7-day business invitation', { email, phone });
+
+  // 2. Create the business_users row immediately so the customer can sign in
+  //    by email or phone (mirrors the existing admin-side invite flow in
+  //    invite.service.ts — businessLogin queries business_users, not the
+  //    invitations table). access_expires_at = same 7-day window.
+  const { error: bizErr } = await supabaseAdmin
+    .from('business_users')
+    .insert({
+      id: crypto.randomUUID(),
+      company_name: input.company || 'Unnamed Company',
+      contact_person_name: input.contactName || '',
+      contact_email: (email ?? '').toLowerCase(),
+      contact_phone: phone,
+      access_expires_at: expiresAt,
+      invitation_id: invitation.id,
+      is_active: true,
+      verified: true,
+    });
+  if (bizErr) {
+    // Roll back the invitation so a future ingest can try again instead of
+    // sitting on a half-created state.
+    await supabaseAdmin.from('invitations').delete().eq('id', invitation.id);
+    console.error('[subscription] failed to create business_user; invitation rolled back', {
+      email, phone, error: bizErr.message,
+    });
+    return;
+  }
+  console.info('[subscription] auto-created business_user + 7-day invitation', { email, phone });
 }
 
 async function autoSubscribeBusinessToCategories(
