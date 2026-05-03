@@ -66,16 +66,16 @@ function LanguagePicker({
   if (available.length <= 1) return null;
   return (
     <div className={`relative flex items-center gap-2 ${highlight ? 'lang-picker-highlight' : ''}`}>
-      <svg className="h-4 w-4 text-[#646464]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <svg className="h-4 w-4 text-[#525252]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
       </svg>
       <select
         value={language}
         onChange={(e) => onChange(e.target.value)}
-        className={`font-[family-name:var(--font-inter)] rounded-lg border bg-white px-3 py-1.5 text-[13px] font-medium text-[#202020] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6647F0]/30 focus:border-[#6647F0] ${
+        className={`font-[family-name:var(--font-inter)] rounded-lg border bg-white px-3 py-1.5 text-[13px] font-medium text-[#0a0a0a] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/30 focus:border-[#0a0a0a] ${
           highlight
-            ? 'border-[#6647F0] ring-2 ring-[#6647F0]/30 animate-pulse'
-            : 'border-[#E4E4E7]'
+            ? 'border-[#0a0a0a] ring-2 ring-[#0a0a0a]/30 animate-pulse'
+            : 'border-[#E8E5DE]'
         }`}
       >
         {available.map((lang) => (
@@ -90,23 +90,23 @@ function LanguagePicker({
 
 function LanguageSelectionPrompt() {
   return (
-    <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#6647F0]/40 bg-gradient-to-br from-[#F2EEFF]/60 to-white px-6 py-10 sm:py-8 text-center sm:text-left">
+    <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#0a0a0a]/40 bg-gradient-to-br from-[#F2FCBC]/60 to-white px-6 py-10 sm:py-8 text-center sm:text-left">
       <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
       <div className="relative sm:flex sm:items-end sm:justify-between sm:gap-6">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center text-[#6647F0] sm:hidden">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center text-[#0a0a0a] sm:hidden">
           <svg className="h-10 w-10 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
           </svg>
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+          <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
             Pick your language to start
           </h3>
-          <p className="mt-1.5 text-sm text-[#646464] max-w-sm mx-auto sm:mx-0">
+          <p className="mt-1.5 text-sm text-[#525252] max-w-sm mx-auto sm:mx-0">
             Choose a language from the dropdown above to begin watching the training videos.
           </p>
         </div>
-        <div className="hidden sm:flex h-14 w-14 flex-shrink-0 items-end justify-end text-[#6647F0]">
+        <div className="hidden sm:flex h-14 w-14 flex-shrink-0 items-end justify-end text-[#0a0a0a]">
           <svg className="h-12 w-12 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7m0 0H8m9 0v9" />
           </svg>
@@ -125,12 +125,12 @@ function ProgressBar({ completed, total, color = 'rainbow' }: { completed: numbe
           className={`h-full rounded-full transition-all duration-500 ${
             color === 'rainbow'
               ? 'bg-gradient-to-r from-[#FF8B47] via-[#D24DFF] to-[#5BB7FF]'
-              : 'bg-[#6647F0]'
+              : 'bg-[#0a0a0a]'
           }`}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="font-[family-name:var(--font-inter)] text-xs font-medium text-[#646464] whitespace-nowrap">
+      <span className="font-[family-name:var(--font-inter)] text-xs font-medium text-[#525252] whitespace-nowrap">
         {completed}/{total}
       </span>
     </div>
@@ -167,7 +167,7 @@ function LessonCard({ lesson, index, language }: { lesson: TrainingLesson; index
   };
 
   return (
-    <div className="group rounded-2xl border border-[#ECECEF] overflow-hidden bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)]">
+    <div className="group rounded-2xl border border-[#E8E5DE] overflow-hidden bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)]">
       <div className="aspect-video bg-[#09090B] relative">
         <iframe
           src={loomEmbedUrl(videoUrl)}
@@ -191,9 +191,9 @@ function LessonCard({ lesson, index, language }: { lesson: TrainingLesson; index
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <h4 className="font-[family-name:var(--font-jakarta)] font-semibold text-[#202020] tracking-[-0.01em]">{lesson.title}</h4>
+            <h4 className="font-[family-name:var(--font-jakarta)] font-semibold text-[#0a0a0a] tracking-[-0.01em]">{lesson.title}</h4>
             {lesson.description && (
-              <p className="text-sm text-[#838383] mt-1 line-clamp-2">{lesson.description}</p>
+              <p className="text-sm text-[#737373] mt-1 line-clamp-2">{lesson.description}</p>
             )}
           </div>
         </div>
@@ -203,7 +203,7 @@ function LessonCard({ lesson, index, language }: { lesson: TrainingLesson; index
           className={`mt-3 font-[family-name:var(--font-inter)] inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-all duration-200 active:scale-[0.97] ${
             lesson.completed
               ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100'
-              : 'bg-[#202020] text-white hover:bg-[#202020]/85'
+              : 'bg-[#0a0a0a] text-white hover:bg-[#0a0a0a]/85'
           } disabled:opacity-50 disabled:cursor-not-allowed`}
           title={cooldownActive ? `Watch the video before marking complete (${secondsLeft}s)` : undefined}
         >
@@ -254,7 +254,7 @@ function ChapterAccordion({
   return (
     <div
       className={`rounded-2xl border bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${
-        locked ? 'border-[#ECECEF] opacity-60' : 'border-[#ECECEF]'
+        locked ? 'border-[#E8E5DE] opacity-60' : 'border-[#E8E5DE]'
       }`}
       title={locked ? lockedReason : undefined}
     >
@@ -262,7 +262,7 @@ function ChapterAccordion({
         onClick={() => !locked && setExpanded(!expanded)}
         disabled={locked}
         className={`w-full px-5 sm:px-6 py-5 flex items-center gap-4 text-left transition-colors ${
-          locked ? 'cursor-not-allowed' : 'hover:bg-[#F8F9FA]'
+          locked ? 'cursor-not-allowed' : 'hover:bg-[#F7F6F3]'
         }`}
       >
         <div
@@ -286,11 +286,11 @@ function ChapterAccordion({
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020] truncate">
+          <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a] truncate">
             {chapter.title}
           </h3>
           {chapter.description && (
-            <p className="text-sm text-[#838383] mt-0.5 truncate">{chapter.description}</p>
+            <p className="text-sm text-[#737373] mt-0.5 truncate">{chapter.description}</p>
           )}
           {locked && lockedReason ? (
             <p className="mt-2 text-xs text-amber-700">{lockedReason}</p>
@@ -306,7 +306,7 @@ function ChapterAccordion({
         </div>
         {!locked && (
           <svg
-            className={`w-5 h-5 text-[#A1A1AA] flex-shrink-0 transition-transform duration-200 ${
+            className={`w-5 h-5 text-[#a3a3a3] flex-shrink-0 transition-transform duration-200 ${
               expanded ? 'rotate-180' : ''
             }`}
             fill="none"
@@ -334,7 +334,7 @@ function CountdownChip({ course, now }: { course: TrainingCourse; now: Date }) {
   const remaining = formatRemaining(course.expires_at, now);
   return (
     <div
-      className="flex items-center gap-2 rounded-full border border-[#E4E4E7] bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+      className="flex items-center gap-2 rounded-full border border-[#E8E5DE] bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
       style={{
         backgroundImage: 'linear-gradient(white, white), linear-gradient(135deg, #FF8B47, #D24DFF, #5BB7FF)',
         backgroundOrigin: 'border-box',
@@ -345,10 +345,10 @@ function CountdownChip({ course, now }: { course: TrainingCourse; now: Date }) {
       <svg className="h-3.5 w-3.5 text-[#D24DFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
-      <span className="font-[family-name:var(--font-inter)] text-[12px] font-medium text-[#202020] truncate max-w-[180px]">
+      <span className="font-[family-name:var(--font-inter)] text-[12px] font-medium text-[#0a0a0a] truncate max-w-[180px]">
         {course.title}
       </span>
-      <span className="font-[family-name:var(--font-inter)] text-[12px] font-semibold text-[#646464] whitespace-nowrap">
+      <span className="font-[family-name:var(--font-inter)] text-[12px] font-semibold text-[#525252] whitespace-nowrap">
         {remaining}
       </span>
     </div>
@@ -394,11 +394,11 @@ function CourseSection({
 
       <div className="flex items-end justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#202020]">
+          <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">
             {course.title}
           </h2>
           {course.description && (
-            <p className="mt-1 text-sm text-[#838383]">{course.description}</p>
+            <p className="mt-1 text-sm text-[#737373]">{course.description}</p>
           )}
         </div>
         <LanguagePicker
@@ -416,15 +416,15 @@ function CourseSection({
       )}
 
       {needsStart && !showPopup && (
-        <div className="rounded-xl border border-[#E4E4E7] bg-[#F8F9FA] px-4 py-3 text-sm text-[#646464]">
-          Click <button onClick={() => setPopupDismissed(false)} className="text-[#6647F0] font-medium underline-offset-2 hover:underline">Start course</button> to begin.
+        <div className="rounded-xl border border-[#E8E5DE] bg-[#F7F6F3] px-4 py-3 text-sm text-[#525252]">
+          Click <button onClick={() => setPopupDismissed(false)} className="text-[#0a0a0a] font-medium underline-offset-2 hover:underline">Start course</button> to begin.
         </div>
       )}
 
       {needsLanguageSelection ? (
         <LanguageSelectionPrompt />
       ) : course.chapters.length === 0 ? (
-        <div className="rounded-2xl border border-[#ECECEF] bg-white px-6 py-8 text-center text-sm text-[#838383]">
+        <div className="rounded-2xl border border-[#E8E5DE] bg-white px-6 py-8 text-center text-sm text-[#737373]">
           No chapters yet.
         </div>
       ) : (
@@ -483,17 +483,17 @@ function OnboardingTraining() {
 
   return (
     <div className="space-y-6">
-      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-glow-blur" />
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             <div className="mb-2.5 stagger-1">
               <span className="eyebrow-rainbow">Onboarding</span>
             </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
               Complete the <span className="text-rainbow">Training</span> to Unlock Your Account
             </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] max-w-xl stagger-3">
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] max-w-xl stagger-3">
               Watch the videos in each chapter and mark them complete to unlock the next chapter and the rest of your account.
             </p>
           </div>
@@ -507,19 +507,19 @@ function OnboardingTraining() {
       {isLoading ? (
         <div className="h-32 bg-[#f0f0f0] rounded-2xl animate-pulse" />
       ) : courses.length === 0 ? (
-        <div className="relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-6 py-16 text-center">
+        <div className="relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2EEFF]">
-              <svg className="h-6 w-6 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+              <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">
+            <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
               No onboarding content yet
             </h3>
-            <p className="mt-1 text-sm text-[#838383]">Check back soon — your admin is setting things up.</p>
+            <p className="mt-1 text-sm text-[#737373]">Check back soon — your admin is setting things up.</p>
           </div>
         </div>
       ) : (
@@ -533,7 +533,7 @@ function OnboardingTraining() {
             />
           ))}
 
-          <div className="rounded-2xl border border-[#ECECEF] bg-white p-6 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="rounded-2xl border border-[#E8E5DE] bg-white p-6 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             {allComplete ? (
               <>
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50">
@@ -541,10 +541,10 @@ function OnboardingTraining() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold text-[#202020]">
+                <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold text-[#0a0a0a]">
                   Training Complete!
                 </h3>
-                <p className="mt-1 text-sm text-[#838383] max-w-sm mx-auto">
+                <p className="mt-1 text-sm text-[#737373] max-w-sm mx-auto">
                   You&apos;re all set. Click below to unlock your full account and start building your profile.
                 </p>
                 <button
@@ -565,10 +565,10 @@ function OnboardingTraining() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                 </div>
-                <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">
+                <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
                   Complete all chapters to unlock
                 </h3>
-                <p className="mt-1 text-sm text-[#838383]">
+                <p className="mt-1 text-sm text-[#737373]">
                   {totals.completed} of {totals.total} lessons complete
                 </p>
               </>
@@ -615,7 +615,7 @@ function FullTrainingProgram() {
 
   return (
     <div className="space-y-6">
-      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
             <div className="mb-2.5 stagger-1">
@@ -623,17 +623,17 @@ function FullTrainingProgram() {
                 {totals.completed} of {totals.total} lessons complete
               </span>
             </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
               <span className="text-rainbow">Training</span> Program.
             </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] stagger-3">
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
               Short videos to help you build a stronger profile and win more work.
             </p>
           </div>
           {totals.total > 0 && (
             <div className="relative flex h-16 w-16 items-center justify-center stagger-4">
               <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="42" fill="none" stroke="#ECECEF" strokeWidth="9" />
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#E8E5DE" strokeWidth="9" />
                 <circle
                   cx="50" cy="50" r="42" fill="none"
                   stroke="url(#train-grad)"
@@ -649,7 +649,7 @@ function FullTrainingProgram() {
                   </linearGradient>
                 </defs>
               </svg>
-              <span className="font-[family-name:var(--font-jakarta)] text-base font-semibold tracking-[-0.02em] text-[#202020]">
+              <span className="font-[family-name:var(--font-jakarta)] text-base font-semibold tracking-[-0.02em] text-[#0a0a0a]">
                 {overallPct}%
               </span>
             </div>
@@ -668,19 +668,19 @@ function FullTrainingProgram() {
           ))}
         </div>
       ) : isEmpty ? (
-        <div className="relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-6 py-16 text-center">
+        <div className="relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2EEFF]">
-              <svg className="h-6 w-6 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+              <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">
+            <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
               No training content yet
             </h3>
-            <p className="mt-1 text-sm text-[#838383]">Check back soon for new chapters and lessons.</p>
+            <p className="mt-1 text-sm text-[#737373]">Check back soon for new chapters and lessons.</p>
           </div>
         </div>
       ) : (
@@ -695,7 +695,7 @@ function FullTrainingProgram() {
           {legacyChapters.length > 0 && (
             <section className="space-y-4">
               {courses.length > 0 && (
-                <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#202020]">
+                <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">
                   Other chapters
                 </h2>
               )}

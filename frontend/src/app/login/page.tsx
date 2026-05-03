@@ -6,14 +6,14 @@ export default function LoginChooseRolePage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-cu-50">
       {/* Ambient glows */}
-      <div className="pointer-events-none absolute -top-[180px] left-1/2 h-[450px] w-[450px] -translate-x-1/2 rounded-full opacity-30 blur-[120px]"
-        style={{ background: 'radial-gradient(circle, rgba(139, 102, 248, 0.3) 0%, transparent 70%)' }}
+      <div className="pointer-events-none absolute -top-[180px] left-1/2 h-[450px] w-[450px] -translate-x-1/2 rounded-full opacity-60 blur-[120px]"
+        style={{ background: 'radial-gradient(circle, rgba(212, 255, 77, 0.55) 0%, transparent 70%)' }}
       />
-      <div className="pointer-events-none absolute -bottom-[120px] -left-[120px] h-[350px] w-[350px] rounded-full opacity-25 blur-[100px]"
-        style={{ background: 'radial-gradient(circle, rgba(255, 139, 71, 0.25) 0%, transparent 70%)' }}
+      <div className="pointer-events-none absolute -bottom-[120px] -left-[120px] h-[350px] w-[350px] rounded-full opacity-50 blur-[100px]"
+        style={{ background: 'radial-gradient(circle, rgba(168, 232, 232, 0.55) 0%, transparent 70%)' }}
       />
-      <div className="pointer-events-none absolute -bottom-[120px] -right-[120px] h-[350px] w-[350px] rounded-full opacity-25 blur-[100px]"
-        style={{ background: 'radial-gradient(circle, rgba(0, 145, 255, 0.2) 0%, transparent 70%)' }}
+      <div className="pointer-events-none absolute -bottom-[120px] -right-[120px] h-[350px] w-[350px] rounded-full opacity-50 blur-[100px]"
+        style={{ background: 'radial-gradient(circle, rgba(240, 251, 41, 0.5) 0%, transparent 70%)' }}
       />
 
       {/* Top nav */}
@@ -51,11 +51,11 @@ export default function LoginChooseRolePage() {
           <div className="stagger-2 space-y-3">
             <Link
               href="/login/talent"
-              className="group card-v5 flex items-center gap-4 p-5 transition-all hover:border-iris-300 hover:shadow-[0_8px_24px_-8px_rgba(102,71,240,0.15)]"
+              className="group card-v5 flex items-center gap-4 p-5"
             >
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--cu-radius)] bg-iris-50 transition-colors group-hover:bg-iris-100">
-                <svg className="h-5.5 w-5.5 text-iris-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--cu-radius)] bg-brand-purple border-2 border-cu-900 shadow-brutal-sm">
+                <svg className="h-5.5 w-5.5 text-cu-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
               <div className="flex-1">
@@ -66,18 +66,18 @@ export default function LoginChooseRolePage() {
                   Sign in with your email and password
                 </div>
               </div>
-              <svg className="h-5 w-5 text-cu-400 transition-transform group-hover:translate-x-0.5 group-hover:text-iris-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-5 w-5 text-cu-400 transition-transform group-hover:translate-x-0.5 group-hover:text-cu-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>
 
             <Link
               href="/login/business"
-              className="group card-v5 flex items-center gap-4 p-5 transition-all hover:border-[#B3D9FF] hover:shadow-[0_8px_24px_-8px_rgba(0,145,255,0.15)]"
+              className="group card-v5 flex items-center gap-4 p-5"
             >
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--cu-radius)] bg-[#EDF6FD] transition-colors group-hover:bg-[#DBEEFB]">
-                <svg className="h-5.5 w-5.5 text-cu-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--cu-radius)] bg-brand-pink border-2 border-cu-900 shadow-brutal-sm">
+                <svg className="h-5.5 w-5.5 text-cu-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
               <div className="flex-1">
@@ -88,7 +88,7 @@ export default function LoginChooseRolePage() {
                   Passwordless login with your invited credentials
                 </div>
               </div>
-              <svg className="h-5 w-5 text-cu-400 transition-transform group-hover:translate-x-0.5 group-hover:text-cu-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-5 w-5 text-cu-400 transition-transform group-hover:translate-x-0.5 group-hover:text-cu-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>

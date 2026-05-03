@@ -27,14 +27,14 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
         onClick={onNavigate}
         className="flex items-center gap-2.5 border-b border-gray-100 px-4 py-4"
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#202020] text-[11px] font-bold text-white">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0a0a0a] text-[11px] font-bold text-white">
           SH
         </div>
         <div className="flex flex-col leading-tight">
-          <span className="font-[family-name:var(--font-jakarta)] text-[15px] font-semibold tracking-[-0.02em] text-[#202020]">
+          <span className="font-[family-name:var(--font-jakarta)] text-[15px] font-semibold tracking-[-0.02em] text-[#0a0a0a]">
             SquadHire
           </span>
-          <span className="text-[10px] text-[#838383]">Powered by UpSquad</span>
+          <span className="text-[10px] text-[#737373]">Powered by UpSquad</span>
         </div>
       </Link>
 

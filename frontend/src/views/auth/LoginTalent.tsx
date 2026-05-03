@@ -37,9 +37,9 @@ export default function LoginTalent() {
       accent="talent"
     >
       <div className="stagger-1">
-        <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-[var(--cu-radius)] bg-iris-50">
-          <svg className="h-5 w-5 text-iris-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-[var(--cu-radius)] bg-brand-purple border-2 border-cu-900 shadow-brutal-sm">
+          <svg className="h-5 w-5 text-cu-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
         </div>
 
@@ -90,7 +90,7 @@ export default function LoginTalent() {
               <button
                 type="button"
                 onClick={() => setStep('email')}
-                className="font-ui text-xs font-medium text-iris-500 hover:text-iris-600"
+                className="font-ui text-xs font-medium text-cu-900 underline underline-offset-4 hover:opacity-70"
               >
                 Change
               </button>
@@ -109,7 +109,7 @@ export default function LoginTalent() {
               </label>
               <Link
                 href="/forgot-password"
-                className="font-ui text-xs font-medium text-iris-500 hover:text-iris-600"
+                className="font-ui text-xs font-medium text-cu-900 underline underline-offset-4 hover:opacity-70"
               >
                 Forgot password?
               </Link>
@@ -143,7 +143,7 @@ export default function LoginTalent() {
 
       <div className="stagger-3 mt-6 border-t border-cu-200 pt-4 text-center font-ui text-xs text-cu-500">
         Have an invitation?{' '}
-        <Link href="/signup/talent" className="font-medium text-iris-500 hover:text-iris-600">
+        <Link href="/signup/talent" className="font-medium text-cu-900 underline underline-offset-4 hover:opacity-70">
           Sign up as Talent
         </Link>
       </div>
@@ -166,19 +166,19 @@ export function AuthShell({
     <div className="relative min-h-screen overflow-hidden bg-cu-50">
       {/* Ambient background glows */}
       <div
-        className="pointer-events-none absolute -top-[200px] -right-[200px] h-[500px] w-[500px] rounded-full opacity-40 blur-[120px]"
+        className="pointer-events-none absolute -top-[200px] -right-[200px] h-[500px] w-[500px] rounded-full opacity-60 blur-[120px]"
         style={{
           background: accent === 'talent'
-            ? 'radial-gradient(circle, rgba(102, 71, 240, 0.25) 0%, transparent 70%)'
-            : 'radial-gradient(circle, rgba(0, 145, 255, 0.2) 0%, transparent 70%)',
+            ? 'radial-gradient(circle, rgba(212, 255, 77, 0.55) 0%, transparent 70%)'
+            : 'radial-gradient(circle, rgba(168, 232, 232, 0.55) 0%, transparent 70%)',
         }}
       />
       <div
-        className="pointer-events-none absolute -bottom-[150px] -left-[150px] h-[400px] w-[400px] rounded-full opacity-30 blur-[100px]"
+        className="pointer-events-none absolute -bottom-[150px] -left-[150px] h-[400px] w-[400px] rounded-full opacity-50 blur-[100px]"
         style={{
           background: accent === 'talent'
-            ? 'radial-gradient(circle, rgba(255, 91, 139, 0.2) 0%, transparent 70%)'
-            : 'radial-gradient(circle, rgba(23, 207, 207, 0.18) 0%, transparent 70%)',
+            ? 'radial-gradient(circle, rgba(168, 232, 232, 0.5) 0%, transparent 70%)'
+            : 'radial-gradient(circle, rgba(212, 255, 77, 0.45) 0%, transparent 70%)',
         }}
       />
 

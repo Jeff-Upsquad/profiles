@@ -71,7 +71,7 @@ export default function TalentNotifications() {
   return (
     <div className="space-y-6">
       {/* Compact Hero */}
-      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-content flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="mb-2.5 stagger-1">
@@ -79,10 +79,10 @@ export default function TalentNotifications() {
                 {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
               </span>
             </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
               <span className="text-rainbow">Notifications</span>.
             </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] stagger-3">
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
               Profile status updates and interest requests from brands.
             </p>
           </div>
@@ -96,34 +96,34 @@ export default function TalentNotifications() {
           ))}
         </div>
       ) : notifications.length === 0 ? (
-        <div className="relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-6 py-16 text-center">
+        <div className="relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2EEFF]">
-              <svg className="h-6 w-6 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+              <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
             </div>
-            <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">
+            <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
               No notifications yet
             </h3>
-            <p className="mx-auto mt-1.5 max-w-sm text-sm text-[#838383]">
+            <p className="mx-auto mt-1.5 max-w-sm text-sm text-[#737373]">
               You'll see updates here when brands express interest or your profile status changes.
             </p>
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-[#ECECEF] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden">
-          <ul className="divide-y divide-[#ECECEF]">
+        <div className="rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden">
+          <ul className="divide-y divide-[#E8E5DE]">
             {notifications.map((notif, i) => {
               const meta = TYPE_META[notif.type] ?? TYPE_META.interest_request;
               return (
                 <li
                   key={notif.id}
-                  className={`group relative flex items-start gap-3 px-5 py-4 transition-colors hover:bg-[#F8F9FA] stagger-${Math.min(i + 1, 6)}`}
+                  className={`group relative flex items-start gap-3 px-5 py-4 transition-colors hover:bg-[#F7F6F3] stagger-${Math.min(i + 1, 6)}`}
                 >
                   {!notif.read && (
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[#6647F0]" />
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[#0a0a0a]" />
                   )}
                   <div
                     className={`${meta.tint} flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ml-3`}
@@ -132,15 +132,15 @@ export default function TalentNotifications() {
                     {meta.icon}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className={`text-sm leading-snug ${notif.read ? 'text-[#646464]' : 'text-[#202020] font-medium'}`}>
+                    <p className={`text-sm leading-snug ${notif.read ? 'text-[#525252]' : 'text-[#0a0a0a] font-medium'}`}>
                       {notif.message}
                     </p>
                     <div className="mt-1 flex items-center gap-2 text-xs">
                       <span className="font-[family-name:var(--font-inter)] font-semibold uppercase tracking-wide" style={{ color: 'var(--tint-icon)' }}>
                         {meta.label}
                       </span>
-                      <span className="text-[#A1A1AA]">·</span>
-                      <span className="text-[#A1A1AA]">{relativeTime(notif.created_at)}</span>
+                      <span className="text-[#a3a3a3]">·</span>
+                      <span className="text-[#a3a3a3]">{relativeTime(notif.created_at)}</span>
                     </div>
                   </div>
                 </li>

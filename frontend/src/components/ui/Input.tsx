@@ -23,16 +23,16 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           id={inputId}
-          className={`block w-full rounded-lg border px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-all duration-200 placeholder:text-[#A1A1AA] focus:outline-none ${
+          className={`block w-full rounded-lg border px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-all duration-200 placeholder:text-[#a3a3a3] focus:outline-none ${
             error
               ? 'border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-500/15'
-              : 'border-[#E4E4E7] focus:border-[#6647F0] focus:ring-2 focus:ring-[#6647F0]/12'
-          } ${rest.disabled ? 'bg-[#F8F9FA] text-[#A1A1AA] cursor-not-allowed' : 'bg-white text-[#202020]'} ${className}`}
+              : 'border-[#E8E5DE] focus:border-[#0a0a0a] focus:ring-2 focus:ring-[#0a0a0a]/12'
+          } ${rest.disabled ? 'bg-[#F7F6F3] text-[#a3a3a3] cursor-not-allowed' : 'bg-white text-[#0a0a0a]'} ${className}`}
           {...rest}
         />
         {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
         {helperText && !error && (
-          <p className="mt-1 text-xs text-[#838383]">{helperText}</p>
+          <p className="mt-1 text-xs text-[#737373]">{helperText}</p>
         )}
       </div>
     );

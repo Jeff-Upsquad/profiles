@@ -23,7 +23,7 @@ export default function SubscriptionsPage() {
   return (
     <div className="space-y-6">
       {/* Compact Hero */}
-      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-content flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="mb-2.5 stagger-1">
@@ -31,10 +31,10 @@ export default function SubscriptionsPage() {
                 {pendingNum > 0 ? `${pendingNum} pending offer${pendingNum === 1 ? '' : 's'}` : 'No pending offers'}
               </span>
             </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
               <span className="text-rainbow">Subscriptions</span>.
             </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] stagger-3">
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
               Offers pushed to you based on your profile. Accept or decline each one.
             </p>
           </div>
@@ -42,7 +42,7 @@ export default function SubscriptionsPage() {
       </section>
 
       {/* V5 Tab Control */}
-      <div className="inline-flex items-center gap-1 rounded-xl bg-[#F8F9FA] p-1.5 border border-[#ECECEF]">
+      <div className="inline-flex items-center gap-1 rounded-xl bg-[#F7F6F3] p-1.5 border border-[#E8E5DE]">
         {TABS.map((t) => {
           const isActive = tab === t.key;
           const count = t.key === 'pending' ? pendingNum : null;
@@ -52,14 +52,14 @@ export default function SubscriptionsPage() {
               onClick={() => setTab(t.key)}
               className={`font-[family-name:var(--font-inter)] inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition-all duration-200 ${
                 isActive
-                  ? 'bg-white text-[#202020] shadow-[0_1px_3px_0_rgba(0,0,0,0.1),0_1px_2px_-1px_rgba(0,0,0,0.1)]'
-                  : 'text-[#646464] hover:text-[#202020]'
+                  ? 'bg-white text-[#0a0a0a] shadow-[0_1px_3px_0_rgba(0,0,0,0.1),0_1px_2px_-1px_rgba(0,0,0,0.1)]'
+                  : 'text-[#525252] hover:text-[#0a0a0a]'
               }`}
             >
               {t.label}
               {count !== null && count > 0 && (
                 <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${
-                  isActive ? 'bg-[#F2EEFF] text-[#6647F0]' : 'bg-[#E4E4E7] text-[#646464]'
+                  isActive ? 'bg-[#F2FCBC] text-[#0a0a0a]' : 'bg-[#E8E5DE] text-[#525252]'
                 }`}>
                   {count}
                 </span>
@@ -72,7 +72,7 @@ export default function SubscriptionsPage() {
       {isLoading && (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="rounded-2xl border border-[#ECECEF] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div key={i} className="rounded-2xl border border-[#E8E5DE] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               <div className="h-32 animate-pulse rounded-xl bg-[#f0f0f0]" />
               <div className="mt-4 h-4 w-3/4 animate-pulse rounded bg-[#f0f0f0]" />
               <div className="mt-2 h-3 w-full animate-pulse rounded bg-[#f0f0f0]" />
@@ -97,24 +97,24 @@ export default function SubscriptionsPage() {
       )}
 
       {!isLoading && !isError && (data?.length ?? 0) === 0 && (
-        <div className="relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-6 py-16 text-center">
+        <div className="relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2EEFF]">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2FCBC]">
               {tab === 'pending' ? (
-                <svg className="h-6 w-6 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-3.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-1.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 007.586 13H4" />
                 </svg>
               ) : (
-                <svg className="h-6 w-6 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                 </svg>
               )}
             </div>
-            <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">
+            <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
               {tab === 'pending' ? 'No offers right now' : 'Nothing here yet'}
             </h3>
-            <p className="mx-auto mt-1.5 max-w-sm text-sm text-[#838383]">
+            <p className="mx-auto mt-1.5 max-w-sm text-sm text-[#737373]">
               {tab === 'pending'
                 ? "We'll notify you when a brand sends a subscription offer."
                 : "You haven't responded to any offers yet."}

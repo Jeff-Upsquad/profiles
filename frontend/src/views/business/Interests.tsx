@@ -59,7 +59,7 @@ export default function Interests() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="rounded-2xl border border-[#ECECEF] bg-white px-5 py-6">
+        <div className="rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6">
           <div className="h-7 w-40 animate-pulse rounded bg-[#f0f0f0]" />
           <div className="mt-2 h-4 w-64 animate-pulse rounded bg-[#f0f0f0]" />
         </div>
@@ -75,7 +75,7 @@ export default function Interests() {
   return (
     <div className="space-y-6">
       {/* ── Hero ── */}
-      <section className="hero-container hero-glow-blue relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-blue relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="mb-2.5 flex flex-wrap items-center gap-1.5 stagger-1">
@@ -93,10 +93,10 @@ export default function Interests() {
                 </span>
               )}
             </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
               Interest <span className="text-rainbow">requests</span>.
             </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] stagger-3">
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
               Track the status of every interest request you've sent to talent.
             </p>
           </div>
@@ -112,18 +112,18 @@ export default function Interests() {
       </section>
 
       {visible.length === 0 ? (
-        <div className="relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-6 py-16 text-center">
+        <div className="relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-6 py-16 text-center">
           <div className="hero-glow-orange absolute inset-0 pointer-events-none" />
           <div className="relative">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F2EEFF]">
-              <svg className="h-7 w-7 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+              <svg className="h-7 w-7 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
-            <h3 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#202020]">
+            <h3 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">
               No interest requests yet
             </h3>
-            <p className="mx-auto mt-1.5 max-w-sm text-sm text-[#838383]">
+            <p className="mx-auto mt-1.5 max-w-sm text-sm text-[#737373]">
               Browse approved talent and send a request to get the conversation started.
             </p>
             <div className="mt-5 inline-flex">
@@ -137,8 +137,8 @@ export default function Interests() {
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-[#ECECEF] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <ul className="divide-y divide-[#ECECEF]">
+        <div className="overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <ul className="divide-y divide-[#E8E5DE]">
             {visible.map((interest, i) => {
               const fullName =
                 (interest.profile as any)?.talent_user?.full_name ??
@@ -152,7 +152,7 @@ export default function Interests() {
               return (
                 <li
                   key={interest.id}
-                  className={`group flex items-start gap-4 px-5 py-4 transition-colors hover:bg-[#F8F9FA] sm:px-6 stagger-${Math.min(i + 1, 6)}`}
+                  className={`group flex items-start gap-4 px-5 py-4 transition-colors hover:bg-[#F7F6F3] sm:px-6 stagger-${Math.min(i + 1, 6)}`}
                 >
                   <div
                     className={`${tint} flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl font-[family-name:var(--font-jakarta)] text-sm font-semibold`}
@@ -163,7 +163,7 @@ export default function Interests() {
 
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#202020] truncate">
+                      <p className="font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a] truncate">
                         {fullName}
                       </p>
                       <Badge variant={statusVariant(interest.status)}>
@@ -172,19 +172,19 @@ export default function Interests() {
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs">
                       {interest.profile?.category?.name && (
-                        <span className="text-[#838383]">
+                        <span className="text-[#737373]">
                           {interest.profile.category.name}
                         </span>
                       )}
                       {interest.profile?.category?.name && (
                         <span className="text-[#D4D4D8]">·</span>
                       )}
-                      <span className="text-[#A1A1AA]">
+                      <span className="text-[#a3a3a3]">
                         Sent {relativeTime(interest.created_at)}
                       </span>
                     </div>
                     {interest.message && (
-                      <p className="mt-2 font-[family-name:var(--font-inter)] text-sm text-[#646464] line-clamp-2 italic">
+                      <p className="mt-2 font-[family-name:var(--font-inter)] text-sm text-[#525252] line-clamp-2 italic">
                         &ldquo;{interest.message}&rdquo;
                       </p>
                     )}

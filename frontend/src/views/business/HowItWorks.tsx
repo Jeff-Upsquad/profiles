@@ -44,12 +44,12 @@ export default function HowItWorks() {
 
   return (
     <div className="space-y-6">
-      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-glow-blur" />
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
             <div className="mb-2.5 stagger-1">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F2EEFF] px-3 py-1 text-xs font-semibold text-[#6647F0]">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F2FCBC] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -57,25 +57,25 @@ export default function HowItWorks() {
                 Guide
               </span>
             </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
-              How it <span className="text-[#6647F0]">works</span>
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
+              How it <span className="text-[#0a0a0a]">works</span>
             </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] max-w-xl stagger-3">
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] max-w-xl stagger-3">
               Watch the video to learn how UpSquad helps you find, onboard, and manage top talent.
             </p>
           </div>
           {availableLanguages.length > 1 && (
             <div className={`relative flex items-center gap-2 stagger-4 ${!hasSelected ? 'lang-picker-highlight' : ''}`}>
-              <svg className="h-4 w-4 text-[#646464]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <svg className="h-4 w-4 text-[#525252]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
               </svg>
               <select
                 value={language}
                 onChange={(e) => handleLanguageChange(e.target.value)}
-                className={`font-[family-name:var(--font-inter)] rounded-lg border bg-white px-3 py-1.5 text-[13px] font-medium text-[#202020] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6647F0]/30 focus:border-[#6647F0] ${
+                className={`font-[family-name:var(--font-inter)] rounded-lg border bg-white px-3 py-1.5 text-[13px] font-medium text-[#0a0a0a] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/30 focus:border-[#0a0a0a] ${
                   !hasSelected
-                    ? 'border-[#6647F0] ring-2 ring-[#6647F0]/30 animate-pulse'
-                    : 'border-[#E4E4E7]'
+                    ? 'border-[#0a0a0a] ring-2 ring-[#0a0a0a]/30 animate-pulse'
+                    : 'border-[#E8E5DE]'
                 }`}
               >
                 {availableLanguages.map((lang) => (
@@ -92,42 +92,42 @@ export default function HowItWorks() {
       {isLoading ? (
         <div className="aspect-video rounded-2xl bg-[#f0f0f0] animate-pulse" />
       ) : videos.length === 0 ? (
-        <div className="relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-6 py-16 text-center">
+        <div className="relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2EEFF]">
-              <svg className="h-6 w-6 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+              <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">
+            <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
               Video coming soon
             </h3>
-            <p className="mt-1 text-sm text-[#838383]">
+            <p className="mt-1 text-sm text-[#737373]">
               Check back shortly — our team is preparing a walkthrough for you.
             </p>
           </div>
         </div>
       ) : !hasSelected && availableLanguages.length > 1 ? (
-        <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#6647F0]/40 bg-gradient-to-br from-[#F2EEFF]/60 to-white px-6 py-10 text-center">
+        <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#0a0a0a]/40 bg-gradient-to-br from-[#F2FCBC]/60 to-white px-6 py-10 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center text-[#6647F0]">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center text-[#0a0a0a]">
               <svg className="h-10 w-10 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
               </svg>
             </div>
-            <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+            <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
               Pick your language to start
             </h3>
-            <p className="mt-1.5 text-sm text-[#646464] max-w-sm mx-auto">
+            <p className="mt-1.5 text-sm text-[#525252] max-w-sm mx-auto">
               Choose a language from the dropdown above to watch the video.
             </p>
           </div>
         </div>
       ) : currentVideo ? (
-        <div className="overflow-hidden rounded-2xl border border-[#ECECEF] bg-[#09090B] shadow-[0_8px_30px_-8px_rgba(0,0,0,0.15)]">
+        <div className="overflow-hidden rounded-2xl border border-[#E8E5DE] bg-[#09090B] shadow-[0_8px_30px_-8px_rgba(0,0,0,0.15)]">
           <div className="aspect-video">
             <iframe
               src={loomEmbedUrl(currentVideo.loom_url)}
@@ -138,39 +138,39 @@ export default function HowItWorks() {
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-[#ECECEF] bg-white px-6 py-12 text-center">
-          <p className="text-sm text-[#838383]">
+        <div className="rounded-2xl border border-[#E8E5DE] bg-white px-6 py-12 text-center">
+          <p className="text-sm text-[#737373]">
             No video available for {LANGUAGE_LABELS[language] ?? language}. Try selecting another language.
           </p>
         </div>
       )}
 
-      <div className="rounded-2xl border border-[#ECECEF] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden">
-        <div className="flex border-b border-[#ECECEF]">
+      <div className="rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden">
+        <div className="flex border-b border-[#E8E5DE]">
           <button
             onClick={() => setActiveTab('hire')}
             className={`flex-1 px-6 py-3.5 text-sm font-semibold transition-colors relative ${
               activeTab === 'hire'
-                ? 'text-[#6647F0]'
-                : 'text-[#838383] hover:text-[#202020]'
+                ? 'text-[#0a0a0a]'
+                : 'text-[#737373] hover:text-[#0a0a0a]'
             }`}
           >
             <span className="font-[family-name:var(--font-jakarta)]">Squad Hire</span>
             {activeTab === 'hire' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#6647F0]" />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0a0a0a]" />
             )}
           </button>
           <button
             onClick={() => setActiveTab('hub')}
             className={`flex-1 px-6 py-3.5 text-sm font-semibold transition-colors relative ${
               activeTab === 'hub'
-                ? 'text-[#6647F0]'
-                : 'text-[#838383] hover:text-[#202020]'
+                ? 'text-[#0a0a0a]'
+                : 'text-[#737373] hover:text-[#0a0a0a]'
             }`}
           >
             <span className="font-[family-name:var(--font-jakarta)]">Squad Hub</span>
             {activeTab === 'hub' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#6647F0]" />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0a0a0a]" />
             )}
           </button>
         </div>
@@ -179,16 +179,16 @@ export default function HowItWorks() {
           {activeTab === 'hire' ? (
             <div className="space-y-4">
               <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#F2EEFF]">
-                  <svg className="h-5 w-5 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#F2FCBC]">
+                  <svg className="h-5 w-5 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+                  <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                     Squad Hire
                   </h3>
-                  <p className="mt-1 text-sm leading-relaxed text-[#646464]">
+                  <p className="mt-1 text-sm leading-relaxed text-[#525252]">
                     This is the platform you are currently using. Squad Hire helps you discover, evaluate, and onboard new talent for your team.
                   </p>
                 </div>
@@ -209,10 +209,10 @@ export default function HowItWorks() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+                  <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                     Squad Hub
                   </h3>
-                  <p className="mt-1 text-sm leading-relaxed text-[#646464]">
+                  <p className="mt-1 text-sm leading-relaxed text-[#525252]">
                     Once your talent is onboarded, Squad Hub is where everything gets managed — projects, tasks, communication, and performance.
                   </p>
                 </div>
@@ -234,16 +234,16 @@ export default function HowItWorks() {
 function Feature({ icon, text }: { icon: string; text: string }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-[#F8F9FA]">
+      <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-[#F7F6F3]">
         <FeatureIcon name={icon} />
       </div>
-      <p className="font-[family-name:var(--font-inter)] text-sm text-[#646464]">{text}</p>
+      <p className="font-[family-name:var(--font-inter)] text-sm text-[#525252]">{text}</p>
     </div>
   );
 }
 
 function FeatureIcon({ name }: { name: string }) {
-  const cls = "h-3.5 w-3.5 text-[#A1A1AA]";
+  const cls = "h-3.5 w-3.5 text-[#a3a3a3]";
   switch (name) {
     case 'search':
       return (

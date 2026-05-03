@@ -24,7 +24,7 @@ export default function Skeleton({
 
 export function SkeletonCard() {
   return (
-    <div className="rounded-[14px] border border-[#ECECEF] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+    <div className="rounded-[14px] border border-[#E8E5DE] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
       <Skeleton height="20px" width="60%" className="mb-3" />
       <Skeleton height="14px" width="80%" className="mb-2" />
       <Skeleton height="14px" width="40%" className="mb-4" />

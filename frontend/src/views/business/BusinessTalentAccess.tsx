@@ -84,7 +84,7 @@ export default function BusinessTalentAccess() {
   if (statusLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#E4E4E7] border-t-[#6647F0]" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#E8E5DE] border-t-[#0a0a0a]" />
       </div>
     );
   }
@@ -92,32 +92,32 @@ export default function BusinessTalentAccess() {
   if (!status?.has_access) {
     return (
       <div className="space-y-6">
-        <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
+        <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
           <div className="hero-content">
             <div className="mb-2.5 stagger-1">
               <span className="eyebrow-rainbow">Talent Access</span>
             </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
               Talent <span className="text-rainbow">Profiles</span>.
             </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] stagger-3">
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
               Browse talent profiles shared with your account.
             </p>
           </div>
         </section>
 
-        <div className="relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-6 py-16 text-center">
+        <div className="relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F2EEFF]">
-              <svg className="h-7 w-7 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+              <svg className="h-7 w-7 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
-            <h3 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#202020]">
+            <h3 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">
               No talent profile access
             </h3>
-            <p className="mx-auto mt-1.5 max-w-sm text-sm text-[#838383]">
+            <p className="mx-auto mt-1.5 max-w-sm text-sm text-[#737373]">
               Contact the administrator to get access to talent profiles.
             </p>
           </div>
@@ -129,7 +129,7 @@ export default function BusinessTalentAccess() {
   return (
     <div className="space-y-6">
       {/* ── Hero ── */}
-      <section className="hero-container hero-glow-blue relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-blue relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="mb-2.5 flex flex-wrap items-center gap-1.5 stagger-1">
@@ -142,10 +142,10 @@ export default function BusinessTalentAccess() {
                 </span>
               )}
             </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
               Talent <span className="text-rainbow">Profiles</span>.
             </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] stagger-3">
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
               Browse talent profiles shared with your account.
             </p>
           </div>
@@ -166,8 +166,8 @@ export default function BusinessTalentAccess() {
                 onClick={() => setCategory(cat.id)}
                 className={`whitespace-nowrap rounded-full px-3.5 py-1.5 font-[family-name:var(--font-inter)] text-sm font-semibold transition-all duration-200 active:scale-[0.97] ${
                   isActive
-                    ? 'bg-[#202020] text-white shadow-[0_2px_6px_-1px_rgba(0,0,0,0.15)]'
-                    : 'bg-[#F2EEFF] text-[#6647F0] hover:bg-[#E5DFFC]'
+                    ? 'bg-[#0a0a0a] text-white shadow-[0_2px_6px_-1px_rgba(0,0,0,0.15)]'
+                    : 'bg-[#F2FCBC] text-[#0a0a0a] hover:bg-[#E5DFFC]'
                 }`}
               >
                 {cat.name}
@@ -182,7 +182,7 @@ export default function BusinessTalentAccess() {
         {/* Filters — desktop */}
         <div className="hidden min-w-0 lg:block">
           {activeCategoryId && (
-            <div className="rounded-2xl border border-[#ECECEF] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div className="rounded-2xl border border-[#E8E5DE] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               <TalentAccessFilters
                 categoryId={activeCategoryId}
                 value={filters}
@@ -197,11 +197,11 @@ export default function BusinessTalentAccess() {
         {/* Profiles list */}
         <section className="min-w-0 space-y-4">
           {/* Search + mobile filters */}
-          <div className="rounded-2xl border border-[#ECECEF] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="rounded-2xl border border-[#E8E5DE] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <svg
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A1A1AA]"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a3a3a3]"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -214,13 +214,13 @@ export default function BusinessTalentAccess() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search by name…"
-                  className="w-full rounded-lg border border-[#E4E4E7] bg-white py-2 pl-9 pr-3 text-sm text-[#202020] placeholder:text-[#A1A1AA] focus:border-[#6647F0] focus:outline-none focus:ring-2 focus:ring-[#6647F0]/12"
+                  className="w-full rounded-lg border border-[#E8E5DE] bg-white py-2 pl-9 pr-3 text-sm text-[#0a0a0a] placeholder:text-[#a3a3a3] focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/12"
                 />
               </div>
               <button
                 type="button"
                 onClick={() => setFiltersOpenMobile(true)}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#E4E4E7] bg-white px-3 py-2 text-sm font-semibold text-[#202020] transition-colors hover:bg-[#f0f0f0] lg:hidden"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#E8E5DE] bg-white px-3 py-2 text-sm font-semibold text-[#0a0a0a] transition-colors hover:bg-[#f0f0f0] lg:hidden"
                 aria-haspopup="dialog"
                 aria-expanded={filtersOpenMobile}
               >
@@ -229,7 +229,7 @@ export default function BusinessTalentAccess() {
                 </svg>
                 Filters
                 {filterCount > 0 && (
-                  <span className="ml-0.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#6647F0] px-1.5 text-[10px] font-semibold text-white">
+                  <span className="ml-0.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#0a0a0a] px-1.5 text-[10px] font-semibold text-white">
                     {filterCount}
                   </span>
                 )}
@@ -245,12 +245,12 @@ export default function BusinessTalentAccess() {
                 onClick={() => setFiltersOpenMobile(false)}
                 aria-hidden
               />
-              <div className="fixed inset-y-0 right-0 z-50 flex w-[88%] max-w-sm flex-col border-l border-[#ECECEF] bg-white shadow-xl">
-                <div className="flex items-center justify-between border-b border-[#ECECEF] px-4 py-3">
-                  <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#202020]">Filters</h2>
+              <div className="fixed inset-y-0 right-0 z-50 flex w-[88%] max-w-sm flex-col border-l border-[#E8E5DE] bg-white shadow-xl">
+                <div className="flex items-center justify-between border-b border-[#E8E5DE] px-4 py-3">
+                  <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">Filters</h2>
                   <button
                     onClick={() => setFiltersOpenMobile(false)}
-                    className="-mr-1 rounded-md p-1.5 text-[#838383] transition-colors hover:bg-[#f0f0f0] hover:text-[#202020]"
+                    className="-mr-1 rounded-md p-1.5 text-[#737373] transition-colors hover:bg-[#f0f0f0] hover:text-[#0a0a0a]"
                     aria-label="Close filters"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -269,10 +269,10 @@ export default function BusinessTalentAccess() {
                     />
                   )}
                 </div>
-                <div className="border-t border-[#ECECEF] px-4 py-3">
+                <div className="border-t border-[#E8E5DE] px-4 py-3">
                   <button
                     onClick={() => setFiltersOpenMobile(false)}
-                    className="w-full rounded-lg bg-[#202020] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[#000] active:scale-[0.98]"
+                    className="w-full rounded-lg bg-[#0a0a0a] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[#000] active:scale-[0.98]"
                   >
                     {profilesQuery.isLoading
                       ? 'Updating…'
@@ -293,23 +293,23 @@ export default function BusinessTalentAccess() {
               {Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-16 animate-pulse rounded-2xl border border-[#ECECEF] bg-white"
+                  className="h-16 animate-pulse rounded-2xl border border-[#E8E5DE] bg-white"
                 />
               ))}
             </div>
           ) : profiles.length === 0 ? (
-            <div className="relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-6 py-16 text-center">
+            <div className="relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-6 py-16 text-center">
               <div className="hero-glow-orange absolute inset-0 pointer-events-none" />
               <div className="relative">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F2EEFF]">
-                  <svg className="h-7 w-7 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+                  <svg className="h-7 w-7 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
-                <h3 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#202020]">
+                <h3 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">
                   No profiles match these filters
                 </h3>
-                <p className="mx-auto mt-1.5 max-w-sm text-sm text-[#838383]">
+                <p className="mx-auto mt-1.5 max-w-sm text-sm text-[#737373]">
                   Try clearing some filters to widen your search.
                 </p>
               </div>

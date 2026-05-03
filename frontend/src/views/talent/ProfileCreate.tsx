@@ -203,15 +203,15 @@ export default function ProfileCreate() {
     return (
       <div className="space-y-6">
         {/* Compact Hero */}
-        <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
+        <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
           <div className="hero-content">
             <div className="mb-2.5 stagger-1">
               <span className="eyebrow-rainbow">Step 1 of 2 · Pick a category</span>
             </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
               What kind of work do <span className="text-rainbow">you do</span>?
             </h1>
-            <p className="mt-1.5 max-w-xl font-[family-name:var(--font-jakarta)] text-sm text-[#646464] stagger-3">
+            <p className="mt-1.5 max-w-xl font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
               Each profile represents a different way brands can hire you.
             </p>
           </div>
@@ -226,14 +226,14 @@ export default function ProfileCreate() {
             ))}
           </div>
         ) : availableCategories.length === 0 ? (
-          <div className="rounded-2xl border border-[#ECECEF] bg-white px-6 py-14 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2EEFF]">
-              <svg className="h-6 w-6 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+          <div className="rounded-2xl border border-[#E8E5DE] bg-white px-6 py-14 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+              <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">All caught up</h3>
-            <p className="mt-1 text-sm text-[#838383]">
+            <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">All caught up</h3>
+            <p className="mt-1 text-sm text-[#737373]">
               You already have profiles for all available categories.
             </p>
           </div>
@@ -245,7 +245,7 @@ export default function ProfileCreate() {
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`group relative flex flex-col items-start overflow-hidden rounded-2xl border border-[#ECECEF] bg-white p-5 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] hover:border-[#6647F0]/30 active:scale-[0.99] stagger-${Math.min(i + 1, 6)}`}
+                  className={`group relative flex flex-col items-start overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white p-5 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] hover:border-[#0a0a0a]/30 active:scale-[0.99] stagger-${Math.min(i + 1, 6)}`}
                 >
                   <div
                     className={`${tint} mb-4 flex h-11 w-11 items-center justify-center rounded-xl`}
@@ -255,13 +255,13 @@ export default function ProfileCreate() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
                   </div>
-                  <h3 className="font-[family-name:var(--font-jakarta)] text-[17px] font-semibold tracking-[-0.015em] text-[#202020]">
+                  <h3 className="font-[family-name:var(--font-jakarta)] text-[17px] font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                     {cat.name}
                   </h3>
                   {cat.description && (
-                    <p className="mt-1 text-sm text-[#838383] line-clamp-2">{cat.description}</p>
+                    <p className="mt-1 text-sm text-[#737373] line-clamp-2">{cat.description}</p>
                   )}
-                  <div className="mt-4 flex items-center gap-1 font-[family-name:var(--font-inter)] text-[13px] font-medium text-[#6647F0] opacity-0 transition-all duration-200 group-hover:opacity-100">
+                  <div className="mt-4 flex items-center gap-1 font-[family-name:var(--font-inter)] text-[13px] font-medium text-[#0a0a0a] opacity-0 transition-all duration-200 group-hover:opacity-100">
                     Get started
                     <svg className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
@@ -281,7 +281,7 @@ export default function ProfileCreate() {
   return (
     <div className="space-y-6">
       {/* Compact Hero with back button */}
-      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-5 sm:px-7 sm:py-6">
+      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-5 sm:px-7 sm:py-6">
         <div className="hero-content flex items-start gap-4">
           <button
             onClick={() => {
@@ -293,7 +293,7 @@ export default function ProfileCreate() {
               setLanguages(talentMe?.languages_spoken ?? []);
               hasInitializedLangs.current = false;
             }}
-            className="mt-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#f0f0f0] text-[#646464] transition-colors hover:bg-[#dedede] hover:text-[#202020]"
+            className="mt-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#f0f0f0] text-[#525252] transition-colors hover:bg-[#dedede] hover:text-[#0a0a0a]"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -309,10 +309,10 @@ export default function ProfileCreate() {
               </svg>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
+              <p className="font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
                 Step 2 of 2 · New Profile
               </p>
-              <h1 className="font-[family-name:var(--font-jakarta)] text-[22px] sm:text-[26px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020]">
+              <h1 className="font-[family-name:var(--font-jakarta)] text-[22px] sm:text-[26px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a]">
                 {selectedCategory.name}
               </h1>
             </div>
@@ -323,7 +323,7 @@ export default function ProfileCreate() {
       {!isApproved && <PendingApprovalBanner />}
 
       {fieldsLoading ? (
-        <div className="rounded-2xl border border-[#ECECEF] bg-white p-6 sm:p-8 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-8 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="space-y-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-10 animate-pulse rounded-lg bg-[#f0f0f0]" />
@@ -333,7 +333,7 @@ export default function ProfileCreate() {
       ) : (
         <div className="space-y-6">
           {/* Profile Details */}
-          <section className="rounded-2xl border border-[#ECECEF] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-purple flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -341,10 +341,10 @@ export default function ProfileCreate() {
                 </svg>
               </div>
               <div>
-                <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+                <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                   Profile Details
                 </h2>
-                <p className="mt-0.5 text-sm text-[#838383]">Tell brands about your work and experience</p>
+                <p className="mt-0.5 text-sm text-[#737373]">Tell brands about your work and experience</p>
               </div>
             </div>
             <DynamicFormRenderer
@@ -357,7 +357,7 @@ export default function ProfileCreate() {
 
           {/* Skills & Tools */}
           {selectedCategory && (
-            <section className="rounded-2xl border border-[#ECECEF] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               <div className="mb-5 flex items-start gap-3">
                 <div className="tint-orange flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -365,10 +365,10 @@ export default function ProfileCreate() {
                   </svg>
                 </div>
                 <div>
-                  <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+                  <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                     Skills & Tools
                   </h2>
-                  <p className="mt-0.5 text-sm text-[#838383]">Pick what you specialise in</p>
+                  <p className="mt-0.5 text-sm text-[#737373]">Pick what you specialise in</p>
                 </div>
               </div>
               <DesignerExtras
@@ -390,7 +390,7 @@ export default function ProfileCreate() {
           )}
 
           {/* Languages */}
-          <section className="rounded-2xl border border-[#ECECEF] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-blue flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -398,10 +398,10 @@ export default function ProfileCreate() {
                 </svg>
               </div>
               <div>
-                <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+                <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                   Languages
                 </h2>
-                <p className="mt-0.5 text-sm text-[#838383]">Add languages you can work in</p>
+                <p className="mt-0.5 text-sm text-[#737373]">Add languages you can work in</p>
               </div>
             </div>
             <LanguagePicker value={languages} onChange={setLanguages} />
@@ -411,7 +411,7 @@ export default function ProfileCreate() {
           </section>
 
           {/* Portfolio */}
-          <section className="rounded-2xl border border-[#ECECEF] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-pink flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -419,10 +419,10 @@ export default function ProfileCreate() {
                 </svg>
               </div>
               <div className="flex-1">
-                <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+                <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                   Portfolio
                 </h2>
-                <p className="mt-0.5 text-sm text-[#838383]">
+                <p className="mt-0.5 text-sm text-[#737373]">
                   {draftProfileId && portfolioReady
                     ? 'Upload samples that show your best work'
                     : 'Pick at least one skill or category above to enable uploads'}
@@ -437,11 +437,11 @@ export default function ProfileCreate() {
                 categoryId={selectedCategory.id}
               />
             ) : (
-              <div className="rounded-xl border-2 border-dashed border-[#E4E4E7] bg-[#F8F9FA] p-8 text-center">
-                <p className="text-sm text-[#838383]">
+              <div className="rounded-xl border-2 border-dashed border-[#E8E5DE] bg-[#F7F6F3] p-8 text-center">
+                <p className="text-sm text-[#737373]">
                   {autoSaving ? (
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#6647F0]" />
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#0a0a0a]" />
                       Preparing portfolio uploader…
                     </span>
                   ) : (
@@ -458,11 +458,11 @@ export default function ProfileCreate() {
       )}
 
       {/* Sticky action bar */}
-      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#ECECEF] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
-        <div className="text-xs text-[#838383] px-2">
+      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E8E5DE] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
+        <div className="text-xs text-[#737373] px-2">
           {!isApproved && !autoApproveActive && 'Submission unlocks once your account is approved.'}
           {!isApproved && autoApproveActive && (
-            <span className="text-[#6647F0]">Submitting will activate your account instantly.</span>
+            <span className="text-[#0a0a0a]">Submitting will activate your account instantly.</span>
           )}
           {isApproved && 'Save as draft, or submit for review when ready.'}
         </div>

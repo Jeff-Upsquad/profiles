@@ -333,7 +333,7 @@ export default function AccountantLeadForm() {
   if (checkingStatus) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-canvas-100">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-canvas-300 border-t-iris-500" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-canvas-300 border-t-cu-900" />
       </div>
     );
   }
@@ -385,7 +385,7 @@ export default function AccountantLeadForm() {
             className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-[0.18] blur-3xl"
             style={{
               backgroundImage:
-                'linear-gradient(96deg, #FF8B47 0%, #FF5B8B 28%, #D24DFF 52%, #8B66F8 76%, #5BB7FF 100%)',
+                'linear-gradient(96deg, #FF8B47 0%, #FF5B8B 28%, #D24DFF 52%, #d4ff4d 76%, #5BB7FF 100%)',
             }}
           />
           <div
@@ -393,7 +393,7 @@ export default function AccountantLeadForm() {
             className="pointer-events-none absolute -bottom-32 -left-20 h-72 w-72 rounded-full opacity-[0.12] blur-3xl"
             style={{
               backgroundImage:
-                'linear-gradient(96deg, #5BB7FF 0%, #8B66F8 50%, #FF5B8B 100%)',
+                'linear-gradient(96deg, #5BB7FF 0%, #d4ff4d 50%, #FF5B8B 100%)',
             }}
           />
 
@@ -456,7 +456,7 @@ export default function AccountantLeadForm() {
             </div>
 
             <div id="field-phone" className="field-saas">
-              <label className="block">Contact Number<span className="ml-1 text-iris-500">*</span></label>
+              <label className="block">Contact Number<span className="ml-1 text-red-500">*</span></label>
               <p className="-mt-1 mb-2 text-xs text-canvas-500">Ideally a WhatsApp number.</p>
               <div className="flex items-stretch gap-2">
                 <span className="inline-flex items-center rounded-xl border border-canvas-200 bg-canvas-50 px-3.5 text-sm font-medium text-canvas-600">
@@ -639,7 +639,7 @@ export default function AccountantLeadForm() {
 
             <div id="field-district">
               <p className="mb-2 text-sm font-medium text-canvas-700">
-                Preferred Work Districts<span className="ml-1 text-iris-500">*</span>
+                Preferred Work Districts<span className="ml-1 text-red-500">*</span>
               </p>
               <p className="mb-3 text-sm text-canvas-500">
                 Where you&rsquo;d like to work. Outside India? Pick the last option.
@@ -663,7 +663,7 @@ export default function AccountantLeadForm() {
           >
             <div id="field-work_type">
               <p className="mb-3 text-sm font-medium text-canvas-700">
-                Type of Work<span className="ml-1 text-iris-500">*</span>
+                Type of Work<span className="ml-1 text-red-500">*</span>
               </p>
               <ChipSelect
                 multi
@@ -676,7 +676,7 @@ export default function AccountantLeadForm() {
             </div>
             <div id="field-work_type_seeking">
               <p className="mb-3 text-sm font-medium text-canvas-700">
-                What are you looking for?<span className="ml-1 text-iris-500">*</span>
+                What are you looking for?<span className="ml-1 text-red-500">*</span>
               </p>
               <ChipSelect
                 multi
@@ -718,7 +718,7 @@ export default function AccountantLeadForm() {
 
             <div id="field-accounting_software">
               <p className="mb-2 text-sm font-medium text-canvas-700">
-                Accounting Software<span className="ml-1 text-iris-500">*</span>
+                Accounting Software<span className="ml-1 text-red-500">*</span>
               </p>
               <p className="mb-3 text-sm text-canvas-500">
                 The ones you have hands-on experience with.
@@ -786,7 +786,7 @@ export default function AccountantLeadForm() {
 
             <div id="field-languages">
               <p className="mb-3 text-sm font-medium text-canvas-700">
-                Languages<span className="ml-1 text-iris-500">*</span>
+                Languages<span className="ml-1 text-red-500">*</span>
               </p>
               <ChipSelect
                 multi
@@ -824,7 +824,7 @@ export default function AccountantLeadForm() {
                     ? 'border-red-300 bg-red-50/40'
                     : resumeFileName
                     ? 'border-green-400 bg-green-50/60'
-                    : 'border-canvas-300 bg-canvas-50 hover:border-iris-500 hover:bg-iris-50/40'
+                    : 'border-canvas-300 bg-canvas-50 hover:border-cu-900 hover:bg-brand-purple/20'
                 }`}
               >
                 <input
@@ -843,7 +843,7 @@ export default function AccountantLeadForm() {
                   </>
                 ) : (
                   <>
-                    <span className="text-canvas-600 group-hover:text-iris-600">
+                    <span className="text-canvas-600 group-hover:text-cu-900">
                       Drop a file or click to browse
                     </span>
                     <span className="text-xs font-medium text-canvas-400">PDF · DOC · JPG</span>

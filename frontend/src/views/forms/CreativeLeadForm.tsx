@@ -237,7 +237,7 @@ export default function CreativeLeadForm() {
   if (checkingStatus) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-canvas-100">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-canvas-300 border-t-iris-500" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-canvas-300 border-t-cu-900" />
       </div>
     );
   }
@@ -288,7 +288,7 @@ export default function CreativeLeadForm() {
             className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-[0.18] blur-3xl"
             style={{
               backgroundImage:
-                'linear-gradient(96deg, #FF8B47 0%, #FF5B8B 28%, #D24DFF 52%, #8B66F8 76%, #5BB7FF 100%)',
+                'linear-gradient(96deg, #FF8B47 0%, #FF5B8B 28%, #D24DFF 52%, #d4ff4d 76%, #5BB7FF 100%)',
             }}
           />
           <div
@@ -296,7 +296,7 @@ export default function CreativeLeadForm() {
             className="pointer-events-none absolute -bottom-32 -left-20 h-72 w-72 rounded-full opacity-[0.12] blur-3xl"
             style={{
               backgroundImage:
-                'linear-gradient(96deg, #5BB7FF 0%, #8B66F8 50%, #FF5B8B 100%)',
+                'linear-gradient(96deg, #5BB7FF 0%, #d4ff4d 50%, #FF5B8B 100%)',
             }}
           />
 
@@ -359,7 +359,7 @@ export default function CreativeLeadForm() {
             </div>
 
             <div id="field-phone" className="field-saas">
-              <label className="block">WhatsApp Number<span className="ml-1 text-iris-500">*</span></label>
+              <label className="block">WhatsApp Number<span className="ml-1 text-red-500">*</span></label>
               <div className="mt-2 flex items-stretch gap-2">
                 <select
                   className="w-[100px] shrink-0 rounded-xl border border-canvas-200 bg-canvas-50 px-2 text-sm font-medium text-canvas-600"
@@ -527,7 +527,7 @@ export default function CreativeLeadForm() {
           >
             <div id="field-role">
               <p className="mb-3 text-sm font-medium text-canvas-700">
-                Role<span className="ml-1 text-iris-500">*</span>
+                Role<span className="ml-1 text-red-500">*</span>
               </p>
               <ChipSelect
                 multi
@@ -544,7 +544,7 @@ export default function CreativeLeadForm() {
 
             <div id="field-work_type_seeking">
               <p className="mb-3 text-sm font-medium text-canvas-700">
-                What are you looking for?<span className="ml-1 text-iris-500">*</span>
+                What are you looking for?<span className="ml-1 text-red-500">*</span>
               </p>
               <ChipSelect
                 multi

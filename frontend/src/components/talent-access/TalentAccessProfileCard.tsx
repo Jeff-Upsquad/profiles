@@ -18,7 +18,7 @@ const TIER_BADGE: Record<Tier, { label: string; className: string }> = {
   },
   pro: {
     label: 'Pro',
-    className: 'bg-[#EFEDFD] text-[#4D2EC2] ring-[#DDD8FA]',
+    className: 'bg-[#EFEDFD] text-[#0a0a0a] ring-[#DDD8FA]',
   },
   elite: {
     label: 'Elite',
@@ -26,7 +26,7 @@ const TIER_BADGE: Record<Tier, { label: string; className: string }> = {
   },
   custom: {
     label: 'Custom',
-    className: 'bg-[#F2F2F4] text-[#52525B] ring-[#E4E4E7]',
+    className: 'bg-[#F2F2F4] text-[#52525B] ring-[#E8E5DE]',
   },
 };
 
@@ -102,7 +102,7 @@ export default function TalentAccessProfileCard({
     return (
       <Link
         href={href}
-        className="group block overflow-hidden rounded-2xl border border-[#ECECEF] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)]"
+        className="group block overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)]"
       >
         <div className="p-4">
           <div className="flex items-start gap-3">
@@ -114,13 +114,13 @@ export default function TalentAccessProfileCard({
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
-                <h3 className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold tracking-[-0.01em] text-[#202020]">
+                <h3 className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold tracking-[-0.01em] text-[#0a0a0a]">
                   {profile.full_name || 'Unnamed talent'}
                 </h3>
                 <TierBadge tier={profile.tier} tierCustom={profile.tier_custom ?? undefined} />
               </div>
               {profile.current_location && (
-                <p className="mt-0.5 truncate font-[family-name:var(--font-inter)] text-xs text-[#838383]">
+                <p className="mt-0.5 truncate font-[family-name:var(--font-inter)] text-xs text-[#737373]">
                   {profile.current_location}
                 </p>
               )}
@@ -131,7 +131,7 @@ export default function TalentAccessProfileCard({
               {profile.top_skills.slice(0, 3).map((skill) => (
                 <span
                   key={skill}
-                  className="inline-flex items-center rounded-full bg-[#F2EEFF] px-2 py-0.5 text-[11px] font-medium text-[#6647F0]"
+                  className="inline-flex items-center rounded-full bg-[#F2FCBC] px-2 py-0.5 text-[11px] font-medium text-[#0a0a0a]"
                 >
                   {skill}
                 </span>
@@ -139,7 +139,7 @@ export default function TalentAccessProfileCard({
             </div>
           )}
           {profile.languages_spoken.length > 0 && (
-            <p className="mt-3 truncate font-[family-name:var(--font-inter)] text-[11px] text-[#A1A1AA]">
+            <p className="mt-3 truncate font-[family-name:var(--font-inter)] text-[11px] text-[#a3a3a3]">
               {profile.languages_spoken
                 .map((l) => l.language)
                 .filter(Boolean)
@@ -167,17 +167,17 @@ export default function TalentAccessProfileCard({
   return (
     <Link
       href={href}
-      className="group flex items-center gap-4 overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#E4E4E7] hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] sm:px-5"
+      className="group flex items-center gap-4 overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#E8E5DE] hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] sm:px-5"
     >
       <Avatar name={profile.full_name} url={profile.profile_photo_url} tint={tint} />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <h3 className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold tracking-[-0.01em] text-[#202020]">
+          <h3 className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold tracking-[-0.01em] text-[#0a0a0a]">
             {profile.full_name || 'Unnamed talent'}
           </h3>
         </div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 font-[family-name:var(--font-inter)] text-xs text-[#838383]">
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 font-[family-name:var(--font-inter)] text-xs text-[#737373]">
           {profile.current_location && (
             <span className="truncate">{profile.current_location}</span>
           )}
@@ -185,7 +185,7 @@ export default function TalentAccessProfileCard({
             <span className="text-[#D4D4D8]">·</span>
           )}
           {experienceText && (
-            <span className="truncate font-medium text-[#646464]">{experienceText}</span>
+            <span className="truncate font-medium text-[#525252]">{experienceText}</span>
           )}
           {experienceText && ageGenderText && (
             <span className="text-[#D4D4D8]">·</span>
@@ -199,7 +199,7 @@ export default function TalentAccessProfileCard({
           {profile.top_skills.slice(0, 2).map((skill) => (
             <span
               key={skill}
-              className="inline-flex items-center rounded-full bg-[#F2EEFF] px-2 py-0.5 text-[11px] font-medium text-[#6647F0]"
+              className="inline-flex items-center rounded-full bg-[#F2FCBC] px-2 py-0.5 text-[11px] font-medium text-[#0a0a0a]"
             >
               {skill}
             </span>
@@ -210,7 +210,7 @@ export default function TalentAccessProfileCard({
       <TierBadge tier={profile.tier} tierCustom={profile.tier_custom ?? undefined} />
 
       <svg
-        className="h-4 w-4 shrink-0 text-[#A1A1AA] transition-all group-hover:translate-x-0.5 group-hover:text-[#6647F0]"
+        className="h-4 w-4 shrink-0 text-[#a3a3a3] transition-all group-hover:translate-x-0.5 group-hover:text-[#0a0a0a]"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"

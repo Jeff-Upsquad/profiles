@@ -54,7 +54,7 @@ export default function CourseStartPopup({ course, onDismiss }: CourseStartPopup
         <div className="h-1.5 w-full bg-gradient-to-r from-[#FF8B47] via-[#D24DFF] to-[#5BB7FF]" />
 
         <div className="px-7 pt-7 pb-6">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FFEEDB] via-[#F2EEFF] to-[#E5F1FF]">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FFEEDB] via-[#F2FCBC] to-[#E5F1FF]">
             <svg
               className="h-9 w-9"
               fill="none"
@@ -73,13 +73,13 @@ export default function CourseStartPopup({ course, onDismiss }: CourseStartPopup
             </svg>
           </div>
 
-          <h2 className="text-center font-[family-name:var(--font-jakarta)] text-[22px] font-semibold tracking-[-0.02em] text-[#202020]">
+          <h2 className="text-center font-[family-name:var(--font-jakarta)] text-[22px] font-semibold tracking-[-0.02em] text-[#0a0a0a]">
             {course.title}
           </h2>
 
-          <p className="mt-3 text-center text-[15px] leading-relaxed text-[#646464]">
+          <p className="mt-3 text-center text-[15px] leading-relaxed text-[#525252]">
             This course should be completed within{' '}
-            <span className="font-semibold text-[#202020]">
+            <span className="font-semibold text-[#0a0a0a]">
               {formatDuration(course.countdown_hours)}
             </span>{' '}
             from clicking the start button.
@@ -99,7 +99,7 @@ export default function CourseStartPopup({ course, onDismiss }: CourseStartPopup
             <button
               onClick={onDismiss}
               disabled={start.isPending}
-              className="font-[family-name:var(--font-inter)] text-[13px] font-medium text-[#838383] hover:text-[#202020] py-1.5 disabled:opacity-50"
+              className="font-[family-name:var(--font-inter)] text-[13px] font-medium text-[#737373] hover:text-[#0a0a0a] py-1.5 disabled:opacity-50"
             >
               Maybe later
             </button>

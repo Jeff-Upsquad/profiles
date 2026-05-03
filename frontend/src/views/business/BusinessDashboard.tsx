@@ -134,7 +134,7 @@ export default function BusinessDashboard() {
   return (
     <div className="space-y-8">
       {/* ── Hero ── */}
-      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-glow-blur" />
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="max-w-2xl">
@@ -142,10 +142,10 @@ export default function BusinessDashboard() {
               <span className="eyebrow-rainbow">Business Workspace</span>
               {open.length > 0 && <span className="pill-live">Live</span>}
             </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
               Welcome back{firstWord ? <>, <span className="text-rainbow">{firstWord}</span></> : ''}.
             </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] stagger-3">
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
               Track your subscriptions, review talents, and manage your shortlists.
             </p>
           </div>
@@ -159,7 +159,7 @@ export default function BusinessDashboard() {
             </Link>
             <Link
               href="/business/shortlist"
-              className="font-[family-name:var(--font-inter)] inline-flex items-center gap-1.5 rounded-lg border border-[#E4E4E7] bg-white px-3.5 py-2 text-sm font-semibold text-[#202020] transition-all duration-200 hover:bg-[#f0f0f0] active:scale-[0.97]"
+              className="font-[family-name:var(--font-inter)] inline-flex items-center gap-1.5 rounded-lg border border-[#E8E5DE] bg-white px-3.5 py-2 text-sm font-semibold text-[#0a0a0a] transition-all duration-200 hover:bg-[#f0f0f0] active:scale-[0.97]"
             >
               View Shortlist
             </Link>
@@ -193,10 +193,10 @@ export default function BusinessDashboard() {
                 >
                   {tile.value}
                 </p>
-                <p className="mt-3 font-[family-name:var(--font-inter)] text-[13px] font-semibold text-[#202020]">
+                <p className="mt-3 font-[family-name:var(--font-inter)] text-[13px] font-semibold text-[#0a0a0a]">
                   {tile.label}
                 </p>
-                <p className="mt-0.5 font-[family-name:var(--font-inter)] text-xs text-[#646464]">
+                <p className="mt-0.5 font-[family-name:var(--font-inter)] text-xs text-[#525252]">
                   {tile.hint}
                 </p>
               </div>
@@ -208,13 +208,13 @@ export default function BusinessDashboard() {
       {/* ── Two-column: Subscription Cards + Quick Actions ── */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Subscription cards — main column */}
-        <div className="lg:col-span-2 rounded-2xl border border-[#ECECEF] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="flex items-center justify-between border-b border-[#ECECEF] px-6 py-5">
+        <div className="lg:col-span-2 rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between border-b border-[#E8E5DE] px-6 py-5">
             <div>
-              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                 Subscription Cards
               </h2>
-              <p className="mt-0.5 text-sm text-[#838383]">
+              <p className="mt-0.5 text-sm text-[#737373]">
                 Cards published to your account by SquadHub
               </p>
             </div>
@@ -238,7 +238,7 @@ export default function BusinessDashboard() {
           ) : visible.length === 0 ? (
             <EmptyTabState tab={tab} hasNoCards={allCards.length === 0} />
           ) : (
-            <ul className="divide-y divide-[#ECECEF]">
+            <ul className="divide-y divide-[#E8E5DE]">
               {visible.map((card, i) => (
                 <SubscriptionCardRow
                   key={card.id}
@@ -253,7 +253,7 @@ export default function BusinessDashboard() {
 
         {/* Side column — Featured tip + Quick links */}
         <div className="space-y-4">
-          <div className="relative rounded-2xl bg-[#202020] p-6 text-white overflow-hidden noise-overlay">
+          <div className="relative rounded-2xl bg-[#0a0a0a] p-6 text-white overflow-hidden noise-overlay">
             <div className="absolute -top-12 -right-12 h-32 w-32 rounded-full bg-rainbow opacity-30 blur-3xl" />
             <div className="relative">
               <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm mb-4">
@@ -279,8 +279,8 @@ export default function BusinessDashboard() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[#ECECEF] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <h3 className="mb-3 font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#202020]">
+          <div className="rounded-2xl border border-[#E8E5DE] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <h3 className="mb-3 font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
               Quick actions
             </h3>
             <div className="space-y-1">
@@ -293,15 +293,15 @@ export default function BusinessDashboard() {
                 <Link
                   key={item.to}
                   href={item.to}
-                  className="group flex items-center justify-between rounded-lg px-2 py-2 text-[13px] font-medium text-[#646464] transition-colors hover:bg-[#F8F9FA] hover:text-[#202020]"
+                  className="group flex items-center justify-between rounded-lg px-2 py-2 text-[13px] font-medium text-[#525252] transition-colors hover:bg-[#F7F6F3] hover:text-[#0a0a0a]"
                 >
                   <span className="flex items-center gap-2.5">
-                    <svg className="h-4 w-4 text-[#A1A1AA] group-hover:text-[#6647F0] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                    <svg className="h-4 w-4 text-[#a3a3a3] group-hover:text-[#0a0a0a] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
                     </svg>
                     {item.label}
                   </span>
-                  <svg className="h-3 w-3 text-[#A1A1AA] opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                  <svg className="h-3 w-3 text-[#a3a3a3] opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
                 </Link>
@@ -326,7 +326,7 @@ function Tabs({
   closedCount: number;
 }) {
   return (
-    <div className="-mx-6 border-b border-[#ECECEF] px-6" role="tablist" aria-label="Subscription cards">
+    <div className="-mx-6 border-b border-[#E8E5DE] px-6" role="tablist" aria-label="Subscription cards">
       <div className="flex gap-1 overflow-x-auto">
         <TabButton active={active === 'open'} onClick={() => onChange('open')} count={openCount}>
           Open
@@ -358,14 +358,14 @@ function TabButton({
       onClick={onClick}
       className={`relative -mb-px flex items-center gap-1.5 px-4 py-3 text-sm font-semibold transition-colors ${
         active
-          ? 'border-b-2 border-[#6647F0] text-[#202020]'
-          : 'border-b-2 border-transparent text-[#838383] hover:text-[#202020]'
+          ? 'border-b-2 border-[#0a0a0a] text-[#0a0a0a]'
+          : 'border-b-2 border-transparent text-[#737373] hover:text-[#0a0a0a]'
       }`}
     >
       <span>{children}</span>
       <span
         className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-          active ? 'bg-[#F2EEFF] text-[#6647F0]' : 'bg-[#f0f0f0] text-[#838383]'
+          active ? 'bg-[#F2FCBC] text-[#0a0a0a]' : 'bg-[#f0f0f0] text-[#737373]'
         }`}
       >
         {count}
@@ -388,15 +388,15 @@ function EmptyTabState({ tab, hasNoCards }: { tab: Tab; hasNoCards: boolean }) {
 
   return (
     <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2EEFF]">
-        <svg className="h-6 w-6 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+        <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-3.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-1.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 007.586 13H4" />
         </svg>
       </div>
-      <h3 className="mb-1 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">
+      <h3 className="mb-1 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
         {heading}
       </h3>
-      <p className="max-w-sm text-sm text-[#838383]">{description}</p>
+      <p className="max-w-sm text-sm text-[#737373]">{description}</p>
     </div>
   );
 }
@@ -421,7 +421,7 @@ function SubscriptionCardRow({
     <li className={`stagger-${Math.min(index + 1, 6)}`}>
       <Link
         href={`/business/dashboard/cards/${card.id}`}
-        className={`group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#F8F9FA] ${
+        className={`group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#F7F6F3] ${
           muted ? 'opacity-70' : ''
         }`}
       >
@@ -436,7 +436,7 @@ function SubscriptionCardRow({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#202020]">
+            <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
               {cardTitle(card)}
             </p>
             {isRecalled && (
@@ -450,16 +450,16 @@ function SubscriptionCardRow({
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
             {planSubtitle(card) && (
-              <span className="text-[#838383]">{planSubtitle(card)}</span>
+              <span className="text-[#737373]">{planSubtitle(card)}</span>
             )}
             {planSubtitle(card) && (price || published) && (
               <span className="text-[#D4D4D8]">·</span>
             )}
-            {price && <span className="font-medium text-[#202020]">{price}</span>}
+            {price && <span className="font-medium text-[#0a0a0a]">{price}</span>}
             {published && (
               <>
                 {price && <span className="text-[#D4D4D8]">·</span>}
-                <span className="text-[#A1A1AA]">Published {published}</span>
+                <span className="text-[#a3a3a3]">Published {published}</span>
               </>
             )}
           </div>
@@ -477,7 +477,7 @@ function SubscriptionCardRow({
         </div>
 
         <svg
-          className="h-4 w-4 flex-shrink-0 text-[#A1A1AA] opacity-0 transition-opacity group-hover:opacity-100"
+          className="h-4 w-4 flex-shrink-0 text-[#a3a3a3] opacity-0 transition-opacity group-hover:opacity-100"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"

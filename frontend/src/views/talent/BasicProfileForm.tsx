@@ -79,10 +79,10 @@ function SectionHeader({ section }: { section: SectionDef }) {
         {section.icon}
       </div>
       <div>
-        <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#202020]">
+        <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">
           {section.name}
         </h2>
-        <p className="mt-0.5 text-sm text-[#838383]">{section.description}</p>
+        <p className="mt-0.5 text-sm text-[#737373]">{section.description}</p>
       </div>
     </div>
   );
@@ -364,7 +364,7 @@ export default function BasicProfileForm() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#202020] border-t-transparent" />
+        <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#0a0a0a] border-t-transparent" />
       </div>
     );
   }
@@ -372,7 +372,7 @@ export default function BasicProfileForm() {
   return (
     <div className="space-y-8">
       {/* ── Hero Section (compact) ── */}
-      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-5 sm:px-7 sm:py-6">
+      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-5 sm:px-7 sm:py-6">
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
             <div className="mb-2.5 stagger-1">
@@ -380,10 +380,10 @@ export default function BasicProfileForm() {
                 {completedCount} of {enabledSections} sections complete
               </span>
             </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[24px] sm:text-[28px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[24px] sm:text-[28px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
               Complete your <span className="text-rainbow">profile</span>.
             </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] stagger-3">
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
               These details are shared across all your job profiles.
             </p>
           </div>
@@ -392,7 +392,7 @@ export default function BasicProfileForm() {
           <div className="stagger-4">
             <div className="relative flex h-16 w-16 items-center justify-center">
               <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="42" fill="none" stroke="#ECECEF" strokeWidth="9" />
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#E8E5DE" strokeWidth="9" />
                 <circle
                   cx="50" cy="50" r="42" fill="none"
                   stroke="url(#prog-grad)"
@@ -408,7 +408,7 @@ export default function BasicProfileForm() {
                   </linearGradient>
                 </defs>
               </svg>
-              <span className="font-[family-name:var(--font-jakarta)] text-base font-semibold tracking-[-0.02em] text-[#202020]">
+              <span className="font-[family-name:var(--font-jakarta)] text-base font-semibold tracking-[-0.02em] text-[#0a0a0a]">
                 {progressPct}%
               </span>
             </div>
@@ -420,8 +420,8 @@ export default function BasicProfileForm() {
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         {/* Sidebar Stepper */}
         <aside className="lg:sticky lg:top-6 lg:self-start">
-          <div className="rounded-2xl border border-[#ECECEF] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <h3 className="mb-2 px-2 pt-1 font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
+          <div className="rounded-2xl border border-[#E8E5DE] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <h3 className="mb-2 px-2 pt-1 font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
               Sections
             </h3>
             <nav className="flex flex-col gap-0.5">
@@ -439,8 +439,8 @@ export default function BasicProfileForm() {
                       section.disabled
                         ? 'cursor-not-allowed opacity-40'
                         : isActive
-                          ? 'bg-[#F8F9FA] shadow-[0_1px_3px_0_rgba(0,0,0,0.08)]'
-                          : 'hover:bg-[#F8F9FA]'
+                          ? 'bg-[#F7F6F3] shadow-[0_1px_3px_0_rgba(0,0,0,0.08)]'
+                          : 'hover:bg-[#F7F6F3]'
                     }`}
                   >
                     <div
@@ -449,7 +449,7 @@ export default function BasicProfileForm() {
                           ? 'bg-emerald-50 text-emerald-600'
                           : isActive
                             ? `${section.tint}`
-                            : 'bg-[#f0f0f0] text-[#A1A1AA] group-hover:bg-[#E4E4E7]'
+                            : 'bg-[#f0f0f0] text-[#a3a3a3] group-hover:bg-[#E8E5DE]'
                       }`}
                       style={isActive && !isComplete ? { color: 'var(--tint-icon)' } : undefined}
                     >
@@ -465,11 +465,11 @@ export default function BasicProfileForm() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className={`font-[family-name:var(--font-inter)] text-[13px] font-semibold truncate ${
-                        isActive ? 'text-[#202020]' : 'text-[#646464]'
+                        isActive ? 'text-[#0a0a0a]' : 'text-[#525252]'
                       }`}>
                         {section.name}
                       </p>
-                      <p className="font-[family-name:var(--font-inter)] text-[11px] text-[#A1A1AA] truncate">
+                      <p className="font-[family-name:var(--font-inter)] text-[11px] text-[#a3a3a3] truncate">
                         {section.disabled ? 'Locked' : isComplete ? 'Complete' : 'Not started'}
                       </p>
                     </div>
@@ -482,14 +482,14 @@ export default function BasicProfileForm() {
 
         {/* Form Content */}
         <form onSubmit={handleSave} className="min-w-0 space-y-6">
-          <div className="rounded-2xl border border-[#ECECEF] bg-white p-6 sm:p-8 shadow-[0_1px_2px_rgba(0,0,0,0.04)] section-rise" key={activeSection}>
+          <div className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-8 shadow-[0_1px_2px_rgba(0,0,0,0.04)] section-rise" key={activeSection}>
             <SectionHeader section={sections[activeSection]} />
 
             {/* Section 1: Basic Details */}
             {activeSection === 0 && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="mb-3 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">Personal Details</h3>
+                  <h3 className="mb-3 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Personal Details</h3>
                   <div className="grid gap-4 sm:grid-cols-3">
                     <Input label="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" />
                     <Input label="Middle Name" value={middleName} onChange={(e) => setMiddleName(e.target.value)} placeholder="Middle name (optional)" />
@@ -501,19 +501,19 @@ export default function BasicProfileForm() {
                   </div>
                 </div>
 
-                <div className="border-t border-[#ECECEF] pt-6">
-                  <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">Work Preference</h3>
-                  <p className="mb-3 mt-0.5 text-sm text-[#838383]">What type of work are you looking for? You can select both.</p>
+                <div className="border-t border-[#E8E5DE] pt-6">
+                  <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Work Preference</h3>
+                  <p className="mb-3 mt-0.5 text-sm text-[#737373]">What type of work are you looking for? You can select both.</p>
                   <div className="flex flex-col gap-2.5">
                     {WORK_PREFERENCE_OPTIONS.map((opt) => (
-                      <label key={opt.value} className="group flex cursor-pointer items-center gap-3 rounded-xl border border-[#E4E4E7] px-4 py-3 text-sm transition-all duration-200 has-[:checked]:border-[#6647F0] has-[:checked]:bg-[#F2EEFF] hover:border-[#A1A1AA] has-[:checked]:hover:border-[#6647F0]">
+                      <label key={opt.value} className="group flex cursor-pointer items-center gap-3 rounded-xl border border-[#E8E5DE] px-4 py-3 text-sm transition-all duration-200 has-[:checked]:border-[#0a0a0a] has-[:checked]:bg-[#F2FCBC] hover:border-[#a3a3a3] has-[:checked]:hover:border-[#0a0a0a]">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded border-[#E4E4E7] text-[#6647F0] focus:ring-[#6647F0]/30"
+                          className="h-4 w-4 rounded border-[#E8E5DE] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
                           checked={(form.employment_type || []).includes(opt.value as 'salary' | 'freelance')}
                           onChange={() => toggleMulti('employment_type' as any, opt.value)}
                         />
-                        <span className="font-[family-name:var(--font-inter)] text-[14px] font-medium text-[#202020]">{opt.label}</span>
+                        <span className="font-[family-name:var(--font-inter)] text-[14px] font-medium text-[#0a0a0a]">{opt.label}</span>
                       </label>
                     ))}
                   </div>
@@ -532,13 +532,13 @@ export default function BasicProfileForm() {
             {activeSection === 2 && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="mb-1 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">Official Address</h3>
-                  <p className="mb-4 text-sm text-[#838383]">As shown on your ID proofs (Aadhaar, PAN, etc.).</p>
+                  <h3 className="mb-1 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Official Address</h3>
+                  <p className="mb-4 text-sm text-[#737373]">As shown on your ID proofs (Aadhaar, PAN, etc.).</p>
                   <div className="space-y-4">
                     <div>
                       <label className="mb-1.5 block text-[13px] font-medium text-[#3F3F46]">Address</label>
                       <textarea
-                        className="block w-full rounded-lg border border-[#E4E4E7] bg-white px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-[#A1A1AA] focus:border-[#6647F0] focus:outline-none focus:ring-2 focus:ring-[#6647F0]/12 transition-all duration-200"
+                        className="block w-full rounded-lg border border-[#E8E5DE] bg-white px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-[#a3a3a3] focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/12 transition-all duration-200"
                         rows={3} value={form.permanent_address || ''} onChange={set('permanent_address')} placeholder="Address line"
                       />
                     </div>
@@ -573,12 +573,12 @@ export default function BasicProfileForm() {
                   </div>
                 </div>
 
-                <div className="border-t border-[#ECECEF] pt-6">
+                <div className="border-t border-[#E8E5DE] pt-6">
                   <div className="mb-2 flex items-center justify-between gap-4">
-                    <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">Current Address</h3>
-                    <label className="flex cursor-pointer items-center gap-2 font-[family-name:var(--font-inter)] text-[13px] text-[#646464]">
+                    <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Current Address</h3>
+                    <label className="flex cursor-pointer items-center gap-2 font-[family-name:var(--font-inter)] text-[13px] text-[#525252]">
                       <input
-                        type="checkbox" className="h-4 w-4 rounded border-[#E4E4E7] text-[#6647F0] focus:ring-[#6647F0]/30"
+                        type="checkbox" className="h-4 w-4 rounded border-[#E8E5DE] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
                         checked={currentSameAsOfficial}
                         onChange={(e) => {
                           const checked = e.target.checked;
@@ -604,7 +604,7 @@ export default function BasicProfileForm() {
                       <div>
                         <label className="mb-1.5 block text-[13px] font-medium text-[#3F3F46]">Address</label>
                         <textarea
-                          className="block w-full rounded-lg border border-[#E4E4E7] bg-white px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-[#A1A1AA] focus:border-[#6647F0] focus:outline-none focus:ring-2 focus:ring-[#6647F0]/12 transition-all duration-200"
+                          className="block w-full rounded-lg border border-[#E8E5DE] bg-white px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-[#a3a3a3] focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/12 transition-all duration-200"
                           rows={3} value={form.current_address || ''} onChange={set('current_address')} placeholder="Your current address"
                         />
                       </div>
@@ -645,18 +645,18 @@ export default function BasicProfileForm() {
             {activeSection === 3 && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="mb-2 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">Availability</h3>
+                  <h3 className="mb-2 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Availability</h3>
                   <div className="space-y-2.5">
                     {AVAILABILITY_OPTIONS.map((opt) => {
                       const checked = (form.availability || []).includes(opt.value);
                       const salaryKey = opt.value === 'full_time' ? 'expected_salary_full_time' : 'expected_salary_part_time';
                       return (
-                        <div key={opt.value} className="rounded-xl border border-[#E4E4E7] px-4 py-3 transition-all duration-200 has-[:checked]:border-[#6647F0] has-[:checked]:bg-[#F2EEFF]">
+                        <div key={opt.value} className="rounded-xl border border-[#E8E5DE] px-4 py-3 transition-all duration-200 has-[:checked]:border-[#0a0a0a] has-[:checked]:bg-[#F2FCBC]">
                           <label className="flex cursor-pointer items-center gap-2.5 text-sm">
-                            <input type="checkbox" className="h-4 w-4 rounded border-[#E4E4E7] text-[#6647F0] focus:ring-[#6647F0]/30"
+                            <input type="checkbox" className="h-4 w-4 rounded border-[#E8E5DE] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
                               checked={checked} onChange={() => toggleMulti('availability', opt.value)}
                             />
-                            <span className="font-[family-name:var(--font-inter)] font-medium text-[#202020]">{opt.label}</span>
+                            <span className="font-[family-name:var(--font-inter)] font-medium text-[#0a0a0a]">{opt.label}</span>
                           </label>
                           {checked && (
                             <div className="mt-3 max-w-xs">
@@ -671,14 +671,14 @@ export default function BasicProfileForm() {
                   </div>
                 </div>
                 <div>
-                  <h3 className="mb-2 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">Job Type</h3>
+                  <h3 className="mb-2 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Job Type</h3>
                   <div className="grid gap-2.5 sm:grid-cols-2">
                     {JOB_TYPE_OPTIONS.map((opt) => (
-                      <label key={opt.value} className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-[#E4E4E7] px-4 py-3 text-sm transition-all duration-200 has-[:checked]:border-[#6647F0] has-[:checked]:bg-[#F2EEFF]">
-                        <input type="checkbox" className="h-4 w-4 rounded border-[#E4E4E7] text-[#6647F0] focus:ring-[#6647F0]/30"
+                      <label key={opt.value} className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-[#E8E5DE] px-4 py-3 text-sm transition-all duration-200 has-[:checked]:border-[#0a0a0a] has-[:checked]:bg-[#F2FCBC]">
+                        <input type="checkbox" className="h-4 w-4 rounded border-[#E8E5DE] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
                           checked={(form.job_type || []).includes(opt.value)} onChange={() => toggleMulti('job_type', opt.value)}
                         />
-                        <span className="font-[family-name:var(--font-inter)] font-medium text-[#202020]">{opt.label}</span>
+                        <span className="font-[family-name:var(--font-inter)] font-medium text-[#0a0a0a]">{opt.label}</span>
                       </label>
                     ))}
                   </div>
@@ -697,14 +697,14 @@ export default function BasicProfileForm() {
             {/* Section 6: ID Proofs */}
             {activeSection === 5 && (
               <div className="space-y-6">
-                <div className="rounded-xl border border-[#E4E4E7] bg-[#F8F9FA] p-5">
+                <div className="rounded-xl border border-[#E8E5DE] bg-[#F7F6F3] p-5">
                   <div className="mb-4 flex items-center gap-2.5">
                     <div className="tint-amber flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: 'var(--tint-icon)' }}>
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                     </div>
-                    <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">Aadhaar Card</h3>
+                    <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Aadhaar Card</h3>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Input label="Aadhaar Number" value={form.aadhaar_number || ''} onChange={set('aadhaar_number')} placeholder="12-digit Aadhaar number" helperText="12-digit number" />
@@ -724,14 +724,14 @@ export default function BasicProfileForm() {
                     </div>
                   </div>
                 </div>
-                <div className="rounded-xl border border-[#E4E4E7] bg-[#F8F9FA] p-5">
+                <div className="rounded-xl border border-[#E8E5DE] bg-[#F7F6F3] p-5">
                   <div className="mb-4 flex items-center gap-2.5">
                     <div className="tint-amber flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: 'var(--tint-icon)' }}>
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                     </div>
-                    <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">PAN Card</h3>
+                    <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">PAN Card</h3>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Input label="PAN Number" value={form.pan_number || ''} onChange={set('pan_number')} placeholder="e.g. ABCDE1234F" helperText="5 letters, 4 digits, 1 letter" />
@@ -760,7 +760,7 @@ export default function BasicProfileForm() {
                 <div className="relative">
                   {form.profile_picture_url ? (
                     <>
-                      <img src={form.profile_picture_url} alt="Profile" className="h-32 w-32 rounded-2xl object-cover ring-1 ring-[#ECECEF]" />
+                      <img src={form.profile_picture_url} alt="Profile" className="h-32 w-32 rounded-2xl object-cover ring-1 ring-[#E8E5DE]" />
                       <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-white ring-4 ring-white">
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -768,16 +768,16 @@ export default function BasicProfileForm() {
                       </div>
                     </>
                   ) : (
-                    <div className="flex h-32 w-32 items-center justify-center rounded-2xl bg-[#F2EEFF]">
-                      <svg className="h-12 w-12 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <div className="flex h-32 w-32 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+                      <svg className="h-12 w-12 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     </div>
                   )}
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">Upload your photo</h3>
-                  <p className="mt-1 text-sm text-[#838383]">A clear, professional headshot helps brands recognize you. JPEG or PNG only.</p>
+                  <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Upload your photo</h3>
+                  <p className="mt-1 text-sm text-[#737373]">A clear, professional headshot helps brands recognize you. JPEG or PNG only.</p>
                   <div className="mt-4">
                     <Button type="button" variant="outline" loading={uploading} onClick={() => handleFileUpload('profile_picture_url', 'profile-pictures', 'image/jpeg,image/png')}>
                       {form.profile_picture_url ? 'Change Photo' : 'Upload Photo'}
@@ -810,16 +810,16 @@ export default function BasicProfileForm() {
             {/* Section 9: Resume */}
             {activeSection === 8 && (
               <div>
-                <div className="rounded-xl border-2 border-dashed border-[#E4E4E7] bg-[#F8F9FA] p-10 text-center transition-colors hover:border-[#6647F0]/50 hover:bg-[#F2EEFF]/30">
+                <div className="rounded-xl border-2 border-dashed border-[#E8E5DE] bg-[#F7F6F3] p-10 text-center transition-colors hover:border-[#0a0a0a]/50 hover:bg-[#F2FCBC]/30">
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-                    <svg className="h-6 w-6 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                    <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                   </div>
-                  <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">
+                  <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
                     {form.resume_url ? 'Replace your resume' : 'Upload your resume'}
                   </h3>
-                  <p className="mt-1 text-sm text-[#838383]">PDF format only. Max 10MB.</p>
+                  <p className="mt-1 text-sm text-[#737373]">PDF format only. Max 10MB.</p>
                   <div className="mt-4 inline-flex">
                     <Button type="button" variant="outline" loading={uploading} onClick={() => handleFileUpload('resume_url', 'resumes', 'application/pdf')}>
                       {form.resume_url ? 'Replace Resume' : 'Choose PDF'}
@@ -839,7 +839,7 @@ export default function BasicProfileForm() {
           </div>
 
           {/* ── Sticky Action Bar ── */}
-          <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-2xl border border-[#ECECEF] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
+          <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-2xl border border-[#E8E5DE] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
             <Button type="button" variant="ghost" disabled={activeSection === 0} onClick={() => goToSection(-1)}>
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
