@@ -55,19 +55,6 @@ export default function PublishedCardsList() {
   const search = searchParams.get('search') || '';
   const selectedId = searchParams.get('selected');
 
-  if (activeTab === 'requests') {
-    return (
-      <div className="flex h-full flex-col">
-        <div className="border-b border-gray-200 bg-white px-6 pt-5 pb-3">
-          <TabBar activeTab={activeTab} onChange={setActiveTab} />
-        </div>
-        <div className="flex-1 overflow-hidden">
-          <AdminRequestsList />
-        </div>
-      </div>
-    );
-  }
-
   const updateQuery = useCallback(
     (updates: Record<string, string | null>) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -105,6 +92,19 @@ export default function PublishedCardsList() {
     () => cards.find((c) => c.id === selectedId) || null,
     [cards, selectedId],
   );
+
+  if (activeTab === 'requests') {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-b border-gray-200 bg-white px-6 pt-5 pb-3">
+          <TabBar activeTab={activeTab} onChange={setActiveTab} />
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <AdminRequestsList />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">

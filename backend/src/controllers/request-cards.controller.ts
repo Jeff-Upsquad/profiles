@@ -5,6 +5,23 @@ import { AppError } from '../middleware/errorHandler.middleware.js';
 import { findMatchingTalents } from '../services/subscription-matcher.service.js';
 import * as upsquadApi from '../services/upsquad-api.service.js';
 
+// Map upsquad's tier vocabulary (Juniors/Pros/Elites) to canonical names.
+const TIER_MAP: Record<string, string> = {
+  juniors: 'Junior',
+  junior: 'Junior',
+  pros: 'Pro',
+  pro: 'Pro',
+  elites: 'Elite',
+  elite: 'Elite',
+  custom: 'Custom',
+};
+function normalizeTiers(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((t) => TIER_MAP[t.trim().toLowerCase()])
+    .filter((t): t is string => Boolean(t));
+}
+
 export async function listRequests(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     if (!env.UPSQUAD_API_URL) throw new AppError(503, 'upsquad API not configured');
@@ -71,7 +88,7 @@ export async function createFromRequest(req: Request, res: Response, next: NextF
       custom_deliverables: [],
     };
 
-    const tiers = requestData.tier.split(',').map((t: string) => t.trim()).filter(Boolean);
+    const tiers = normalizeTiers(requestData.tier || '');
     const match_rules = {
       category_ids: [] as string[],
       target_tiers: tiers,
