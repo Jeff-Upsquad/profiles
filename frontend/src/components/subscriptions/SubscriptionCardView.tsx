@@ -37,7 +37,7 @@ export default function SubscriptionCardView({ item }: Props) {
   };
 
   return (
-    <article className={`group relative flex flex-col overflow-hidden rounded-2xl border border-[#ECECEF] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 ${isCancelled ? 'opacity-70' : ''}`}>
+    <article className={`group relative flex flex-col overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 ${isCancelled ? 'opacity-70' : ''}`}>
       {/* Tinted top strip with brand */}
       <div className={`${tint} relative h-20 px-5 flex items-center overflow-hidden`}>
         <div className="absolute -top-6 -right-6 h-24 w-24 rounded-full bg-white/40 blur-2xl" />
@@ -54,7 +54,7 @@ export default function SubscriptionCardView({ item }: Props) {
             <p className="font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--tint-icon)' }}>
               {isPending ? 'New offer' : 'Offer'}
             </p>
-            <p className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#202020] truncate" style={{ maxWidth: '14rem' }}>
+            <p className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a] truncate" style={{ maxWidth: '14rem' }}>
               {brandName}
             </p>
           </div>
@@ -66,7 +66,7 @@ export default function SubscriptionCardView({ item }: Props) {
         <SubscriptionCardContent content={item.card.content} />
 
         {/* Action footer */}
-        <div className="mt-auto flex items-center justify-end gap-2 border-t border-[#ECECEF] pt-4">
+        <div className="mt-auto flex items-center justify-end gap-2 border-t border-[#E8E5DE] pt-4">
           {showActions ? (
             <>
               <Button

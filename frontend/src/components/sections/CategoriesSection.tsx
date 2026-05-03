@@ -44,7 +44,7 @@ export default function CategoriesSection() {
     <section id="categories" className="bg-cu-50 py-20 sm:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <p className="font-ui text-xs uppercase tracking-[0.14em] text-iris-500 font-semibold mb-3">
+          <p className="font-ui text-xs uppercase tracking-[0.14em] text-cu-900 font-semibold mb-3">
             Our Squads
           </p>
           <h2 className="display-xl text-cu-900 mb-4">
@@ -67,7 +67,7 @@ export default function CategoriesSection() {
               >
                 <div className={`stat-card ${tint} ${stagger} h-full`}>
                   <div
-                    className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/60 text-2xl shadow-sm"
+                    className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white text-2xl border-2 border-cu-900 shadow-[2px_2px_0_0_#000]"
                     aria-hidden="true"
                   >
                     {categoryIcons[category.name?.toLowerCase() || ''] || '⭐'}

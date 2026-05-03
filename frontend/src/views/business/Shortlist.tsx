@@ -26,7 +26,7 @@ export default function Shortlist() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="rounded-2xl border border-[#ECECEF] bg-white px-5 py-6">
+        <div className="rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6">
           <div className="h-7 w-40 animate-pulse rounded bg-[#f0f0f0]" />
           <div className="mt-2 h-4 w-64 animate-pulse rounded bg-[#f0f0f0]" />
         </div>
@@ -42,7 +42,7 @@ export default function Shortlist() {
   return (
     <div className="space-y-6">
       {/* ── Hero ── */}
-      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="mb-2.5 stagger-1">
@@ -50,10 +50,10 @@ export default function Shortlist() {
                 {visible.length} {visible.length === 1 ? 'profile' : 'profiles'} saved
               </span>
             </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
               Your <span className="text-rainbow">shortlist</span>.
             </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] stagger-3">
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
               Talent profiles you've saved for later review.
             </p>
           </div>
@@ -69,18 +69,18 @@ export default function Shortlist() {
       </section>
 
       {visible.length === 0 ? (
-        <div className="relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-6 py-16 text-center">
+        <div className="relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F2EEFF]">
-              <svg className="h-7 w-7 text-[#6647F0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+              <svg className="h-7 w-7 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
               </svg>
             </div>
-            <h3 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#202020]">
+            <h3 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">
               No shortlisted profiles
             </h3>
-            <p className="mx-auto mt-1.5 max-w-sm text-sm text-[#838383]">
+            <p className="mx-auto mt-1.5 max-w-sm text-sm text-[#737373]">
               Browse approved talent and save your favorites here for easy access later.
             </p>
             <div className="mt-5 inline-flex">
@@ -102,7 +102,7 @@ export default function Shortlist() {
             return (
               <article
                 key={profile.id}
-                className={`group relative flex flex-col overflow-hidden rounded-2xl border border-[#ECECEF] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 stagger-${Math.min(i + 1, 6)}`}
+                className={`group relative flex flex-col overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 stagger-${Math.min(i + 1, 6)}`}
               >
                 {/* Tinted top strip */}
                 <div className={`${tint} h-20 relative overflow-hidden`}>
@@ -129,7 +129,7 @@ export default function Shortlist() {
 
                 <div className="flex flex-1 flex-col p-5">
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-[family-name:var(--font-jakarta)] text-[17px] font-semibold tracking-[-0.015em] text-[#202020] truncate">
+                    <h3 className="font-[family-name:var(--font-jakarta)] text-[17px] font-semibold tracking-[-0.015em] text-[#0a0a0a] truncate">
                       {fullName}
                     </h3>
                     <TierBadge
@@ -138,19 +138,19 @@ export default function Shortlist() {
                     />
                   </div>
 
-                  <div className="mt-3 space-y-1 font-[family-name:var(--font-inter)] text-sm text-[#646464]">
+                  <div className="mt-3 space-y-1 font-[family-name:var(--font-inter)] text-sm text-[#525252]">
                     {profile.field_data?.years_experience !== undefined && (
                       <p>
-                        <span className="text-[#A1A1AA]">Experience:</span>{' '}
-                        <span className="font-medium text-[#202020]">
+                        <span className="text-[#a3a3a3]">Experience:</span>{' '}
+                        <span className="font-medium text-[#0a0a0a]">
                           {profile.field_data.years_experience} years
                         </span>
                       </p>
                     )}
                     {profile.field_data?.expected_salary !== undefined && (
                       <p>
-                        <span className="text-[#A1A1AA]">Expected:</span>{' '}
-                        <span className="font-medium text-[#202020]">
+                        <span className="text-[#a3a3a3]">Expected:</span>{' '}
+                        <span className="font-medium text-[#0a0a0a]">
                           ${profile.field_data.expected_salary}/mo
                         </span>
                       </p>
@@ -167,7 +167,7 @@ export default function Shortlist() {
                       type="button"
                       disabled={removeFromShortlist.isPending}
                       onClick={() => removeFromShortlist.mutate(profile.id)}
-                      className="font-[family-name:var(--font-inter)] inline-flex items-center justify-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-[#A1A1AA] transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      className="font-[family-name:var(--font-inter)] inline-flex items-center justify-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-[#a3a3a3] transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />

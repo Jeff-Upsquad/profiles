@@ -108,7 +108,7 @@ function SectionLabel({
   return (
     <p
       className="flex items-center gap-1.5 font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-wider"
-      style={{ color: color ?? '#A1A1AA' }}
+      style={{ color: color ?? '#a3a3a3' }}
     >
       <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">
         {icon}
@@ -121,8 +121,8 @@ function SectionLabel({
 function Chip({ children, tint = 'neutral' }: { children: React.ReactNode; tint?: 'neutral' | 'purple' }) {
   const classes =
     tint === 'purple'
-      ? 'bg-[#F2EEFF] text-[#6647F0] ring-1 ring-inset ring-[#C9B6FF]'
-      : 'bg-[#F8F9FA] text-[#646464] ring-1 ring-inset ring-[#E4E4E7]';
+      ? 'bg-[#F2FCBC] text-[#0a0a0a] ring-1 ring-inset ring-[#0a0a0a]'
+      : 'bg-[#F7F6F3] text-[#525252] ring-1 ring-inset ring-[#E8E5DE]';
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-[family-name:var(--font-inter)] text-xs font-medium ${classes}`}>
       {children}
@@ -233,7 +233,7 @@ export default function SubscriptionCardContent({ content }: Props) {
           src={imageUrl}
           alt=""
           referrerPolicy="no-referrer"
-          className="h-32 w-full rounded-xl object-cover ring-1 ring-[#ECECEF]"
+          className="h-32 w-full rounded-xl object-cover ring-1 ring-[#E8E5DE]"
         />
       )}
 
@@ -241,18 +241,18 @@ export default function SubscriptionCardContent({ content }: Props) {
       {(title || planLine) && (
         <div>
           {title && (
-            <h3 className="font-[family-name:var(--font-jakarta)] text-[15px] font-semibold leading-tight tracking-[-0.01em] text-[#202020]">
+            <h3 className="font-[family-name:var(--font-jakarta)] text-[15px] font-semibold leading-tight tracking-[-0.01em] text-[#0a0a0a]">
               {title}
             </h3>
           )}
           {planLine && (
-            <p className="mt-0.5 font-[family-name:var(--font-inter)] text-xs text-[#838383]">{planLine}</p>
+            <p className="mt-0.5 font-[family-name:var(--font-inter)] text-xs text-[#737373]">{planLine}</p>
           )}
         </div>
       )}
 
       {showDescription && (
-        <p className="whitespace-pre-line text-sm text-[#646464] leading-relaxed">
+        <p className="whitespace-pre-line text-sm text-[#525252] leading-relaxed">
           {description}
         </p>
       )}
@@ -342,7 +342,7 @@ export default function SubscriptionCardContent({ content }: Props) {
 
       {/* Secondary details */}
       {(workingDays.length > 0 || hasClientBrief || countries.length > 0 || languages.length > 0) && (
-        <div className="space-y-3 border-t border-[#ECECEF] pt-3">
+        <div className="space-y-3 border-t border-[#E8E5DE] pt-3">
           {workingDays.length > 0 && (
             <div>
               <SectionLabel icon={IconCalendar}>Working Days</SectionLabel>
@@ -360,18 +360,18 @@ export default function SubscriptionCardContent({ content }: Props) {
               <div className="mt-1 space-y-0.5 text-sm">
                 {brandName && (
                   <p>
-                    <span className="text-[#838383]">Brand:</span>{' '}
-                    <span className="font-medium text-[#202020]">{brandName}</span>
+                    <span className="text-[#737373]">Brand:</span>{' '}
+                    <span className="font-medium text-[#0a0a0a]">{brandName}</span>
                   </p>
                 )}
                 {businessNature && (
                   <p>
-                    <span className="text-[#838383]">Nature of business:</span>{' '}
-                    <span className="text-[#202020]">{businessNature}</span>
+                    <span className="text-[#737373]">Nature of business:</span>{' '}
+                    <span className="text-[#0a0a0a]">{businessNature}</span>
                   </p>
                 )}
                 {notes && (
-                  <p className="whitespace-pre-line text-[#646464] mt-1">{notes}</p>
+                  <p className="whitespace-pre-line text-[#525252] mt-1">{notes}</p>
                 )}
               </div>
             </div>
@@ -406,7 +406,7 @@ export default function SubscriptionCardContent({ content }: Props) {
       )}
 
       {expiresRelative && (
-        <p className="inline-flex items-center gap-1.5 font-[family-name:var(--font-inter)] text-xs text-[#A1A1AA]">
+        <p className="inline-flex items-center gap-1.5 font-[family-name:var(--font-inter)] text-xs text-[#a3a3a3]">
           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>

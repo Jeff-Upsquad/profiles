@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import path from 'path';
 
 // CSP frame-src allowlist. YouTube is for portfolio link embeds (link-paste
 // feature). Loom is for training program lesson videos (admin-curated only,
@@ -14,6 +15,9 @@ const FRAME_SRC_ALLOWLIST = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
   typescript: {
     ignoreBuildErrors: false,
   },

@@ -193,15 +193,15 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   if (profileLoading || fieldsLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#202020] border-t-transparent" />
+        <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#0a0a0a] border-t-transparent" />
       </div>
     );
   }
 
   if (!profile) {
     return (
-      <div className="rounded-2xl border border-[#ECECEF] bg-white py-16 px-6 text-center">
-        <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#202020]">Profile not found</h3>
+      <div className="rounded-2xl border border-[#E8E5DE] bg-white py-16 px-6 text-center">
+        <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Profile not found</h3>
       </div>
     );
   }
@@ -211,12 +211,12 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   return (
     <div className="space-y-6">
       {/* Compact Hero with back button */}
-      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-5 sm:px-7 sm:py-6">
+      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-5 sm:px-7 sm:py-6">
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => { if (confirmDiscard()) router.back(); }}
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#f0f0f0] text-[#646464] transition-colors hover:bg-[#dedede] hover:text-[#202020]"
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#f0f0f0] text-[#525252] transition-colors hover:bg-[#dedede] hover:text-[#0a0a0a]"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -232,14 +232,14 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <p className="font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
+                <p className="font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
                   Editing
                 </p>
                 <Badge variant={statusToBadgeVariant(profile.status)}>
                   {profile.status.replace('_', ' ')}
                 </Badge>
               </div>
-              <h1 className="font-[family-name:var(--font-jakarta)] text-[22px] sm:text-[26px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] truncate">
+              <h1 className="font-[family-name:var(--font-jakarta)] text-[22px] sm:text-[26px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] truncate">
                 {profile.category?.name}
               </h1>
             </div>
@@ -287,7 +287,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
       <div className="space-y-6">
         {/* Profile Details */}
-        <section className="rounded-2xl border border-[#ECECEF] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="mb-5 flex items-start gap-3">
             <div className="tint-purple flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -295,10 +295,10 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
               </svg>
             </div>
             <div>
-              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                 Profile Details
               </h2>
-              <p className="mt-0.5 text-sm text-[#838383]">Tell brands about your work and experience</p>
+              <p className="mt-0.5 text-sm text-[#737373]">Tell brands about your work and experience</p>
             </div>
           </div>
           <DynamicFormRenderer
@@ -311,7 +311,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
         {/* Skills & Tools */}
         {profile && (
-          <section className="rounded-2xl border border-[#ECECEF] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-orange flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -319,10 +319,10 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
                 </svg>
               </div>
               <div>
-                <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+                <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                   Skills & Tools
                 </h2>
-                <p className="mt-0.5 text-sm text-[#838383]">Pick what you specialise in</p>
+                <p className="mt-0.5 text-sm text-[#737373]">Pick what you specialise in</p>
               </div>
             </div>
             <DesignerExtras
@@ -344,7 +344,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
         )}
 
         {/* Languages */}
-        <section className="rounded-2xl border border-[#ECECEF] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="mb-5 flex items-start gap-3">
             <div className="tint-blue flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -352,10 +352,10 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
               </svg>
             </div>
             <div>
-              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                 Languages
               </h2>
-              <p className="mt-0.5 text-sm text-[#838383]">Add languages you can work in</p>
+              <p className="mt-0.5 text-sm text-[#737373]">Add languages you can work in</p>
             </div>
           </div>
           <LanguagePicker value={languages} onChange={setLanguages} />
@@ -366,7 +366,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
         {/* Portfolio */}
         {profile && (
-          <section className="rounded-2xl border border-[#ECECEF] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-pink flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -374,10 +374,10 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
                 </svg>
               </div>
               <div>
-                <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+                <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                   Portfolio
                 </h2>
-                <p className="mt-0.5 text-sm text-[#838383]">
+                <p className="mt-0.5 text-sm text-[#737373]">
                   {(values._skills ?? []).length > 0 || (values._categories ?? []).length > 0
                     ? 'Upload samples that show your best work'
                     : 'Pick at least one skill or category above to enable uploads'}
@@ -392,8 +392,8 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
                 categoryId={profile.category_id}
               />
             ) : (
-              <div className="rounded-xl border-2 border-dashed border-[#E4E4E7] bg-[#F8F9FA] p-8 text-center">
-                <p className="text-sm text-[#838383]">
+              <div className="rounded-xl border-2 border-dashed border-[#E8E5DE] bg-[#F7F6F3] p-8 text-center">
+                <p className="text-sm text-[#737373]">
                   Pick at least one skill or category above to upload portfolio items.
                 </p>
               </div>
@@ -406,8 +406,8 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
       </div>
 
       {/* Sticky action bar */}
-      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#ECECEF] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
-        <div className="text-xs text-[#838383] px-2">
+      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E8E5DE] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
+        <div className="text-xs text-[#737373] px-2">
           {dirty ? 'You have unsaved changes' : 'No changes yet'}
         </div>
         <div className="flex items-center gap-2">

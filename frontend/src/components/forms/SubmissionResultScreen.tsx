@@ -49,7 +49,7 @@ function CheckingScreen() {
           <div className="bg-prism absolute inset-1 rounded-full [animation:spin_4s_linear_infinite]" />
           <div className="absolute inset-2 flex items-center justify-center rounded-full bg-white">
             <svg
-              className="h-10 w-10 text-iris-500"
+              className="h-10 w-10 text-cu-900"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"

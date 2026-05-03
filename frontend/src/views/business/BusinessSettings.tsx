@@ -58,16 +58,16 @@ export default function BusinessSettings() {
   return (
     <div className="space-y-6">
       {/* ── Hero ── */}
-      <section className="hero-container hero-glow-blue relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-blue relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="mb-2.5 stagger-1">
               <span className="eyebrow-rainbow">Account</span>
             </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
               Company <span className="text-rainbow">settings</span>.
             </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#646464] stagger-3">
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
               Keep your company profile and contact details up to date.
             </p>
           </div>
@@ -76,7 +76,7 @@ export default function BusinessSettings() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* ── Company section ── */}
-        <section className="rounded-2xl border border-[#ECECEF] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="mb-5 flex items-start gap-4">
             <div className="tint-purple flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl">
               <svg
@@ -91,10 +91,10 @@ export default function BusinessSettings() {
               </svg>
             </div>
             <div>
-              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                 Company
               </h2>
-              <p className="mt-0.5 text-sm text-[#838383]">
+              <p className="mt-0.5 text-sm text-[#737373]">
                 Public details that show up in talent communications.
               </p>
             </div>
@@ -138,7 +138,7 @@ export default function BusinessSettings() {
         </section>
 
         {/* ── Contact person section ── */}
-        <section className="rounded-2xl border border-[#ECECEF] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="mb-5 flex items-start gap-4">
             <div className="tint-green flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl">
               <svg
@@ -153,10 +153,10 @@ export default function BusinessSettings() {
               </svg>
             </div>
             <div>
-              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                 Contact Person
               </h2>
-              <p className="mt-0.5 text-sm text-[#838383]">
+              <p className="mt-0.5 text-sm text-[#737373]">
                 Whoever talents should reach out to.
               </p>
             </div>
@@ -187,8 +187,8 @@ export default function BusinessSettings() {
 
         {/* ── Sticky save bar ── */}
         <div className="sticky bottom-4 z-10">
-          <div className="flex items-center justify-end gap-3 rounded-2xl border border-[#ECECEF] bg-white/95 px-5 py-3 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)] backdrop-blur-sm">
-            <p className="hidden text-xs text-[#838383] sm:block">
+          <div className="flex items-center justify-end gap-3 rounded-2xl border border-[#E8E5DE] bg-white/95 px-5 py-3 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)] backdrop-blur-sm">
+            <p className="hidden text-xs text-[#737373] sm:block">
               Changes are saved to your account
             </p>
             <Button type="submit" loading={loading}>

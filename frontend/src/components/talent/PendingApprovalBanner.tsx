@@ -6,9 +6,9 @@ export default function PendingApprovalBanner() {
 
   if (autoApprove) {
     return (
-      <div className="flex items-start gap-3 rounded-[14px] border border-[#C9B6FF] bg-[#F2EEFF] p-4">
+      <div className="flex items-start gap-3 rounded-[14px] border border-[#0a0a0a] bg-[#F2FCBC] p-4">
         <svg
-          className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#6647F0]"
+          className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#0a0a0a]"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -21,8 +21,8 @@ export default function PendingApprovalBanner() {
           />
         </svg>
         <div className="text-sm">
-          <p className="font-semibold text-[#4D2EC2]">Auto-approval is on.</p>
-          <p className="mt-0.5 text-[#6647F0]">
+          <p className="font-semibold text-[#0a0a0a]">Auto-approval is on.</p>
+          <p className="mt-0.5 text-[#0a0a0a]">
             Submitting your first profile will activate your account instantly.
           </p>
         </div>

@@ -24,7 +24,7 @@ export default function Landing() {
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-cu-50">
       <Navbar />
 
       {/* Hero */}
@@ -89,7 +89,7 @@ export default function Landing() {
       <section id="how-it-works" className="py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <p className="font-ui text-xs uppercase tracking-[0.14em] text-iris-500 font-semibold mb-3">
+            <p className="font-ui text-xs uppercase tracking-[0.14em] text-cu-900 font-semibold mb-3">
               Simple Process
             </p>
             <h2 className="display-xl text-cu-900">How It Works</h2>
@@ -227,10 +227,10 @@ export default function Landing() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
               <Link href="/" className="flex items-center gap-2.5 mb-1">
-                <div className="bg-rainbow flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white shadow-sm">
+                <div className="bg-rainbow flex h-8 w-8 items-center justify-center rounded-lg text-xs font-extrabold text-cu-900 border-2 border-cu-900 shadow-[2px_2px_0_0_#000]">
                   SH
                 </div>
-                <span className="text-lg font-semibold text-cu-900 tracking-tight">
+                <span className="text-lg font-extrabold text-cu-900 tracking-tight">
                   SquadHire
                 </span>
               </Link>
@@ -241,7 +241,7 @@ export default function Landing() {
             </div>
 
             <div>
-              <h4 className="font-ui text-xs font-semibold uppercase tracking-[0.14em] text-iris-500 mb-4">
+              <h4 className="font-ui text-xs font-semibold uppercase tracking-[0.14em] text-cu-900 mb-4">
                 Platform
               </h4>
               <ul className="space-y-2.5 text-sm text-cu-600">
@@ -264,7 +264,7 @@ export default function Landing() {
             </div>
 
             <div>
-              <h4 className="font-ui text-xs font-semibold uppercase tracking-[0.14em] text-iris-500 mb-4">
+              <h4 className="font-ui text-xs font-semibold uppercase tracking-[0.14em] text-cu-900 mb-4">
                 Company
               </h4>
               <ul className="space-y-2.5 text-sm text-cu-600">
@@ -287,7 +287,7 @@ export default function Landing() {
             </div>
 
             <div>
-              <h4 className="font-ui text-xs font-semibold uppercase tracking-[0.14em] text-iris-500 mb-4">
+              <h4 className="font-ui text-xs font-semibold uppercase tracking-[0.14em] text-cu-900 mb-4">
                 Legal
               </h4>
               <ul className="space-y-2.5 text-sm text-cu-600">

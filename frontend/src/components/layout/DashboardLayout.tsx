@@ -29,7 +29,7 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
   };
 
   return (
-    <div className="flex h-screen flex-col bg-[#F8F9FA]">
+    <div className="flex h-screen flex-col bg-[#F7F6F3]">
       {!hideNavbar && <Navbar />}
       <div className="flex flex-1 overflow-hidden">
         {/* Overlay */}
@@ -53,7 +53,7 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
           </div>
         ) : sidebarItems && sidebarItems.length > 0 ? (
           <aside
-            className={`fixed inset-y-0 left-0 z-20 ${hideNavbar ? '' : 'mt-[60px]'} w-60 transform border-r border-[#ECECEF] bg-white transition-transform md:relative md:mt-0 md:translate-x-0 ${
+            className={`fixed inset-y-0 left-0 z-20 ${hideNavbar ? '' : 'mt-[60px]'} w-60 transform border-r border-[#E8E5DE] bg-white transition-transform md:relative md:mt-0 md:translate-x-0 ${
               sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             }`}
           >
@@ -63,7 +63,7 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
                   <div
                     key={item.to}
                     title={item.tooltip}
-                    className="font-[family-name:var(--font-inter)] flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-[#646464] opacity-40 cursor-not-allowed select-none"
+                    className="font-[family-name:var(--font-inter)] flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-[#525252] opacity-40 cursor-not-allowed select-none"
                   >
                     {item.icon}
                     <span className="flex-1">{item.label}</span>
@@ -78,8 +78,8 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
                     onClick={() => setSidebarOpen(false)}
                     className={`font-[family-name:var(--font-inter)] flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-200 ${
                       isActive(item.to)
-                        ? 'bg-[#F8F9FA] text-[#202020] shadow-[0_1px_3px_0_rgba(0,0,0,0.1),0_1px_2px_-1px_rgba(0,0,0,0.1)]'
-                        : 'text-[#646464] hover:bg-[#F8F9FA] hover:text-[#202020]'
+                        ? 'bg-[#F7F6F3] text-[#0a0a0a] shadow-[0_1px_3px_0_rgba(0,0,0,0.1),0_1px_2px_-1px_rgba(0,0,0,0.1)]'
+                        : 'text-[#525252] hover:bg-[#F7F6F3] hover:text-[#0a0a0a]'
                     }`}
                   >
                     {item.icon}
@@ -93,7 +93,7 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
         ) : null}
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto bg-[#F7F6F3] p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-5xl">
             {/* Mobile menu trigger — only renders when the layout opted INTO
                 a mobile drawer. Business pages use BusinessMobileNav for

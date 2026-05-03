@@ -10,6 +10,28 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        /* ── UpSquad Brand (neo-brutalist) ── */
+        brand: {
+          purple: '#d4ff4d',  // signature lime — primary CTA
+          pink: '#a8e8e8',    // mint — secondary accent
+          yellow: '#f0fb29',  // bright yellow-green
+          blue: '#a8e8e8',    // alias for mint
+          green: '#42cc77',   // success
+          orange: '#F76808',  // warning/alert
+        },
+        /* ── Warm cream surfaces ── */
+        surface: {
+          DEFAULT: '#F7F6F3',     // page background
+          secondary: '#F5F5F2',   // cards/sections
+          dark: '#090C1D',        // footer/dark sections
+        },
+        /* ── Text scale ── */
+        text: {
+          primary: '#0a0a0a',
+          secondary: '#525252',
+          muted: '#a3a3a3',
+        },
+        /* ── Legacy primary scale (warm browns) ── */
         primary: {
           50: '#faf9f7',
           100: '#f5f3ef',
@@ -33,8 +55,15 @@ const config: Config = {
           muted: '#8a8a8a',
         },
         dark: {
-          900: '#0f172a',
+          900: '#090C1D',
         },
+      },
+      boxShadow: {
+        /* ── Neo-brutalist black drop shadows ── */
+        'brutal-sm': '3px 3px 0 0 #000',
+        'brutal': '4px 4px 0 0 #000',
+        'brutal-lg': '6px 6px 0 0 #000',
+        'brutal-xl': '8px 8px 0 0 #000',
       },
       typography: {
         DEFAULT: {

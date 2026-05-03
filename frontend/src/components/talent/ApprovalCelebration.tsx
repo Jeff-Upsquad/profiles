@@ -9,10 +9,10 @@ export default function ApprovalCelebration({ phase }: ApprovalCelebrationProps)
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-white/95 backdrop-blur-md">
       {phase === 'loading' ? (
         <>
-          <div className="h-11 w-11 animate-spin rounded-full border-[3px] border-[#202020] border-t-transparent" />
+          <div className="h-11 w-11 animate-spin rounded-full border-[3px] border-[#0a0a0a] border-t-transparent" />
           <div className="text-center">
-            <p className="font-[family-name:var(--font-jakarta)] text-lg font-semibold text-[#202020]">Submitting your profile…</p>
-            <p className="mt-1 text-sm text-[#838383]">Hang tight, this only takes a moment.</p>
+            <p className="font-[family-name:var(--font-jakarta)] text-lg font-semibold text-[#0a0a0a]">Submitting your profile…</p>
+            <p className="mt-1 text-sm text-[#737373]">Hang tight, this only takes a moment.</p>
           </div>
         </>
       ) : (
@@ -29,8 +29,8 @@ export default function ApprovalCelebration({ phase }: ApprovalCelebrationProps)
             </svg>
           </div>
           <div className="text-center">
-            <p className="font-[family-name:var(--font-jakarta)] text-2xl font-semibold tracking-[-0.02em] text-[#202020]">Approved!</p>
-            <p className="mt-1 text-sm text-[#838383]">
+            <p className="font-[family-name:var(--font-jakarta)] text-2xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">Approved!</p>
+            <p className="mt-1 text-sm text-[#737373]">
               Your account is live — redirecting to your profile…
             </p>
           </div>

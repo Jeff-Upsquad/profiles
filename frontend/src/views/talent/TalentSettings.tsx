@@ -69,7 +69,7 @@ export default function TalentSettings() {
   return (
     <div className="space-y-6">
       {/* Compact Hero */}
-      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#ECECEF] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-content flex items-center gap-4">
           <div className="relative">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FF8B47] via-[#D24DFF] to-[#5BB7FF] text-white font-[family-name:var(--font-jakarta)] text-lg font-semibold shadow-[0_4px_12px_rgba(139,102,248,0.35)]">
@@ -80,10 +80,10 @@ export default function TalentSettings() {
             <div className="mb-1 stagger-1">
               <span className="eyebrow-rainbow">Account Settings</span>
             </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[22px] sm:text-[26px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#202020] stagger-2 truncate">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[22px] sm:text-[26px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2 truncate">
               {form.full_name || 'Your account'}
             </h1>
-            <p className="mt-0.5 font-[family-name:var(--font-jakarta)] text-sm text-[#838383] stagger-3 truncate">
+            <p className="mt-0.5 font-[family-name:var(--font-jakarta)] text-sm text-[#737373] stagger-3 truncate">
               {user?.email}
             </p>
           </div>
@@ -92,7 +92,7 @@ export default function TalentSettings() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Personal Details */}
-        <section className="rounded-2xl border border-[#ECECEF] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="mb-5 flex items-start gap-3">
             <div className="tint-purple flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -100,10 +100,10 @@ export default function TalentSettings() {
               </svg>
             </div>
             <div>
-              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                 Personal Details
               </h2>
-              <p className="mt-0.5 text-sm text-[#838383]">Shared across all your profiles</p>
+              <p className="mt-0.5 text-sm text-[#737373]">Shared across all your profiles</p>
             </div>
           </div>
 
@@ -141,7 +141,7 @@ export default function TalentSettings() {
         </section>
 
         {/* Languages */}
-        <section className="rounded-2xl border border-[#ECECEF] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="mb-5 flex items-start gap-3">
             <div className="tint-blue flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -149,18 +149,18 @@ export default function TalentSettings() {
               </svg>
             </div>
             <div>
-              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#202020]">
+              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                 Languages
               </h2>
-              <p className="mt-0.5 text-sm text-[#838383]">Languages you speak fluently</p>
+              <p className="mt-0.5 text-sm text-[#737373]">Languages you speak fluently</p>
             </div>
           </div>
           <LanguagePicker value={languages} onChange={setLanguages} />
         </section>
 
         {/* Sticky save bar */}
-        <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-2xl border border-[#ECECEF] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
-          <div className="px-2 text-xs text-[#838383]">
+        <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-2xl border border-[#E8E5DE] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
+          <div className="px-2 text-xs text-[#737373]">
             {dirty ? 'You have unsaved changes' : 'No changes yet'}
           </div>
           <button

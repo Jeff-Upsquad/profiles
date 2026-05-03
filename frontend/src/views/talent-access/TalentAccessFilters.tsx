@@ -50,7 +50,7 @@ function toggle<T>(list: T[] | undefined, item: T): T[] {
 function CountBadge({ n }: { n: number }) {
   if (n === 0) return null;
   return (
-    <span className="ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#6647F0] px-1.5 text-[10px] font-semibold text-white">
+    <span className="ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#0a0a0a] px-1.5 text-[10px] font-semibold text-white">
       {n}
     </span>
   );
@@ -68,14 +68,14 @@ function Section({ title, count, onClear, scroll, children }: SectionProps) {
   return (
     <section className="min-w-0">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="flex items-center font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#838383]">
+        <h3 className="flex items-center font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#737373]">
           {title}
           <CountBadge n={count} />
         </h3>
         {count > 0 && onClear && (
           <button
             onClick={onClear}
-            className="font-[family-name:var(--font-inter)] text-[11px] font-semibold text-[#6647F0] transition-colors hover:text-[#4D2EC2]"
+            className="font-[family-name:var(--font-inter)] text-[11px] font-semibold text-[#0a0a0a] transition-colors hover:text-[#0a0a0a]"
           >
             Clear
           </button>
@@ -84,7 +84,7 @@ function Section({ title, count, onClear, scroll, children }: SectionProps) {
       <div
         className={
           scroll
-            ? 'max-h-48 space-y-1 overflow-y-auto rounded-lg border border-[#ECECEF] bg-[#F8F9FA] p-2'
+            ? 'max-h-48 space-y-1 overflow-y-auto rounded-lg border border-[#E8E5DE] bg-[#F7F6F3] p-2'
             : 'space-y-1'
         }
       >
@@ -104,14 +104,14 @@ function CheckboxRow({ checked, onChange, children }: CheckboxRowProps) {
   return (
     <label
       className={`group flex min-w-0 cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors ${
-        checked ? 'bg-[#F2EEFF] text-[#202020]' : 'text-[#646464] hover:bg-[#F8F9FA]'
+        checked ? 'bg-[#F2FCBC] text-[#0a0a0a]' : 'text-[#525252] hover:bg-[#F7F6F3]'
       }`}
     >
       <span
         className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all ${
           checked
-            ? 'border-[#6647F0] bg-[#6647F0]'
-            : 'border-[#D4D4D8] bg-white group-hover:border-[#A1A1AA]'
+            ? 'border-[#0a0a0a] bg-[#0a0a0a]'
+            : 'border-[#D4D4D8] bg-white group-hover:border-[#a3a3a3]'
         }`}
       >
         <input
@@ -159,7 +159,7 @@ function TierChip({
       className={`group relative flex items-center justify-center rounded-lg border px-2.5 py-2 font-[family-name:var(--font-inter)] text-[13px] font-semibold transition-all duration-150 active:scale-[0.97] ${
         checked
           ? `${tier.tint} border-transparent shadow-[0_1px_2px_rgba(0,0,0,0.06)]`
-          : 'border-[#ECECEF] bg-white text-[#646464] hover:border-[#D4D4D8] hover:bg-[#F8F9FA] hover:text-[#202020]'
+          : 'border-[#E8E5DE] bg-white text-[#525252] hover:border-[#D4D4D8] hover:bg-[#F7F6F3] hover:text-[#0a0a0a]'
       }`}
       style={checked ? { color: 'var(--tint-text)' } : undefined}
     >
@@ -239,11 +239,11 @@ export default function TalentAccessFilters({ categoryId, value, onChange, filte
             </svg>
           </div>
           <div>
-            <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold tracking-[-0.01em] text-[#202020]">
+            <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold tracking-[-0.01em] text-[#0a0a0a]">
               Filters
             </h2>
             {totalSelected > 0 && (
-              <p className="font-[family-name:var(--font-inter)] text-[11px] text-[#838383]">
+              <p className="font-[family-name:var(--font-inter)] text-[11px] text-[#737373]">
                 {totalSelected} active
               </p>
             )}
@@ -254,7 +254,7 @@ export default function TalentAccessFilters({ categoryId, value, onChange, filte
           disabled={totalSelected === 0}
           className={`rounded-lg px-2.5 py-1 font-[family-name:var(--font-inter)] text-[11px] font-semibold transition-colors ${
             totalSelected > 0
-              ? 'text-[#6647F0] hover:bg-[#F2EEFF]'
+              ? 'text-[#0a0a0a] hover:bg-[#F2FCBC]'
               : 'cursor-default text-[#D4D4D8]'
           }`}
         >
@@ -285,11 +285,11 @@ export default function TalentAccessFilters({ categoryId, value, onChange, filte
             <button
               type="button"
               onClick={() => setTierExpanded((v) => !v)}
-              className="flex w-full items-center justify-between rounded-lg border border-[#ECECEF] bg-[#F8F9FA] px-3 py-2 text-left font-[family-name:var(--font-inter)] text-[12px] font-medium text-[#646464] transition-colors hover:bg-[#F0F0F0]"
+              className="flex w-full items-center justify-between rounded-lg border border-[#E8E5DE] bg-[#F7F6F3] px-3 py-2 text-left font-[family-name:var(--font-inter)] text-[12px] font-medium text-[#525252] transition-colors hover:bg-[#F0F0F0]"
             >
               <span className="flex items-center gap-1.5">
                 <svg
-                  className="h-3.5 w-3.5 text-[#A1A1AA]"
+                  className="h-3.5 w-3.5 text-[#a3a3a3]"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -300,7 +300,7 @@ export default function TalentAccessFilters({ categoryId, value, onChange, filte
                 What the tiers mean
               </span>
               <svg
-                className={`h-3.5 w-3.5 text-[#A1A1AA] transition-transform ${
+                className={`h-3.5 w-3.5 text-[#a3a3a3] transition-transform ${
                   tierExpanded ? 'rotate-180' : ''
                 }`}
                 fill="none"
@@ -380,7 +380,7 @@ export default function TalentAccessFilters({ categoryId, value, onChange, filte
             scroll={(options?.locations ?? []).length > 6}
           >
             {isLoading ? (
-              <p className="px-2 text-xs text-[#A1A1AA]">Loading…</p>
+              <p className="px-2 text-xs text-[#a3a3a3]">Loading…</p>
             ) : (
               options!.locations.map((loc) => (
                 <CheckboxRow
@@ -405,9 +405,9 @@ export default function TalentAccessFilters({ categoryId, value, onChange, filte
           scroll={(options?.languages ?? []).length > 6}
         >
           {isLoading ? (
-            <p className="px-2 text-xs text-[#A1A1AA]">Loading…</p>
+            <p className="px-2 text-xs text-[#a3a3a3]">Loading…</p>
           ) : (options?.languages ?? []).length === 0 ? (
-            <p className="px-2 text-xs text-[#A1A1AA]">No languages available.</p>
+            <p className="px-2 text-xs text-[#a3a3a3]">No languages available.</p>
           ) : (
             options!.languages.map((lang) => (
               <CheckboxRow

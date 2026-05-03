@@ -91,11 +91,11 @@ export default function RespondedListView({ items }: Props) {
     <div className="space-y-6">
       {groups.map((group) => (
         <section key={group.key}>
-          <h2 className="mb-3 font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
+          <h2 className="mb-3 font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
             {group.label}
           </h2>
-          <div className="overflow-hidden rounded-2xl border border-[#ECECEF] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <ul className="divide-y divide-[#ECECEF]">
+          <div className="overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <ul className="divide-y divide-[#E8E5DE]">
               {group.items.map((item) => {
                 const isOpen = openId === item.id;
                 const cancelled = item.cancelled_at != null;
@@ -109,7 +109,7 @@ export default function RespondedListView({ items }: Props) {
                     <button
                       type="button"
                       onClick={() => setOpenId(isOpen ? null : item.id)}
-                      className="group flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-[#F8F9FA]"
+                      className="group flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-[#F7F6F3]"
                     >
                       <div
                         className={`${tint} flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${cancelled ? 'opacity-60' : ''}`}
@@ -120,10 +120,10 @@ export default function RespondedListView({ items }: Props) {
                         </svg>
                       </div>
                       <div className={`min-w-0 flex-1 ${cancelled ? 'opacity-60' : ''}`}>
-                        <div className="font-[family-name:var(--font-jakarta)] truncate text-[14px] font-semibold text-[#202020]">
+                        <div className="font-[family-name:var(--font-jakarta)] truncate text-[14px] font-semibold text-[#0a0a0a]">
                           {heading}
                         </div>
-                        <div className="mt-0.5 truncate font-[family-name:var(--font-inter)] text-xs text-[#838383]">
+                        <div className="mt-0.5 truncate font-[family-name:var(--font-inter)] text-xs text-[#737373]">
                           {rowSubheading(item) || '—'}
                         </div>
                       </div>
@@ -133,11 +133,11 @@ export default function RespondedListView({ items }: Props) {
                         {cancelled && <Badge variant="gray">Cancelled</Badge>}
                         {item.selected_at && <Badge variant="blue">Selected</Badge>}
                         {item.passed_over_at && !item.selected_at && <Badge variant="gray">Not selected</Badge>}
-                        <span className="hidden w-16 text-right font-[family-name:var(--font-inter)] text-xs text-[#A1A1AA] sm:inline">
+                        <span className="hidden w-16 text-right font-[family-name:var(--font-inter)] text-xs text-[#a3a3a3] sm:inline">
                           {time}
                         </span>
                         <svg
-                          className={`h-4 w-4 text-[#A1A1AA] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                          className={`h-4 w-4 text-[#a3a3a3] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
                           viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"
                         >
                           <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clipRule="evenodd" />
@@ -145,7 +145,7 @@ export default function RespondedListView({ items }: Props) {
                       </div>
                     </button>
                     {isOpen && (
-                      <div className={`border-t border-[#ECECEF] bg-[#F8F9FA] px-5 py-5 ${cancelled ? 'opacity-60' : ''}`}>
+                      <div className={`border-t border-[#E8E5DE] bg-[#F7F6F3] px-5 py-5 ${cancelled ? 'opacity-60' : ''}`}>
                         <SubscriptionCardContent content={item.card.content} />
                       </div>
                     )}

@@ -34,8 +34,8 @@ export default function TalentLayout({
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#F8F9FA]">
-        <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#202020] border-t-transparent" />
+      <div className="flex h-screen items-center justify-center bg-[#F7F6F3]">
+        <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#0a0a0a] border-t-transparent" />
       </div>
     );
   }
