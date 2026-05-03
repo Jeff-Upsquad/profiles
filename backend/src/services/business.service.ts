@@ -701,12 +701,19 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
     categories = (cats ?? []) as any;
   }
 
+  // Pull through the rest of the relevant fields stored on the card so the
+  // business dashboard can render a complete subscription summary.
+  const matchRules = ((card as any).match_rules ?? {}) as Record<string, unknown>;
+
   return {
     id: card.id as string,
     external_id: card.external_id as string,
     brand_name: (content.brand_name as string) ?? null,
     subscription_name: (content.subscription_name as string) ?? null,
     plan_name: (content.plan_name as string) ?? null,
+    plan_tier: (content.plan_tier as string) ?? null,
+    customer_company: (content.customer_company as string) ?? null,
+    customer_location: (content.customer_location as string) ?? null,
     customer_monthly_price:
       typeof content.customer_monthly_price === 'number' ? content.customer_monthly_price : null,
     currency: (content.currency as string) ?? null,
@@ -714,6 +721,11 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
     business_nature: (content.business_nature as string) ?? null,
     hours_label: (content.hours_label as string) ?? null,
     working_days: Array.isArray(content.working_days) ? content.working_days : null,
+    target_tiers: Array.isArray(matchRules.target_tiers) ? (matchRules.target_tiers as string[]) : [],
+    target_languages: Array.isArray(matchRules.target_languages) ? (matchRules.target_languages as string[]) : [],
+    target_regions: Array.isArray(matchRules.target_regions)
+      ? (matchRules.target_regions as Array<{ country_id: string; region: string }>)
+      : [],
     status: card.status as 'active' | 'archived',
     published_at: card.published_at as string | null,
     expires_at: card.expires_at as string | null,

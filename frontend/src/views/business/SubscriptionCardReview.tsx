@@ -82,12 +82,15 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
     );
   }
 
-  const title = card.brand_name
-    ? card.subscription_name
-      ? `${card.brand_name} · ${card.subscription_name}`
-      : card.brand_name
-    : 'Subscription card';
+  // Prefer the company over the brand for the title — the brand is often the
+  // brand the talent will work *on*, not the customer's name. Fall back to
+  // brand, then subscription_name.
+  const titleLead = card.customer_company || card.brand_name || card.subscription_name || 'Subscription card';
+  const title = card.subscription_name && titleLead !== card.subscription_name
+    ? `${titleLead} · ${card.subscription_name}`
+    : titleLead;
   const price = formatPrice(card.customer_monthly_price, card.currency);
+  const planLine = [card.plan_name, card.plan_tier].filter(Boolean).join(' · ');
 
   function handleReview(recipientId: string, action: 'shortlist' | 'reject' | 'unshortlist') {
     reviewMutation.mutate({ recipientId, action });
@@ -124,8 +127,8 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
             <h1 className="truncate font-[family-name:var(--font-jakarta)] text-lg font-semibold text-[#0a0a0a]">
               {title}
             </h1>
-            {card.plan_name && (
-              <p className="mt-0.5 text-sm text-[#737373]">{card.plan_name}</p>
+            {planLine && (
+              <p className="mt-0.5 text-sm text-[#737373]">{planLine}</p>
             )}
           </div>
           {price && (
@@ -148,25 +151,44 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
           </div>
         )}
 
-        {card.business_nature && (
-          <p className="mt-3 text-xs text-[#737373]">
-            <span className="font-medium text-[#0a0a0a]">Nature of business:</span>{' '}
-            {card.business_nature}
-          </p>
-        )}
-        {card.hours_label && (
-          <p className="mt-1 text-xs text-[#737373]">
-            <span className="font-medium text-[#0a0a0a]">Commitment:</span> {card.hours_label}
-          </p>
-        )}
-        {card.working_days && card.working_days.length > 0 && (
-          <p className="mt-1 text-xs text-[#737373]">
-            <span className="font-medium text-[#0a0a0a]">Working days:</span>{' '}
-            {card.working_days.join(', ')}
-          </p>
-        )}
+        {/* Compact two-column key/value list. Skips empties so the section
+            is only as long as the data warrants. */}
+        <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+          {card.brand_name && card.brand_name !== card.customer_company && (
+            <DetailRow label="Brand">{card.brand_name}</DetailRow>
+          )}
+          {card.business_nature && (
+            <DetailRow label="Nature of business">{card.business_nature}</DetailRow>
+          )}
+          {card.customer_location && (
+            <DetailRow label="Location of business">{card.customer_location}</DetailRow>
+          )}
+          {card.hours_label && (
+            <DetailRow label="Commitment">{card.hours_label}</DetailRow>
+          )}
+          {card.working_days && card.working_days.length > 0 && (
+            <DetailRow label="Working days">{card.working_days.join(', ')}</DetailRow>
+          )}
+          {card.target_tiers.length > 0 && (
+            <DetailRow label={card.target_tiers.length === 1 ? 'Tier' : 'Tiers'}>
+              {card.target_tiers.join(', ')}
+            </DetailRow>
+          )}
+          {card.target_languages.length > 0 && (
+            <DetailRow label={card.target_languages.length === 1 ? 'Language' : 'Languages'}>
+              {card.target_languages.join(', ')}
+            </DetailRow>
+          )}
+          {card.target_regions.length > 0 && (
+            <DetailRow label={card.target_regions.length === 1 ? 'Region' : 'Regions'}>
+              {card.target_regions.map((r) => r.region).join(', ')}
+            </DetailRow>
+          )}
+        </dl>
         {card.description && (
-          <p className="mt-3 whitespace-pre-line text-sm text-[#525252]">{card.description}</p>
+          <p className="mt-4 whitespace-pre-line border-t border-[#E8E5DE] pt-3 text-sm text-[#525252]">
+            {card.description}
+          </p>
         )}
       </div>
 
@@ -394,6 +416,15 @@ function RecipientLink({ recipient: r, children }: { recipient: CardRecipientFor
     );
   }
   return <div className="flex min-w-0 flex-1 items-center gap-4">{children}</div>;
+}
+
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <dt className="text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3]">{label}</dt>
+      <dd className="mt-0.5 text-sm text-[#0a0a0a]">{children}</dd>
+    </div>
+  );
 }
 
 function RecipientRow({
