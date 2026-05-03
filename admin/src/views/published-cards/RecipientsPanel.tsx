@@ -15,6 +15,8 @@ type Recipient = {
   responded_at: string | null;
   selected_at: string | null;
   passed_over_at: string | null;
+  business_review_status: 'shortlisted' | 'rejected' | null;
+  business_reviewed_at: string | null;
   created_at: string;
 };
 
@@ -194,6 +196,16 @@ function Subgroup({
               )}
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              {it.business_review_status === 'shortlisted' && (
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                  Biz shortlisted
+                </span>
+              )}
+              {it.business_review_status === 'rejected' && (
+                <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+                  Biz rejected
+                </span>
+              )}
               {it.selected_at && (
                 <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-800">
                   Selected

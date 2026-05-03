@@ -17,7 +17,7 @@ interface PublishedCard {
   business_name: string | null;
   subscription_name: string | null;
   plan_label: string | null;
-  talents: { pending: number; accepted: number; rejected: number };
+  talents: { pending: number; accepted: number; rejected: number; shortlisted_by_business: number; rejected_by_business: number };
   selected_talent_user_id: string | null;
 }
 
@@ -47,6 +47,7 @@ export default function PublishedCardsList() {
 
   const status = searchParams.get('status') || '';
   const distribution = searchParams.get('distribution') || '';
+  const businessReview = searchParams.get('business_review') || '';
   const search = searchParams.get('search') || '';
   const selectedId = searchParams.get('selected');
 
@@ -63,11 +64,12 @@ export default function PublishedCardsList() {
   );
 
   const { data, isLoading } = useQuery<CardsResponse>({
-    queryKey: ['admin-published-cards', status, distribution, search],
+    queryKey: ['admin-published-cards', status, distribution, businessReview, search],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (status) params.set('status', status);
       if (distribution) params.set('distribution', distribution);
+      if (businessReview) params.set('business_review', businessReview);
       if (search) params.set('search', search);
       const { data } = await api.get(`/admin/subscription-cards?${params.toString()}`);
       return data;
@@ -112,6 +114,16 @@ export default function PublishedCardsList() {
             <option value="">All types</option>
             <option value="broadcast">Broadcast</option>
             <option value="manual">Soft Published</option>
+          </select>
+          <select
+            value={businessReview}
+            onChange={(e) => updateQuery({ business_review: e.target.value })}
+            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">All review states</option>
+            <option value="has_shortlisted">Has shortlisted</option>
+            <option value="has_business_rejected">Has business-rejected</option>
+            <option value="has_selected">Has selected talent</option>
           </select>
           <div className="flex-1 min-w-[200px]">
             <Input
@@ -242,6 +254,8 @@ function PublishedCardRow({
             )}
           </div>
           <p className="mt-0.5 truncate text-xs text-gray-500">
+            <span className="font-mono text-gray-400">{card.external_id?.slice(0, 8)}</span>
+            {card.external_id ? ' · ' : ''}
             {planLabel}
             {planLabel && card.published_at ? ' · ' : ''}
             {card.published_at ? `Published ${formatPublishedAt(card.published_at)}` : ''}
@@ -273,6 +287,16 @@ function PublishedCardRow({
           <span className="text-red-600">{t.rejected}✗</span>
           <span className="text-amber-700">{t.pending}⌛</span>
         </span>
+        {(t.shortlisted_by_business > 0 || t.rejected_by_business > 0) && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700"
+            title={`Business: ${t.shortlisted_by_business} shortlisted, ${t.rejected_by_business} rejected`}
+          >
+            <span className="text-violet-400">Biz</span>
+            {t.shortlisted_by_business > 0 && <span className="text-emerald-700">{t.shortlisted_by_business}★</span>}
+            {t.rejected_by_business > 0 && <span className="text-red-600">{t.rejected_by_business}✗</span>}
+          </span>
+        )}
       </div>
     </button>
   );

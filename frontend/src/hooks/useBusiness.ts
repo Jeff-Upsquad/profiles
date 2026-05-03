@@ -209,7 +209,7 @@ export interface BusinessSubscriptionCardSummary {
    *  the Open section but renders a "Recalled" tag. */
   recalled_at: string | null;
   category_ids: string[];
-  counts: { accepted: number; pending: number; rejected: number; shortlisted: number };
+  counts: { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number };
 }
 
 export interface BusinessSubscriptionCardDetail {
@@ -260,6 +260,70 @@ export function useShortlistedProfilesForCard(cardId: string | undefined) {
       return data.profiles ?? [];
     },
     enabled: !!cardId,
+  });
+}
+
+// ─── Per-Card Talent Review ─────────────────────────────────────────────────
+
+export interface CardRecipientForBusiness {
+  recipient_id: string;
+  talent_user_id: string;
+  talent_name: string | null;
+  profile_photo_url: string | null;
+  current_location: string | null;
+  languages_spoken: any;
+  profile_id: string | null;
+  category: { id: string; name: string; slug: string } | null;
+  tier: string | null;
+  tier_custom: string | null;
+  business_review_status: 'shortlisted' | 'rejected' | null;
+  business_reviewed_at: string | null;
+  selected_at: string | null;
+  passed_over_at: string | null;
+  responded_at: string | null;
+}
+
+export function useCardRecipients(cardId: string | undefined) {
+  return useQuery<CardRecipientForBusiness[]>({
+    queryKey: ['card-recipients', cardId],
+    queryFn: async () => {
+      const { data } = await api.get(`/business/my-subscription-cards/${cardId}/recipients`);
+      return data.recipients ?? [];
+    },
+    enabled: !!cardId,
+  });
+}
+
+export function useReviewCardRecipient(cardId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ recipientId, action }: { recipientId: string; action: 'shortlist' | 'reject' | 'unshortlist' }) => {
+      await api.post(`/business/my-subscription-cards/${cardId}/recipients/${recipientId}/review`, { action });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['card-recipients', cardId] });
+      queryClient.invalidateQueries({ queryKey: ['my-subscription-cards'] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to review recipient');
+    },
+  });
+}
+
+export function useSelectCardRecipient(cardId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (recipientId: string) => {
+      await api.post(`/business/my-subscription-cards/${cardId}/select`, { recipient_id: recipientId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['card-recipients', cardId] });
+      queryClient.invalidateQueries({ queryKey: ['my-subscription-cards'] });
+      toast.success('Talent selected successfully!');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to select talent');
+    },
   });
 }
 

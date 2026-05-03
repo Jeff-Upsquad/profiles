@@ -34,7 +34,11 @@ export async function adminListCards(req: Request, res: Response, next: NextFunc
       ? req.query.distribution
       : undefined;
     const search = typeof req.query.search === 'string' ? req.query.search : undefined;
-    const items = await subscriptionService.listAllForAdmin({ status, distribution, search });
+    const bizFilter = typeof req.query.business_review === 'string'
+      && ['has_shortlisted', 'has_business_rejected', 'has_selected'].includes(req.query.business_review)
+      ? req.query.business_review as 'has_shortlisted' | 'has_business_rejected' | 'has_selected'
+      : undefined;
+    const items = await subscriptionService.listAllForAdmin({ status, distribution, search, business_review_filter: bizFilter });
     res.json({ items });
   } catch (err) {
     next(err);

@@ -444,7 +444,7 @@ export interface AdminCardRow {
   subscription_name: string | null;
   plan_label: string | null;
   content: Record<string, unknown>;
-  talents: { pending: number; accepted: number; rejected: number };
+  talents: { pending: number; accepted: number; rejected: number; shortlisted_by_business: number; rejected_by_business: number };
   selected_talent_user_id: string | null;
 }
 
@@ -452,6 +452,7 @@ export interface AdminListCardsInput {
   status?: 'active' | 'archived';
   distribution?: 'broadcast' | 'manual';
   search?: string;
+  business_review_filter?: 'has_shortlisted' | 'has_business_rejected' | 'has_selected';
 }
 
 export async function listAllForAdmin(input: AdminListCardsInput): Promise<AdminCardRow[]> {
@@ -491,22 +492,28 @@ export async function listAllForAdmin(input: AdminListCardsInput): Promise<Admin
   // them by card_id. Avoids N+1 round-trips.
   const { data: recipientRows, error: recErr } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('card_id, status')
+    .select('card_id, status, business_review_status')
     .in('card_id', cardIds);
   if (recErr) throw new AppError(500, recErr.message);
 
-  const countsByCard = new Map<string, { pending: number; accepted: number; rejected: number }>();
+  const countsByCard = new Map<string, { pending: number; accepted: number; rejected: number; shortlisted_by_business: number; rejected_by_business: number }>();
   for (const id of cardIds) {
-    countsByCard.set(id, { pending: 0, accepted: 0, rejected: 0 });
+    countsByCard.set(id, { pending: 0, accepted: 0, rejected: 0, shortlisted_by_business: 0, rejected_by_business: 0 });
   }
   for (const r of recipientRows ?? []) {
     const bucket = countsByCard.get((r as any).card_id);
     if (!bucket) continue;
-    const status = (r as any).status as 'pending' | 'accepted' | 'rejected';
-    if (status in bucket) bucket[status]++;
+    const status = (r as any).status as string;
+    if (status === 'accepted') bucket.accepted++;
+    else if (status === 'pending') bucket.pending++;
+    else if (status === 'rejected') bucket.rejected++;
+
+    const bizReview = (r as any).business_review_status as string | null;
+    if (status === 'accepted' && bizReview === 'shortlisted') bucket.shortlisted_by_business++;
+    if (status === 'accepted' && bizReview === 'rejected') bucket.rejected_by_business++;
   }
 
-  return list.map((c: any) => {
+  let result = list.map((c: any) => {
     const content = (c.content ?? {}) as Record<string, unknown>;
     return {
       id: c.id,
@@ -519,10 +526,21 @@ export async function listAllForAdmin(input: AdminListCardsInput): Promise<Admin
       subscription_name: (content.subscription_name as string) ?? null,
       plan_label: (content.plan_name as string) ?? null,
       content,
-      talents: countsByCard.get(c.id) ?? { pending: 0, accepted: 0, rejected: 0 },
+      talents: countsByCard.get(c.id) ?? { pending: 0, accepted: 0, rejected: 0, shortlisted_by_business: 0, rejected_by_business: 0 },
       selected_talent_user_id: c.selected_talent_user_id ?? null,
     };
   });
+
+  if (input.business_review_filter) {
+    result = result.filter((card) => {
+      if (input.business_review_filter === 'has_shortlisted') return card.talents.shortlisted_by_business > 0;
+      if (input.business_review_filter === 'has_business_rejected') return card.talents.rejected_by_business > 0;
+      if (input.business_review_filter === 'has_selected') return card.selected_talent_user_id != null;
+      return true;
+    });
+  }
+
+  return result;
 }
 
 export async function getCardForAdmin(cardId: string): Promise<AdminCardRow> {
@@ -545,7 +563,7 @@ export async function getCardForAdmin(cardId: string): Promise<AdminCardRow> {
     subscription_name: (content.subscription_name as string) ?? null,
     plan_label: (content.plan_name as string) ?? null,
     content,
-    talents: { pending: 0, accepted: 0, rejected: 0 },
+    talents: { pending: 0, accepted: 0, rejected: 0, shortlisted_by_business: 0, rejected_by_business: 0 },
     selected_talent_user_id: (c as any).selected_talent_user_id ?? null,
   };
 }
@@ -560,13 +578,15 @@ export interface AdminCardRecipient {
   responded_at: string | null;
   selected_at: string | null;
   passed_over_at: string | null;
+  business_review_status: 'shortlisted' | 'rejected' | null;
+  business_reviewed_at: string | null;
   created_at: string;
 }
 
 export async function listRecipientsForAdmin(cardId: string): Promise<AdminCardRecipient[]> {
   const { data, error } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('id, talent_user_id, status, responded_at, selected_at, passed_over_at, created_at')
+    .select('id, talent_user_id, status, responded_at, selected_at, passed_over_at, business_review_status, business_reviewed_at, created_at')
     .eq('card_id', cardId)
     .order('created_at', { ascending: false });
   if (error) throw new AppError(500, error.message);
@@ -598,6 +618,8 @@ export async function listRecipientsForAdmin(cardId: string): Promise<AdminCardR
     responded_at: r.responded_at,
     selected_at: r.selected_at ?? null,
     passed_over_at: r.passed_over_at ?? null,
+    business_review_status: r.business_review_status ?? null,
+    business_reviewed_at: r.business_reviewed_at ?? null,
     created_at: r.created_at,
   }));
 }

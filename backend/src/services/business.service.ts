@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import type { UpdateBusinessUserInput, DiscoverQueryInput, SendInterestInput } from '../validators/business.validators.js';
 import { getTalentTiersByUserIds } from './talent-tier.service.js';
+import { adminSelectRecipient } from './subscription.service.js';
 
 // ─── Business User ──────────────────────────────────────────────────────────
 
@@ -543,64 +544,48 @@ export async function listMySubscriptionCards(businessUserId: string) {
 
   const cardIds = list.map((c: any) => c.id as string);
 
-  // Pull recipient acceptance counts in one shot.
+  // Pull recipient counts in one shot — includes business review status.
   const { data: recipientRows } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('card_id, status')
+    .select('card_id, status, business_review_status, selected_at, cancelled_at')
     .in('card_id', cardIds);
-  const counts = new Map<string, { accepted: number; pending: number; rejected: number }>();
-  for (const id of cardIds) counts.set(id, { accepted: 0, pending: 0, rejected: 0 });
+
+  const counts = new Map<string, { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number }>();
+  for (const id of cardIds) counts.set(id, { accepted: 0, pending: 0, rejected: 0, shortlisted: 0, for_review: 0 });
   for (const r of recipientRows ?? []) {
     const bucket = counts.get((r as any).card_id);
     if (!bucket) continue;
-    const status = (r as any).status as 'pending' | 'accepted' | 'rejected';
-    if (status in bucket) bucket[status]++;
-  }
+    const status = (r as any).status as string;
+    if (status === 'accepted') bucket.accepted++;
+    else if (status === 'pending') bucket.pending++;
+    else if (status === 'rejected') bucket.rejected++;
 
-  // Pull this business's shortlist once, then count per card by category match.
-  const { data: shortlistRows } = await supabaseAdmin
-    .from('shortlists')
-    .select('talent_profile_id, talent_profiles!inner(category_id)')
-    .eq('business_user_id', businessUserId);
-  const shortlistedCategoryIds = new Set<string>();
-  const shortlistsByCategory = new Map<string, number>();
-  for (const row of shortlistRows ?? []) {
-    const categoryId = (row as any).talent_profiles?.category_id as string | undefined;
-    if (!categoryId) continue;
-    shortlistedCategoryIds.add(categoryId);
-    shortlistsByCategory.set(categoryId, (shortlistsByCategory.get(categoryId) ?? 0) + 1);
+    // Per-card business review counts (only for accepted, uncancelled recipients)
+    if (status === 'accepted' && !(r as any).cancelled_at) {
+      const reviewStatus = (r as any).business_review_status as string | null;
+      if (reviewStatus === 'shortlisted') bucket.shortlisted++;
+      else if (!reviewStatus && !(r as any).selected_at) bucket.for_review++;
+    }
   }
 
   return list.map((card: any) => {
     const content = (card.content ?? {}) as Record<string, unknown>;
     const categoryIds = pickCategoryIds(card.match_rules);
-    const shortlistedCount = categoryIds.reduce(
-      (sum, cid) => sum + (shortlistsByCategory.get(cid) ?? 0),
-      0,
-    );
     return {
       id: card.id as string,
       external_id: card.external_id as string,
       brand_name: (content.brand_name as string) ?? null,
       subscription_name: (content.subscription_name as string) ?? null,
       plan_name: (content.plan_name as string) ?? null,
-      // Partner skill bracket (Junior/Pro/Elite). Sent separately from
-      // plan_name by SquadHub so the dashboard can render "Plan · Tier".
       plan_tier: (content.plan_tier as string) ?? null,
       customer_monthly_price:
         typeof content.customer_monthly_price === 'number' ? content.customer_monthly_price : null,
       currency: (content.currency as string) ?? null,
       status: card.status as 'active' | 'archived',
       published_at: card.published_at as string | null,
-      // recalled_at is non-null when SquadHub recalled an already-accepted
-      // card. The dashboard keeps such cards in "Open" with a Recalled tag
-      // since the lead is still alive via the acceptee.
       recalled_at: (card.recalled_at as string | null | undefined) ?? null,
       category_ids: categoryIds,
-      counts: {
-        ...counts.get(card.id as string)!,
-        shortlisted: shortlistedCount,
-      },
+      counts: counts.get(card.id as string)!,
     };
   });
 }
@@ -776,4 +761,159 @@ export async function getInterests(businessUserId: string) {
     created_at: r.created_at,
     updated_at: r.updated_at,
   }));
+}
+
+// ─── Per-Card Talent Review ───────────────────────────────────────────────────
+
+async function verifyCardOwnership(businessUserId: string, cardId: string) {
+  const { data: card, error } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id, business_user_id, match_rules, selected_at, external_id, content')
+    .eq('id', cardId)
+    .maybeSingle();
+
+  if (error) throw new AppError(500, error.message);
+  if (!card || (card as any).business_user_id !== businessUserId) {
+    throw new AppError(404, 'Card not found');
+  }
+  return card as any;
+}
+
+export async function getCardRecipientsForReview(businessUserId: string, cardId: string) {
+  const card = await verifyCardOwnership(businessUserId, cardId);
+  const categoryIds = pickCategoryIds(card.match_rules);
+
+  const { data: recipients, error } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id, talent_user_id, status, responded_at, selected_at, passed_over_at, business_review_status, business_reviewed_at')
+    .eq('card_id', cardId)
+    .eq('status', 'accepted')
+    .is('cancelled_at', null)
+    .order('responded_at', { ascending: false });
+
+  if (error) throw new AppError(500, error.message);
+  const rows = recipients ?? [];
+  if (rows.length === 0) return [];
+
+  const talentIds = Array.from(new Set(rows.map((r: any) => r.talent_user_id as string)));
+
+  const { data: talents } = await supabaseAdmin
+    .from('talent_users')
+    .select('id, full_name, current_location, profile_photo_url, languages_spoken')
+    .in('id', talentIds);
+
+  const talentMap = new Map<string, any>();
+  for (const t of talents ?? []) talentMap.set((t as any).id, t);
+
+  // Find the best matching profile per talent in the card's categories
+  let profileMap = new Map<string, any>();
+  if (categoryIds.length > 0) {
+    const { data: profiles } = await supabaseAdmin
+      .from('talent_profiles')
+      .select('id, talent_user_id, category_id, categories!inner(id, name, slug)')
+      .in('talent_user_id', talentIds)
+      .in('category_id', categoryIds)
+      .eq('status', 'approved')
+      .eq('is_active', true)
+      .is('deleted_at', null);
+
+    for (const p of profiles ?? []) {
+      const uid = (p as any).talent_user_id as string;
+      if (!profileMap.has(uid)) profileMap.set(uid, p);
+    }
+  }
+
+  const tiers = await getTalentTiersByUserIds(talentIds);
+
+  return rows.map((r: any) => {
+    const talent = talentMap.get(r.talent_user_id) ?? {};
+    const profile = profileMap.get(r.talent_user_id);
+    return {
+      recipient_id: r.id as string,
+      talent_user_id: r.talent_user_id as string,
+      talent_name: talent.full_name ?? null,
+      profile_photo_url: talent.profile_photo_url ?? null,
+      current_location: talent.current_location ?? null,
+      languages_spoken: talent.languages_spoken ?? null,
+      profile_id: profile?.id ?? null,
+      category: profile?.categories ?? null,
+      tier: tiers[r.talent_user_id]?.tier ?? null,
+      tier_custom: tiers[r.talent_user_id]?.tier_custom ?? null,
+      business_review_status: r.business_review_status ?? null,
+      business_reviewed_at: r.business_reviewed_at ?? null,
+      selected_at: r.selected_at ?? null,
+      passed_over_at: r.passed_over_at ?? null,
+      responded_at: r.responded_at ?? null,
+    };
+  });
+}
+
+export async function reviewCardRecipient(
+  businessUserId: string,
+  cardId: string,
+  recipientId: string,
+  action: 'shortlist' | 'reject' | 'unshortlist',
+) {
+  const card = await verifyCardOwnership(businessUserId, cardId);
+
+  if (card.selected_at) {
+    throw new AppError(409, 'Card already has a selected talent');
+  }
+
+  const { data: recipient, error: recErr } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id, status, cancelled_at')
+    .eq('id', recipientId)
+    .eq('card_id', cardId)
+    .maybeSingle();
+
+  if (recErr) throw new AppError(500, recErr.message);
+  if (!recipient) throw new AppError(404, 'Recipient not found');
+  if ((recipient as any).status !== 'accepted') {
+    throw new AppError(400, 'Recipient must have accepted before review');
+  }
+  if ((recipient as any).cancelled_at) {
+    throw new AppError(400, 'Recipient has been cancelled');
+  }
+
+  const now = new Date().toISOString();
+  const update =
+    action === 'unshortlist'
+      ? { business_review_status: null, business_reviewed_at: null }
+      : { business_review_status: action === 'shortlist' ? 'shortlisted' : 'rejected', business_reviewed_at: now };
+
+  const { error: updErr } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .update(update)
+    .eq('id', recipientId);
+
+  if (updErr) throw new AppError(500, updErr.message);
+}
+
+export async function businessSelectRecipient(
+  businessUserId: string,
+  cardId: string,
+  recipientId: string,
+) {
+  const card = await verifyCardOwnership(businessUserId, cardId);
+
+  if (card.selected_at) {
+    throw new AppError(409, 'A talent has already been selected for this card');
+  }
+
+  // Verify the recipient is shortlisted by the business
+  const { data: recipient } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id, business_review_status')
+    .eq('id', recipientId)
+    .eq('card_id', cardId)
+    .maybeSingle();
+
+  if (!recipient) throw new AppError(404, 'Recipient not found');
+  if ((recipient as any).business_review_status !== 'shortlisted') {
+    throw new AppError(400, 'Only shortlisted recipients can be selected');
+  }
+
+  // Delegate to the existing selection logic
+  return adminSelectRecipient(cardId, recipientId);
 }

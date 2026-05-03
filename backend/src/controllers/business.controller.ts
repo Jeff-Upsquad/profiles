@@ -257,3 +257,44 @@ export async function getHowItWorksVideos(_req: Request, res: Response, next: Ne
     next(err);
   }
 }
+
+// ─── Per-Card Talent Review ────────────────────────────────────────────────────
+
+export async function getCardRecipients(req: Request, res: Response, next: NextFunction) {
+  try {
+    const recipients = await businessService.getCardRecipientsForReview(
+      req.user!.id,
+      req.params.cardId as string,
+    );
+    res.json({ recipients });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function reviewCardRecipient(req: Request, res: Response, next: NextFunction) {
+  try {
+    await businessService.reviewCardRecipient(
+      req.user!.id,
+      req.params.cardId as string,
+      req.params.recipientId as string,
+      req.body.action,
+    );
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function selectCardRecipient(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await businessService.businessSelectRecipient(
+      req.user!.id,
+      req.params.cardId as string,
+      req.body.recipient_id,
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}

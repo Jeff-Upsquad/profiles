@@ -30,6 +30,16 @@ export const sendInterestSchema = z.object({
   message: z.string().min(1).max(2000),
 });
 
+export const reviewCardRecipientSchema = z.object({
+  action: z.enum(['shortlist', 'reject', 'unshortlist']),
+});
+
+export const selectCardRecipientSchema = z.object({
+  recipient_id: z.string().uuid(),
+});
+
 export type UpdateBusinessUserInput = z.infer<typeof updateBusinessUserSchema>;
 export type DiscoverQueryInput = z.infer<typeof discoverQuerySchema>;
 export type SendInterestInput = z.infer<typeof sendInterestSchema>;
+export type ReviewCardRecipientInput = z.infer<typeof reviewCardRecipientSchema>;
+export type SelectCardRecipientInput = z.infer<typeof selectCardRecipientSchema>;

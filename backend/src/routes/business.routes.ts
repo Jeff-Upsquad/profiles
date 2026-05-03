@@ -7,6 +7,8 @@ import {
   updateBusinessUserSchema,
   discoverQuerySchema,
   sendInterestSchema,
+  reviewCardRecipientSchema,
+  selectCardRecipientSchema,
 } from '../validators/business.validators.js';
 import {
   profilesQuerySchema,
@@ -59,6 +61,22 @@ router.get('/my-subscription-cards/:cardId', businessController.getMySubscriptio
 router.get(
   '/my-subscription-cards/:cardId/shortlisted-profiles',
   businessController.getShortlistedProfilesForCard,
+);
+
+// Per-card talent review (business-side shortlist/reject/select)
+router.get(
+  '/my-subscription-cards/:cardId/recipients',
+  businessController.getCardRecipients,
+);
+router.post(
+  '/my-subscription-cards/:cardId/recipients/:recipientId/review',
+  validate({ body: reviewCardRecipientSchema }),
+  businessController.reviewCardRecipient,
+);
+router.post(
+  '/my-subscription-cards/:cardId/select',
+  validate({ body: selectCardRecipientSchema }),
+  businessController.selectCardRecipient,
 );
 
 // Talent Access browsing (bridged via business user email)
