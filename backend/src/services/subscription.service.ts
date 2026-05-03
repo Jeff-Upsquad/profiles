@@ -25,27 +25,116 @@ function extractCategoryIds(matchRules: unknown): string[] {
   return raw.filter((v): v is string => typeof v === 'string' && v.length > 0);
 }
 
-async function resolveBusinessUserIdFromEmail(email: string | undefined): Promise<string | null> {
-  if (!email) return null;
+function normalizePhone(phone: string | undefined): string {
+  if (!phone) return '';
+  return phone.replace(/[^0-9]/g, '');
+}
 
-  // `business_users.contact_email` is the only email column. Match
-  // case-insensitively in case existing rows were stored with mixed case.
-  const { data, error } = await supabaseAdmin
-    .from('business_users')
-    .select('id')
-    .ilike('contact_email', email)
-    .eq('is_active', true)
-    .maybeSingle();
+/**
+ * Resolve a business_users row by email first, then by normalized phone.
+ * Either is enough — used by the card ingest path.
+ */
+async function resolveBusinessUserIdFromEmailOrPhone(
+  email: string | undefined,
+  phone: string | undefined,
+): Promise<string | null> {
+  if (email) {
+    const { data, error } = await supabaseAdmin
+      .from('business_users')
+      .select('id')
+      .ilike('contact_email', email)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (error) {
+      console.error('[subscription] business_user email lookup failed', { email, error: error.message });
+    } else if (data) {
+      return data.id as string;
+    }
+  }
 
+  const phoneNormalized = normalizePhone(phone);
+  if (phoneNormalized.length >= 6) {
+    const { data, error } = await supabaseAdmin
+      .from('business_users')
+      .select('id')
+      .eq('contact_phone_normalized', phoneNormalized)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (error) {
+      console.error('[subscription] business_user phone lookup failed', { phone: phoneNormalized, error: error.message });
+    } else if (data) {
+      return data.id as string;
+    }
+  }
+
+  if (email || phone) {
+    console.warn('[subscription] no business_user matched email or phone', { email, phone });
+  }
+  return null;
+}
+
+/**
+ * On card ingest, when no existing business_user matches the lead's email
+ * or phone, drop a 7-day pending invitation so the customer can sign in
+ * once they accept it. Idempotent: a pending invitation for the same email
+ * (or phone) is left alone.
+ */
+async function createBusinessInvitationIfNew(input: {
+  email?: string;
+  phone?: string;
+  contactName?: string;
+  company?: string;
+}): Promise<void> {
+  const email = input.email?.trim().toLowerCase() || null;
+  const phone = input.phone?.trim() || null;
+  if (!email && !phone) return;
+
+  const phoneNormalized = normalizePhone(phone || undefined);
+
+  // Skip if a pending invitation already exists for this email or phone.
+  // The schema has unique partial indexes on both, so a duplicate insert
+  // would 23505 anyway — checking up front keeps the log clean.
+  if (email) {
+    const { data } = await supabaseAdmin
+      .from('invitations')
+      .select('id')
+      .eq('status', 'pending')
+      .ilike('email', email)
+      .maybeSingle();
+    if (data) return;
+  }
+  if (!email && phoneNormalized && phoneNormalized.length >= 6) {
+    const { data } = await supabaseAdmin
+      .from('invitations')
+      .select('id')
+      .eq('status', 'pending')
+      .eq('phone_normalized', phoneNormalized)
+      .maybeSingle();
+    if (data) return;
+  }
+
+  // 7-day expiry from now.
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const row = {
+    email: email ?? '',
+    phone: phone,
+    role: 'business' as const,
+    status: 'pending' as const,
+    company_name: input.company || null,
+    contact_person_name: input.contactName || null,
+    expires_at: expiresAt,
+    invited_by: SYSTEM_ACTOR_UUID,
+  };
+
+  const { error } = await supabaseAdmin.from('invitations').insert(row);
   if (error) {
-    console.error('[subscription] business_email lookup failed', { email, error: error.message });
-    return null;
+    console.error('[subscription] failed to create business invitation', {
+      email, phone, error: error.message,
+    });
+    return;
   }
-  if (!data) {
-    console.warn('[subscription] business_email did not match any business_users row', { email });
-    return null;
-  }
-  return data.id as string;
+  console.info('[subscription] created 7-day business invitation', { email, phone });
 }
 
 async function autoSubscribeBusinessToCategories(
@@ -141,10 +230,23 @@ export interface IngestResult {
 }
 
 export async function ingestCard(input: IngestSubscriptionCardInput): Promise<IngestResult> {
-  // Resolve the SquadHub-provided client email to a Profiles business_users
-  // row. If unset or unresolved, the card still gets persisted but won't feed
-  // into any business dashboard on talent accept.
-  const businessUserId = await resolveBusinessUserIdFromEmail(input.business_email);
+  // Resolve the lead to a Profiles business_users row by email or phone.
+  // If neither matches, fire-and-forget a 7-day pending invitation so the
+  // customer can sign in later (and a future ingest will then resolve them).
+  const businessUserId = await resolveBusinessUserIdFromEmailOrPhone(
+    input.business_email,
+    input.business_phone,
+  );
+  if (!businessUserId) {
+    createBusinessInvitationIfNew({
+      email: input.business_email,
+      phone: input.business_phone,
+      contactName: input.business_contact_name,
+      company: input.business_company,
+    }).catch((err) => {
+      console.error('[subscription] business invitation create threw', err);
+    });
+  }
 
   // Manual ("soft publish") cards must NOT auto-fan-out. The business owner
   // sees them via business_email → business_user_id resolution; talents see
