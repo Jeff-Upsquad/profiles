@@ -77,6 +77,43 @@ export async function getSharedProfiles(businessUserId: string, categoryId: stri
   }));
 }
 
+/**
+ * Returns true if the talent has accepted any subscription card belonging
+ * to this business in the given category. Used as a fallback authorization
+ * path for `getSharedProfile` when the row in `business_shared_profiles`
+ * is missing — e.g. cards that linked to the business after acceptance.
+ */
+async function isProfileVisibleViaSubscriptionCard(
+  businessUserId: string,
+  categoryId: string,
+  profileId: string,
+): Promise<boolean> {
+  const { data: profile } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('talent_user_id')
+    .eq('id', profileId)
+    .eq('category_id', categoryId)
+    .maybeSingle();
+  if (!profile) return false;
+  const talentUserId = (profile as any).talent_user_id as string;
+
+  const { data: recipient } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id, subscription_cards!inner(business_user_id, match_rules)')
+    .eq('talent_user_id', talentUserId)
+    .eq('status', 'accepted')
+    .is('cancelled_at', null)
+    .eq('subscription_cards.business_user_id', businessUserId)
+    .limit(50);
+
+  for (const row of recipient ?? []) {
+    const matchRules = (row as any).subscription_cards?.match_rules;
+    const ids = pickCategoryIds(matchRules);
+    if (ids.includes(categoryId)) return true;
+  }
+  return false;
+}
+
 export async function getSharedProfile(businessUserId: string, categoryId: string, profileId: string) {
   const { data, error } = await supabaseAdmin
     .from('business_shared_profiles')
@@ -86,9 +123,44 @@ export async function getSharedProfile(businessUserId: string, categoryId: strin
     .eq('talent_profile_id', profileId)
     .eq('talent_profiles.is_active', true)
     .eq('talent_profiles.talent_users.is_active', true)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) throw new AppError(404, 'Shared profile not found');
+  // Fallback: business may have access via an accepted subscription card
+  // recipient row that never wrote into business_shared_profiles.
+  if (!data) {
+    const allowed = await isProfileVisibleViaSubscriptionCard(businessUserId, categoryId, profileId);
+    if (!allowed) throw new AppError(404, 'Shared profile not found');
+
+    const { data: fallback, error: fbErr } = await supabaseAdmin
+      .from('talent_profiles')
+      .select('*, talent_users!inner(full_name, current_location, languages_spoken, profile_photo_url, phone, age, gender), categories(id, name, slug)')
+      .eq('id', profileId)
+      .eq('category_id', categoryId)
+      .eq('is_active', true)
+      .eq('talent_users.is_active', true)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (fbErr || !fallback) throw new AppError(404, 'Profile not found');
+
+    const p = fallback as any;
+    const tiers = await getTalentTiersByUserIds([p.talent_user_id]);
+    return {
+      id: p.id,
+      user_id: p.talent_user_id,
+      category_id: p.category_id,
+      category: p.categories,
+      status: p.status,
+      field_data: p.field_data,
+      talent_user: p.talent_users,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
+      is_ghost: p.is_ghost === true,
+      tier: tiers[p.talent_user_id]?.tier ?? null,
+      tier_custom: tiers[p.talent_user_id]?.tier_custom ?? null,
+    };
+  }
+
+  if (error) throw new AppError(500, (error as { message: string }).message);
 
   const p = (data as any).talent_profiles;
   if (!p) throw new AppError(404, 'Profile not found');
@@ -174,9 +246,13 @@ export async function getPortfolioForProfile(businessUserId: string, categoryId:
     .eq('business_user_id', businessUserId)
     .eq('category_id', categoryId)
     .eq('talent_profile_id', profileId)
-    .single();
+    .maybeSingle();
 
-  if (!shared) throw new AppError(404, 'Profile not shared with you');
+  if (!shared) {
+    // Fallback: subscription card recipient acceptance grants access
+    const allowed = await isProfileVisibleViaSubscriptionCard(businessUserId, categoryId, profileId);
+    if (!allowed) throw new AppError(404, 'Profile not shared with you');
+  }
 
   const { data, error } = await supabaseAdmin
     .from('portfolio_items')
