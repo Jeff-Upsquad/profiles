@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as adminController from '../controllers/admin.controller.js';
 import * as leadController from '../controllers/lead.controller.js';
 import * as subscriptionController from '../controllers/subscription.controller.js';
+import * as requestCardsController from '../controllers/request-cards.controller.js';
 import * as formConfigController from '../controllers/form-config.controller.js';
 import * as interviewController from '../controllers/interview.controller.js';
 import * as talentAccessController from '../controllers/talent-access.controller.js';
@@ -353,6 +354,18 @@ router.post(
 );
 router.post('/subscription-cards/:cardId/select', subscriptionController.adminSelectRecipient);
 router.post('/subscription-cards/:cardId/undo-selection', subscriptionController.adminUndoSelection);
+
+// ---------------------------------------------------------------------------
+// Subscription Requests (from upsquad pricing page)
+// ---------------------------------------------------------------------------
+
+router.get('/subscription-requests', requestCardsController.listRequests);
+router.get('/subscription-requests/:id', requestCardsController.getRequest);
+router.post('/subscription-cards/from-request', requestCardsController.createFromRequest);
+router.post('/subscription-cards/custom', requestCardsController.createCustom);
+router.patch('/subscription-cards/:id/edit', requestCardsController.editCard);
+router.post('/subscription-cards/:id/publish', requestCardsController.publishCard);
+router.delete('/subscription-cards/:id', requestCardsController.deleteCard);
 
 // ---------------------------------------------------------------------------
 // Lead Submissions
