@@ -58,7 +58,7 @@ export default function AdminCardEditor({
 
   useEffect(() => {
     if (!card) return;
-    const c = card.content;
+    const c = card.content || {};
     setBrandName(c.brand_name || '');
     setBusinessNature(c.business_nature || '');
     setNotes(c.notes || '');
@@ -199,7 +199,7 @@ export default function AdminCardEditor({
               </div>
               <div>
                 <span className="text-gray-500">Tiers:</span>{' '}
-                <span className="font-medium">{card.match_rules.target_tiers?.join(', ') || '—'}</span>
+                <span className="font-medium">{card.match_rules?.target_tiers?.join(', ') || '—'}</span>
               </div>
               <div>
                 <span className="text-gray-500">Days:</span>{' '}
