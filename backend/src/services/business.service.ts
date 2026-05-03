@@ -97,18 +97,27 @@ async function isProfileVisibleViaSubscriptionCard(
   if (!profile) return false;
   const talentUserId = (profile as any).talent_user_id as string;
 
-  const { data: recipient } = await supabaseAdmin
+  // 1. List card_ids this talent has accepted (uncancelled).
+  const { data: recipients } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('id, subscription_cards!inner(business_user_id, match_rules)')
+    .select('card_id')
     .eq('talent_user_id', talentUserId)
     .eq('status', 'accepted')
-    .is('cancelled_at', null)
-    .eq('subscription_cards.business_user_id', businessUserId)
-    .limit(50);
+    .is('cancelled_at', null);
 
-  for (const row of recipient ?? []) {
-    const matchRules = (row as any).subscription_cards?.match_rules;
-    const ids = pickCategoryIds(matchRules);
+  const cardIds = (recipients ?? []).map((r: any) => r.card_id as string);
+  if (cardIds.length === 0) return false;
+
+  // 2. Filter those cards down to ones that belong to this business AND
+  // include the requested category in match_rules.
+  const { data: cards } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id, business_user_id, match_rules')
+    .in('id', cardIds)
+    .eq('business_user_id', businessUserId);
+
+  for (const card of cards ?? []) {
+    const ids = pickCategoryIds((card as any).match_rules);
     if (ids.includes(categoryId)) return true;
   }
   return false;
