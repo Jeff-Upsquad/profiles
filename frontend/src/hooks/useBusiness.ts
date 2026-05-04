@@ -218,12 +218,18 @@ export interface BusinessSubscriptionCardDetail {
   brand_name: string | null;
   subscription_name: string | null;
   plan_name: string | null;
+  plan_tier: string | null;
+  customer_company: string | null;
+  customer_location: string | null;
   customer_monthly_price: number | null;
   currency: string | null;
   description: string | null;
   business_nature: string | null;
   hours_label: string | null;
   working_days: string[] | null;
+  target_tiers: string[];
+  target_languages: string[];
+  target_regions: Array<{ country_id: string; region: string }>;
   status: 'active' | 'archived';
   published_at: string | null;
   expires_at: string | null;
