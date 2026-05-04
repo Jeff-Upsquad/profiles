@@ -8,6 +8,7 @@ import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import VirtualOfficeHoursPicker, { type DayHours } from '@/components/forms/VirtualOfficeHoursPicker';
 import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
+import EducationPicker, { type EducationEntry } from '@/components/forms/EducationPicker';
 import toast from 'react-hot-toast';
 import { COUNTRIES, INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-locations';
 
@@ -42,6 +43,7 @@ interface BasicProfile {
   expected_salary_full_time?: number;
   expected_salary_part_time?: number;
   virtual_office_hours?: DayHours[];
+  education_courses?: EducationEntry[];
 }
 
 const AVAILABILITY_OPTIONS = [
@@ -99,6 +101,7 @@ export default function BasicProfileForm() {
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [languages, setLanguages] = useState<LanguageEntry[]>([]);
+  const [educationCourses, setEducationCourses] = useState<EducationEntry[]>([]);
   const [currentSameAsOfficial, setCurrentSameAsOfficial] = useState(false);
   const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
 
@@ -126,6 +129,7 @@ export default function BasicProfileForm() {
   useEffect(() => {
     if (profile) {
       setForm(profile);
+      if (profile.education_courses) setEducationCourses(profile.education_courses);
       if (profile.bank_account_number) setConfirmAccountNumber(profile.bank_account_number);
       const hasAnyCurrent = !!(
         profile.current_address || profile.country || profile.state ||
@@ -257,6 +261,14 @@ export default function BasicProfileForm() {
       }
     }
 
+    if (activeSection === 4) {
+      const validEntries = educationCourses.filter(
+        (e) => e.course_name.trim() || e.institution.trim()
+      );
+      saveMutation.mutate({ education_courses: validEntries.length > 0 ? validEntries : null } as any);
+      return;
+    }
+
     if (form.pin_code && !/^\d{6}$/.test(form.pin_code)) { toast.error('PIN code must be 6 digits'); return; }
     if (form.aadhaar_number && !/^\d{12}$/.test(form.aadhaar_number)) { toast.error('Aadhaar number must be 12 digits'); return; }
     if (form.pan_number && !/^[A-Z]{5}\d{4}[A-Z]$/.test(form.pan_number)) { toast.error('Invalid PAN format (e.g. ABCDE1234F)'); return; }
@@ -274,11 +286,12 @@ export default function BasicProfileForm() {
     1: languages.length > 0 && languages.some((l) => l.proficiency === 'native'),
     2: !!(form.permanent_country && form.permanent_state && form.permanent_district && form.permanent_city),
     3: (form.availability || []).length > 0 && (form.job_type || []).length > 0,
-    4: (form.virtual_office_hours || []).length > 0,
-    5: !!(form.aadhaar_number || form.pan_number),
-    6: !!form.profile_picture_url,
-    7: !!(form.bank_account_holder && form.bank_account_number && form.bank_ifsc_code),
-    8: !!form.resume_url,
+    4: educationCourses.length > 0 && educationCourses.some((e) => !!e.course_name && !!e.institution),
+    5: (form.virtual_office_hours || []).length > 0,
+    6: !!(form.aadhaar_number || form.pan_number),
+    7: !!form.profile_picture_url,
+    8: !!(form.bank_account_holder && form.bank_account_number && form.bank_ifsc_code),
+    9: !!form.resume_url,
   };
 
   const sections: SectionDef[] = [
@@ -306,6 +319,12 @@ export default function BasicProfileForm() {
       tint: 'tint-green',
       disabled: !wantsSalary,
       icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>,
+    },
+    {
+      name: 'Education & Courses',
+      description: 'Your educational background and courses',
+      tint: 'tint-blue',
+      icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 14v7" /></svg>,
     },
     {
       name: 'Freelance Preference',
@@ -686,16 +705,24 @@ export default function BasicProfileForm() {
               </div>
             )}
 
-            {/* Section 5: Freelance Preference */}
+            {/* Section 5: Education & Courses */}
             {activeSection === 4 && (
+              <EducationPicker
+                value={educationCourses}
+                onChange={setEducationCourses}
+              />
+            )}
+
+            {/* Section 6: Freelance Preference */}
+            {activeSection === 5 && (
               <VirtualOfficeHoursPicker
                 value={form.virtual_office_hours || []}
                 onChange={(next) => setForm((prev) => ({ ...prev, virtual_office_hours: next }))}
               />
             )}
 
-            {/* Section 6: ID Proofs */}
-            {activeSection === 5 && (
+            {/* Section 7: ID Proofs */}
+            {activeSection === 6 && (
               <div className="space-y-6">
                 <div className="rounded-xl border border-[#E8E5DE] bg-[#F7F6F3] p-5">
                   <div className="mb-4 flex items-center gap-2.5">
@@ -754,8 +781,8 @@ export default function BasicProfileForm() {
               </div>
             )}
 
-            {/* Section 7: Profile Picture */}
-            {activeSection === 6 && (
+            {/* Section 8: Profile Picture */}
+            {activeSection === 7 && (
               <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
                 <div className="relative">
                   {form.profile_picture_url ? (
@@ -787,8 +814,8 @@ export default function BasicProfileForm() {
               </div>
             )}
 
-            {/* Section 8: Bank Account */}
-            {activeSection === 7 && (
+            {/* Section 9: Bank Account */}
+            {activeSection === 8 && (
               <div className="space-y-4">
                 <div className="flex items-start gap-3 rounded-xl bg-[#FDF6E7] p-4">
                   <svg className="h-5 w-5 flex-shrink-0 text-[#D97706]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -807,8 +834,8 @@ export default function BasicProfileForm() {
               </div>
             )}
 
-            {/* Section 9: Resume */}
-            {activeSection === 8 && (
+            {/* Section 10: Resume */}
+            {activeSection === 9 && (
               <div>
                 <div className="rounded-xl border-2 border-dashed border-[#E8E5DE] bg-[#F7F6F3] p-10 text-center transition-colors hover:border-[#0a0a0a]/50 hover:bg-[#F2FCBC]/30">
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
