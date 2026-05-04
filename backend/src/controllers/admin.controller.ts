@@ -867,11 +867,11 @@ export async function updateAutomationTemplates(req: Request, res: Response, nex
   }
 }
 
-export async function syncCreativeLeadsToCrm(req: Request, res: Response, next: NextFunction) {
+export async function syncLeadsToCrm(req: Request, res: Response, next: NextFunction) {
   try {
     const adminId = req.user!.id;
-    const { syncCreativeLeadsToCrm } = await import('../services/automation.service.js');
-    const result = await syncCreativeLeadsToCrm(adminId);
+    const { syncLeadsToCrm } = await import('../services/automation.service.js');
+    const result = await syncLeadsToCrm(adminId);
     res.json(result);
   } catch (err) {
     next(err);
