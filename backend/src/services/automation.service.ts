@@ -76,9 +76,17 @@ async function sendCrmWebhook(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), CRM_TIMEOUT_MS);
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    // Shared-secret auth for the SquadHire CRM inbound endpoint. The CRM
+    // verifies this header before accepting the lead-event payload. Optional
+    // for other webhook receivers — if no secret is set, the header is just
+    // omitted.
+    if (process.env.SQUADHIRE_CRM_INBOUND_SECRET) {
+      headers['X-SquadHire-Admin-Signature'] = process.env.SQUADHIRE_CRM_INBOUND_SECRET;
+    }
     const res = await fetch(webhookUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
