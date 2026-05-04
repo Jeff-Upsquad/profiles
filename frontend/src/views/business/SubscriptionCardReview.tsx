@@ -107,7 +107,7 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="space-y-4">
       {/* Back */}
       <button
         onClick={() => router.push('/business/subscription')}
@@ -120,7 +120,7 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
       </button>
 
       {/* Card details */}
-      <div className="rounded-2xl border border-[#E8E5DE] bg-white p-5 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div className="rounded-2xl border border-[#E8E5DE] bg-white p-4 sm:p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="truncate font-[family-name:var(--font-jakarta)] text-lg font-semibold text-[#0a0a0a]">
@@ -472,8 +472,8 @@ function RecipientLink({ recipient: r, children }: { recipient: CardRecipientFor
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="mt-5 border-t border-[#E8E5DE] pt-4">
-      <h2 className="mb-2 font-[family-name:var(--font-jakarta)] text-[13px] font-semibold text-[#0a0a0a]">
+    <div className="mt-3 border-t border-[#E8E5DE] pt-3">
+      <h2 className="mb-1.5 font-[family-name:var(--font-jakarta)] text-[13px] font-semibold text-[#0a0a0a]">
         {title}
       </h2>
       {children}
@@ -485,7 +485,7 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
   return (
     <div>
       <dt className="text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3]">{label}</dt>
-      <dd className="mt-0.5 text-sm text-[#0a0a0a]">{children}</dd>
+      <dd className="text-sm text-[#0a0a0a]">{children}</dd>
     </div>
   );
 }
