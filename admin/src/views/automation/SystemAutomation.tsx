@@ -368,30 +368,23 @@ function TemplateCard({
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Template Name</label>
-                <input
-                  type="text"
-                  value={form.template_name}
-                  onChange={(e) => update({ template_name: e.target.value })}
-                  placeholder="e.g. shortlist_welcome"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Channel</label>
-                <select
-                  value={form.channel}
-                  onChange={(e) => update({ channel: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                >
-                  <option value="whatsapp">WhatsApp</option>
-                  <option value="sms">SMS</option>
-                  <option value="crm_pipeline">CRM Pipeline</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Channel</label>
+              <select
+                value={form.channel}
+                onChange={(e) => update({ channel: e.target.value })}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="crm_pipeline">CRM Pipeline (CRM handles messaging)</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="sms">SMS</option>
+                <option value="other">Other</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                {form.channel === 'crm_pipeline'
+                  ? 'SquadHire only updates the pipeline stage; your CRM sends the message.'
+                  : 'SquadHire sends the template message via this channel through the webhook.'}
+              </p>
             </div>
 
             <div>
@@ -405,16 +398,31 @@ function TemplateCard({
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Template Body</label>
-              <textarea
-                value={form.template_body}
-                onChange={(e) => update({ template_body: e.target.value })}
-                rows={4}
-                placeholder={'Hi {{first_name}},\n\nCongrats! You\'ve been shortlisted with UpSquad Partner Program...'}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-            </div>
+            {form.channel !== 'crm_pipeline' && (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Template Name</label>
+                  <input
+                    type="text"
+                    value={form.template_name}
+                    onChange={(e) => update({ template_name: e.target.value })}
+                    placeholder="e.g. shortlist_welcome"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Template Body</label>
+                  <textarea
+                    value={form.template_body}
+                    onChange={(e) => update({ template_body: e.target.value })}
+                    rows={4}
+                    placeholder={'Hi {{first_name}},\n\nCongrats! You\'ve been shortlisted with UpSquad Partner Program...'}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </>
+            )}
 
             <div className="flex justify-end">
               <button
