@@ -491,5 +491,6 @@ router.get('/settings/automation', adminController.getAutomationSettings);
 router.patch('/settings/automation', adminController.updateAutomationConfig);
 router.patch('/settings/automation/templates', adminController.updateAutomationTemplates);
 router.get('/automation/events', adminController.getAutomationEvents);
+router.post('/automation/sync-creative-crm', adminController.syncCreativeLeadsToCrm);
 
 export default router;
