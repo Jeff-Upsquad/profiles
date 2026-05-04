@@ -726,6 +726,16 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
     target_regions: Array.isArray(matchRules.target_regions)
       ? (matchRules.target_regions as Array<{ country_id: string; region: string }>)
       : [],
+    custom_deliverables: Array.isArray(content.custom_deliverables)
+      ? (content.custom_deliverables as Array<{
+          id?: string;
+          name: string;
+          kind: string;
+          per_day?: number;
+          per_week?: number;
+          per_month?: number;
+        }>)
+      : [],
     status: card.status as 'active' | 'archived',
     published_at: card.published_at as string | null,
     expires_at: card.expires_at as string | null,

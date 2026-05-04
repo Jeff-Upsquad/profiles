@@ -90,7 +90,6 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
     ? `${titleLead} · ${card.subscription_name}`
     : titleLead;
   const price = formatPrice(card.customer_monthly_price, card.currency);
-  const planLine = [card.plan_name, card.plan_tier].filter(Boolean).join(' · ');
 
   function handleReview(recipientId: string, action: 'shortlist' | 'reject' | 'unshortlist') {
     reviewMutation.mutate({ recipientId, action });
@@ -127,8 +126,8 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
             <h1 className="truncate font-[family-name:var(--font-jakarta)] text-lg font-semibold text-[#0a0a0a]">
               {title}
             </h1>
-            {planLine && (
-              <p className="mt-0.5 text-sm text-[#737373]">{planLine}</p>
+            {card.plan_name && (
+              <p className="mt-0.5 text-sm text-[#737373]">{card.plan_name}</p>
             )}
           </div>
           {price && (
@@ -151,44 +150,97 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
           </div>
         )}
 
-        {/* Compact two-column key/value list. Skips empties so the section
-            is only as long as the data warrants. */}
-        <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
-          {card.brand_name && card.brand_name !== card.customer_company && (
-            <DetailRow label="Brand">{card.brand_name}</DetailRow>
+        {/* === Subscription === plan, tier, hours, working days, deliverables */}
+        <Section title="Subscription">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+            {card.subscription_name && (
+              <DetailRow label="Service">{card.subscription_name}</DetailRow>
+            )}
+            {card.plan_name && (
+              <DetailRow label="Plan">{card.plan_name}</DetailRow>
+            )}
+            {card.target_tiers.length > 0 && (
+              <DetailRow label={card.target_tiers.length === 1 ? 'Tier' : 'Tiers'}>
+                {card.target_tiers.join(', ')}
+              </DetailRow>
+            )}
+            {card.hours_label && (
+              <DetailRow label="Availability">{card.hours_label}</DetailRow>
+            )}
+            {card.working_days && card.working_days.length > 0 && (
+              <DetailRow label="Working days">{card.working_days.join(', ')}</DetailRow>
+            )}
+          </dl>
+          {card.custom_deliverables.length > 0 && (
+            <div className="mt-3">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3]">
+                Custom deliverables
+              </p>
+              <ul className="mt-1.5 space-y-1 text-sm text-[#0a0a0a]">
+                {card.custom_deliverables.map((d, i) => {
+                  const cadence = [
+                    d.per_day ? `${d.per_day}/day` : null,
+                    d.per_week ? `${d.per_week}/week` : null,
+                    d.per_month ? `${d.per_month}/month` : null,
+                  ].filter(Boolean).join(' · ');
+                  return (
+                    <li key={d.id ?? i} className="flex items-baseline gap-2">
+                      <span className="font-medium">{d.name || '—'}</span>
+                      {cadence && <span className="text-xs text-[#737373]">{cadence}</span>}
+                      {d.kind && <span className="text-[10px] text-[#a3a3a3] uppercase">{d.kind}</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           )}
-          {card.business_nature && (
-            <DetailRow label="Nature of business">{card.business_nature}</DetailRow>
-          )}
-          {card.customer_location && (
-            <DetailRow label="Location of business">{card.customer_location}</DetailRow>
-          )}
-          {card.hours_label && (
-            <DetailRow label="Commitment">{card.hours_label}</DetailRow>
-          )}
-          {card.working_days && card.working_days.length > 0 && (
-            <DetailRow label="Working days">{card.working_days.join(', ')}</DetailRow>
-          )}
-          {card.target_tiers.length > 0 && (
-            <DetailRow label={card.target_tiers.length === 1 ? 'Tier' : 'Tiers'}>
-              {card.target_tiers.join(', ')}
-            </DetailRow>
-          )}
-          {card.target_languages.length > 0 && (
-            <DetailRow label={card.target_languages.length === 1 ? 'Language' : 'Languages'}>
-              {card.target_languages.join(', ')}
-            </DetailRow>
-          )}
-          {card.target_regions.length > 0 && (
-            <DetailRow label={card.target_regions.length === 1 ? 'Region' : 'Regions'}>
-              {card.target_regions.map((r) => r.region).join(', ')}
-            </DetailRow>
-          )}
-        </dl>
-        {card.description && (
-          <p className="mt-4 whitespace-pre-line border-t border-[#E8E5DE] pt-3 text-sm text-[#525252]">
-            {card.description}
-          </p>
+        </Section>
+
+        {/* === Location & languages === */}
+        {(card.target_regions.length > 0 || card.target_languages.length > 0) && (
+          <Section title="Location & languages">
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+              {card.target_regions.length > 0 && (
+                <DetailRow label={card.target_regions.length === 1 ? 'Region' : 'Regions'}>
+                  {card.target_regions.map((r) => r.region).join(', ')}
+                </DetailRow>
+              )}
+              {card.target_languages.length > 0 && (
+                <DetailRow label={card.target_languages.length === 1 ? 'Language' : 'Languages'}>
+                  {card.target_languages.join(', ')}
+                </DetailRow>
+              )}
+            </dl>
+          </Section>
+        )}
+
+        {/* === Budget === */}
+        {price && (
+          <Section title="Budget">
+            <p className="text-lg font-semibold text-[#0a0a0a]">{price}</p>
+          </Section>
+        )}
+
+        {/* === About the brand === customer's own brief */}
+        {(card.brand_name || card.business_nature || card.customer_location || card.description) && (
+          <Section title="About the brand">
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+              {card.brand_name && card.brand_name !== card.customer_company && (
+                <DetailRow label="Brand">{card.brand_name}</DetailRow>
+              )}
+              {card.business_nature && (
+                <DetailRow label="Nature of business">{card.business_nature}</DetailRow>
+              )}
+              {card.customer_location && (
+                <DetailRow label="Location of business">{card.customer_location}</DetailRow>
+              )}
+            </dl>
+            {card.description && (
+              <p className="mt-3 whitespace-pre-line text-sm text-[#525252]">
+                {card.description}
+              </p>
+            )}
+          </Section>
         )}
       </div>
 
@@ -416,6 +468,17 @@ function RecipientLink({ recipient: r, children }: { recipient: CardRecipientFor
     );
   }
   return <div className="flex min-w-0 flex-1 items-center gap-4">{children}</div>;
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-5 border-t border-[#E8E5DE] pt-4">
+      <h2 className="mb-2 font-[family-name:var(--font-jakarta)] text-[13px] font-semibold text-[#0a0a0a]">
+        {title}
+      </h2>
+      {children}
+    </div>
+  );
 }
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {

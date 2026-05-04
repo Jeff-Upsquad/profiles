@@ -230,6 +230,14 @@ export interface BusinessSubscriptionCardDetail {
   target_tiers: string[];
   target_languages: string[];
   target_regions: Array<{ country_id: string; region: string }>;
+  custom_deliverables: Array<{
+    id?: string;
+    name: string;
+    kind: string;
+    per_day?: number;
+    per_week?: number;
+    per_month?: number;
+  }>;
   status: 'active' | 'archived';
   published_at: string | null;
   expires_at: string | null;
