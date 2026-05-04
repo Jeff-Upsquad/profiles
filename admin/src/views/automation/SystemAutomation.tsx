@@ -19,6 +19,7 @@ interface TemplateConfig {
   template_name: string;
   template_body: string;
   crm_webhook_url: string;
+  pipeline_stage?: string;
 }
 
 type TemplatesMap = Record<string, TemplateConfig>;
@@ -57,7 +58,17 @@ const TOGGLE_ITEMS: { key: keyof AutomationConfig; label: string; description: s
   },
 ];
 
-const TEMPLATE_EVENTS: { key: string; label: string }[] = [
+const TEMPLATE_EVENTS: { key: string; label: string; description?: string }[] = [
+  {
+    key: 'creative_lead_received',
+    label: 'Creative Lead Received',
+    description: 'Fires when a new creative-form candidate is submitted. Use for setting initial CRM pipeline stage.',
+  },
+  {
+    key: 'creative_lead_auto_approved',
+    label: 'Creative Lead Auto-Approved',
+    description: 'Fires when a creative candidate is auto-approved. Use for advancing CRM pipeline stage.',
+  },
   { key: 'shortlisted', label: 'Shortlisted' },
   { key: 'partner_onboarding', label: 'Onboarding' },
 ];
@@ -69,6 +80,7 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   crm_message_sent: 'CRM message sent',
   crm_message_failed: 'CRM message failed',
   crm_message_queued: 'CRM message queued',
+  creative_crm_backfill: 'Creative CRM backfill',
 };
 
 const DEFAULT_CONFIG: AutomationConfig = {
@@ -189,6 +201,7 @@ export default function SystemAutomation() {
           </section>
 
           <TemplateSection templates={templates} />
+          <CrmBackfillSection />
           <EventLog />
         </>
       )}
@@ -199,16 +212,85 @@ export default function SystemAutomation() {
 function TemplateSection({ templates }: { templates: TemplatesMap }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold text-gray-900">Message Templates</h2>
+      <h2 className="text-lg font-semibold text-gray-900">CRM Events & Templates</h2>
       <p className="text-sm text-gray-500">
-        Configure template messages sent via CRM webhook when automation events fire.
+        Configure CRM pipeline updates and template messages per automation event.
         Use {'{{name}}'}, {'{{first_name}}'}, {'{{tier}}'}, {'{{signup_url}}'} as placeholders.
       </p>
       <div className="space-y-4">
         {TEMPLATE_EVENTS.map((evt) => (
-          <TemplateCard key={evt.key} eventKey={evt.key} label={evt.label} initial={templates[evt.key]} />
+          <TemplateCard
+            key={evt.key}
+            eventKey={evt.key}
+            label={evt.label}
+            description={evt.description}
+            initial={templates[evt.key]}
+          />
         ))}
       </div>
+    </section>
+  );
+}
+
+function CrmBackfillSection() {
+  const [result, setResult] = useState<{
+    total: number;
+    sent: number;
+    skipped: number;
+    failed: number;
+  } | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post('/admin/automation/sync-creative-crm');
+      return data as { total: number; sent: number; skipped: number; failed: number };
+    },
+    onSuccess: (res) => {
+      setResult(res);
+      toast.success(`CRM sync done — ${res.sent} sent, ${res.skipped} skipped, ${res.failed} failed`);
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Sync failed'),
+  });
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold text-gray-900">CRM Backfill</h2>
+      <Card>
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Sync existing creative leads</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Push every existing creative candidate to the CRM with the appropriate pipeline stage:
+              leads in <strong>New</strong> or <strong>Under Review</strong> get the &ldquo;Creative Lead
+              Received&rdquo; stage; <strong>Shortlisted</strong> and beyond get the &ldquo;Creative Lead
+              Auto-Approved&rdquo; stage. Archived leads are skipped.
+            </p>
+            <p className="mt-2 text-xs text-gray-500">
+              Both CRM events above must be enabled with a webhook URL configured. Leads where the
+              corresponding event is disabled will be skipped.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                if (confirm('Push all existing creative leads to the CRM?')) {
+                  mutation.mutate();
+                }
+              }}
+              disabled={mutation.isPending}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {mutation.isPending ? 'Syncing...' : 'Sync Now'}
+            </button>
+            {result && (
+              <span className="text-xs text-gray-500">
+                Last run: {result.total} total · {result.sent} sent · {result.skipped} skipped ·{' '}
+                {result.failed} failed
+              </span>
+            )}
+          </div>
+        </div>
+      </Card>
     </section>
   );
 }
@@ -216,10 +298,12 @@ function TemplateSection({ templates }: { templates: TemplatesMap }) {
 function TemplateCard({
   eventKey,
   label,
+  description,
   initial,
 }: {
   eventKey: string;
   label: string;
+  description?: string;
   initial?: TemplateConfig;
 }) {
   const queryClient = useQueryClient();
@@ -229,6 +313,7 @@ function TemplateCard({
     template_name: initial?.template_name ?? '',
     template_body: initial?.template_body ?? '',
     crm_webhook_url: initial?.crm_webhook_url ?? '',
+    pipeline_stage: initial?.pipeline_stage ?? '',
   });
 
   const mutation = useMutation({
@@ -250,22 +335,39 @@ function TemplateCard({
   return (
     <Card>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-gray-900">On {label}</h3>
-            <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                form.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              {form.enabled ? 'Enabled' : 'Disabled'}
-            </span>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-gray-900">On {label}</h3>
+              <span
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                  form.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {form.enabled ? 'Enabled' : 'Disabled'}
+              </span>
+            </div>
+            {description && <p className="mt-1 text-xs text-gray-500">{description}</p>}
           </div>
           <Toggle checked={form.enabled} onChange={() => update({ enabled: !form.enabled })} />
         </div>
 
         {form.enabled && (
           <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">CRM Pipeline Stage</label>
+              <input
+                type="text"
+                value={form.pipeline_stage ?? ''}
+                onChange={(e) => update({ pipeline_stage: e.target.value })}
+                placeholder="e.g. Form Filled / For Review"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Stage name to set in the CRM. Sent to the webhook as <code>pipeline_stage</code>.
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Template Name</label>
@@ -286,6 +388,7 @@ function TemplateCard({
                 >
                   <option value="whatsapp">WhatsApp</option>
                   <option value="sms">SMS</option>
+                  <option value="crm_pipeline">CRM Pipeline</option>
                   <option value="other">Other</option>
                 </select>
               </div>

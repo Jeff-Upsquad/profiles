@@ -17,6 +17,7 @@ interface TemplateConfig {
   template_name: string;
   template_body: string;
   crm_webhook_url: string;
+  pipeline_stage?: string;
 }
 
 type TemplatesMap = Record<string, TemplateConfig>;
@@ -108,7 +109,13 @@ function interpolateTemplate(
 async function sendCrmTemplateMessage(
   leadId: string,
   eventType: string,
-  leadData: { name: string; email: string; phone: string; profile_type?: string | null },
+  leadData: {
+    name: string;
+    email: string;
+    phone: string;
+    profile_type?: string | null;
+    form_type?: string | null;
+  },
 ) {
   const templates = await getTemplates();
   const tpl = templates[eventType];
@@ -131,12 +138,14 @@ async function sendCrmTemplateMessage(
       email: leadData.email,
       phone: leadData.phone,
       profile_type: leadData.profile_type ?? null,
+      form_type: leadData.form_type ?? null,
     },
     template: {
       name: tpl.template_name,
       body: interpolated,
       channel: tpl.channel,
     },
+    pipeline_stage: tpl.pipeline_stage ?? null,
     timestamp: new Date().toISOString(),
   };
 
@@ -162,17 +171,42 @@ async function sendCrmTemplateMessage(
 // Public event handlers
 // ---------------------------------------------------------------------------
 
+export async function onLeadReceived(
+  leadId: string,
+  formType: string,
+  leadData: { name: string; email: string; phone: string },
+) {
+  // Currently only creative leads sync to CRM pipeline.
+  if (formType !== 'creative') return;
+
+  await sendCrmTemplateMessage(leadId, 'creative_lead_received', {
+    ...leadData,
+    form_type: formType,
+  });
+}
+
 export async function onLeadAutoApproved(leadId: string, leadEmail: string) {
   const cfg = await getConfig();
-  if (!cfg.auto_shortlist_on_approve) return;
 
   const { data: lead } = await supabaseAdmin
     .from('lead_submissions')
-    .select('status')
+    .select('status, name, email, phone, profile_type, form_type')
     .eq('id', leadId)
     .single();
 
-  if (!lead || lead.status !== 'new') return;
+  if (!lead) return;
+
+  if (lead.form_type === 'creative') {
+    await sendCrmTemplateMessage(leadId, 'creative_lead_auto_approved', {
+      name: lead.name,
+      email: lead.email ?? '',
+      phone: lead.phone ?? '',
+      profile_type: lead.profile_type,
+      form_type: lead.form_type,
+    });
+  }
+
+  if (!cfg.auto_shortlist_on_approve || lead.status !== 'new') return;
 
   await supabaseAdmin
     .from('lead_submissions')
@@ -270,4 +304,82 @@ export async function onCandidateSignedUp(
       triggered_by: 'system',
     });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Backfill: push existing creative leads to CRM with their current stage
+// ---------------------------------------------------------------------------
+
+export async function syncCreativeLeadsToCrm(
+  adminUserId: string,
+): Promise<{ total: number; sent: number; skipped: number; failed: number }> {
+  const templates = await getTemplates();
+  const receivedTpl = templates['creative_lead_received'];
+  const approvedTpl = templates['creative_lead_auto_approved'];
+
+  const { data: leads, error } = await supabaseAdmin
+    .from('lead_submissions')
+    .select('id, status, name, email, phone, profile_type, form_type, auto_approved')
+    .eq('form_type', 'creative')
+    .is('deleted_at', null)
+    .neq('status', 'archived');
+
+  if (error) throw error;
+  if (!leads || leads.length === 0) {
+    return { total: 0, sent: 0, skipped: 0, failed: 0 };
+  }
+
+  let sent = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  // Statuses that should map to the "auto-approved / signed up" stage.
+  // Anything in or past 'shortlisted' is treated as Signed Up.
+  const signedUpStatuses = new Set([
+    'shortlisted',
+    'partner_onboarding',
+    'onboard_completed',
+  ]);
+
+  // Process in chunks of 10 to avoid hammering the CRM endpoint.
+  const CHUNK = 10;
+  for (let i = 0; i < leads.length; i += CHUNK) {
+    const chunk = leads.slice(i, i + CHUNK);
+    await Promise.allSettled(
+      chunk.map(async (lead) => {
+        const useApproved = signedUpStatuses.has(lead.status) || lead.auto_approved === true;
+        const tpl = useApproved ? approvedTpl : receivedTpl;
+        const eventKey = useApproved
+          ? 'creative_lead_auto_approved'
+          : 'creative_lead_received';
+
+        if (!tpl?.enabled || !tpl.crm_webhook_url) {
+          skipped += 1;
+          return;
+        }
+
+        try {
+          await sendCrmTemplateMessage(lead.id, eventKey, {
+            name: lead.name,
+            email: lead.email ?? '',
+            phone: lead.phone ?? '',
+            profile_type: lead.profile_type,
+            form_type: 'creative',
+          });
+          sent += 1;
+        } catch (err) {
+          console.error('[automation] sync failed for lead', lead.id, err);
+          failed += 1;
+        }
+      }),
+    );
+  }
+
+  await logEvent({
+    event_type: 'creative_crm_backfill',
+    triggered_by: `admin:${adminUserId}`,
+    metadata: { total: leads.length, sent, skipped, failed },
+  });
+
+  return { total: leads.length, sent, skipped, failed };
 }

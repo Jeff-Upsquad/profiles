@@ -867,6 +867,17 @@ export async function updateAutomationTemplates(req: Request, res: Response, nex
   }
 }
 
+export async function syncCreativeLeadsToCrm(req: Request, res: Response, next: NextFunction) {
+  try {
+    const adminId = req.user!.id;
+    const { syncCreativeLeadsToCrm } = await import('../services/automation.service.js');
+    const result = await syncCreativeLeadsToCrm(adminId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getAutomationEvents(req: Request, res: Response, next: NextFunction) {
   try {
     const page = Number(req.query.page) || 1;

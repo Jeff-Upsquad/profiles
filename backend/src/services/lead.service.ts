@@ -38,6 +38,13 @@ export async function createLeadSubmission(input: CreateLeadInput) {
 
   if (error) throw new AppError(500, `Failed to create lead: ${error.message}`);
 
+  try {
+    const { onLeadReceived } = await import('./automation.service.js');
+    await onLeadReceived(data.id, form_type, { name, email, phone });
+  } catch (err) {
+    console.error('[automation] onLeadReceived failed:', err);
+  }
+
   // Auto-approval check
   const { data: formRow } = await supabaseAdmin
     .from('public_forms')
