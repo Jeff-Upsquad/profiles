@@ -42,6 +42,8 @@ interface SourceProfile {
   category_id: string;
   category: { id: string; name: string; slug: string };
   status: string;
+  tier: Tier | null;
+  tier_custom: string | null;
   field_data: Record<string, any>;
   created_at: string;
   updated_at: string;
@@ -347,15 +349,17 @@ export default function TalentProfileView({
         </div>
       </div>
 
-      {/* Tier — admin override; writes to all of this talent's profiles */}
-      <TierEditor
-        currentTier={profile.tier}
-        currentCustom={profile.tier_custom}
-        inheritedTier={profile.linked_leads?.[0]?.profile_type ?? null}
-        talentName={talentUser?.full_name ?? 'this talent'}
-        isPending={setTier.isPending}
-        onChange={(tier, tier_custom) => setTier.mutate({ tier, tier_custom })}
-      />
+      {/* Tier — for non-ghost profiles, show a single editor */}
+      {!isGhost && (
+        <TierEditor
+          currentTier={profile.tier}
+          currentCustom={profile.tier_custom}
+          inheritedTier={profile.linked_leads?.[0]?.profile_type ?? null}
+          talentName={talentUser?.full_name ?? 'this talent'}
+          isPending={setTier.isPending}
+          onChange={(tier, tier_custom) => setTier.mutate({ tier, tier_custom })}
+        />
+      )}
 
       {/* Originated From — surfaces matching lead_submissions linked at signup */}
       {profile.linked_leads && profile.linked_leads.length > 0 && (
@@ -446,10 +450,19 @@ export default function TalentProfileView({
             <div key={source.id} className="space-y-4">
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 <h2 className="text-xl font-bold text-gray-900">{source.category?.name}</h2>
+                <TierBadge tier={source.tier} tierCustom={source.tier_custom} />
                 <Badge variant={statusVariant[source.status] ?? 'gray'}>
                   {source.status.replace('_', ' ')}
                 </Badge>
               </div>
+              <SourceProfileTierEditor
+                sourceProfileId={source.id}
+                parentProfileId={profileId}
+                currentTier={source.tier}
+                currentCustom={source.tier_custom}
+                inheritedTier={profile.linked_leads?.[0]?.profile_type ?? null}
+                categoryName={source.category?.name ?? 'Profile'}
+              />
               <SourceProfileSection
                 source={source}
                 fields={sourceFieldsMap?.[source.category_id] ?? []}
@@ -743,6 +756,49 @@ function SourceProfileSection({
   );
 }
 
+function SourceProfileTierEditor({
+  sourceProfileId,
+  parentProfileId,
+  currentTier,
+  currentCustom,
+  inheritedTier,
+  categoryName,
+}: {
+  sourceProfileId: string;
+  parentProfileId: string;
+  currentTier: Tier | null;
+  currentCustom: string | null;
+  inheritedTier: Tier | null;
+  categoryName: string;
+}) {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: async (payload: { tier: Tier | null; tier_custom: string | null }) => {
+      await api.patch(`/admin/talents/profiles/${sourceProfileId}/tier`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['talent-profile', parentProfileId] });
+      queryClient.invalidateQueries({ queryKey: ['talent-profiles'] });
+      toast.success(`${categoryName} tier updated`);
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || err.response?.data?.message || 'Failed to update tier');
+    },
+  });
+
+  return (
+    <TierEditor
+      currentTier={currentTier}
+      currentCustom={currentCustom}
+      inheritedTier={inheritedTier}
+      talentName={categoryName}
+      isPending={mutation.isPending}
+      onChange={(tier, tier_custom) => mutation.mutate({ tier, tier_custom })}
+    />
+  );
+}
+
 interface TierEditorProps {
   currentTier: Tier | null;
   currentCustom: string | null;
@@ -863,9 +919,9 @@ function TierEditor({
 
       <p className="mt-3 text-xs text-gray-500">
         {showInheritNote ? (
-          <>Currently inherited from candidate. Setting a tier here updates all of {talentName}&rsquo;s profiles and overrides the candidate tier.</>
+          <>Currently inherited from candidate. Setting a tier here overrides the candidate tier.</>
         ) : (
-          <>Updates tier for all of {talentName}&rsquo;s profiles. Set to None to inherit from the candidate record.</>
+          <>Updates tier for {talentName}&rsquo;s profile. Set to None to inherit from the candidate record.</>
         )}
       </p>
     </div>
