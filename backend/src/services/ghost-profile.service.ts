@@ -129,10 +129,18 @@ export async function syncGhostForTalent(talentUserId: string): Promise<void> {
     );
 
     if (designer && editor) {
+      const STATUS_PRIORITY: Record<string, number> = {
+        approved: 0,
+        pending_review: 1,
+        draft: 2,
+        rejected: 3,
+        inactive: 4,
+      };
+      const dPri = STATUS_PRIORITY[(designer as any).status] ?? STATUS_PRIORITY.draft;
+      const ePri = STATUS_PRIORITY[(editor as any).status] ?? STATUS_PRIORITY.draft;
+      const worst = Math.max(dPri, ePri);
       const computedStatus =
-        (designer as any).status === 'approved' && (editor as any).status === 'approved'
-          ? 'approved'
-          : 'draft';
+        Object.entries(STATUS_PRIORITY).find(([, v]) => v === worst)?.[0] ?? 'draft';
 
       if (existingGhost) {
         const { error: updateErr } = await supabaseAdmin

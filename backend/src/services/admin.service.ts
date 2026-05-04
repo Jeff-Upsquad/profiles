@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { env } from '../config/env.js';
 import { getTalentTiersByUserIds } from './talent-tier.service.js';
+import { isGhostSourceCategory, syncGhostForTalent } from './ghost-profile.service.js';
 import * as talentService from './talent.service.js';
 import type {
   CreateCategoryInput,
@@ -404,6 +405,11 @@ export async function approveProfile(profileId: string, adminId: string) {
     .single();
 
   if (error) throw new AppError(400, error.message);
+
+  if (await isGhostSourceCategory(data.category_id)) {
+    await syncGhostForTalent(data.talent_user_id);
+  }
+
   return data;
 }
 
@@ -423,6 +429,11 @@ export async function rejectProfile(profileId: string, adminId: string, reason: 
     .single();
 
   if (error) throw new AppError(400, error.message);
+
+  if (await isGhostSourceCategory(data.category_id)) {
+    await syncGhostForTalent(data.talent_user_id);
+  }
+
   return data;
 }
 
@@ -741,42 +752,28 @@ export async function suspendUser(userId: string, suspend: boolean) {
   return { message: suspend ? 'User suspended' : 'User unsuspended' };
 }
 
-// Set tier on a talent's profile from the Talents admin UI.
-//
-// Interim behavior: writes the same tier to ALL of the talent's
-// non-deleted profiles, preserving today's "one tier per user" experience.
-// Future direction is per-profile tier — when ready, swap the .eq() filter
-// from talent_user_id back to id.
+// Set tier on a single talent profile from the Talents admin UI.
 export async function setProfileTier(
   profileId: string,
   tier: 'junior' | 'pro' | 'elite' | 'custom' | null,
   tier_custom: string | null,
 ) {
-  const { data: profile, error: lookupError } = await supabaseAdmin
-    .from('talent_profiles')
-    .select('talent_user_id')
-    .eq('id', profileId)
-    .is('deleted_at', null)
-    .maybeSingle();
-
-  if (lookupError) throw new AppError(500, lookupError.message);
-  if (!profile) throw new AppError(404, 'Profile not found');
-
   const finalCustom = tier === 'custom' ? tier_custom : null;
 
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')
     .update({ tier, tier_custom: finalCustom })
-    .eq('talent_user_id', profile.talent_user_id)
+    .eq('id', profileId)
     .is('deleted_at', null)
     .select('id');
 
   if (error) throw new AppError(500, error.message);
+  if (!data?.length) throw new AppError(404, 'Profile not found');
 
   return {
     tier,
     tier_custom: finalCustom,
-    updated_profile_count: data?.length ?? 0,
+    updated_profile_count: data.length,
   };
 }
 
@@ -1289,6 +1286,8 @@ export async function getTalentProfile(profileId: string) {
         category_id: p.category_id,
         category: p.categories,
         status: p.status,
+        tier: p.tier ?? null,
+        tier_custom: p.tier_custom ?? null,
         field_data: p.field_data,
         created_at: p.created_at,
         updated_at: p.updated_at,
