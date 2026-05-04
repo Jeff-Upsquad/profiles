@@ -10,7 +10,6 @@ interface AutomationConfig {
   auto_shortlist_on_approve: boolean;
   auto_onboarding_on_signup: boolean;
   auto_invite_on_shortlist: boolean;
-  crm_message_on_shortlist: boolean;
 }
 
 interface TemplateConfig {
@@ -51,26 +50,19 @@ const TOGGLE_ITEMS: { key: keyof AutomationConfig; label: string; description: s
     label: 'Auto-invite on shortlist',
     description: 'When a candidate is shortlisted, automatically create a talent invitation if one doesn\'t exist.',
   },
-  {
-    key: 'crm_message_on_shortlist',
-    label: 'Send CRM message on shortlist',
-    description: 'When a candidate is shortlisted, send a template message via the configured CRM webhook.',
-  },
 ];
 
 const TEMPLATE_EVENTS: { key: string; label: string; description?: string }[] = [
   {
-    key: 'creative_lead_received',
-    label: 'Creative Lead Received',
-    description: 'Fires when a new creative-form candidate is submitted. Use for setting initial CRM pipeline stage.',
+    key: 'lead_received',
+    label: 'Lead Received',
+    description: 'Fires for every new candidate form submission (all form types). Pushes the candidate\'s name, email, phone, and form type to the CRM and sets the initial pipeline stage.',
   },
   {
-    key: 'creative_lead_auto_approved',
-    label: 'Creative Lead Auto-Approved',
-    description: 'Fires when a creative candidate is auto-approved. Use for advancing CRM pipeline stage.',
+    key: 'shortlisted',
+    label: 'Shortlisted',
+    description: 'Fires when a candidate is shortlisted (auto-approved or manually). Updates the CRM pipeline stage.',
   },
-  { key: 'shortlisted', label: 'Shortlisted' },
-  { key: 'partner_onboarding', label: 'Onboarding' },
 ];
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
@@ -80,14 +72,14 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   crm_message_sent: 'CRM message sent',
   crm_message_failed: 'CRM message failed',
   crm_message_queued: 'CRM message queued',
-  creative_crm_backfill: 'Creative CRM backfill',
+  leads_crm_backfill: 'CRM backfill',
+  creative_crm_backfill: 'CRM backfill (legacy)',
 };
 
 const DEFAULT_CONFIG: AutomationConfig = {
   auto_shortlist_on_approve: true,
   auto_onboarding_on_signup: true,
   auto_invite_on_shortlist: true,
-  crm_message_on_shortlist: false,
 };
 
 function Toggle({
@@ -242,7 +234,7 @@ function CrmBackfillSection() {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const { data } = await api.post('/admin/automation/sync-creative-crm');
+      const { data } = await api.post('/admin/automation/sync-leads-crm');
       return data as { total: number; sent: number; skipped: number; failed: number };
     },
     onSuccess: (res) => {
@@ -258,22 +250,22 @@ function CrmBackfillSection() {
       <Card>
         <div className="space-y-4">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Sync existing creative leads</h3>
+            <h3 className="text-sm font-semibold text-gray-900">Sync existing leads</h3>
             <p className="mt-1 text-sm text-gray-500">
-              Push every existing creative candidate to the CRM with the appropriate pipeline stage:
-              leads in <strong>New</strong> or <strong>Under Review</strong> get the &ldquo;Creative Lead
-              Received&rdquo; stage; <strong>Shortlisted</strong> and beyond get the &ldquo;Creative Lead
-              Auto-Approved&rdquo; stage. Archived leads are skipped.
+              Push every existing candidate (all form types) to the CRM with the appropriate pipeline
+              stage: leads in <strong>New</strong> or <strong>Under Review</strong> use the
+              &ldquo;Lead Received&rdquo; stage; <strong>Shortlisted</strong> and beyond use the
+              &ldquo;Shortlisted&rdquo; stage. Archived leads are skipped.
             </p>
             <p className="mt-2 text-xs text-gray-500">
-              Both CRM events above must be enabled with a webhook URL configured. Leads where the
+              Both events above must be enabled with a webhook URL configured. Leads where the
               corresponding event is disabled will be skipped.
             </p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => {
-                if (confirm('Push all existing creative leads to the CRM?')) {
+                if (confirm('Push all existing leads to the CRM?')) {
                   mutation.mutate();
                 }
               }}
