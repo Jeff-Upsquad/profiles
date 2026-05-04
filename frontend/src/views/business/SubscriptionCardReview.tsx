@@ -107,7 +107,7 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-2xl space-y-6">
       {/* Back */}
       <button
         onClick={() => router.push('/business/subscription')}
