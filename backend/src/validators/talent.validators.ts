@@ -56,6 +56,22 @@ export const updateBasicProfileSchema = z.object({
     .nullable()
     .optional(),
 
+  // Education & Courses
+  education_courses: z
+    .array(
+      z.object({
+        from_year: z.number().int().min(1980).max(2100),
+        from_month: z.number().int().min(1).max(12),
+        to_year: z.number().int().min(1980).max(2100),
+        to_month: z.number().int().min(1).max(12),
+        course_name: z.string().max(300),
+        institution: z.string().max(300),
+      })
+    )
+    .max(20)
+    .nullable()
+    .optional(),
+
   // Section 4: ID Proofs
   aadhaar_number: z.string().regex(/^\d{12}$/, 'Aadhaar number must be 12 digits').nullable().optional(),
   aadhaar_file_url: z.string().url().nullable().optional(),
