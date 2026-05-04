@@ -483,4 +483,13 @@ router.post('/how-it-works/videos', validate({ body: createHowItWorksVideoSchema
 router.put('/how-it-works/videos/:id', validate({ body: updateHowItWorksVideoSchema }), howItWorksController.updateVideo);
 router.delete('/how-it-works/videos/:id', howItWorksController.deleteVideo);
 
+// ---------------------------------------------------------------------------
+// System Automation
+// ---------------------------------------------------------------------------
+
+router.get('/settings/automation', adminController.getAutomationSettings);
+router.patch('/settings/automation', adminController.updateAutomationConfig);
+router.patch('/settings/automation/templates', adminController.updateAutomationTemplates);
+router.get('/automation/events', adminController.getAutomationEvents);
+
 export default router;

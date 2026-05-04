@@ -74,6 +74,15 @@ export async function createLeadSubmission(input: CreateLeadInput) {
     }
   }
 
+  if (approved) {
+    try {
+      const { onLeadAutoApproved } = await import('./automation.service.js');
+      await onLeadAutoApproved(data.id, email);
+    } catch (err) {
+      console.error('[automation] onLeadAutoApproved failed:', err);
+    }
+  }
+
   return {
     id: data.id,
     auto_approved: approved,
@@ -224,6 +233,16 @@ export async function updateLeadStatus(
     .single();
 
   if (error) throw new AppError(500, `Failed to update lead: ${error.message}`);
+
+  if (input.status === 'shortlisted') {
+    try {
+      const { onLeadShortlisted } = await import('./automation.service.js');
+      await onLeadShortlisted(id, adminUserId);
+    } catch (err) {
+      console.error('[automation] onLeadShortlisted failed:', err);
+    }
+  }
+
   return data;
 }
 
