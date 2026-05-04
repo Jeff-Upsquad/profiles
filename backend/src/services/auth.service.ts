@@ -87,6 +87,13 @@ export async function signupTalent(input: SignupTalentInput) {
     console.error('Lead linking failed (non-fatal):', e);
   }
 
+  try {
+    const { onCandidateSignedUp } = await import('./automation.service.js');
+    await onCandidateSignedUp(userId, email, profileData.phone ?? null);
+  } catch (e) {
+    console.error('[automation] onCandidateSignedUp failed:', e);
+  }
+
   return { message: 'Account created successfully. Please sign in to continue.' };
 }
 

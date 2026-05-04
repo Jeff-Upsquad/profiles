@@ -828,3 +828,73 @@ export async function getShortlistTracking(req: Request, res: Response, next: Ne
     next(err);
   }
 }
+
+// ---------------------------------------------------------------------------
+// System Automation
+// ---------------------------------------------------------------------------
+
+export async function getAutomationSettings(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const config = await adminService.getAdminSetting('automation_config');
+    const templates = await adminService.getAdminSetting('automation_templates');
+    res.json({ config: config ?? {}, templates: templates ?? {} });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateAutomationConfig(req: Request, res: Response, next: NextFunction) {
+  try {
+    const adminId = req.user!.id;
+    const current = (await adminService.getAdminSetting<Record<string, boolean>>('automation_config')) ?? {};
+    const merged = { ...current, ...req.body };
+    await adminService.setAdminSetting('automation_config', merged, adminId);
+    res.json({ config: merged });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateAutomationTemplates(req: Request, res: Response, next: NextFunction) {
+  try {
+    const adminId = req.user!.id;
+    const current = (await adminService.getAdminSetting<Record<string, unknown>>('automation_templates')) ?? {};
+    const merged = { ...current, ...req.body };
+    await adminService.setAdminSetting('automation_templates', merged, adminId);
+    res.json({ templates: merged });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getAutomationEvents(req: Request, res: Response, next: NextFunction) {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Math.min(Number(req.query.limit) || 25, 100);
+    const offset = (page - 1) * limit;
+    const eventType = req.query.event_type as string | undefined;
+
+    let query = (await import('../config/supabase.js')).supabaseAdmin
+      .from('automation_events')
+      .select('*, lead:lead_id(name)', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (eventType) {
+      query = query.eq('event_type', eventType);
+    }
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    res.json({
+      events: data ?? [],
+      total: count ?? 0,
+      page,
+      limit,
+      total_pages: Math.ceil((count ?? 0) / limit),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
