@@ -63,6 +63,11 @@ const TEMPLATE_EVENTS: { key: string; label: string; description?: string }[] = 
     label: 'Shortlisted',
     description: 'Fires when a candidate is shortlisted (auto-approved or manually). Updates the CRM pipeline stage.',
   },
+  {
+    key: 'signed_up',
+    label: 'Signed Up',
+    description: 'Fires when a candidate signs up to create their talent profile. Updates the CRM pipeline stage.',
+  },
 ];
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
@@ -252,13 +257,14 @@ function CrmBackfillSection() {
           <div>
             <h3 className="text-sm font-semibold text-gray-900">Sync existing leads</h3>
             <p className="mt-1 text-sm text-gray-500">
-              Push every existing candidate (all form types) to the CRM with the appropriate pipeline
-              stage: leads in <strong>New</strong> or <strong>Under Review</strong> use the
-              &ldquo;Lead Received&rdquo; stage; <strong>Shortlisted</strong> and beyond use the
-              &ldquo;Shortlisted&rdquo; stage. Archived leads are skipped.
+              Push every existing candidate (all form types) to the CRM with the most advanced
+              applicable stage: leads with a linked signed-up talent use the &ldquo;Signed
+              Up&rdquo; stage; <strong>Shortlisted</strong>/Onboarding/Completed use
+              &ldquo;Shortlisted&rdquo;; everything else uses &ldquo;Lead Received&rdquo;. Archived
+              leads are skipped.
             </p>
             <p className="mt-2 text-xs text-gray-500">
-              Both events above must be enabled with a webhook URL configured. Leads where the
+              Each event must be enabled with a webhook URL configured. Leads where the
               corresponding event is disabled will be skipped.
             </p>
           </div>

@@ -272,7 +272,7 @@ export async function onCandidateSignedUp(
 
   const { data: leads } = await supabaseAdmin
     .from('lead_submissions')
-    .select('id, status, name, email, phone, profile_type')
+    .select('id, status, name, email, phone, profile_type, form_type')
     .eq('linked_talent_user_id', userId);
 
   if (!leads || leads.length === 0) return;
@@ -280,22 +280,32 @@ export async function onCandidateSignedUp(
   const eligible = ['new', 'under_review', 'shortlisted'];
 
   for (const lead of leads) {
-    if (!eligible.includes(lead.status)) continue;
+    if (eligible.includes(lead.status)) {
+      await supabaseAdmin
+        .from('lead_submissions')
+        .update({
+          status: 'partner_onboarding',
+          status_changed_by: null,
+          status_changed_at: new Date().toISOString(),
+        })
+        .eq('id', lead.id);
 
-    await supabaseAdmin
-      .from('lead_submissions')
-      .update({
-        status: 'partner_onboarding',
-        status_changed_by: null,
-        status_changed_at: new Date().toISOString(),
-      })
-      .eq('id', lead.id);
+      await logEvent({
+        event_type: 'lead_signup_onboarding',
+        lead_id: lead.id,
+        talent_user_id: userId,
+        triggered_by: 'system',
+      });
+    }
 
-    await logEvent({
-      event_type: 'lead_signup_onboarding',
-      lead_id: lead.id,
-      talent_user_id: userId,
-      triggered_by: 'system',
+    // Always fire the CRM signed_up event for linked leads, regardless of
+    // status — the signup itself is the trigger, not the status transition.
+    await sendCrmTemplateMessage(lead.id, 'signed_up', {
+      name: lead.name,
+      email: lead.email ?? email ?? '',
+      phone: lead.phone ?? phone ?? '',
+      profile_type: lead.profile_type,
+      form_type: lead.form_type,
     });
   }
 }
@@ -310,10 +320,11 @@ export async function syncLeadsToCrm(
   const templates = await getTemplates();
   const receivedTpl = templates['lead_received'];
   const shortlistedTpl = templates['shortlisted'];
+  const signedUpTpl = templates['signed_up'];
 
   const { data: leads, error } = await supabaseAdmin
     .from('lead_submissions')
-    .select('id, status, name, email, phone, profile_type, form_type, auto_approved')
+    .select('id, status, name, email, phone, profile_type, form_type, auto_approved, linked_talent_user_id')
     .is('deleted_at', null)
     .neq('status', 'archived');
 
@@ -326,22 +337,32 @@ export async function syncLeadsToCrm(
   let skipped = 0;
   let failed = 0;
 
-  // Anything in or past 'shortlisted' maps to the "Shortlisted" stage in CRM.
-  const shortlistedStatuses = new Set([
-    'shortlisted',
-    'partner_onboarding',
-    'onboard_completed',
-  ]);
-
   // Process in chunks of 10 to avoid hammering the CRM endpoint.
   const CHUNK = 10;
   for (let i = 0; i < leads.length; i += CHUNK) {
     const chunk = leads.slice(i, i + CHUNK);
     await Promise.allSettled(
       chunk.map(async (lead) => {
-        const useShortlisted = shortlistedStatuses.has(lead.status);
-        const tpl = useShortlisted ? shortlistedTpl : receivedTpl;
-        const eventKey = useShortlisted ? 'shortlisted' : 'lead_received';
+        // Stage mapping (most-advanced first):
+        //   linked_talent_user_id set     → Signed Up
+        //   status in shortlisted/partner_onboarding/onboard_completed → Shortlisted
+        //   otherwise                     → Lead Received
+        let eventKey: string;
+        let tpl;
+        if (lead.linked_talent_user_id) {
+          eventKey = 'signed_up';
+          tpl = signedUpTpl;
+        } else if (
+          lead.status === 'shortlisted' ||
+          lead.status === 'partner_onboarding' ||
+          lead.status === 'onboard_completed'
+        ) {
+          eventKey = 'shortlisted';
+          tpl = shortlistedTpl;
+        } else {
+          eventKey = 'lead_received';
+          tpl = receivedTpl;
+        }
 
         if (!tpl?.enabled || !tpl.crm_webhook_url) {
           skipped += 1;
