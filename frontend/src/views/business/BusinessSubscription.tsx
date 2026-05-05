@@ -59,8 +59,8 @@ export default function BusinessSubscription() {
   const [tab, setTab] = useState<Tab>('open');
 
   const allCards = cards ?? [];
-  const open = allCards.filter((c) => classifyCard(c) !== 'closed');
-  const closed = allCards.filter((c) => classifyCard(c) === 'closed');
+  const open = allCards.filter((c) => classifyCard(c) === 'live');
+  const closed = allCards.filter((c) => classifyCard(c) !== 'live');
   const visible = tab === 'open' ? open : closed;
 
   return (
