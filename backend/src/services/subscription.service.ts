@@ -528,7 +528,14 @@ export async function listForTalent(
     .order('created_at', { ascending: false });
 
   if (query.status === 'pending') {
-    q = q.eq('status', 'pending').is('cancelled_at', null);
+    // Pending tab shows only live offers. An archived card (recalled, closed,
+    // or cancelled-subscription) must never surface here, even if a stale
+    // recipient row escaped the recall's cancelled_at stamp — e.g. a manual
+    // assignment that fired after the recall and predated the guard.
+    q = q
+      .eq('status', 'pending')
+      .is('cancelled_at', null)
+      .eq('subscription_cards.status', 'active');
   } else if (query.status === 'responded') {
     q = q.in('status', ['accepted', 'rejected']);
   } else {
@@ -553,12 +560,15 @@ export async function listForTalent(
 
 export async function getUnreadCount(talentUserId: string): Promise<number> {
   // Cancelled offers don't count as unread — the partner rescinded them.
+  // Archived cards likewise don't count, even if a stale recipient row
+  // exists (must mirror the pending-tab filter in listForTalent).
   const { count, error } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('id', { count: 'exact', head: true })
+    .select('id, subscription_cards!inner(status)', { count: 'exact', head: true })
     .eq('talent_user_id', talentUserId)
     .eq('status', 'pending')
-    .is('cancelled_at', null);
+    .is('cancelled_at', null)
+    .eq('subscription_cards.status', 'active');
 
   if (error) throw new AppError(500, error.message);
   return count ?? 0;
@@ -960,11 +970,17 @@ export async function manualAssignTalent(
 ): Promise<ManualAssignTalentResult> {
   const { data: card, error: cardErr } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, content')
+    .select('id, content, status')
     .eq('external_id', input.card_id)
     .maybeSingle();
   if (cardErr) throw new AppError(500, cardErr.message);
   if (!card) throw new AppError(404, 'Subscription card not found on Profiles');
+  // Archived cards have been recalled/closed/cancelled. Creating a fresh
+  // pending recipient row would surface the offer to the talent as if it
+  // were live, bypassing the cancelled_at stamp the recall path applied.
+  if ((card as any).status === 'archived') {
+    throw new AppError(409, 'Cannot assign talent to an archived subscription card');
+  }
 
   const { data: talent, error: talentErr } = await supabaseAdmin
     .from('talent_users')
