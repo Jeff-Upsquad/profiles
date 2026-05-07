@@ -1,4 +1,5 @@
 import { randomInt } from 'crypto';
+import pg from 'pg';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { env } from '../config/env.js';
@@ -993,17 +994,30 @@ export async function adminReviewPortfolioItem(
     throw new AppError(400, 'Nothing to update');
   }
 
-  const { data, error } = await supabaseAdmin.rpc('admin_review_portfolio_item', {
-    p_item_id: itemId,
-    p_profile_id: profileId,
-    p_is_active: input.admin_is_active ?? null,
-    p_comment: input.admin_comment ?? null,
-    p_update_comment: input.admin_comment !== undefined,
-  });
+  if (!env.DATABASE_URL) throw new AppError(500, 'DATABASE_URL not configured');
 
-  if (error) throw new AppError(500, error.message);
-  if (!data) throw new AppError(404, 'Portfolio item not found');
-  return data;
+  const client = new pg.Client({ connectionString: env.DATABASE_URL });
+  try {
+    await client.connect();
+    const result = await client.query(
+      `UPDATE portfolio_items
+       SET admin_is_active = COALESCE($1, admin_is_active),
+           admin_comment   = CASE WHEN $4 THEN $2 ELSE admin_comment END
+       WHERE id = $3 AND profile_id = $5
+       RETURNING *`,
+      [
+        input.admin_is_active ?? null,
+        input.admin_comment ?? null,
+        itemId,
+        input.admin_comment !== undefined,
+        profileId,
+      ],
+    );
+    if (result.rowCount === 0) throw new AppError(404, 'Portfolio item not found');
+    return result.rows[0];
+  } finally {
+    await client.end();
+  }
 }
 
 export async function adminDeletePortfolioItem(profileId: string, itemId: string) {
