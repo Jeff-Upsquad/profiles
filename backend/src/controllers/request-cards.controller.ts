@@ -15,6 +15,30 @@ const TIER_MAP: Record<string, string> = {
   elite: 'Elite',
   custom: 'Custom',
 };
+// Standard plan → daily hours from SquadHub subscription_plans table.
+const PLAN_HOURS: Record<string, number> = {
+  starter: 1,
+  basic: 2.5,
+  plus: 4.5,
+  pro: 6.5,
+  personal: 8,
+};
+
+function buildHoursLabel(planName: string, workingDays: string[]): {
+  hours_per_day: number | null;
+  hours_label: string | null;
+} {
+  const hpd = PLAN_HOURS[planName.toLowerCase().trim()];
+  if (!hpd) return { hours_per_day: null, hours_label: null };
+  const days = workingDays.length || 5;
+  const perWeek = hpd * days;
+  const perMonth = perWeek * 4;
+  return {
+    hours_per_day: hpd,
+    hours_label: `${hpd} hrs/day · ${perWeek} hrs/week · ${perMonth} hrs/month`,
+  };
+}
+
 function normalizeTiers(raw: string): string[] {
   return raw
     .split(',')
@@ -82,9 +106,11 @@ export async function createFromRequest(req: Request, res: Response, next: NextF
       markup: 0,
       monthly_price: requestData.proposed_price,
       currency: 'INR',
-      hours_per_day: null,
-      hours_label: null,
-      deliverables_label: null,
+      ...buildHoursLabel(
+        requestData.plan || '',
+        requestData.working_days ? requestData.working_days.split(',').map((d: string) => d.trim()) : [],
+      ),
+      deliverables_label: 'No specific deliverables',
       customer_name: requestData.name,
       customer_email: requestData.email,
       customer_phone: requestData.phone,
@@ -135,9 +161,8 @@ export async function createCustom(req: Request, res: Response, next: NextFuncti
       proposed_price: null,
       markup: 0,
       monthly_price: null,
-      hours_per_day: null,
-      hours_label: null,
-      deliverables_label: null,
+      ...buildHoursLabel(plan_name || '', []),
+      deliverables_label: 'No specific deliverables',
       custom_deliverables: [],
     };
 
