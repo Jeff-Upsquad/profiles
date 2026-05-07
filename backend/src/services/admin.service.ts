@@ -1005,7 +1005,8 @@ export async function adminReviewPortfolioItem(
     .select()
     .single();
 
-  if (error || !data) throw new AppError(404, 'Portfolio item not found');
+  if (error) throw new AppError(500, error.message);
+  if (!data) throw new AppError(404, 'Portfolio item not found');
   return data;
 }
 

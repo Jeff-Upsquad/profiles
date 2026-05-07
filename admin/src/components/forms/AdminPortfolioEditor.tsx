@@ -77,9 +77,15 @@ export default function AdminPortfolioEditor({ profileId, skills }: Props) {
       );
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-portfolio', profileId] });
       queryClient.invalidateQueries({ queryKey: ['talent-profile', profileId] });
+      if (variables.admin_is_active !== undefined) {
+        toast.success(variables.admin_is_active ? 'Item activated' : 'Item deactivated');
+      }
+      if (variables.admin_comment !== undefined) {
+        toast.success('Comment saved');
+      }
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Review failed'),
   });
@@ -87,7 +93,6 @@ export default function AdminPortfolioEditor({ profileId, skills }: Props) {
   const handleToggleActive = (item: PortfolioItem) => {
     const next = !(item.admin_is_active ?? true);
     reviewItem.mutate({ itemId: item.id, admin_is_active: next });
-    toast.success(next ? 'Item activated' : 'Item deactivated');
   };
 
   const handleSaveComment = (item: PortfolioItem) => {
@@ -101,7 +106,6 @@ export default function AdminPortfolioEditor({ profileId, skills }: Props) {
       const { [item.id]: _, ...rest } = prev;
       return rest;
     });
-    toast.success('Comment saved');
   };
 
   const handleUpload = async (file: File, skillName: string) => {
