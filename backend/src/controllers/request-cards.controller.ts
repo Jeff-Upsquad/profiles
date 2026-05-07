@@ -82,6 +82,9 @@ export async function createFromRequest(req: Request, res: Response, next: NextF
       markup: 0,
       monthly_price: requestData.proposed_price,
       currency: 'INR',
+      hours_per_day: null,
+      hours_label: null,
+      deliverables_label: null,
       customer_name: requestData.name,
       customer_email: requestData.email,
       customer_phone: requestData.phone,
@@ -132,6 +135,9 @@ export async function createCustom(req: Request, res: Response, next: NextFuncti
       proposed_price: null,
       markup: 0,
       monthly_price: null,
+      hours_per_day: null,
+      hours_label: null,
+      deliverables_label: null,
       custom_deliverables: [],
     };
 
@@ -178,9 +184,27 @@ export async function editCard(req: Request, res: Response, next: NextFunction):
     if (body.working_days !== undefined) content.working_days = body.working_days;
     if (body.custom_deliverables !== undefined) content.custom_deliverables = body.custom_deliverables;
     if (body.proposed_price !== undefined) content.proposed_price = body.proposed_price;
-    if (body.markup !== undefined) {
-      content.markup = body.markup;
-      content.monthly_price = ((content.proposed_price as number) || 0) + (body.markup || 0);
+    if (body.markup !== undefined) content.markup = body.markup;
+    if (body.proposed_price !== undefined || body.markup !== undefined) {
+      const price = typeof content.proposed_price === 'number' ? content.proposed_price : 0;
+      const margin = typeof content.markup === 'number' ? content.markup : 0;
+      content.monthly_price = price - margin;
+    }
+
+    if (body.hours_per_day !== undefined) {
+      content.hours_per_day = body.hours_per_day;
+      if (typeof body.hours_per_day === 'number' && body.hours_per_day > 0) {
+        const days = Array.isArray(content.working_days) ? (content.working_days as string[]).length : 5;
+        const perWeek = body.hours_per_day * days;
+        const perMonth = perWeek * 4;
+        content.hours_label = `${body.hours_per_day} hrs/day · ${perWeek} hrs/week · ${perMonth} hrs/month`;
+      } else {
+        content.hours_label = null;
+      }
+    }
+
+    if (body.deliverables_text !== undefined) {
+      content.deliverables_label = body.deliverables_text || null;
     }
     if (body.title !== undefined) content.title = body.title;
 

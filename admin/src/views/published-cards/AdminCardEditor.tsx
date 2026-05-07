@@ -24,6 +24,9 @@ interface CardData {
     customer_email?: string;
     customer_phone?: string;
     custom_deliverables?: { id: string; name: string; kind: string; per_day: number; per_week: number; per_month: number }[];
+    hours_per_day?: number | null;
+    hours_label?: string;
+    deliverables_label?: string;
   };
   match_rules: {
     category_ids?: string[];
@@ -55,6 +58,8 @@ export default function AdminCardEditor({
   const [proposedPrice, setProposedPrice] = useState(0);
   const [markup, setMarkup] = useState(0);
   const [distribution, setDistribution] = useState('broadcast');
+  const [hoursPerDay, setHoursPerDay] = useState<number | null>(null);
+  const [deliverablesText, setDeliverablesText] = useState('');
 
   useEffect(() => {
     if (!card) return;
@@ -65,6 +70,8 @@ export default function AdminCardEditor({
     setProposedPrice(c.proposed_price || 0);
     setMarkup(c.markup || 0);
     setDistribution(card.distribution || 'broadcast');
+    setHoursPerDay(typeof c.hours_per_day === 'number' ? c.hours_per_day : null);
+    setDeliverablesText(typeof c.deliverables_label === 'string' ? c.deliverables_label : '');
   }, [card]);
 
   const saveMutation = useMutation({
@@ -73,9 +80,11 @@ export default function AdminCardEditor({
         brand_name: brandName || null,
         business_nature: businessNature || null,
         notes: notes || null,
-        proposed_price: proposedPrice || null,
+        proposed_price: proposedPrice,
         markup,
         distribution,
+        hours_per_day: hoursPerDay,
+        deliverables_text: deliverablesText || null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-request-card', cardId] });
@@ -98,7 +107,7 @@ export default function AdminCardEditor({
     onSuccess: onClose,
   });
 
-  const displayPrice = (proposedPrice || 0) + markup;
+  const displayPrice = (proposedPrice || 0) - markup;
 
   if (isLoading) {
     return (
@@ -233,10 +242,47 @@ export default function AdminCardEditor({
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-gray-500">Display Price</label>
+                <label className="mb-1 block text-xs text-gray-500">Talent Price</label>
                 <div className="flex items-center rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm font-semibold">
                   ₹{displayPrice.toLocaleString()}
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Work Commitment */}
+          <div className="rounded-lg border border-gray-200 bg-white p-4">
+            <h2 className="mb-3 text-sm font-semibold text-gray-900">Work Commitment</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs text-gray-500">Hours per Day</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={24}
+                  step={0.5}
+                  value={hoursPerDay ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setHoursPerDay(v === '' ? null : parseFloat(v) || 0);
+                  }}
+                  placeholder="e.g. 4"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                />
+                {hoursPerDay != null && hoursPerDay > 0 && (
+                  <p className="mt-1 text-xs text-gray-400">
+                    Talent will see: {hoursPerDay} hrs/day · {hoursPerDay * (card?.content.working_days?.length || 5)} hrs/week · {hoursPerDay * (card?.content.working_days?.length || 5) * 4} hrs/month
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-gray-500">Deliverables</label>
+                <input
+                  value={deliverablesText}
+                  onChange={(e) => setDeliverablesText(e.target.value)}
+                  placeholder="e.g. No specific deliverables"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                />
               </div>
             </div>
           </div>
