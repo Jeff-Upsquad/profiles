@@ -288,6 +288,20 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
             <p className="mt-3 text-center text-sm text-white/80">
               {selectedItem.file_name}
             </p>
+
+            {/* Inactive banner (talent-only — business never receives inactive items) */}
+            {selectedItem.admin_is_active === false && (
+              <div className="mt-2 flex flex-col items-center gap-1">
+                <span className="rounded-full bg-red-600 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
+                  Marked Inactive by Admin
+                </span>
+                {selectedItem.admin_comment && (
+                  <p className="max-w-md text-center text-xs text-white/70">
+                    {selectedItem.admin_comment}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -206,6 +206,7 @@ export async function getSharedProfile(businessUserId: string, categoryId: strin
             .from('portfolio_items')
             .select('*, portfolio_item_skills(skill_name)')
             .in('profile_id', ids)
+            .eq('admin_is_active', true)
             .order('category_name', { ascending: true })
             .order('skill_name', { ascending: true })
             .order('sort_order', { ascending: true }),
@@ -267,6 +268,7 @@ export async function getPortfolioForProfile(businessUserId: string, categoryId:
     .from('portfolio_items')
     .select('*, portfolio_item_skills(skill_name)')
     .eq('profile_id', profileId)
+    .eq('admin_is_active', true)
     .order('category_name', { ascending: true })
     .order('skill_name', { ascending: true })
     .order('sort_order', { ascending: true });
@@ -452,6 +454,7 @@ export async function getApprovedProfile(categorySlug: string, profileId: string
             .from('portfolio_items')
             .select('*, portfolio_item_skills(skill_name)')
             .in('profile_id', ids)
+            .eq('admin_is_active', true)
             .order('category_name', { ascending: true })
             .order('skill_name', { ascending: true })
             .order('sort_order', { ascending: true }),

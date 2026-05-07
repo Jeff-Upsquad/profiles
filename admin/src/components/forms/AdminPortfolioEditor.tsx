@@ -19,6 +19,8 @@ interface PortfolioItem {
   source_type?: string;
   provider?: string;
   thumbnail_url?: string | null;
+  admin_is_active?: boolean;
+  admin_comment?: string | null;
 }
 
 const ACCEPTED_TYPES: Record<string, 'image' | 'pdf' | 'video'> = {
@@ -37,6 +39,7 @@ export default function AdminPortfolioEditor({ profileId, skills }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeSkill, setActiveSkill] = useState<string | null>(null);
   const [uploading, setUploading] = useState<Record<string, number>>({});
+  const [editingComment, setEditingComment] = useState<Record<string, string>>({});
 
   const { data: items = [] } = useQuery<PortfolioItem[]>({
     queryKey: ['admin-portfolio', profileId],
@@ -58,6 +61,48 @@ export default function AdminPortfolioEditor({ profileId, skills }: Props) {
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Delete failed'),
   });
+
+  const reviewItem = useMutation({
+    mutationFn: async ({
+      itemId,
+      ...body
+    }: {
+      itemId: string;
+      admin_is_active?: boolean;
+      admin_comment?: string | null;
+    }) => {
+      const { data } = await api.patch(
+        `/admin/talents/profiles/${profileId}/portfolio/${itemId}/review`,
+        body,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-portfolio', profileId] });
+      queryClient.invalidateQueries({ queryKey: ['talent-profile', profileId] });
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Review failed'),
+  });
+
+  const handleToggleActive = (item: PortfolioItem) => {
+    const next = !(item.admin_is_active ?? true);
+    reviewItem.mutate({ itemId: item.id, admin_is_active: next });
+    toast.success(next ? 'Item activated' : 'Item deactivated');
+  };
+
+  const handleSaveComment = (item: PortfolioItem) => {
+    const comment = editingComment[item.id];
+    if (comment === undefined) return;
+    reviewItem.mutate({
+      itemId: item.id,
+      admin_comment: comment.trim() || null,
+    });
+    setEditingComment((prev) => {
+      const { [item.id]: _, ...rest } = prev;
+      return rest;
+    });
+    toast.success('Comment saved');
+  };
 
   const handleUpload = async (file: File, skillName: string) => {
     const fileType = ACCEPTED_TYPES[file.type];
@@ -185,30 +230,88 @@ export default function AdminPortfolioEditor({ profileId, skills }: Props) {
                 )}
 
                 {(itemsBySkill[skill] ?? []).length > 0 ? (
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    {itemsBySkill[skill].map((item) => (
-                      <div key={item.id} className="group relative rounded-lg border border-gray-100 p-2">
-                        {item.file_type === 'image' && (
-                          <img src={item.file_url} alt={item.file_name} className="h-24 w-full rounded-md object-cover" />
-                        )}
-                        {item.file_type === 'video' && (
-                          <video src={item.file_url} className="h-24 w-full rounded-md object-cover" />
-                        )}
-                        {item.file_type === 'pdf' && (
-                          <div className="flex h-24 items-center justify-center rounded-md bg-red-50 text-xs text-red-500">PDF</div>
-                        )}
-                        <p className="mt-1 truncate text-xs text-gray-600">{item.file_name}</p>
-                        <button
-                          type="button"
-                          onClick={() => deleteItem.mutate(item.id)}
-                          className="absolute right-1 top-1 hidden rounded-full bg-white p-1 text-red-500 shadow hover:bg-red-50 group-hover:block"
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {itemsBySkill[skill].map((item) => {
+                      const isActive = item.admin_is_active ?? true;
+                      const isEditingComment = item.id in editingComment;
+                      const commentValue = isEditingComment
+                        ? editingComment[item.id]
+                        : item.admin_comment ?? '';
+
+                      return (
+                        <div
+                          key={item.id}
+                          className={`group relative rounded-lg border p-2 ${
+                            isActive ? 'border-gray-100' : 'border-red-200 bg-red-50/50'
+                          }`}
                         >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
+                          {/* Thumbnail */}
+                          {item.file_type === 'image' && (
+                            <img src={item.file_url} alt={item.file_name} className="h-24 w-full rounded-md object-cover" />
+                          )}
+                          {item.file_type === 'video' && (
+                            <video src={item.file_url} className="h-24 w-full rounded-md object-cover" />
+                          )}
+                          {item.file_type === 'pdf' && (
+                            <div className="flex h-24 items-center justify-center rounded-md bg-red-50 text-xs text-red-500">PDF</div>
+                          )}
+
+                          <p className="mt-1 truncate text-xs text-gray-600">{item.file_name}</p>
+
+                          {/* Active/Inactive badge + toggle */}
+                          <div className="mt-2 flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleActive(item)}
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                                isActive
+                                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+                              }`}
+                            >
+                              <span className={`inline-block h-1.5 w-1.5 rounded-full ${isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                              {isActive ? 'Active' : 'Inactive'}
+                            </button>
+                          </div>
+
+                          {/* Comment input */}
+                          <div className="mt-2">
+                            <textarea
+                              rows={2}
+                              placeholder="Add a comment for the talent..."
+                              value={commentValue}
+                              onChange={(e) =>
+                                setEditingComment((prev) => ({
+                                  ...prev,
+                                  [item.id]: e.target.value,
+                                }))
+                              }
+                              className="w-full rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 placeholder:text-gray-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                            />
+                            {isEditingComment && editingComment[item.id] !== (item.admin_comment ?? '') && (
+                              <button
+                                type="button"
+                                onClick={() => handleSaveComment(item)}
+                                className="mt-1 rounded bg-indigo-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-indigo-700"
+                              >
+                                Save Comment
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Delete button */}
+                          <button
+                            type="button"
+                            onClick={() => deleteItem.mutate(item.id)}
+                            className="absolute right-1 top-1 hidden rounded-full bg-white p-1 text-red-500 shadow hover:bg-red-50 group-hover:block"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-xs text-gray-400">No items yet</p>

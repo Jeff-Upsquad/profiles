@@ -176,6 +176,11 @@ export const adminAddPortfolioItemSchema = z.object({
   category_name: z.string().max(200).nullable().optional(),
 });
 
+export const adminReviewPortfolioItemSchema = z.object({
+  admin_is_active: z.boolean().optional(),
+  admin_comment: z.string().max(1000).nullable().optional(),
+});
+
 // ---------------------------------------------------------------------------
 // Inferred types
 // ---------------------------------------------------------------------------
@@ -192,3 +197,4 @@ export type SetProfileTierInput = z.infer<typeof setProfileTierSchema>;
 export type AdminUpdateTalentUserInput = z.infer<typeof adminUpdateTalentUserSchema>;
 export type AdminUpdateTalentProfileInput = z.infer<typeof adminUpdateTalentProfileSchema>;
 export type AdminAddPortfolioItemInput = z.infer<typeof adminAddPortfolioItemSchema>;
+export type AdminReviewPortfolioItemInput = z.infer<typeof adminReviewPortfolioItemSchema>;

@@ -984,6 +984,31 @@ export async function adminAddPortfolioItem(
   return talentService.addPortfolioItem(profileId, profile.talent_user_id, input);
 }
 
+export async function adminReviewPortfolioItem(
+  profileId: string,
+  itemId: string,
+  input: { admin_is_active?: boolean; admin_comment?: string | null },
+) {
+  const updates: Record<string, unknown> = {};
+  if (input.admin_is_active !== undefined) updates.admin_is_active = input.admin_is_active;
+  if (input.admin_comment !== undefined) updates.admin_comment = input.admin_comment;
+
+  if (Object.keys(updates).length === 0) {
+    throw new AppError(400, 'Nothing to update');
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('portfolio_items')
+    .update(updates)
+    .eq('id', itemId)
+    .eq('profile_id', profileId)
+    .select()
+    .single();
+
+  if (error || !data) throw new AppError(404, 'Portfolio item not found');
+  return data;
+}
+
 export async function adminDeletePortfolioItem(profileId: string, itemId: string) {
   const { data: profile, error } = await supabaseAdmin
     .from('talent_profiles')

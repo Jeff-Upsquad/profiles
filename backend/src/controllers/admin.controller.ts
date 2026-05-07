@@ -529,6 +529,19 @@ export async function addProfilePortfolio(req: Request, res: Response, next: Nex
   }
 }
 
+export async function reviewProfilePortfolio(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.adminReviewPortfolioItem(
+      req.params.profileId as string,
+      req.params.itemId as string,
+      req.body,
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function deleteProfilePortfolio(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await adminService.adminDeletePortfolioItem(

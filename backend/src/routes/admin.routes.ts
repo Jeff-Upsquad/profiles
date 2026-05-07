@@ -23,6 +23,7 @@ import {
   adminUpdateTalentUserSchema,
   adminUpdateTalentProfileSchema,
   adminAddPortfolioItemSchema,
+  adminReviewPortfolioItemSchema,
 } from '../validators/admin.validators.js';
 import {
   createCourseSchema,
@@ -234,6 +235,11 @@ router.post(
   '/talents/profiles/:profileId/portfolio',
   validate({ body: adminAddPortfolioItemSchema }),
   adminController.addProfilePortfolio,
+);
+router.patch(
+  '/talents/profiles/:profileId/portfolio/:itemId/review',
+  validate({ body: adminReviewPortfolioItemSchema }),
+  adminController.reviewProfilePortfolio,
 );
 router.delete(
   '/talents/profiles/:profileId/portfolio/:itemId',

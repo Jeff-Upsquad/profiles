@@ -121,6 +121,20 @@ export default function ThreadsPortfolioCard({ item, onClick }: ThreadsPortfolio
         </div>
       )}
 
+      {/* Inactive overlay for talent view (business never receives inactive items) */}
+      {item.admin_is_active === false && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
+          <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+            Inactive
+          </span>
+          {item.admin_comment && (
+            <span className="mt-1 max-w-[90%] truncate rounded bg-black/60 px-1.5 py-0.5 text-[9px] text-white/90">
+              {item.admin_comment}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Hover overlay */}
       <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
     </button>

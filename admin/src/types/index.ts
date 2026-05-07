@@ -78,6 +78,8 @@ export interface PortfolioItem {
   external_url?: string | null;
   embed_url?: string | null;
   thumbnail_url?: string | null;
+  admin_is_active?: boolean;
+  admin_comment?: string | null;
 }
 
 export interface GhostSourceProfile {
