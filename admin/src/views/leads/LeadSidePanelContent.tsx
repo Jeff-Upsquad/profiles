@@ -231,7 +231,7 @@ export default function LeadSidePanelContent({
                 {displayPhone}
               </a>
               <a
-                href="https://shcrm.squadhub.in/app/leads"
+                href={`https://shcrm.squadhub.in/app/leads/lookup?phone=${linkPhone}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700"
