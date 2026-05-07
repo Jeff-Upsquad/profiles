@@ -989,21 +989,17 @@ export async function adminReviewPortfolioItem(
   itemId: string,
   input: { admin_is_active?: boolean; admin_comment?: string | null },
 ) {
-  const updates: Record<string, unknown> = {};
-  if (input.admin_is_active !== undefined) updates.admin_is_active = input.admin_is_active;
-  if (input.admin_comment !== undefined) updates.admin_comment = input.admin_comment;
-
-  if (Object.keys(updates).length === 0) {
+  if (input.admin_is_active === undefined && input.admin_comment === undefined) {
     throw new AppError(400, 'Nothing to update');
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('portfolio_items')
-    .update(updates)
-    .eq('id', itemId)
-    .eq('profile_id', profileId)
-    .select()
-    .single();
+  const { data, error } = await supabaseAdmin.rpc('admin_review_portfolio_item', {
+    p_item_id: itemId,
+    p_profile_id: profileId,
+    p_is_active: input.admin_is_active ?? null,
+    p_comment: input.admin_comment ?? null,
+    p_update_comment: input.admin_comment !== undefined,
+  });
 
   if (error) throw new AppError(500, error.message);
   if (!data) throw new AppError(404, 'Portfolio item not found');
