@@ -150,20 +150,6 @@ export default function BusinessDashboard() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 stagger-4">
-            <Link href="/business/discover" className="btn-iridescent text-sm py-2 px-3.5">
-              Discover Talent
-              <svg className="arrow-icon h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            </Link>
-            <Link
-              href="/business/shortlist"
-              className="font-[family-name:var(--font-inter)] inline-flex items-center gap-1.5 rounded-lg border border-[#E8E5DE] bg-white px-3.5 py-2 text-sm font-semibold text-[#0a0a0a] transition-all duration-200 hover:bg-[#f0f0f0] active:scale-[0.97]"
-            >
-              View Shortlist
-            </Link>
-          </div>
         </div>
       </section>
 
@@ -253,41 +239,12 @@ export default function BusinessDashboard() {
 
         {/* Side column — Featured tip + Quick links */}
         <div className="space-y-4">
-          <div className="relative rounded-2xl bg-[#0a0a0a] p-6 text-white overflow-hidden noise-overlay">
-            <div className="absolute -top-12 -right-12 h-32 w-32 rounded-full bg-rainbow opacity-30 blur-3xl" />
-            <div className="relative">
-              <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm mb-4">
-                <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-              </div>
-              <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em]">
-                Hire faster
-              </h3>
-              <p className="mt-1.5 text-sm text-white/70 leading-relaxed">
-                Browse approved talent profiles, shortlist favorites, and send interest requests directly from each card.
-              </p>
-              <Link
-                href="/business/discover"
-                className="mt-5 inline-flex items-center gap-1 font-[family-name:var(--font-inter)] text-[13px] font-semibold text-white hover:gap-2 transition-all"
-              >
-                Start browsing
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </Link>
-            </div>
-          </div>
-
           <div className="rounded-2xl border border-[#E8E5DE] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <h3 className="mb-3 font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
               Quick actions
             </h3>
             <div className="space-y-1">
               {[
-                { label: 'Browse all categories', to: '/business/discover', icon: 'M4 6h16M4 12h16M4 18h7' },
-                { label: 'My shortlist', to: '/business/shortlist', icon: 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z' },
-                { label: 'Interest requests', to: '/business/interests', icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
                 { label: 'Account settings', to: '/business/settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
               ].map((item) => (
                 <Link
