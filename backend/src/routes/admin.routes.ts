@@ -466,6 +466,10 @@ router.put('/training/courses/:id', validate({ body: updateCourseSchema }), trai
 router.delete('/training/courses/:id', trainingController.archiveCourse);
 router.post('/training/courses/:id/restore', trainingController.restoreCourse);
 
+// Course enrollment management (reopen expired deadlines)
+router.get('/training/users/:userId/enrollments', trainingController.getUserCourseEnrollments);
+router.delete('/training/users/:userId/enrollments/:courseId', trainingController.reopenCourse);
+
 // Chapters
 router.get('/training/chapters', trainingController.getChapters);
 router.post('/training/chapters', validate({ body: createChapterSchema }), trainingController.createChapter);

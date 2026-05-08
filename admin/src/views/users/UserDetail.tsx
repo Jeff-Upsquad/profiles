@@ -2,7 +2,8 @@
 
 import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -190,8 +191,18 @@ function Section({ title, rows }: { title: string; rows: FieldRow[] }) {
   );
 }
 
+interface CourseEnrollment {
+  course_id: string;
+  course_title: string;
+  countdown_hours: number | null;
+  started_at: string;
+  expires_at: string | null;
+  expired: boolean;
+}
+
 export default function UserDetail({ userId }: { userId: string }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { suspendUser, setUserActive, deleteUser } = useUserActions();
 
   const { data, isLoading, error } = useQuery<UserDetailResponse>({
@@ -201,6 +212,29 @@ export default function UserDetail({ userId }: { userId: string }) {
       return data;
     },
     enabled: !!userId,
+  });
+
+  const { data: enrollmentsData } = useQuery<{ enrollments: CourseEnrollment[] }>({
+    queryKey: ['admin-user-enrollments', userId],
+    queryFn: async () => {
+      const { data } = await api.get(`/admin/training/users/${userId}/enrollments`);
+      return data;
+    },
+    enabled: !!userId,
+  });
+  const enrollments = enrollmentsData?.enrollments ?? [];
+
+  const reopenCourse = useMutation({
+    mutationFn: async (courseId: string) => {
+      await api.delete(`/admin/training/users/${userId}/enrollments/${courseId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-user-enrollments', userId] });
+      toast.success('Course reopened — user will see the Start button again');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to reopen course');
+    },
   });
 
   const handleDelete = () => {
@@ -429,6 +463,57 @@ export default function UserDetail({ userId }: { userId: string }) {
       <Section title="Employment Preferences" rows={work} />
       <Section title="Identity & Banking" rows={identityBank} />
       <Section title="Account" rows={account} />
+
+      {enrollments.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+          <div className="border-b border-gray-200 px-6 py-4">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Course Enrollments ({enrollments.length})
+            </h2>
+          </div>
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Course</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Started</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Deadline</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {enrollments.map((e) => (
+                <tr key={e.course_id}>
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{e.course_title}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{new Date(e.started_at).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{e.expires_at ? new Date(e.expires_at).toLocaleDateString() : '-'}</td>
+                  <td className="px-6 py-4">
+                    <Badge variant={e.expired ? 'red' : 'green'}>
+                      {e.expired ? 'Expired' : 'Active'}
+                    </Badge>
+                  </td>
+                  <td className="px-6 py-4">
+                    {e.expired && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        loading={reopenCourse.isPending && reopenCourse.variables === e.course_id}
+                        onClick={() => {
+                          if (window.confirm('Reopen this course? The user will see the Start button again and get a fresh countdown timer.')) {
+                            reopenCourse.mutate(e.course_id);
+                          }
+                        }}
+                      >
+                        Reopen
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
         <div className="border-b border-gray-200 px-6 py-4">
