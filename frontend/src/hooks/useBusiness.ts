@@ -156,6 +156,7 @@ export interface BusinessSubscriptionCardDetail {
     per_month?: number;
   }>;
   status: 'active' | 'assigned' | 'archived';
+  recalled_at: string | null;
   published_at: string | null;
   expires_at: string | null;
   category_ids: string[];

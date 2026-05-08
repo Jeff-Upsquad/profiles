@@ -683,7 +683,7 @@ export async function listMySubscriptionCards(businessUserId: string) {
 export async function getMySubscriptionCard(businessUserId: string, cardId: string) {
   const { data: card, error } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, content, match_rules, status, published_at, expires_at, business_user_id')
+    .select('id, external_id, content, match_rules, status, published_at, expires_at, business_user_id, recalled_at')
     .eq('id', cardId)
     .maybeSingle();
 
@@ -742,6 +742,7 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
         }>)
       : [],
     status: card.status as 'active' | 'archived',
+    recalled_at: ((card as any).recalled_at as string | null) ?? null,
     published_at: card.published_at as string | null,
     expires_at: card.expires_at as string | null,
     category_ids: categoryIds,

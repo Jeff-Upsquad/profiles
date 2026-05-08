@@ -43,6 +43,8 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
     return (recipients ?? []).some((r) => r.selected_at);
   }, [recipients]);
 
+  const isClosed = card?.status === 'archived' || !!card?.recalled_at;
+
   const forReview = useMemo(() => {
     return (recipients ?? []).filter(
       (r) => !r.business_review_status && !r.selected_at && !r.passed_over_at,
@@ -130,11 +132,18 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
               <p className="mt-0.5 text-sm text-[#737373]">{card.plan_name}</p>
             )}
           </div>
-          {price && (
-            <span className="shrink-0 rounded-full bg-[#F2FCBC] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
-              {price}
-            </span>
-          )}
+          <div className="flex shrink-0 items-center gap-2">
+            {isClosed && (
+              <span className="rounded-full bg-[#f0f0f0] px-3 py-1 text-xs font-semibold text-[#737373]">
+                {card.recalled_at ? 'Recalled' : 'Closed'}
+              </span>
+            )}
+            {price && (
+              <span className="rounded-full bg-[#F2FCBC] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
+                {price}
+              </span>
+            )}
+          </div>
         </div>
 
         {card.categories.length > 0 && (
@@ -287,11 +296,11 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
                 {forReview.map((r) => (
                   <li key={r.recipient_id} className="px-5 py-3 sm:px-6">
                     <div className="flex items-center gap-4">
-                      <RecipientLink recipient={r}>
+                      <RecipientLink recipient={r} inactive={isClosed && !r.selected_at}>
                         <RecipientAvatar recipient={r} />
                         <RecipientInfo recipient={r} />
                       </RecipientLink>
-                      {!hasSelection && (
+                      {!hasSelection && !isClosed && (
                         <div className="flex shrink-0 items-center gap-2">
                           <button
                             type="button"
@@ -338,11 +347,11 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
                 {shortlisted.map((r) => (
                   <li key={r.recipient_id} className="px-5 py-3 sm:px-6">
                     <div className="flex items-center gap-4">
-                      <RecipientLink recipient={r}>
+                      <RecipientLink recipient={r} inactive={isClosed && !r.selected_at}>
                         <RecipientAvatar recipient={r} />
                         <RecipientInfo recipient={r} />
                       </RecipientLink>
-                      {!hasSelection && (
+                      {!hasSelection && !isClosed && (
                         <div className="flex shrink-0 items-center gap-2">
                           <button
                             type="button"
@@ -362,7 +371,7 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
                           </button>
                         </div>
                       )}
-                      {hasSelection && (
+                      {(hasSelection || isClosed) && !r.selected_at && (
                         <span className="shrink-0 rounded-full bg-[#f0f0f0] px-2 py-0.5 text-[10px] font-medium text-[#737373]">
                           Not selected
                         </span>
@@ -456,7 +465,14 @@ function RecipientInfo({ recipient: r }: { recipient: CardRecipientForBusiness }
   );
 }
 
-function RecipientLink({ recipient: r, children }: { recipient: CardRecipientForBusiness; children: React.ReactNode }) {
+function RecipientLink({ recipient: r, children, inactive = false }: { recipient: CardRecipientForBusiness; children: React.ReactNode; inactive?: boolean }) {
+  if (inactive) {
+    return (
+      <div className="flex min-w-0 flex-1 items-center gap-4 opacity-45 grayscale cursor-default select-none">
+        {children}
+      </div>
+    );
+  }
   if (r.profile_id && r.category?.id) {
     return (
       <Link
