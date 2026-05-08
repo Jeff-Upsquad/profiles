@@ -881,7 +881,7 @@ export async function getInterests(businessUserId: string) {
 async function verifyCardOwnership(businessUserId: string, cardId: string) {
   const { data: card, error } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, business_user_id, match_rules, selected_at, external_id, content')
+    .select('id, business_user_id, match_rules, selected_at, selected_talent_user_id, external_id, content')
     .eq('id', cardId)
     .maybeSingle();
 
@@ -945,11 +945,18 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
   const visibleTalentIds = Array.from(profileMap.keys());
   const tiers = await getTalentTiersByUserIds(visibleTalentIds);
 
+  // Use the card-level selected_talent_user_id as fallback when the
+  // recipient row doesn't have selected_at stamped (e.g. SquadHub admin
+  // assigned the card without going through the selection webhook).
+  const cardSelectedTalent = card.selected_talent_user_id as string | null;
+  const cardSelectedAt = card.selected_at as string | null;
+
   return rows
     .filter((r: any) => profileMap.has(r.talent_user_id))
     .map((r: any) => {
       const talent = talentMap.get(r.talent_user_id) ?? {};
       const profile = profileMap.get(r.talent_user_id);
+      const isCardSelected = cardSelectedTalent && r.talent_user_id === cardSelectedTalent;
       return {
         recipient_id: r.id as string,
         talent_user_id: r.talent_user_id as string,
@@ -963,8 +970,8 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
         tier_custom: tiers[r.talent_user_id]?.tier_custom ?? null,
         business_review_status: r.business_review_status ?? null,
         business_reviewed_at: r.business_reviewed_at ?? null,
-        selected_at: r.selected_at ?? null,
-        passed_over_at: r.passed_over_at ?? null,
+        selected_at: r.selected_at ?? (isCardSelected ? cardSelectedAt : null),
+        passed_over_at: r.passed_over_at ?? (cardSelectedTalent && !isCardSelected ? cardSelectedAt : null),
         responded_at: r.responded_at ?? null,
       };
     });
