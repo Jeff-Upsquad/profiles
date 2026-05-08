@@ -7,23 +7,33 @@ import { supabaseAdmin } from '../config/supabase.js';
  * clause. Unknown keys are logged and skipped (forward-compat: SquadHub can
  * start sending new rules before Profiles knows about them, without dropping
  * the card).
- *
- * New rules plug in as new helper functions — resist inventing a DSL; add
- * shape one rule at a time when a concrete need exists.
  */
 
 const MAX_MATCHES = 10_000;
 
 export interface MatchRules {
   category_ids?: string[];
+  target_tiers?: string[];
+  min_experience_years?: number;
+  target_languages?: string[];
+  target_country_names?: string[];
+  target_regions?: Array<{ country_name?: string; region: string }>;
   [key: string]: unknown;
 }
 
-const KNOWN_RULE_KEYS = new Set<keyof MatchRules>(['category_ids']);
+const KNOWN_RULE_KEYS = new Set<string>([
+  'category_ids',
+  'target_tiers',
+  'min_experience_years',
+  'target_languages',
+  'target_country_ids',
+  'target_country_names',
+  'target_regions',
+]);
 
 export async function findMatchingTalents(matchRules: MatchRules): Promise<string[]> {
   for (const key of Object.keys(matchRules)) {
-    if (!KNOWN_RULE_KEYS.has(key as keyof MatchRules)) {
+    if (!KNOWN_RULE_KEYS.has(key)) {
       console.warn(`[subscription-matcher] ignoring unknown match rule "${key}"`);
     }
   }
@@ -36,21 +46,128 @@ export async function findMatchingTalents(matchRules: MatchRules): Promise<strin
     return [];
   }
 
-  const { data, error } = await supabaseAdmin
+  // Step 1: Base query — category + experience
+  let qb = supabaseAdmin
     .from('talent_profiles')
-    .select('talent_user_id')
+    .select('id, talent_user_id')
     .eq('status', 'approved')
-    .in('category_id', categoryIds)
-    .limit(MAX_MATCHES);
+    .in('category_id', categoryIds);
 
-  if (error) {
-    console.error('[subscription-matcher] query failed', error);
-    throw error;
+  const minExp = Number(matchRules.min_experience_years) || 0;
+  if (minExp > 0) {
+    qb = qb.gte('field_data->>years_experience', String(minExp));
+  }
+
+  const { data: baseRows, error: baseErr } = await qb.limit(MAX_MATCHES);
+  if (baseErr) {
+    console.error('[subscription-matcher] base query failed', baseErr);
+    throw baseErr;
+  }
+
+  let rows = (baseRows ?? []) as Array<{ id: string; talent_user_id: string }>;
+  if (rows.length === 0) return [];
+
+  // Step 2: Tier filter — narrow by profile IDs
+  const tiers = Array.isArray(matchRules.target_tiers)
+    ? matchRules.target_tiers.map((t) => String(t).toLowerCase()).filter(Boolean)
+    : [];
+  if (tiers.length > 0) {
+    const profileIds = rows.map((r) => r.id);
+    const { data: tierRows, error: tierErr } = await supabaseAdmin
+      .from('v_talent_profile_tier')
+      .select('talent_profile_id')
+      .in('talent_profile_id', profileIds)
+      .in('tier', tiers);
+    if (tierErr) {
+      console.error('[subscription-matcher] tier query failed', tierErr);
+      throw tierErr;
+    }
+    const allowed = new Set((tierRows ?? []).map((r: any) => r.talent_profile_id as string));
+    rows = rows.filter((r) => allowed.has(r.id));
+    if (rows.length === 0) return [];
+  }
+
+  // Step 3: Country / region filter — narrow by talent_user_id
+  const countryNames = Array.isArray(matchRules.target_country_names)
+    ? matchRules.target_country_names.filter((v): v is string => typeof v === 'string' && v.length > 0)
+    : [];
+  const regions = Array.isArray(matchRules.target_regions) ? matchRules.target_regions : [];
+
+  if (countryNames.length > 0 || regions.length > 0) {
+    const allCountries = new Set(countryNames.map((c) => c.toLowerCase()));
+    for (const r of regions) {
+      if (r.country_name) allCountries.add(r.country_name.toLowerCase());
+    }
+
+    const talentUserIds = [...new Set(rows.map((r) => r.talent_user_id))];
+    const { data: basicRows, error: basicErr } = await supabaseAdmin
+      .from('talent_profiles_basic')
+      .select('talent_user_id, country, state')
+      .in('talent_user_id', talentUserIds);
+    if (basicErr) {
+      console.error('[subscription-matcher] location query failed', basicErr);
+      throw basicErr;
+    }
+
+    const regionPairs = regions
+      .filter((r) => r.country_name && r.region)
+      .map((r) => `${r.country_name!.toLowerCase()}::${r.region.toLowerCase()}`);
+    const regionPairSet = new Set(regionPairs);
+    const countriesWithRegions = new Set(
+      regions.filter((r) => r.country_name && r.region).map((r) => r.country_name!.toLowerCase()),
+    );
+
+    const allowedUsers = new Set<string>();
+    for (const b of basicRows ?? []) {
+      const uid = b.talent_user_id as string;
+      const country = String(b.country ?? '').toLowerCase();
+      const state = String(b.state ?? '').toLowerCase();
+
+      if (countriesWithRegions.has(country)) {
+        if (regionPairSet.has(`${country}::${state}`)) allowedUsers.add(uid);
+      } else if (allCountries.has(country)) {
+        allowedUsers.add(uid);
+      }
+    }
+
+    rows = rows.filter((r) => allowedUsers.has(r.talent_user_id));
+    if (rows.length === 0) return [];
+  }
+
+  // Step 4: Language filter — JS post-filter on JSONB languages_spoken
+  const langs = Array.isArray(matchRules.target_languages)
+    ? matchRules.target_languages.filter((v): v is string => typeof v === 'string' && v.length > 0)
+    : [];
+  if (langs.length > 0) {
+    const wanted = new Set(langs.map((l) => l.toLowerCase()));
+    const talentUserIds = [...new Set(rows.map((r) => r.talent_user_id))];
+    const { data: userRows, error: userErr } = await supabaseAdmin
+      .from('talent_users')
+      .select('id, languages_spoken')
+      .in('id', talentUserIds);
+    if (userErr) {
+      console.error('[subscription-matcher] language query failed', userErr);
+      throw userErr;
+    }
+
+    const allowedUsers = new Set<string>();
+    for (const u of userRows ?? []) {
+      const spoken = u.languages_spoken as Array<{ language?: string }> | null;
+      if (
+        Array.isArray(spoken) &&
+        spoken.some((l) => wanted.has(String(l?.language ?? '').toLowerCase()))
+      ) {
+        allowedUsers.add(u.id as string);
+      }
+    }
+
+    rows = rows.filter((r) => allowedUsers.has(r.talent_user_id));
+    if (rows.length === 0) return [];
   }
 
   const unique = new Set<string>();
-  for (const row of data ?? []) {
-    if (row.talent_user_id) unique.add(row.talent_user_id as string);
+  for (const row of rows) {
+    if (row.talent_user_id) unique.add(row.talent_user_id);
   }
   return Array.from(unique);
 }
