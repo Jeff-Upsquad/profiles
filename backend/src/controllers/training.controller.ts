@@ -64,6 +64,24 @@ export async function reorderCourses(req: Request, res: Response, next: NextFunc
 }
 
 // ---------------------------------------------------------------------------
+// Admin — Course enrollment management
+// ---------------------------------------------------------------------------
+
+export async function getUserCourseEnrollments(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await trainingService.getUserCourseEnrollments(req.params.userId as string);
+    res.json({ enrollments: data });
+  } catch (err) { next(err); }
+}
+
+export async function reopenCourse(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await trainingService.reopenCourse(req.params.userId as string, req.params.courseId as string);
+    res.json(data);
+  } catch (err) { next(err); }
+}
+
+// ---------------------------------------------------------------------------
 // Talent — Course start (countdown)
 // ---------------------------------------------------------------------------
 

@@ -1171,3 +1171,76 @@ export async function completeOnboarding(userId: string, categoryIds: string[]) 
   if (error) throw new AppError(500, `Failed to complete onboarding: ${error.message}`);
   return { message: 'Onboarding completed' };
 }
+
+// ---------------------------------------------------------------------------
+// Admin — Course enrollment management
+// ---------------------------------------------------------------------------
+
+export async function getUserCourseEnrollments(userId: string) {
+  const { data: starts, error: startsErr } = await supabaseAdmin
+    .from('training_course_starts')
+    .select('course_id, started_at')
+    .eq('talent_user_id', userId);
+  if (startsErr) throw new AppError(500, `Failed to fetch enrollments: ${startsErr.message}`);
+  if (!starts || starts.length === 0) return [];
+
+  const courseIds = starts.map((s) => s.course_id);
+  const { data: courses, error: coursesErr } = await supabaseAdmin
+    .from('training_courses')
+    .select('id, title, countdown_hours')
+    .in('id', courseIds);
+  if (coursesErr) throw new AppError(500, `Failed to fetch courses: ${coursesErr.message}`);
+
+  const courseMap = new Map((courses ?? []).map((c) => [c.id, c]));
+  const now = Date.now();
+
+  return starts.map((s) => {
+    const course = courseMap.get(s.course_id);
+    const countdownHours = course?.countdown_hours ?? null;
+    let expiresAt: string | null = null;
+    let expired = false;
+    if (countdownHours && s.started_at) {
+      const expiresMs = new Date(s.started_at).getTime() + countdownHours * 3600_000;
+      expiresAt = new Date(expiresMs).toISOString();
+      expired = expiresMs < now;
+    }
+    return {
+      course_id: s.course_id,
+      course_title: course?.title ?? 'Unknown',
+      countdown_hours: countdownHours,
+      started_at: s.started_at,
+      expires_at: expiresAt,
+      expired,
+    };
+  });
+}
+
+export async function reopenCourse(userId: string, courseId: string) {
+  const { data: course, error: courseErr } = await supabaseAdmin
+    .from('training_courses')
+    .select('id, countdown_enabled, deleted_at')
+    .eq('id', courseId)
+    .single();
+  if (courseErr || !course) throw new AppError(404, 'Course not found');
+  if (course.deleted_at) throw new AppError(404, 'Course not found');
+  if (!course.countdown_enabled) {
+    throw new AppError(400, 'This course does not have a countdown deadline');
+  }
+
+  const { data: existing } = await supabaseAdmin
+    .from('training_course_starts')
+    .select('started_at')
+    .eq('talent_user_id', userId)
+    .eq('course_id', courseId)
+    .maybeSingle();
+  if (!existing) throw new AppError(404, 'No enrollment found for this user and course');
+
+  const { error } = await supabaseAdmin
+    .from('training_course_starts')
+    .delete()
+    .eq('talent_user_id', userId)
+    .eq('course_id', courseId);
+  if (error) throw new AppError(500, `Failed to reopen course: ${error.message}`);
+
+  return { message: 'Course reopened' };
+}
