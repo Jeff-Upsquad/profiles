@@ -8,6 +8,7 @@ import StatusTabs from './StatusTabs';
 import ProfileTypeTabs from './ProfileTypeTabs';
 import NotesSection from './NotesSection';
 import TalentOnboardingSection from './TalentOnboardingSection';
+import OnboardingProgress from './OnboardingProgress';
 import InterviewInvitationSection from '@/views/interview/InterviewInvitationSection';
 import Link from 'next/link';
 import { formatIndianPhone, cleanPhoneForLink } from '@/lib/phone';
@@ -28,7 +29,14 @@ interface LeadFull {
   archive_reason: string | null;
   profile_type: string | null;
   profile_type_custom: string | null;
-  linked_talent: { id: string; full_name: string } | null;
+  linked_talent: { id: string; full_name: string; onboarding_completed: boolean } | null;
+  onboarding_progress: {
+    signed_up: boolean;
+    onboarding_completed: boolean;
+    basic_profile_completed: boolean;
+    job_profile_completed: boolean;
+    portfolio_completed: boolean;
+  };
   auto_approved: boolean;
   deleted_at: string | null;
   created_at: string;
@@ -282,6 +290,11 @@ export default function LeadSidePanelContent({
             <p className="mt-0.5 whitespace-pre-wrap text-sm text-gray-800">{lead.admin_notes}</p>
           </div>
         )}
+      </Section>
+
+      {/* Onboarding Progress */}
+      <Section title="Onboarding Progress">
+        <OnboardingProgress progress={lead.onboarding_progress} />
       </Section>
 
       {/* Notes */}
