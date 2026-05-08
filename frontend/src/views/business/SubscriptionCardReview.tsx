@@ -296,7 +296,7 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
                 {forReview.map((r) => (
                   <li key={r.recipient_id} className="px-5 py-3 sm:px-6">
                     <div className="flex items-center gap-4">
-                      <RecipientLink recipient={r} inactive={isClosed && !r.selected_at}>
+                      <RecipientLink recipient={r} inactive={(isClosed || hasSelection) && !r.selected_at}>
                         <RecipientAvatar recipient={r} />
                         <RecipientInfo recipient={r} />
                       </RecipientLink>
@@ -347,7 +347,7 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
                 {shortlisted.map((r) => (
                   <li key={r.recipient_id} className="px-5 py-3 sm:px-6">
                     <div className="flex items-center gap-4">
-                      <RecipientLink recipient={r} inactive={isClosed && !r.selected_at}>
+                      <RecipientLink recipient={r} inactive={(isClosed || hasSelection) && !r.selected_at}>
                         <RecipientAvatar recipient={r} />
                         <RecipientInfo recipient={r} />
                       </RecipientLink>
