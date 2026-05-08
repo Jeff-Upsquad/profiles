@@ -54,6 +54,7 @@ export interface SubscriptionCardItem {
     id: string;
     external_id: string;
     content: SubscriptionCardContentShape;
+    status: 'active' | 'assigned' | 'archived';
     published_at: string;
     expires_at: string | null;
   };

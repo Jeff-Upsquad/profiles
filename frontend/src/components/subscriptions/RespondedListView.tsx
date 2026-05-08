@@ -132,7 +132,11 @@ export default function RespondedListView({ items }: Props) {
                         {item.status === 'rejected' && <Badge variant="red">Declined</Badge>}
                         {cancelled && <Badge variant="gray">Cancelled</Badge>}
                         {item.selected_at && <Badge variant="blue">Selected</Badge>}
-                        {item.passed_over_at && !item.selected_at && <Badge variant="gray">Not selected</Badge>}
+                        {item.passed_over_at && !item.selected_at && (
+                          <Badge variant="gray">
+                            {item.card.status === 'assigned' ? 'Closed' : 'Not selected'}
+                          </Badge>
+                        )}
                         <span className="hidden w-16 text-right font-[family-name:var(--font-inter)] text-xs text-[#a3a3a3] sm:inline">
                           {time}
                         </span>

@@ -26,7 +26,8 @@ function formatPublishedAt(iso: string | null): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function classifyCard(card: BusinessSubscriptionCardSummary): 'live' | 'recalled' | 'closed' {
+function classifyCard(card: BusinessSubscriptionCardSummary): 'assigned' | 'live' | 'recalled' | 'closed' {
+  if (card.status === 'assigned') return 'assigned';
   if (card.status === 'active') return 'live';
   if (card.recalled_at) return 'recalled';
   return 'closed';
@@ -59,8 +60,9 @@ export default function BusinessSubscription() {
   const [tab, setTab] = useState<Tab>('open');
 
   const allCards = cards ?? [];
+  const assigned = allCards.filter((c) => classifyCard(c) === 'assigned');
   const open = allCards.filter((c) => classifyCard(c) === 'live');
-  const closed = allCards.filter((c) => classifyCard(c) !== 'live');
+  const closed = allCards.filter((c) => classifyCard(c) === 'recalled' || classifyCard(c) === 'closed');
   const visible = tab === 'open' ? open : closed;
 
   return (
@@ -83,6 +85,30 @@ export default function BusinessSubscription() {
           </div>
         </div>
       </section>
+
+      {/* ── Active Subscriptions (Assigned) ── */}
+      {assigned.length > 0 && (
+        <div className="rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between border-b border-[#E8E5DE] px-6 py-5">
+            <div>
+              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
+                Active Subscriptions
+              </h2>
+              <p className="mt-0.5 text-sm text-[#737373]">
+                Talents have been assigned to these cards.
+              </p>
+            </div>
+            <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-700">
+              {assigned.length}
+            </span>
+          </div>
+          <ul className="divide-y divide-[#E8E5DE]">
+            {assigned.map((card, i) => (
+              <AssignedCardRow key={card.id} card={card} index={i} />
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* ── Cards list ── */}
       <div className="rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -205,6 +231,69 @@ function EmptyState({ tab, hasNoCards }: { tab: Tab; hasNoCards: boolean }) {
       </h3>
       <p className="max-w-sm text-sm text-[#737373]">{description}</p>
     </div>
+  );
+}
+
+function AssignedCardRow({ card, index }: { card: BusinessSubscriptionCardSummary; index: number }) {
+  const price = formatPrice(card.customer_monthly_price, card.currency);
+  const published = formatPublishedAt(card.published_at);
+  const tint = tintFor(card.id);
+  const selectedCount = card.counts.selected ?? 0;
+
+  return (
+    <li className={`stagger-${Math.min(index + 1, 6)}`}>
+      <Link
+        href={`/business/subscription/${card.id}`}
+        className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#F7F6F3]"
+      >
+        <div
+          className={`${tint} flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl`}
+          style={{ color: 'var(--tint-icon)' }}
+        >
+          <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
+              {cardTitle(card)}
+            </p>
+            <span className="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+              Assigned
+            </span>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+            {selectedCount > 0 && (
+              <span className="font-medium text-sky-700">
+                {selectedCount} talent{selectedCount !== 1 ? 's' : ''} selected
+              </span>
+            )}
+            {selectedCount > 0 && (price || published) && (
+              <span className="text-[#D4D4D8]">&middot;</span>
+            )}
+            {price && <span className="font-medium text-[#0a0a0a]">{price}</span>}
+            {published && (
+              <>
+                {price && <span className="text-[#D4D4D8]">&middot;</span>}
+                <span className="text-[#a3a3a3]">Published {published}</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        <svg
+          className="h-4 w-4 flex-shrink-0 text-[#a3a3a3] opacity-0 transition-opacity group-hover:opacity-100"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2.25}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </Link>
+    </li>
   );
 }
 

@@ -318,9 +318,9 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     .maybeSingle();
 
   if (existing?.id) {
-    const previousStatus = (existing as any).status as 'active' | 'archived';
+    const previousStatus = (existing as any).status as 'active' | 'assigned' | 'archived';
     const nextStatus = input.status ?? previousStatus;
-    const isRecall = previousStatus === 'active' && nextStatus === 'archived';
+    const isRecall = (previousStatus === 'active' || previousStatus === 'assigned') && nextStatus === 'archived';
     const isRepublish = previousStatus === 'archived' && nextStatus === 'active';
 
     const updatePatch: Record<string, unknown> = {
@@ -494,7 +494,7 @@ interface RecipientRow {
     id: string;
     external_id: string;
     content: Record<string, unknown>;
-    status: 'active' | 'archived';
+    status: 'active' | 'assigned' | 'archived';
     published_at: string;
     expires_at: string | null;
   } | null;
@@ -595,7 +595,7 @@ export interface AdminCardRow {
 }
 
 export interface AdminListCardsInput {
-  status?: 'active' | 'archived';
+  status?: 'active' | 'assigned' | 'archived';
   distribution?: 'broadcast' | 'manual';
   search?: string;
   business_review_filter?: 'has_shortlisted' | 'has_business_rejected' | 'has_selected';
@@ -607,7 +607,7 @@ export async function listAllForAdmin(input: AdminListCardsInput): Promise<Admin
     .select('id, external_id, status, distribution, published_at, expires_at, content, match_rules, source, subscription_request_id, selected_talent_user_id')
     .order('published_at', { ascending: false });
 
-  if (input.status === 'active' || input.status === 'archived') {
+  if (input.status === 'active' || input.status === 'assigned' || input.status === 'archived') {
     q = q.eq('status', input.status);
   }
 
@@ -1240,64 +1240,58 @@ export async function adminUndoSelection(cardId: string): Promise<void> {
 
 export async function handleSelectionWebhook(
   externalCardId: string,
-  talentId: string | null,
+  talentIds: string[],
   selectedAt: string,
+  cardStatus: 'assigned' | 'active' | 'archived' | null,
 ): Promise<void> {
   const { data: card } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, selected_at, content')
+    .select('id, selected_at, content, status')
     .eq('external_id', externalCardId)
     .maybeSingle();
   if (!card) return;
-  if ((card as any).selected_at) return;
 
-  if (talentId) {
-    // SquadHub selected this specific talent
-    const { data: recipient } = await supabaseAdmin
-      .from('subscription_card_recipients')
-      .select('id')
-      .eq('card_id', (card as any).id)
-      .eq('talent_user_id', talentId)
-      .is('cancelled_at', null)
-      .maybeSingle();
+  const cid = (card as any).id as string;
 
-    if (recipient) {
-      await supabaseAdmin
-        .from('subscription_card_recipients')
-        .update({ selected_at: selectedAt })
-        .eq('id', (recipient as any).id);
-
-      await supabaseAdmin
-        .from('subscription_card_recipients')
-        .update({ passed_over_at: selectedAt })
-        .eq('card_id', (card as any).id)
-        .eq('status', 'accepted')
-        .neq('id', (recipient as any).id)
-        .is('passed_over_at', null);
-    }
-
+  if (talentIds.length > 0) {
+    // Stamp selected on each specified talent
     await supabaseAdmin
-      .from('subscription_cards')
-      .update({ selected_talent_user_id: talentId, selected_at: selectedAt })
-      .eq('id', (card as any).id);
+      .from('subscription_card_recipients')
+      .update({ selected_at: selectedAt, passed_over_at: null })
+      .eq('card_id', cid)
+      .eq('status', 'accepted')
+      .in('talent_user_id', talentIds);
 
-    notifySelected((card as any).id, talentId, (card as any).content ?? {}).catch((err) => {
-      console.error('[subscription] notifySelected (webhook) threw', err);
-    });
-  } else {
-    // SquadHub selected a partner (not a talent) — just pass over all talents
+    // Pass over non-selected accepted talents
     await supabaseAdmin
       .from('subscription_card_recipients')
       .update({ passed_over_at: selectedAt })
-      .eq('card_id', (card as any).id)
+      .eq('card_id', cid)
       .eq('status', 'accepted')
+      .is('selected_at', null)
       .is('passed_over_at', null);
 
+    for (const tid of talentIds) {
+      notifySelected(cid, tid, (card as any).content ?? {}).catch((err) => {
+        console.error('[subscription] notifySelected (webhook) threw', err);
+      });
+    }
+  } else {
+    // SquadHub selected only partners — pass over all accepted talents
     await supabaseAdmin
-      .from('subscription_cards')
-      .update({ selected_at: selectedAt })
-      .eq('id', (card as any).id);
+      .from('subscription_card_recipients')
+      .update({ passed_over_at: selectedAt })
+      .eq('card_id', cid)
+      .eq('status', 'accepted')
+      .is('passed_over_at', null);
   }
+
+  const cardPatch: Record<string, unknown> = { selected_at: selectedAt };
+  if (cardStatus) cardPatch.status = cardStatus;
+  await supabaseAdmin
+    .from('subscription_cards')
+    .update(cardPatch)
+    .eq('id', cid);
 }
 
 export async function handleSelectionUndoWebhook(
@@ -1324,7 +1318,7 @@ export async function handleSelectionUndoWebhook(
 
   await supabaseAdmin
     .from('subscription_cards')
-    .update({ selected_talent_user_id: null, selected_at: null })
+    .update({ selected_talent_user_id: null, selected_at: null, status: 'active' })
     .eq('id', (card as any).id);
 }
 

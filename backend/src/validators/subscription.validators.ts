@@ -19,7 +19,7 @@ export const ingestSubscriptionCardSchema = z.object({
   // Propagated from SquadHub so Recall / Close on their side can hide
   // the card from talent dashboards. Omitted on first publish → stays
   // 'active' by default.
-  status: z.enum(['active', 'archived']).optional(),
+  status: z.enum(['active', 'assigned', 'archived']).optional(),
   // SquadHub's identifier for the client this card was created for. We
   // resolve it to a Profiles business_users row at ingest time so talent
   // accept/reject can populate that business's dashboard view. Optional
@@ -114,8 +114,10 @@ export const selectRecipientSchema = z.object({
 export const cardSelectionWebhookSchema = z.object({
   type: z.literal('card_selection').optional(),
   card_id: z.string().min(1).max(200),
-  talent_id: z.string().uuid().nullable(),
+  talent_id: z.string().uuid().nullable().optional(),
+  talent_ids: z.array(z.string().min(1)).optional(),
   selected_at: z.string().datetime({ offset: true }),
+  card_status: z.enum(['assigned', 'active', 'archived']).optional(),
 });
 
 export const cardSelectionUndoWebhookSchema = z.object({

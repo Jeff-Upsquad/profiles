@@ -51,8 +51,11 @@ export async function handleCardSelection(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { card_id, talent_id, selected_at } = req.body;
-    await subscriptionService.handleSelectionWebhook(card_id, talent_id, selected_at);
+    const { card_id, talent_id, talent_ids, selected_at, card_status } = req.body;
+    const resolvedTalentIds: string[] = Array.isArray(talent_ids) && talent_ids.length > 0
+      ? talent_ids
+      : (talent_id ? [talent_id] : []);
+    await subscriptionService.handleSelectionWebhook(card_id, resolvedTalentIds, selected_at, card_status ?? null);
     res.json({ success: true });
   } catch (err) {
     next(err);

@@ -638,8 +638,8 @@ export async function listMySubscriptionCards(businessUserId: string) {
     .select('card_id, status, business_review_status, selected_at, cancelled_at')
     .in('card_id', cardIds);
 
-  const counts = new Map<string, { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number }>();
-  for (const id of cardIds) counts.set(id, { accepted: 0, pending: 0, rejected: 0, shortlisted: 0, for_review: 0 });
+  const counts = new Map<string, { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number }>();
+  for (const id of cardIds) counts.set(id, { accepted: 0, pending: 0, rejected: 0, shortlisted: 0, for_review: 0, selected: 0 });
   for (const r of recipientRows ?? []) {
     const bucket = counts.get((r as any).card_id);
     if (!bucket) continue;
@@ -647,6 +647,8 @@ export async function listMySubscriptionCards(businessUserId: string) {
     if (status === 'accepted') bucket.accepted++;
     else if (status === 'pending') bucket.pending++;
     else if (status === 'rejected') bucket.rejected++;
+
+    if (status === 'accepted' && (r as any).selected_at) bucket.selected++;
 
     // Per-card business review counts (only for accepted, uncancelled recipients)
     if (status === 'accepted' && !(r as any).cancelled_at) {
@@ -669,7 +671,7 @@ export async function listMySubscriptionCards(businessUserId: string) {
       customer_monthly_price:
         typeof content.customer_monthly_price === 'number' ? content.customer_monthly_price : null,
       currency: (content.currency as string) ?? null,
-      status: card.status as 'active' | 'archived',
+      status: card.status as 'active' | 'assigned' | 'archived',
       published_at: card.published_at as string | null,
       recalled_at: (card.recalled_at as string | null | undefined) ?? null,
       category_ids: categoryIds,

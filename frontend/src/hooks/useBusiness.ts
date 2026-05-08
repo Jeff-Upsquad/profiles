@@ -120,13 +120,13 @@ export interface BusinessSubscriptionCardSummary {
   plan_tier: string | null;
   customer_monthly_price: number | null;
   currency: string | null;
-  status: 'active' | 'archived';
+  status: 'active' | 'assigned' | 'archived';
   published_at: string | null;
   /** Set when SquadHub recalled an already-accepted card. The card stays in
    *  the Open section but renders a "Recalled" tag. */
   recalled_at: string | null;
   category_ids: string[];
-  counts: { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number };
+  counts: { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number };
 }
 
 export interface BusinessSubscriptionCardDetail {
@@ -155,7 +155,7 @@ export interface BusinessSubscriptionCardDetail {
     per_week?: number;
     per_month?: number;
   }>;
-  status: 'active' | 'archived';
+  status: 'active' | 'assigned' | 'archived';
   published_at: string | null;
   expires_at: string | null;
   category_ids: string[];
