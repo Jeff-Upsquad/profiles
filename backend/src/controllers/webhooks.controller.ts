@@ -85,3 +85,21 @@ export async function removeAssignedTalent(
     next(err);
   }
 }
+
+/**
+ * Returns the full talent recipient list for a card by SquadHub external_id.
+ * Used by SquadHub admin to show who the card was broadcasted to.
+ */
+export async function getCardRecipients(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { external_id } = req.body as { external_id: string };
+    const recipients = await subscriptionService.listRecipientsByExternalId(external_id);
+    res.json({ data: recipients });
+  } catch (err) {
+    next(err);
+  }
+}

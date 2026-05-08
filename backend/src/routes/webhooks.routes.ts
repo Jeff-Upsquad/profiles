@@ -64,4 +64,12 @@ router.post(
   webhooksController.handleCardSelectionUndo
 );
 
+// Returns the full talent recipient list for a card (by SquadHub external_id).
+// SquadHub admin calls this to show the full broadcast audience.
+router.post(
+  '/squadhub/cards/recipients',
+  verifySquadhubSecret,
+  webhooksController.getCardRecipients
+);
+
 export default router;

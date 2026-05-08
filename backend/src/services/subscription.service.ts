@@ -778,6 +778,53 @@ export async function listRecipientsForAdmin(cardId: string): Promise<AdminCardR
   }));
 }
 
+/**
+ * List all talent recipients for a card identified by its SquadHub external_id.
+ * Used by the cross-service webhook so SquadHub can display the full broadcast
+ * audience (including talents who haven't responded yet).
+ */
+export async function listRecipientsByExternalId(externalId: string) {
+  // Resolve external_id → internal card id
+  const { data: card, error: cardErr } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id')
+    .eq('external_id', externalId)
+    .maybeSingle();
+  if (cardErr) throw new AppError(500, cardErr.message);
+  if (!card) throw new AppError(404, 'Card not found');
+
+  const { data, error } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id, talent_user_id, status, responded_at, cancelled_at, selected_at, passed_over_at, created_at')
+    .eq('card_id', card.id)
+    .is('cancelled_at', null)
+    .order('created_at', { ascending: false });
+  if (error) throw new AppError(500, error.message);
+
+  const rows = data ?? [];
+  if (rows.length === 0) return [];
+
+  const talentIds = Array.from(new Set(rows.map((r: any) => r.talent_user_id))).filter(Boolean);
+  const { data: talents } = await supabaseAdmin
+    .from('talent_users')
+    .select('id, full_name')
+    .in('id', talentIds.length ? talentIds : ['00000000-0000-0000-0000-000000000000']);
+
+  const nameById = new Map<string, string>();
+  for (const t of talents ?? []) {
+    const u = t as any;
+    nameById.set(u.id, u.full_name || 'Unknown talent');
+  }
+
+  return rows.map((r: any) => ({
+    talent_user_id: r.talent_user_id,
+    talent_name: nameById.get(r.talent_user_id) ?? 'Unknown talent',
+    status: r.status,
+    responded_at: r.responded_at,
+    created_at: r.created_at,
+  }));
+}
+
 // ─── Talent response ───────────────────────────────────────────────────────
 
 export async function respond(
