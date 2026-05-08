@@ -29,6 +29,12 @@ router.get(
   integrationsController.searchTalents,
 );
 
+router.post(
+  '/squadhub/users/lookup',
+  verifySquadhubSecret,
+  integrationsController.lookupUsersByEmail,
+);
+
 // Talent access grants — SquadHub originates and we mirror.
 router.post(
   '/squadhub/talent-access/grants',

@@ -32,6 +32,32 @@ export async function searchTalents(
   }
 }
 
+const lookupUsersSchema = z.object({
+  emails: z.array(z.string().email()).min(1).max(50),
+});
+
+export async function lookupUsersByEmail(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = lookupUsersSchema.parse(req.body);
+    const results = await integrationsService.lookupUsersByEmail(body.emails);
+    const byEmail: Record<string, { talent_user_id: string; name: string }> = {};
+    for (const r of results) {
+      byEmail[r.email] = { talent_user_id: r.talent_user_id, name: r.name };
+    }
+    res.json({ success: true, data: byEmail });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0].message));
+      return;
+    }
+    next(err);
+  }
+}
+
 // ============================================================
 // SquadHub-originated talent-access grants (webhook ingest).
 // SquadHub stores grants locally and POSTs them here so the Profiles admin

@@ -98,3 +98,63 @@ export async function searchActiveTalents(rawQuery: string): Promise<PublicTalen
       tier: null,
     }));
 }
+
+// ── Email-based user lookup (for SquadHub partner↔talent linking) ──
+
+export interface TalentLookupResult {
+  email: string;
+  talent_user_id: string;
+  name: string;
+}
+
+const LOOKUP_BATCH_LIMIT = 50;
+
+export async function lookupUsersByEmail(
+  emails: string[],
+): Promise<TalentLookupResult[]> {
+  if (emails.length === 0) return [];
+
+  const batch = emails.slice(0, LOOKUP_BATCH_LIMIT);
+  const lower = batch.map((e) => e.toLowerCase().trim());
+
+  const { data: authRows, error: authErr } = await supabaseAdmin
+    .rpc('get_auth_users_by_emails', { email_list: lower });
+  if (authErr) throw new AppError(500, authErr.message);
+  if (!authRows || authRows.length === 0) return [];
+
+  const authMap = new Map<string, string>();
+  for (const row of authRows as any[]) {
+    authMap.set(row.id, row.email);
+  }
+  const userIds = [...authMap.keys()];
+
+  const { data: talentRows, error: tuErr } = await supabaseAdmin
+    .from('talent_users')
+    .select('id, full_name')
+    .in('id', userIds);
+  if (tuErr) throw new AppError(500, tuErr.message);
+  if (!talentRows || talentRows.length === 0) return [];
+
+  const talentIds = talentRows.map((t: any) => t.id as string);
+
+  const { data: approvedRows, error: profErr } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('talent_user_id')
+    .in('talent_user_id', talentIds)
+    .eq('status', 'approved')
+    .eq('is_active', true)
+    .is('deleted_at', null);
+  if (profErr) throw new AppError(500, profErr.message);
+
+  const approvedSet = new Set(
+    (approvedRows ?? []).map((r: any) => r.talent_user_id as string),
+  );
+
+  return (talentRows as any[])
+    .filter((t) => approvedSet.has(t.id))
+    .map((t) => ({
+      email: authMap.get(t.id)!,
+      talent_user_id: t.id,
+      name: t.full_name ?? '',
+    }));
+}
