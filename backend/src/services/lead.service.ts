@@ -197,12 +197,59 @@ export async function getLeadSubmissions(filters: {
 export async function getLeadSubmission(id: string) {
   const { data, error } = await supabaseAdmin
     .from('lead_submissions')
-    .select('*, linked_talent:linked_talent_user_id(id, full_name)')
+    .select('*, linked_talent:linked_talent_user_id(id, full_name, onboarding_completed)')
     .eq('id', id)
     .single();
 
   if (error) throw new AppError(404, 'Lead not found');
-  return data;
+
+  const talentId = data.linked_talent_user_id as string | null;
+  let onboarding_progress = {
+    signed_up: false,
+    onboarding_completed: false,
+    basic_profile_completed: false,
+    job_profile_completed: false,
+    portfolio_completed: false,
+  };
+
+  if (talentId) {
+    onboarding_progress.signed_up = true;
+    onboarding_progress.onboarding_completed =
+      !!(data.linked_talent as any)?.onboarding_completed;
+
+    const [basicRes, jobRes] = await Promise.all([
+      supabaseAdmin
+        .from('talent_profiles_basic')
+        .select('id', { count: 'exact', head: true })
+        .eq('talent_user_id', talentId),
+      supabaseAdmin
+        .from('talent_profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('talent_user_id', talentId),
+    ]);
+
+    onboarding_progress.basic_profile_completed = (basicRes.count ?? 0) > 0;
+    onboarding_progress.job_profile_completed = (jobRes.count ?? 0) > 0;
+
+    if (onboarding_progress.job_profile_completed) {
+      const { data: profiles } = await supabaseAdmin
+        .from('talent_profiles')
+        .select('id')
+        .eq('talent_user_id', talentId);
+
+      if (profiles && profiles.length > 0) {
+        const profileIds = profiles.map((p) => p.id);
+        const { count } = await supabaseAdmin
+          .from('portfolio_items')
+          .select('id', { count: 'exact', head: true })
+          .in('profile_id', profileIds);
+
+        onboarding_progress.portfolio_completed = (count ?? 0) > 0;
+      }
+    }
+  }
+
+  return { ...data, onboarding_progress };
 }
 
 // ---------------------------------------------------------------------------
