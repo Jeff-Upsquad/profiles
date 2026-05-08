@@ -250,6 +250,13 @@ export async function updateLeadStatus(
     }
   }
 
+  try {
+    const { onLeadStatusChanged } = await import('./automation.service.js');
+    await onLeadStatusChanged(id, input.status, adminUserId);
+  } catch (err) {
+    console.error('[automation] onLeadStatusChanged failed:', err);
+  }
+
   return data;
 }
 

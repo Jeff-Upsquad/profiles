@@ -174,7 +174,7 @@ export default function LeadSidePanelContent({ leadId }: { leadId: string }) {
 
       {/* Status */}
       <Section title="Status">
-        <StatusTabs leadId={lead.id} leadName={lead.name} currentStatus={lead.status} />
+        <StatusTabs leadId={lead.id} leadName={lead.name} currentStatus={lead.status} formType={lead.form_type} />
         {lead.status === 'archived' && lead.archive_reason && (
           <p className="mt-3 text-xs text-gray-500">
             Archived — <span className="font-medium">{lead.archive_reason.replace(/_/g, ' ')}</span>

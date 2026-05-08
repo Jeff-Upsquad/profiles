@@ -499,4 +499,8 @@ router.patch('/settings/automation/templates', adminController.updateAutomationT
 router.get('/automation/events', adminController.getAutomationEvents);
 router.post('/automation/sync-leads-crm', adminController.syncLeadsToCrm);
 
+// CRM status mapping ---
+router.get('/settings/crm-status-mapping', adminController.getCrmStatusMapping);
+router.put('/settings/crm-status-mapping', adminController.updateCrmStatusMapping);
+
 export default router;

@@ -891,6 +891,25 @@ export async function syncLeadsToCrm(req: Request, res: Response, next: NextFunc
   }
 }
 
+export async function getCrmStatusMapping(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const mapping = await adminService.getAdminSetting('crm_status_mapping');
+    res.json({ mapping: mapping ?? null });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateCrmStatusMapping(req: Request, res: Response, next: NextFunction) {
+  try {
+    const adminId = req.user!.id;
+    await adminService.setAdminSetting('crm_status_mapping', req.body, adminId);
+    res.json({ mapping: req.body });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getAutomationEvents(req: Request, res: Response, next: NextFunction) {
   try {
     const page = Number(req.query.page) || 1;

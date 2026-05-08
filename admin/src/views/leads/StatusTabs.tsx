@@ -8,13 +8,44 @@ import ArchiveLeadModal from './ArchiveLeadModal';
 
 type Status =
   | 'new'
+  | 'share_form'
+  | 'form_filled'
   | 'under_review'
   | 'shortlisted'
+  | 'signed_up'
   | 'partner_onboarding'
+  | 'onboarding_training'
+  | 'basic_profile'
+  | 'job_profile'
+  | 'portfolio_updation'
+  | 'final_review'
   | 'onboard_completed'
+  | 'live'
+  | 'no_response'
   | 'archived';
 
-const STATUSES: { value: Status; label: string; color: string }[] = [
+interface StatusDef {
+  value: Status;
+  label: string;
+  color: string;
+}
+
+const CREATIVE_STATUSES: StatusDef[] = [
+  { value: 'new', label: 'New', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { value: 'share_form', label: 'Share Form', color: 'bg-sky-50 text-sky-700 border-sky-200' },
+  { value: 'form_filled', label: 'Form Filled / For Review', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+  { value: 'shortlisted', label: 'Shortlisted', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  { value: 'signed_up', label: 'Signed Up', color: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { value: 'onboarding_training', label: 'Onboarding Training', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  { value: 'basic_profile', label: 'Basic Profile', color: 'bg-orange-50 text-orange-700 border-orange-200' },
+  { value: 'job_profile', label: 'Job Profile', color: 'bg-teal-50 text-teal-700 border-teal-200' },
+  { value: 'portfolio_updation', label: 'Portfolio Updation', color: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  { value: 'final_review', label: 'Final Review', color: 'bg-violet-50 text-violet-700 border-violet-200' },
+  { value: 'live', label: 'Live', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { value: 'no_response', label: 'No Response / In Active', color: 'bg-gray-50 text-gray-700 border-gray-200' },
+];
+
+const DEFAULT_STATUSES: StatusDef[] = [
   { value: 'new', label: 'New', color: 'bg-blue-50 text-blue-700 border-blue-200' },
   { value: 'under_review', label: 'Under Review', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
   { value: 'shortlisted', label: 'Shortlisted', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
@@ -23,15 +54,25 @@ const STATUSES: { value: Status; label: string; color: string }[] = [
   { value: 'archived', label: 'Archived', color: 'bg-red-50 text-red-700 border-red-200' },
 ];
 
+const RING_COLOR: Record<string, string> = {
+  archived: 'ring-red-300',
+  no_response: 'ring-gray-300',
+  onboard_completed: 'ring-green-300',
+  live: 'ring-emerald-300',
+};
+
 interface Props {
   leadId: string;
   leadName: string;
   currentStatus: string;
+  formType?: string;
 }
 
-export default function StatusTabs({ leadId, leadName, currentStatus }: Props) {
+export default function StatusTabs({ leadId, leadName, currentStatus, formType }: Props) {
   const queryClient = useQueryClient();
   const [archiveOpen, setArchiveOpen] = useState(false);
+
+  const statuses = formType === 'creative' ? CREATIVE_STATUSES : DEFAULT_STATUSES;
 
   const updateStatus = useMutation({
     mutationFn: async (payload: {
@@ -64,8 +105,9 @@ export default function StatusTabs({ leadId, leadName, currentStatus }: Props) {
   return (
     <>
       <div className="flex flex-wrap gap-1.5">
-        {STATUSES.map((s) => {
+        {statuses.map((s) => {
           const active = s.value === currentStatus;
+          const ringColor = RING_COLOR[s.value] ?? 'ring-indigo-300';
           return (
             <button
               key={s.value}
@@ -74,13 +116,7 @@ export default function StatusTabs({ leadId, leadName, currentStatus }: Props) {
               disabled={active || updateStatus.isPending}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
                 active
-                  ? `${s.color} shadow-sm ring-2 ring-offset-1 ${
-                      s.value === 'archived'
-                        ? 'ring-red-300'
-                        : s.value === 'onboard_completed'
-                          ? 'ring-green-300'
-                          : 'ring-indigo-300'
-                    }`
+                  ? `${s.color} shadow-sm ring-2 ring-offset-1 ${ringColor}`
                   : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
               }`}
               title={active ? 'Current status' : `Switch to ${s.label}`}

@@ -72,10 +72,20 @@ export const checkExistingContactSchema = z
 
 export const LEAD_STATUS_VALUES = [
   'new',
+  'share_form',
+  'form_filled',
   'under_review',
   'shortlisted',
+  'signed_up',
   'partner_onboarding',
+  'onboarding_training',
+  'basic_profile',
+  'job_profile',
+  'portfolio_updation',
+  'final_review',
   'onboard_completed',
+  'live',
+  'no_response',
   'archived',
   // legacy values kept for backward compatibility with pre-existing rows
   'contacted',

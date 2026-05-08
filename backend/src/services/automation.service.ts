@@ -311,6 +311,68 @@ export async function onCandidateSignedUp(
 }
 
 // ---------------------------------------------------------------------------
+// Generic status-change CRM webhook (uses crm_status_mapping config)
+// ---------------------------------------------------------------------------
+
+interface CrmStatusMapping {
+  pipeline_name: string;
+  form_types: string[];
+  crm_webhook_url: string;
+  mappings: Record<string, string>;
+}
+
+async function getCrmStatusMapping(): Promise<CrmStatusMapping | null> {
+  return getAdminSetting<CrmStatusMapping>('crm_status_mapping');
+}
+
+export async function onLeadStatusChanged(
+  leadId: string,
+  newStatus: string,
+  adminUserId: string | null,
+) {
+  const mapping = await getCrmStatusMapping();
+  if (!mapping || !mapping.crm_webhook_url) return;
+
+  const { data: lead } = await supabaseAdmin
+    .from('lead_submissions')
+    .select('email, name, phone, profile_type, form_type')
+    .eq('id', leadId)
+    .single();
+
+  if (!lead) return;
+
+  if (mapping.form_types.length > 0 && !mapping.form_types.includes(lead.form_type)) {
+    return;
+  }
+
+  const crmStage = mapping.mappings[newStatus];
+  if (!crmStage) return;
+
+  const payload = {
+    event: 'status_changed',
+    lead: {
+      id: leadId,
+      name: lead.name,
+      email: lead.email ?? '',
+      phone: lead.phone ?? '',
+      profile_type: lead.profile_type ?? null,
+      form_type: lead.form_type ?? null,
+    },
+    pipeline_stage: crmStage,
+    status: newStatus,
+    timestamp: new Date().toISOString(),
+  };
+
+  const result = await sendCrmWebhook(mapping.crm_webhook_url, payload);
+  await logEvent({
+    event_type: result.sent ? 'crm_status_sync_sent' : 'crm_status_sync_failed',
+    lead_id: leadId,
+    triggered_by: adminUserId ? `admin:${adminUserId}` : 'system',
+    metadata: { pipeline_stage: crmStage, status: newStatus, error: result.error },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Backfill: push existing leads (all form types) to CRM with their current stage
 // ---------------------------------------------------------------------------
 
