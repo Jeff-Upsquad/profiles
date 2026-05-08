@@ -1288,6 +1288,10 @@ export async function handleSelectionWebhook(
 
   const cardPatch: Record<string, unknown> = { selected_at: selectedAt };
   if (cardStatus) cardPatch.status = cardStatus;
+  // Store the first selected talent at card level so the business portal
+  // can always identify the selected talent even if the recipient-level
+  // stamp is lost (e.g. partial webhook propagation).
+  if (talentIds.length > 0) cardPatch.selected_talent_user_id = talentIds[0];
   await supabaseAdmin
     .from('subscription_cards')
     .update(cardPatch)

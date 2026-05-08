@@ -881,7 +881,7 @@ export async function getInterests(businessUserId: string) {
 async function verifyCardOwnership(businessUserId: string, cardId: string) {
   const { data: card, error } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, business_user_id, match_rules, selected_at, selected_talent_user_id, external_id, content')
+    .select('id, business_user_id, match_rules, selected_at, selected_talent_user_id, external_id, content, status')
     .eq('id', cardId)
     .maybeSingle();
 
@@ -950,13 +950,33 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
   // assigned the card without going through the selection webhook).
   const cardSelectedTalent = card.selected_talent_user_id as string | null;
   const cardSelectedAt = card.selected_at as string | null;
+  const cardStatus = card.content?.status ?? (card as any).status ?? null;
 
-  return rows
-    .filter((r: any) => profileMap.has(r.talent_user_id))
+  // Determine effective selected talent. Three tiers:
+  //  1. card.selected_talent_user_id is set → use it
+  //  2. Any recipient already has selected_at → that recipient is selected
+  //  3. Card is 'assigned' with selected_at but no selection data at either
+  //     level (webhook propagation gap) → infer from accepted recipients:
+  //     if exactly one accepted recipient exists, they must be the selection.
+  const acceptedRows = rows.filter((r: any) => profileMap.has(r.talent_user_id));
+  const anyRecipientSelected = acceptedRows.some((r: any) => !!r.selected_at);
+
+  let inferredSelectedTalent: string | null = cardSelectedTalent;
+  if (
+    !inferredSelectedTalent &&
+    !anyRecipientSelected &&
+    (card as any).status === 'assigned' &&
+    cardSelectedAt &&
+    acceptedRows.length === 1
+  ) {
+    inferredSelectedTalent = (acceptedRows[0] as any).talent_user_id as string;
+  }
+
+  return acceptedRows
     .map((r: any) => {
       const talent = talentMap.get(r.talent_user_id) ?? {};
       const profile = profileMap.get(r.talent_user_id);
-      const isCardSelected = cardSelectedTalent && r.talent_user_id === cardSelectedTalent;
+      const isCardSelected = inferredSelectedTalent && r.talent_user_id === inferredSelectedTalent;
       return {
         recipient_id: r.id as string,
         talent_user_id: r.talent_user_id as string,
@@ -971,7 +991,7 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
         business_review_status: r.business_review_status ?? null,
         business_reviewed_at: r.business_reviewed_at ?? null,
         selected_at: r.selected_at ?? (isCardSelected ? cardSelectedAt : null),
-        passed_over_at: r.passed_over_at ?? (cardSelectedTalent && !isCardSelected ? cardSelectedAt : null),
+        passed_over_at: r.passed_over_at ?? (inferredSelectedTalent && !isCardSelected ? cardSelectedAt : null),
         responded_at: r.responded_at ?? null,
       };
     });
