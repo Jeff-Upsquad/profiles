@@ -171,22 +171,90 @@ interface FieldRow {
   value: ReactNode | string | number | null | undefined;
 }
 
+function FieldGrid({ rows }: { rows: FieldRow[] }) {
+  return (
+    <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+      {rows.map(({ label, value }) => (
+        <div key={label}>
+          <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            {label}
+          </dt>
+          <dd className="mt-1 text-sm text-gray-900 break-words">
+            {isEmpty(value as unknown) ? PLACEHOLDER : (value as ReactNode)}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function Section({ title, rows }: { title: string; rows: FieldRow[] }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
       <h2 className="mb-3 text-lg font-semibold text-gray-900">{title}</h2>
-      <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-        {rows.map(({ label, value }) => (
-          <div key={label}>
-            <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              {label}
-            </dt>
-            <dd className="mt-1 text-sm text-gray-900 break-words">
-              {isEmpty(value as unknown) ? PLACEHOLDER : (value as ReactNode)}
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <FieldGrid rows={rows} />
+    </div>
+  );
+}
+
+function Subsection({
+  title,
+  selected,
+  rows,
+}: {
+  title: string;
+  selected: boolean;
+  rows: FieldRow[];
+}) {
+  return (
+    <div className={selected ? '' : 'opacity-50'}>
+      <div className="mb-3 flex items-center gap-2">
+        <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+        <Badge variant={selected ? 'green' : 'gray'}>
+          {selected ? 'Selected' : 'Not selected'}
+        </Badge>
+      </div>
+      <FieldGrid rows={rows} />
+    </div>
+  );
+}
+
+function EmploymentPreferencesCard({
+  employmentType,
+  jobPrefs,
+  partnerPrefs,
+}: {
+  employmentType: string[] | null | undefined;
+  jobPrefs: FieldRow[];
+  partnerPrefs: FieldRow[];
+}) {
+  const wantsSalary = (employmentType ?? []).includes('salary');
+  const wantsFreelance = (employmentType ?? []).includes('freelance');
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
+      <h2 className="mb-3 text-lg font-semibold text-gray-900">Employment Preferences</h2>
+      <div className="mb-4">
+        <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
+          Work Preference
+        </dt>
+        <dd className="mt-1 text-sm text-gray-900 break-words">
+          {isEmpty(employmentType as unknown) ? (
+            PLACEHOLDER
+          ) : (
+            <Tags items={employmentType ?? null} />
+          )}
+        </dd>
+      </div>
+      <div className="mt-4 border-t border-gray-200 pt-4">
+        <Subsection title="Job (Salary-Based)" selected={wantsSalary} rows={jobPrefs} />
+      </div>
+      <div className="mt-5 border-t border-gray-200 pt-4">
+        <Subsection
+          title="UpSquad Partner Program"
+          selected={wantsFreelance}
+          rows={partnerPrefs}
+        />
+      </div>
     </div>
   );
 }
@@ -311,11 +379,7 @@ export default function UserDetail({ userId }: { userId: string }) {
     { label: 'Pin Code', value: basic?.permanent_pin_code },
   ];
 
-  const work: FieldRow[] = [
-    {
-      label: 'Employment Type',
-      value: <Tags items={basic?.employment_type ?? null} />,
-    },
+  const jobPrefs: FieldRow[] = [
     {
       label: 'Availability',
       value: <Tags items={basic?.availability ?? null} />,
@@ -325,10 +389,6 @@ export default function UserDetail({ userId }: { userId: string }) {
       value: <Tags items={basic?.job_type ?? null} />,
     },
     {
-      label: 'Expected Salary (Monthly)',
-      value: formatCurrency(basic?.expected_salary_monthly),
-    },
-    {
       label: 'Expected Salary (Full-time)',
       value: formatCurrency(basic?.expected_salary_full_time),
     },
@@ -336,6 +396,17 @@ export default function UserDetail({ userId }: { userId: string }) {
       label: 'Expected Salary (Part-time)',
       value: formatCurrency(basic?.expected_salary_part_time),
     },
+    ...(basic?.expected_salary_monthly != null
+      ? [
+          {
+            label: 'Expected Salary (Monthly, legacy)',
+            value: formatCurrency(basic.expected_salary_monthly),
+          },
+        ]
+      : []),
+  ];
+
+  const partnerPrefs: FieldRow[] = [
     {
       label: 'Virtual Office Hours',
       value: formatVirtualHours(basic?.virtual_office_hours),
@@ -460,7 +531,11 @@ export default function UserDetail({ userId }: { userId: string }) {
       <Section title="Personal Information" rows={personal} />
       <Section title="Current Address" rows={currentAddress} />
       <Section title="Permanent Address" rows={permanentAddress} />
-      <Section title="Employment Preferences" rows={work} />
+      <EmploymentPreferencesCard
+        employmentType={basic?.employment_type}
+        jobPrefs={jobPrefs}
+        partnerPrefs={partnerPrefs}
+      />
       <Section title="Identity & Banking" rows={identityBank} />
       <Section title="Account" rows={account} />
 
