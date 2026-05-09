@@ -63,6 +63,7 @@ interface ProfileData {
   is_ghost?: boolean;
   source_profiles?: SourceProfile[];
   talent_users?: {
+    id: string;
     full_name: string;
     phone: string;
     age: number;
@@ -375,48 +376,73 @@ export default function TalentProfileView({
         />
       )}
 
-      {/* Originated From — surfaces matching lead_submissions linked at signup */}
-      {profile.linked_leads && profile.linked_leads.length > 0 && (
-        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-6">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            Originated from {profile.linked_leads.length === 1 ? 'Candidate' : 'Candidates'}
-          </h2>
-          <ul className="space-y-3">
-            {profile.linked_leads.map((lead) => (
-              <li
-                key={lead.id}
-                className="flex items-start justify-between gap-4 rounded-lg bg-white p-4"
-              >
+      {/* Origin & user navigation cards */}
+      {(talentUser?.id || (profile.linked_leads && profile.linked_leads.length > 0)) && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {talentUser?.id && (
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+              <h2 className="mb-2 text-base font-semibold text-gray-900">Talent User</h2>
+              <div className="flex items-start justify-between gap-4 rounded-lg bg-white p-3">
                 <div className="space-y-1 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-gray-900">
-                      {lead.form_type === 'creative' ? 'Creative form' : 'Accountant form'}
-                    </span>
-                    <Badge variant={lead.status === 'archived' ? 'gray' : 'indigo'}>
-                      {lead.status.replace(/_/g, ' ')}
-                    </Badge>
-                    {lead.profile_type && (
-                      <Badge variant="green">{lead.profile_type}</Badge>
-                    )}
+                    <span className="font-medium text-gray-900">{talentUser.full_name}</span>
+                    {talentUser.is_active === false && <Badge variant="gray">inactive</Badge>}
                   </div>
-                  <div className="text-gray-600">
-                    Submitted {new Date(lead.created_at).toLocaleDateString()}
-                  </div>
-                  {(lead.utm_source || lead.utm_campaign) && (
-                    <div className="text-gray-500">
-                      {[lead.utm_source, lead.utm_campaign].filter(Boolean).join(' · ')}
-                    </div>
-                  )}
+                  {talentUser.phone && <div className="text-gray-600">{talentUser.phone}</div>}
                 </div>
                 <Link
-                  href={`/leads/${lead.id}`}
+                  href={`/users/${talentUser.id}`}
                   className="shrink-0 text-sm font-medium text-indigo-600 hover:text-indigo-500"
                 >
-                  View lead →
+                  View user →
                 </Link>
-              </li>
-            ))}
-          </ul>
+              </div>
+            </div>
+          )}
+
+          {profile.linked_leads && profile.linked_leads.length > 0 && (
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+              <h2 className="mb-2 text-base font-semibold text-gray-900">
+                Originated from {profile.linked_leads.length === 1 ? 'Candidate' : 'Candidates'}
+              </h2>
+              <ul className="space-y-2">
+                {profile.linked_leads.map((lead) => (
+                  <li
+                    key={lead.id}
+                    className="flex items-start justify-between gap-4 rounded-lg bg-white p-3"
+                  >
+                    <div className="space-y-1 text-sm">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-gray-900">
+                          {lead.form_type === 'creative' ? 'Creative form' : 'Accountant form'}
+                        </span>
+                        <Badge variant={lead.status === 'archived' ? 'gray' : 'indigo'}>
+                          {lead.status.replace(/_/g, ' ')}
+                        </Badge>
+                        {lead.profile_type && (
+                          <Badge variant="green">{lead.profile_type}</Badge>
+                        )}
+                      </div>
+                      <div className="text-gray-600">
+                        Submitted {new Date(lead.created_at).toLocaleDateString()}
+                      </div>
+                      {(lead.utm_source || lead.utm_campaign) && (
+                        <div className="text-gray-500">
+                          {[lead.utm_source, lead.utm_campaign].filter(Boolean).join(' · ')}
+                        </div>
+                      )}
+                    </div>
+                    <Link
+                      href={`/leads/${lead.id}`}
+                      className="shrink-0 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                    >
+                      View lead →
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
