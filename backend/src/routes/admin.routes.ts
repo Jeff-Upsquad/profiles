@@ -8,6 +8,7 @@ import * as interviewController from '../controllers/interview.controller.js';
 import * as talentAccessController from '../controllers/talent-access.controller.js';
 import * as trainingController from '../controllers/training.controller.js';
 import * as howItWorksController from '../controllers/how-it-works.controller.js';
+import * as accessRequestsController from '../controllers/access-requests.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -61,6 +62,10 @@ import {
   extendGrantSchema,
   listGrantsQuerySchema,
 } from '../validators/talent-access.validators.js';
+import {
+  grantBusinessAccessSchema,
+  rejectCourseReopenSchema,
+} from '../validators/access-requests.validators.js';
 
 const router = Router();
 
@@ -318,6 +323,26 @@ router.patch(
   '/business/:businessId/extend-access',
   validate({ body: extendAccessSchema }),
   adminController.extendBusinessAccess
+);
+
+// ---------------------------------------------------------------------------
+// Access Requests (unified queue: business portal + course reopen)
+// ---------------------------------------------------------------------------
+
+router.get('/access-requests', accessRequestsController.listPendingRequests);
+router.patch(
+  '/access-requests/business/:businessId/grant',
+  validate({ body: grantBusinessAccessSchema }),
+  accessRequestsController.grantBusinessAccess,
+);
+router.patch(
+  '/access-requests/course/:requestId/grant',
+  accessRequestsController.grantCourseReopen,
+);
+router.patch(
+  '/access-requests/course/:requestId/reject',
+  validate({ body: rejectCourseReopenSchema }),
+  accessRequestsController.rejectCourseReopen,
 );
 
 // ---------------------------------------------------------------------------

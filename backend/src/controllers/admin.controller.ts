@@ -580,7 +580,7 @@ export async function extendBusinessAccess(req: Request, res: Response, next: Ne
   try {
     const result = await adminService.extendBusinessAccess(
       req.params.businessId as string,
-      req.body.days
+      { days: req.body.days, expiresAt: req.body.expiresAt }
     );
     res.json(result);
   } catch (err) {

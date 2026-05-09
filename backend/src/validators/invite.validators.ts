@@ -43,9 +43,15 @@ export const shareProfilesSchema = z.object({
   category_id: z.string().uuid(),
 });
 
-export const extendAccessSchema = z.object({
-  days: z.number().int().min(1).max(365),
-});
+export const extendAccessSchema = z
+  .object({
+    days: z.number().int().min(1).max(365).optional(),
+    expiresAt: z.string().datetime().optional(),
+  })
+  .refine((v) => v.days != null || v.expiresAt != null, {
+    message: 'Either days or expiresAt is required',
+    path: ['days'],
+  });
 
 export type CreateInvitationInput = z.infer<typeof createInvitationSchema>;
 export type BusinessLoginInput = z.infer<typeof businessLoginSchema>;

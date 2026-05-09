@@ -93,6 +93,18 @@ export async function startCourse(req: Request, res: Response, next: NextFunctio
   } catch (err) { next(err); }
 }
 
+export async function requestCourseReopen(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.id;
+    const data = await trainingService.requestCourseReopen(
+      userId,
+      req.params.id as string,
+      req.body?.reason,
+    );
+    res.status(data.already ? 200 : 201).json(data);
+  } catch (err) { next(err); }
+}
+
 // ---------------------------------------------------------------------------
 // Admin — Chapters
 // ---------------------------------------------------------------------------

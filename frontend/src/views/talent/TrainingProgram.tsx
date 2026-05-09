@@ -9,6 +9,7 @@ import {
   useCompleteOnboarding,
   useMarkLessonComplete,
   useMarkLessonIncomplete,
+  useRequestCourseReopen,
   pickLessonUrl,
   getCourseLanguages,
   getStoredCourseLanguage,
@@ -368,6 +369,64 @@ function CountdownChips({ courses }: { courses: TrainingCourse[] }) {
   );
 }
 
+function ReopenRequestBanner({ courseId }: { courseId: string }) {
+  const [reason, setReason] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [alreadyPending, setAlreadyPending] = useState(false);
+  const requestReopen = useRequestCourseReopen();
+
+  const handleSubmit = async () => {
+    try {
+      const result = await requestReopen.mutateAsync({ courseId, reason: reason.trim() || undefined });
+      setSubmitted(true);
+      setAlreadyPending(!!result.already);
+    } catch {
+      // toast will handle error display via the mutation's error state below
+    }
+  };
+
+  if (submitted) {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <span className="font-semibold">
+          {alreadyPending ? 'You already have a pending request.' : 'Request sent.'}
+        </span>{' '}
+        An admin will review it shortly.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      <div>
+        <span className="font-semibold">Deadline passed.</span> Request to reopen this course below.
+      </div>
+      <textarea
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        placeholder="Why do you need this reopened? (optional)"
+        rows={2}
+        maxLength={500}
+        className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-[#0a0a0a] placeholder:text-rose-300 focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-200"
+      />
+      <div className="flex items-center justify-between gap-3">
+        {requestReopen.isError && (
+          <span className="text-xs text-rose-700">
+            {(requestReopen.error as any)?.response?.data?.message ?? 'Could not send request.'}
+          </span>
+        )}
+        <button
+          onClick={handleSubmit}
+          disabled={requestReopen.isPending}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-rose-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-800 disabled:opacity-50"
+        >
+          {requestReopen.isPending ? 'Sending…' : 'Request to reopen course'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function CourseSection({
   course,
   enforceSequential,
@@ -409,11 +468,7 @@ function CourseSection({
         />
       </div>
 
-      {course.expired && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          <span className="font-semibold">Deadline passed.</span> Contact support to reopen this course.
-        </div>
-      )}
+      {course.expired && <ReopenRequestBanner courseId={course.id} />}
 
       {needsStart && !showPopup && (
         <div className="rounded-xl border border-[#E8E5DE] bg-[#F7F6F3] px-4 py-3 text-sm text-[#525252]">
@@ -436,7 +491,7 @@ function CourseSection({
             const locked = sequentialLocked || expiredLocked || notStartedLocked;
             const previousTitle = i > 0 ? course.chapters[i - 1].title : null;
             let lockedReason: string | undefined;
-            if (expiredLocked) lockedReason = "This course's deadline has passed. Contact support to reopen.";
+            if (expiredLocked) lockedReason = "This course's deadline has passed. Use the request above to reopen.";
             else if (notStartedLocked) lockedReason = 'Click Start to begin this course';
             else if (sequentialLocked && previousTitle) lockedReason = `Complete "${previousTitle}" to unlock`;
             return (

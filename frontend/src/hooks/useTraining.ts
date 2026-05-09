@@ -238,6 +238,17 @@ export function useStartCourse() {
   });
 }
 
+export function useRequestCourseReopen() {
+  return useMutation({
+    mutationFn: async ({ courseId, reason }: { courseId: string; reason?: string }) => {
+      const { data } = await api.post(`/talent/training/courses/${courseId}/request-reopen`, {
+        reason,
+      });
+      return data as { message: string; requestId: string; already: boolean };
+    },
+  });
+}
+
 /** Re-renders every `intervalMs` so countdown displays stay live. */
 export function useNow(intervalMs = 60_000): Date {
   const [now, setNow] = useState(() => new Date());

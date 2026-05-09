@@ -11,6 +11,7 @@ import {
   updateBasicProfileSchema,
 } from '../validators/talent.validators.js';
 import { requireApprovalOrAutoApprove } from '../middleware/approval.middleware.js';
+import { requestCourseReopenSchema } from '../validators/access-requests.validators.js';
 
 const router = Router();
 
@@ -57,6 +58,11 @@ router.get('/training/onboarding-courses', trainingController.getMyOnboardingCou
 router.get('/training/module-access', trainingController.getModuleAccess);
 router.post('/training/complete-onboarding', trainingController.completeOnboarding);
 router.post('/training/courses/:id/start', trainingController.startCourse);
+router.post(
+  '/training/courses/:id/request-reopen',
+  validate({ body: requestCourseReopenSchema }),
+  trainingController.requestCourseReopen,
+);
 router.get('/training', trainingController.getMyTraining);
 router.post('/training/lessons/:lessonId/complete', trainingController.markComplete);
 router.delete('/training/lessons/:lessonId/complete', trainingController.markIncomplete);

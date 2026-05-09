@@ -1244,3 +1244,72 @@ export async function reopenCourse(userId: string, courseId: string) {
 
   return { message: 'Course reopened' };
 }
+
+// Talent-side request to reopen an expired course. Idempotent — if a pending
+// request already exists for this (talent, course), returns it instead of
+// creating a duplicate.
+export async function requestCourseReopen(
+  userId: string,
+  courseId: string,
+  reason?: string,
+) {
+  const { data: course, error: courseErr } = await supabaseAdmin
+    .from('training_courses')
+    .select('id, countdown_enabled, countdown_hours, deleted_at')
+    .eq('id', courseId)
+    .single();
+  if (courseErr || !course) throw new AppError(404, 'Course not found');
+  if (course.deleted_at) throw new AppError(404, 'Course not found');
+  if (!course.countdown_enabled || !course.countdown_hours) {
+    throw new AppError(400, 'This course does not have a countdown deadline');
+  }
+
+  const { data: start } = await supabaseAdmin
+    .from('training_course_starts')
+    .select('started_at')
+    .eq('talent_user_id', userId)
+    .eq('course_id', courseId)
+    .maybeSingle();
+
+  if (!start) {
+    throw new AppError(400, 'You have not started this course yet');
+  }
+  const expiry = new Date(
+    new Date(start.started_at as string).getTime() +
+      (course.countdown_hours as number) * 60 * 60 * 1000,
+  );
+  if (expiry > new Date()) {
+    throw new AppError(400, 'This course has not expired yet');
+  }
+
+  // Check for existing pending request (idempotent).
+  const { data: existing } = await supabaseAdmin
+    .from('course_reopen_requests')
+    .select('id')
+    .eq('talent_user_id', userId)
+    .eq('course_id', courseId)
+    .eq('status', 'pending')
+    .maybeSingle();
+
+  if (existing) {
+    return {
+      message: 'You already have a pending request',
+      requestId: existing.id as string,
+      already: true,
+    };
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('course_reopen_requests')
+    .insert({
+      talent_user_id: userId,
+      course_id: courseId,
+      reason: reason ?? null,
+    })
+    .select('id')
+    .single();
+
+  if (error) throw new AppError(500, `Failed to create request: ${error.message}`);
+
+  return { message: 'Request sent', requestId: data.id as string, already: false };
+}

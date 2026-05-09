@@ -720,22 +720,35 @@ export async function getUserDetail(userId: string) {
   throw new AppError(404, 'User not found');
 }
 
-export async function extendBusinessAccess(businessUserId: string, days: number) {
-  const { data: user, error: fetchError } = await supabaseAdmin
-    .from('business_users')
-    .select('access_expires_at')
-    .eq('id', businessUserId)
-    .single();
+export async function extendBusinessAccess(
+  businessUserId: string,
+  input: { days?: number; expiresAt?: string }
+) {
+  if (input.days == null && !input.expiresAt) {
+    throw new AppError(400, 'Either days or expiresAt is required');
+  }
 
-  if (fetchError) throw new AppError(404, 'Business user not found');
+  let newExpiry: Date;
+  if (input.expiresAt) {
+    newExpiry = new Date(input.expiresAt);
+    if (Number.isNaN(newExpiry.getTime())) {
+      throw new AppError(400, 'Invalid expiresAt');
+    }
+  } else {
+    const { data: user, error: fetchError } = await supabaseAdmin
+      .from('business_users')
+      .select('access_expires_at')
+      .eq('id', businessUserId)
+      .single();
 
-  // If current expiry is in the past or null, base from now; otherwise extend from current expiry
-  const baseDate =
-    user.access_expires_at && new Date(user.access_expires_at) > new Date()
-      ? new Date(user.access_expires_at)
-      : new Date();
+    if (fetchError) throw new AppError(404, 'Business user not found');
 
-  const newExpiry = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000);
+    const baseDate =
+      user.access_expires_at && new Date(user.access_expires_at) > new Date()
+        ? new Date(user.access_expires_at)
+        : new Date();
+    newExpiry = new Date(baseDate.getTime() + input.days! * 24 * 60 * 60 * 1000);
+  }
 
   const { error } = await supabaseAdmin
     .from('business_users')
@@ -748,7 +761,9 @@ export async function extendBusinessAccess(businessUserId: string, days: number)
   if (error) throw new AppError(400, error.message);
 
   return {
-    message: `Access extended by ${days} days`,
+    message: input.expiresAt
+      ? 'Access expiry updated'
+      : `Access extended by ${input.days} days`,
     access_expires_at: newExpiry.toISOString(),
   };
 }
