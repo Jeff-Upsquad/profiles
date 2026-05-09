@@ -623,19 +623,30 @@ export async function searchUsers(query: string) {
   const escaped = q.replace(/[%,]/g, '\\$&');
   const like = `%${escaped}%`;
 
+  const digits = q.replace(/\D/g, '');
+  const digitsLike = digits.length >= 2 ? `%${digits}%` : null;
+
+  const talentFilters = [`full_name.ilike.${like}`, `email.ilike.${like}`];
+  if (digitsLike) talentFilters.push(`phone_digits.ilike.${digitsLike}`);
+
+  const businessFilters = [
+    `company_name.ilike.${like}`,
+    `contact_person_name.ilike.${like}`,
+    `contact_email.ilike.${like}`,
+  ];
+  if (digitsLike) businessFilters.push(`contact_phone_digits.ilike.${digitsLike}`);
+
   const [talentRes, businessRes] = await Promise.all([
     supabaseAdmin
-      .from('talent_users')
+      .from('admin_talent_search')
       .select('id, full_name, phone, current_location, profile_photo_url, is_active')
-      .or(`full_name.ilike.${like},phone.ilike.${like}`)
+      .or(talentFilters.join(','))
       .order('created_at', { ascending: false })
       .limit(5),
     supabaseAdmin
-      .from('business_users')
+      .from('admin_business_search')
       .select('id, company_name, contact_person_name, contact_email')
-      .or(
-        `company_name.ilike.${like},contact_person_name.ilike.${like},contact_email.ilike.${like}`,
-      )
+      .or(businessFilters.join(','))
       .order('created_at', { ascending: false })
       .limit(5),
   ]);
