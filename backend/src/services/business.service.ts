@@ -605,6 +605,11 @@ export async function listMySubscriptionCards(businessUserId: string) {
     // primary cards represent a distinct hire opportunity. Secondaries are
     // structural duplicates with the same brand/role.
     .eq('is_secondary', false)
+    // Hide cards SquadHub explicitly archived. archived_at is a hard hide
+    // independent of status — a recalled card has status='archived' but
+    // should still appear in Closed, whereas an archived card must not
+    // surface anywhere on the business dashboard.
+    .is('archived_at', null)
     .order('published_at', { ascending: false });
 
   if (error) throw new AppError(500, error.message);
