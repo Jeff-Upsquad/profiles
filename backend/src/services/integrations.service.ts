@@ -78,13 +78,31 @@ export async function searchActiveTalents(rawQuery: string): Promise<PublicTalen
   if (profilesErr) throw new AppError(500, profilesErr.message);
   const approvedSet = new Set((approvedRows ?? []).map((r: any) => r.talent_user_id as string));
 
-  const { data: basics } = await supabaseAdmin
-    .from('talent_profiles_basic')
-    .select('talent_user_id, country')
-    .in('talent_user_id', ids);
+  const [
+    { data: basics },
+    { data: authRows, error: authErr },
+  ] = await Promise.all([
+    supabaseAdmin
+      .from('talent_profiles_basic')
+      .select('talent_user_id, country')
+      .in('talent_user_id', ids),
+    // Reuses the SECURITY DEFINER RPC added in 00068_get_auth_users_by_ids.
+    // Same pattern as listRecipientsByExternalId — we need real emails so
+    // SquadHub can persist them on /assign-talent for the auto-accept flow.
+    supabaseAdmin.rpc('get_auth_users_by_ids', { id_list: ids }),
+  ]);
+  if (authErr) {
+    // Email is best-effort. Logging keeps observability without breaking
+    // the picker if the RPC ever errors.
+    console.error('[searchActiveTalents] auth users lookup failed:', authErr.message);
+  }
   const countryByUser = new Map<string, string | null>();
   for (const b of basics ?? []) {
     countryByUser.set((b as any).talent_user_id, ((b as any).country as string | null) ?? null);
+  }
+  const emailByUser = new Map<string, string>();
+  for (const r of (authRows ?? []) as { id: string; email: string }[]) {
+    if (r.id && r.email) emailByUser.set(r.id, r.email);
   }
 
   return users
@@ -93,7 +111,7 @@ export async function searchActiveTalents(rawQuery: string): Promise<PublicTalen
     .map((u: any) => ({
       id: u.id,
       name: u.full_name ?? '',
-      email: null,
+      email: emailByUser.get(u.id) ?? null,
       country: countryByUser.get(u.id) ?? null,
       tier: null,
     }));
