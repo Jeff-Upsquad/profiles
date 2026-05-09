@@ -36,7 +36,7 @@ function formatPublishedAt(iso: string | null): string {
 }
 
 function classifyCard(card: BusinessSubscriptionCardSummary): 'live' | 'recalled' | 'closed' {
-  if (card.status === 'active') return 'live';
+  if (card.status === 'active' || card.status === 'assigned') return 'live';
   if (card.recalled_at) return 'recalled';
   return 'closed';
 }
