@@ -32,6 +32,24 @@ export async function removeTalentFromCard(
   }
 }
 
+export async function handleTalentAccepted(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { card_id, talent_id, accepted_at } = req.body;
+    const result = await subscriptionService.handleTalentAcceptedByWebhook(
+      card_id,
+      talent_id,
+      accepted_at,
+    );
+    res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function manualAssignTalent(
   req: Request,
   res: Response,

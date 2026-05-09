@@ -10,6 +10,7 @@ import {
   externalIdParamSchema,
   cardSelectionWebhookSchema,
   cardSelectionUndoWebhookSchema,
+  talentAcceptedWebhookSchema,
 } from '../validators/subscription.validators.js';
 
 const router = Router();
@@ -38,6 +39,17 @@ router.post(
   verifySquadhubSecret,
   validate({ body: removeAssignedTalentSchema }),
   webhooksController.removeAssignedTalent
+);
+
+// SquadHub admin auto-accepted a card on a talent's behalf
+// (POST /admin/subscription-cards/:id/auto-accept-talent). Mirrors the
+// status to 'accepted' here and surfaces the talent in the linked
+// business dashboard, so the SquadHire portal stays in sync.
+router.post(
+  '/squadhub/cards/talent-accepted',
+  verifySquadhubSecret,
+  validate({ body: talentAcceptedWebhookSchema }),
+  webhooksController.handleTalentAccepted
 );
 
 // Hide a previously-shared talent from the linked business's dashboard.

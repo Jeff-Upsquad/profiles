@@ -91,6 +91,18 @@ export const removeAssignedTalentSchema = z.object({
   removed_at: z.string().datetime({ offset: true }).optional(),
 });
 
+/**
+ * Inbound notification from SquadHub when an admin auto-accepts a card on
+ * behalf of a talent. Mirror the talent's row to status='accepted' and run
+ * the same business-dashboard side effect as a real talent response.
+ */
+export const talentAcceptedWebhookSchema = z.object({
+  type: z.literal('talent_accepted').optional(),
+  card_id: z.string().min(1).max(200),
+  talent_id: z.string().uuid(),
+  accepted_at: z.string().datetime({ offset: true }).optional(),
+});
+
 export const externalIdParamSchema = z.object({
   externalId: z.string().min(1).max(200),
 });

@@ -948,6 +948,88 @@ export async function respond(
   };
 }
 
+// ─── Talent acceptance via SquadHub webhook ──────────────────────────────
+//
+// SquadHub admins can auto-accept a card on a talent's behalf
+// (`/admin/subscription-cards/:id/auto-accept-talent`). We mirror that
+// here so SquadHire's recipient row matches and the linked business
+// dashboard surfaces the talent — same side effects as a real `respond`,
+// minus the deliverCallback (SquadHub is the source, no need to round-trip
+// back to it).
+
+export interface TalentAcceptedWebhookResult {
+  updated: number;
+  alreadyAccepted: boolean;
+}
+
+export async function handleTalentAcceptedByWebhook(
+  externalId: string,
+  talentUserId: string,
+  acceptedAt?: string,
+): Promise<TalentAcceptedWebhookResult> {
+  const { data: card, error: cardErr } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id, business_user_id, match_rules')
+    .eq('external_id', externalId)
+    .maybeSingle();
+  if (cardErr) throw new AppError(500, cardErr.message);
+  if (!card) throw new AppError(404, 'Card not found');
+
+  const { data: existing, error: readErr } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id, status, cancelled_at')
+    .eq('card_id', (card as any).id)
+    .eq('talent_user_id', talentUserId)
+    .maybeSingle();
+  if (readErr) throw new AppError(500, readErr.message);
+  if (!existing) {
+    throw new AppError(404, 'Talent is not a recipient on this card');
+  }
+  if ((existing as any).cancelled_at) {
+    throw new AppError(409, 'Recipient row was cancelled');
+  }
+  if (existing.status === 'rejected') {
+    throw new AppError(409, 'Talent has already rejected this card');
+  }
+  if (existing.status === 'accepted') {
+    return { updated: 0, alreadyAccepted: true };
+  }
+
+  const respondedAt = acceptedAt ?? new Date().toISOString();
+  // Status guard ensures a concurrent reject between read and update
+  // surfaces as a 409 here rather than clobbering the rejection.
+  const { data: updated, error: updErr } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .update({ status: 'accepted', responded_at: respondedAt })
+    .eq('id', existing.id)
+    .eq('status', 'pending')
+    .is('cancelled_at', null)
+    .select('id, talent_user_id')
+    .maybeSingle();
+  if (updErr) throw new AppError(500, updErr.message);
+  if (!updated) {
+    throw new AppError(
+      409,
+      'Recipient status changed before acceptance could complete — refresh and retry',
+    );
+  }
+
+  const businessUserId = (card as any).business_user_id as string | null;
+  if (businessUserId) {
+    try {
+      await writeAcceptedTalentToDashboard(
+        businessUserId,
+        (updated as any).talent_user_id,
+        (card as any).match_rules,
+      );
+    } catch (err) {
+      console.error('[handleTalentAcceptedByWebhook] writeAcceptedTalentToDashboard threw', err);
+    }
+  }
+
+  return { updated: 1, alreadyAccepted: false };
+}
+
 // ─── Removal from business dashboard ───────────────────────────────────────
 
 export interface RemoveFromBusinessDashboardResult {
