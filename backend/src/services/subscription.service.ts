@@ -818,10 +818,29 @@ export async function listRecipientsByExternalId(externalId: string) {
   if (rows.length === 0) return [];
 
   const talentIds = Array.from(new Set(rows.map((r: any) => r.talent_user_id))).filter(Boolean);
-  const { data: talents } = await supabaseAdmin
-    .from('talent_users')
-    .select('id, full_name')
-    .in('id', talentIds.length ? talentIds : ['00000000-0000-0000-0000-000000000000']);
+  const idQuery = talentIds.length ? talentIds : ['00000000-0000-0000-0000-000000000000'];
+
+  // Fetch profile names from talent_users and registration emails from auth.users
+  // in parallel. Email goes back to SquadHub so it can resolve each talent to a
+  // matching SquadHub user (used for the auto-accept-talent flow).
+  const [
+    { data: talents },
+    { data: authRows, error: authErr },
+  ] = await Promise.all([
+    supabaseAdmin
+      .from('talent_users')
+      .select('id, full_name')
+      .in('id', idQuery),
+    talentIds.length
+      ? supabaseAdmin.rpc('get_auth_users_by_ids', { id_list: talentIds })
+      : Promise.resolve({ data: [] as { id: string; email: string }[], error: null }),
+  ]);
+  if (authErr) {
+    // Email is best-effort — log and continue. The recipients list is still
+    // useful without it; SquadHub's auto-accept simply won't be available
+    // for those rows.
+    console.error('[listRecipientsByExternalId] auth users lookup failed:', authErr.message);
+  }
 
   const nameById = new Map<string, string>();
   for (const t of talents ?? []) {
@@ -829,9 +848,15 @@ export async function listRecipientsByExternalId(externalId: string) {
     nameById.set(u.id, u.full_name || 'Unknown talent');
   }
 
+  const emailById = new Map<string, string>();
+  for (const r of (authRows ?? []) as { id: string; email: string }[]) {
+    if (r.id && r.email) emailById.set(r.id, r.email);
+  }
+
   return rows.map((r: any) => ({
     talent_user_id: r.talent_user_id,
     talent_name: nameById.get(r.talent_user_id) ?? 'Unknown talent',
+    email: emailById.get(r.talent_user_id) ?? null,
     status: r.status,
     responded_at: r.responded_at,
     created_at: r.created_at,
