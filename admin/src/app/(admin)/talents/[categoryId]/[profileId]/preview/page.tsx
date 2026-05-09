@@ -102,10 +102,18 @@ export default function TalentProfilePreviewPage(props: {
   const isGhost = profileRaw?.is_ghost === true;
 
   if (isGhost) {
+    // Filter inactive items out of each source profile too, since the
+    // preview should match what business/public users see.
+    const visibleSourceProfiles = (profileRaw?.source_profiles ?? []).map((src) => ({
+      ...src,
+      portfolio_items: (src.portfolio_items ?? []).filter(
+        (item) => item.admin_is_active !== false,
+      ),
+    }));
     return (
       <GhostProfileView
         ghostProfile={profile}
-        sourceProfiles={profileRaw?.source_profiles ?? []}
+        sourceProfiles={visibleSourceProfiles}
         talentUser={talentUser}
         mode="admin"
         isLoading={profileLoading}
@@ -115,12 +123,18 @@ export default function TalentProfilePreviewPage(props: {
     );
   }
 
+  // Preview mimics what the public/business view sees, so hide items the
+  // admin has marked inactive (those are still visible in the editor).
+  const visiblePortfolioItems = (profileRaw?.portfolio_items ?? []).filter(
+    (item) => item.admin_is_active !== false,
+  );
+
   return (
     <ThreadsProfileView
       profile={profile}
       talentUser={talentUser}
       category={category}
-      portfolioItems={profileRaw?.portfolio_items}
+      portfolioItems={visiblePortfolioItems}
       mode="admin"
       isLoading={profileLoading || (!!profileRaw?.category_id && fieldsLoading)}
       error={profileError ? 'Failed to load profile' : undefined}
