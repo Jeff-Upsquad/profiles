@@ -15,10 +15,6 @@ interface TalentUser {
   full_name: string;
   phone?: string | null;
   email?: string | null;
-  age?: number | null;
-  gender?: string | null;
-  current_location?: string | null;
-  native_place?: string | null;
   profile_photo_url?: string | null;
   languages_spoken?: { language: string; proficiency: string }[] | null;
   is_active: boolean;
@@ -28,23 +24,33 @@ interface TalentUser {
   created_at: string;
 }
 
+interface EducationEntry {
+  from_year: number;
+  from_month: number;
+  to_year: number;
+  to_month: number;
+  course_name: string;
+  institution: string;
+}
+
 interface BasicProfile {
   permanent_address?: string | null;
-  current_address?: string | null;
-  current_district?: string | null;
-  city?: string | null;
-  pin_code?: string | null;
-  country?: string | null;
-  state?: string | null;
   permanent_country?: string | null;
   permanent_state?: string | null;
   permanent_district?: string | null;
   permanent_city?: string | null;
   permanent_pin_code?: string | null;
+  current_address?: string | null;
+  country?: string | null;
+  state?: string | null;
+  current_district?: string | null;
+  city?: string | null;
+  pin_code?: string | null;
   availability?: string[] | null;
   job_type?: string[] | null;
   employment_type?: string[] | null;
   virtual_office_hours?: { day: string; from: string; to: string }[] | null;
+  education_courses?: EducationEntry[] | null;
   expected_salary_monthly?: number | null;
   expected_salary_full_time?: number | null;
   expected_salary_part_time?: number | null;
@@ -91,6 +97,11 @@ const statusVariant: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
 
 const PLACEHOLDER = <span className="italic text-gray-400">Not provided</span>;
 
+const MONTHS_SHORT = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
 const TITLE_CASE = (s: string) =>
   s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -115,9 +126,41 @@ function formatCurrency(n?: number | null) {
   return `₹${Number(n).toLocaleString('en-IN')}`;
 }
 
-function formatLanguages(langs?: { language: string; proficiency: string }[] | null) {
+function formatMonthYear(month?: number, year?: number) {
+  if (!month || !year) return '';
+  return `${MONTHS_SHORT[month - 1] ?? ''} ${year}`;
+}
+
+function splitName(fullName?: string | null) {
+  const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { first: '', middle: '', last: '' };
+  if (parts.length === 1) return { first: parts[0], middle: '', last: '' };
+  if (parts.length === 2) return { first: parts[0], middle: '', last: parts[1] };
+  return {
+    first: parts[0],
+    middle: parts.slice(1, -1).join(' '),
+    last: parts[parts.length - 1],
+  };
+}
+
+function formatLanguages(
+  langs?: { language: string; proficiency: string }[] | null
+): ReactNode {
   if (!langs || langs.length === 0) return null;
-  return langs.map((l) => `${l.language} (${l.proficiency})`).join(', ');
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {langs.map((l, i) => (
+        <span
+          key={i}
+          className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700"
+        >
+          {l.language}
+          <span className="text-indigo-400">·</span>
+          <span className="text-indigo-600">{TITLE_CASE(l.proficiency)}</span>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function formatVirtualHours(
@@ -130,6 +173,27 @@ function formatVirtualHours(
       {filled.map((h, i) => (
         <li key={i} className="text-sm text-gray-900">
           <span className="font-medium">{TITLE_CASE(h.day)}</span>: {h.from} – {h.to}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function formatEducation(entries?: EducationEntry[] | null): ReactNode {
+  if (!entries || entries.length === 0) return null;
+  return (
+    <ul className="space-y-3">
+      {entries.map((e, i) => (
+        <li key={i} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+          <div className="text-sm font-semibold text-gray-900">
+            {e.course_name || <span className="italic text-gray-400">Untitled course</span>}
+          </div>
+          {e.institution && (
+            <div className="mt-0.5 text-sm text-gray-700">{e.institution}</div>
+          )}
+          <div className="mt-1 text-xs text-gray-500">
+            {formatMonthYear(e.from_month, e.from_year)} – {formatMonthYear(e.to_month, e.to_year)}
+          </div>
         </li>
       ))}
     </ul>
@@ -197,7 +261,7 @@ function Section({ title, rows }: { title: string; rows: FieldRow[] }) {
   );
 }
 
-function Subsection({
+function PreferenceSection({
   title,
   selected,
   rows,
@@ -207,9 +271,13 @@ function Subsection({
   rows: FieldRow[];
 }) {
   return (
-    <div className={selected ? '' : 'opacity-50'}>
+    <div
+      className={`rounded-xl border border-gray-200 bg-white px-5 py-4 ${
+        selected ? '' : 'opacity-60'
+      }`}
+    >
       <div className="mb-3 flex items-center gap-2">
-        <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
         <Badge variant={selected ? 'green' : 'gray'}>
           {selected ? 'Selected' : 'Not selected'}
         </Badge>
@@ -219,42 +287,103 @@ function Subsection({
   );
 }
 
-function EmploymentPreferencesCard({
-  employmentType,
-  jobPrefs,
-  partnerPrefs,
+function AddressSection({
+  permanent,
+  current,
 }: {
-  employmentType: string[] | null | undefined;
-  jobPrefs: FieldRow[];
-  partnerPrefs: FieldRow[];
+  permanent: FieldRow[];
+  current: FieldRow[];
 }) {
-  const wantsSalary = (employmentType ?? []).includes('salary');
-  const wantsFreelance = (employmentType ?? []).includes('freelance');
   return (
     <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
-      <h2 className="mb-3 text-lg font-semibold text-gray-900">Employment Preferences</h2>
-      <div className="mb-4">
-        <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
-          Work Preference
-        </dt>
-        <dd className="mt-1 text-sm text-gray-900 break-words">
-          {isEmpty(employmentType as unknown) ? (
-            PLACEHOLDER
-          ) : (
-            <Tags items={employmentType ?? null} />
-          )}
-        </dd>
-      </div>
-      <div className="mt-4 border-t border-gray-200 pt-4">
-        <Subsection title="Job (Salary-Based)" selected={wantsSalary} rows={jobPrefs} />
+      <h2 className="mb-3 text-lg font-semibold text-gray-900">Address</h2>
+      <div>
+        <h3 className="mb-3 text-base font-semibold text-gray-900">Official Address</h3>
+        <FieldGrid rows={permanent} />
       </div>
       <div className="mt-5 border-t border-gray-200 pt-4">
-        <Subsection
-          title="UpSquad Partner Program"
-          selected={wantsFreelance}
-          rows={partnerPrefs}
-        />
+        <h3 className="mb-3 text-base font-semibold text-gray-900">Current Address</h3>
+        <FieldGrid rows={current} />
       </div>
+    </div>
+  );
+}
+
+function ProfilePictureSection({ url }: { url?: string | null }) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
+      <h2 className="mb-3 text-lg font-semibold text-gray-900">Profile Picture</h2>
+      {url ? (
+        <div className="flex items-center gap-4">
+          <img
+            src={url}
+            alt="Profile"
+            className="h-24 w-24 rounded-xl object-cover ring-1 ring-gray-200"
+          />
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-indigo-600 hover:underline"
+          >
+            View original
+          </a>
+        </div>
+      ) : (
+        <div className="text-sm">{PLACEHOLDER}</div>
+      )}
+    </div>
+  );
+}
+
+function JobProfileCards({ profiles }: { profiles: ProfileSummary[] }) {
+  const router = useRouter();
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
+      <h2 className="mb-3 text-lg font-semibold text-gray-900">
+        Job Profiles ({profiles.length})
+      </h2>
+      {profiles.length === 0 ? (
+        <p className="py-8 text-center text-sm text-gray-500">
+          No job profiles created yet
+        </p>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {profiles.map((p) => {
+            const isLive = p.status === 'approved';
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => router.push(`/talents/${p.category_id}/${p.id}`)}
+                className="group flex flex-col items-start gap-2 rounded-xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-indigo-300 hover:shadow-md"
+              >
+                <div className="flex w-full items-start justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-gray-900 break-words">
+                    {p.categories?.name ?? 'Profile'}
+                  </h3>
+                  {isLive && (
+                    <span className="flex-shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-700 ring-1 ring-inset ring-green-200">
+                      Live
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Badge variant={statusVariant[p.status] ?? 'gray'}>
+                    {p.status.replace('_', ' ')}
+                  </Badge>
+                  {!p.is_active && p.status !== 'inactive' && (
+                    <Badge variant="gray">Inactive</Badge>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500">
+                  Created {new Date(p.created_at).toLocaleDateString()}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -350,44 +479,51 @@ export default function UserDetail({ userId }: { userId: string }) {
   const whatsappHref = waPhone ? `https://wa.me/${waPhone}` : null;
   const photoUrl = basic?.profile_picture_url ?? user.profile_photo_url ?? null;
 
-  const personal: FieldRow[] = [
-    { label: 'Full Name', value: user.full_name },
-    { label: 'Phone', value: user.phone },
+  const wantsSalary = (basic?.employment_type ?? []).includes('salary');
+  const wantsFreelance = (basic?.employment_type ?? []).includes('freelance');
+  const name = splitName(user.full_name);
+
+  // 1. Basic Details (mirrors talent Section 1)
+  const basicDetails: FieldRow[] = [
+    { label: 'First Name', value: name.first },
+    { label: 'Middle Name', value: name.middle },
+    { label: 'Last Name', value: name.last },
     { label: 'Email', value: user.email },
-    { label: 'Age', value: user.age },
-    { label: 'Gender', value: user.gender ? TITLE_CASE(user.gender) : null },
-    { label: 'Native Place', value: user.native_place },
-    { label: 'Languages', value: formatLanguages(user.languages_spoken) },
+    { label: 'Phone Number', value: user.phone },
+    {
+      label: 'Work Preference',
+      value: <Tags items={basic?.employment_type ?? null} />,
+    },
   ];
 
-  const currentAddress: FieldRow[] = [
-    { label: 'Current Location', value: user.current_location },
-    { label: 'Country', value: basic?.country },
-    { label: 'State', value: basic?.state },
-    { label: 'District', value: basic?.current_district },
-    { label: 'City', value: basic?.city },
-    { label: 'Pin Code', value: basic?.pin_code },
-    { label: 'Current Address', value: basic?.current_address },
+  // 2. Language (mirrors talent Section 2)
+  const languageRows: FieldRow[] = [
+    { label: 'Languages Spoken', value: formatLanguages(user.languages_spoken) },
   ];
 
-  const permanentAddress: FieldRow[] = [
-    { label: 'Permanent Address', value: basic?.permanent_address },
+  // 3. Address (mirrors talent Section 3)
+  const officialAddressRows: FieldRow[] = [
+    { label: 'Address', value: basic?.permanent_address },
     { label: 'Country', value: basic?.permanent_country },
     { label: 'State', value: basic?.permanent_state },
     { label: 'District', value: basic?.permanent_district },
     { label: 'City', value: basic?.permanent_city },
-    { label: 'Pin Code', value: basic?.permanent_pin_code },
+    { label: 'PIN Code', value: basic?.permanent_pin_code },
   ];
 
+  const currentAddressRows: FieldRow[] = [
+    { label: 'Address', value: basic?.current_address },
+    { label: 'Country', value: basic?.country },
+    { label: 'State', value: basic?.state },
+    { label: 'District', value: basic?.current_district },
+    { label: 'City', value: basic?.city },
+    { label: 'PIN Code', value: basic?.pin_code },
+  ];
+
+  // 4. Job Preference (mirrors talent Section 4)
   const jobPrefs: FieldRow[] = [
-    {
-      label: 'Availability',
-      value: <Tags items={basic?.availability ?? null} />,
-    },
-    {
-      label: 'Job Type',
-      value: <Tags items={basic?.job_type ?? null} />,
-    },
+    { label: 'Availability', value: <Tags items={basic?.availability ?? null} /> },
+    { label: 'Job Type', value: <Tags items={basic?.job_type ?? null} /> },
     {
       label: 'Expected Salary (Full-time)',
       value: formatCurrency(basic?.expected_salary_full_time),
@@ -406,29 +542,49 @@ export default function UserDetail({ userId }: { userId: string }) {
       : []),
   ];
 
-  const partnerPrefs: FieldRow[] = [
+  // 5. Education & Courses (mirrors talent Section 5)
+  const educationRows: FieldRow[] = [
+    { label: 'Courses', value: formatEducation(basic?.education_courses) },
+  ];
+
+  // 6. Freelance Preference (mirrors talent Section 6)
+  const freelancePrefs: FieldRow[] = [
     {
       label: 'Virtual Office Hours',
       value: formatVirtualHours(basic?.virtual_office_hours),
     },
   ];
 
-  const identityBank: FieldRow[] = [
+  // 7. ID Proofs (mirrors talent Section 7)
+  const idProofs: FieldRow[] = [
     { label: 'Aadhaar Number', value: basic?.aadhaar_number },
     {
-      label: 'Aadhaar File',
+      label: 'Aadhaar Card Copy',
       value: <FileLink url={basic?.aadhaar_file_url ?? null} />,
     },
     { label: 'PAN Number', value: basic?.pan_number },
-    { label: 'PAN File', value: <FileLink url={basic?.pan_file_url ?? null} /> },
-    { label: 'Account Holder', value: basic?.bank_account_holder },
+    {
+      label: 'PAN Card Copy',
+      value: <FileLink url={basic?.pan_file_url ?? null} />,
+    },
+  ];
+
+  // 9. Bank Account (mirrors talent Section 9)
+  const bankAccount: FieldRow[] = [
+    { label: 'Account Holder Name', value: basic?.bank_account_holder },
     { label: 'Bank Name', value: basic?.bank_name },
     { label: 'Account Number', value: basic?.bank_account_number },
     { label: 'IFSC Code', value: basic?.bank_ifsc_code },
-    { label: 'Branch', value: basic?.bank_branch_name },
+    { label: 'Branch Name', value: basic?.bank_branch_name },
   ];
 
-  const account: FieldRow[] = [
+  // 10. Resume (mirrors talent Section 10)
+  const resumeRows: FieldRow[] = [
+    { label: 'Resume', value: <FileLink url={basic?.resume_url ?? null} label="View resume" /> },
+  ];
+
+  // Account status — admin metadata, not part of basic profile
+  const accountStatus: FieldRow[] = [
     { label: 'Joined', value: formatDate(user.created_at) },
     {
       label: 'Approval Status',
@@ -447,7 +603,6 @@ export default function UserDetail({ userId }: { userId: string }) {
         <Badge variant="gray">Inactive</Badge>
       ),
     },
-    { label: 'Resume', value: <FileLink url={basic?.resume_url ?? null} /> },
   ];
 
   return (
@@ -528,16 +683,27 @@ export default function UserDetail({ userId }: { userId: string }) {
         </div>
       </div>
 
-      <Section title="Personal Information" rows={personal} />
-      <Section title="Current Address" rows={currentAddress} />
-      <Section title="Permanent Address" rows={permanentAddress} />
-      <EmploymentPreferencesCard
-        employmentType={basic?.employment_type}
-        jobPrefs={jobPrefs}
-        partnerPrefs={partnerPrefs}
+      <JobProfileCards profiles={profiles} />
+
+      <Section title="Basic Details" rows={basicDetails} />
+      <Section title="Language" rows={languageRows} />
+      <AddressSection permanent={officialAddressRows} current={currentAddressRows} />
+      <PreferenceSection
+        title="Job Preference"
+        selected={wantsSalary}
+        rows={jobPrefs}
       />
-      <Section title="Identity & Banking" rows={identityBank} />
-      <Section title="Account" rows={account} />
+      <Section title="Education & Courses" rows={educationRows} />
+      <PreferenceSection
+        title="Freelance Preference"
+        selected={wantsFreelance}
+        rows={freelancePrefs}
+      />
+      <Section title="ID Proofs" rows={idProofs} />
+      <ProfilePictureSection url={photoUrl} />
+      <Section title="Bank Account" rows={bankAccount} />
+      <Section title="Resume" rows={resumeRows} />
+      <Section title="Account Status" rows={accountStatus} />
 
       {enrollments.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
@@ -589,58 +755,6 @@ export default function UserDetail({ userId }: { userId: string }) {
           </table>
         </div>
       )}
-
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <div className="border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Profiles Created ({profiles.length})
-          </h2>
-        </div>
-        {profiles.length === 0 ? (
-          <div className="p-12 text-center text-sm text-gray-500">
-            No profiles created yet
-          </div>
-        ) : (
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Category</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Visibility</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Updated</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {profiles.map((p) => (
-                <tr
-                  key={p.id}
-                  className="cursor-pointer hover:bg-gray-50"
-                  onClick={() => router.push(`/talents/${p.category_id}/${p.id}`)}
-                >
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {p.categories?.name ?? '-'}
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge variant={statusVariant[p.status] ?? 'gray'}>
-                      {p.status.replace('_', ' ')}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4">
-                    {p.is_active ? (
-                      <Badge variant="green">Active</Badge>
-                    ) : (
-                      <Badge variant="gray">Inactive</Badge>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {new Date(p.updated_at).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
     </div>
   );
 }
