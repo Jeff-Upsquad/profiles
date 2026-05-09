@@ -44,6 +44,11 @@ export const ingestSubscriptionCardSchema = z.object({
   // Absent on never-recalled cards. `null` is also accepted so SquadHub
   // can clear the flag if a recall is undone.
   recalled_at: z.string().datetime({ offset: true }).nullable().optional(),
+  // Stamped by SquadHub when an admin explicitly archived a card from
+  // its Archive tab. Stronger hide than `status='archived'`: this card
+  // disappears from BOTH talent feeds (pending and responded) AND the
+  // business dashboard. SquadHub sends `null` on republish to clear it.
+  archived_at: z.string().datetime({ offset: true }).nullable().optional(),
   // True when SquadHub created this card as a child of another card
   // (parent_card_id IS NOT NULL on its side). Profiles hides secondaries
   // from the business dashboard list. Defaulted to false so callers that

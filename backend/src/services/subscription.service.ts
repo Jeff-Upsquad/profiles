@@ -300,6 +300,11 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     // had acceptances. Always written so a recall can also be cleared by
     // sending null on a re-publish.
     recalled_at: input.recalled_at ?? null,
+    // archived_at: SquadHub stamps this on explicit Archive (and clears
+    // it on Republish). Filtered out of every talent and business-facing
+    // query so the card disappears entirely. Always written so the
+    // null-on-republish transition takes effect.
+    archived_at: input.archived_at ?? null,
     // is_secondary: SquadHub flags child cards. Written on every ingest so
     // a card that flips primary↔secondary can't get stuck on the wrong side.
     is_secondary: input.is_secondary,
@@ -334,6 +339,7 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       business_email: row.business_email,
       distribution: row.distribution,
       recalled_at: row.recalled_at,
+      archived_at: row.archived_at,
       is_secondary: row.is_secondary,
     };
     if (input.status) updatePatch.status = input.status;
@@ -522,9 +528,14 @@ export async function listForTalent(
   let q = supabaseAdmin
     .from('subscription_card_recipients')
     .select(
-      'id, status, responded_at, cancelled_at, selected_at, passed_over_at, created_at, subscription_cards!inner(id, external_id, content, status, published_at, expires_at)'
+      'id, status, responded_at, cancelled_at, selected_at, passed_over_at, created_at, subscription_cards!inner(id, external_id, content, status, published_at, expires_at, archived_at)'
     )
     .eq('talent_user_id', talentUserId)
+    // Hard-archived cards (SquadHub Archive tab) disappear from every
+    // talent view, including the Responded tab — the spec requires them
+    // to be invisible everywhere, not just demoted. Filter at the joined
+    // card so even responded-row history stops surfacing the card.
+    .is('subscription_cards.archived_at', null)
     .order('created_at', { ascending: false });
 
   if (query.status === 'pending') {
@@ -564,11 +575,13 @@ export async function getUnreadCount(talentUserId: string): Promise<number> {
   // exists (must mirror the pending-tab filter in listForTalent).
   const { count, error } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('id, subscription_cards!inner(status)', { count: 'exact', head: true })
+    .select('id, subscription_cards!inner(status, archived_at)', { count: 'exact', head: true })
     .eq('talent_user_id', talentUserId)
     .eq('status', 'pending')
     .is('cancelled_at', null)
-    .eq('subscription_cards.status', 'active');
+    .eq('subscription_cards.status', 'active')
+    // Mirror listForTalent: hard-archived cards never count as unread.
+    .is('subscription_cards.archived_at', null);
 
   if (error) throw new AppError(500, error.message);
   return count ?? 0;
