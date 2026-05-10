@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabase.js';
+import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 
 /**
@@ -175,4 +176,125 @@ export async function lookupUsersByEmail(
       talent_user_id: t.id,
       name: t.full_name ?? '',
     }));
+}
+
+// ── Phone-based talent lookup (for SquadHire CRM admin deep-link) ──
+
+export interface TalentByPhoneResult {
+  talent_user_id: string;
+  name: string;
+  // 'approved' | 'pending' | 'rejected' | 'draft' | 'no_profile'
+  profile_status: string;
+  // Absolute URL into the SquadHire admin. null when SQUADHIRE_ADMIN_URL is
+  // not configured — the CRM treats null and a 404 the same.
+  admin_url: string | null;
+}
+
+/**
+ * Look up a talent by phone (E.164). Matches on the last 10 digits, the same
+ * strategy as migration 00034_link_leads_to_talent_users so the CRM and the
+ * admin link-leads RPC stay in lock-step.
+ *
+ * When multiple talent_users share a phone (rare), returns the most recently
+ * updated one whose primary talent_profile is approved + active. If no
+ * approved profile exists, returns the talent_user with profile_status set
+ * to the highest-ranking profile we did find, falling back to 'no_profile'.
+ *
+ * Returns null when no talent_user matches the phone at all.
+ */
+export async function lookupTalentByPhone(
+  phoneE164: string,
+): Promise<TalentByPhoneResult | null> {
+  const last10 = phoneE164.replace(/\D/g, '').slice(-10);
+  if (last10.length !== 10) return null;
+
+  // talent_users.phone is free-text TEXT (not E.164 normalized). Pre-filter
+  // with .ilike on a suffix pattern, then exact-match the last-10 digits in
+  // JS. Cheap, no extra index required.
+  const { data: candidates, error: usersErr } = await supabaseAdmin
+    .from('talent_users')
+    .select('id, full_name, phone, updated_at')
+    .ilike('phone', `%${last10}`)
+    .order('updated_at', { ascending: false })
+    .limit(20);
+  if (usersErr) throw new AppError(500, usersErr.message);
+
+  const matches = (candidates ?? []).filter((u: any) => {
+    const phoneDigits = String(u.phone ?? '').replace(/\D/g, '');
+    return phoneDigits.slice(-10) === last10;
+  });
+  if (matches.length === 0) return null;
+
+  const userIds = matches.map((u: any) => u.id as string);
+
+  // Fetch each candidate's primary talent_profile, ranked: approved+active
+  // wins, then most recently updated. We only need category_id + status of
+  // the winner per user.
+  const { data: profiles, error: profilesErr } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('talent_user_id, id, category_id, status, is_active, deleted_at, updated_at')
+    .in('talent_user_id', userIds)
+    .is('deleted_at', null);
+  if (profilesErr) throw new AppError(500, profilesErr.message);
+
+  const profilesByUser = new Map<
+    string,
+    { id: string; category_id: string; status: string; updated_at: string; is_active: boolean }[]
+  >();
+  for (const p of (profiles ?? []) as any[]) {
+    const list = profilesByUser.get(p.talent_user_id) ?? [];
+    list.push({
+      id: p.id,
+      category_id: p.category_id,
+      status: p.status,
+      updated_at: p.updated_at,
+      is_active: p.is_active,
+    });
+    profilesByUser.set(p.talent_user_id, list);
+  }
+
+  // Score each candidate user: prefer the one with an approved+active profile,
+  // breaking ties by talent_users.updated_at desc.
+  const ranked = matches
+    .map((u: any) => {
+      const userProfiles = profilesByUser.get(u.id) ?? [];
+      const sorted = userProfiles.slice().sort((a, b) => {
+        const aScore = (a.status === 'approved' && a.is_active ? 2 : 0) + (a.is_active ? 1 : 0);
+        const bScore = (b.status === 'approved' && b.is_active ? 2 : 0) + (b.is_active ? 1 : 0);
+        if (aScore !== bScore) return bScore - aScore;
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      });
+      const top = sorted[0];
+      const rank =
+        top && top.status === 'approved' && top.is_active
+          ? 3
+          : top && top.is_active
+            ? 2
+            : top
+              ? 1
+              : 0;
+      return { user: u, top, rank };
+    })
+    .sort((a, b) => {
+      if (a.rank !== b.rank) return b.rank - a.rank;
+      return new Date(b.user.updated_at).getTime() - new Date(a.user.updated_at).getTime();
+    });
+
+  const winner = ranked[0];
+  const adminBase = (env.SQUADHIRE_ADMIN_URL || '').replace(/\/$/, '');
+  let adminUrl: string | null = null;
+  if (adminBase) {
+    if (winner.top) {
+      adminUrl = `${adminBase}/admin/talents/${winner.top.category_id}/${winner.top.id}`;
+    } else {
+      adminUrl = `${adminBase}/admin/users/${winner.user.id}`;
+    }
+  }
+
+  return {
+    talent_user_id: winner.user.id,
+    name: (winner.user.full_name as string | null) ?? '',
+    profile_status: winner.top?.status ?? 'no_profile',
+    admin_url: adminUrl,
+  };
 }
