@@ -12,7 +12,7 @@ const config: Config = {
       colors: {
         /* ── UpSquad Brand (neo-brutalist) ── */
         brand: {
-          purple: '#d4ff4d',  // signature lime — primary CTA
+          purple: '#FCF487',  // signature lime — primary CTA
           pink: '#a8e8e8',    // mint — secondary accent
           yellow: '#f0fb29',  // bright yellow-green
           blue: '#a8e8e8',    // alias for mint

@@ -29,17 +29,17 @@ body {
   --color-cu-950: #090C1D;
 
   /* ── Iris repointed → UpSquad lime (primary brand accent) ── */
-  --color-iris-50:  #F7FECF;
-  --color-iris-100: #EFFD9E;
-  --color-iris-200: #E5FB6E;
-  --color-iris-300: #DEFA56;
-  --color-iris-400: #D4FF4D;
-  --color-iris-500: #d4ff4d;
-  --color-iris-600: #BEE636;
-  --color-iris-700: #90B624;
+  --color-iris-50:  #FFFEF0;
+  --color-iris-100: #FFFCD9;
+  --color-iris-200: #FEF8B0;
+  --color-iris-300: #FDF59A;
+  --color-iris-400: #FCF487;
+  --color-iris-500: #FCF487;
+  --color-iris-600: #F5E55A;
+  --color-iris-700: #C9BC2A;
 
   /* ── UpSquad Brand Tokens ── */
-  --color-brand-purple: #d4ff4d;  /* lime (primary CTA) */
+  --color-brand-purple: #FCF487;  /* lime (primary CTA) */
   --color-brand-pink:   #a8e8e8;  /* mint */
   --color-brand-yellow: #f0fb29;
   --color-brand-blue:   #a8e8e8;  /* alias mint */
@@ -74,8 +74,8 @@ body {
   --cu-text-secondary: #525252;
   --cu-text-tertiary: #737373;
   --cu-text-muted: #a3a3a3;
-  --cu-accent: #d4ff4d;
-  --cu-accent-hover: #BEE636;
+  --cu-accent: #FCF487;
+  --cu-accent-hover: #F5E55A;
   --cu-accent-on: #0a0a0a;          /* text color used on top of accent bg */
   --cu-mint: #a8e8e8;
   --cu-green: #42cc77;
@@ -205,11 +205,11 @@ body {
 }
 
 .btn-v5-primary {
-  background: #d4ff4d;       /* lime */
+  background: #FCF487;       /* lime */
   color: #0a0a0a;
 }
 .btn-v5-primary:hover:not(:disabled) {
-  background: #BEE636;
+  background: #F5E55A;
 }
 
 .btn-v5-secondary {
@@ -296,7 +296,7 @@ body {
   gap: 0.5rem;
   padding: 0.35rem 0.75rem;
   border-radius: var(--cu-radius-full);
-  background: #d4ff4d;
+  background: #FCF487;
   border: 1.5px solid #0a0a0a;
   color: #0a0a0a;
   font-family: var(--font-inter), sans-serif;
@@ -321,7 +321,7 @@ body {
   background: conic-gradient(
     from 90deg,
     #a8e8e8 0deg,
-    #d4ff4d 135deg,
+    #FCF487 135deg,
     #f0fb29 187deg,
     #42cc77 269deg,
     #a8e8e8 360deg
@@ -432,13 +432,13 @@ body {
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 9999px;
-  background: #d4ff4d;
+  background: #FCF487;
   border: 1px solid #0a0a0a;
 }
 
 /* ── Lime highlight text (primary brand emphasis) ── */
 .text-rainbow {
-  background-color: #d4ff4d;
+  background-color: #FCF487;
   color: #0a0a0a;
   padding: 0 0.25em;
   border-radius: 6px;
@@ -448,7 +448,7 @@ body {
 
 /* ── Lime highlight background (block fills) ── */
 .bg-rainbow {
-  background: #d4ff4d;
+  background: #FCF487;
   color: #0a0a0a;
 }
 
@@ -494,7 +494,7 @@ body {
   font-weight: 700;
   letter-spacing: -0.02em;
   color: #0a0a0a;
-  background: #d4ff4d;
+  background: #FCF487;
   border: 2px solid #0a0a0a;
   cursor: pointer;
   transition: transform 0.16s ease, box-shadow 0.18s ease, background-color 0.2s ease;
@@ -503,7 +503,7 @@ body {
 }
 .btn-iridescent:hover:not(:disabled) {
   transform: translate(-2px, -2px);
-  background: #BEE636;
+  background: #F5E55A;
   box-shadow: 6px 6px 0 0 #000;
 }
 .btn-iridescent:active:not(:disabled) {
@@ -534,7 +534,7 @@ body {
   background: conic-gradient(
     from 90deg,
     #a8e8e8 0deg,
-    #d4ff4d 135deg,
+    #FCF487 135deg,
     #f0fb29 187deg,
     #42cc77 269deg,
     #a8e8e8 360deg
