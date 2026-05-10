@@ -7,7 +7,7 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
     if (!req.user) throw new AppError(401, 'Authentication required');
     const cards = await subscriptionService.listForTalent(
       req.user.id,
-      req.query as { status: 'pending' | 'responded' | 'all' }
+      req.query as { status: 'pending' | 'accepted' | 'rejected' | 'all' }
     );
     res.json({ items: cards });
   } catch (err) {

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 
 export type SubscriptionStatus = 'pending' | 'accepted' | 'rejected';
-export type SubscriptionListFilter = 'pending' | 'responded' | 'all';
+export type SubscriptionListFilter = 'pending' | 'accepted' | 'rejected' | 'all';
 
 export interface SubscriptionCardContentShape {
   title?: string;

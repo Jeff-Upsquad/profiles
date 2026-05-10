@@ -113,7 +113,7 @@ export const cardIdRecipientIdParamSchema = z.object({
 });
 
 export const listSubscriptionsQuerySchema = z.object({
-  status: z.enum(['pending', 'responded', 'all']).default('pending'),
+  status: z.enum(['pending', 'accepted', 'rejected', 'all']).default('pending'),
 });
 
 export const respondToSubscriptionSchema = z.object({
