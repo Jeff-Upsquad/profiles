@@ -161,8 +161,18 @@ export default function TalentLayout({
   ];
 
   const gatedItems = sidebarItems.map((item) => {
+    const isAlwaysAccessible = ALWAYS_ACCESSIBLE.some(
+      (r) => item.to === r || item.to.startsWith(r + '/'),
+    );
+    if (isAlwaysAccessible) return item;
+
     const mod = ROUTE_TO_MODULE[item.to];
-    if (!mod) return item;
+    if (!mod) {
+      if (accessLoading) {
+        return onboarded ? item : { ...item, disabled: true, tooltip: 'Loading...' };
+      }
+      return onboarded ? item : { ...item, disabled: true, tooltip: 'Complete training to unlock' };
+    }
     if (accessLoading) {
       return onboarded ? item : { ...item, disabled: true, tooltip: 'Loading...' };
     }
