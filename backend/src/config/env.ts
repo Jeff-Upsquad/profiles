@@ -49,6 +49,13 @@ const envSchema = z.object({
   // is silently disabled.
   SQUADHIRE_CRM_SYSTEM_EVENTS_URL: z.string().url().optional(),
 
+  // Public origin of the SquadHire admin app (Next.js). Used to build
+  // talent-profile / user URLs returned by /api/integrations/squadcrm/talents
+  // /lookup-by-phone so the CRM can deep-link operators into admin. Should
+  // NOT include a trailing slash. Optional — when unset, the lookup endpoint
+  // omits admin_url so the CRM falls back to its "no profile" UI.
+  SQUADHIRE_ADMIN_URL: z.string().url().optional(),
+
   // upsquad website — admin API for subscription requests (optional)
   UPSQUAD_API_URL: z.string().url().optional(),
   UPSQUAD_API_TOKEN: z.string().optional(),

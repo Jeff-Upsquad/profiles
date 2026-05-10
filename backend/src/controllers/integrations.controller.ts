@@ -58,6 +58,32 @@ export async function lookupUsersByEmail(
   }
 }
 
+const lookupTalentByPhoneSchema = z.object({
+  phone_e164: z.string().regex(/^\+[1-9]\d{1,14}$/, 'phone_e164 must be E.164'),
+});
+
+// SquadHire CRM (shcrm) calls this when an operator opens a chat / lead
+// detail page, so the UI can deep-link into SquadHire admin or surface a
+// "no SquadHire profile" badge. Phone-keyed; matches by last-10 digits to
+// stay in sync with migration 00034_link_leads_to_talent_users.
+export async function lookupTalentByPhone(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = lookupTalentByPhoneSchema.parse(req.body);
+    const result = await integrationsService.lookupTalentByPhone(body.phone_e164);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0].message));
+      return;
+    }
+    next(err);
+  }
+}
+
 // ============================================================
 // SquadHub-originated talent-access grants (webhook ingest).
 // SquadHub stores grants locally and POSTs them here so the Profiles admin
