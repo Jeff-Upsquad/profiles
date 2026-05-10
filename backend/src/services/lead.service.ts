@@ -396,6 +396,18 @@ export async function updateLeadStatus(
 
   if (error) throw new AppError(500, `Failed to update lead: ${error.message}`);
 
+  const talentId = (data as any)?.linked_talent_user_id as string | null;
+  if (talentId) {
+    try {
+      await supabaseAdmin
+        .from('talent_users')
+        .update({ is_active: input.status === 'live' })
+        .eq('id', talentId);
+    } catch (err) {
+      console.error('[lead] failed to sync talent_users.is_active:', err);
+    }
+  }
+
   if (input.status === 'shortlisted') {
     try {
       const { onLeadShortlisted } = await import('./automation.service.js');

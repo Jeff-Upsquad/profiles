@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import SubscriptionCardContent from './SubscriptionCardContent';
@@ -7,6 +9,7 @@ import {
   useRespondToSubscriptionCard,
   type SubscriptionCardItem,
 } from '@/hooks/useSubscriptionCards';
+import { useAuth } from '@/context/AuthContext';
 
 interface Props {
   item: SubscriptionCardItem;
@@ -21,9 +24,12 @@ function tintFor(seed: string): string {
 
 export default function SubscriptionCardView({ item }: Props) {
   const respond = useRespondToSubscriptionCard();
+  const { user } = useAuth();
+  const [showInactiveMessage, setShowInactiveMessage] = useState(false);
   const isPending = item.status === 'pending';
   const isCancelled = item.cancelled_at != null;
   const showActions = isPending && !isCancelled;
+  const isInactive = user?.role === 'talent' && user?.is_active === false;
   const ctaLabel =
     typeof item.card.content.ctaLabel === 'string' && item.card.content.ctaLabel.trim().length > 0
       ? item.card.content.ctaLabel.trim()
@@ -68,39 +74,49 @@ export default function SubscriptionCardView({ item }: Props) {
         {/* Action footer */}
         <div className="mt-auto flex items-center justify-end gap-2 border-t border-[#E8E5DE] pt-4">
           {showActions ? (
-            <>
-              <Button
-                variant="ghost" size="sm"
-                onClick={() => handle('reject')}
-                loading={respond.isPending && respond.variables?.action === 'reject'}
-                disabled={respond.isPending}
-              >
-                Decline
-              </Button>
+            isInactive ? (
               <button
                 type="button"
-                onClick={() => handle('accept')}
-                disabled={respond.isPending}
-                className="btn-iridescent disabled:opacity-50 text-sm py-2 px-3.5"
+                onClick={() => setShowInactiveMessage(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#E8E5DE] bg-[#f5f5f5] px-3.5 py-2 text-sm font-semibold text-[#737373] transition-colors hover:bg-[#ebebeb]"
               >
-                {respond.isPending && respond.variables?.action === 'accept' ? (
-                  <>
-                    <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Accepting…
-                  </>
-                ) : (
-                  <>
-                    {ctaLabel}
-                    <svg className="arrow-icon h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                    </svg>
-                  </>
-                )}
+                Profile Inactive
               </button>
-            </>
+            ) : (
+              <>
+                <Button
+                  variant="ghost" size="sm"
+                  onClick={() => handle('reject')}
+                  loading={respond.isPending && respond.variables?.action === 'reject'}
+                  disabled={respond.isPending}
+                >
+                  Decline
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => handle('accept')}
+                  disabled={respond.isPending}
+                  className="btn-iridescent disabled:opacity-50 text-sm py-2 px-3.5"
+                >
+                  {respond.isPending && respond.variables?.action === 'accept' ? (
+                    <>
+                      <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Accepting…
+                    </>
+                  ) : (
+                    <>
+                      {ctaLabel}
+                      <svg className="arrow-icon h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                    </>
+                  )}
+                </button>
+              </>
+            )
           ) : (
             <div className="flex flex-wrap items-center gap-2">
               {item.status === 'accepted' && <Badge variant="green">Accepted</Badge>}
@@ -109,6 +125,16 @@ export default function SubscriptionCardView({ item }: Props) {
             </div>
           )}
         </div>
+
+        {showInactiveMessage && (
+          <p className="text-xs text-[#525252]">
+            Your profile is currently inactive.{' '}
+            <Link href="/talent/contact-support" className="font-semibold text-[#0a0a0a] underline underline-offset-2">
+              Contact support
+            </Link>{' '}
+            to reactivate.
+          </p>
+        )}
 
         {respond.isError && (
           <p className="flex items-center gap-1.5 text-xs text-red-600">

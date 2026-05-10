@@ -183,8 +183,11 @@ export default function TalentDashboard() {
               <span className="eyebrow-rainbow">
                 {isApproved ? 'Talent Workspace' : 'Pending Approval'}
               </span>
-              {isApproved && (
+              {isApproved && user?.is_active !== false && (
                 <span className="pill-live">Live</span>
+              )}
+              {user?.is_active === false && (
+                <Badge variant="red">Profile Inactive</Badge>
               )}
             </div>
 
