@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import DropdownMenu, { type DropdownMenuItem } from '@/components/ui/DropdownMenu';
 import TierBadge from '@/components/ui/TierBadge';
 import { cleanPhoneForLink, formatIndianPhone } from '@/lib/phone';
 import { useUserActions } from './useUserActions';
@@ -759,34 +760,35 @@ export default function UserDetail({ userId }: { userId: string }) {
               View Candidate
             </Link>
           )}
-          <Button
-            variant="secondary"
-            size="sm"
-            loading={setUserActive.isPending}
-            onClick={() =>
-              setUserActive.mutate({ userId: user.id, isActive: !user.is_active })
-            }
-          >
-            {user.is_active ? 'Mark Inactive' : 'Mark Active'}
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            loading={suspendUser.isPending}
-            onClick={() =>
-              suspendUser.mutate({ userId: user.id, suspend: !user.suspended })
-            }
-          >
-            {user.suspended ? 'Unsuspend' : 'Suspend'}
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            loading={deleteUser.isPending}
-            onClick={handleDelete}
-          >
-            Delete
-          </Button>
+          <DropdownMenu
+            ariaLabel="More actions"
+            items={[
+              {
+                label: user.is_active ? 'Mark Inactive' : 'Mark Active',
+                onClick: () =>
+                  setUserActive.mutate({
+                    userId: user.id,
+                    isActive: !user.is_active,
+                  }),
+                loading: setUserActive.isPending,
+              },
+              {
+                label: user.suspended ? 'Unsuspend' : 'Suspend',
+                onClick: () =>
+                  suspendUser.mutate({
+                    userId: user.id,
+                    suspend: !user.suspended,
+                  }),
+                loading: suspendUser.isPending,
+              },
+              {
+                label: 'Delete',
+                variant: 'danger',
+                onClick: handleDelete,
+                loading: deleteUser.isPending,
+              },
+            ] satisfies DropdownMenuItem[]}
+          />
         </div>
       </div>
 
