@@ -21,9 +21,21 @@ interface BusinessResult {
   contact_email: string | null;
 }
 
+interface LeadResult {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string;
+  form_type: string;
+  status: string;
+  profile_type: string | null;
+  auto_approved: boolean;
+}
+
 interface SearchResponse {
   talents: TalentResult[];
   businesses: BusinessResult[];
+  leads: LeadResult[];
 }
 
 export default function GlobalSearch() {
@@ -61,21 +73,24 @@ export default function GlobalSearch() {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
-  const flat: Array<{ kind: 'talent' | 'business'; id: string }> = [
+  const flat: Array<{ kind: 'talent' | 'business' | 'lead'; id: string }> = [
     ...(data?.talents ?? []).map((t) => ({ kind: 'talent' as const, id: t.id })),
     ...(data?.businesses ?? []).map((b) => ({ kind: 'business' as const, id: b.id })),
+    ...(data?.leads ?? []).map((l) => ({ kind: 'lead' as const, id: l.id })),
   ];
 
   useEffect(() => {
     setActiveIndex(0);
   }, [debounced]);
 
-  const goTo = (kind: 'talent' | 'business', id: string) => {
+  const goTo = (kind: 'talent' | 'business' | 'lead', id: string) => {
     setOpen(false);
     setInput('');
     setDebounced('');
     if (kind === 'business') {
       router.push(`/business/${id}`);
+    } else if (kind === 'lead') {
+      router.push(`/leads?selected=${id}`);
     } else {
       router.push(`/users/${id}`);
     }
@@ -104,7 +119,8 @@ export default function GlobalSearch() {
   };
 
   const showDropdown = open && debounced.length >= 2;
-  const hasResults = (data?.talents.length ?? 0) + (data?.businesses.length ?? 0) > 0;
+  const hasResults =
+    (data?.talents.length ?? 0) + (data?.businesses.length ?? 0) + (data?.leads.length ?? 0) > 0;
 
   return (
     <div ref={containerRef} className="relative w-full max-w-md">
@@ -224,6 +240,47 @@ export default function GlobalSearch() {
                           {(b.contact_person_name || b.contact_email) && (
                             <div className="truncate text-xs text-gray-500">
                               {[b.contact_person_name, b.contact_email].filter(Boolean).join(' · ')}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {(data?.leads ?? []).length > 0 && (
+                <div>
+                  <div className="bg-gray-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Candidates
+                  </div>
+                  {(data?.leads ?? []).map((l, i) => {
+                    const idx =
+                      (data?.talents.length ?? 0) + (data?.businesses.length ?? 0) + i;
+                    const isActive = idx === activeIndex;
+                    return (
+                      <button
+                        key={l.id}
+                        type="button"
+                        onMouseEnter={() => setActiveIndex(idx)}
+                        onClick={() => goTo('lead', l.id)}
+                        className={`flex w-full items-center gap-3 px-4 py-2 text-left ${
+                          isActive ? 'bg-indigo-50' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-50 text-xs font-semibold text-amber-700">
+                          {l.name?.[0]?.toUpperCase() ?? '?'}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                            <span className="truncate">{l.name}</span>
+                            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-700">
+                              {l.profile_type || l.form_type}
+                            </span>
+                          </div>
+                          {(l.phone || l.email) && (
+                            <div className="truncate text-xs text-gray-500">
+                              {[l.phone, l.email].filter(Boolean).join(' · ')}
                             </div>
                           )}
                         </div>

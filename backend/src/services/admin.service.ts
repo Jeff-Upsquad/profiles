@@ -619,7 +619,7 @@ export async function getTalentUsers() {
 
 export async function searchUsers(query: string) {
   const q = query.trim();
-  if (q.length < 2) return { talents: [], businesses: [] };
+  if (q.length < 2) return { talents: [], businesses: [], leads: [] };
 
   const escaped = q.replace(/[%,]/g, '\\$&');
   const like = `%${escaped}%`;
@@ -637,7 +637,10 @@ export async function searchUsers(query: string) {
   ];
   if (digitsLike) businessFilters.push(`contact_phone_digits.ilike.${digitsLike}`);
 
-  const [talentRes, businessRes] = await Promise.all([
+  const leadFilters = [`name.ilike.${like}`, `email.ilike.${like}`];
+  if (digitsLike) leadFilters.push(`phone_digits.ilike.${digitsLike}`);
+
+  const [talentRes, businessRes, leadRes] = await Promise.all([
     supabaseAdmin
       .from('admin_talent_search')
       .select('id, full_name, phone, current_location, profile_photo_url, is_active')
@@ -650,14 +653,22 @@ export async function searchUsers(query: string) {
       .or(businessFilters.join(','))
       .order('created_at', { ascending: false })
       .limit(5),
+    supabaseAdmin
+      .from('admin_lead_search')
+      .select('id, name, email, phone, form_type, status, profile_type, auto_approved')
+      .or(leadFilters.join(','))
+      .order('created_at', { ascending: false })
+      .limit(5),
   ]);
 
   if (talentRes.error) throw new AppError(500, talentRes.error.message);
   if (businessRes.error) throw new AppError(500, businessRes.error.message);
+  if (leadRes.error) throw new AppError(500, leadRes.error.message);
 
   return {
     talents: talentRes.data ?? [],
     businesses: businessRes.data ?? [],
+    leads: leadRes.data ?? [],
   };
 }
 
