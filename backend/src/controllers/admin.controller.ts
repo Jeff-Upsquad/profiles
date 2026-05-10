@@ -922,6 +922,65 @@ export async function updateCrmStatusMapping(req: Request, res: Response, next: 
   }
 }
 
+// Proxies the SquadHire CRM stage-discovery endpoint so the admin UI can
+// populate stage selects from real stored names. Auth uses the existing
+// shared secret Profiles already sends on outbound (SQUADHIRE_CRM_INBOUND_
+// SECRET == shcrm's PROFILES_INBOUND_SECRET). Pipeline name comes from
+// ?pipeline=…; the base URL is derived from the configured crm_webhook_url.
+export async function getCrmPipelineStages(req: Request, res: Response, next: NextFunction) {
+  try {
+    const pipelineName = (req.query.pipeline as string | undefined)?.trim();
+    if (!pipelineName) {
+      return res.status(400).json({ error: 'pipeline query param is required' });
+    }
+
+    const mapping = await adminService.getAdminSetting<{ crm_webhook_url?: string }>(
+      'crm_status_mapping',
+    );
+    if (!mapping?.crm_webhook_url) {
+      return res.status(503).json({ error: 'crm_webhook_url not configured' });
+    }
+    const secret = process.env.SQUADHIRE_CRM_INBOUND_SECRET;
+    if (!secret) {
+      return res.status(503).json({ error: 'SQUADHIRE_CRM_INBOUND_SECRET not configured' });
+    }
+
+    let webhook: URL;
+    try {
+      webhook = new URL(mapping.crm_webhook_url);
+    } catch {
+      return res.status(500).json({ error: 'crm_webhook_url is not a valid URL' });
+    }
+    const stagesUrl = `${webhook.origin}/integrations/profiles/pipelines/${encodeURIComponent(
+      pipelineName,
+    )}/stages`;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5_000);
+    try {
+      const upstream = await fetch(stagesUrl, {
+        method: 'GET',
+        headers: { 'X-SquadHire-Admin-Signature': secret },
+        signal: controller.signal,
+      });
+      const body = (await upstream.json().catch(() => null)) as
+        | { data?: { stages?: Array<{ id: string; name: string; sort_order: number }> } }
+        | null;
+      if (!upstream.ok) {
+        return res.status(upstream.status).json({
+          error: 'crm_returned_error',
+          status: upstream.status,
+        });
+      }
+      return res.json({ stages: body?.data?.stages ?? [] });
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getAutomationEvents(req: Request, res: Response, next: NextFunction) {
   try {
     const page = Number(req.query.page) || 1;

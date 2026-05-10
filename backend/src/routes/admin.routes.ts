@@ -538,5 +538,6 @@ router.post('/automation/sync-leads-crm', adminController.syncLeadsToCrm);
 // CRM status mapping ---
 router.get('/settings/crm-status-mapping', adminController.getCrmStatusMapping);
 router.put('/settings/crm-status-mapping', adminController.updateCrmStatusMapping);
+router.get('/settings/crm-status-mapping/stages', adminController.getCrmPipelineStages);
 
 export default router;
