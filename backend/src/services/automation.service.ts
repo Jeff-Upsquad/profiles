@@ -289,11 +289,14 @@ export async function onCandidateSignedUp(
 // Generic status-change CRM webhook (uses crm_status_mapping config)
 // ---------------------------------------------------------------------------
 
-interface CrmStatusMapping {
+interface CrmPipelineConfig {
   pipeline_name: string;
-  form_types: string[];
-  crm_webhook_url: string;
   mappings: Record<string, string>;
+}
+
+export interface CrmStatusMapping {
+  crm_webhook_url: string;
+  pipelines: Record<string, CrmPipelineConfig>;
 }
 
 async function getCrmStatusMapping(): Promise<CrmStatusMapping | null> {
@@ -311,7 +314,7 @@ export async function onLeadStatusChanged(
   if (options.source === 'crm_webhook') return;
 
   const mapping = await getCrmStatusMapping();
-  if (!mapping || !mapping.crm_webhook_url) return;
+  if (!mapping || !mapping.crm_webhook_url || !mapping.pipelines) return;
 
   const { data: lead } = await supabaseAdmin
     .from('lead_submissions')
@@ -321,11 +324,12 @@ export async function onLeadStatusChanged(
 
   if (!lead) return;
 
-  if (mapping.form_types.length > 0 && !mapping.form_types.includes(lead.form_type)) {
-    return;
-  }
+  // Each form_type maps to its own pipeline + status table. If this lead's
+  // form_type isn't configured, skip silently — admin opts in per type.
+  const pipelineConfig = mapping.pipelines[lead.form_type];
+  if (!pipelineConfig) return;
 
-  const crmStage = mapping.mappings[newStatus];
+  const crmStage = pipelineConfig.mappings[newStatus];
   if (!crmStage) return;
 
   const payload = {
@@ -338,6 +342,7 @@ export async function onLeadStatusChanged(
       profile_type: lead.profile_type ?? null,
       form_type: lead.form_type ?? null,
     },
+    pipeline_name: pipelineConfig.pipeline_name,
     pipeline_stage: crmStage,
     status: newStatus,
     timestamp: new Date().toISOString(),
@@ -348,7 +353,12 @@ export async function onLeadStatusChanged(
     event_type: result.sent ? 'crm_status_sync_sent' : 'crm_status_sync_failed',
     lead_id: leadId,
     triggered_by: adminUserId ? `admin:${adminUserId}` : 'system',
-    metadata: { pipeline_stage: crmStage, status: newStatus, error: result.error },
+    metadata: {
+      pipeline_name: pipelineConfig.pipeline_name,
+      pipeline_stage: crmStage,
+      status: newStatus,
+      error: result.error,
+    },
   });
 }
 

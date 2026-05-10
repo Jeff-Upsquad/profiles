@@ -347,7 +347,17 @@ function TemplateCard({
             </div>
             {description && <p className="mt-1 text-xs text-gray-500">{description}</p>}
           </div>
-          <Toggle checked={form.enabled} onChange={() => update({ enabled: !form.enabled })} />
+          <Toggle
+            checked={form.enabled}
+            onChange={() => {
+              // Persist immediately. The Save button below is only rendered
+              // when enabled, so a pure-local toggle leaves the disabled state
+              // unsaveable — it disappears on refresh.
+              const next = { ...form, enabled: !form.enabled };
+              setForm(next);
+              mutation.mutate(next);
+            }}
+          />
         </div>
 
         {form.enabled && (
