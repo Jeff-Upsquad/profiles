@@ -560,8 +560,10 @@ export async function listForTalent(
       .eq('status', 'pending')
       .is('cancelled_at', null)
       .eq('subscription_cards.status', 'active');
-  } else if (query.status === 'responded') {
-    q = q.in('status', ['accepted', 'rejected']);
+  } else if (query.status === 'accepted') {
+    q = q.eq('status', 'accepted');
+  } else if (query.status === 'rejected') {
+    q = q.eq('status', 'rejected');
   } else {
     // 'all' — show responded (cancelled or not) and active-pending; hide
     // cancelled-pending for the same reason as above.

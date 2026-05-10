@@ -12,7 +12,8 @@ import { useTalentMe, useUpdateTalentMe } from '@/hooks/useTalentMe';
 
 const TABS: { key: SubscriptionListFilter; label: string }[] = [
   { key: 'pending', label: 'Pending' },
-  { key: 'responded', label: 'Responded' },
+  { key: 'accepted', label: 'Accepted' },
+  { key: 'rejected', label: 'Rejected' },
 ];
 
 export default function SubscriptionsPage() {
@@ -116,12 +117,18 @@ export default function SubscriptionsPage() {
               )}
             </div>
             <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
-              {tab === 'pending' ? 'No offers right now' : 'Nothing here yet'}
+              {tab === 'pending'
+                ? 'No offers right now'
+                : tab === 'accepted'
+                  ? 'No accepted offers yet'
+                  : 'No declined offers'}
             </h3>
             <p className="mx-auto mt-1.5 max-w-sm text-sm text-[#737373]">
               {tab === 'pending'
                 ? "We'll notify you when a brand sends a subscription offer."
-                : "You haven't responded to any offers yet."}
+                : tab === 'accepted'
+                  ? "You haven't accepted any offers yet."
+                  : "You haven't declined any offers."}
             </p>
           </div>
         </div>
@@ -137,7 +144,7 @@ export default function SubscriptionsPage() {
         </div>
       )}
 
-      {!isLoading && !isError && (data?.length ?? 0) > 0 && tab === 'responded' && (
+      {!isLoading && !isError && (data?.length ?? 0) > 0 && tab !== 'pending' && (
         <RespondedListView items={data!} />
       )}
     </div>

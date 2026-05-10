@@ -29,7 +29,9 @@ const timeFormatter = new Intl.DateTimeFormat(undefined, {
 function dayKey(iso: string | null): string {
   if (!iso) return 'unknown';
   const d = new Date(iso);
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
 }
 
 function dayLabel(iso: string | null): string {
