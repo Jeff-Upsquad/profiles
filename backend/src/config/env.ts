@@ -43,6 +43,12 @@ const envSchema = z.object({
   // here. Optional — when unset, /webhooks/squadcrm/lead-stage returns 503.
   SQUADCRM_INBOUND_SECRET: z.string().min(32).optional(),
 
+  // Profiles → SquadHire CRM: outbound URL for system-event notifications
+  // (e.g. talent_subscription_card_received → CRM picks the WhatsApp template
+  // and sends via Meta). Optional — when unset, the talent-WhatsApp pipeline
+  // is silently disabled.
+  SQUADHIRE_CRM_SYSTEM_EVENTS_URL: z.string().url().optional(),
+
   // upsquad website — admin API for subscription requests (optional)
   UPSQUAD_API_URL: z.string().url().optional(),
   UPSQUAD_API_TOKEN: z.string().optional(),
