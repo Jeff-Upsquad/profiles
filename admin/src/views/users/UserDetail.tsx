@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import TierBadge from '@/components/ui/TierBadge';
 import { cleanPhoneForLink, formatIndianPhone } from '@/lib/phone';
 import { useUserActions } from './useUserActions';
 import EditBasicDetailsDialog from './edit-dialogs/EditBasicDetailsDialog';
@@ -96,6 +98,8 @@ interface ProfileSummary {
   is_active: boolean;
   updated_at: string;
   created_at: string;
+  tier?: string | null;
+  tier_custom?: string | null;
   categories?: { name: string; slug: string };
 }
 
@@ -105,6 +109,7 @@ type UserDetailResponse =
       user: TalentUser;
       basic: BasicProfile | null;
       profiles: ProfileSummary[];
+      lead_id: string | null;
     }
   | { kind: 'business'; user: { id: string } };
 
@@ -411,7 +416,13 @@ function ProfilePictureSection({
   );
 }
 
-function JobProfileCards({ profiles }: { profiles: ProfileSummary[] }) {
+function JobProfileCards({
+  profiles,
+  leadId,
+}: {
+  profiles: ProfileSummary[];
+  leadId: string | null;
+}) {
   const router = useRouter();
   return (
     <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
@@ -426,12 +437,21 @@ function JobProfileCards({ profiles }: { profiles: ProfileSummary[] }) {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {profiles.map((p) => {
             const isLive = p.status === 'approved';
+            const goToProfile = () =>
+              router.push(`/talents/${p.category_id}/${p.id}`);
             return (
-              <button
+              <div
                 key={p.id}
-                type="button"
-                onClick={() => router.push(`/talents/${p.category_id}/${p.id}`)}
-                className="group flex flex-col items-start gap-2 rounded-xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-indigo-300 hover:shadow-md"
+                role="button"
+                tabIndex={0}
+                onClick={goToProfile}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    goToProfile();
+                  }
+                }}
+                className="group flex cursor-pointer flex-col items-start gap-2 rounded-xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-indigo-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <div className="flex w-full items-start justify-between gap-2">
                   <h3 className="text-sm font-semibold text-gray-900 break-words">
@@ -447,6 +467,7 @@ function JobProfileCards({ profiles }: { profiles: ProfileSummary[] }) {
                   <Badge variant={statusVariant[p.status] ?? 'gray'}>
                     {p.status.replace('_', ' ')}
                   </Badge>
+                  <TierBadge tier={p.tier} tierCustom={p.tier_custom} />
                   {!p.is_active && p.status !== 'inactive' && (
                     <Badge variant="gray">Inactive</Badge>
                   )}
@@ -454,7 +475,16 @@ function JobProfileCards({ profiles }: { profiles: ProfileSummary[] }) {
                 <p className="text-xs text-gray-500">
                   Created {new Date(p.created_at).toLocaleDateString()}
                 </p>
-              </button>
+                {leadId && (
+                  <Link
+                    href={`/leads/${leadId}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                  >
+                    View candidate →
+                  </Link>
+                )}
+              </div>
             );
           })}
         </div>
@@ -550,7 +580,7 @@ export default function UserDetail({ userId }: { userId: string }) {
     );
   }
 
-  const { user, basic, profiles } = data;
+  const { user, basic, profiles, lead_id: leadId } = data;
   const waPhone = cleanPhoneForLink(user.phone ?? undefined);
   const whatsappHref = waPhone ? `https://wa.me/${waPhone}` : null;
   const crmHref = waPhone ? `https://shcrm.squadhub.in/app/leads/lookup?phone=${waPhone}` : null;
@@ -773,7 +803,7 @@ export default function UserDetail({ userId }: { userId: string }) {
         </div>
       </div>
 
-      <JobProfileCards profiles={profiles} />
+      <JobProfileCards profiles={profiles} leadId={leadId} />
 
       <Section
         title="Basic Details"
