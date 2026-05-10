@@ -416,13 +416,7 @@ function ProfilePictureSection({
   );
 }
 
-function JobProfileCards({
-  profiles,
-  leadId,
-}: {
-  profiles: ProfileSummary[];
-  leadId: string | null;
-}) {
+function JobProfileCards({ profiles }: { profiles: ProfileSummary[] }) {
   const router = useRouter();
   return (
     <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
@@ -437,21 +431,12 @@ function JobProfileCards({
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {profiles.map((p) => {
             const isLive = p.status === 'approved';
-            const goToProfile = () =>
-              router.push(`/talents/${p.category_id}/${p.id}`);
             return (
-              <div
+              <button
                 key={p.id}
-                role="button"
-                tabIndex={0}
-                onClick={goToProfile}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    goToProfile();
-                  }
-                }}
-                className="group flex cursor-pointer flex-col items-start gap-2 rounded-xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-indigo-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                type="button"
+                onClick={() => router.push(`/talents/${p.category_id}/${p.id}`)}
+                className="group flex flex-col items-start gap-2 rounded-xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-indigo-300 hover:shadow-md"
               >
                 <div className="flex w-full items-start justify-between gap-2">
                   <h3 className="text-sm font-semibold text-gray-900 break-words">
@@ -475,16 +460,7 @@ function JobProfileCards({
                 <p className="text-xs text-gray-500">
                   Created {new Date(p.created_at).toLocaleDateString()}
                 </p>
-                {leadId && (
-                  <Link
-                    href={`/leads/${leadId}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                  >
-                    View candidate →
-                  </Link>
-                )}
-              </div>
+              </button>
             );
           })}
         </div>
@@ -772,6 +748,17 @@ export default function UserDetail({ userId }: { userId: string }) {
               Open in CRM
             </a>
           )}
+          {leadId && (
+            <Link
+              href={`/leads/${leadId}`}
+              className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm hover:bg-indigo-100"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+              </svg>
+              View Candidate
+            </Link>
+          )}
           <Button
             variant="secondary"
             size="sm"
@@ -803,7 +790,7 @@ export default function UserDetail({ userId }: { userId: string }) {
         </div>
       </div>
 
-      <JobProfileCards profiles={profiles} leadId={leadId} />
+      <JobProfileCards profiles={profiles} />
 
       <Section
         title="Basic Details"
