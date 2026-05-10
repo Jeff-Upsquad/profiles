@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import SubscriptionCardView from '@/components/subscriptions/SubscriptionCardView';
 import RespondedListView from '@/components/subscriptions/RespondedListView';
 import {
   useMySubscriptionCards,
   type SubscriptionListFilter,
 } from '@/hooks/useSubscriptionCards';
+import { useTalentMe, useUpdateTalentMe } from '@/hooks/useTalentMe';
 
 const TABS: { key: SubscriptionListFilter; label: string }[] = [
   { key: 'pending', label: 'Pending' },
@@ -40,6 +42,8 @@ export default function SubscriptionsPage() {
           </div>
         </div>
       </section>
+
+      <WhatsAppUpdatesToggle />
 
       {/* V5 Tab Control */}
       <div className="inline-flex items-center gap-1 rounded-xl bg-[#F7F6F3] p-1.5 border border-[#E8E5DE]">
@@ -136,6 +140,60 @@ export default function SubscriptionsPage() {
       {!isLoading && !isError && (data?.length ?? 0) > 0 && tab === 'responded' && (
         <RespondedListView items={data!} />
       )}
+    </div>
+  );
+}
+
+function WhatsAppUpdatesToggle() {
+  const { data: me, isLoading } = useTalentMe();
+  const update = useUpdateTalentMe();
+
+  if (isLoading || !me) return null;
+
+  // Default to enabled when the column hasn't loaded yet (e.g. older user
+  // record before the migration ran). The DB default is TRUE.
+  const enabled = me.whatsapp_subscription_updates_enabled !== false;
+
+  const handleToggle = () => {
+    if (update.isPending) return;
+    const next = !enabled;
+    update.mutate(
+      { whatsapp_subscription_updates_enabled: next },
+      {
+        onSuccess: () =>
+          toast.success(next ? 'WhatsApp updates enabled' : 'WhatsApp updates disabled'),
+        onError: () => toast.error('Could not update preference'),
+      },
+    );
+  };
+
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-2xl border border-[#E8E5DE] bg-white px-5 py-4">
+      <div className="min-w-0">
+        <h3 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
+          WhatsApp updates
+        </h3>
+        <p className="mt-0.5 text-xs text-[#737373]">
+          Get a WhatsApp message when a new opportunity arrives. Throttled so you
+          won&apos;t be spammed if several arrive at once.
+        </p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        onClick={handleToggle}
+        disabled={update.isPending}
+        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+          enabled ? 'bg-emerald-500' : 'bg-[#D4D4D4]'
+        }`}
+      >
+        <span
+          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+            enabled ? 'translate-x-5' : 'translate-x-0.5'
+          }`}
+        />
+      </button>
     </div>
   );
 }

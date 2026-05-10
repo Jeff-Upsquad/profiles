@@ -4,6 +4,7 @@ import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { findMatchingTalents } from '../services/subscription-matcher.service.js';
 import * as upsquadApi from '../services/upsquad-api.service.js';
+import { notifyTalentSubscriptionCardReceived } from '../services/talent-whatsapp.service.js';
 
 // Map upsquad's tier vocabulary (Juniors/Pros/Elites) to canonical names.
 const TIER_MAP: Record<string, string> = {
@@ -281,6 +282,13 @@ export async function publishCard(req: Request, res: Response, next: NextFunctio
         await supabaseAdmin
           .from('subscription_card_recipients')
           .upsert(rows, { onConflict: 'card_id,talent_user_id', ignoreDuplicates: true });
+
+        const cardContent = (card.content ?? {}) as Record<string, unknown>;
+        for (const tid of talentIds) {
+          notifyTalentSubscriptionCardReceived(tid, cardId, cardContent).catch((err) => {
+            console.error('[request-cards] notifyTalentSubscriptionCardReceived (publish) threw', err);
+          });
+        }
       }
     }
 

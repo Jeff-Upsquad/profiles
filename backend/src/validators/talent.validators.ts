@@ -19,6 +19,7 @@ export const updateTalentUserSchema = z.object({
   current_location: z.string().max(200).optional(),
   languages_spoken: z.array(z.object({ language: z.string(), proficiency: z.string() })).optional(),
   profile_photo_url: z.string().url('Must be a valid URL').optional(),
+  whatsapp_subscription_updates_enabled: z.boolean().optional(),
 });
 
 export const updateBasicProfileSchema = z.object({

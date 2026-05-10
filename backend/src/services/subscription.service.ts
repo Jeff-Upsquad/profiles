@@ -6,6 +6,7 @@ import { findMatchingTalents } from './subscription-matcher.service.js';
 import { deliverCallback } from './squadhub-callback.service.js';
 import { notifyNewCard, notifySelected } from './push.service.js';
 import { getTalentTiersByUserIds } from './talent-tier.service.js';
+import { notifyTalentSubscriptionCardReceived } from './talent-whatsapp.service.js';
 import type {
   IngestSubscriptionCardInput,
   ListSubscriptionsQueryInput,
@@ -413,9 +414,15 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
               }
             } else {
               recipientCount = count ?? newTalentIds.length;
-              notifyNewCard(existing.id, newTalentIds, input.content ?? {}).catch((err) => {
+              const updateContent = input.content ?? {};
+              notifyNewCard(existing.id, newTalentIds, updateContent).catch((err) => {
                 console.error('[subscription] notifyNewCard (update) threw', err);
               });
+              for (const tid of newTalentIds) {
+                notifyTalentSubscriptionCardReceived(tid, existing.id, updateContent).catch((err) => {
+                  console.error('[subscription] notifyTalentSubscriptionCardReceived (update) threw', err);
+                });
+              }
             }
           }
         }
@@ -472,9 +479,15 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       // fix can backfill. Log loudly and move on.
     } else {
       recipientCount = count ?? recipients.length;
-      notifyNewCard(inserted.id, talentIds, input.content ?? {}).catch((err) => {
+      const insertContent = input.content ?? {};
+      notifyNewCard(inserted.id, talentIds, insertContent).catch((err) => {
         console.error('[subscription] notifyNewCard threw', err);
       });
+      for (const tid of talentIds) {
+        notifyTalentSubscriptionCardReceived(tid, inserted.id, insertContent).catch((err) => {
+          console.error('[subscription] notifyTalentSubscriptionCardReceived threw', err);
+        });
+      }
     }
   }
 
@@ -528,7 +541,7 @@ export async function listForTalent(
   let q = supabaseAdmin
     .from('subscription_card_recipients')
     .select(
-      'id, status, responded_at, cancelled_at, selected_at, passed_over_at, created_at, subscription_cards!inner(id, external_id, content, status, published_at, expires_at, archived_at)'
+      'id, status, responded_at, cancelled_at, selected_at, passed_over_at, created_at, viewed_at, subscription_cards!inner(id, external_id, content, status, published_at, expires_at, archived_at)'
     )
     .eq('talent_user_id', talentUserId)
     // Hard-archived cards (SquadHub Archive tab) disappear from every
@@ -557,6 +570,24 @@ export async function listForTalent(
 
   const { data, error } = await q;
   if (error) throw new AppError(500, error.message);
+
+  // Stamp viewed_at on any returned recipient row that hasn't been viewed yet.
+  // This is the engagement signal that releases the talent-WhatsApp throttle:
+  // once they've opened the queue, the next card-arrival fires immediately
+  // instead of waiting on the 1/day cap.
+  const unviewedIds = (data ?? [])
+    .filter((r: any) => r.viewed_at == null)
+    .map((r: any) => r.id as string);
+  if (unviewedIds.length > 0) {
+    supabaseAdmin
+      .from('subscription_card_recipients')
+      .update({ viewed_at: new Date().toISOString() })
+      .in('id', unviewedIds)
+      .is('viewed_at', null)
+      .then(({ error: updErr }) => {
+        if (updErr) console.error('[subscription] viewed_at stamp failed', updErr);
+      });
+  }
 
   return (data ?? []).map((r: any) => ({
     id: r.id,
@@ -1188,8 +1219,12 @@ export async function manualAssignTalent(
     });
   if (insErr) throw new AppError(500, insErr.message);
 
-  notifyNewCard((card as any).id, [input.talent_id], (card as any).content ?? {}).catch((err) => {
+  const manualContent = (card as any).content ?? {};
+  notifyNewCard((card as any).id, [input.talent_id], manualContent).catch((err) => {
     console.error('[subscription] notifyNewCard (manual) threw', err);
+  });
+  notifyTalentSubscriptionCardReceived(input.talent_id, (card as any).id, manualContent).catch((err) => {
+    console.error('[subscription] notifyTalentSubscriptionCardReceived (manual) threw', err);
   });
 
   return {
