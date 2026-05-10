@@ -39,8 +39,13 @@ export async function createLeadSubmission(input: CreateLeadInput) {
   if (error) throw new AppError(500, `Failed to create lead: ${error.message}`);
 
   try {
-    const { onLeadReceived } = await import('./automation.service.js');
+    const { onLeadReceived, onLeadStatusChanged } = await import('./automation.service.js');
     await onLeadReceived(data.id, form_type, { name, email, phone });
+    // Also fire the generic status-mapping webhook for the initial 'new' state
+    // so the CRM can create/update the card via the same code path used for
+    // every subsequent transition. This makes the per-event "On Lead Received"
+    // template redundant — disable it once the mapping covers the new stage.
+    await onLeadStatusChanged(data.id, 'new', null);
   } catch (err) {
     console.error('[automation] onLeadReceived failed:', err);
   }
@@ -367,7 +372,8 @@ export async function getLeadSubmission(id: string) {
 export async function updateLeadStatus(
   id: string,
   input: UpdateLeadStatusInput,
-  adminUserId: string
+  adminUserId: string | null,
+  options: { source?: 'admin' | 'crm_webhook' } = {}
 ) {
   const update: Record<string, unknown> = {
     status: input.status,
@@ -407,7 +413,7 @@ export async function updateLeadStatus(
 
   try {
     const { onLeadStatusChanged } = await import('./automation.service.js');
-    await onLeadStatusChanged(id, input.status, adminUserId);
+    await onLeadStatusChanged(id, input.status, adminUserId, { source: options.source });
   } catch (err) {
     console.error('[automation] onLeadStatusChanged failed:', err);
   }

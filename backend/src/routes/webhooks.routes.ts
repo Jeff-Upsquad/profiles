@@ -1,6 +1,10 @@
 import { Router } from 'express';
 import * as webhooksController from '../controllers/webhooks.controller.js';
-import { verifySquadhubSecret } from '../middleware/webhookAuth.middleware.js';
+import * as squadcrmWebhookController from '../controllers/squadcrm-webhook.controller.js';
+import {
+  verifySquadhubSecret,
+  verifySquadcrmSecret,
+} from '../middleware/webhookAuth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import {
   ingestSubscriptionCardSchema,
@@ -82,6 +86,16 @@ router.post(
   '/squadhub/cards/recipients',
   verifySquadhubSecret,
   webhooksController.getCardRecipients
+);
+
+// SquadHire CRM (shcrm) reports a Kanban card move so we can mirror the new
+// stage onto lead_submissions.status. Pairs with the outbound webhook in
+// automation.service.ts:onLeadStatusChanged for two-way status sync. Loop
+// guarded via the source='crm_webhook' flag inside updateLeadStatus.
+router.post(
+  '/squadcrm/lead-stage',
+  verifySquadcrmSecret,
+  squadcrmWebhookController.handleLeadStageChanged,
 );
 
 export default router;

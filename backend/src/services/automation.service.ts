@@ -203,22 +203,16 @@ export async function onLeadAutoApproved(leadId: string, leadEmail: string) {
 
   if (!lead || lead.status !== 'new') return;
 
-  await supabaseAdmin
-    .from('lead_submissions')
-    .update({
-      status: 'shortlisted',
-      status_changed_by: null,
-      status_changed_at: new Date().toISOString(),
-    })
-    .eq('id', leadId);
+  // Route through updateLeadStatus so the CRM mapping webhook fires for the
+  // shortlisted transition and onLeadShortlisted runs (invitation creation).
+  const { updateLeadStatus } = await import('./lead.service.js');
+  await updateLeadStatus(leadId, { status: 'shortlisted' }, null);
 
   await logEvent({
     event_type: 'lead_auto_shortlisted',
     lead_id: leadId,
     triggered_by: 'system',
   });
-
-  await onLeadShortlisted(leadId, null);
 }
 
 export async function onLeadShortlisted(leadId: string, adminUserId: string | null) {
@@ -226,12 +220,14 @@ export async function onLeadShortlisted(leadId: string, adminUserId: string | nu
 
   const { data: lead } = await supabaseAdmin
     .from('lead_submissions')
-    .select('email, name, phone, profile_type, form_type')
+    .select('email')
     .eq('id', leadId)
     .single();
 
   if (!lead) return;
 
+  // The CRM webhook for shortlisted is fired by onLeadStatusChanged (mapping
+  // config) — this handler now only owns the invitation side-effect.
   if (cfg.auto_invite_on_shortlist && lead.email) {
     const existing = await checkInvitation(lead.email, 'talent');
     if (!existing) {
@@ -252,27 +248,19 @@ export async function onLeadShortlisted(leadId: string, adminUserId: string | nu
       }
     }
   }
-
-  await sendCrmTemplateMessage(leadId, 'shortlisted', {
-    name: lead.name,
-    email: lead.email ?? '',
-    phone: lead.phone ?? '',
-    profile_type: lead.profile_type,
-    form_type: lead.form_type,
-  });
 }
 
 export async function onCandidateSignedUp(
   userId: string,
-  email: string,
-  phone: string | null,
+  _email: string,
+  _phone: string | null,
 ) {
   const cfg = await getConfig();
   if (!cfg.auto_onboarding_on_signup) return;
 
   const { data: leads } = await supabaseAdmin
     .from('lead_submissions')
-    .select('id, status, name, email, phone, profile_type, form_type')
+    .select('id, status')
     .eq('linked_talent_user_id', userId);
 
   if (!leads || leads.length === 0) return;
@@ -280,32 +268,19 @@ export async function onCandidateSignedUp(
   const eligible = ['new', 'under_review', 'shortlisted'];
 
   for (const lead of leads) {
-    if (eligible.includes(lead.status)) {
-      await supabaseAdmin
-        .from('lead_submissions')
-        .update({
-          status: 'partner_onboarding',
-          status_changed_by: null,
-          status_changed_at: new Date().toISOString(),
-        })
-        .eq('id', lead.id);
+    if (!eligible.includes(lead.status)) continue;
 
-      await logEvent({
-        event_type: 'lead_signup_onboarding',
-        lead_id: lead.id,
-        talent_user_id: userId,
-        triggered_by: 'system',
-      });
-    }
+    // Route through updateLeadStatus so the CRM mapping webhook fires
+    // (partner_onboarding → "Onboarding Training" stage) and we no longer
+    // need the legacy "On Signed Up" template, which set the wrong stage.
+    const { updateLeadStatus } = await import('./lead.service.js');
+    await updateLeadStatus(lead.id, { status: 'partner_onboarding' }, null);
 
-    // Always fire the CRM signed_up event for linked leads, regardless of
-    // status — the signup itself is the trigger, not the status transition.
-    await sendCrmTemplateMessage(lead.id, 'signed_up', {
-      name: lead.name,
-      email: lead.email ?? email ?? '',
-      phone: lead.phone ?? phone ?? '',
-      profile_type: lead.profile_type,
-      form_type: lead.form_type,
+    await logEvent({
+      event_type: 'lead_signup_onboarding',
+      lead_id: lead.id,
+      talent_user_id: userId,
+      triggered_by: 'system',
     });
   }
 }
@@ -329,7 +304,12 @@ export async function onLeadStatusChanged(
   leadId: string,
   newStatus: string,
   adminUserId: string | null,
+  options: { source?: 'admin' | 'crm_webhook' } = {},
 ) {
+  // Loop guard: when the change originated from the SquadCRM webhook, do NOT
+  // bounce it back to the CRM. The CRM is already on this stage by definition.
+  if (options.source === 'crm_webhook') return;
+
   const mapping = await getCrmStatusMapping();
   if (!mapping || !mapping.crm_webhook_url) return;
 
