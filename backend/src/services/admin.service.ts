@@ -690,28 +690,51 @@ export async function getUserDetail(userId: string) {
     .maybeSingle();
 
   if (talent) {
-    const [{ data: profiles, error: profErr }, { data: basic }, { data: authData }] =
-      await Promise.all([
-        supabaseAdmin
-          .from('talent_profiles')
-          .select('id, category_id, status, is_active, updated_at, created_at, categories(name, slug)')
-          .eq('talent_user_id', userId)
-          .is('deleted_at', null)
-          .order('updated_at', { ascending: false }),
-        supabaseAdmin
-          .from('talent_profiles_basic')
-          .select('*')
-          .eq('talent_user_id', userId)
-          .maybeSingle(),
-        supabaseAdmin.auth.admin.getUserById(userId),
-      ]);
+    const [
+      { data: profiles, error: profErr },
+      { data: basic },
+      { data: authData },
+      { data: latestLead },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from('talent_profiles')
+        .select(
+          'id, category_id, status, is_active, updated_at, created_at, tier, tier_custom, categories(name, slug)',
+        )
+        .eq('talent_user_id', userId)
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false }),
+      supabaseAdmin
+        .from('talent_profiles_basic')
+        .select('*')
+        .eq('talent_user_id', userId)
+        .maybeSingle(),
+      supabaseAdmin.auth.admin.getUserById(userId),
+      supabaseAdmin
+        .from('lead_submissions')
+        .select('id')
+        .eq('linked_talent_user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
     if (profErr) throw new AppError(500, profErr.message);
+
+    const tiers = await getTalentTiersByUserIds([userId]);
+    const fallback = tiers[userId] ?? { tier: null, tier_custom: null };
+    const profilesWithTier = (profiles ?? []).map((p: any) => ({
+      ...p,
+      tier: p.tier ?? fallback.tier,
+      tier_custom: p.tier_custom ?? fallback.tier_custom,
+    }));
+
     return {
       kind: 'talent' as const,
       user: { ...talent, email: authData?.user?.email ?? null },
       basic: basic ?? null,
-      profiles: profiles ?? [],
+      profiles: profilesWithTier,
+      lead_id: (latestLead as { id: string } | null)?.id ?? null,
     };
   }
 
