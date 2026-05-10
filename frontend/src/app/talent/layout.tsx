@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import DashboardLayout, { type SidebarItem } from '@/components/layout/DashboardLayout';
 import Badge from '@/components/ui/Badge';
 import { useUnreadSubscriptionCount } from '@/hooks/useSubscriptionCards';
-import { useModuleAccess, useMyTraining, getActiveCountdowns } from '@/hooks/useTraining';
+import { useModuleAccess, useMyTraining } from '@/hooks/useTraining';
 
 const ALWAYS_ACCESSIBLE = ['/talent/dashboard', '/talent/training', '/talent/contact-support'];
 
@@ -30,7 +30,9 @@ export default function TalentLayout({
   const { data: unread = 0 } = useUnreadSubscriptionCount({ enabled: isTalent });
   const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
   const { data: trainingData } = useMyTraining();
-  const activeCountdownCount = getActiveCountdowns(trainingData?.courses).length;
+  const incompleteCoursesCount = (trainingData?.courses ?? []).filter(
+    (c) => c.total_count > 0 && c.completed_count < c.total_count,
+  ).length;
 
   if (isLoading) {
     return (
@@ -145,7 +147,7 @@ export default function TalentLayout({
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
-      badge: activeCountdownCount > 0 ? <Badge variant="indigo">{activeCountdownCount}</Badge> : undefined,
+      badge: incompleteCoursesCount > 0 ? <Badge variant="indigo">{incompleteCoursesCount}</Badge> : undefined,
     },
     {
       label: 'Contact Support',
