@@ -137,14 +137,40 @@ export async function checkCandidateStatus(input: { email?: string; phone?: stri
 
   const { data: leads, error } = await supabaseAdmin
     .from('lead_submissions')
-    .select('name, form_type, status, created_at')
+    .select('name, form_type, status, created_at, form_data')
     .or(conditions.join(','))
     .order('created_at', { ascending: false })
     .limit(5);
 
   if (error) {
     console.error('Candidate status check error:', error);
-    return { has_invitation, has_account, submissions: [] };
+    return { has_invitation, has_account, submissions: [], prefilled_location: null };
+  }
+
+  // Only expose location prefill to actually-invited, not-yet-signed-up candidates.
+  // Gating prevents the unauthenticated endpoint from leaking lead form PII to
+  // anyone guessing emails.
+  let prefilled_location: {
+    country: string | null;
+    state: string | null;
+    current_district: string | null;
+  } | null = null;
+
+  if (has_invitation && !has_account) {
+    for (const row of leads ?? []) {
+      const fd = ((row as any).form_data ?? {}) as Record<string, unknown>;
+      const country = typeof fd.country === 'string' ? fd.country.trim() : '';
+      if (!country) continue;
+      prefilled_location = {
+        country,
+        state: typeof fd.state === 'string' && fd.state.trim() ? fd.state.trim() : null,
+        current_district:
+          typeof fd.current_district === 'string' && fd.current_district.trim()
+            ? fd.current_district.trim()
+            : null,
+      };
+      break;
+    }
   }
 
   return {
@@ -156,6 +182,7 @@ export async function checkCandidateStatus(input: { email?: string; phone?: stri
       status: s.status,
       submitted_at: s.created_at,
     })),
+    prefilled_location,
   };
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -29,10 +29,17 @@ interface CandidateSubmission {
   submitted_at: string;
 }
 
+interface PrefilledLocation {
+  country: string | null;
+  state: string | null;
+  current_district: string | null;
+}
+
 interface CheckResult {
   has_invitation: boolean;
   has_account: boolean;
   submissions: CandidateSubmission[];
+  prefilled_location: PrefilledLocation | null;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -57,6 +64,7 @@ export default function SignupTalent() {
   const [candidateSubmissions, setCandidateSubmissions] = useState<CandidateSubmission[]>([]);
   const [checkLoading, setCheckLoading] = useState(false);
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
+  const prefilledRef = useRef(false);
 
   const [form, setForm] = useState({
     full_name: '',
@@ -95,6 +103,27 @@ export default function SignupTalent() {
           phone: phoneValid ? form.phone.trim() : undefined,
         });
         setCheckResult(data);
+
+        if (
+          !prefilledRef.current &&
+          data?.prefilled_location &&
+          data.has_invitation &&
+          !data.has_account
+        ) {
+          const loc: PrefilledLocation = data.prefilled_location;
+          setForm((prev) => {
+            const stillDefault =
+              prev.country === 'India' && prev.state === '' && prev.current_district === '';
+            if (!stillDefault) return prev;
+            return {
+              ...prev,
+              country: loc.country || prev.country,
+              state: loc.state || prev.state,
+              current_district: loc.current_district || prev.current_district,
+            };
+          });
+          prefilledRef.current = true;
+        }
       } catch {
         setCheckResult(null);
       } finally {
