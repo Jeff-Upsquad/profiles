@@ -403,6 +403,7 @@ router.delete('/subscription-cards/:id', requestCardsController.deleteCard);
 // ---------------------------------------------------------------------------
 
 router.get('/leads', leadController.getLeads);
+router.get('/leads/onboarding', leadController.getOnboardingLeads);
 router.get('/leads/:id', leadController.getLead);
 router.patch(
   '/leads/:id/status',

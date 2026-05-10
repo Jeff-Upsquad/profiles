@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 const TABS = [
   { href: '/leads', label: 'Applications' },
   { href: '/leads/interviews', label: 'Interview Responses' },
+  { href: '/leads/onboarding', label: 'Onboarding' },
 ];
 
 export default function LeadsTabs() {

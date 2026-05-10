@@ -70,6 +70,21 @@ export async function getLeads(req: Request, res: Response, next: NextFunction) 
   }
 }
 
+export async function getOnboardingLeads(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { form_type, search, page, limit } = req.query;
+    const result = await leadService.getOnboardingLeads({
+      form_type: form_type as string | undefined,
+      search: search as string | undefined,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getLead(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await leadService.getLeadSubmission(req.params.id as string);

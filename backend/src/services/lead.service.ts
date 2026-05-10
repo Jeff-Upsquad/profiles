@@ -191,6 +191,114 @@ export async function getLeadSubmissions(filters: {
 }
 
 // ---------------------------------------------------------------------------
+// Onboarding list (admin) — signed-up candidates with onboarding_progress
+// ---------------------------------------------------------------------------
+
+export async function getOnboardingLeads(filters: {
+  form_type?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const page = filters.page ?? 1;
+  const limit = filters.limit ?? 25;
+  const offset = (page - 1) * limit;
+
+  let query = supabaseAdmin
+    .from('lead_submissions')
+    .select(
+      '*, linked_talent:linked_talent_user_id(id, full_name, onboarding_completed)',
+      { count: 'exact' }
+    )
+    .is('deleted_at', null)
+    .not('linked_talent_user_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (filters.form_type) {
+    query = query.eq('form_type', filters.form_type);
+  }
+  if (filters.search) {
+    query = query.or(
+      `name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,phone.ilike.%${filters.search}%`
+    );
+  }
+
+  const { data, error, count } = await query;
+  if (error) throw new AppError(500, `Failed to fetch onboarding leads: ${error.message}`);
+
+  const leads = data ?? [];
+  const talentIds = leads
+    .map((l: any) => l.linked_talent_user_id as string | null)
+    .filter((v): v is string => !!v);
+
+  let basicSet = new Set<string>();
+  let jobProfilesByTalent = new Map<string, string[]>();
+
+  if (talentIds.length > 0) {
+    const [basicRes, jobRes] = await Promise.all([
+      supabaseAdmin
+        .from('talent_profiles_basic')
+        .select('talent_user_id')
+        .in('talent_user_id', talentIds),
+      supabaseAdmin
+        .from('talent_profiles')
+        .select('id, talent_user_id')
+        .in('talent_user_id', talentIds),
+    ]);
+
+    basicSet = new Set((basicRes.data ?? []).map((r: any) => r.talent_user_id as string));
+    for (const row of jobRes.data ?? []) {
+      const tid = (row as any).talent_user_id as string;
+      const pid = (row as any).id as string;
+      const arr = jobProfilesByTalent.get(tid) ?? [];
+      arr.push(pid);
+      jobProfilesByTalent.set(tid, arr);
+    }
+  }
+
+  const allProfileIds = Array.from(jobProfilesByTalent.values()).flat();
+  let profilesWithPortfolio = new Set<string>();
+  if (allProfileIds.length > 0) {
+    const { data: portfolioRows } = await supabaseAdmin
+      .from('portfolio_items')
+      .select('profile_id')
+      .in('profile_id', allProfileIds);
+    profilesWithPortfolio = new Set(
+      (portfolioRows ?? []).map((r: any) => r.profile_id as string)
+    );
+  }
+
+  const enriched = leads.map((lead: any) => {
+    const talentId = lead.linked_talent_user_id as string | null;
+    const progress = {
+      signed_up: !!talentId,
+      onboarding_completed: !!lead.linked_talent?.onboarding_completed,
+      basic_profile_completed: false,
+      job_profile_completed: false,
+      portfolio_completed: false,
+    };
+    if (talentId) {
+      progress.basic_profile_completed = basicSet.has(talentId);
+      const profileIds = jobProfilesByTalent.get(talentId) ?? [];
+      progress.job_profile_completed = profileIds.length > 0;
+      progress.portfolio_completed = profileIds.some((pid) =>
+        profilesWithPortfolio.has(pid)
+      );
+    }
+    return { ...lead, onboarding_progress: progress };
+  });
+
+  return {
+    leads: enriched,
+    total: count ?? 0,
+    page,
+    limit,
+    total_pages: Math.ceil((count ?? 0) / limit),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Detail (admin)
 // ---------------------------------------------------------------------------
 
