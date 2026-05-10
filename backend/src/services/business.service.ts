@@ -637,11 +637,75 @@ export async function listMySubscriptionCards(businessUserId: string) {
 
   const cardIds = list.map((c: any) => c.id as string);
 
+  // Per-card category requirements — used to gate accepted-derived counts on
+  // the same eligibility chain as getCardRecipientsForReview, so the
+  // dashboard count agrees with what the detail page renders.
+  const cardCategoryMap = new Map<string, string[]>();
+  for (const card of list) {
+    cardCategoryMap.set(card.id as string, pickCategoryIds(card.match_rules));
+  }
+  const allCardCategoryIds = Array.from(
+    new Set(Array.from(cardCategoryMap.values()).flat()),
+  );
+
   // Pull recipient counts in one shot — includes business review status.
   const { data: recipientRows } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('card_id, status, business_review_status, selected_at, cancelled_at')
+    .select('card_id, talent_user_id, status, business_review_status, selected_at, cancelled_at')
     .in('card_id', cardIds);
+
+  // Narrow eligibility lookups to talents the business has accepted (and not
+  // cancelled). Pending/rejected recipients don't need talent or profile
+  // checks since they don't feed accepted-derived buckets.
+  const candidateTalentIds = new Set<string>();
+  for (const r of recipientRows ?? []) {
+    if ((r as any).status === 'accepted' && !(r as any).cancelled_at) {
+      candidateTalentIds.add((r as any).talent_user_id as string);
+    }
+  }
+
+  const activeTalentIds = new Set<string>();
+  const profileCategoriesByTalent = new Map<string, Set<string>>();
+
+  if (candidateTalentIds.size > 0) {
+    const { data: activeTalents } = await supabaseAdmin
+      .from('talent_users')
+      .select('id')
+      .in('id', Array.from(candidateTalentIds))
+      .eq('is_active', true);
+    for (const t of activeTalents ?? []) activeTalentIds.add((t as any).id as string);
+
+    if (activeTalentIds.size > 0 && allCardCategoryIds.length > 0) {
+      const { data: profiles } = await supabaseAdmin
+        .from('talent_profiles')
+        .select('talent_user_id, category_id')
+        .in('talent_user_id', Array.from(activeTalentIds))
+        .in('category_id', allCardCategoryIds)
+        .eq('status', 'approved')
+        .eq('is_active', true)
+        .is('deleted_at', null);
+      for (const p of profiles ?? []) {
+        const tid = (p as any).talent_user_id as string;
+        let cats = profileCategoriesByTalent.get(tid);
+        if (!cats) {
+          cats = new Set<string>();
+          profileCategoriesByTalent.set(tid, cats);
+        }
+        cats.add((p as any).category_id as string);
+      }
+    }
+  }
+
+  function isEligibleForCard(r: any, cardId: string): boolean {
+    if (r.status !== 'accepted') return false;
+    if (r.cancelled_at) return false;
+    if (!activeTalentIds.has(r.talent_user_id)) return false;
+    const cardCats = cardCategoryMap.get(cardId) ?? [];
+    if (cardCats.length === 0) return false;
+    const profCats = profileCategoriesByTalent.get(r.talent_user_id);
+    if (!profCats) return false;
+    return cardCats.some((c) => profCats.has(c));
+  }
 
   const counts = new Map<string, { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number }>();
   for (const id of cardIds) counts.set(id, { accepted: 0, pending: 0, rejected: 0, shortlisted: 0, for_review: 0, selected: 0 });
@@ -649,14 +713,12 @@ export async function listMySubscriptionCards(businessUserId: string) {
     const bucket = counts.get((r as any).card_id);
     if (!bucket) continue;
     const status = (r as any).status as string;
-    if (status === 'accepted') bucket.accepted++;
-    else if (status === 'pending') bucket.pending++;
+    if (status === 'pending') bucket.pending++;
     else if (status === 'rejected') bucket.rejected++;
 
-    if (status === 'accepted' && (r as any).selected_at) bucket.selected++;
-
-    // Per-card business review counts (only for accepted, uncancelled recipients)
-    if (status === 'accepted' && !(r as any).cancelled_at) {
+    if (isEligibleForCard(r, (r as any).card_id)) {
+      bucket.accepted++;
+      if ((r as any).selected_at) bucket.selected++;
       const reviewStatus = (r as any).business_review_status as string | null;
       if (reviewStatus === 'shortlisted') bucket.shortlisted++;
       else if (!reviewStatus && !(r as any).selected_at) bucket.for_review++;
