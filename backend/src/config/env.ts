@@ -38,6 +38,11 @@ const envSchema = z.object({
   SQUADHUB_CALLBACK_URL: z.string().url().optional(),
   SQUADHUB_CALLBACK_SECRET: z.string().min(32).optional(),
 
+  // SquadHire CRM (shcrm) → Profiles inbound: shared secret used to verify the
+  // X-SquadCRM-Signature header when the CRM pushes lead-stage changes back
+  // here. Optional — when unset, /webhooks/squadcrm/lead-stage returns 503.
+  SQUADCRM_INBOUND_SECRET: z.string().min(32).optional(),
+
   // upsquad website — admin API for subscription requests (optional)
   UPSQUAD_API_URL: z.string().url().optional(),
   UPSQUAD_API_TOKEN: z.string().optional(),
