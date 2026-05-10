@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -9,6 +9,28 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import { cleanPhoneForLink } from '@/lib/phone';
 import { useUserActions } from './useUserActions';
+import EditBasicDetailsDialog from './edit-dialogs/EditBasicDetailsDialog';
+import EditLanguagesDialog from './edit-dialogs/EditLanguagesDialog';
+import EditAddressDialog from './edit-dialogs/EditAddressDialog';
+import EditJobPreferenceDialog from './edit-dialogs/EditJobPreferenceDialog';
+import EditEducationDialog from './edit-dialogs/EditEducationDialog';
+import EditFreelanceDialog from './edit-dialogs/EditFreelanceDialog';
+import EditIdProofsDialog from './edit-dialogs/EditIdProofsDialog';
+import EditProfilePictureDialog from './edit-dialogs/EditProfilePictureDialog';
+import EditBankAccountDialog from './edit-dialogs/EditBankAccountDialog';
+import EditResumeDialog from './edit-dialogs/EditResumeDialog';
+
+type EditTarget =
+  | 'basic'
+  | 'language'
+  | 'address'
+  | 'jobPref'
+  | 'education'
+  | 'freelance'
+  | 'idProof'
+  | 'profilePic'
+  | 'bank'
+  | 'resume';
 
 interface TalentUser {
   id: string;
@@ -252,10 +274,50 @@ function FieldGrid({ rows }: { rows: FieldRow[] }) {
   );
 }
 
-function Section({ title, rows }: { title: string; rows: FieldRow[] }) {
+function EditButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+    >
+      Edit
+    </button>
+  );
+}
+
+function SectionHeader({
+  title,
+  onEdit,
+  trailing,
+}: {
+  title: string;
+  onEdit?: () => void;
+  trailing?: ReactNode;
+}) {
+  return (
+    <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2">
+        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+        {trailing}
+      </div>
+      {onEdit && <EditButton onClick={onEdit} />}
+    </div>
+  );
+}
+
+function Section({
+  title,
+  rows,
+  onEdit,
+}: {
+  title: string;
+  rows: FieldRow[];
+  onEdit?: () => void;
+}) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
-      <h2 className="mb-3 text-lg font-semibold text-gray-900">{title}</h2>
+      <SectionHeader title={title} onEdit={onEdit} />
       <FieldGrid rows={rows} />
     </div>
   );
@@ -265,10 +327,12 @@ function PreferenceSection({
   title,
   selected,
   rows,
+  onEdit,
 }: {
   title: string;
   selected: boolean;
   rows: FieldRow[];
+  onEdit?: () => void;
 }) {
   return (
     <div
@@ -276,12 +340,15 @@ function PreferenceSection({
         selected ? '' : 'opacity-60'
       }`}
     >
-      <div className="mb-3 flex items-center gap-2">
-        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-        <Badge variant={selected ? 'green' : 'gray'}>
-          {selected ? 'Selected' : 'Not selected'}
-        </Badge>
-      </div>
+      <SectionHeader
+        title={title}
+        onEdit={onEdit}
+        trailing={
+          <Badge variant={selected ? 'green' : 'gray'}>
+            {selected ? 'Selected' : 'Not selected'}
+          </Badge>
+        }
+      />
       <FieldGrid rows={rows} />
     </div>
   );
@@ -290,13 +357,15 @@ function PreferenceSection({
 function AddressSection({
   permanent,
   current,
+  onEdit,
 }: {
   permanent: FieldRow[];
   current: FieldRow[];
+  onEdit?: () => void;
 }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
-      <h2 className="mb-3 text-lg font-semibold text-gray-900">Address</h2>
+      <SectionHeader title="Address" onEdit={onEdit} />
       <div>
         <h3 className="mb-3 text-base font-semibold text-gray-900">Official Address</h3>
         <FieldGrid rows={permanent} />
@@ -309,10 +378,16 @@ function AddressSection({
   );
 }
 
-function ProfilePictureSection({ url }: { url?: string | null }) {
+function ProfilePictureSection({
+  url,
+  onEdit,
+}: {
+  url?: string | null;
+  onEdit?: () => void;
+}) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
-      <h2 className="mb-3 text-lg font-semibold text-gray-900">Profile Picture</h2>
+      <SectionHeader title="Profile Picture" onEdit={onEdit} />
       {url ? (
         <div className="flex items-center gap-4">
           <img
@@ -401,6 +476,7 @@ export default function UserDetail({ userId }: { userId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { suspendUser, setUserActive, deleteUser } = useUserActions();
+  const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
 
   const { data, isLoading, error } = useQuery<UserDetailResponse>({
     queryKey: ['admin-user-detail', userId],
@@ -699,24 +775,54 @@ export default function UserDetail({ userId }: { userId: string }) {
 
       <JobProfileCards profiles={profiles} />
 
-      <Section title="Basic Details" rows={basicDetails} />
-      <Section title="Language" rows={languageRows} />
-      <AddressSection permanent={officialAddressRows} current={currentAddressRows} />
+      <Section
+        title="Basic Details"
+        rows={basicDetails}
+        onEdit={() => setEditTarget('basic')}
+      />
+      <Section
+        title="Language"
+        rows={languageRows}
+        onEdit={() => setEditTarget('language')}
+      />
+      <AddressSection
+        permanent={officialAddressRows}
+        current={currentAddressRows}
+        onEdit={() => setEditTarget('address')}
+      />
       <PreferenceSection
         title="Job Preference"
         selected={wantsSalary}
         rows={jobPrefs}
+        onEdit={() => setEditTarget('jobPref')}
       />
-      <Section title="Education & Courses" rows={educationRows} />
+      <Section
+        title="Education & Courses"
+        rows={educationRows}
+        onEdit={() => setEditTarget('education')}
+      />
       <PreferenceSection
         title="Freelance Preference"
         selected={wantsFreelance}
         rows={freelancePrefs}
+        onEdit={() => setEditTarget('freelance')}
       />
-      <Section title="ID Proofs" rows={idProofs} />
-      <ProfilePictureSection url={photoUrl} />
-      <Section title="Bank Account" rows={bankAccount} />
-      <Section title="Resume" rows={resumeRows} />
+      <Section
+        title="ID Proofs"
+        rows={idProofs}
+        onEdit={() => setEditTarget('idProof')}
+      />
+      <ProfilePictureSection url={photoUrl} onEdit={() => setEditTarget('profilePic')} />
+      <Section
+        title="Bank Account"
+        rows={bankAccount}
+        onEdit={() => setEditTarget('bank')}
+      />
+      <Section
+        title="Resume"
+        rows={resumeRows}
+        onEdit={() => setEditTarget('resume')}
+      />
       <Section title="Account Status" rows={accountStatus} />
 
       {enrollments.length > 0 && (
@@ -769,6 +875,103 @@ export default function UserDetail({ userId }: { userId: string }) {
           </table>
         </div>
       )}
+
+      <EditBasicDetailsDialog
+        open={editTarget === 'basic'}
+        onClose={() => setEditTarget(null)}
+        userId={user.id}
+        email={(user as TalentUser & { email?: string | null }).email ?? null}
+        fullName={user.full_name}
+        phone={user.phone ?? null}
+        employmentType={(basic?.employment_type ?? []) as ('salary' | 'freelance')[]}
+      />
+      <EditLanguagesDialog
+        open={editTarget === 'language'}
+        onClose={() => setEditTarget(null)}
+        userId={user.id}
+        languages={user.languages_spoken}
+      />
+      <EditAddressDialog
+        open={editTarget === 'address'}
+        onClose={() => setEditTarget(null)}
+        userId={user.id}
+        initial={{
+          permanent: {
+            address: basic?.permanent_address ?? '',
+            country: basic?.permanent_country ?? '',
+            state: basic?.permanent_state ?? '',
+            district: basic?.permanent_district ?? '',
+            city: basic?.permanent_city ?? '',
+            pin_code: basic?.permanent_pin_code ?? '',
+          },
+          current: {
+            address: basic?.current_address ?? '',
+            country: basic?.country ?? '',
+            state: basic?.state ?? '',
+            district: basic?.current_district ?? '',
+            city: basic?.city ?? '',
+            pin_code: basic?.pin_code ?? '',
+          },
+        }}
+      />
+      <EditJobPreferenceDialog
+        open={editTarget === 'jobPref'}
+        onClose={() => setEditTarget(null)}
+        userId={user.id}
+        initial={{
+          availability: basic?.availability ?? [],
+          job_type: basic?.job_type ?? [],
+          expected_salary_full_time: basic?.expected_salary_full_time ?? null,
+          expected_salary_part_time: basic?.expected_salary_part_time ?? null,
+        }}
+      />
+      <EditEducationDialog
+        open={editTarget === 'education'}
+        onClose={() => setEditTarget(null)}
+        userId={user.id}
+        courses={basic?.education_courses ?? null}
+      />
+      <EditFreelanceDialog
+        open={editTarget === 'freelance'}
+        onClose={() => setEditTarget(null)}
+        userId={user.id}
+        hours={basic?.virtual_office_hours as any}
+      />
+      <EditIdProofsDialog
+        open={editTarget === 'idProof'}
+        onClose={() => setEditTarget(null)}
+        userId={user.id}
+        initial={{
+          aadhaar_number: basic?.aadhaar_number ?? null,
+          aadhaar_file_url: basic?.aadhaar_file_url ?? null,
+          pan_number: basic?.pan_number ?? null,
+          pan_file_url: basic?.pan_file_url ?? null,
+        }}
+      />
+      <EditProfilePictureDialog
+        open={editTarget === 'profilePic'}
+        onClose={() => setEditTarget(null)}
+        userId={user.id}
+        url={photoUrl}
+      />
+      <EditBankAccountDialog
+        open={editTarget === 'bank'}
+        onClose={() => setEditTarget(null)}
+        userId={user.id}
+        initial={{
+          bank_account_holder: basic?.bank_account_holder ?? null,
+          bank_name: basic?.bank_name ?? null,
+          bank_account_number: basic?.bank_account_number ?? null,
+          bank_ifsc_code: basic?.bank_ifsc_code ?? null,
+          bank_branch_name: basic?.bank_branch_name ?? null,
+        }}
+      />
+      <EditResumeDialog
+        open={editTarget === 'resume'}
+        onClose={() => setEditTarget(null)}
+        userId={user.id}
+        url={basic?.resume_url ?? null}
+      />
     </div>
   );
 }

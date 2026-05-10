@@ -26,6 +26,7 @@ import {
   adminAddPortfolioItemSchema,
   adminReviewPortfolioItemSchema,
 } from '../validators/admin.validators.js';
+import { updateBasicProfileSchema } from '../validators/talent.validators.js';
 import {
   createCourseSchema,
   updateCourseSchema,
@@ -359,6 +360,11 @@ router.get('/search', adminController.searchUsers);
 router.get('/users/talent', adminController.getTalentUsers);
 router.get('/users/business', adminController.getBusinessUsers);
 router.get('/users/:userId', adminController.getUserDetail);
+router.put(
+  '/users/:userId/basic-profile',
+  validate({ body: updateBasicProfileSchema }),
+  adminController.updateUserBasicProfile,
+);
 router.patch('/users/:id/suspend', adminController.suspendUser);
 router.patch('/users/talent/:id/active', adminController.setTalentUserActive);
 router.post('/users/:id/reset-password', adminController.resetUserPassword);

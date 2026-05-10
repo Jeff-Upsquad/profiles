@@ -17,6 +17,7 @@ import type {
   AdminUpdateTalentProfileInput,
   AdminAddPortfolioItemInput,
 } from '../validators/admin.validators.js';
+import type { UpdateBasicProfileInput } from '../validators/talent.validators.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -941,6 +942,13 @@ export async function adminUpdateTalentUser(userId: string, input: AdminUpdateTa
 
   if (error || !data) throw new AppError(404, 'Talent user not found');
   return data;
+}
+
+// Admin updates a talent_profiles_basic row. Delegates to talentService which
+// upserts and syncs profile_picture_url to talent_users — same logic as the
+// talent's own self-edit, no approval-status side-effects.
+export async function adminUpdateBasicProfile(userId: string, input: UpdateBasicProfileInput) {
+  return talentService.updateBasicProfile(userId, input);
 }
 
 // Admin updates a talent_profile's field_data / resume_url. Crucially does

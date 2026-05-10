@@ -496,6 +496,18 @@ export async function updateTalentUser(req: Request, res: Response, next: NextFu
   }
 }
 
+export async function updateUserBasicProfile(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await adminService.adminUpdateBasicProfile(
+      req.params.userId as string,
+      req.body,
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function updateTalentProfile(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await adminService.adminUpdateTalentProfile(
