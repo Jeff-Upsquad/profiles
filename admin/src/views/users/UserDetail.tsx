@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import { cleanPhoneForLink } from '@/lib/phone';
+import { cleanPhoneForLink, formatIndianPhone } from '@/lib/phone';
 import { useUserActions } from './useUserActions';
 import EditBasicDetailsDialog from './edit-dialogs/EditBasicDetailsDialog';
 import EditLanguagesDialog from './edit-dialogs/EditLanguagesDialog';
@@ -566,7 +566,7 @@ export default function UserDetail({ userId }: { userId: string }) {
     { label: 'Middle Name', value: name.middle },
     { label: 'Last Name', value: name.last },
     { label: 'Email', value: user.email },
-    { label: 'Phone Number', value: user.phone },
+    { label: 'Phone Number', value: formatIndianPhone(user.phone) },
     {
       label: 'Work Preference',
       value: <Tags items={basic?.employment_type ?? null} />,
