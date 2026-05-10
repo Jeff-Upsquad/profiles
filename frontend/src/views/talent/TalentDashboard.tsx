@@ -1,8 +1,67 @@
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useMyProfiles } from '@/hooks/useProfiles';
+import { useMyOnboardingProgress, type OnboardingProgress } from '@/hooks/useOnboardingProgress';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
 import { SkeletonCard } from '@/components/ui/Skeleton';
+
+type OnboardingStageKey = keyof OnboardingProgress;
+
+const ONBOARDING_STAGES: { key: OnboardingStageKey; label: string; short: string }[] = [
+  { key: 'signed_up', label: 'Sign-up', short: 'Sign-up' },
+  { key: 'onboarding_completed', label: 'Onboarding Course', short: 'Course' },
+  { key: 'basic_profile_completed', label: 'Basic Profile', short: 'Basic' },
+  { key: 'job_profile_completed', label: 'Job Profile', short: 'Job' },
+  { key: 'portfolio_completed', label: 'Portfolio', short: 'Portfolio' },
+];
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+function OnboardingStageStrip({ progress }: { progress: OnboardingProgress }) {
+  return (
+    <div className="flex items-start justify-between gap-2 sm:justify-start sm:gap-4">
+      {ONBOARDING_STAGES.map((stage, i) => {
+        const done = progress[stage.key];
+        const isLast = i === ONBOARDING_STAGES.length - 1;
+        return (
+          <div
+            key={stage.key}
+            className="flex items-start gap-2 sm:gap-4"
+            title={`${stage.label}: ${done ? 'Done' : 'Pending'}`}
+          >
+            <div className="flex flex-col items-center gap-1.5">
+              <span className="relative z-10 flex h-6 w-6 items-center justify-center">
+                {done ? (
+                  <svg className="h-6 w-6 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      fillRule="evenodd"
+                      d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                ) : (
+                  <span className="h-5 w-5 rounded-full border-2 border-gray-300 bg-white" />
+                )}
+              </span>
+              <span
+                className={`font-[family-name:var(--font-inter)] text-[11px] font-medium leading-none ${
+                  done ? 'text-[#0a0a0a]' : 'text-[#a3a3a3]'
+                }`}
+              >
+                {stage.short}
+              </span>
+            </div>
+            {!isLast && (
+              <span
+                className={`mt-3 h-0.5 w-6 sm:w-10 ${done ? 'bg-green-300' : 'bg-gray-200'}`}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 interface StatTile {
   label: string;
@@ -15,8 +74,16 @@ interface StatTile {
 export default function TalentDashboard() {
   const { user } = useAuth();
   const { data: profiles, isLoading } = useMyProfiles();
+  const { data: onboardingProgress } = useMyOnboardingProgress();
   const isApproved = user?.approval_status === 'approved';
   const onboarded = user?.onboarding_completed !== false;
+
+  const showOnboardingStrip = (() => {
+    if (!onboardingProgress) return false;
+    if (!onboardingProgress.all_completed_at) return true;
+    const completedMs = new Date(onboardingProgress.all_completed_at).getTime();
+    return Date.now() - completedMs < SEVEN_DAYS_MS;
+  })();
 
   const stats = {
     total: profiles?.length ?? 0,
@@ -145,6 +212,25 @@ export default function TalentDashboard() {
           </div>
         </div>
       </section>
+
+      {/* ── Onboarding progress strip (hides 7 days after all stages complete) ── */}
+      {showOnboardingStrip && onboardingProgress && (
+        <section className="rounded-2xl border border-[#E8E5DE] bg-white px-5 py-5 sm:px-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="font-[family-name:var(--font-jakarta)] text-base font-semibold tracking-[-0.015em] text-[#0a0a0a]">
+                Your onboarding journey
+              </h2>
+              <p className="mt-0.5 font-[family-name:var(--font-inter)] text-xs text-[#737373]">
+                {onboardingProgress.all_completed_at
+                  ? 'You’ve completed every stage. Nice work!'
+                  : 'Complete each stage to unlock the full talent workspace.'}
+              </p>
+            </div>
+          </div>
+          <OnboardingStageStrip progress={onboardingProgress.progress} />
+        </section>
+      )}
 
       {/* ── Stat Cards (Pastel Tints) ── */}
       {isLoading ? (

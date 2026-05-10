@@ -29,6 +29,9 @@ router.put('/me/basic-profile', validate({ body: updateBasicProfileSchema }), ta
 // Lead submission (used by signup to auto-populate from a prior public-form lead)
 router.get('/me/lead-submission', talentController.getMyLeadSubmission);
 
+// Onboarding progress (5-stage strip on the talent dashboard)
+router.get('/me/onboarding-progress', talentController.getMyOnboardingProgress);
+
 // Categories a talent is allowed to create a profile in.
 // Filters out the Designer + Editor combined category — that one is now
 // a ghost-only category, auto-generated when a talent has both a Designer

@@ -93,6 +93,83 @@ export async function getLeadSubmissionForTalent(userId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Onboarding progress (talent self) — 5-stage strip for the talent dashboard
+// ---------------------------------------------------------------------------
+
+export async function getMyOnboardingProgress(userId: string) {
+  const { data: talent, error: talentErr } = await supabaseAdmin
+    .from('talent_users')
+    .select('id, onboarding_completed')
+    .eq('id', userId)
+    .single();
+
+  if (talentErr || !talent) throw new AppError(404, 'Talent user not found');
+
+  const [basicRes, profilesRes] = await Promise.all([
+    supabaseAdmin
+      .from('talent_profiles_basic')
+      .select('created_at')
+      .eq('talent_user_id', userId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('talent_profiles')
+      .select('id, created_at')
+      .eq('talent_user_id', userId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true }),
+  ]);
+
+  const basicCreatedAt: string | null = basicRes.data?.created_at ?? null;
+  const profiles = (profilesRes.data ?? []) as { id: string; created_at: string }[];
+  const earliestProfileCreatedAt: string | null = profiles[0]?.created_at ?? null;
+  const profileIds = profiles.map((p) => p.id);
+
+  let earliestPortfolioCreatedAt: string | null = null;
+  if (profileIds.length > 0) {
+    const { data: portfolio } = await supabaseAdmin
+      .from('portfolio_items')
+      .select('created_at')
+      .in('profile_id', profileIds)
+      .order('created_at', { ascending: true })
+      .limit(1);
+    earliestPortfolioCreatedAt = portfolio?.[0]?.created_at ?? null;
+  }
+
+  const progress = {
+    signed_up: true,
+    onboarding_completed: !!talent.onboarding_completed,
+    basic_profile_completed: !!basicCreatedAt,
+    job_profile_completed: profiles.length > 0,
+    portfolio_completed: !!earliestPortfolioCreatedAt,
+  };
+
+  const allCompleted =
+    progress.onboarding_completed &&
+    progress.basic_profile_completed &&
+    progress.job_profile_completed &&
+    progress.portfolio_completed;
+
+  let allCompletedAt: string | null = null;
+  if (allCompleted) {
+    const candidates = [
+      basicCreatedAt,
+      earliestProfileCreatedAt,
+      earliestPortfolioCreatedAt,
+    ].filter((t): t is string => !!t);
+    if (candidates.length > 0) {
+      allCompletedAt = candidates.reduce((max, t) =>
+        new Date(t).getTime() > new Date(max).getTime() ? t : max,
+      );
+    }
+  }
+
+  return {
+    progress,
+    all_completed_at: allCompletedAt,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Talent Profiles
 // ---------------------------------------------------------------------------
 

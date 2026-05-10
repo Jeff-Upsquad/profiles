@@ -50,6 +50,15 @@ export async function getMyLeadSubmission(req: Request, res: Response, next: Nex
   }
 }
 
+export async function getMyOnboardingProgress(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await talentService.getMyOnboardingProgress(req.user!.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getProfiles(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await talentService.getMyProfiles(req.user!.id);
