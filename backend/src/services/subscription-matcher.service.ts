@@ -67,11 +67,23 @@ export async function findMatchingTalents(matchRules: MatchRules): Promise<strin
   let rows = (baseRows ?? []) as Array<{ id: string; talent_user_id: string }>;
   if (rows.length === 0) return [];
 
-  // Step 2: Tier filter — narrow by profile IDs
+  // Step 2: Tier filter — narrow by profile IDs.
+  //
+  // Fail-closed: a card with no target_tiers means no tier intent, which
+  // historically caused the filter to be skipped and every category-matching
+  // talent to receive the card regardless of skill bracket. SquadHub now
+  // gates publish on a non-empty target_tiers, but we mirror the rule here
+  // as a safety net for legacy cards / direct webhook calls.
   const tiers = Array.isArray(matchRules.target_tiers)
     ? matchRules.target_tiers.map((t) => String(t).toLowerCase()).filter(Boolean)
     : [];
-  if (tiers.length > 0) {
+  if (tiers.length === 0) {
+    console.warn(
+      '[subscription-matcher] refusing to match — match_rules.target_tiers is missing or empty; card would otherwise broadcast to every category-matching talent',
+    );
+    return [];
+  }
+  {
     const profileIds = rows.map((r) => r.id);
     const { data: tierRows, error: tierErr } = await supabaseAdmin
       .from('v_talent_profile_tier')
