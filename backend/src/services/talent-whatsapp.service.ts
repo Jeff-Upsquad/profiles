@@ -88,7 +88,7 @@ async function hasUnviewedPriorCard(talentUserId: string, currentCardId: string)
   return (count ?? 0) > 0;
 }
 
-async function postToCrm(payload: object): Promise<{ ok: boolean; error?: string }> {
+async function postToCrm(payload: object): Promise<{ ok: boolean; skipped?: boolean; reason?: string; error?: string }> {
   const url = env.SQUADHIRE_CRM_SYSTEM_EVENTS_URL;
   if (!url) return { ok: false, error: 'no_url' };
 
@@ -110,6 +110,18 @@ async function postToCrm(payload: object): Promise<{ ok: boolean; error?: string
       const msg = `http_${res.status}`;
       console.warn(`[talent-whatsapp] CRM webhook ${msg}`);
       return { ok: false, error: msg };
+    }
+    // The CRM returns 200 even when it intentionally skips the send (e.g.
+    // no System Automation configured yet, or the configured template
+    // isn't APPROVED). Inspect the body so we don't arm the per-talent
+    // throttle for a message that didn't actually go out.
+    try {
+      const body = (await res.json()) as { data?: { skipped?: boolean; reason?: string } };
+      if (body?.data?.skipped === true) {
+        return { ok: true, skipped: true, reason: body.data.reason };
+      }
+    } catch {
+      // Non-JSON or empty body — treat as a real send.
     }
     return { ok: true };
   } catch (err) {
@@ -188,7 +200,7 @@ export async function notifyTalentSubscriptionCardReceived(
 
   const result = await postToCrm(payload);
 
-  if (result.ok) {
+  if (result.ok && !result.skipped) {
     await supabaseAdmin
       .from('talent_users')
       .update({ last_subscription_whatsapp_at: new Date().toISOString() })
@@ -197,6 +209,14 @@ export async function notifyTalentSubscriptionCardReceived(
       event_type: 'talent_card_whatsapp_sent',
       talent_user_id: talentUserId,
       metadata: { card_id: cardId, card_title: cardTitle, business_name: brandName },
+    });
+  } else if (result.ok && result.skipped) {
+    // CRM returned 200 but didn't actually dispatch (e.g. no template
+    // configured for this event yet). Log it but don't arm the throttle.
+    await logAutomationEvent({
+      event_type: 'talent_card_whatsapp_skipped',
+      talent_user_id: talentUserId,
+      metadata: { card_id: cardId, reason: result.reason ?? 'crm_skipped' },
     });
   } else {
     await logAutomationEvent({
