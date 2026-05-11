@@ -369,60 +369,100 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       }
     }
 
-    // Republish (archived → active) or plain edit while active: re-fan-out
-    // to every matching talent that doesn't already have an *active* (uncancelled)
-    // row. The partial unique index `WHERE cancelled_at IS NULL` can't be
-    // inferred by PostgREST's ON CONFLICT, so we read existing active rows,
-    // diff against the matched talents, and INSERT only the missing ones.
-    // Cancelled rows from prior rounds stay around as audit.
+    // Republish (archived → active) or plain edit while active: re-run the
+    // matcher and reconcile recipients against the new match set.
+    //   - INSERT new matches that don't already have an active row.
+    //   - PRUNE (cancel) PENDING recipients that no longer match. match_rules
+    //     can tighten between publishes (e.g. SquadHub adds target_tiers on
+    //     re-publish) and without pruning, stale pending recipients from the
+    //     looser previous match are left attached and reach talents who no
+    //     longer qualify.
+    //   - PRESERVE accepted/rejected recipients regardless of new match — those
+    //     responses are audit; the talent already engaged with the card.
+    //
+    // The partial unique index `WHERE cancelled_at IS NULL` can't be inferred
+    // by PostgREST's ON CONFLICT, so we read existing active rows, diff against
+    // the matched talents, and INSERT only the missing ones. Cancelled rows
+    // from prior rounds stay around as audit.
     //
     // Manual cards are exempt: they only ever surface to talents through
     // /manual-assignments, never auto-fan-out, even on republish.
     let recipientCount = 0;
     if (nextStatus === 'active' && !skipAutoFanOut) {
       const talentIds = await findMatchingTalents(input.match_rules ?? {});
-      if (talentIds.length > 0) {
-        const { data: existingRows, error: existErr } = await supabaseAdmin
-          .from('subscription_card_recipients')
-          .select('talent_user_id')
-          .eq('card_id', existing.id)
-          .is('cancelled_at', null);
+      const matchedSet = new Set(talentIds);
 
-        if (existErr) {
-          console.error('[subscription] failed to read existing recipients', existErr);
-        } else {
-          const haveActive = new Set(
-            (existingRows ?? []).map((r: any) => r.talent_user_id as string)
-          );
-          const newTalentIds = talentIds.filter((id) => !haveActive.has(id));
+      // Always load existing active recipients — the prune step needs them
+      // even when talentIds is empty (e.g. new match_rules match nobody).
+      const { data: existingRows, error: existErr } = await supabaseAdmin
+        .from('subscription_card_recipients')
+        .select('talent_user_id, status')
+        .eq('card_id', existing.id)
+        .is('cancelled_at', null);
 
-          if (newTalentIds.length > 0) {
-            const recipients = newTalentIds.map((talent_user_id) => ({
+      if (existErr) {
+        console.error('[subscription] failed to read existing recipients', existErr);
+      } else {
+        const existingByTalent = new Map<string, string>();
+        (existingRows ?? []).forEach((r: any) => {
+          existingByTalent.set(r.talent_user_id as string, r.status as string);
+        });
+
+        // Prune: cancel PENDING recipients no longer in the match set.
+        // accepted/rejected are skipped so the response stays in the audit trail.
+        const staleTalentIds: string[] = [];
+        for (const [tid, status] of existingByTalent) {
+          if (status === 'pending' && !matchedSet.has(tid)) {
+            staleTalentIds.push(tid);
+          }
+        }
+        if (staleTalentIds.length > 0) {
+          const { error: pruneErr, count: prunedCount } = await supabaseAdmin
+            .from('subscription_card_recipients')
+            .update({ cancelled_at: new Date().toISOString() }, { count: 'exact' })
+            .eq('card_id', existing.id)
+            .eq('status', 'pending')
+            .is('cancelled_at', null)
+            .in('talent_user_id', staleTalentIds);
+          if (pruneErr) {
+            console.error('[subscription] failed to prune stale recipients', pruneErr);
+          } else {
+            console.info('[subscription] pruned stale pending recipients', {
+              external_id: input.external_id,
               card_id: existing.id,
-              talent_user_id,
-              status: 'pending' as const,
-            }));
-            const { error: recErr, count } = await supabaseAdmin
-              .from('subscription_card_recipients')
-              .insert(recipients, { count: 'exact' });
-            if (recErr) {
-              // 23505 = unique violation. A concurrent webhook can race us
-              // between the SELECT and INSERT; the partial index will reject
-              // the duplicate, which is the correct outcome — log and move on.
-              if (recErr.code !== '23505') {
-                console.error('[subscription] failed to insert recipients on update', recErr);
-              }
-            } else {
-              recipientCount = count ?? newTalentIds.length;
-              const updateContent = input.content ?? {};
-              notifyNewCard(existing.id, newTalentIds, updateContent).catch((err) => {
-                console.error('[subscription] notifyNewCard (update) threw', err);
+              pruned_count: prunedCount ?? staleTalentIds.length,
+            });
+          }
+        }
+
+        // Insert NEW matches that don't already have an active row.
+        const newTalentIds = talentIds.filter((id) => !existingByTalent.has(id));
+        if (newTalentIds.length > 0) {
+          const recipients = newTalentIds.map((talent_user_id) => ({
+            card_id: existing.id,
+            talent_user_id,
+            status: 'pending' as const,
+          }));
+          const { error: recErr, count } = await supabaseAdmin
+            .from('subscription_card_recipients')
+            .insert(recipients, { count: 'exact' });
+          if (recErr) {
+            // 23505 = unique violation. A concurrent webhook can race us
+            // between the SELECT and INSERT; the partial index will reject
+            // the duplicate, which is the correct outcome — log and move on.
+            if (recErr.code !== '23505') {
+              console.error('[subscription] failed to insert recipients on update', recErr);
+            }
+          } else {
+            recipientCount = count ?? newTalentIds.length;
+            const updateContent = input.content ?? {};
+            notifyNewCard(existing.id, newTalentIds, updateContent).catch((err) => {
+              console.error('[subscription] notifyNewCard (update) threw', err);
+            });
+            for (const tid of newTalentIds) {
+              notifyTalentSubscriptionCardReceived(tid, existing.id, updateContent).catch((err) => {
+                console.error('[subscription] notifyTalentSubscriptionCardReceived (update) threw', err);
               });
-              for (const tid of newTalentIds) {
-                notifyTalentSubscriptionCardReceived(tid, existing.id, updateContent).catch((err) => {
-                  console.error('[subscription] notifyTalentSubscriptionCardReceived (update) threw', err);
-                });
-              }
             }
           }
         }
