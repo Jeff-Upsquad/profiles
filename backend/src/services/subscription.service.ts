@@ -642,6 +642,146 @@ export async function listForTalent(
   }));
 }
 
+// ─── My Clients: cards where this talent has been selected ────────────────
+
+export interface MyClientRow {
+  recipient_id: string;
+  card_id: string;
+  external_id: string;
+  selected_at: string;
+  subscription_activated_at: string | null;
+  brand_name: string | null;
+  business_nature: string | null;
+  plan_name: string | null;
+  subscription_name: string | null;
+  monthly_price: number | null;
+  currency: string | null;
+  price_label: string | null;
+  hours_label: string | null;
+  working_days: string[] | null;
+  custom_deliverables: Array<Record<string, unknown>>;
+}
+
+export interface MyClientsResponse {
+  selected: MyClientRow[];
+  assigned: MyClientRow[];
+  earnings: { monthly_total: number; currency: string };
+  commitment: { hours_per_day: number; hours_per_week: number; hours_per_month: number };
+}
+
+// Parse a string like "2.5 hrs/day" or "12.5 hrs/week" → numeric hours and
+// the cadence bucket. Loose but good enough as a fallback when a card has no
+// structured hours deliverable. Returns null for unparseable input.
+function parseHoursLabel(raw: string | null): { value: number; per: 'day' | 'week' | 'month' } | null {
+  if (!raw) return null;
+  const m = raw.match(/([\d.]+)\s*hr?s?\s*\/\s*(day|week|month)/i);
+  if (!m) return null;
+  const value = Number.parseFloat(m[1]);
+  if (!Number.isFinite(value)) return null;
+  return { value, per: m[2].toLowerCase() as 'day' | 'week' | 'month' };
+}
+
+function clientRowFromContent(
+  row: { id: string; selected_at: string | null; card: any },
+): MyClientRow {
+  const card = row.card ?? {};
+  const content = (card.content ?? {}) as Record<string, any>;
+  const monthly_price = typeof content.monthly_price === 'number' ? content.monthly_price : null;
+  return {
+    recipient_id: row.id,
+    card_id: card.id,
+    external_id: card.external_id,
+    selected_at: row.selected_at as string,
+    subscription_activated_at: card.subscription_activated_at ?? null,
+    brand_name: content.brand_name ?? null,
+    business_nature: content.business_nature ?? null,
+    plan_name: content.plan_name ?? null,
+    subscription_name: content.subscription_name ?? null,
+    monthly_price,
+    currency: content.currency ?? 'INR',
+    price_label: content.price_label ?? null,
+    hours_label: content.hours_label ?? null,
+    working_days: Array.isArray(content.working_days) ? content.working_days : null,
+    custom_deliverables: Array.isArray(content.custom_deliverables)
+      ? content.custom_deliverables
+      : [],
+  };
+}
+
+function aggregateAssigned(assigned: MyClientRow[]): {
+  earnings: MyClientsResponse['earnings'];
+  commitment: MyClientsResponse['commitment'];
+} {
+  let monthly_total = 0;
+  let currency = 'INR';
+  let hours_per_day = 0;
+  let hours_per_week = 0;
+  let hours_per_month = 0;
+
+  for (const row of assigned) {
+    if (typeof row.monthly_price === 'number') {
+      monthly_total += row.monthly_price;
+      if (row.currency) currency = row.currency;
+    }
+
+    // Prefer structured deliverables when available.
+    const hoursDeliverables = row.custom_deliverables.filter(
+      (d) => (d as any).kind === 'hours',
+    );
+    if (hoursDeliverables.length > 0) {
+      for (const d of hoursDeliverables) {
+        if (typeof (d as any).per_day === 'number') hours_per_day += (d as any).per_day;
+        if (typeof (d as any).per_week === 'number') hours_per_week += (d as any).per_week;
+        if (typeof (d as any).per_month === 'number') hours_per_month += (d as any).per_month;
+      }
+      continue;
+    }
+
+    // Fall back to the loose hours_label string.
+    const parsed = parseHoursLabel(row.hours_label);
+    if (!parsed) continue;
+    if (parsed.per === 'day') hours_per_day += parsed.value;
+    else if (parsed.per === 'week') hours_per_week += parsed.value;
+    else hours_per_month += parsed.value;
+  }
+
+  return {
+    earnings: { monthly_total, currency },
+    commitment: { hours_per_day, hours_per_week, hours_per_month },
+  };
+}
+
+export async function listMyClients(talentUserId: string): Promise<MyClientsResponse> {
+  const { data, error } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select(
+      'id, selected_at, subscription_cards!inner(id, external_id, content, status, archived_at, subscription_activated_at)'
+    )
+    .eq('talent_user_id', talentUserId)
+    .not('selected_at', 'is', null)
+    .is('subscription_cards.archived_at', null)
+    .order('selected_at', { ascending: false });
+
+  if (error) throw new AppError(500, error.message);
+
+  const selected: MyClientRow[] = [];
+  const assigned: MyClientRow[] = [];
+
+  for (const raw of (data ?? []) as any[]) {
+    const row = clientRowFromContent({
+      id: raw.id,
+      selected_at: raw.selected_at,
+      card: raw.subscription_cards,
+    });
+    if (row.subscription_activated_at) assigned.push(row);
+    else selected.push(row);
+  }
+
+  const { earnings, commitment } = aggregateAssigned(assigned);
+
+  return { selected, assigned, earnings, commitment };
+}
+
 export async function getUnreadCount(talentUserId: string): Promise<number> {
   // Cancelled offers don't count as unread — the partner rescinded them.
   // Archived cards likewise don't count, even if a stale recipient row
@@ -1493,6 +1633,26 @@ export async function handleSelectionWebhook(
     .from('subscription_cards')
     .update(cardPatch)
     .eq('id', cid);
+}
+
+// SquadHub admin clicked "Finalize" on a selected card. We just stamp
+// subscription_activated_at so the talent's My Clients tab moves this card
+// from Selected → Assigned. Idempotent: re-firing rewrites the same field.
+export async function handleActivationWebhook(
+  externalCardId: string,
+  activatedAt: string,
+): Promise<void> {
+  const { data: card } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id')
+    .eq('external_id', externalCardId)
+    .maybeSingle();
+  if (!card) return;
+
+  await supabaseAdmin
+    .from('subscription_cards')
+    .update({ subscription_activated_at: activatedAt })
+    .eq('id', (card as any).id);
 }
 
 export async function handleSelectionUndoWebhook(
