@@ -94,6 +94,20 @@ export async function handleCardSelectionUndo(
   }
 }
 
+export async function handleCardActivation(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { card_id, activated_at } = req.body;
+    await subscriptionService.handleActivationWebhook(card_id, activated_at);
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function removeAssignedTalent(
   req: Request,
   res: Response,

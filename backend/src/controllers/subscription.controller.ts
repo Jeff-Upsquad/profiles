@@ -101,6 +101,16 @@ export async function adminUndoSelection(req: Request, res: Response, next: Next
   }
 }
 
+export async function myClients(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.user) throw new AppError(401, 'Authentication required');
+    const data = await subscriptionService.listMyClients(req.user.id);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function respond(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     if (!req.user) throw new AppError(401, 'Authentication required');

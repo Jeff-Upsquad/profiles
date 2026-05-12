@@ -1,11 +1,9 @@
 'use client';
 
-const SUPPORT_PHONE_DIGITS = '919995266342';
-const SUPPORT_PHONE_DISPLAY = '+91 99952 66342';
+import { SUPPORT_PHONE_DISPLAY, whatsappDeepLink } from '@/lib/whatsapp';
 
 export default function ContactSupportPage() {
-  const message = encodeURIComponent('Hi, I need help with my UpSquad profile.');
-  const whatsappUrl = `https://wa.me/${SUPPORT_PHONE_DIGITS}?text=${message}`;
+  const whatsappUrl = whatsappDeepLink('Hi, I need help with my UpSquad profile.');
 
   return (
     <div className="font-[family-name:var(--font-inter)]">

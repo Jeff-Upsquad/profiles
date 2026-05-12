@@ -143,9 +143,20 @@ export const cardSelectionUndoWebhookSchema = z.object({
   undone_at: z.string().datetime({ offset: true }).optional(),
 });
 
+// Fired by SquadHub when admin clicks "Finalize" on a selected card. Flips the
+// talent's My Clients view for this card from "Selected (waiting admin
+// approval)" to "Assigned (active)". Idempotent — re-firing just rewrites
+// subscription_activated_at to the same value.
+export const cardActivationWebhookSchema = z.object({
+  type: z.literal('card_activation').optional(),
+  card_id: z.string().min(1).max(200),
+  activated_at: z.string().datetime({ offset: true }),
+});
+
 export type SelectRecipientInput = z.infer<typeof selectRecipientSchema>;
 export type CardSelectionWebhookInput = z.infer<typeof cardSelectionWebhookSchema>;
 export type CardSelectionUndoWebhookInput = z.infer<typeof cardSelectionUndoWebhookSchema>;
+export type CardActivationWebhookInput = z.infer<typeof cardActivationWebhookSchema>;
 
 export type IngestSubscriptionCardInput = z.infer<typeof ingestSubscriptionCardSchema>;
 export type ListSubscriptionsQueryInput = z.infer<typeof listSubscriptionsQuerySchema>;

@@ -45,15 +45,18 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
 
   const isClosed = card?.status === 'archived' || !!card?.recalled_at;
 
+  // Passed-over talents stay in the lists (greyed out + disabled buttons) so
+  // the customer can still click through to view a profile after a selection
+  // has been made — useful for reference or a side-by-side compare.
   const forReview = useMemo(() => {
     return (recipients ?? []).filter(
-      (r) => !r.business_review_status && !r.selected_at && !r.passed_over_at,
+      (r) => !r.business_review_status && !r.selected_at,
     );
   }, [recipients]);
 
   const shortlisted = useMemo(() => {
     return (recipients ?? []).filter(
-      (r) => r.business_review_status === 'shortlisted' && !r.selected_at && !r.passed_over_at,
+      (r) => r.business_review_status === 'shortlisted' && !r.selected_at,
     );
   }, [recipients]);
 
@@ -300,26 +303,24 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
                         <RecipientAvatar recipient={r} />
                         <RecipientInfo recipient={r} />
                       </RecipientLink>
-                      {!hasSelection && !isClosed && (
-                        <div className="flex shrink-0 items-center gap-2">
-                          <button
-                            type="button"
-                            disabled={reviewMutation.isPending}
-                            onClick={() => handleReview(r.recipient_id, 'shortlist')}
-                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-                          >
-                            Shortlist
-                          </button>
-                          <button
-                            type="button"
-                            disabled={reviewMutation.isPending}
-                            onClick={() => handleReview(r.recipient_id, 'reject')}
-                            className="rounded-lg border border-[#E8E5DE] px-3 py-1.5 text-xs font-semibold text-[#737373] transition-colors hover:border-red-200 hover:text-red-600 disabled:opacity-50"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
+                          onClick={() => handleReview(r.recipient_id, 'shortlist')}
+                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Shortlist
+                        </button>
+                        <button
+                          type="button"
+                          disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
+                          onClick={() => handleReview(r.recipient_id, 'reject')}
+                          className="rounded-lg border border-[#E8E5DE] px-3 py-1.5 text-xs font-semibold text-[#737373] transition-colors hover:border-red-200 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Reject
+                        </button>
+                      </div>
                     </div>
                   </li>
                 ))}
@@ -351,26 +352,24 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
                         <RecipientAvatar recipient={r} />
                         <RecipientInfo recipient={r} />
                       </RecipientLink>
-                      {!hasSelection && !isClosed && (
-                        <div className="flex shrink-0 items-center gap-2">
-                          <button
-                            type="button"
-                            disabled={reviewMutation.isPending}
-                            onClick={() => handleReview(r.recipient_id, 'unshortlist')}
-                            className="rounded-lg border border-[#E8E5DE] px-3 py-1.5 text-xs font-semibold text-[#737373] transition-colors hover:bg-[#F7F6F3] disabled:opacity-50"
-                          >
-                            Unshortlist
-                          </button>
-                          <button
-                            type="button"
-                            disabled={selectMutation.isPending}
-                            onClick={() => handleSelect(r)}
-                            className="rounded-lg bg-[#0a0a0a] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#1a1a1a] disabled:opacity-50"
-                          >
-                            Select
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
+                          onClick={() => handleReview(r.recipient_id, 'unshortlist')}
+                          className="rounded-lg border border-[#E8E5DE] px-3 py-1.5 text-xs font-semibold text-[#737373] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Unshortlist
+                        </button>
+                        <button
+                          type="button"
+                          disabled={selectMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
+                          onClick={() => handleSelect(r)}
+                          className="rounded-lg bg-[#0a0a0a] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Select
+                        </button>
+                      </div>
                       {(hasSelection || isClosed) && !r.selected_at && (
                         <span className="shrink-0 rounded-full bg-[#f0f0f0] px-2 py-0.5 text-[10px] font-medium text-[#737373]">
                           Not selected
@@ -395,7 +394,10 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
             </h3>
             <p className="mt-2 text-sm text-[#525252]">
               You are about to select <strong>{confirmSelect.talent_name || 'this talent'}</strong>.
-              Only one talent can be selected per card and this action cannot be undone.
+              Only one talent can be selected per card.
+            </p>
+            <p className="mt-2 text-sm text-amber-700">
+              ⓘ If you don&rsquo;t activate the subscription within 24 hours, this talent will be released back to the pool.
             </p>
             <div className="mt-6 flex items-center justify-end gap-3">
               <button

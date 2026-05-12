@@ -14,6 +14,7 @@ import {
   externalIdParamSchema,
   cardSelectionWebhookSchema,
   cardSelectionUndoWebhookSchema,
+  cardActivationWebhookSchema,
   talentAcceptedWebhookSchema,
 } from '../validators/subscription.validators.js';
 
@@ -78,6 +79,15 @@ router.post(
   verifySquadhubSecret,
   validate({ body: cardSelectionUndoWebhookSchema }),
   webhooksController.handleCardSelectionUndo
+);
+
+// SquadHub admin finalized the selection — moves the card from
+// Selected → Assigned and flips the talent's My Clients tab accordingly.
+router.post(
+  '/squadhub/cards/activation',
+  verifySquadhubSecret,
+  validate({ body: cardActivationWebhookSchema }),
+  webhooksController.handleCardActivation
 );
 
 // Returns the full talent recipient list for a card (by SquadHub external_id).

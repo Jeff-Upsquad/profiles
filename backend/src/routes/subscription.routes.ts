@@ -21,6 +21,11 @@ router.get(
 
 router.get('/unread-count', subscriptionController.unreadCount);
 
+// "My Clients" — every card the talent has been selected on, grouped into
+// Selected (waiting admin approval) vs Assigned (active), plus aggregated
+// monthly earnings and hour commitments over the Assigned bucket.
+router.get('/my-clients', subscriptionController.myClients);
+
 router.patch(
   '/:recipientId/respond',
   validate({
