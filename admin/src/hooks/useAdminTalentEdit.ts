@@ -86,7 +86,7 @@ export interface UpdateBasicProfilePayload {
   pin_code?: string | null;
   availability?: ('full_time' | 'part_time')[] | null;
   job_type?: ('remote' | 'office' | 'hybrid' | 'field')[] | null;
-  employment_type?: ('salary' | 'freelance')[] | null;
+  employment_type?: ('salary' | 'freelance' | 'partner_program')[] | null;
   virtual_office_hours?: { day: string; from: string; to: string }[] | null;
   education_courses?: {
     from_year: number;

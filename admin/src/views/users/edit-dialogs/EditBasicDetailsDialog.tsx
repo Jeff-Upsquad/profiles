@@ -15,7 +15,7 @@ interface EditBasicDetailsDialogProps {
   email: string | null;
   fullName: string;
   phone: string | null;
-  employmentType: ('salary' | 'freelance')[];
+  employmentType: ('salary' | 'freelance' | 'partner_program')[];
 }
 
 function splitName(fullName: string) {
@@ -37,6 +37,7 @@ function joinName(first: string, middle: string, last: string) {
 const EMPLOYMENT_OPTIONS = [
   { value: 'salary', label: 'Salary' },
   { value: 'freelance', label: 'Freelance' },
+  { value: 'partner_program', label: 'Partner Program' },
 ];
 
 export default function EditBasicDetailsDialog({
@@ -79,7 +80,7 @@ export default function EditBasicDetailsDialog({
       });
       await updateBasic.mutateAsync({
         employment_type: employment.length > 0
-          ? (employment as ('salary' | 'freelance')[])
+          ? (employment as ('salary' | 'freelance' | 'partner_program')[])
           : null,
       });
       onClose();

@@ -447,9 +447,16 @@ export async function deleteTemplateCategory(req: Request, res: Response, next: 
 // Talents Module
 // ---------------------------------------------------------------------------
 
-export async function getTalentCategories(_req: Request, res: Response, next: NextFunction) {
+const VALID_EMPLOYMENT_TYPES = new Set(['salary', 'freelance', 'partner_program']);
+
+function pickEmploymentType(req: Request): string | undefined {
+  const raw = req.query.employment_type as string | undefined;
+  return raw && VALID_EMPLOYMENT_TYPES.has(raw) ? raw : undefined;
+}
+
+export async function getTalentCategories(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await adminService.getTalentCategories();
+    const result = await adminService.getTalentCategories(pickEmploymentType(req));
     res.json({ categories: result });
   } catch (err) {
     next(err);
@@ -459,7 +466,11 @@ export async function getTalentCategories(_req: Request, res: Response, next: Ne
 export async function getTalentProfilesByCategory(req: Request, res: Response, next: NextFunction) {
   try {
     const search = req.query.search as string | undefined;
-    const result = await adminService.getTalentProfilesByCategory(req.params.categoryId as string, search);
+    const result = await adminService.getTalentProfilesByCategory(
+      req.params.categoryId as string,
+      search,
+      pickEmploymentType(req),
+    );
     res.json({ profiles: result });
   } catch (err) {
     next(err);

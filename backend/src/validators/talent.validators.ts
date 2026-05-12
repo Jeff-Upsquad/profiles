@@ -44,7 +44,7 @@ export const updateBasicProfileSchema = z.object({
   job_type: z.array(z.enum(['remote', 'office', 'hybrid', 'field'])).nullable().optional(),
 
   // Section 3b: Work Type (employment vs freelance) and freelance schedule
-  employment_type: z.array(z.enum(['salary', 'freelance'])).nullable().optional(),
+  employment_type: z.array(z.enum(['salary', 'freelance', 'partner_program'])).nullable().optional(),
   virtual_office_hours: z
     .array(
       z.object({

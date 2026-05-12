@@ -58,9 +58,22 @@ const JOB_TYPE_OPTIONS = [
   { label: 'Field Job', value: 'field' },
 ];
 
-const WORK_PREFERENCE_OPTIONS = [
-  { label: "I'm looking for a job (Salary Based)", value: 'salary' },
-  { label: 'Freelance work or the UpSquad Partner Program', value: 'freelance' },
+const WORK_PREFERENCE_OPTIONS: { value: 'salary' | 'freelance' | 'partner_program'; label: string; description: string }[] = [
+  {
+    value: 'salary',
+    label: "I'm looking for a job (Salary Based)",
+    description: 'Regular employment with one company. Monthly salary.',
+  },
+  {
+    value: 'freelance',
+    label: 'Freelance work',
+    description: 'One-time projects or pay-per-job assignments from different clients.',
+  },
+  {
+    value: 'partner_program',
+    label: 'UpSquad Partner Program',
+    description: "Regular commitment with monthly payments — paid per client you handle. You'll also get first preference for freelance work (option 2 above is auto-included).",
+  },
 ];
 
 interface SectionDef {
@@ -139,7 +152,15 @@ export default function BasicProfileForm() {
         profile.permanent_address || profile.permanent_country || profile.permanent_state ||
         profile.permanent_district || profile.permanent_city || profile.permanent_pin_code
       );
-      if (!hasAnyCurrent && hasAnyPermanent) setCurrentSameAsOfficial(true);
+      const eq = (a?: string | null, b?: string | null) => (a ?? null) === (b ?? null);
+      const currentEqualsPermanent =
+        eq(profile.current_address, profile.permanent_address) &&
+        eq(profile.country, profile.permanent_country) &&
+        eq(profile.state, profile.permanent_state) &&
+        eq(profile.current_district, profile.permanent_district) &&
+        eq(profile.city, profile.permanent_city) &&
+        eq(profile.pin_code, profile.permanent_pin_code);
+      if (hasAnyPermanent && (!hasAnyCurrent || currentEqualsPermanent)) setCurrentSameAsOfficial(true);
     }
   }, [profile]);
 
@@ -201,6 +222,22 @@ export default function BasicProfileForm() {
     });
   };
 
+  const toggleWorkPreference = (value: 'salary' | 'freelance' | 'partner_program') => {
+    setForm((prev) => {
+      const arr = prev.employment_type || [];
+      const isOn = arr.includes(value);
+      let next = isOn ? arr.filter((v) => v !== value) : [...arr, value];
+      // Partner Program gives first preference for freelance work — keep freelance in sync.
+      if (value === 'partner_program' && !isOn && !next.includes('freelance')) {
+        next = [...next, 'freelance'];
+      }
+      if (value === 'freelance' && isOn && next.includes('partner_program')) {
+        next = next.filter((v) => v !== 'partner_program');
+      }
+      return { ...prev, employment_type: next };
+    });
+  };
+
   const handleFileUpload = async (key: keyof BasicProfile, folder: string, accept: string) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -245,17 +282,24 @@ export default function BasicProfileForm() {
     if (activeSection === 2) {
       const missingOfficial = !form.permanent_country || !form.permanent_state || !form.permanent_district || !form.permanent_city;
       if (missingOfficial) { toast.error('Country, state, district and city are required for official address'); return; }
+      if (!form.permanent_pin_code) { toast.error('PIN code is required for official address'); return; }
       if (!currentSameAsOfficial) {
         const missingCurrent = !form.country || !form.state || !form.current_district || !form.city;
         if (missingCurrent) { toast.error('Country, state, district and city are required for current address'); return; }
+        if (!form.pin_code) { toast.error('PIN code is required for current address'); return; }
       }
       if (form.permanent_pin_code && !/^\d{6}$/.test(form.permanent_pin_code)) {
         toast.error('Official PIN code must be 6 digits'); return;
       }
       if (currentSameAsOfficial) {
         saveMutation.mutate({
-          ...form, current_address: null as any, country: null as any, state: null as any,
-          current_district: null as any, city: null as any, pin_code: null as any,
+          ...form,
+          current_address: (form.permanent_address || null) as any,
+          country: (form.permanent_country || null) as any,
+          state: (form.permanent_state || null) as any,
+          current_district: (form.permanent_district || null) as any,
+          city: (form.permanent_city || null) as any,
+          pin_code: (form.permanent_pin_code || null) as any,
         });
         return;
       }
@@ -522,17 +566,20 @@ export default function BasicProfileForm() {
 
                 <div className="border-t border-[#E8E5DE] pt-6">
                   <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Work Preference</h3>
-                  <p className="mb-3 mt-0.5 text-sm text-[#737373]">What type of work are you looking for? You can select both.</p>
+                  <p className="mb-3 mt-0.5 text-sm text-[#737373]">What type of work are you looking for? You can select more than one.</p>
                   <div className="flex flex-col gap-2.5">
                     {WORK_PREFERENCE_OPTIONS.map((opt) => (
-                      <label key={opt.value} className="group flex cursor-pointer items-center gap-3 rounded-xl border border-[#E8E5DE] px-4 py-3 text-sm transition-all duration-200 has-[:checked]:border-[#0a0a0a] has-[:checked]:bg-[#F2FCBC] hover:border-[#a3a3a3] has-[:checked]:hover:border-[#0a0a0a]">
+                      <label key={opt.value} className="group flex cursor-pointer items-start gap-3 rounded-xl border border-[#E8E5DE] px-4 py-3 text-sm transition-all duration-200 has-[:checked]:border-[#0a0a0a] has-[:checked]:bg-[#F2FCBC] hover:border-[#a3a3a3] has-[:checked]:hover:border-[#0a0a0a]">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded border-[#E8E5DE] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
-                          checked={(form.employment_type || []).includes(opt.value as 'salary' | 'freelance')}
-                          onChange={() => toggleMulti('employment_type' as any, opt.value)}
+                          className="mt-0.5 h-4 w-4 rounded border-[#E8E5DE] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
+                          checked={(form.employment_type || []).includes(opt.value)}
+                          onChange={() => toggleWorkPreference(opt.value)}
                         />
-                        <span className="font-[family-name:var(--font-inter)] text-[14px] font-medium text-[#0a0a0a]">{opt.label}</span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-[family-name:var(--font-inter)] text-[14px] font-medium text-[#0a0a0a]">{opt.label}</span>
+                          <span className="font-[family-name:var(--font-inter)] text-[13px] leading-snug text-[#525252]">{opt.description}</span>
+                        </div>
                       </label>
                     ))}
                   </div>
@@ -586,8 +633,8 @@ export default function BasicProfileForm() {
                           disabled={form.permanent_country === 'India' && !form.permanent_state}
                         />
                       )}
-                      <Input label="City" required value={form.permanent_city || ''} onChange={set('permanent_city')} placeholder="City" />
-                      <Input label="PIN Code" value={form.permanent_pin_code || ''} onChange={set('permanent_pin_code')} placeholder="6-digit PIN" helperText="6-digit Indian PIN code" />
+                      <Input label="City" required value={form.permanent_city || ''} onChange={set('permanent_city')} placeholder="City" helperText="enter nearest city" />
+                      <Input label="PIN Code" required value={form.permanent_pin_code || ''} onChange={set('permanent_pin_code')} placeholder="6-digit PIN" helperText="6-digit Indian PIN code" />
                     </div>
                   </div>
                 </div>
@@ -651,8 +698,8 @@ export default function BasicProfileForm() {
                             disabled={form.country === 'India' && !form.state}
                           />
                         )}
-                        <Input label="City" required value={form.city || ''} onChange={set('city')} placeholder="City" />
-                        <Input label="PIN Code" value={form.pin_code || ''} onChange={set('pin_code')} placeholder="6-digit PIN" helperText="6-digit Indian PIN code" />
+                        <Input label="City" required value={form.city || ''} onChange={set('city')} placeholder="City" helperText="enter nearest city" />
+                        <Input label="PIN Code" required value={form.pin_code || ''} onChange={set('pin_code')} placeholder="6-digit PIN" helperText="6-digit Indian PIN code" />
                       </div>
                     </div>
                   )}

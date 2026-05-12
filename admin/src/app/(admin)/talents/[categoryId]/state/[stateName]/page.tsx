@@ -1,11 +1,17 @@
 'use client';
 
 import { use } from 'react';
-import TalentProfileList from '@/views/talents/TalentProfileList';
+import { useSearchParams } from 'next/navigation';
+import TalentProfileList, { type EmploymentScope } from '@/views/talents/TalentProfileList';
+
+const VALID_SCOPES = new Set<EmploymentScope>(['partner_program', 'freelance', 'salary']);
 
 export default function StateDashboardPage(props: {
   params: Promise<{ categoryId: string; stateName: string }>;
 }) {
   const params = use(props.params);
-  return <TalentProfileList categoryId={params.categoryId} stateName={params.stateName} />;
+  const searchParams = useSearchParams();
+  const raw = searchParams?.get('type') ?? undefined;
+  const scope = raw && VALID_SCOPES.has(raw as EmploymentScope) ? (raw as EmploymentScope) : undefined;
+  return <TalentProfileList categoryId={params.categoryId} stateName={params.stateName} employmentType={scope} />;
 }

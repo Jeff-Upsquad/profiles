@@ -11,11 +11,34 @@ interface CategoryWithCount {
   approved_count: number;
 }
 
-export default function TalentCategories() {
+export type EmploymentScope = 'partner_program' | 'freelance' | 'salary';
+
+const SCOPE_CONFIG: Record<EmploymentScope, { title: string; description: string }> = {
+  partner_program: {
+    title: 'UpSquad Partner Program',
+    description: 'Talents on a regular monthly commitment, paid per client.',
+  },
+  freelance: {
+    title: 'Freelance',
+    description: 'Talents open to one-time or pay-per-job assignments.',
+  },
+  salary: {
+    title: 'Jobs',
+    description: 'Talents looking for regular salaried employment.',
+  },
+};
+
+export default function TalentCategories({ employmentType }: { employmentType?: EmploymentScope } = {}) {
+  const config = employmentType ? SCOPE_CONFIG[employmentType] : null;
+  const title = config?.title ?? 'Talents';
+  const description = config?.description ?? 'Browse talent profiles by category';
+  const linkQuery = employmentType ? `?type=${employmentType}` : '';
+
   const { data: categories, isLoading } = useQuery<CategoryWithCount[]>({
-    queryKey: ['talent-categories'],
+    queryKey: ['talent-categories', employmentType ?? 'all'],
     queryFn: async () => {
-      const { data } = await api.get('/admin/talents/categories');
+      const params = employmentType ? `?employment_type=${employmentType}` : '';
+      const { data } = await api.get(`/admin/talents/categories${params}`);
       return data.categories ?? data;
     },
   });
@@ -23,8 +46,8 @@ export default function TalentCategories() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Talents</h1>
-        <p className="mt-1 text-sm text-gray-500">Browse talent profiles by category</p>
+        <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+        <p className="mt-1 text-sm text-gray-500">{description}</p>
       </div>
 
       {isLoading ? (
@@ -40,7 +63,7 @@ export default function TalentCategories() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {(categories ?? []).map((cat) => (
-            <Link key={cat.id} href={`/talents/${cat.id}`}>
+            <Link key={cat.id} href={`/talents/${cat.id}${linkQuery}`}>
               <div className="cursor-pointer rounded-xl border border-gray-200 bg-white p-6 transition-all hover:border-indigo-300 hover:shadow-md">
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

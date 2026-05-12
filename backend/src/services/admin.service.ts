@@ -1221,7 +1221,7 @@ export async function deleteTemplateCategory(id: string) {
 // Talents Module (browse approved profiles by category)
 // ---------------------------------------------------------------------------
 
-export async function getTalentCategories() {
+export async function getTalentCategories(employmentType?: string) {
   const { data: categories, error: catErr } = await supabaseAdmin
     .from('categories')
     .select('*')
@@ -1230,11 +1230,27 @@ export async function getTalentCategories() {
 
   if (catErr) throw new AppError(500, catErr.message);
 
-  // Get profile counts per category (non-deleted only)
-  const { data: profiles, error: profErr } = await supabaseAdmin
+  let userIdsFilter: string[] | null = null;
+  if (employmentType) {
+    const { data: basicRows, error: basicErr } = await supabaseAdmin
+      .from('talent_profiles_basic')
+      .select('talent_user_id')
+      .contains('employment_type', [employmentType]);
+    if (basicErr) throw new AppError(500, basicErr.message);
+    userIdsFilter = (basicRows ?? []).map((r) => (r as any).talent_user_id).filter(Boolean);
+    if (userIdsFilter.length === 0) {
+      return (categories ?? []).map((cat) => ({ ...cat, profile_count: 0, approved_count: 0 }));
+    }
+  }
+
+  let profilesQuery = supabaseAdmin
     .from('talent_profiles')
-    .select('category_id, status')
+    .select('category_id, status, talent_user_id')
     .is('deleted_at', null);
+  if (userIdsFilter !== null) {
+    profilesQuery = profilesQuery.in('talent_user_id', userIdsFilter);
+  }
+  const { data: profiles, error: profErr } = await profilesQuery;
 
   if (profErr) throw new AppError(500, profErr.message);
 
@@ -1252,13 +1268,28 @@ export async function getTalentCategories() {
   }));
 }
 
-export async function getTalentProfilesByCategory(categoryId: string, search?: string) {
+export async function getTalentProfilesByCategory(categoryId: string, search?: string, employmentType?: string) {
+  let userIdsFilter: string[] | null = null;
+  if (employmentType) {
+    const { data: basicRows, error: basicErr } = await supabaseAdmin
+      .from('talent_profiles_basic')
+      .select('talent_user_id')
+      .contains('employment_type', [employmentType]);
+    if (basicErr) throw new AppError(500, basicErr.message);
+    userIdsFilter = (basicRows ?? []).map((r) => (r as any).talent_user_id).filter(Boolean);
+    if (userIdsFilter.length === 0) return [];
+  }
+
   let qb = supabaseAdmin
     .from('talent_profiles')
     .select('*, talent_users!inner(full_name, profile_photo_url, current_location, is_active), categories!inner(name, slug)')
     .eq('category_id', categoryId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
+
+  if (userIdsFilter !== null) {
+    qb = qb.in('talent_user_id', userIdsFilter);
+  }
 
   if (search) {
     qb = qb.ilike('talent_users.full_name', `%${search}%`);

@@ -72,7 +72,9 @@ function tierKeyOf(profile: TalentProfile): TierKey {
   return 'none';
 }
 
-export default function TalentProfileList({ categoryId, stateName }: { categoryId: string; stateName?: string }) {
+export type EmploymentScope = 'partner_program' | 'freelance' | 'salary';
+
+export default function TalentProfileList({ categoryId, stateName, employmentType }: { categoryId: string; stateName?: string; employmentType?: EmploymentScope }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -86,11 +88,15 @@ export default function TalentProfileList({ categoryId, stateName }: { categoryI
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectingProfileId, setRejectingProfileId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const linkQuery = employmentType ? `?type=${employmentType}` : '';
 
   const { data: profiles, isLoading } = useQuery<TalentProfile[]>({
-    queryKey: ['talent-profiles', categoryId, search],
+    queryKey: ['talent-profiles', categoryId, search, employmentType ?? 'all'],
     queryFn: async () => {
-      const params = search ? `?search=${encodeURIComponent(search)}` : '';
+      const qs = new URLSearchParams();
+      if (search) qs.set('search', search);
+      if (employmentType) qs.set('employment_type', employmentType);
+      const params = qs.toString() ? `?${qs.toString()}` : '';
       const { data } = await api.get(`/admin/talents/categories/${categoryId}/profiles${params}`);
       return data.profiles ?? data;
     },
@@ -303,7 +309,7 @@ export default function TalentProfileList({ categoryId, stateName }: { categoryI
       {/* Header */}
       <div>
         <button
-          onClick={() => router.push(decodedStateName ? `/talents/${categoryId}` : '/talents')}
+          onClick={() => router.push(decodedStateName ? `/talents/${categoryId}${linkQuery}` : `/talents${linkQuery}`)}
           className="mb-2 text-sm text-gray-500 hover:text-indigo-600"
         >
           &larr; {decodedStateName ? `Back to ${categoryName}` : 'Back to Categories'}
@@ -499,7 +505,7 @@ export default function TalentProfileList({ categoryId, stateName }: { categoryI
                     return (
                       <li key={state}>
                         <Link
-                          href={`/talents/${categoryId}/state/${encodeURIComponent(state)}`}
+                          href={`/talents/${categoryId}/state/${encodeURIComponent(state)}${linkQuery}`}
                           className="flex w-full items-center justify-between px-3 py-2 text-sm transition hover:bg-gray-50"
                         >
                           <span>{state}</span>
@@ -713,7 +719,7 @@ export default function TalentProfileList({ categoryId, stateName }: { categoryI
                             : resolveLocation(profile.talent_users?.current_location).state;
                         return stateName !== UNKNOWN_STATE ? (
                           <Link
-                            href={`/talents/${categoryId}/state/${encodeURIComponent(stateName)}`}
+                            href={`/talents/${categoryId}/state/${encodeURIComponent(stateName)}${linkQuery}`}
                             className="text-xs text-indigo-600 hover:text-indigo-800"
                           >
                             {stateName} &rarr;
@@ -758,7 +764,7 @@ export default function TalentProfileList({ categoryId, stateName }: { categoryI
                             },
                             {
                               label: 'View Profile',
-                              onClick: () => router.push(`/talents/${categoryId}/${profile.id}`),
+                              onClick: () => router.push(`/talents/${categoryId}/${profile.id}${linkQuery}`),
                             },
                             {
                               label: 'Delete',
@@ -774,7 +780,7 @@ export default function TalentProfileList({ categoryId, stateName }: { categoryI
                         />
                       ) : (
                         <div className="flex justify-end gap-1">
-                          <Link href={`/talents/${categoryId}/${profile.id}`}>
+                          <Link href={`/talents/${categoryId}/${profile.id}${linkQuery}`}>
                             <Button variant="ghost" size="sm">View</Button>
                           </Link>
                           <Button

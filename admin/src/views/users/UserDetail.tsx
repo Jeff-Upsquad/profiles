@@ -902,7 +902,7 @@ export default function UserDetail({ userId }: { userId: string }) {
         email={(user as TalentUser & { email?: string | null }).email ?? null}
         fullName={user.full_name}
         phone={user.phone ?? null}
-        employmentType={(basic?.employment_type ?? []) as ('salary' | 'freelance')[]}
+        employmentType={(basic?.employment_type ?? []) as ('salary' | 'freelance' | 'partner_program')[]}
       />
       <EditLanguagesDialog
         open={editTarget === 'language'}
