@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -236,13 +237,59 @@ const navSections: NavSection[] = [
   },
 ];
 
+function SidebarNav() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const isNavItemActive = (href: string) => {
+    if (!pathname) return false;
+    if (href === '/') {
+      return pathname === '/' || pathname === '';
+    }
+    const [hrefPath, hrefSearch] = href.split('?');
+    if (!pathname.startsWith(hrefPath)) return false;
+    if (!hrefSearch) {
+      if (hrefPath === '/talents' && searchParams?.get('type')) return false;
+      return true;
+    }
+    const expectedType = new URLSearchParams(hrefSearch).get('type');
+    return searchParams?.get('type') === expectedType;
+  };
+
+  return (
+    <nav className="flex-1 px-3 py-4 overflow-y-auto">
+      {navSections.map((section, idx) => (
+        <div key={section.section} className={idx === 0 ? '' : 'mt-4'}>
+          <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+            {section.section}
+          </div>
+          <div className="space-y-1">
+            {section.items.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  isNavItemActive(item.href)
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                }`}
+              >
+                {item.icon}
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      ))}
+    </nav>
+  );
+}
+
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const { user, isLoading, logout } = useAuth();
 
@@ -258,22 +305,6 @@ export default function AdminLayout({
     return router.push('/login');
   }
 
-  const isNavItemActive = (href: string) => {
-    if (!pathname) return false;
-    if (href === '/') {
-      return pathname === '/' || pathname === '';
-    }
-    const [hrefPath, hrefSearch] = href.split('?');
-    if (!pathname.startsWith(hrefPath)) return false;
-    if (!hrefSearch) {
-      // For unscoped /talents — only match when no type query is present.
-      if (hrefPath === '/talents' && searchParams?.get('type')) return false;
-      return true;
-    }
-    const expectedType = new URLSearchParams(hrefSearch).get('type');
-    return searchParams?.get('type') === expectedType;
-  };
-
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
@@ -284,31 +315,9 @@ export default function AdminLayout({
           <p className="text-[10px] text-gray-500 mt-0.5">Powered by UpSquad</p>
         </div>
 
-        <nav className="flex-1 px-3 py-4 overflow-y-auto">
-          {navSections.map((section, idx) => (
-            <div key={section.section} className={idx === 0 ? '' : 'mt-4'}>
-              <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                {section.section}
-              </div>
-              <div className="space-y-1">
-                {section.items.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      isNavItemActive(item.href)
-                        ? 'bg-indigo-600 text-white'
-                        : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                    }`}
-                  >
-                    {item.icon}
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
-        </nav>
+        <Suspense fallback={<div className="flex-1" />}>
+          <SidebarNav />
+        </Suspense>
 
         <div className="px-3 py-4 border-t border-gray-800">
           <div className="px-3 py-2 text-xs text-gray-500">
