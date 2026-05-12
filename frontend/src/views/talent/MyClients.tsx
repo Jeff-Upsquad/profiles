@@ -33,6 +33,8 @@ export default function MyClients() {
   const { data, isLoading, error } = useMyClients();
   const [quitOpen, setQuitOpen] = useState(false);
 
+  // Assigned listed before Selected so the Quit dialog's default-selected
+  // first option is an active client (the more common case).
   const allClients = useMemo(() => {
     if (!data) return [] as MyClientRow[];
     return [...data.assigned, ...data.selected];
@@ -92,6 +94,16 @@ export default function MyClients() {
         </div>
       </section>
 
+      {/* Assigned (shown first — these are the active, earning clients) */}
+      <ClientSection
+        title="Assigned"
+        subtitle="Active clients counting toward your monthly earnings."
+        pillVariant="green"
+        pillLabel="Active"
+        rows={assigned}
+        emptyMessage="No active clients yet."
+      />
+
       {/* Selected (waiting admin approval) */}
       <ClientSection
         title="Selected"
@@ -100,16 +112,6 @@ export default function MyClients() {
         pillLabel="Waiting admin approval"
         rows={selected}
         emptyMessage="No pending selections."
-      />
-
-      {/* Assigned */}
-      <ClientSection
-        title="Assigned"
-        subtitle="Active clients counting toward your monthly earnings."
-        pillVariant="green"
-        pillLabel="Active"
-        rows={assigned}
-        emptyMessage="No active clients yet."
       />
 
       {quitOpen && (
