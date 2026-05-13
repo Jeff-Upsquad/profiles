@@ -181,9 +181,15 @@ export async function lookupUsersByEmail(
 // ── Phone-based talent lookup (for SquadHire CRM admin deep-link) ──
 
 export interface TalentByPhoneResult {
+  // 'talent' = matched a talent_users row directly (or via a lead_submission's
+  // linked_talent_user_id). 'candidate' = no talent_user matched but a
+  // lead_submission did, so the CRM links to the Candidate admin page instead.
+  kind: 'talent' | 'candidate';
+  // talent_users.id when kind = 'talent'; lead_submissions.id when 'candidate'.
   talent_user_id: string;
   name: string;
-  // 'approved' | 'pending' | 'rejected' | 'draft' | 'no_profile'
+  // For 'talent': 'approved' | 'pending' | 'rejected' | 'draft' | 'no_profile'
+  // For 'candidate': lead_submissions.status ('new' | 'contacted' | 'converted' | 'rejected')
   profile_status: string;
   // Absolute URL into the SquadHire admin. null when SQUADHIRE_ADMIN_URL is
   // not configured — the CRM treats null and a 404 the same.
@@ -191,16 +197,18 @@ export interface TalentByPhoneResult {
 }
 
 /**
- * Look up a talent by phone (E.164). Matches on the last 10 digits, the same
- * strategy as migration 00034_link_leads_to_talent_users so the CRM and the
- * admin link-leads RPC stay in lock-step.
+ * Look up a talent (or candidate) by phone (E.164). Matches on the last 10
+ * digits, the same strategy as migration 00034_link_leads_to_talent_users so
+ * the CRM and the admin link-leads RPC stay in lock-step.
  *
- * When multiple talent_users share a phone (rare), returns the most recently
- * updated one whose primary talent_profile is approved + active. If no
- * approved profile exists, returns the talent_user with profile_status set
- * to the highest-ranking profile we did find, falling back to 'no_profile'.
- *
- * Returns null when no talent_user matches the phone at all.
+ * Resolution order:
+ *   1. talent_users by last-10 phone — return as kind = 'talent'.
+ *   2. Fall back to lead_submissions by last-10 phone:
+ *      - if linked_talent_user_id is set, resolve as kind = 'talent' against
+ *        that user (handles the case where the talent's stored phone is
+ *        typo'd but the lead_submission has the correct number).
+ *      - otherwise return as kind = 'candidate' with /leads/{id} admin URL.
+ *   3. Return null only when nothing matches in either table.
  */
 export async function lookupTalentByPhone(
   phoneE164: string,
@@ -208,6 +216,15 @@ export async function lookupTalentByPhone(
   const last10 = phoneE164.replace(/\D/g, '').slice(-10);
   if (last10.length !== 10) return null;
 
+  const talentResult = await resolveTalentByLast10(last10);
+  if (talentResult) return talentResult;
+
+  return resolveCandidateByLast10(last10);
+}
+
+async function resolveTalentByLast10(
+  last10: string,
+): Promise<TalentByPhoneResult | null> {
   // talent_users.phone is free-text TEXT (not E.164 normalized). Pre-filter
   // with .ilike on a suffix pattern, then exact-match the last-10 digits in
   // JS. Cheap, no extra index required.
@@ -225,6 +242,25 @@ export async function lookupTalentByPhone(
   });
   if (matches.length === 0) return null;
 
+  return rankAndBuildTalentResult(matches);
+}
+
+async function resolveTalentById(
+  talentUserId: string,
+): Promise<TalentByPhoneResult | null> {
+  const { data: user, error } = await supabaseAdmin
+    .from('talent_users')
+    .select('id, full_name, phone, updated_at')
+    .eq('id', talentUserId)
+    .maybeSingle();
+  if (error) throw new AppError(500, error.message);
+  if (!user) return null;
+  return rankAndBuildTalentResult([user]);
+}
+
+async function rankAndBuildTalentResult(
+  matches: any[],
+): Promise<TalentByPhoneResult> {
   const userIds = matches.map((u: any) => u.id as string);
 
   // Fetch each candidate's primary talent_profile, ranked: approved+active
@@ -292,9 +328,52 @@ export async function lookupTalentByPhone(
   }
 
   return {
+    kind: 'talent',
     talent_user_id: winner.user.id,
     name: (winner.user.full_name as string | null) ?? '',
     profile_status: winner.top?.status ?? 'no_profile',
+    admin_url: adminUrl,
+  };
+}
+
+async function resolveCandidateByLast10(
+  last10: string,
+): Promise<TalentByPhoneResult | null> {
+  // Same pre-filter + JS exact-match pattern as resolveTalentByLast10. Take
+  // the most recent non-deleted lead_submission — matches findLeadId in
+  // squadcrm-webhook.controller.ts.
+  const { data: rows, error } = await supabaseAdmin
+    .from('lead_submissions')
+    .select('id, name, status, phone, linked_talent_user_id, created_at')
+    .ilike('phone', `%${last10}`)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(20);
+  if (error) throw new AppError(500, error.message);
+
+  const match = (rows ?? []).find((r: any) => {
+    const phoneDigits = String(r.phone ?? '').replace(/\D/g, '');
+    return phoneDigits.slice(-10) === last10;
+  });
+  if (!match) return null;
+
+  // If the candidate is already linked to a talent_user, prefer the talent
+  // deep-link — this covers the data-drift case where the talent_user's
+  // stored phone is typo'd but the original lead_submission still has the
+  // correct number.
+  if (match.linked_talent_user_id) {
+    const linked = await resolveTalentById(match.linked_talent_user_id as string);
+    if (linked) return linked;
+  }
+
+  const adminBase = (env.SQUADHIRE_ADMIN_URL || '').replace(/\/$/, '');
+  const adminUrl = adminBase ? `${adminBase}/leads/${match.id}` : null;
+
+  return {
+    kind: 'candidate',
+    talent_user_id: match.id as string,
+    name: (match.name as string | null) ?? '',
+    profile_status: (match.status as string | null) ?? 'new',
     admin_url: adminUrl,
   };
 }
