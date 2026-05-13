@@ -52,7 +52,16 @@ export async function getUploadUrl(req: Request, res: Response, next: NextFuncti
 
 export async function getLeads(req: Request, res: Response, next: NextFunction) {
   try {
-    const { form_type, status, profile_type, search, page, limit, role, signed_up, deleted } = req.query;
+    const { form_type, status, profile_type, search, page, limit, role, signed_up, deleted, form_data_filter } = req.query;
+    let parsedFormDataFilter: leadService.FormDataFilterRule[] | undefined;
+    if (typeof form_data_filter === 'string' && form_data_filter.length > 0) {
+      try {
+        const arr = JSON.parse(form_data_filter);
+        if (Array.isArray(arr)) parsedFormDataFilter = arr as leadService.FormDataFilterRule[];
+      } catch {
+        // Malformed JSON — silently ignore so we don't 500 the list.
+      }
+    }
     const result = await leadService.getLeadSubmissions({
       form_type: form_type as string | undefined,
       status: status as string | undefined,
@@ -63,8 +72,19 @@ export async function getLeads(req: Request, res: Response, next: NextFunction) 
       deleted: deleted as string | undefined,
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
+      form_data_filter: parsedFormDataFilter,
     });
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getLeadFormFields(req: Request, res: Response, next: NextFunction) {
+  try {
+    const formType = (req.query.form_type as string | undefined) || undefined;
+    const fields = await leadService.getLeadFormFields(formType);
+    res.json({ fields });
   } catch (err) {
     next(err);
   }

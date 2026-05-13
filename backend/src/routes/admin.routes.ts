@@ -9,6 +9,7 @@ import * as talentAccessController from '../controllers/talent-access.controller
 import * as trainingController from '../controllers/training.controller.js';
 import * as howItWorksController from '../controllers/how-it-works.controller.js';
 import * as accessRequestsController from '../controllers/access-requests.controller.js';
+import * as savedFilterController from '../controllers/saved-filter.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -409,7 +410,14 @@ router.delete('/subscription-cards/:id', requestCardsController.deleteCard);
 // ---------------------------------------------------------------------------
 
 router.get('/leads', leadController.getLeads);
+router.get('/leads/form-fields', leadController.getLeadFormFields);
 router.get('/leads/onboarding', leadController.getOnboardingLeads);
+
+// Saved lead-filter presets (per admin user)
+router.get('/lead-filters', savedFilterController.listSavedLeadFilters);
+router.post('/lead-filters', savedFilterController.createSavedLeadFilter);
+router.patch('/lead-filters/:id', savedFilterController.updateSavedLeadFilter);
+router.delete('/lead-filters/:id', savedFilterController.deleteSavedLeadFilter);
 router.get('/leads/:id', leadController.getLead);
 router.patch(
   '/leads/:id/status',

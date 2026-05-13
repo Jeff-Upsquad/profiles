@@ -127,6 +127,17 @@ export async function checkContactExists(input: { email?: string; phone?: string
 // List (admin)
 // ---------------------------------------------------------------------------
 
+export type FormDataFilterRule = {
+  field: string;
+  op: 'eq' | 'contains';
+  value: string;
+};
+
+// Safety: only allow identifier-shaped field names so we can splice them into
+// the jsonb path without any escape concerns. Top-level keys in form_data are
+// always declared in the lead form schemas which use snake_case identifiers.
+const SAFE_FIELD_RE = /^[a-zA-Z_][a-zA-Z0-9_]{0,63}$/;
+
 export async function getLeadSubmissions(filters: {
   form_type?: string;
   status?: string;
@@ -137,6 +148,7 @@ export async function getLeadSubmissions(filters: {
   deleted?: string;
   page?: number;
   limit?: number;
+  form_data_filter?: FormDataFilterRule[];
 }) {
   const page = filters.page ?? 1;
   const limit = filters.limit ?? 25;
@@ -181,6 +193,22 @@ export async function getLeadSubmissions(filters: {
     query = query.or(
       `name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,phone.ilike.%${filters.search}%`
     );
+  }
+  if (filters.form_data_filter && filters.form_data_filter.length > 0) {
+    for (const rule of filters.form_data_filter) {
+      if (!SAFE_FIELD_RE.test(rule.field)) {
+        throw new AppError(400, `Invalid form_data field name: ${rule.field}`);
+      }
+      const path = `form_data->>${rule.field}`;
+      if (rule.op === 'eq') {
+        query = query.filter(path, 'eq', rule.value);
+      } else if (rule.op === 'contains') {
+        // PostgREST ilike uses * as the wildcard.
+        query = query.filter(path, 'ilike', `*${rule.value}*`);
+      } else {
+        throw new AppError(400, `Unsupported filter op: ${rule.op}`);
+      }
+    }
   }
 
   const { data, error, count } = await query;
@@ -545,6 +573,40 @@ export async function restoreLead(id: string) {
     throw new AppError(500, `Failed to restore lead: ${error.message}`);
   }
   return data;
+}
+
+// Returns the union of top-level form_data keys across recent (non-deleted)
+// leads of a given form_type, plus a small set of sample values per key. Used
+// by the admin filter UI to discover what fields can be filtered on.
+export async function getLeadFormFields(formType?: string, sampleSize = 100) {
+  let qb = supabaseAdmin
+    .from('lead_submissions')
+    .select('form_data')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(sampleSize);
+  if (formType) qb = qb.eq('form_type', formType);
+  const { data, error } = await qb;
+  if (error) throw new AppError(500, error.message);
+
+  const sampleMap = new Map<string, Set<string>>();
+  for (const row of data ?? []) {
+    const fd = (row as { form_data: Record<string, unknown> | null }).form_data ?? {};
+    for (const [key, value] of Object.entries(fd)) {
+      if (value === null || value === undefined) continue;
+      // Only surface scalar fields — arrays / objects don't make sense in the
+      // simple equals/contains filter we expose today.
+      if (typeof value === 'object') continue;
+      const bucket = sampleMap.get(key) ?? new Set<string>();
+      if (bucket.size < 10) bucket.add(String(value));
+      sampleMap.set(key, bucket);
+    }
+  }
+
+  const fields = Array.from(sampleMap.entries())
+    .map(([field, samples]) => ({ field, sample_values: Array.from(samples).slice(0, 10) }))
+    .sort((a, b) => a.field.localeCompare(b.field));
+  return fields;
 }
 
 export async function permanentlyDeleteLead(id: string) {

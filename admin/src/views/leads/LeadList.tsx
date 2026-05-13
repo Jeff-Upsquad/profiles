@@ -8,6 +8,7 @@ import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import LeadsTabs from './LeadsTabs';
 import LeadSidePanel from './LeadSidePanel';
+import LeadFilterPanel, { type FormDataFilterRule } from './LeadFilterPanel';
 import { groupItemsByBucket } from '@/lib/groupLeadsByBucket';
 import { formatIndianPhone } from '@/lib/phone';
 
@@ -76,11 +77,6 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: 'Rejected',
 };
 
-const FORM_TYPE_TABS: { value: string; label: string }[] = [
-  { value: 'creative', label: 'Creative' },
-  { value: 'accountant', label: 'Accountant' },
-];
-
 const CATEGORY_LABELS: Record<string, string> = {
   creative: 'Creative',
   accountant: 'Accountant',
@@ -144,6 +140,17 @@ export default function LeadList() {
   const deleted = searchParams.get('deleted') || '';
   const page = Number(searchParams.get('page') || '1');
   const selectedId = searchParams.get('selected');
+  const formDataFilterParam = searchParams.get('form_data_filter') || '';
+
+  const formDataRules = useMemo<FormDataFilterRule[]>(() => {
+    if (!formDataFilterParam) return [];
+    try {
+      const arr = JSON.parse(formDataFilterParam);
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }, [formDataFilterParam]);
 
   const updateQuery = useCallback(
     (updates: Record<string, string | null>) => {
@@ -160,7 +167,7 @@ export default function LeadList() {
   const isHubMode = !formType;
 
   const { data, isLoading, isPlaceholderData } = useQuery<LeadsResponse>({
-    queryKey: ['admin-leads', formType, status, profileType, search, page, role, signedUp, deleted],
+    queryKey: ['admin-leads', formType, status, profileType, search, page, role, signedUp, deleted, formDataFilterParam],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (formType) params.set('form_type', formType);
@@ -170,6 +177,7 @@ export default function LeadList() {
       if (role) params.set('role', role);
       if (signedUp) params.set('signed_up', signedUp);
       if (deleted) params.set('deleted', deleted);
+      if (formDataFilterParam) params.set('form_data_filter', formDataFilterParam);
       params.set('page', String(page));
       params.set('limit', '25');
       const { data } = await api.get(`/admin/leads?${params.toString()}`);
@@ -258,7 +266,7 @@ export default function LeadList() {
 
       <div>
         <button
-          onClick={() => updateQuery({ form_type: null, page: '1', role: null, status: null, profile_type: null, search: null, signed_up: null, deleted: null })}
+          onClick={() => updateQuery({ form_type: null, page: '1', role: null, status: null, profile_type: null, search: null, signed_up: null, deleted: null, form_data_filter: null })}
           className="mb-2 text-sm text-gray-500 hover:text-indigo-600"
         >
           &larr; Back to Categories
@@ -267,23 +275,6 @@ export default function LeadList() {
         <p className="mt-1 text-sm text-gray-500">
           Applications grouped by time. Click a row to review and update status instantly.
         </p>
-      </div>
-
-      {/* Form Type Tabs */}
-      <div className="flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
-        {FORM_TYPE_TABS.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => updateQuery({ form_type: tab.value, page: '1', role: null })}
-            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-              formType === tab.value
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-900'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
       </div>
 
       {/* Signed Up Toggle + View Toggle */}
@@ -340,6 +331,13 @@ export default function LeadList() {
           ))}
         </div>
       )}
+
+      {/* Application-data filter + saved presets */}
+      <LeadFilterPanel
+        formType={formType}
+        currentRules={formDataRules}
+        onApply={(rules) => updateQuery({ form_data_filter: rules ? JSON.stringify(rules) : null, page: '1' })}
+      />
 
       {/* Status, Tier & Search Filters */}
       <div className="flex flex-wrap items-end gap-3">
