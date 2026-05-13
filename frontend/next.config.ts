@@ -32,6 +32,15 @@ const nextConfig: NextConfig = {
       ],
     };
   },
+  async redirects() {
+    return [
+      {
+        source: '/register/talent',
+        destination: '/signup/talent',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
