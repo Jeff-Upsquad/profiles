@@ -77,9 +77,40 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const FORM_TYPE_TABS: { value: string; label: string }[] = [
-  { value: '', label: 'All' },
   { value: 'creative', label: 'Creative' },
   { value: 'accountant', label: 'Accountant' },
+];
+
+const CATEGORY_LABELS: Record<string, string> = {
+  creative: 'Creative',
+  accountant: 'Accountant',
+};
+
+const CATEGORY_CARDS: { value: string; label: string; description: string; iconBg: string; iconColor: string; icon: React.ReactNode }[] = [
+  {
+    value: 'creative',
+    label: 'Creative',
+    description: 'Designers, video editors, and other creative roles.',
+    iconBg: 'bg-indigo-100',
+    iconColor: 'text-indigo-600',
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+      </svg>
+    ),
+  },
+  {
+    value: 'accountant',
+    label: 'Accountant',
+    description: 'Bookkeeping, audit, tax, and finance professionals.',
+    iconBg: 'bg-emerald-100',
+    iconColor: 'text-emerald-600',
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m-6 4h6m-6 4h4M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
 ];
 
 const ROLE_TABS: { value: string; label: string }[] = [
@@ -126,6 +157,8 @@ export default function LeadList() {
     [router, pathname, searchParams]
   );
 
+  const isHubMode = !formType;
+
   const { data, isLoading, isPlaceholderData } = useQuery<LeadsResponse>({
     queryKey: ['admin-leads', formType, status, profileType, search, page, role, signedUp, deleted],
     queryFn: async () => {
@@ -143,6 +176,23 @@ export default function LeadList() {
       return data;
     },
     placeholderData: keepPreviousData,
+    enabled: !isHubMode,
+  });
+
+  // Lightweight per-category counts, only fetched on the hub.
+  // Each call uses limit=1 so we just read the `total` field cheaply.
+  const hubCounts = useQuery<Record<string, number>>({
+    queryKey: ['admin-leads-counts'],
+    queryFn: async () => {
+      const results = await Promise.all(
+        CATEGORY_CARDS.map(async (cat) => {
+          const { data } = await api.get(`/admin/leads?form_type=${cat.value}&page=1&limit=1`);
+          return [cat.value, data.total as number] as const;
+        })
+      );
+      return Object.fromEntries(results);
+    },
+    enabled: isHubMode,
   });
 
   const leads = data?.leads ?? [];
@@ -162,12 +212,58 @@ export default function LeadList() {
     if (next) updateQuery({ selected: next.id });
   };
 
+  if (isHubMode) {
+    return (
+      <div className="space-y-6">
+        <LeadsTabs />
+
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Candidates</h1>
+          <p className="mt-1 text-sm text-gray-500">Choose a category to review applications.</p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {CATEGORY_CARDS.map((cat) => (
+            <button
+              key={cat.value}
+              onClick={() => updateQuery({ form_type: cat.value, page: '1', role: null })}
+              className="text-left rounded-xl border border-gray-200 bg-white p-6 transition-all hover:border-indigo-300 hover:shadow-md"
+            >
+              <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-lg ${cat.iconBg} ${cat.iconColor}`}>
+                {cat.icon}
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">{cat.label}</h3>
+              <p className="mt-1 text-sm text-gray-500 line-clamp-2">{cat.description}</p>
+              <div className="mt-3 text-sm text-gray-500">
+                {hubCounts.isLoading ? (
+                  <span className="inline-block h-4 w-16 animate-pulse rounded bg-gray-100" />
+                ) : (
+                  <>
+                    <span className="font-semibold text-gray-900">{hubCounts.data?.[cat.value] ?? 0}</span> candidates
+                  </>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const categoryLabel = CATEGORY_LABELS[formType] ?? formType;
+
   return (
     <div className="space-y-6">
       <LeadsTabs />
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Candidates</h1>
+        <button
+          onClick={() => updateQuery({ form_type: null, page: '1', role: null, status: null, profile_type: null, search: null, signed_up: null, deleted: null })}
+          className="mb-2 text-sm text-gray-500 hover:text-indigo-600"
+        >
+          &larr; Back to Categories
+        </button>
+        <h1 className="text-2xl font-bold text-gray-900">{categoryLabel} Candidates</h1>
         <p className="mt-1 text-sm text-gray-500">
           Applications grouped by time. Click a row to review and update status instantly.
         </p>
@@ -177,7 +273,7 @@ export default function LeadList() {
       <div className="flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
         {FORM_TYPE_TABS.map((tab) => (
           <button
-            key={tab.value || 'all'}
+            key={tab.value}
             onClick={() => updateQuery({ form_type: tab.value, page: '1', role: null })}
             className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
               formType === tab.value
