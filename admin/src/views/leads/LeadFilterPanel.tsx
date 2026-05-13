@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
@@ -11,6 +11,7 @@ export type FormDataFilterRule = {
   field: string;
   op: 'eq' | 'contains';
   value: string;
+  kind?: 'scalar' | 'array';
 };
 
 interface SavedFilter {
@@ -22,6 +23,7 @@ interface SavedFilter {
 
 interface FieldOption {
   field: string;
+  kind: 'scalar' | 'array';
   sample_values: string[];
 }
 
@@ -122,11 +124,41 @@ export default function LeadFilterPanel({ formType, currentRules, onApply }: Pro
     },
   });
 
-  const addRule = () =>
-    setEditingRules((prev) => [...prev, { ...EMPTY_RULE, field: fieldsQuery.data?.[0]?.field ?? '' }]);
+  const fieldsByName = useMemo(() => {
+    const map: Record<string, FieldOption> = {};
+    for (const f of fieldsQuery.data ?? []) map[f.field] = f;
+    return map;
+  }, [fieldsQuery.data]);
+
+  const addRule = () => {
+    const first = fieldsQuery.data?.[0];
+    setEditingRules((prev) => [
+      ...prev,
+      {
+        ...EMPTY_RULE,
+        field: first?.field ?? '',
+        kind: first?.kind ?? 'scalar',
+        op: first?.kind === 'array' ? 'contains' : 'contains',
+      },
+    ]);
+  };
 
   const updateRule = (idx: number, patch: Partial<FormDataFilterRule>) =>
-    setEditingRules((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+    setEditingRules((prev) =>
+      prev.map((r, i) => {
+        if (i !== idx) return r;
+        const next = { ...r, ...patch };
+        // When the field changes, re-derive `kind` from the discovery data so
+        // the backend picks the right operator (scalar ilike vs array @>).
+        if (patch.field !== undefined) {
+          const opt = fieldsByName[patch.field];
+          next.kind = opt?.kind ?? 'scalar';
+          // Arrays only support a single op semantically — normalize to 'contains'.
+          if (next.kind === 'array') next.op = 'contains';
+        }
+        return next;
+      })
+    );
 
   const removeRule = (idx: number) =>
     setEditingRules((prev) => prev.filter((_, i) => i !== idx));
@@ -282,7 +314,7 @@ export default function LeadFilterPanel({ formType, currentRules, onApply }: Pro
                       <option value="">Select field…</option>
                       {fieldOptions.map((f) => (
                         <option key={f.field} value={f.field}>
-                          {f.field}
+                          {f.field}{f.kind === 'array' ? ' (multi)' : ''}
                         </option>
                       ))}
                     </select>
@@ -290,9 +322,16 @@ export default function LeadFilterPanel({ formType, currentRules, onApply }: Pro
                       className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       value={rule.op}
                       onChange={(e) => updateRule(idx, { op: e.target.value as FormDataFilterRule['op'] })}
+                      disabled={rule.kind === 'array'}
                     >
-                      <option value="contains">contains</option>
-                      <option value="eq">equals</option>
+                      {rule.kind === 'array' ? (
+                        <option value="contains">includes</option>
+                      ) : (
+                        <>
+                          <option value="contains">contains</option>
+                          <option value="eq">equals</option>
+                        </>
+                      )}
                     </select>
                     <div className="min-w-[10rem] flex-1">
                       <Input

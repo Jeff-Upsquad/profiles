@@ -131,6 +131,10 @@ export type FormDataFilterRule = {
   field: string;
   op: 'eq' | 'contains';
   value: string;
+  // 'array' = form_data[field] is a jsonb array of strings (multi-select).
+  //   The rule matches when the array includes `value`.
+  // 'scalar' (or undefined) = form_data[field] is a single value (text/number).
+  kind?: 'scalar' | 'array';
 };
 
 // Safety: only allow identifier-shaped field names so we can splice them into
@@ -198,6 +202,16 @@ export async function getLeadSubmissions(filters: {
     for (const rule of filters.form_data_filter) {
       if (!SAFE_FIELD_RE.test(rule.field)) {
         throw new AppError(400, `Invalid form_data field name: ${rule.field}`);
+      }
+      if (rule.kind === 'array') {
+        // jsonb @> [value] — the form_data field is a jsonb array and we want
+        // candidates whose array includes the given value.
+        query = query.filter(
+          `form_data->${rule.field}`,
+          'cs',
+          JSON.stringify([rule.value])
+        );
+        continue;
       }
       const path = `form_data->>${rule.field}`;
       if (rule.op === 'eq') {
@@ -576,8 +590,17 @@ export async function restoreLead(id: string) {
 }
 
 // Returns the union of top-level form_data keys across recent (non-deleted)
-// leads of a given form_type, plus a small set of sample values per key. Used
-// by the admin filter UI to discover what fields can be filtered on.
+// leads of a given form_type, with a `kind` hint and sample values per key.
+// Used by the admin filter UI to discover what fields can be filtered on.
+//
+// `kind` is:
+//   'scalar' — single value (string / number / boolean).
+//   'array'  — jsonb array of strings (multi-select fields like
+//              work_type_seeking, languages, district). The filter UI maps
+//              this to jsonb @> [value] semantics.
+//
+// If a field appears as both shapes across rows (data drift), the last write
+// wins on `kind`; we surface samples from both shapes either way.
 export async function getLeadFormFields(formType?: string, sampleSize = 100) {
   let qb = supabaseAdmin
     .from('lead_submissions')
@@ -589,22 +612,35 @@ export async function getLeadFormFields(formType?: string, sampleSize = 100) {
   const { data, error } = await qb;
   if (error) throw new AppError(500, error.message);
 
-  const sampleMap = new Map<string, Set<string>>();
+  const sampleMap = new Map<string, { samples: Set<string>; kind: 'scalar' | 'array' }>();
   for (const row of data ?? []) {
     const fd = (row as { form_data: Record<string, unknown> | null }).form_data ?? {};
     for (const [key, value] of Object.entries(fd)) {
       if (value === null || value === undefined) continue;
-      // Only surface scalar fields — arrays / objects don't make sense in the
-      // simple equals/contains filter we expose today.
-      if (typeof value === 'object') continue;
-      const bucket = sampleMap.get(key) ?? new Set<string>();
-      if (bucket.size < 10) bucket.add(String(value));
-      sampleMap.set(key, bucket);
+      const isArray = Array.isArray(value);
+      // Skip plain objects (not arrays) — they don't fit the simple filter UI.
+      if (!isArray && typeof value === 'object') continue;
+      const entry = sampleMap.get(key) ?? { samples: new Set<string>(), kind: 'scalar' as 'scalar' | 'array' };
+      if (isArray) {
+        entry.kind = 'array';
+        for (const elem of value as unknown[]) {
+          if (elem === null || elem === undefined) continue;
+          if (typeof elem === 'object') continue;
+          if (entry.samples.size < 20) entry.samples.add(String(elem));
+        }
+      } else {
+        if (entry.samples.size < 10) entry.samples.add(String(value));
+      }
+      sampleMap.set(key, entry);
     }
   }
 
   const fields = Array.from(sampleMap.entries())
-    .map(([field, samples]) => ({ field, sample_values: Array.from(samples).slice(0, 10) }))
+    .map(([field, { samples, kind }]) => ({
+      field,
+      kind,
+      sample_values: Array.from(samples).slice(0, kind === 'array' ? 20 : 10),
+    }))
     .sort((a, b) => a.field.localeCompare(b.field));
   return fields;
 }
