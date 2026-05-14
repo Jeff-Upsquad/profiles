@@ -318,14 +318,11 @@ async function rankAndBuildTalentResult(
 
   const winner = ranked[0];
   const adminBase = (env.SQUADHIRE_ADMIN_URL || '').replace(/\/$/, '');
-  let adminUrl: string | null = null;
-  if (adminBase) {
-    if (winner.top) {
-      adminUrl = `${adminBase}/admin/talents/${winner.top.category_id}/${winner.top.id}`;
-    } else {
-      adminUrl = `${adminBase}/admin/users/${winner.user.id}`;
-    }
-  }
+  // Always land operators on the talent user overview — that page exposes the
+  // WhatsApp / Open in CRM / Edit Profile / Mark Inactive actions they actually
+  // need. The per-category /admin/talents/<cat>/<profile> page is a job-
+  // profile detail and not what the CRM badge should open.
+  const adminUrl = adminBase ? `${adminBase}/admin/users/${winner.user.id}` : null;
 
   return {
     kind: 'talent',
@@ -344,7 +341,7 @@ async function resolveCandidateByLast10(
   // squadcrm-webhook.controller.ts.
   const { data: rows, error } = await supabaseAdmin
     .from('lead_submissions')
-    .select('id, name, status, phone, linked_talent_user_id, created_at')
+    .select('id, name, status, phone, form_type, linked_talent_user_id, created_at')
     .ilike('phone', `%${last10}`)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
@@ -366,8 +363,16 @@ async function resolveCandidateByLast10(
     if (linked) return linked;
   }
 
+  // The admin Candidates page is a category hub at /admin/leads; drilling
+  // into a single lead requires form_type to pick the in-category list, plus
+  // selected=<id> to pop the side panel. /admin/leads/<id> alone redirects to
+  // the bare hub and won't open the lead.
   const adminBase = (env.SQUADHIRE_ADMIN_URL || '').replace(/\/$/, '');
-  const adminUrl = adminBase ? `${adminBase}/leads/${match.id}` : null;
+  const formType = match.form_type as string | null;
+  const adminUrl =
+    adminBase && formType
+      ? `${adminBase}/admin/leads?form_type=${encodeURIComponent(formType)}&selected=${encodeURIComponent(match.id)}`
+      : null;
 
   return {
     kind: 'candidate',
