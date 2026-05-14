@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import {
   useMySubscriptionCard,
   useCardRecipients,
@@ -10,6 +11,7 @@ import {
   useSelectCardRecipient,
   type CardRecipientForBusiness,
 } from '@/hooks/useBusiness';
+import { FirstItemTip } from '@/components/ui/FirstItemTip';
 
 const TINTS = ['tint-purple', 'tint-blue', 'tint-orange', 'tint-green', 'tint-pink', 'tint-amber'] as const;
 
@@ -33,6 +35,7 @@ function formatPrice(amount: number | null, currency: string | null): string | n
 
 export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
   const router = useRouter();
+  const { user } = useAuth();
   const { data: card, isLoading: cardLoading, error: cardError } = useMySubscriptionCard(cardId);
   const { data: recipients, isLoading: recipientsLoading } = useCardRecipients(cardId);
   const reviewMutation = useReviewCardRecipient(cardId);
@@ -296,8 +299,8 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
               </div>
             ) : (
               <ul className="divide-y divide-[#E8E5DE]">
-                {forReview.map((r) => (
-                  <li key={r.recipient_id} className="px-5 py-3 sm:px-6">
+                {forReview.map((r, i) => (
+                  <li key={r.recipient_id} className="relative px-5 py-3 sm:px-6">
                     <div className="flex items-center gap-4">
                       <RecipientLink recipient={r} inactive={(isClosed || hasSelection) && !r.selected_at}>
                         <RecipientAvatar recipient={r} />
@@ -322,6 +325,12 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
                         </button>
                       </div>
                     </div>
+                    {i === 0 && !isClosed && !hasSelection && r.profile_id && r.category?.id && user?.id && (
+                      <FirstItemTip
+                        storageKey={`squadhire:tip:open-profile:${user.id}`}
+                        message="Tap a talent's name or photo to open their full profile."
+                      />
+                    )}
                   </li>
                 ))}
               </ul>
