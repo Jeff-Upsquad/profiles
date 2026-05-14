@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useMySubscriptionCards, type BusinessSubscriptionCardSummary } from '@/hooks/useBusiness';
 import { SkeletonCard } from '@/components/ui/Skeleton';
+import { FirstItemTip } from '@/components/ui/FirstItemTip';
 
 type Tab = 'open' | 'closed';
 
@@ -231,6 +232,14 @@ export default function BusinessDashboard() {
                   card={card}
                   muted={tab === 'closed'}
                   index={i}
+                  tipSlot={
+                    i === 0 && tab === 'open' && user?.id ? (
+                      <FirstItemTip
+                        storageKey={`squadhire:tip:dashboard-card:${user.id}`}
+                        message="Tap any subscription card to view available candidates and start shortlisting."
+                      />
+                    ) : null
+                  }
                 />
               ))}
             </ul>
@@ -362,10 +371,12 @@ function SubscriptionCardRow({
   card,
   muted,
   index,
+  tipSlot,
 }: {
   card: BusinessSubscriptionCardSummary;
   muted: boolean;
   index: number;
+  tipSlot?: React.ReactNode;
 }) {
   const price = formatPrice(card.customer_monthly_price, card.currency);
   const published = formatPublishedAt(card.published_at);
@@ -375,7 +386,7 @@ function SubscriptionCardRow({
   const tint = tintFor(card.id);
 
   return (
-    <li className={`stagger-${Math.min(index + 1, 6)}`}>
+    <li className={`relative stagger-${Math.min(index + 1, 6)}`}>
       <Link
         href={`/business/dashboard/cards/${card.id}`}
         className={`group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#F7F6F3] ${
@@ -443,6 +454,7 @@ function SubscriptionCardRow({
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
       </Link>
+      {tipSlot}
     </li>
   );
 }
