@@ -10,6 +10,7 @@ import * as trainingController from '../controllers/training.controller.js';
 import * as howItWorksController from '../controllers/how-it-works.controller.js';
 import * as accessRequestsController from '../controllers/access-requests.controller.js';
 import * as savedFilterController from '../controllers/saved-filter.controller.js';
+import * as notificationsController from '../controllers/notifications.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -53,6 +54,10 @@ import {
   updateLeadNoteSchema,
   autoApprovalConfigSchema,
 } from '../validators/lead.validators.js';
+import {
+  createNotificationSchema,
+  previewFiltersSchema,
+} from '../validators/notifications.validators.js';
 import {
   createInterviewQuestionSchema,
   updateInterviewQuestionSchema,
@@ -547,5 +552,22 @@ router.post('/automation/sync-leads-crm', adminController.syncLeadsToCrm);
 router.get('/settings/crm-status-mapping', adminController.getCrmStatusMapping);
 router.put('/settings/crm-status-mapping', adminController.updateCrmStatusMapping);
 router.get('/settings/crm-status-mapping/stages', adminController.getCrmPipelineStages);
+
+// ---------------------------------------------------------------------------
+// Notifications (admin-authored broadcasts to talent users)
+// ---------------------------------------------------------------------------
+
+router.get('/notifications', notificationsController.listAdmin);
+router.post(
+  '/notifications/preview',
+  validate({ body: previewFiltersSchema }),
+  notificationsController.previewAdmin,
+);
+router.post(
+  '/notifications',
+  validate({ body: createNotificationSchema }),
+  notificationsController.createAdmin,
+);
+router.delete('/notifications/:id', notificationsController.deleteAdmin);
 
 export default router;

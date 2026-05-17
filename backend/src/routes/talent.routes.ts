@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as talentController from '../controllers/talent.controller.js';
 import * as trainingController from '../controllers/training.controller.js';
+import * as notificationsController from '../controllers/notifications.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -69,5 +70,11 @@ router.post(
 router.get('/training', trainingController.getMyTraining);
 router.post('/training/lessons/:lessonId/complete', trainingController.markComplete);
 router.delete('/training/lessons/:lessonId/complete', trainingController.markIncomplete);
+
+// Notifications
+router.get('/notifications', notificationsController.listTalent);
+router.get('/notifications/unread-count', notificationsController.unreadCountTalent);
+router.post('/notifications/mark-all-read', notificationsController.markAllReadTalent);
+router.post('/notifications/:id/read', notificationsController.markReadTalent);
 
 export default router;
