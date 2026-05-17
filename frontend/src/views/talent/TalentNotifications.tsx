@@ -135,7 +135,7 @@ function NotificationMedia({ media }: { media: MediaItem[] }) {
 
 export default function TalentNotifications() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<Tab>('all');
+  const [tab, setTab] = useState<Tab>('unread');
 
   const { data, isLoading } = useQuery<Notification[]>({
     queryKey: ['talent-notifications'],
@@ -225,8 +225,8 @@ export default function TalentNotifications() {
       {/* Tabs */}
       <div className="flex items-center gap-1 rounded-xl border border-[#E8E5DE] bg-white p-1">
         {([
-          ['all', 'All', notifications.length],
           ['unread', 'Unread', unreadCount],
+          ['all', 'All', notifications.length],
           ['read', 'Read', readCount],
         ] as const).map(([key, label, count]) => (
           <button
