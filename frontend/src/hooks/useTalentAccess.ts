@@ -9,7 +9,7 @@ import taApi, {
 
 // ── Types ──────────────────────────────────────────────
 
-export type Tier = 'junior' | 'pro' | 'elite' | 'custom';
+export type Tier = 'junior' | 'pro' | 'elite' | 'Top Talents' | 'custom';
 
 export interface AccessCategory {
   id: string;

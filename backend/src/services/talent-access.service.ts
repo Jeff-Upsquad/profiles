@@ -1010,7 +1010,7 @@ export async function getFilterOptions(session: AccessSession, categoryId: strin
   }
 
   return {
-    tiers: ['junior', 'pro', 'elite', 'custom'] as Tier[],
+    tiers: ['junior', 'pro', 'elite', 'Top Talents', 'custom'] as Tier[],
     locations: Array.from(locations).filter(Boolean).sort(),
     countries: Array.from(countries).filter(Boolean).sort(),
     states: Array.from(states).filter(Boolean).sort(),

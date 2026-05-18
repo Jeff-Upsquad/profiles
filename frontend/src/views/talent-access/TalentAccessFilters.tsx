@@ -17,7 +17,7 @@ import {
 const TIERS: { value: Tier; label: string; tint: string }[] = [
   { value: 'junior', label: 'Junior', tint: 'tint-blue' },
   { value: 'pro', label: 'Pro', tint: 'tint-purple' },
-  { value: 'elite', label: 'Elite', tint: 'tint-amber' },
+  { value: 'Top Talents', label: 'Top Talents', tint: 'tint-amber' },
   { value: 'custom', label: 'Custom', tint: 'tint-pink' },
 ];
 

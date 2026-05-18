@@ -9,7 +9,7 @@ const OPTIONS: { value: string | null; label: string }[] = [
   { value: null, label: 'None' },
   { value: 'junior', label: 'Junior' },
   { value: 'pro', label: 'Pro' },
-  { value: 'elite', label: 'Elite' },
+  { value: 'Top Talents', label: 'Top Talents' },
   { value: 'custom', label: 'Custom' },
 ];
 

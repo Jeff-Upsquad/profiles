@@ -17,8 +17,8 @@ const TIER_COPY: { key: string; label: string; blurb: string }[] = [
       'Experienced operators who own deliverables end-to-end with minimal oversight.',
   },
   {
-    key: 'elite',
-    label: 'Elite',
+    key: 'Top Talents',
+    label: 'Top Talents',
     blurb:
       'Top-tier talent for high-stakes work. Strong portfolios and proven outcomes.',
   },

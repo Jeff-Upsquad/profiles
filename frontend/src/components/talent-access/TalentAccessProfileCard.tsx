@@ -21,7 +21,11 @@ const TIER_BADGE: Record<Tier, { label: string; className: string }> = {
     className: 'bg-[#EFEDFD] text-[#0a0a0a] ring-[#DDD8FA]',
   },
   elite: {
-    label: 'Elite',
+    label: 'Top Talents',
+    className: 'bg-[#FDF6E7] text-[#92400E] ring-[#F8E7B8]',
+  },
+  'Top Talents': {
+    label: 'Top Talents',
     className: 'bg-[#FDF6E7] text-[#92400E] ring-[#F8E7B8]',
   },
   custom: {

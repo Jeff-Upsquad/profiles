@@ -6,7 +6,11 @@ import { findMatchingTalents } from '../services/subscription-matcher.service.js
 import * as upsquadApi from '../services/upsquad-api.service.js';
 import { notifyTalentSubscriptionCardReceived } from '../services/talent-whatsapp.service.js';
 
-// Map upsquad's tier vocabulary (Juniors/Pros/Elites) to canonical names.
+// Map upsquad's tier vocabulary to canonical names sent downstream.
+// 'Elite' is being renamed to 'Top Talents' — Phase 1 accepts both
+// the legacy ('elite'/'elites') and new ('top talents'/'top_talents')
+// tokens from upsquad. The legacy keys can be dropped in Phase 3 once
+// upsquad has fully cut over to the new vocabulary.
 const TIER_MAP: Record<string, string> = {
   juniors: 'Junior',
   junior: 'Junior',
@@ -14,6 +18,10 @@ const TIER_MAP: Record<string, string> = {
   pro: 'Pro',
   elites: 'Elite',
   elite: 'Elite',
+  'top talents': 'Top Talents',
+  'top_talents': 'Top Talents',
+  toptalents: 'Top Talents',
+  'top talent': 'Top Talents',
   custom: 'Custom',
 };
 // Standard plan → daily hours from SquadHub subscription_plans table.

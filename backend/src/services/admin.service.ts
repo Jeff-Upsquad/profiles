@@ -816,7 +816,7 @@ export async function suspendUser(userId: string, suspend: boolean) {
 // Set tier on a single talent profile from the Talents admin UI.
 export async function setProfileTier(
   profileId: string,
-  tier: 'junior' | 'pro' | 'elite' | 'custom' | null,
+  tier: 'junior' | 'pro' | 'elite' | 'Top Talents' | 'custom' | null,
   tier_custom: string | null,
 ) {
   const finalCustom = tier === 'custom' ? tier_custom : null;

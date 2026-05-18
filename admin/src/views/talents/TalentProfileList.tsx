@@ -23,7 +23,7 @@ interface TalentProfile {
     is_active?: boolean;
   };
   categories?: { name: string };
-  tier: 'junior' | 'pro' | 'elite' | 'custom' | null;
+  tier: 'junior' | 'pro' | 'elite' | 'Top Talents' | 'custom' | null;
   tier_custom: string | null;
   // Structured location from talent_profiles_basic. Preferred over
   // resolveLocation(current_location) which only parses freeform text.
@@ -31,7 +31,10 @@ interface TalentProfile {
   basic_state?: string | null;
 }
 
-type TierKey = 'elite' | 'pro' | 'junior' | 'custom' | 'none';
+// Internal dashboard bucket. 'Top Talents' is the bucket for the renamed
+// 'Elite' tier — during Phase 1 both legacy 'elite' and new 'Top Talents'
+// profile.tier values are folded into this single bucket by tierKeyOf().
+type TierKey = 'Top Talents' | 'pro' | 'junior' | 'custom' | 'none';
 
 const statusVariant: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
   approved: 'green',
@@ -52,15 +55,19 @@ const STATUS_TABS = [
 
 const TIER_OPTIONS: { key: TierKey | ''; label: string }[] = [
   { key: '', label: 'All Tiers' },
-  { key: 'elite', label: 'Elite' },
+  { key: 'Top Talents', label: 'Top Talents' },
   { key: 'pro', label: 'Pro' },
   { key: 'junior', label: 'Junior' },
   { key: 'custom', label: 'Custom' },
   { key: 'none', label: 'No Tier' },
 ];
 
-const TIER_CARDS: { key: TierKey; label: string; tier: 'elite' | 'pro' | 'junior' | null; borderColor: string }[] = [
-  { key: 'elite', label: 'Elite', tier: 'elite', borderColor: 'border-indigo-300' },
+// `tier` on the card is the raw value to send back to the API when an
+// admin clicks the card. We send 'Top Talents' (the new canonical value)
+// for the renamed bucket; the server still accepts the legacy 'elite'
+// during Phase 1.
+const TIER_CARDS: { key: TierKey; label: string; tier: 'Top Talents' | 'pro' | 'junior' | null; borderColor: string }[] = [
+  { key: 'Top Talents', label: 'Top Talents', tier: 'Top Talents', borderColor: 'border-indigo-300' },
   { key: 'pro', label: 'Pro', tier: 'pro', borderColor: 'border-green-300' },
   { key: 'junior', label: 'Junior', tier: 'junior', borderColor: 'border-gray-300' },
   { key: 'none', label: 'No Tier', tier: null, borderColor: 'border-gray-200' },
@@ -68,7 +75,8 @@ const TIER_CARDS: { key: TierKey; label: string; tier: 'elite' | 'pro' | 'junior
 
 function tierKeyOf(profile: TalentProfile): TierKey {
   if (!profile.tier) return 'none';
-  if (profile.tier === 'elite' || profile.tier === 'pro' || profile.tier === 'junior' || profile.tier === 'custom') return profile.tier;
+  if (profile.tier === 'elite' || profile.tier === 'Top Talents') return 'Top Talents';
+  if (profile.tier === 'pro' || profile.tier === 'junior' || profile.tier === 'custom') return profile.tier;
   return 'none';
 }
 
@@ -130,7 +138,7 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
   }, [profiles, allProfileLocations, stateName]);
 
   const { tierCounts, statusCounts, matrix, countryCounts, stateCounts } = useMemo(() => {
-    const tc: Record<TierKey, number> = { elite: 0, pro: 0, junior: 0, custom: 0, none: 0 };
+    const tc: Record<TierKey, number> = { 'Top Talents': 0, pro: 0, junior: 0, custom: 0, none: 0 };
     const sc: Record<string, number> = {};
     const mx: Record<string, Record<TierKey, number>> = {};
     const cc: Record<string, number> = {};
@@ -140,13 +148,13 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
       const tk = tierKeyOf(p);
       if (!p.is_active) {
         sc.inactive = (sc.inactive ?? 0) + 1;
-        if (!mx.inactive) mx.inactive = { elite: 0, pro: 0, junior: 0, custom: 0, none: 0 };
+        if (!mx.inactive) mx.inactive = { 'Top Talents': 0, pro: 0, junior: 0, custom: 0, none: 0 };
         mx.inactive[tk]++;
         return;
       }
       tc[tk]++;
       sc[p.status] = (sc[p.status] ?? 0) + 1;
-      if (!mx[p.status]) mx[p.status] = { elite: 0, pro: 0, junior: 0, custom: 0, none: 0 };
+      if (!mx[p.status]) mx[p.status] = { 'Top Talents': 0, pro: 0, junior: 0, custom: 0, none: 0 };
       mx[p.status][tk]++;
 
       const loc = profileLocations[i];
@@ -378,7 +386,7 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Status</th>
-                    {(['elite', 'pro', 'junior', 'custom', 'none'] as TierKey[]).map((tk) => (
+                    {(['Top Talents', 'pro', 'junior', 'custom', 'none'] as TierKey[]).map((tk) => (
                       <th key={tk} className="px-3 py-2 text-center text-xs font-medium uppercase text-gray-500">
                         {tk === 'none' ? 'No Tier' : tk.charAt(0).toUpperCase() + tk.slice(1)}
                       </th>
@@ -395,7 +403,7 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
                         <td className="px-3 py-2">
                           <Badge variant={statusVariant[tab.key] ?? 'gray'}>{tab.label}</Badge>
                         </td>
-                        {(['elite', 'pro', 'junior', 'custom', 'none'] as TierKey[]).map((tk) => {
+                        {(['Top Talents', 'pro', 'junior', 'custom', 'none'] as TierKey[]).map((tk) => {
                           const val = row?.[tk] ?? 0;
                           return (
                             <td key={tk} className="px-3 py-2 text-center">
@@ -419,7 +427,7 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
                   {/* Totals row */}
                   <tr className="bg-gray-50 font-semibold">
                     <td className="px-3 py-2 text-xs uppercase text-gray-500">Total</td>
-                    {(['elite', 'pro', 'junior', 'custom', 'none'] as TierKey[]).map((tk) => (
+                    {(['Top Talents', 'pro', 'junior', 'custom', 'none'] as TierKey[]).map((tk) => (
                       <td key={tk} className="px-3 py-2 text-center text-gray-700">{tierCounts[tk]}</td>
                     ))}
                     <td className="px-3 py-2 text-center text-gray-900">{total}</td>

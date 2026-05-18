@@ -9,12 +9,12 @@ import Button from '@/components/ui/Button';
 import TierBadge from '@/components/ui/TierBadge';
 import { cleanPhoneForLink } from '@/lib/phone';
 
-type Tier = 'junior' | 'pro' | 'elite' | 'custom';
+type Tier = 'junior' | 'pro' | 'elite' | 'Top Talents' | 'custom';
 const TIER_OPTIONS: { value: Tier | null; label: string }[] = [
   { value: null, label: 'None' },
   { value: 'junior', label: 'Junior' },
   { value: 'pro', label: 'Pro' },
-  { value: 'elite', label: 'Elite' },
+  { value: 'Top Talents', label: 'Top Talents' },
   { value: 'custom', label: 'Custom' },
 ];
 
@@ -25,7 +25,7 @@ interface LinkedLead {
   created_at: string;
   utm_source: string | null;
   utm_campaign: string | null;
-  profile_type: 'junior' | 'pro' | 'elite' | 'custom' | null;
+  profile_type: 'junior' | 'pro' | 'elite' | 'Top Talents' | 'custom' | null;
   name: string;
 }
 

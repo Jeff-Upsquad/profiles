@@ -16,7 +16,7 @@ interface Props {
   onLogout: () => void;
 }
 
-const VALID_TIERS: Tier[] = ['junior', 'pro', 'elite', 'custom'];
+const VALID_TIERS: Tier[] = ['junior', 'pro', 'elite', 'Top Talents', 'custom'];
 
 function totalSelected(f: FilterState): number {
   return (

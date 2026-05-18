@@ -17,7 +17,7 @@ interface ReviewProfile {
   updated_at: string;
   talent_users?: { full_name: string };
   categories?: { name: string; slug: string };
-  tier: 'junior' | 'pro' | 'elite' | 'custom' | null;
+  tier: 'junior' | 'pro' | 'elite' | 'Top Talents' | 'custom' | null;
   tier_custom: string | null;
 }
 

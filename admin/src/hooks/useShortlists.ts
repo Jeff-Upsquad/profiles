@@ -12,7 +12,7 @@ export interface ShortlistEntry {
   category_id: string;
   category_name: string;
   shortlisted_at: string;
-  tier: 'junior' | 'pro' | 'elite' | 'custom' | null;
+  tier: 'junior' | 'pro' | 'elite' | 'Top Talents' | 'custom' | null;
   tier_custom: string | null;
 }
 

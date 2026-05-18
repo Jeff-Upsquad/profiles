@@ -95,7 +95,7 @@ const ARCHIVE_REASONS: { value: string; label: string }[] = [
 const PROFILE_TYPES: { value: string; label: string }[] = [
   { value: 'junior', label: 'Junior' },
   { value: 'pro', label: 'Pro' },
-  { value: 'elite', label: 'Elite' },
+  { value: 'Top Talents', label: 'Top Talents' },
   { value: 'custom', label: 'Custom' },
 ];
 

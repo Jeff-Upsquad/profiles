@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const TIER_VALUES = ['junior', 'pro', 'elite', 'custom'] as const;
+const TIER_VALUES = ['junior', 'pro', 'elite', 'Top Talents', 'custom'] as const;
 
 // ---------------------------------------------------------------------------
 // Admin: grant management
