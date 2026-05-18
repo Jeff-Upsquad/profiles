@@ -19,6 +19,20 @@ function asStringArray(v: unknown): string[] {
     .filter(Boolean);
 }
 
+// Match the first two letters case-insensitively so "Mon" / "monday" / "MON" all resolve.
+const WEEK_ORDER = ['mo', 'tu', 'we', 'th', 'fr', 'sa', 'su'] as const;
+
+function weekIndex(day: string): number {
+  const key = day.trim().slice(0, 2).toLowerCase();
+  const i = WEEK_ORDER.indexOf(key as (typeof WEEK_ORDER)[number]);
+  return i === -1 ? WEEK_ORDER.length : i;
+}
+
+function isWeekend(day: string): boolean {
+  const i = weekIndex(day);
+  return i === 5 || i === 6;
+}
+
 interface DeliverableItem {
   label: string;
   description?: string;
@@ -199,7 +213,11 @@ export default function SubscriptionCardContent({ content }: Props) {
   const priceFormatted =
     priceLabelRaw || formatPrice(content.monthly_price, content.currency);
 
-  const workingDays = asStringArray(content.working_days);
+  const workingDaysSorted = [...asStringArray(content.working_days)].sort(
+    (a, b) => weekIndex(a) - weekIndex(b),
+  );
+  const weekdayDays = workingDaysSorted.filter((d) => !isWeekend(d));
+  const weekendDays = workingDaysSorted.filter(isWeekend);
   const brandName = asString(content.brand_name).trim();
   const businessNature = asString(content.business_nature).trim();
   const notes = asString(content.notes).trim();
@@ -210,7 +228,7 @@ export default function SubscriptionCardContent({ content }: Props) {
   const hasStructured =
     hoursLabel || capacityLabel || deliverablesLabel ||
     deliverables.length > 0 || priceFormatted ||
-    workingDays.length > 0 || hasClientBrief ||
+    workingDaysSorted.length > 0 || hasClientBrief ||
     countries.length > 0 || languages.length > 0;
   const showDescription = description && !hasStructured;
 
@@ -341,15 +359,28 @@ export default function SubscriptionCardContent({ content }: Props) {
       )}
 
       {/* Secondary details */}
-      {(workingDays.length > 0 || hasClientBrief || countries.length > 0 || languages.length > 0) && (
+      {(workingDaysSorted.length > 0 || hasClientBrief || countries.length > 0 || languages.length > 0) && (
         <div className="space-y-3 border-t border-[#E8E5DE] pt-3">
-          {workingDays.length > 0 && (
+          {workingDaysSorted.length > 0 && (
             <div>
               <SectionLabel icon={IconCalendar}>Working Days</SectionLabel>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {workingDays.map((d, i) => (
-                  <Chip key={i} tint="purple">{d}</Chip>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {weekdayDays.map((d, i) => (
+                  <Chip key={`wd-${i}`} tint="purple">{d}</Chip>
                 ))}
+                {weekendDays.length > 0 && (
+                  <>
+                    {weekdayDays.length > 0 && (
+                      <span aria-hidden="true" className="mx-0.5 h-3 w-px bg-[#E8E5DE]" />
+                    )}
+                    <span className="font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-wider text-[#737373]">
+                      Weekend
+                    </span>
+                    {weekendDays.map((d, i) => (
+                      <Chip key={`we-${i}`} tint="purple">{d}</Chip>
+                    ))}
+                  </>
+                )}
               </div>
             </div>
           )}
