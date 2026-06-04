@@ -118,7 +118,6 @@ const FIELD_LABELS: Record<string, string> = {
   languages: 'Languages',
   experience_details: 'Details of Experience',
   resume_url: 'Resume URL',
-  terms_accepted: 'Terms Accepted',
 };
 
 export default function LeadDetail({ id }: { id: string }) {
@@ -321,7 +320,6 @@ export default function LeadDetail({ id }: { id: string }) {
         <h2 className="mb-4 text-lg font-semibold text-gray-900">Form Details</h2>
         <dl className="grid gap-4 sm:grid-cols-2">
           {Object.entries(lead.form_data).map(([key, value]) => {
-            if (key === 'terms_accepted') return null;
             return (
               <div key={key} className={key === 'education' || key === 'experience_details' ? 'sm:col-span-2' : ''}>
                 <dt className="text-xs font-medium uppercase text-gray-500">
