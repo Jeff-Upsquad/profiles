@@ -46,7 +46,6 @@ const FIELD_LABELS: Record<string, string> = {
   languages: 'Languages',
   experience_details: 'Details of Experience',
   resume_url: 'Resume URL',
-  terms_accepted: 'Terms Accepted',
 };
 
 function formatValue(key: string, value: any): string {
@@ -103,9 +102,7 @@ export default function LeadSidePanelContent({ leadId }: { leadId: string }) {
     `Hi ${lead.name},\nThis is from Upsquad. We have received your application for Upsquad Partner Program.`
   )}`;
 
-  const formDataEntries = Object.entries(lead.form_data || {}).filter(
-    ([key]) => key !== 'terms_accepted'
-  );
+  const formDataEntries = Object.entries(lead.form_data || {});
 
   return (
     <div className="space-y-5">

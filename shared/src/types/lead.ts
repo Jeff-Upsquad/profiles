@@ -22,7 +22,6 @@ export interface AccountantFormData {
   languages: string[];
   experience_details: string;
   resume_url: string;
-  terms_accepted: boolean;
 }
 
 export interface LeadSubmission {
@@ -73,7 +72,6 @@ export interface CreateAccountantLeadPayload {
   languages: string[];
   experience_details: string;
   resume_url: string;
-  terms_accepted: boolean;
 }
 
 export type CreateLeadPayload = CreateCreativeLeadPayload | CreateAccountantLeadPayload;

@@ -46,7 +46,6 @@ interface FormValues {
   email: string;
   experience_details: string;
   resume_url: string;
-  terms_accepted: string;
 }
 
 const initial: FormValues = {
@@ -72,15 +71,7 @@ const initial: FormValues = {
   email: '',
   experience_details: '',
   resume_url: '',
-  terms_accepted: '',
 };
-
-const TERMS = [
-  'First 3 Months will be probation and training',
-  'If Selected you need to join within a week',
-  'You need to have a Laptop, Smartphone and reliable Internet to undertake this work.',
-  'Work will be Online, At Office or Hybrid model, based on opening',
-];
 
 const chipStyle = {
   selected:
@@ -213,7 +204,6 @@ export default function AccountantLeadForm() {
     'languages',
     'email',
     'experience_details',
-    'terms_accepted',
   ];
 
   const validate = (): { ok: boolean; errs: Partial<Record<keyof FormValues, string>> } => {
@@ -249,7 +239,6 @@ export default function AccountantLeadForm() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       errs.email = 'Enter a valid email';
     if (!form.experience_details.trim()) errs.experience_details = 'Experience details are required';
-    if (form.terms_accepted !== 'yes') errs.terms_accepted = 'You must accept the terms';
 
     setErrors(errs);
     return { ok: Object.keys(errs).length === 0, errs };
@@ -307,7 +296,6 @@ export default function AccountantLeadForm() {
         languages: form.languages,
         experience_details: form.experience_details.trim(),
         resume_url: form.resume_url || undefined,
-        terms_accepted: true,
         utm_source: searchParams.get('utm_source') || undefined,
         utm_medium: searchParams.get('utm_medium') || undefined,
         utm_campaign: searchParams.get('utm_campaign') || undefined,
@@ -802,7 +790,7 @@ export default function AccountantLeadForm() {
           <Section
             index="06"
             title="Final Details"
-            description="Resume, terms, send-off."
+            description="Resume, send-off."
             delay={0.3}
           >
             <div id="field-experience_details" className="field-saas">
@@ -855,32 +843,6 @@ export default function AccountantLeadForm() {
               )}
             </div>
 
-            <div className="surface-saas p-5">
-              <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-canvas-900">
-                <span className="bg-prism h-1.5 w-1.5 rounded-full" />
-                Terms
-              </p>
-              <ol className="list-decimal space-y-2 pl-5 text-sm leading-relaxed text-canvas-600">
-                {TERMS.map((term, i) => (
-                  <li key={i}>{term}</li>
-                ))}
-              </ol>
-            </div>
-
-            <div id="field-terms_accepted" className="field-saas">
-              <Select
-                label="Accept above terms"
-                required
-                placeholder="Select"
-                options={[
-                  { label: 'Yes, I accept', value: 'yes' },
-                  { label: 'No', value: 'no' },
-                ]}
-                value={form.terms_accepted}
-                onChange={set('terms_accepted')}
-                error={errors.terms_accepted}
-              />
-            </div>
           </Section>
 
           {/* Submit */}

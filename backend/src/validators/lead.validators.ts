@@ -50,7 +50,6 @@ export const accountantLeadSchema = z.object({
   languages: z.array(z.string()).min(1, 'At least one language is required'),
   experience_details: z.string().min(1, 'Experience details are required'),
   resume_url: z.string().url('Valid resume URL is required').optional().or(z.literal('')),
-  terms_accepted: z.literal(true, { errorMap: () => ({ message: 'You must accept the terms' }) }),
   utm_source: z.string().optional(),
   utm_medium: z.string().optional(),
   utm_campaign: z.string().optional(),
