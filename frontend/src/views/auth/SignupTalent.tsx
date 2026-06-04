@@ -35,11 +35,18 @@ interface PrefilledLocation {
   current_district: string | null;
 }
 
+interface PrefilledCandidate {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
 interface CheckResult {
   has_invitation: boolean;
   has_account: boolean;
   submissions: CandidateSubmission[];
   prefilled_location: PrefilledLocation | null;
+  prefilled_candidate: PrefilledCandidate | null;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -106,20 +113,21 @@ export default function SignupTalent() {
 
         if (
           !prefilledRef.current &&
-          data?.prefilled_location &&
           data.has_invitation &&
           !data.has_account
         ) {
-          const loc: PrefilledLocation = data.prefilled_location;
           setForm((prev) => {
+            const loc: PrefilledLocation | null = data.prefilled_location;
+            const cand: PrefilledCandidate | null = data.prefilled_candidate;
             const stillDefault =
               prev.country === 'India' && prev.state === '' && prev.current_district === '';
-            if (!stillDefault) return prev;
             return {
               ...prev,
-              country: loc.country || prev.country,
-              state: loc.state || prev.state,
-              current_district: loc.current_district || prev.current_district,
+              country: loc?.country || prev.country,
+              state: loc?.state || prev.state,
+              current_district: loc?.current_district || prev.current_district,
+              full_name: cand?.name || prev.full_name,
+              phone: cand?.phone || prev.phone,
             };
           });
           prefilledRef.current = true;
