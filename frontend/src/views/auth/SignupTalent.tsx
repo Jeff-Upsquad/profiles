@@ -14,6 +14,7 @@ import {
   INDIAN_STATES,
   DISTRICTS_BY_STATE,
 } from '@/constants/india-locations';
+import { COUNTRY_CODES } from '@/constants/country-codes';
 import toast from 'react-hot-toast';
 
 const SUPPORT_PHONE_DIGITS = '919995266342';
@@ -73,12 +74,14 @@ export default function SignupTalent() {
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
   const prefilledRef = useRef(false);
 
+  const [countryCode, setCountryCode] = useState('+91');
+
   const [form, setForm] = useState({
     full_name: '',
     email: '',
     password: '',
     confirm_password: '',
-    phone: '',
+    phone: '+91',
     country: 'India',
     state: '',
     current_district: '',
@@ -93,7 +96,7 @@ export default function SignupTalent() {
   // Debounced inline status check whenever email or phone changes.
   useEffect(() => {
     const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
-    const phoneDigits = form.phone.replace(/\D/g, '');
+    const phoneDigits = form.phone.replace(countryCode, '').replace(/\D/g, '');
     const phoneValid = phoneDigits.length >= 10;
 
     if (!emailValid && !phoneValid) {
@@ -116,18 +119,28 @@ export default function SignupTalent() {
           data.has_invitation &&
           !data.has_account
         ) {
+          const loc: PrefilledLocation | null = data.prefilled_location;
+          const cand: PrefilledCandidate | null = data.prefilled_candidate;
+
+          if (cand?.phone) {
+            const matched = COUNTRY_CODES.find((cc) => cand.phone!.startsWith(cc.code));
+            if (matched) setCountryCode(matched.code);
+          }
+
           setForm((prev) => {
-            const loc: PrefilledLocation | null = data.prefilled_location;
-            const cand: PrefilledCandidate | null = data.prefilled_candidate;
             const stillDefault =
               prev.country === 'India' && prev.state === '' && prev.current_district === '';
+            let phone = cand?.phone || prev.phone;
+            if (phone && !phone.startsWith('+')) {
+              phone = countryCode + phone;
+            }
             return {
               ...prev,
               country: loc?.country || prev.country,
               state: loc?.state || prev.state,
               current_district: loc?.current_district || prev.current_district,
               full_name: cand?.name || prev.full_name,
-              phone: cand?.phone || prev.phone,
+              phone,
             };
           });
           prefilledRef.current = true;
@@ -427,13 +440,39 @@ export default function SignupTalent() {
                     placeholder="you@example.com"
                     required
                   />
-                  <Input
-                    label="Phone"
-                    type="tel"
-                    value={form.phone}
-                    onChange={set('phone')}
-                    placeholder="+91 XXXXX XXXXX"
-                  />
+                  <div>
+                    <label className="mb-1.5 block text-[13px] font-medium text-[#3F3F46]">
+                      Phone
+                    </label>
+                    <div className="flex items-stretch gap-2">
+                      <select
+                        value={countryCode}
+                        onChange={(e) => {
+                          const newCode = e.target.value;
+                          const digits = form.phone.replace(countryCode, '');
+                          setCountryCode(newCode);
+                          setForm((prev) => ({ ...prev, phone: newCode + digits }));
+                        }}
+                        className="w-[110px] shrink-0 rounded-lg border border-[#E8E5DE] bg-white px-2 text-sm font-medium text-[#0a0a0a] shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
+                      >
+                        {COUNTRY_CODES.map((cc) => (
+                          <option key={cc.code} value={cc.code}>{cc.label}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={15}
+                        value={form.phone.replace(countryCode, '')}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, '').slice(0, 15);
+                          setForm((prev) => ({ ...prev, phone: countryCode + digits }));
+                        }}
+                        placeholder="Phone number"
+                        className="block w-full rounded-lg border border-[#E8E5DE] px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-all duration-200 placeholder:text-[#a3a3a3] focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/12 bg-white text-[#0a0a0a]"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Initial prompt before any check has run */}

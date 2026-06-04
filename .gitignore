@@ -38,3 +38,6 @@ coverage/
 
 # Graphify skill output
 graphify-out/
+
+# Supabase CLI temp files
+.temp/
