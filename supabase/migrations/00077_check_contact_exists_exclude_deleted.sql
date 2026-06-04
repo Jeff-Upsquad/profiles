@@ -1,0 +1,68 @@
+-- Migration: 00077_check_contact_exists_exclude_deleted
+-- Description: Exclude soft-deleted lead_submissions from the duplicate
+-- contact check so that archived/removed leads no longer block new
+-- submissions with the same phone or email.
+
+CREATE OR REPLACE FUNCTION public.check_contact_exists(
+  p_email text DEFAULT NULL,
+  p_phone_digits text DEFAULT NULL
+)
+RETURNS TABLE (source text)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+  SELECT 'talent'::text
+  WHERE p_email IS NOT NULL AND length(p_email) > 0
+    AND EXISTS (
+      SELECT 1 FROM auth.users u
+      JOIN public.talent_users tu ON tu.id = u.id
+      WHERE lower(u.email) = lower(p_email)
+    )
+  UNION ALL
+  SELECT 'talent'
+  WHERE p_phone_digits IS NOT NULL AND length(p_phone_digits) = 10
+    AND EXISTS (
+      SELECT 1 FROM public.talent_users
+      WHERE right(regexp_replace(phone, '[^0-9]', '', 'g'), 10) = p_phone_digits
+    )
+  UNION ALL
+  SELECT 'business'
+  WHERE p_email IS NOT NULL AND length(p_email) > 0
+    AND EXISTS (
+      SELECT 1 FROM public.business_users
+      WHERE lower(contact_email) = lower(p_email)
+    )
+  UNION ALL
+  SELECT 'business'
+  WHERE p_phone_digits IS NOT NULL AND length(p_phone_digits) = 10
+    AND EXISTS (
+      SELECT 1 FROM public.business_users
+      WHERE right(contact_phone_normalized, 10) = p_phone_digits
+    )
+  UNION ALL
+  SELECT 'auth'
+  WHERE p_email IS NOT NULL AND length(p_email) > 0
+    AND EXISTS (
+      SELECT 1 FROM auth.users
+      WHERE lower(email) = lower(p_email)
+    )
+  UNION ALL
+  SELECT 'lead'
+  WHERE p_email IS NOT NULL AND length(p_email) > 0
+    AND EXISTS (
+      SELECT 1 FROM public.lead_submissions
+      WHERE lower(email) = lower(p_email) AND deleted_at IS NULL
+    )
+  UNION ALL
+  SELECT 'lead'
+  WHERE p_phone_digits IS NOT NULL AND length(p_phone_digits) = 10
+    AND EXISTS (
+      SELECT 1 FROM public.lead_submissions
+      WHERE right(regexp_replace(phone, '[^0-9]', '', 'g'), 10) = p_phone_digits
+        AND deleted_at IS NULL
+    )
+  LIMIT 1;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.check_contact_exists(text, text) TO anon, authenticated, service_role;
