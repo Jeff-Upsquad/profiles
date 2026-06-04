@@ -125,7 +125,7 @@ export async function checkCandidateStatus(input: { email?: string; phone?: stri
       p_phone_digits: normalizedPhone,
     });
     const source = (contactData ?? [])[0]?.source;
-    has_account = source === 'talent' || source === 'business';
+    has_account = source === 'talent' || source === 'business' || source === 'auth';
   } catch {
     has_account = false;
   }
@@ -137,7 +137,7 @@ export async function checkCandidateStatus(input: { email?: string; phone?: stri
 
   const { data: leads, error } = await supabaseAdmin
     .from('lead_submissions')
-    .select('name, form_type, status, created_at, form_data')
+    .select('name, email, phone, form_type, status, created_at, form_data')
     .or(conditions.join(','))
     .order('created_at', { ascending: false })
     .limit(5);
@@ -173,6 +173,24 @@ export async function checkCandidateStatus(input: { email?: string; phone?: stri
     }
   }
 
+  // Only expose candidate details to actually-invited, not-yet-signed-up candidates.
+  let prefilled_candidate: {
+    name: string | null;
+    email: string | null;
+    phone: string | null;
+  } | null = null;
+
+  if (has_invitation && !has_account) {
+    const first = (leads ?? [])[0];
+    if (first) {
+      prefilled_candidate = {
+        name: first.name || null,
+        email: (first as any).email || null,
+        phone: (first as any).phone || null,
+      };
+    }
+  }
+
   return {
     has_invitation,
     has_account,
@@ -183,6 +201,7 @@ export async function checkCandidateStatus(input: { email?: string; phone?: stri
       submitted_at: s.created_at,
     })),
     prefilled_location,
+    prefilled_candidate,
   };
 }
 

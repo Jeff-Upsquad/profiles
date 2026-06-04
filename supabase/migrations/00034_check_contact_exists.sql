@@ -39,6 +39,13 @@ AS $$
       WHERE right(contact_phone_normalized, 10) = p_phone_digits
     )
   UNION ALL
+  SELECT 'auth'
+  WHERE p_email IS NOT NULL AND length(p_email) > 0
+    AND EXISTS (
+      SELECT 1 FROM auth.users
+      WHERE lower(email) = lower(p_email)
+    )
+  UNION ALL
   SELECT 'lead'
   WHERE p_email IS NOT NULL AND length(p_email) > 0
     AND EXISTS (
