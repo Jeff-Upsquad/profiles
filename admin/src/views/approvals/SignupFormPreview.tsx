@@ -9,6 +9,7 @@ import ChipSelect from '@/components/ui/ChipSelect';
 import LanguagePickerPreview from './preview/LanguagePickerPreview';
 import VirtualOfficeHoursPreview from './preview/VirtualOfficeHoursPreview';
 import EducationPickerPreview from './preview/EducationPickerPreview';
+import ExperiencePickerPreview from './preview/ExperiencePickerPreview';
 
 type EmploymentType = 'salary' | 'freelance';
 
@@ -19,6 +20,7 @@ type StepId =
   | 'employment'
   | 'job_pref'
   | 'education'
+  | 'experience'
   | 'virtual_hours'
   | 'id'
   | 'bank'
@@ -51,6 +53,10 @@ const STEP_META: Record<StepId, { title: string; subtitle: string; description?:
   education: {
     title: 'Education & Courses',
     subtitle: 'Share your educational background and any courses or training you have completed',
+  },
+  experience: {
+    title: 'Experience',
+    subtitle: 'Share your work history and previous roles',
   },
   virtual_hours: {
     title: 'Set your virtual office times',
@@ -103,6 +109,7 @@ function buildVisibleSteps(employmentType: EmploymentType[]): StepId[] {
   const middle: StepId[] = [];
   if (employmentType.includes('salary')) middle.push('job_pref');
   middle.push('education');
+  middle.push('experience');
   if (employmentType.includes('freelance')) middle.push('virtual_hours');
   return [
     'account',
@@ -436,6 +443,8 @@ export default function SignupFormPreview() {
               )}
 
               {currentStepId === 'education' && <EducationPickerPreview />}
+
+              {currentStepId === 'experience' && <ExperiencePickerPreview />}
 
               {currentStepId === 'virtual_hours' && <VirtualOfficeHoursPreview />}
 

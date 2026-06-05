@@ -96,6 +96,14 @@ export interface UpdateBasicProfilePayload {
     course_name: string;
     institution: string;
   }[] | null;
+  experience?: {
+    from_year: number;
+    from_month: number;
+    to_year: number;
+    to_month: number;
+    company_name: string;
+    designation: string;
+  }[] | null;
   aadhaar_number?: string | null;
   aadhaar_file_url?: string | null;
   pan_number?: string | null;

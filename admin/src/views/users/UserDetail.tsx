@@ -17,6 +17,7 @@ import EditLanguagesDialog from './edit-dialogs/EditLanguagesDialog';
 import EditAddressDialog from './edit-dialogs/EditAddressDialog';
 import EditJobPreferenceDialog from './edit-dialogs/EditJobPreferenceDialog';
 import EditEducationDialog from './edit-dialogs/EditEducationDialog';
+import EditExperienceDialog from './edit-dialogs/EditExperienceDialog';
 import EditFreelanceDialog from './edit-dialogs/EditFreelanceDialog';
 import EditIdProofsDialog from './edit-dialogs/EditIdProofsDialog';
 import EditProfilePictureDialog from './edit-dialogs/EditProfilePictureDialog';
@@ -27,8 +28,9 @@ type EditTarget =
   | 'basic'
   | 'language'
   | 'address'
-  | 'jobPref'
   | 'education'
+  | 'experience'
+  | 'jobPref'
   | 'freelance'
   | 'idProof'
   | 'profilePic'
@@ -61,6 +63,15 @@ interface EducationEntry {
   institution: string;
 }
 
+interface ExperienceEntry {
+  from_year: number;
+  from_month: number;
+  to_year: number;
+  to_month: number;
+  company_name: string;
+  designation: string;
+}
+
 interface BasicProfile {
   permanent_address?: string | null;
   permanent_country?: string | null;
@@ -79,6 +90,7 @@ interface BasicProfile {
   employment_type?: string[] | null;
   virtual_office_hours?: { day: string; from: string; to: string }[] | null;
   education_courses?: EducationEntry[] | null;
+  experience?: ExperienceEntry[] | null;
   expected_salary_monthly?: number | null;
   expected_salary_full_time?: number | null;
   expected_salary_part_time?: number | null;
@@ -221,6 +233,27 @@ function formatEducation(entries?: EducationEntry[] | null): ReactNode {
           </div>
           {e.institution && (
             <div className="mt-0.5 text-sm text-gray-700">{e.institution}</div>
+          )}
+          <div className="mt-1 text-xs text-gray-500">
+            {formatMonthYear(e.from_month, e.from_year)} – {formatMonthYear(e.to_month, e.to_year)}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function formatExperience(entries?: ExperienceEntry[] | null): ReactNode {
+  if (!entries || entries.length === 0) return null;
+  return (
+    <ul className="space-y-3">
+      {entries.map((e, i) => (
+        <li key={i} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+          <div className="text-sm font-semibold text-gray-900">
+            {e.designation || <span className="italic text-gray-400">Untitled role</span>}
+          </div>
+          {e.company_name && (
+            <div className="mt-0.5 text-sm text-gray-700">{e.company_name}</div>
           )}
           <div className="mt-1 text-xs text-gray-500">
             {formatMonthYear(e.from_month, e.from_year)} – {formatMonthYear(e.to_month, e.to_year)}
@@ -716,12 +749,17 @@ export default function UserDetail({ userId }: { userId: string }) {
       : []),
   ];
 
-  // 5. Education & Courses (mirrors talent Section 5)
+  // 4. Education & Courses (mirrors talent Section 4)
   const educationRows: FieldRow[] = [
     { label: 'Courses', value: formatEducation(basic?.education_courses) },
   ];
 
-  // 6. Freelance Preference (mirrors talent Section 6)
+  // 5. Experience (mirrors talent Section 5)
+  const experienceRows: FieldRow[] = [
+    { label: 'Experience', value: formatExperience(basic?.experience) },
+  ];
+
+  // 7. Freelance Preference (mirrors talent Section 7)
   const freelancePrefs: FieldRow[] = [
     {
       label: 'Virtual Office Hours',
@@ -729,7 +767,7 @@ export default function UserDetail({ userId }: { userId: string }) {
     },
   ];
 
-  // 7. ID Proofs (mirrors talent Section 7)
+  // 8. ID Proofs (mirrors talent Section 8)
   const idProofs: FieldRow[] = [
     { label: 'Aadhaar Number', value: basic?.aadhaar_number },
     {
@@ -743,7 +781,7 @@ export default function UserDetail({ userId }: { userId: string }) {
     },
   ];
 
-  // 9. Bank Account (mirrors talent Section 9)
+  // 10. Bank Account (mirrors talent Section 10)
   const bankAccount: FieldRow[] = [
     { label: 'Account Holder Name', value: basic?.bank_account_holder },
     { label: 'Bank Name', value: basic?.bank_name },
@@ -752,7 +790,7 @@ export default function UserDetail({ userId }: { userId: string }) {
     { label: 'Branch Name', value: basic?.bank_branch_name },
   ];
 
-  // 10. Resume (mirrors talent Section 10)
+  // 11. Resume (mirrors talent Section 11)
   const resumeRows: FieldRow[] = [
     { label: 'Resume', value: <FileLink url={basic?.resume_url ?? null} label="View resume" /> },
   ];
@@ -899,16 +937,21 @@ export default function UserDetail({ userId }: { userId: string }) {
         current={currentAddressRows}
         onEdit={() => setEditTarget('address')}
       />
+      <Section
+        title="Education & Courses"
+        rows={educationRows}
+        onEdit={() => setEditTarget('education')}
+      />
+      <Section
+        title="Experience"
+        rows={experienceRows}
+        onEdit={() => setEditTarget('experience')}
+      />
       <PreferenceSection
         title="Job Preference"
         selected={wantsSalary}
         rows={jobPrefs}
         onEdit={() => setEditTarget('jobPref')}
-      />
-      <Section
-        title="Education & Courses"
-        rows={educationRows}
-        onEdit={() => setEditTarget('education')}
       />
       <PreferenceSection
         title="Freelance Preference"
@@ -1051,6 +1094,12 @@ export default function UserDetail({ userId }: { userId: string }) {
         onClose={() => setEditTarget(null)}
         userId={user.id}
         courses={basic?.education_courses ?? null}
+      />
+      <EditExperienceDialog
+        open={editTarget === 'experience'}
+        onClose={() => setEditTarget(null)}
+        userId={user.id}
+        entries={basic?.experience ?? null}
       />
       <EditFreelanceDialog
         open={editTarget === 'freelance'}
