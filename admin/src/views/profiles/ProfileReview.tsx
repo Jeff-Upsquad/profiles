@@ -8,6 +8,7 @@ import Badge from '@/components/ui/Badge';
 import TierBadge from '@/components/ui/TierBadge';
 import Modal from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
+import { coerceLeveledList, LEVEL_LABELS, type LeveledItem } from '../../../../shared/src/types/talent';
 
 interface LinkedLead {
   id: string;
@@ -150,12 +151,37 @@ function buildSkillChangeNotes(
 
 /** Build change notes for a simple string array (tools, AI tools) */
 function buildListChangeNotes(current: string[], previous: string[] | undefined): string[] {
-  if (!previous) return [];
+  const prevSet = new Set(previous ?? []);
+  const currSet = new Set(current);
+  const added = current.filter((c) => !prevSet.has(c));
+  const removed = (previous ?? []).filter((p) => !currSet.has(p));
   const notes: string[] = [];
-  const added = current.filter((t) => !previous.includes(t));
-  const removed = previous.filter((t) => !current.includes(t));
   if (added.length) notes.push(`Added: ${added.join(', ')}`);
   if (removed.length) notes.push(`Removed: ${removed.join(', ')}`);
+  return notes;
+}
+
+/** Like buildListChangeNotes but for `LeveledItem[]` (Tools / Accounting). */
+function buildLeveledListChangeNotes(
+  current: { name: string; level: number }[],
+  previous: { name: string; level: number }[] | undefined,
+): string[] {
+  const prevByName = new Map((previous ?? []).map((p) => [p.name, p.level]));
+  const currByName = new Map(current.map((c) => [c.name, c.level]));
+  const added: string[] = [];
+  const removed: string[] = [];
+  const changed: string[] = [];
+  for (const [name, lvl] of currByName.entries()) {
+    if (!prevByName.has(name)) added.push(name);
+    else if (prevByName.get(name) !== lvl) changed.push(`${name} (→ ${lvl})`);
+  }
+  for (const name of prevByName.keys()) {
+    if (!currByName.has(name)) removed.push(name);
+  }
+  const notes: string[] = [];
+  if (added.length) notes.push(`Added: ${added.join(', ')}`);
+  if (removed.length) notes.push(`Removed: ${removed.join(', ')}`);
+  if (changed.length) notes.push(`Level changed: ${changed.join(', ')}`);
   return notes;
 }
 
@@ -356,7 +382,9 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
   const userNotes = prev?._user ? buildUserChangeNotes(talentUser, prev._user) : [];
   const fieldChangeNotes = prev ? buildFieldChangeNotes(sortedFields, profile.field_data ?? {}, prev, changedKeys) : [];
   const skillNotes = prev && changedKeys.has('_skills') ? buildSkillChangeNotes(profile.field_data?._skills ?? [], prev._skills) : [];
-  const toolNotes = prev && changedKeys.has('_tools') ? buildListChangeNotes(profile.field_data?._tools ?? [], prev._tools) : [];
+  const toolsCurrent: LeveledItem[] = coerceLeveledList(profile.field_data?._tools);
+  const toolsPrev: LeveledItem[] = coerceLeveledList(prev?._tools);
+  const toolNotes = prev && changedKeys.has('_tools') ? buildLeveledListChangeNotes(toolsCurrent, toolsPrev) : [];
   const aiToolNotes = prev && changedKeys.has('_ai_tools') ? buildListChangeNotes(profile.field_data?._ai_tools ?? [], prev._ai_tools) : [];
   const wageNotes = prev && changedKeys.has('_plan_wages') ? buildWageChangeNotes(profile.field_data?._plan_wages ?? {}, prev._plan_wages) : [];
 
@@ -517,12 +545,15 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
             <div>
               <h2 className="mb-3 text-lg font-semibold text-gray-900">Tools</h2>
               <div className="flex flex-wrap gap-2">
-                {profile.field_data._tools.map((tool: string) => (
+                {toolsCurrent.map((tool) => (
                   <span
-                    key={tool}
+                    key={tool.name}
                     className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700"
                   >
-                    {tool}
+                    {tool.name}
+                    <span className="ml-1.5 font-normal text-indigo-500">
+                      · {LEVEL_LABELS[tool.level] ?? 'Intermediate'}
+                    </span>
                   </span>
                 ))}
               </div>

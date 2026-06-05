@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
+import { LEVEL_LABELS, type LeveledItem } from '../../../../shared/src/types/talent';
 
 interface SkillItem { id: string; name: string }
 interface SkillWithLevel { skill: string; level: number }
@@ -7,10 +8,10 @@ interface SkillWithLevel { skill: string; level: number }
 interface Props {
   categoryId: string;
   skills: SkillWithLevel[];
-  tools: string[];
+  tools: LeveledItem[];
   aiTools: string[];
   onSkillsChange: (s: SkillWithLevel[]) => void;
-  onToolsChange: (t: string[]) => void;
+  onToolsChange: (t: LeveledItem[]) => void;
   onAiToolsChange: (a: string[]) => void;
 }
 
@@ -47,9 +48,22 @@ export default function AdminSkillsAndTools({
   const setLevel = (name: string, level: number) =>
     onSkillsChange(skills.map((s) => (s.skill === name ? { ...s, level } : s)));
 
-  const toggle = (list: string[], setter: (v: string[]) => void) => (name: string) => {
-    if (list.includes(name)) setter(list.filter((t) => t !== name));
-    else setter([...list, name]);
+  const toggleLeveled = (name: string) => {
+    const existing = tools.find((t) => t.name === name);
+    if (existing) {
+      onToolsChange(tools.filter((t) => t.name !== name));
+    } else {
+      onToolsChange([...tools, { name, level: 3 }]);
+    }
+  };
+
+  const setToolLevel = (name: string, level: number) => {
+    onToolsChange(tools.map((t) => (t.name === name ? { ...t, level } : t)));
+  };
+
+  const toggleAi = (name: string) => {
+    if (aiTools.includes(name)) onAiToolsChange(aiTools.filter((t) => t !== name));
+    else onAiToolsChange([...aiTools, name]);
   };
 
   const Chip = ({
@@ -122,20 +136,46 @@ export default function AdminSkillsAndTools({
 
       <div>
         <h3 className="mb-1 text-sm font-semibold text-gray-800">Tools</h3>
-        <p className="mb-3 text-xs text-gray-500">Tools the talent uses</p>
+        <p className="mb-3 text-xs text-gray-500">Tools the talent uses — rate proficiency 1–5</p>
         {availableTools.length === 0 ? (
           <p className="text-sm text-gray-400">No tools configured for this category.</p>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {availableTools.map((t) => (
-              <Chip
-                key={t.id}
-                name={t.name}
-                color="indigo"
-                selected={tools.includes(t.name)}
-                onClick={() => toggle(tools, onToolsChange)(t.name)}
-              />
-            ))}
+          <div className="space-y-2">
+            {availableTools.map((t) => {
+              const sel = tools.find((x) => x.name === t.name);
+              return (
+                <div key={t.id} className="rounded-lg border border-gray-200 px-4 py-3">
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      checked={!!sel}
+                      onChange={() => toggleLeveled(t.name)}
+                    />
+                    <span className="text-sm font-medium text-gray-700">{t.name}</span>
+                  </label>
+                  {sel && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 pl-7">
+                      <span className="mr-1 text-xs font-medium text-gray-500">Proficiency</span>
+                      {[1, 2, 3, 4, 5].map((lvl) => (
+                        <button
+                          key={lvl}
+                          type="button"
+                          onClick={() => setToolLevel(t.name, lvl)}
+                          className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                            sel.level === lvl
+                              ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                              : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {LEVEL_LABELS[lvl]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -153,7 +193,7 @@ export default function AdminSkillsAndTools({
                 name={t.name}
                 color="purple"
                 selected={aiTools.includes(t.name)}
-                onClick={() => toggle(aiTools, onAiToolsChange)(t.name)}
+                onClick={() => toggleAi(t.name)}
               />
             ))}
           </div>

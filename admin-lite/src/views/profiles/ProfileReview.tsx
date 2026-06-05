@@ -7,6 +7,23 @@ import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
 
+// Local mirror of `@shared/types/talent.coerceLeveledList` — admin-lite does
+// not depend on the shared workspace, so we keep the coercion here. Returns
+// plain `{name, level}[]` so consumers can render `name` and (optionally)
+// the level suffix.
+function toolNames(raw: unknown): { name: string; level: number }[] {
+  if (!Array.isArray(raw)) return [];
+  const out: { name: string; level: number }[] = [];
+  for (const item of raw) {
+    if (typeof item === 'string' && item) out.push({ name: item, level: 3 });
+    else if (item && typeof item === 'object' && typeof item.name === 'string') {
+      const lvl = Number((item as any).level);
+      out.push({ name: item.name, level: Number.isFinite(lvl) ? Math.max(1, Math.min(5, Math.round(lvl))) : 3 });
+    }
+  }
+  return out;
+}
+
 interface ReviewProfile {
   id: string;
   talent_user_id: string;
@@ -342,7 +359,9 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
   const userNotes = prev?._user ? buildUserChangeNotes(talentUser, prev._user) : [];
   const fieldChangeNotes = prev ? buildFieldChangeNotes(sortedFields, profile.field_data ?? {}, prev, changedKeys) : [];
   const skillNotes = prev && changedKeys.has('_skills') ? buildSkillChangeNotes(profile.field_data?._skills ?? [], prev._skills) : [];
-  const toolNotes = prev && changedKeys.has('_tools') ? buildListChangeNotes(profile.field_data?._tools ?? [], prev._tools) : [];
+  const toolsCurrent = toolNames(profile.field_data?._tools);
+  const toolsPrev = toolNames(prev?._tools);
+  const toolNotes = prev && changedKeys.has('_tools') ? buildListChangeNotes(toolsCurrent.map((t) => t.name), toolsPrev.map((t) => t.name)) : [];
   const aiToolNotes = prev && changedKeys.has('_ai_tools') ? buildListChangeNotes(profile.field_data?._ai_tools ?? [], prev._ai_tools) : [];
   const wageNotes = prev && changedKeys.has('_plan_wages') ? buildWageChangeNotes(profile.field_data?._plan_wages ?? {}, prev._plan_wages) : [];
 
@@ -451,12 +470,12 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
             <div>
               <h2 className="mb-3 text-lg font-semibold text-gray-900">Tools</h2>
               <div className="flex flex-wrap gap-2">
-                {profile.field_data._tools.map((tool: string) => (
+                {toolsCurrent.map((tool) => (
                   <span
-                    key={tool}
+                    key={tool.name}
                     className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700"
                   >
-                    {tool}
+                    {tool.name}
                   </span>
                 ))}
               </div>

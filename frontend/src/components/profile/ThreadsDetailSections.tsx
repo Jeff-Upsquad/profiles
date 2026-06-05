@@ -1,6 +1,11 @@
 'use client';
 
 import type { CategoryField } from '@/types';
+import {
+  coerceLeveledList,
+  LEVEL_LABELS,
+  type LeveledItem,
+} from '../../../../shared/src/types/talent';
 
 interface ThreadsDetailSectionsProps {
   fields: CategoryField[];
@@ -77,7 +82,7 @@ function getLevelLabel(dots: number): string {
     case 4: return 'Advanced';
     case 3: return 'Intermediate';
     case 2: return 'Beginner';
-    default: return 'Novice';
+    default: return 'Learning';
   }
 }
 
@@ -164,6 +169,25 @@ function TagChips({ tags }: { tags: string[] }) {
   );
 }
 
+/** Tag chip with a "Name · Level" suffix for items carrying a proficiency. */
+function LeveledTagChips({ items }: { items: LeveledItem[] }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map((it) => (
+        <span
+          key={it.name}
+          className="px-3 py-1.5 bg-white border border-zinc-200 rounded-[10px] text-[13px] font-medium text-zinc-800 shadow-sm"
+        >
+          {it.name}
+          <span className="ml-1.5 text-zinc-500 font-normal">
+            · {LEVEL_LABELS[it.level] ?? 'Intermediate'}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function TagSection({
   label,
   tags,
@@ -195,6 +219,42 @@ function TagSection({
         </div>
       ) : (
         <TagChips tags={tags} />
+      )}
+    </div>
+  );
+}
+
+function LeveledTagSection({
+  label,
+  items,
+  delay,
+  groupMap,
+  groupOrder,
+}: {
+  label: string;
+  items: LeveledItem[];
+  delay: number;
+  groupMap?: Record<string, string | null>;
+  groupOrder?: string[];
+}) {
+  const { groups, hasNamedGroups } = groupItemsByName(items, (i) => i.name, groupMap, groupOrder);
+
+  return (
+    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
+      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
+        {label}
+      </h3>
+      {hasNamedGroups ? (
+        <div className="space-y-3">
+          {Array.from(groups.entries()).map(([groupName, list]) => (
+            <div key={groupName || '_ungrouped'}>
+              {groupName && <GroupSubHeading name={groupName} />}
+              <LeveledTagChips items={list} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <LeveledTagChips items={items} />
       )}
     </div>
   );
@@ -302,8 +362,8 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
     )
     .filter((c) => c.skill)
     .sort((a, b) => b.level - a.level);
-  const accountingSoftware: string[] = fieldData?._accounting_software ?? [];
-  const tools: string[] = fieldData?._tools ?? [];
+  const accountingSoftware: LeveledItem[] = coerceLeveledList(fieldData?._accounting_software);
+  const tools: LeveledItem[] = coerceLeveledList(fieldData?._tools);
   const aiTools: string[] = fieldData?._ai_tools ?? [];
 
   // Rename "Tools" → "Other Tools" only when Accounting Software is also present
@@ -335,28 +395,28 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
     sectionIndex++;
   }
 
-  // Accounting Software section (outlined tags) — accountant category, rendered before Tools
+  // Accounting Software section (outlined tags with level badge) — accountant category, rendered before Tools
   if (accountingSoftware.length > 0) {
     const delay = sectionIndex * 0.04;
     sections.push(
-      <TagSection
+      <LeveledTagSection
         key="_accounting_software"
         label="Accounting Software"
-        tags={accountingSoftware}
+        items={accountingSoftware}
         delay={delay}
       />
     );
     sectionIndex++;
   }
 
-  // Tools section (outlined tags)
+  // Tools section (outlined tags with level badge)
   if (tools.length > 0) {
     const delay = sectionIndex * 0.04;
     sections.push(
-      <TagSection
+      <LeveledTagSection
         key="_tools"
         label={toolsLabel}
-        tags={tools}
+        items={tools}
         delay={delay}
         groupMap={groupMaps?.tools}
         groupOrder={groupMaps?.groupOrder}

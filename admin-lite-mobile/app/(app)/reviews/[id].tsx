@@ -115,7 +115,22 @@ export default function ProfileReviewScreen() {
     : [];
 
   const skills = fieldData._skills as { skill: string; level: number }[] | undefined;
-  const tools = fieldData._tools as string[] | undefined;
+  // `_tools` is `{name, level}[]` after the proficiency upgrade; tolerate
+  // legacy `string[]` rows by coercing.
+  const tools: { name: string; level: number }[] = (() => {
+    const raw = fieldData._tools;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((t: any) => {
+        if (typeof t === 'string') return { name: t, level: 3 };
+        if (t && typeof t.name === 'string') {
+          const lvl = Number(t.level);
+          return { name: t.name, level: Number.isFinite(lvl) ? Math.max(1, Math.min(5, Math.round(lvl))) : 3 };
+        }
+        return null;
+      })
+      .filter((t): t is { name: string; level: number } => t !== null);
+  })();
   const aiTools = fieldData._ai_tools as string[] | undefined;
   const wages = fieldData._plan_wages as
     | { hourly?: number; daily?: number; monthly?: number }
@@ -199,8 +214,8 @@ export default function ProfileReviewScreen() {
         <Section title="Tools">
           <View style={styles.chipWrap}>
             {tools.map((t) => (
-              <View key={t} style={[styles.chip, styles.chipIndigo]}>
-                <Text style={styles.chipIndigoText}>{t}</Text>
+              <View key={t.name} style={[styles.chip, styles.chipIndigo]}>
+                <Text style={styles.chipIndigoText}>{t.name}</Text>
               </View>
             ))}
           </View>

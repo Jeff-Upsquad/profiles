@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
-import ChipSelect from '@/components/ui/ChipSelect';
 import MultiSelectSearch from '@/components/ui/MultiSelectSearch';
 import {
   ACCOUNTING_SOFTWARE_PRIMARY,
   ACCOUNTING_SOFTWARE_OTHER,
 } from '@/constants/lead-form-options';
+import type { LeveledItem } from '../../../../shared/src/types/talent';
 
 interface Grouped {
   group?: string | null;
@@ -38,17 +38,64 @@ interface DesignerExtrasProps {
    * into Categories. */
   categorySlug?: string;
   skills: SkillWithLevel[];
-  tools: string[];
+  tools: LeveledItem[];
   aiTools?: string[];
   categories?: CategoryWithLevel[];
-  accountingSoftware?: string[];
+  accountingSoftware?: LeveledItem[];
   onSkillsChange: (skills: SkillWithLevel[]) => void;
-  onToolsChange: (tools: string[]) => void;
+  onToolsChange: (tools: LeveledItem[]) => void;
   onAiToolsChange?: (aiTools: string[]) => void;
   onCategoriesChange?: (categories: CategoryWithLevel[]) => void;
-  onAccountingSoftwareChange?: (accountingSoftware: string[]) => void;
+  onAccountingSoftwareChange?: (accountingSoftware: LeveledItem[]) => void;
   /** When true, renders an "Accounting Software" picker before Tools and relabels Tools to "Other Tools". */
   showAccountingSoftware?: boolean;
+}
+
+const LEVEL_LABELS: Record<number, string> = {
+  1: 'Learning',
+  2: 'Beginner',
+  3: 'Intermediate',
+  4: 'Advanced',
+  5: 'Expert',
+};
+
+const LEVEL_OPTIONS = [1, 2, 3, 4, 5] as const;
+
+function LevelButtonGroup({
+  value,
+  onChange,
+  accent,
+}: {
+  value: number;
+  onChange: (level: number) => void;
+  accent: 'indigo' | 'zinc';
+}) {
+  const selectedCls =
+    accent === 'indigo'
+      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+      : 'border-zinc-500 bg-zinc-100 text-zinc-800';
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 pl-7">
+      <span className="mr-1 text-xs font-medium text-gray-500">Proficiency</span>
+      {LEVEL_OPTIONS.map((lvl) => {
+        const isSelected = value === lvl;
+        return (
+          <button
+            key={lvl}
+            type="button"
+            onClick={() => onChange(lvl)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              isSelected
+                ? selectedCls
+                : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            {LEVEL_LABELS[lvl]}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 function groupItems<T extends Grouped>(items: T[]): {
@@ -70,6 +117,81 @@ function GroupHeading({ name }: { name: string }) {
     <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
       {name}
     </h4>
+  );
+}
+
+/**
+ * Card-style picker for items that need a per-item proficiency level.
+ * Each row: checkbox (toggle selection) + name + (when selected) a
+ * 5-button group (Learning / Beginner / Intermediate / Advanced / Expert).
+ */
+function LeveledCardPicker<T extends { id: string; name: string; group?: string | null }>({
+  items,
+  selected,
+  onChange,
+  accent,
+  emptyText,
+}: {
+  items: T[];
+  selected: LeveledItem[];
+  onChange: (next: LeveledItem[]) => void;
+  accent: 'indigo' | 'zinc';
+  emptyText?: string;
+}) {
+  const toggleItem = (name: string) => {
+    const existing = selected.find((s) => s.name === name);
+    if (existing) {
+      onChange(selected.filter((s) => s.name !== name));
+    } else {
+      onChange([...selected, { name, level: 3 }]);
+    }
+  };
+
+  const setLevel = (name: string, level: number) => {
+    onChange(selected.map((s) => (s.name === name ? { ...s, level } : s)));
+  };
+
+  const renderCard = (item: T) => {
+    const sel = selected.find((s) => s.name === item.name);
+    return (
+      <div key={item.id} className="rounded-lg border border-gray-200 px-4 py-3">
+        <label className="flex cursor-pointer items-center gap-3">
+          <input
+            type="checkbox"
+            className={`h-4 w-4 rounded border-gray-300 focus:ring-2 ${
+              accent === 'indigo'
+                ? 'text-indigo-600 focus:ring-indigo-500'
+                : 'text-zinc-600 focus:ring-zinc-500'
+            }`}
+            checked={!!sel}
+            onChange={() => toggleItem(item.name)}
+          />
+          <span className="text-sm font-medium text-gray-700">{item.name}</span>
+        </label>
+        {sel && <LevelButtonGroup value={sel.level} onChange={(l) => setLevel(item.name, l)} accent={accent} />}
+      </div>
+    );
+  };
+
+  if (items.length === 0) {
+    return <p className="text-sm text-gray-400">{emptyText ?? 'No items configured for this category yet.'}</p>;
+  }
+
+  const { groups, hasNamedGroups } = groupItems(items);
+
+  if (!hasNamedGroups) {
+    return <div className="space-y-2">{items.map(renderCard)}</div>;
+  }
+
+  return (
+    <div className="space-y-5">
+      {Array.from(groups.entries()).map(([groupName, list]) => (
+        <div key={groupName || '_ungrouped'}>
+          {groupName && <GroupHeading name={groupName} />}
+          <div className="space-y-2">{list.map(renderCard)}</div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -170,14 +292,6 @@ export default function DesignerExtras({
     );
   };
 
-  const toggleTool = (toolName: string) => {
-    if (tools.includes(toolName)) {
-      onToolsChange(tools.filter((t) => t !== toolName));
-    } else {
-      onToolsChange([...tools, toolName]);
-    }
-  };
-
   const renderSkillCard = (skill: SkillItem) => {
     const selected = skills.find((s) => s.skill === skill.name);
     return (
@@ -212,28 +326,6 @@ export default function DesignerExtras({
 
   const renderSkillList = (list: SkillItem[]) => (
     <div className="space-y-2">{list.map(renderSkillCard)}</div>
-  );
-
-  const renderToolChip = (tool: ToolItem) => {
-    const isSelected = tools.includes(tool.name);
-    return (
-      <button
-        key={tool.id}
-        type="button"
-        onClick={() => toggleTool(tool.name)}
-        className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-          isSelected
-            ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-            : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-        }`}
-      >
-        {tool.name}
-      </button>
-    );
-  };
-
-  const renderToolChipList = (list: ToolItem[]) => (
-    <div className="flex flex-wrap gap-2">{list.map(renderToolChip)}</div>
   );
 
   const renderAiToolChip = (tool: SkillItem) => {
@@ -280,6 +372,14 @@ export default function DesignerExtras({
       </div>
     );
   }
+
+  // Accounting Software: primary (6 fixed) + searchable list (35 fixed). The
+  // available list is a constant, not a DB-backed template, so we render it
+  // directly without a query.
+  const allAccountingOptions: { id: string; name: string }[] = [
+    ...ACCOUNTING_SOFTWARE_PRIMARY.map((o) => ({ id: `primary:${o.value}`, name: o.value })),
+    ...ACCOUNTING_SOFTWARE_OTHER.map((o) => ({ id: `other:${o.value}`, name: o.value })),
+  ];
 
   return (
     <div className="space-y-8">
@@ -345,27 +445,33 @@ export default function DesignerExtras({
         )}
       </div>
 
-      {/* Accounting Software (accountant category only) */}
+      {/* Accounting Software (accountant category only) — per-item proficiency
+          1-5 (Learning / Beginner / Intermediate / Advanced / Expert). */}
       {showAccountingSoftware && onAccountingSoftwareChange && (
         <div>
           <h3 className="mb-1 text-sm font-semibold text-gray-800">Accounting Software</h3>
           <p className="mb-3 text-xs text-gray-500">
-            Select the accounting tools you have experience with — start with the primary ones, search for more below.
+            Select the accounting tools you have experience with and rate your proficiency in each.
           </p>
-          <ChipSelect
-            multi
-            options={ACCOUNTING_SOFTWARE_PRIMARY}
-            selected={accountingSoftware}
-            onChange={(v) => onAccountingSoftwareChange(v as string[])}
-          />
-          <div className="mt-2">
+          <div className="mb-3">
             <MultiSelectSearch
               options={ACCOUNTING_SOFTWARE_OTHER}
-              selected={accountingSoftware}
-              onChange={onAccountingSoftwareChange}
+              selected={accountingSoftware.map((a) => a.name)}
+              onChange={(names) => {
+                const existing = new Map(accountingSoftware.map((a) => [a.name, a]));
+                onAccountingSoftwareChange(
+                  names.map((n) => existing.get(n) ?? { name: n, level: 3 })
+                );
+              }}
               placeholder="Search more software..."
             />
           </div>
+          <LeveledCardPicker
+            items={allAccountingOptions}
+            selected={accountingSoftware}
+            onChange={onAccountingSoftwareChange}
+            accent="indigo"
+          />
         </div>
       )}
 
@@ -376,17 +482,18 @@ export default function DesignerExtras({
         </h3>
         <p className="mb-3 text-xs text-gray-500">
           {showAccountingSoftware
-            ? 'Any non-accounting tools you use day-to-day'
+            ? 'Select the non-accounting tools you use and rate your proficiency in each.'
             : 'Select the tools you are proficient in'}
         </p>
 
         {availableTools.length === 0 ? (
           <p className="text-sm text-gray-400">No tools configured for this category yet.</p>
         ) : (
-          <GroupedSection
+          <LeveledCardPicker
             items={availableTools}
-            renderFlat={renderToolChipList}
-            renderGroup={renderToolChipList}
+            selected={tools}
+            onChange={onToolsChange}
+            accent="zinc"
           />
         )}
       </div>

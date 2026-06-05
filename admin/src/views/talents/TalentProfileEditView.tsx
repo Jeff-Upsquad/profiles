@@ -12,6 +12,7 @@ import DynamicFormRenderer from '@/components/forms/DynamicFormRenderer';
 import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
 import AdminSkillsAndTools from '@/components/forms/AdminSkillsAndTools';
 import AdminPortfolioEditor from '@/components/forms/AdminPortfolioEditor';
+import { coerceLeveledList, type LeveledItem } from '../../../../shared/src/types/talent';
 import {
   useUpdateTalentUser,
   useUpdateTalentProfile,
@@ -177,7 +178,7 @@ export default function TalentProfileEditView({
   }
 
   const skills: { skill: string; level: number }[] = fieldValues._skills ?? [];
-  const tools: string[] = fieldValues._tools ?? [];
+  const tools: LeveledItem[] = coerceLeveledList(fieldValues._tools);
   const aiTools: string[] = fieldValues._ai_tools ?? [];
 
   const setField = (key: string, val: any) =>
