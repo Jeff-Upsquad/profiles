@@ -29,10 +29,11 @@ interface LeadFull {
   archive_reason: string | null;
   profile_type: string | null;
   profile_type_custom: string | null;
-  linked_talent: { id: string; full_name: string; onboarding_completed: boolean } | null;
+  linked_talent: { id: string; full_name: string; onboarding_completed: boolean; skip_onboarding?: boolean } | null;
   onboarding_progress: {
     signed_up: boolean;
     onboarding_completed: boolean;
+    onboarding_bypassed?: boolean;
     basic_profile_completed: boolean;
     job_profile_completed: boolean;
     portfolio_completed: boolean;

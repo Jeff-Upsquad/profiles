@@ -27,7 +27,7 @@ export default function TalentLayout({
   const pathname = usePathname();
   const { user, isLoading } = useAuth();
   const isTalent = !!user && user.role === 'talent';
-  const onboarded = user?.onboarding_completed !== false;
+  const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
   const { data: unread = 0 } = useUnreadSubscriptionCount({ enabled: isTalent });
   const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
   const { data: trainingData } = useMyTraining();

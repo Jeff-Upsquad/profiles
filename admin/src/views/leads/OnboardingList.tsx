@@ -21,6 +21,7 @@ type StageKey =
 interface OnboardingProgress {
   signed_up: boolean;
   onboarding_completed: boolean;
+  onboarding_bypassed?: boolean;
   basic_profile_completed: boolean;
   job_profile_completed: boolean;
   portfolio_completed: boolean;

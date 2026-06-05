@@ -618,6 +618,19 @@ async function hasApprovedProfile(userId: string): Promise<boolean> {
   return (data?.length ?? 0) > 0;
 }
 
+// Admin-set flag that exempts this talent from the onboarding course.
+// Treated as a parallel grandfather to hasApprovedProfile — any gate that
+// approves-profile-bypasses should also onboarding-bypass.
+async function isOnboardingBypassed(userId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from('talent_users')
+    .select('skip_onboarding')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw new AppError(500, `Failed to check bypass flag: ${error.message}`);
+  return !!data?.skip_onboarding;
+}
+
 /**
  * Server-side guard for chapter locks. Returns true if the lesson's chapter
  * is currently locked for this user — by either:
@@ -629,6 +642,7 @@ async function hasApprovedProfile(userId: string): Promise<boolean> {
  */
 async function isLessonChapterLocked(userId: string, lessonId: string): Promise<boolean> {
   if (await hasApprovedProfile(userId)) return false;
+  if (await isOnboardingBypassed(userId)) return false;
 
   const { data: lesson, error: lErr } = await supabaseAdmin
     .from('training_lessons')
@@ -757,6 +771,13 @@ export async function getModuleAccess(userId: string, categoryIds: string[]) {
   if (apErr) throw new AppError(500, `Failed to check approval status: ${apErr.message}`);
   const hasApprovedProfile = (approvedProfiles?.length ?? 0) > 0;
 
+  // Parallel grandfather: an admin-set onboarding bypass unlocks everything
+  // just like having an approved profile would. Roll it into the same
+  // `hasApprovedProfile` signal so the chapter loop below treats them
+  // identically.
+  const bypassed = !hasApprovedProfile && (await isOnboardingBypassed(userId));
+  const treatsAsGrandfathered = hasApprovedProfile || bypassed;
+
   // Find chapters via legacy training_chapter_categories link (chapters without a course)
   const { data: chapterJoinRows, error: jErr } = await supabaseAdmin
     .from('training_chapter_categories')
@@ -836,7 +857,7 @@ export async function getModuleAccess(userId: string, categoryIds: string[]) {
     const completedCount = lessonIds.filter((id) => completedSet.has(id)).length;
     const total = lessonIds.length;
 
-    if (hasApprovedProfile || total === 0 || completedCount === total) {
+    if (treatsAsGrandfathered || total === 0 || completedCount === total) {
       unlocked.push(ch.linked_module);
     } else {
       locked.push({
@@ -1071,7 +1092,7 @@ export async function getMyCourses(userId: string, categoryIds: string[]): Promi
       return courseCatIds.length === 0 || courseCatIds.some((id: string) => userCatSet.has(id));
     });
 
-  const approved = await hasApprovedProfile(userId);
+  const approved = (await hasApprovedProfile(userId)) || (await isOnboardingBypassed(userId));
   return buildCoursePayloads(visibleCourses, userId, approved);
 }
 
@@ -1098,7 +1119,7 @@ export async function getOnboardingCourses(userId: string, categoryIds: string[]
       return courseCatIds.some((id: string) => userCatSet.has(id));
     });
 
-  const approved = await hasApprovedProfile(userId);
+  const approved = (await hasApprovedProfile(userId)) || (await isOnboardingBypassed(userId));
   return buildCoursePayloads(visibleCourses, userId, approved);
 }
 
@@ -1134,6 +1155,19 @@ export async function getOnboardingChapter() {
  * single-chapter onboarding gate if no onboarding courses exist yet.
  */
 export async function completeOnboarding(userId: string, categoryIds: string[]) {
+  // Admins may have set skip_onboarding for this user; in that case we
+  // just confirm the flag on onboarding_completed and return — the
+  // per-lesson progress check below would otherwise reject a user who
+  // was never required to watch the course in the first place.
+  if (await isOnboardingBypassed(userId)) {
+    const { error } = await supabaseAdmin
+      .from('talent_users')
+      .update({ onboarding_completed: true })
+      .eq('id', userId);
+    if (error) throw new AppError(500, `Failed to complete onboarding: ${error.message}`);
+    return { message: 'Onboarding completed (admin bypass)' };
+  }
+
   const onboardingCourses = await getOnboardingCourses(userId, categoryIds);
 
   if (onboardingCourses.length > 0) {

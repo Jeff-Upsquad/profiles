@@ -637,7 +637,7 @@ function OnboardingTraining() {
 
 export default function TrainingProgram() {
   const { user } = useAuth();
-  const onboarded = user?.onboarding_completed !== false;
+  const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
 
   if (!onboarded) return <OnboardingTraining />;
 

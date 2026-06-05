@@ -99,7 +99,7 @@ export async function getLeadSubmissionForTalent(userId: string) {
 export async function getMyOnboardingProgress(userId: string) {
   const { data: talent, error: talentErr } = await supabaseAdmin
     .from('talent_users')
-    .select('id, onboarding_completed')
+    .select('id, onboarding_completed, skip_onboarding')
     .eq('id', userId)
     .single();
 
@@ -137,7 +137,10 @@ export async function getMyOnboardingProgress(userId: string) {
 
   const progress = {
     signed_up: true,
-    onboarding_completed: !!talent.onboarding_completed,
+    // An admin-set skip_onboarding flag exempts the talent from the
+    // course without rewriting onboarding_completed. Surface that as
+    // "completed" on the 5-stage strip.
+    onboarding_completed: !!talent.onboarding_completed || !!talent.skip_onboarding,
     basic_profile_completed: !!basicCreatedAt,
     job_profile_completed: profiles.length > 0,
     portfolio_completed: !!earliestPortfolioCreatedAt,

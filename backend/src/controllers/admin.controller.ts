@@ -677,6 +677,24 @@ export async function setTalentUserActive(req: Request, res: Response, next: Nex
   }
 }
 
+export async function setTalentOnboardingBypass(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await adminService.setTalentOnboardingBypass(
+      req.params.id as string,
+      Boolean(req.body.skip_onboarding),
+      req.body.reason ?? null,
+      req.user?.id ?? null,
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function deleteUser(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await adminService.deleteUser(req.params.id as string);

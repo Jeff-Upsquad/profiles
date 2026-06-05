@@ -8,6 +8,7 @@ export function useUserActions() {
   const invalidateLists = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-users-talent'] });
     queryClient.invalidateQueries({ queryKey: ['admin-users-business'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-onboarding-leads'] });
   };
 
   const suspendUser = useMutation({
@@ -38,6 +39,36 @@ export function useUserActions() {
     },
   });
 
+  const setOnboardingBypass = useMutation({
+    mutationFn: async ({
+      userId,
+      skipOnboarding,
+      reason,
+    }: {
+      userId: string;
+      skipOnboarding: boolean;
+      reason?: string | null;
+    }) => {
+      const { data } = await api.patch(`/admin/users/talent/${userId}/skip-onboarding`, {
+        skip_onboarding: skipOnboarding,
+        reason: reason ?? null,
+      });
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      invalidateLists();
+      queryClient.invalidateQueries({ queryKey: ['admin-user-detail', vars.userId] });
+      toast.success(
+        vars.skipOnboarding
+          ? 'Onboarding bypass enabled for talent'
+          : 'Onboarding bypass removed',
+      );
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to update onboarding bypass');
+    },
+  });
+
   const deleteUser = useMutation({
     mutationFn: async (userId: string) => {
       await api.delete(`/admin/users/${userId}`);
@@ -51,5 +82,5 @@ export function useUserActions() {
     },
   });
 
-  return { suspendUser, setUserActive, deleteUser };
+  return { suspendUser, setUserActive, setOnboardingBypass, deleteUser };
 }
