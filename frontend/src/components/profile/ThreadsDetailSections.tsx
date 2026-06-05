@@ -364,7 +364,7 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
     .sort((a, b) => b.level - a.level);
   const accountingSoftware: LeveledItem[] = coerceLeveledList(fieldData?._accounting_software);
   const tools: LeveledItem[] = coerceLeveledList(fieldData?._tools);
-  const aiTools: string[] = fieldData?._ai_tools ?? [];
+  const aiTools: LeveledItem[] = coerceLeveledList(fieldData?._ai_tools);
 
   // Rename "Tools" → "Other Tools" only when Accounting Software is also present
   const toolsLabel = accountingSoftware.length > 0 ? 'Other Tools' : 'Tools';
@@ -425,14 +425,14 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
     sectionIndex++;
   }
 
-  // AI Tools section (outlined tags)
+  // AI Tools section (outlined tags with level badge)
   if (aiTools.length > 0) {
     const delay = sectionIndex * 0.04;
     sections.push(
-      <TagSection
+      <LeveledTagSection
         key="_ai_tools"
         label="AI Tools"
-        tags={aiTools}
+        items={aiTools}
         delay={delay}
         groupMap={groupMaps?.aiTools}
         groupOrder={groupMaps?.groupOrder}

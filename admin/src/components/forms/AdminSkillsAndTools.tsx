@@ -9,10 +9,10 @@ interface Props {
   categoryId: string;
   skills: SkillWithLevel[];
   tools: LeveledItem[];
-  aiTools: string[];
+  aiTools: LeveledItem[];
   onSkillsChange: (s: SkillWithLevel[]) => void;
   onToolsChange: (t: LeveledItem[]) => void;
-  onAiToolsChange: (a: string[]) => void;
+  onAiToolsChange: (a: LeveledItem[]) => void;
 }
 
 function useTemplate(kind: 'skills' | 'tools' | 'ai-tools', categoryId: string) {
@@ -62,35 +62,17 @@ export default function AdminSkillsAndTools({
   };
 
   const toggleAi = (name: string) => {
-    if (aiTools.includes(name)) onAiToolsChange(aiTools.filter((t) => t !== name));
-    else onAiToolsChange([...aiTools, name]);
+    const existing = aiTools.find((t) => t.name === name);
+    if (existing) {
+      onAiToolsChange(aiTools.filter((t) => t.name !== name));
+    } else {
+      onAiToolsChange([...aiTools, { name, level: 3 }]);
+    }
   };
 
-  const Chip = ({
-    name,
-    selected,
-    color,
-    onClick,
-  }: {
-    name: string;
-    selected: boolean;
-    color: 'indigo' | 'purple';
-    onClick: () => void;
-  }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-        selected
-          ? color === 'indigo'
-            ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-            : 'border-purple-500 bg-purple-50 text-purple-700'
-          : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-      }`}
-    >
-      {name}
-    </button>
-  );
+  const setAiLevel = (name: string, level: number) => {
+    onAiToolsChange(aiTools.map((t) => (t.name === name ? { ...t, level } : t)));
+  };
 
   return (
     <div className="space-y-8">
@@ -182,20 +164,46 @@ export default function AdminSkillsAndTools({
 
       <div>
         <h3 className="mb-1 text-sm font-semibold text-gray-800">AI Tools</h3>
-        <p className="mb-3 text-xs text-gray-500">AI tools the talent uses</p>
+        <p className="mb-3 text-xs text-gray-500">AI tools the talent uses — rate proficiency 1–5</p>
         {availableAiTools.length === 0 ? (
           <p className="text-sm text-gray-400">No AI tools configured for this category.</p>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {availableAiTools.map((t) => (
-              <Chip
-                key={t.id}
-                name={t.name}
-                color="purple"
-                selected={aiTools.includes(t.name)}
-                onClick={() => toggleAi(t.name)}
-              />
-            ))}
+          <div className="space-y-2">
+            {availableAiTools.map((t) => {
+              const sel = aiTools.find((x) => x.name === t.name);
+              return (
+                <div key={t.id} className="rounded-lg border border-gray-200 px-4 py-3">
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      checked={!!sel}
+                      onChange={() => toggleAi(t.name)}
+                    />
+                    <span className="text-sm font-medium text-gray-700">{t.name}</span>
+                  </label>
+                  {sel && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 pl-7">
+                      <span className="mr-1 text-xs font-medium text-gray-500">Proficiency</span>
+                      {[1, 2, 3, 4, 5].map((lvl) => (
+                        <button
+                          key={lvl}
+                          type="button"
+                          onClick={() => setAiLevel(t.name, lvl)}
+                          className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                            sel.level === lvl
+                              ? 'border-purple-500 bg-purple-50 text-purple-700'
+                              : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {LEVEL_LABELS[lvl]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

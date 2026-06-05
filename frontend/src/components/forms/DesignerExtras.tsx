@@ -39,12 +39,12 @@ interface DesignerExtrasProps {
   categorySlug?: string;
   skills: SkillWithLevel[];
   tools: LeveledItem[];
-  aiTools?: string[];
+  aiTools?: LeveledItem[];
   categories?: CategoryWithLevel[];
   accountingSoftware?: LeveledItem[];
   onSkillsChange: (skills: SkillWithLevel[]) => void;
   onToolsChange: (tools: LeveledItem[]) => void;
-  onAiToolsChange?: (aiTools: string[]) => void;
+  onAiToolsChange?: (aiTools: LeveledItem[]) => void;
   onCategoriesChange?: (categories: CategoryWithLevel[]) => void;
   onAccountingSoftwareChange?: (accountingSoftware: LeveledItem[]) => void;
   /** When true, renders an "Accounting Software" picker before Tools and relabels Tools to "Other Tools". */
@@ -68,12 +68,14 @@ function LevelButtonGroup({
 }: {
   value: number;
   onChange: (level: number) => void;
-  accent: 'indigo' | 'zinc';
+  accent: 'indigo' | 'zinc' | 'purple';
 }) {
   const selectedCls =
     accent === 'indigo'
       ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-      : 'border-zinc-500 bg-zinc-100 text-zinc-800';
+      : accent === 'purple'
+        ? 'border-purple-500 bg-purple-50 text-purple-700'
+        : 'border-zinc-500 bg-zinc-100 text-zinc-800';
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2 pl-7">
       <span className="mr-1 text-xs font-medium text-gray-500">Proficiency</span>
@@ -135,7 +137,7 @@ function LeveledCardPicker<T extends { id: string; name: string; group?: string 
   items: T[];
   selected: LeveledItem[];
   onChange: (next: LeveledItem[]) => void;
-  accent: 'indigo' | 'zinc';
+  accent: 'indigo' | 'zinc' | 'purple';
   emptyText?: string;
 }) {
   const toggleItem = (name: string) => {
@@ -151,6 +153,13 @@ function LeveledCardPicker<T extends { id: string; name: string; group?: string 
     onChange(selected.map((s) => (s.name === name ? { ...s, level } : s)));
   };
 
+  const checkboxCls =
+    accent === 'indigo'
+      ? 'text-indigo-600 focus:ring-indigo-500'
+      : accent === 'purple'
+        ? 'text-purple-600 focus:ring-purple-500'
+        : 'text-zinc-600 focus:ring-zinc-500';
+
   const renderCard = (item: T) => {
     const sel = selected.find((s) => s.name === item.name);
     return (
@@ -158,11 +167,7 @@ function LeveledCardPicker<T extends { id: string; name: string; group?: string 
         <label className="flex cursor-pointer items-center gap-3">
           <input
             type="checkbox"
-            className={`h-4 w-4 rounded border-gray-300 focus:ring-2 ${
-              accent === 'indigo'
-                ? 'text-indigo-600 focus:ring-indigo-500'
-                : 'text-zinc-600 focus:ring-zinc-500'
-            }`}
+            className={`h-4 w-4 rounded border-gray-300 focus:ring-2 ${checkboxCls}`}
             checked={!!sel}
             onChange={() => toggleItem(item.name)}
           />
@@ -268,15 +273,6 @@ export default function DesignerExtras({
     );
   };
 
-  const toggleAiTool = (toolName: string) => {
-    if (!onAiToolsChange) return;
-    if (aiTools.includes(toolName)) {
-      onAiToolsChange(aiTools.filter((t) => t !== toolName));
-    } else {
-      onAiToolsChange([...aiTools, toolName]);
-    }
-  };
-
   const toggleSkill = (skillName: string) => {
     const existing = skills.find((s) => s.skill === skillName);
     if (existing) {
@@ -326,28 +322,6 @@ export default function DesignerExtras({
 
   const renderSkillList = (list: SkillItem[]) => (
     <div className="space-y-2">{list.map(renderSkillCard)}</div>
-  );
-
-  const renderAiToolChip = (tool: SkillItem) => {
-    const isSelected = aiTools.includes(tool.name);
-    return (
-      <button
-        key={tool.id}
-        type="button"
-        onClick={() => toggleAiTool(tool.name)}
-        className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-          isSelected
-            ? 'border-purple-500 bg-purple-50 text-purple-700'
-            : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-        }`}
-      >
-        {tool.name}
-      </button>
-    );
-  };
-
-  const renderAiToolChipList = (list: SkillItem[]) => (
-    <div className="flex flex-wrap gap-2">{list.map(renderAiToolChip)}</div>
   );
 
   function GroupedSection<T extends Grouped>({
@@ -502,15 +476,18 @@ export default function DesignerExtras({
       {onAiToolsChange && (
         <div>
           <h3 className="mb-1 text-sm font-semibold text-gray-800">AI Tools</h3>
-          <p className="mb-3 text-xs text-gray-500">Select the AI tools you use</p>
+          <p className="mb-3 text-xs text-gray-500">
+            Select the AI tools you use and rate your proficiency in each.
+          </p>
 
           {availableAiTools.length === 0 ? (
             <p className="text-sm text-gray-400">No AI tools configured for this category yet.</p>
           ) : (
-            <GroupedSection
+            <LeveledCardPicker
               items={availableAiTools}
-              renderFlat={renderAiToolChipList}
-              renderGroup={renderAiToolChipList}
+              selected={aiTools}
+              onChange={onAiToolsChange}
+              accent="purple"
             />
           )}
         </div>

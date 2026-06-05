@@ -131,7 +131,20 @@ export default function ProfileReviewScreen() {
       })
       .filter((t): t is { name: string; level: number } => t !== null);
   })();
-  const aiTools = fieldData._ai_tools as string[] | undefined;
+  const aiTools: { name: string; level: number }[] = (() => {
+    const raw = fieldData._ai_tools;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((t: any) => {
+        if (typeof t === 'string') return { name: t, level: 3 };
+        if (t && typeof t.name === 'string') {
+          const lvl = Number(t.level);
+          return { name: t.name, level: Number.isFinite(lvl) ? Math.max(1, Math.min(5, Math.round(lvl))) : 3 };
+        }
+        return null;
+      })
+      .filter((t): t is { name: string; level: number } => t !== null);
+  })();
   const wages = fieldData._plan_wages as
     | { hourly?: number; daily?: number; monthly?: number }
     | undefined;
@@ -226,8 +239,8 @@ export default function ProfileReviewScreen() {
         <Section title="AI Tools">
           <View style={styles.chipWrap}>
             {aiTools.map((t) => (
-              <View key={t} style={[styles.chip, styles.chipPurple]}>
-                <Text style={styles.chipPurpleText}>{t}</Text>
+              <View key={t.name} style={[styles.chip, styles.chipPurple]}>
+                <Text style={styles.chipPurpleText}>{t.name}</Text>
               </View>
             ))}
           </View>

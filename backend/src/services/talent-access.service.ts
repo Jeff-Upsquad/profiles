@@ -691,9 +691,11 @@ export async function listProfiles(session: AccessSession, query: ProfilesQuery)
     const wanted = new Set(query.ai_tool.map((t) => t.toLowerCase()));
     profiles = profiles.filter((p) => {
       const tools = p.field_data?._ai_tools;
-      return Array.isArray(tools) && tools.some(
-        (t: any) => typeof t === 'string' && wanted.has(t.toLowerCase()),
-      );
+      if (!Array.isArray(tools)) return false;
+      return tools.some((t: any) => {
+        const name = typeof t === 'string' ? t : t?.name;
+        return typeof name === 'string' && wanted.has(name.toLowerCase());
+      });
     });
   }
 

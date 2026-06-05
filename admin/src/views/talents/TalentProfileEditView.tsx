@@ -179,7 +179,7 @@ export default function TalentProfileEditView({
 
   const skills: { skill: string; level: number }[] = fieldValues._skills ?? [];
   const tools: LeveledItem[] = coerceLeveledList(fieldValues._tools);
-  const aiTools: string[] = fieldValues._ai_tools ?? [];
+  const aiTools: LeveledItem[] = coerceLeveledList(fieldValues._ai_tools);
 
   const setField = (key: string, val: any) =>
     setFieldValues((prev) => ({ ...prev, [key]: val }));

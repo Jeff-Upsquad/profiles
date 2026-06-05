@@ -13,6 +13,7 @@ import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguageP
 import Button from '@/components/ui/Button';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { useAuth } from '@/context/AuthContext';
+import { coerceLeveledList } from '../../../../shared/src/types/talent';
 import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
 import ApprovalCelebration from '@/components/talent/ApprovalCelebration';
 import type { Category } from '@/types';
@@ -375,8 +376,8 @@ export default function ProfileCreate() {
                 categoryId={selectedCategory.id}
                 categorySlug={selectedCategory.slug}
                 skills={values._skills ?? []}
-                tools={values._tools ?? []}
-                aiTools={values._ai_tools ?? []}
+                tools={coerceLeveledList(values._tools)}
+                aiTools={coerceLeveledList(values._ai_tools)}
                 categories={values._categories ?? []}
                 accountingSoftware={values._accounting_software ?? []}
                 onSkillsChange={(s) => handleChange('_skills', s)}

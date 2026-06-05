@@ -5,6 +5,7 @@ import { useProfile, useUpdateProfile, useSubmitProfile, usePortfolioItems } fro
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import { useTalentMe } from '@/hooks/useTalentMe';
 import { useAuth } from '@/context/AuthContext';
+import { coerceLeveledList } from '../../../../shared/src/types/talent';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 import DynamicFormRenderer from '@/components/forms/DynamicFormRenderer';
@@ -329,8 +330,8 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
               categoryId={profile.category_id}
               categorySlug={profile.category?.slug}
               skills={values._skills ?? []}
-              tools={values._tools ?? []}
-              aiTools={values._ai_tools ?? []}
+              tools={coerceLeveledList(values._tools)}
+              aiTools={coerceLeveledList(values._ai_tools)}
               categories={values._categories ?? []}
               accountingSoftware={values._accounting_software ?? []}
               onSkillsChange={(s) => handleChange('_skills', s)}

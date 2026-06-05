@@ -233,7 +233,7 @@ export default function TalentProfileView({
   const crmHref = waPhone ? `https://shcrm.squadhub.in/app/leads/lookup?phone=${waPhone}` : null;
   const skills: { skill: string; level: number }[] = profile.field_data?._skills ?? [];
   const tools: LeveledItem[] = coerceLeveledList(profile.field_data?._tools);
-  const aiTools: string[] = profile.field_data?._ai_tools ?? [];
+  const aiTools: LeveledItem[] = coerceLeveledList(profile.field_data?._ai_tools);
   const rawCategories: any[] = profile.field_data?._categories ?? [];
   const categories: { skill: string; level: number }[] = rawCategories
     .map((c) =>
@@ -596,8 +596,11 @@ export default function TalentProfileView({
               <h2 className="mb-3 text-lg font-semibold text-gray-900">AI Tools</h2>
               <div className="flex flex-wrap gap-2">
                 {aiTools.map((tool) => (
-                  <span key={tool} className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700">
-                    {tool}
+                  <span key={tool.name} className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700">
+                    {tool.name}
+                    <span className="ml-1.5 font-normal text-purple-500">
+                      · {LEVEL_LABELS[tool.level] ?? 'Intermediate'}
+                    </span>
                   </span>
                 ))}
               </div>
@@ -655,7 +658,7 @@ function SourceProfileSection({
 }) {
   const skills: { skill: string; level: number }[] = source.field_data?._skills ?? [];
   const tools: LeveledItem[] = coerceLeveledList(source.field_data?._tools);
-  const aiTools: string[] = source.field_data?._ai_tools ?? [];
+  const aiTools: LeveledItem[] = coerceLeveledList(source.field_data?._ai_tools);
   const rawCategories: any[] = source.field_data?._categories ?? [];
   const categories: { skill: string; level: number }[] = rawCategories
     .map((c) =>
@@ -756,8 +759,11 @@ function SourceProfileSection({
           <h3 className="mb-3 text-base font-semibold text-gray-900">AI Tools</h3>
           <div className="flex flex-wrap gap-2">
             {aiTools.map((tool) => (
-              <span key={tool} className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700">
-                {tool}
+              <span key={tool.name} className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700">
+                {tool.name}
+                <span className="ml-1.5 font-normal text-purple-500">
+                  · {LEVEL_LABELS[tool.level] ?? 'Intermediate'}
+                </span>
               </span>
             ))}
           </div>

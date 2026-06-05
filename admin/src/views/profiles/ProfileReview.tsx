@@ -385,7 +385,9 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
   const toolsCurrent: LeveledItem[] = coerceLeveledList(profile.field_data?._tools);
   const toolsPrev: LeveledItem[] = coerceLeveledList(prev?._tools);
   const toolNotes = prev && changedKeys.has('_tools') ? buildLeveledListChangeNotes(toolsCurrent, toolsPrev) : [];
-  const aiToolNotes = prev && changedKeys.has('_ai_tools') ? buildListChangeNotes(profile.field_data?._ai_tools ?? [], prev._ai_tools) : [];
+  const aiToolsCurrent: LeveledItem[] = coerceLeveledList(profile.field_data?._ai_tools);
+  const aiToolsPrev: LeveledItem[] = coerceLeveledList(prev?._ai_tools);
+  const aiToolNotes = prev && changedKeys.has('_ai_tools') ? buildLeveledListChangeNotes(aiToolsCurrent, aiToolsPrev) : [];
   const wageNotes = prev && changedKeys.has('_plan_wages') ? buildWageChangeNotes(profile.field_data?._plan_wages ?? {}, prev._plan_wages) : [];
 
   return (
@@ -564,16 +566,19 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
       )}
 
       {/* AI Tools */}
-      {profile.field_data?._ai_tools?.length > 0 && (
+      {aiToolsCurrent.length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">AI Tools</h2>
           <div className="flex flex-wrap gap-2">
-            {profile.field_data._ai_tools.map((tool: string) => (
+            {aiToolsCurrent.map((tool) => (
               <span
-                key={tool}
+                key={tool.name}
                 className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700"
               >
-                {tool}
+                {tool.name}
+                <span className="ml-1.5 font-normal text-purple-500">
+                  · {LEVEL_LABELS[tool.level] ?? 'Intermediate'}
+                </span>
               </span>
             ))}
           </div>
