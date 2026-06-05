@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { evaluateAutoApproval, parseConfig } from './auto-approval.service.js';
+import { isBasicProfileMandatoryComplete } from './talent.service.js';
 import type {
   CreateLeadInput,
   UpdateLeadStatusInput,
@@ -254,7 +255,7 @@ export async function getOnboardingLeads(filters: {
   let query = supabaseAdmin
     .from('lead_submissions')
     .select(
-      '*, linked_talent:linked_talent_user_id(id, full_name, onboarding_completed, skip_onboarding)',
+      '*, linked_talent:linked_talent_user_id(id, full_name, languages_spoken, onboarding_completed, skip_onboarding)',
       { count: 'exact' }
     )
     .is('deleted_at', null)
@@ -279,32 +280,51 @@ export async function getOnboardingLeads(filters: {
     .map((l: any) => l.linked_talent_user_id as string | null)
     .filter((v): v is string => !!v);
 
-  let basicSet = new Set<string>();
-  let jobProfilesByTalent = new Map<string, string[]>();
+  // Columns needed to evaluate isBasicProfileMandatoryComplete. Kept in
+  // sync with the same constant in talent.service.ts.
+  const BASIC_COLUMNS =
+    'talent_user_id, permanent_country, permanent_state, permanent_district, permanent_city, ' +
+    'availability, job_type, employment_type, virtual_office_hours, education_courses, ' +
+    'aadhaar_number, pan_number, profile_picture_url, ' +
+    'bank_account_holder, bank_account_number, bank_ifsc_code, ' +
+    'resume_url';
+
+  let basicByTalent = new Map<string, Record<string, any>>();
+  // Per-talent list of job profiles, each carrying both the id (for
+  // portfolio lookups) and the status (for the new job-profile-stage
+  // rule that only submitted/approved profiles count).
+  let jobProfilesByTalent = new Map<string, Array<{ id: string; status: string }>>();
 
   if (talentIds.length > 0) {
     const [basicRes, jobRes] = await Promise.all([
       supabaseAdmin
         .from('talent_profiles_basic')
-        .select('talent_user_id')
+        .select(BASIC_COLUMNS)
         .in('talent_user_id', talentIds),
       supabaseAdmin
         .from('talent_profiles')
-        .select('id, talent_user_id')
+        .select('id, talent_user_id, status')
         .in('talent_user_id', talentIds),
     ]);
 
-    basicSet = new Set((basicRes.data ?? []).map((r: any) => r.talent_user_id as string));
+    for (const row of basicRes.data ?? []) {
+      const tid = (row as any).talent_user_id as string;
+      if (tid) basicByTalent.set(tid, row as Record<string, any>);
+    }
     for (const row of jobRes.data ?? []) {
       const tid = (row as any).talent_user_id as string;
       const pid = (row as any).id as string;
+      const status = (row as any).status as string;
+      if (!tid || !pid) continue;
       const arr = jobProfilesByTalent.get(tid) ?? [];
-      arr.push(pid);
+      arr.push({ id: pid, status });
       jobProfilesByTalent.set(tid, arr);
     }
   }
 
-  const allProfileIds = Array.from(jobProfilesByTalent.values()).flat();
+  const allProfileIds = Array.from(jobProfilesByTalent.values())
+    .flat()
+    .map((p) => p.id);
   let profilesWithPortfolio = new Set<string>();
   if (allProfileIds.length > 0) {
     const { data: portfolioRows } = await supabaseAdmin
@@ -329,11 +349,20 @@ export async function getOnboardingLeads(filters: {
       portfolio_completed: false,
     };
     if (talentId) {
-      progress.basic_profile_completed = basicSet.has(talentId);
-      const profileIds = jobProfilesByTalent.get(talentId) ?? [];
-      progress.job_profile_completed = profileIds.length > 0;
-      progress.portfolio_completed = profileIds.some((pid) =>
-        profilesWithPortfolio.has(pid)
+      const basic = basicByTalent.get(talentId) ?? null;
+      progress.basic_profile_completed = isBasicProfileMandatoryComplete(basic, {
+        full_name: (lead.linked_talent?.full_name as string | null) ?? null,
+        languages_spoken: lead.linked_talent?.languages_spoken,
+      });
+      const profiles = jobProfilesByTalent.get(talentId) ?? [];
+      // Job profile stage ticks only when the talent has at least one
+      // profile in `pending_review` or `approved` — drafts and rejected
+      // profiles do not count.
+      progress.job_profile_completed = profiles.some(
+        (p) => p.status === 'approved' || p.status === 'pending_review',
+      );
+      progress.portfolio_completed = profiles.some((p) =>
+        profilesWithPortfolio.has(p.id)
       );
     }
     return { ...lead, onboarding_progress: progress };
@@ -355,7 +384,7 @@ export async function getOnboardingLeads(filters: {
 export async function getLeadSubmission(id: string) {
   const { data, error } = await supabaseAdmin
     .from('lead_submissions')
-    .select('*, linked_talent:linked_talent_user_id(id, full_name, onboarding_completed, skip_onboarding)')
+    .select('*, linked_talent:linked_talent_user_id(id, full_name, languages_spoken, onboarding_completed, skip_onboarding)')
     .eq('id', id)
     .single();
 
@@ -379,35 +408,51 @@ export async function getLeadSubmission(id: string) {
     onboarding_progress.onboarding_bypassed =
       !!(data.linked_talent as any)?.skip_onboarding;
 
-    const [basicRes, jobRes] = await Promise.all([
-      supabaseAdmin
-        .from('talent_profiles_basic')
+    // Columns needed to evaluate isBasicProfileMandatoryComplete.
+    // Kept in sync with the same constant in talent.service.ts.
+    const BASIC_COLUMNS =
+      'talent_user_id, permanent_country, permanent_state, permanent_district, permanent_city, ' +
+      'availability, job_type, employment_type, virtual_office_hours, education_courses, ' +
+      'aadhaar_number, pan_number, profile_picture_url, ' +
+      'bank_account_holder, bank_account_number, bank_ifsc_code, ' +
+      'resume_url';
+
+    const { data: basic } = await supabaseAdmin
+      .from('talent_profiles_basic')
+      .select(BASIC_COLUMNS)
+      .eq('talent_user_id', talentId)
+      .maybeSingle();
+
+    onboarding_progress.basic_profile_completed = isBasicProfileMandatoryComplete(
+      (basic as Record<string, any> | null) ?? null,
+      {
+        full_name: ((data.linked_talent as any)?.full_name as string | null) ?? null,
+        languages_spoken: (data.linked_talent as any)?.languages_spoken,
+      },
+    );
+
+    const { data: profiles } = await supabaseAdmin
+      .from('talent_profiles')
+      .select('id, status')
+      .eq('talent_user_id', talentId)
+      .is('deleted_at', null);
+
+    // Job profile stage ticks only when the talent has at least one
+    // profile in `pending_review` or `approved` — drafts and rejected
+    // profiles do not count.
+    const submittedStatuses = (profiles ?? []).filter(
+      (p: any) => p.status === 'approved' || p.status === 'pending_review',
+    );
+    onboarding_progress.job_profile_completed = submittedStatuses.length > 0;
+
+    if (profiles && profiles.length > 0) {
+      const profileIds = profiles.map((p: any) => p.id);
+      const { count } = await supabaseAdmin
+        .from('portfolio_items')
         .select('id', { count: 'exact', head: true })
-        .eq('talent_user_id', talentId),
-      supabaseAdmin
-        .from('talent_profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('talent_user_id', talentId),
-    ]);
+        .in('profile_id', profileIds);
 
-    onboarding_progress.basic_profile_completed = (basicRes.count ?? 0) > 0;
-    onboarding_progress.job_profile_completed = (jobRes.count ?? 0) > 0;
-
-    if (onboarding_progress.job_profile_completed) {
-      const { data: profiles } = await supabaseAdmin
-        .from('talent_profiles')
-        .select('id')
-        .eq('talent_user_id', talentId);
-
-      if (profiles && profiles.length > 0) {
-        const profileIds = profiles.map((p) => p.id);
-        const { count } = await supabaseAdmin
-          .from('portfolio_items')
-          .select('id', { count: 'exact', head: true })
-          .in('profile_id', profileIds);
-
-        onboarding_progress.portfolio_completed = (count ?? 0) > 0;
-      }
+      onboarding_progress.portfolio_completed = (count ?? 0) > 0;
     }
   }
 
