@@ -102,10 +102,13 @@ export default function DesignerExtras({
   });
 
   const { data: availableTools = [] } = useQuery<ToolItem[]>({
-    queryKey: ['templateTools', categoryId],
+    queryKey: ['templateTools', categoryId, showAccountingSoftware],
     queryFn: async () => {
       const { data } = await api.get(`/public/categories/${categoryId}/tools`);
-      return data.tools ?? data;
+      const tools: ToolItem[] = data.tools ?? data;
+      return showAccountingSoftware
+        ? tools.filter((t) => t.group !== 'Accounting Software')
+        : tools;
     },
   });
 
