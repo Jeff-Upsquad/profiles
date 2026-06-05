@@ -96,10 +96,75 @@ export async function getLeadSubmissionForTalent(userId: string) {
 // Onboarding progress (talent self) — 5-stage strip for the talent dashboard
 // ---------------------------------------------------------------------------
 
+// Columns we read off `talent_profiles_basic` to decide whether the
+// basic-profile stage is complete. Kept in sync with the per-section
+// completion rules in `frontend/src/views/talent/BasicProfileForm.tsx`.
+const BASIC_PROFILE_MANDATORY_COLUMNS =
+  'created_at, permanent_country, permanent_state, permanent_district, permanent_city, ' +
+  'availability, job_type, employment_type, virtual_office_hours, education_courses, ' +
+  'aadhaar_number, pan_number, profile_picture_url, ' +
+  'bank_account_holder, bank_account_number, bank_ifsc_code, ' +
+  'resume_url';
+
+// Returns true when every mandatory section of the basic profile is
+// filled in. Mirrors the `completion` object in BasicProfileForm.tsx so
+// the 5-stage strip on the talent dashboard and the admin views can
+// agree on what "done" means.
+export function isBasicProfileMandatoryComplete(
+  basic: Record<string, any> | null,
+  talent: { full_name: string | null; languages_spoken: unknown },
+): boolean {
+  if (!basic) return false;
+
+  if (!talent.full_name || !talent.full_name.trim()) return false;
+
+  const langs = Array.isArray(talent.languages_spoken)
+    ? (talent.languages_spoken as Array<{ proficiency?: string }>)
+    : [];
+  if (langs.length === 0 || !langs.some((l) => l?.proficiency === 'native')) return false;
+
+  if (
+    !basic.permanent_country ||
+    !basic.permanent_state ||
+    !basic.permanent_district ||
+    !basic.permanent_city
+  ) {
+    return false;
+  }
+
+  if (!Array.isArray(basic.availability) || basic.availability.length === 0) return false;
+  if (!Array.isArray(basic.job_type) || basic.job_type.length === 0) return false;
+
+  const courses = Array.isArray(basic.education_courses)
+    ? (basic.education_courses as Array<{ course_name?: string; institution?: string }>)
+    : [];
+  if (
+    courses.length === 0 ||
+    !courses.some((c) => !!c?.course_name?.trim() && !!c?.institution?.trim())
+  ) {
+    return false;
+  }
+
+  if (!basic.aadhaar_number && !basic.pan_number) return false;
+  if (!basic.profile_picture_url) return false;
+  if (!basic.bank_account_holder || !basic.bank_account_number || !basic.bank_ifsc_code) return false;
+  if (!basic.resume_url) return false;
+
+  const wantsFreelance =
+    Array.isArray(basic.employment_type) && (basic.employment_type as string[]).includes('freelance');
+  if (wantsFreelance) {
+    if (!Array.isArray(basic.virtual_office_hours) || basic.virtual_office_hours.length === 0) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export async function getMyOnboardingProgress(userId: string) {
   const { data: talent, error: talentErr } = await supabaseAdmin
     .from('talent_users')
-    .select('id, onboarding_completed, skip_onboarding')
+    .select('id, full_name, languages_spoken, onboarding_completed, skip_onboarding')
     .eq('id', userId)
     .single();
 
@@ -108,20 +173,27 @@ export async function getMyOnboardingProgress(userId: string) {
   const [basicRes, profilesRes] = await Promise.all([
     supabaseAdmin
       .from('talent_profiles_basic')
-      .select('created_at')
+      .select(BASIC_PROFILE_MANDATORY_COLUMNS)
       .eq('talent_user_id', userId)
       .maybeSingle(),
     supabaseAdmin
       .from('talent_profiles')
-      .select('id, created_at')
+      .select('id, created_at, status')
       .eq('talent_user_id', userId)
       .is('deleted_at', null)
       .order('created_at', { ascending: true }),
   ]);
 
-  const basicCreatedAt: string | null = basicRes.data?.created_at ?? null;
-  const profiles = (profilesRes.data ?? []) as { id: string; created_at: string }[];
-  const earliestProfileCreatedAt: string | null = profiles[0]?.created_at ?? null;
+  const basic = (basicRes.data ?? null) as Record<string, any> | null;
+  const basicCreatedAt: string | null = basic?.created_at ?? null;
+  const profiles = (profilesRes.data ?? []) as { id: string; created_at: string; status: string }[];
+  // A job profile counts as "complete" only once the talent has
+  // submitted it (pending_review) or an admin has approved it.
+  // `draft` and `rejected` profiles do not flip the stage tick on.
+  const submittedProfiles = profiles.filter(
+    (p) => p.status === 'approved' || p.status === 'pending_review',
+  );
+  const earliestProfileCreatedAt: string | null = submittedProfiles[0]?.created_at ?? null;
   const profileIds = profiles.map((p) => p.id);
 
   let earliestPortfolioCreatedAt: string | null = null;
@@ -141,8 +213,11 @@ export async function getMyOnboardingProgress(userId: string) {
     // course without rewriting onboarding_completed. Surface that as
     // "completed" on the 5-stage strip.
     onboarding_completed: !!talent.onboarding_completed || !!talent.skip_onboarding,
-    basic_profile_completed: !!basicCreatedAt,
-    job_profile_completed: profiles.length > 0,
+    basic_profile_completed: isBasicProfileMandatoryComplete(basic, {
+      full_name: talent.full_name ?? null,
+      languages_spoken: talent.languages_spoken,
+    }),
+    job_profile_completed: submittedProfiles.length > 0,
     portfolio_completed: !!earliestPortfolioCreatedAt,
   };
 

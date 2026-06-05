@@ -7,12 +7,12 @@ import { SkeletonCard } from '@/components/ui/Skeleton';
 
 type OnboardingStageKey = keyof OnboardingProgress;
 
-const ONBOARDING_STAGES: { key: OnboardingStageKey; label: string; short: string }[] = [
-  { key: 'signed_up', label: 'Sign-up', short: 'Sign-up' },
-  { key: 'onboarding_completed', label: 'Onboarding Course', short: 'Course' },
-  { key: 'basic_profile_completed', label: 'Basic Profile', short: 'Basic' },
-  { key: 'job_profile_completed', label: 'Job Profile', short: 'Job' },
-  { key: 'portfolio_completed', label: 'Portfolio', short: 'Portfolio' },
+const ONBOARDING_STAGES: { key: OnboardingStageKey; label: string; short: string; pendingHint: string }[] = [
+  { key: 'signed_up', label: 'Sign-up', short: 'Sign-up', pendingHint: 'Sign up to get started' },
+  { key: 'onboarding_completed', label: 'Onboarding Course', short: 'Course', pendingHint: 'Complete the onboarding course' },
+  { key: 'basic_profile_completed', label: 'Basic Profile', short: 'Basic', pendingHint: 'Fill in every required section of your basic profile' },
+  { key: 'job_profile_completed', label: 'Job Profile', short: 'Job', pendingHint: 'Create a job profile and submit it for review' },
+  { key: 'portfolio_completed', label: 'Portfolio', short: 'Portfolio', pendingHint: 'Add at least one item to a job profile' },
 ];
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -27,7 +27,7 @@ function OnboardingStageStrip({ progress }: { progress: OnboardingProgress }) {
           <div
             key={stage.key}
             className="flex items-start gap-2 sm:gap-4"
-            title={`${stage.label}: ${done ? 'Done' : 'Pending'}`}
+            title={done ? `${stage.label}: Done` : `${stage.label}: ${stage.pendingHint}`}
           >
             <div className="flex flex-col items-center gap-1.5">
               <span className="relative z-10 flex h-6 w-6 items-center justify-center">
