@@ -1,4 +1,5 @@
 import { randomInt } from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { env } from '../config/env.js';
@@ -876,6 +877,7 @@ export async function deleteUser(userId: string) {
 export async function resetUserPassword(userId: string) {
   const { data: existing, error: getErr } = await supabaseAdmin.auth.admin.getUserById(userId);
   if (getErr || !existing?.user) throw new AppError(404, 'User not found');
+  if (!existing.user.email) throw new AppError(400, 'User has no email on file');
 
   const tempPassword = generateTempPassword();
   const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
@@ -887,6 +889,22 @@ export async function resetUserPassword(userId: string) {
   });
 
   if (error) throw new AppError(400, error.message);
+
+  const smokeClient = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { error: signInErr } = await smokeClient.auth.signInWithPassword({
+    email: existing.user.email,
+    password: tempPassword,
+  });
+  if (signInErr) {
+    throw new AppError(
+      500,
+      `Password was set in Supabase but failed verification sign-in: ${signInErr.message}. ` +
+        `The user will not be able to log in with this password. Retry the reset.`
+    );
+  }
+
   return {
     temp_password: tempPassword,
     message: 'Password reset. Share this temporary password with the user.',
