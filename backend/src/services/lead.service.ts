@@ -284,7 +284,7 @@ export async function getOnboardingLeads(filters: {
   // sync with the same constant in talent.service.ts.
   const BASIC_COLUMNS =
     'talent_user_id, permanent_country, permanent_state, permanent_district, permanent_city, ' +
-    'availability, job_type, employment_type, virtual_office_hours, education_courses, ' +
+    'availability, job_type, employment_type, virtual_office_hours, education_courses, experience, ' +
     'aadhaar_number, pan_number, profile_picture_url, ' +
     'bank_account_holder, bank_account_number, bank_ifsc_code, ' +
     'resume_url';
@@ -412,7 +412,7 @@ export async function getLeadSubmission(id: string) {
     // Kept in sync with the same constant in talent.service.ts.
     const BASIC_COLUMNS =
       'talent_user_id, permanent_country, permanent_state, permanent_district, permanent_city, ' +
-      'availability, job_type, employment_type, virtual_office_hours, education_courses, ' +
+      'availability, job_type, employment_type, virtual_office_hours, education_courses, experience, ' +
       'aadhaar_number, pan_number, profile_picture_url, ' +
       'bank_account_holder, bank_account_number, bank_ifsc_code, ' +
       'resume_url';

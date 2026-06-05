@@ -101,7 +101,7 @@ export async function getLeadSubmissionForTalent(userId: string) {
 // completion rules in `frontend/src/views/talent/BasicProfileForm.tsx`.
 const BASIC_PROFILE_MANDATORY_COLUMNS =
   'created_at, permanent_country, permanent_state, permanent_district, permanent_city, ' +
-  'availability, job_type, employment_type, virtual_office_hours, education_courses, ' +
+  'availability, job_type, employment_type, virtual_office_hours, education_courses, experience, ' +
   'aadhaar_number, pan_number, profile_picture_url, ' +
   'bank_account_holder, bank_account_number, bank_ifsc_code, ' +
   'resume_url';
@@ -141,6 +141,16 @@ export function isBasicProfileMandatoryComplete(
   if (
     courses.length === 0 ||
     !courses.some((c) => !!c?.course_name?.trim() && !!c?.institution?.trim())
+  ) {
+    return false;
+  }
+
+  const experiences = Array.isArray(basic.experience)
+    ? (basic.experience as Array<{ company_name?: string; designation?: string }>)
+    : [];
+  if (
+    experiences.length === 0 ||
+    !experiences.some((e) => !!e?.company_name?.trim() && !!e?.designation?.trim())
   ) {
     return false;
   }
@@ -957,6 +967,19 @@ async function validateFieldData(categoryId: string, fieldData: Record<string, a
           errors.push(`${field.field_label} must be a valid date`);
         }
         break;
+      case 'experience': {
+        if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+          errors.push(`${field.field_label} must be a { years, months } object`);
+          break;
+        }
+        const { years, months } = value as { years?: unknown; months?: unknown };
+        if (typeof years !== 'number' || typeof months !== 'number'
+            || !Number.isInteger(years) || !Number.isInteger(months)
+            || years < 0 || years > 50 || months < 0 || months > 11) {
+          errors.push(`${field.field_label} must be 0–50 years and 0–11 months`);
+        }
+        break;
+      }
     }
   }
 
