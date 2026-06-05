@@ -868,6 +868,40 @@ export async function setTalentUserActive(userId: string, isActive: boolean) {
   return { id: data.id, is_active: data.is_active };
 }
 
+// Admin-controlled override: skip the onboarding course for this talent.
+// Independent of onboarding_completed so the admin can flip it on/off
+// without rewriting the talent's actual progress. Audit columns track
+// who flipped it and when.
+export async function setTalentOnboardingBypass(
+  userId: string,
+  skipOnboarding: boolean,
+  reason: string | null,
+  actorId: string | null,
+) {
+  const update: Record<string, unknown> = {
+    skip_onboarding: skipOnboarding,
+  };
+  if (skipOnboarding) {
+    update.skip_onboarding_at = new Date().toISOString();
+    update.skip_onboarding_by = actorId;
+    update.skip_onboarding_reason = reason ?? null;
+  } else {
+    update.skip_onboarding_at = null;
+    update.skip_onboarding_by = null;
+    update.skip_onboarding_reason = null;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('talent_users')
+    .update(update)
+    .eq('id', userId)
+    .select('id, skip_onboarding, skip_onboarding_at, skip_onboarding_by, skip_onboarding_reason')
+    .single();
+
+  if (error || !data) throw new AppError(404, 'Talent user not found');
+  return data;
+}
+
 export async function deleteUser(userId: string) {
   const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
   if (error) throw new AppError(400, error.message);

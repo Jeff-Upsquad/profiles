@@ -27,6 +27,7 @@ import {
   adminUpdateTalentProfileSchema,
   adminAddPortfolioItemSchema,
   adminReviewPortfolioItemSchema,
+  setTalentOnboardingBypassSchema,
 } from '../validators/admin.validators.js';
 import { updateBasicProfileSchema } from '../validators/talent.validators.js';
 import {
@@ -373,6 +374,11 @@ router.put(
 );
 router.patch('/users/:id/suspend', adminController.suspendUser);
 router.patch('/users/talent/:id/active', adminController.setTalentUserActive);
+router.patch(
+  '/users/talent/:id/skip-onboarding',
+  validate({ body: setTalentOnboardingBypassSchema }),
+  adminController.setTalentOnboardingBypass,
+);
 router.post('/users/:id/reset-password', adminController.resetUserPassword);
 router.delete('/users/:id', adminController.deleteUser);
 

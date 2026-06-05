@@ -11,6 +11,7 @@ export interface User {
   auto_approve_signups?: boolean;
   onboarding_completed?: boolean;
   is_active?: boolean;
+  skip_onboarding?: boolean;
   contact_person_name?: string;
   contact_email?: string;
   contact_phone?: string;

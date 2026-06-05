@@ -141,6 +141,19 @@ export const setProfileTierSchema = z
   );
 
 // ---------------------------------------------------------------------------
+// Onboarding bypass
+// ---------------------------------------------------------------------------
+
+// Lets an admin mark a talent as exempt from the onboarding training
+// course. When skip_onboarding is true, the server treats the user as if
+// they had completed onboarding (gates, lesson locks, module access, and
+// the 5-stage progress strip all short-circuit on this flag).
+export const setTalentOnboardingBypassSchema = z.object({
+  skip_onboarding: z.boolean(),
+  reason: z.string().max(500).optional().nullable(),
+});
+
+// ---------------------------------------------------------------------------
 // Admin: edit talent base profile + category profiles
 // ---------------------------------------------------------------------------
 
@@ -198,3 +211,4 @@ export type AdminUpdateTalentUserInput = z.infer<typeof adminUpdateTalentUserSch
 export type AdminUpdateTalentProfileInput = z.infer<typeof adminUpdateTalentProfileSchema>;
 export type AdminAddPortfolioItemInput = z.infer<typeof adminAddPortfolioItemSchema>;
 export type AdminReviewPortfolioItemInput = z.infer<typeof adminReviewPortfolioItemSchema>;
+export type SetTalentOnboardingBypassInput = z.infer<typeof setTalentOnboardingBypassSchema>;

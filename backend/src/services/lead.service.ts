@@ -254,7 +254,7 @@ export async function getOnboardingLeads(filters: {
   let query = supabaseAdmin
     .from('lead_submissions')
     .select(
-      '*, linked_talent:linked_talent_user_id(id, full_name, onboarding_completed)',
+      '*, linked_talent:linked_talent_user_id(id, full_name, onboarding_completed, skip_onboarding)',
       { count: 'exact' }
     )
     .is('deleted_at', null)
@@ -320,7 +320,10 @@ export async function getOnboardingLeads(filters: {
     const talentId = lead.linked_talent_user_id as string | null;
     const progress = {
       signed_up: !!talentId,
-      onboarding_completed: !!lead.linked_talent?.onboarding_completed,
+      onboarding_completed:
+        !!lead.linked_talent?.onboarding_completed ||
+        !!lead.linked_talent?.skip_onboarding,
+      onboarding_bypassed: !!lead.linked_talent?.skip_onboarding,
       basic_profile_completed: false,
       job_profile_completed: false,
       portfolio_completed: false,
@@ -352,7 +355,7 @@ export async function getOnboardingLeads(filters: {
 export async function getLeadSubmission(id: string) {
   const { data, error } = await supabaseAdmin
     .from('lead_submissions')
-    .select('*, linked_talent:linked_talent_user_id(id, full_name, onboarding_completed)')
+    .select('*, linked_talent:linked_talent_user_id(id, full_name, onboarding_completed, skip_onboarding)')
     .eq('id', id)
     .single();
 
@@ -362,6 +365,7 @@ export async function getLeadSubmission(id: string) {
   let onboarding_progress = {
     signed_up: false,
     onboarding_completed: false,
+    onboarding_bypassed: false,
     basic_profile_completed: false,
     job_profile_completed: false,
     portfolio_completed: false,
@@ -370,7 +374,10 @@ export async function getLeadSubmission(id: string) {
   if (talentId) {
     onboarding_progress.signed_up = true;
     onboarding_progress.onboarding_completed =
-      !!(data.linked_talent as any)?.onboarding_completed;
+      !!(data.linked_talent as any)?.onboarding_completed ||
+      !!(data.linked_talent as any)?.skip_onboarding;
+    onboarding_progress.onboarding_bypassed =
+      !!(data.linked_talent as any)?.skip_onboarding;
 
     const [basicRes, jobRes] = await Promise.all([
       supabaseAdmin
