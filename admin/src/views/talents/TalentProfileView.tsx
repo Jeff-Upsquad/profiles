@@ -241,10 +241,13 @@ export default function TalentProfileView({
   const aiTools: LeveledItem[] = coerceLeveledList(profile.field_data?._ai_tools);
   const rawCategories: any[] = profile.field_data?._categories ?? [];
   const categories: { skill: string; level: number }[] = rawCategories
-    .map((c) =>
+    .map((c: any) =>
       typeof c === 'string'
-        ? { skill: c, level: 5 }
-        : { skill: c.category ?? c.skill ?? '', level: c.level ?? 5 }
+        ? { skill: c, level: 3 }
+        : {
+            skill: c.category ?? c.skill ?? '',
+            level: Math.max(1, Math.min(5, Math.round(Number(c.level ?? 3)))),
+          }
     )
     .filter((c) => c.skill)
     .sort((a, b) => b.level - a.level);
@@ -545,7 +548,7 @@ export default function TalentProfileView({
                       <div className="h-2 rounded-full bg-gray-200">
                         <div
                           className="h-2 rounded-full bg-indigo-600"
-                          style={{ width: `${(c.level / 10) * 100}%` }}
+                          style={{ width: `${(c.level / 5) * 100}%` }}
                         />
                       </div>
                     </div>
@@ -671,10 +674,13 @@ function SourceProfileSection({
   const aiTools: LeveledItem[] = coerceLeveledList(source.field_data?._ai_tools);
   const rawCategories: any[] = source.field_data?._categories ?? [];
   const categories: { skill: string; level: number }[] = rawCategories
-    .map((c) =>
+    .map((c: any) =>
       typeof c === 'string'
-        ? { skill: c, level: 5 }
-        : { skill: c.category ?? c.skill ?? '', level: c.level ?? 5 }
+        ? { skill: c, level: 3 }
+        : {
+            skill: c.category ?? c.skill ?? '',
+            level: Math.max(1, Math.min(5, Math.round(Number(c.level ?? 3)))),
+          }
     )
     .filter((c) => c.skill)
     .sort((a, b) => b.level - a.level);
@@ -718,7 +724,7 @@ function SourceProfileSection({
                   <div className="h-2 rounded-full bg-gray-200">
                     <div
                       className="h-2 rounded-full bg-indigo-600"
-                      style={{ width: `${(c.level / 10) * 100}%` }}
+                      style={{ width: `${(c.level / 5) * 100}%` }}
                     />
                   </div>
                 </div>

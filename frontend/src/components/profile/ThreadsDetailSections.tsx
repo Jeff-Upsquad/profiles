@@ -362,16 +362,19 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
       level: Math.max(1, Math.min(5, Math.round(s.level))),
     }))
     .sort((a: { skill: string; level: number }, b: { skill: string; level: number }) => b.level - a.level);
-  // Categories: legacy rows may still carry plain string[] from the
-  // pre-proficiency version — coerce both shapes into {skill, level}
-  // so SkillsSection renders them uniformly.
+  // Categories: legacy rows may carry plain string[] (pre-proficiency) or
+  // 1-10 levels (pre-this-upgrade). Coerce both shapes into {skill, level}
+  // and clamp the level to 1-5 so SkillsSection renders uniformly.
   const rawCategories: any[] = fieldData?._categories ?? [];
   const categories: { skill: string; level: number }[] = rawCategories
-    .map((c) =>
-      typeof c === 'string'
-        ? { skill: c, level: 5 }
-        : { skill: c.category ?? c.skill ?? '', level: c.level ?? 5 },
-    )
+    .map((c) => {
+      if (typeof c === 'string') return { skill: c, level: 3 };
+      const lvl = c.level ?? c.skill ? c.level : undefined;
+      return {
+        skill: c.category ?? c.skill ?? '',
+        level: Math.max(1, Math.min(5, Math.round(Number(lvl ?? 3)))),
+      };
+    })
     .filter((c) => c.skill)
     .sort((a, b) => b.level - a.level);
   const accountingSoftware: LeveledItem[] = coerceLeveledList(fieldData?._accounting_software);
@@ -382,8 +385,8 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   const toolsLabel = accountingSoftware.length > 0 ? 'Other Tools' : 'Tools';
 
   // Categories section (dot indicators, like Skills) — rendered above Core
-  // Skills, mirroring the edit form's section ordering. Categories still use
-  // the legacy 1-10 scale; skills use 1-5 (post the level-selector upgrade).
+  // Skills, mirroring the edit form's section ordering. Categories use the
+  // 1-5 scale (post this upgrade), same as skills.
   if (categories.length > 0) {
     const delay = sectionIndex * 0.04;
     sections.push(
@@ -392,7 +395,6 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
         label={categoriesLabel}
         skills={categories}
         delay={delay}
-        maxLevel={10}
       />
     );
     sectionIndex++;

@@ -68,14 +68,16 @@ function LevelButtonGroup({
 }: {
   value: number;
   onChange: (level: number) => void;
-  accent: 'indigo' | 'zinc' | 'purple';
+  accent: 'indigo' | 'zinc' | 'purple' | 'emerald';
 }) {
   const selectedCls =
     accent === 'indigo'
       ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
       : accent === 'purple'
         ? 'border-purple-500 bg-purple-50 text-purple-700'
-        : 'border-zinc-500 bg-zinc-100 text-zinc-800';
+        : accent === 'emerald'
+          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+          : 'border-zinc-500 bg-zinc-100 text-zinc-800';
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2 pl-7">
       <span className="mr-1 text-xs font-medium text-gray-500">Proficiency</span>
@@ -262,14 +264,15 @@ export default function DesignerExtras({
     if (existing) {
       onCategoriesChange(categories.filter((c) => c.category !== name));
     } else {
-      onCategoriesChange([...categories, { category: name, level: 5 }]);
+      onCategoriesChange([...categories, { category: name, level: 3 }]);
     }
   };
 
   const setCategoryLevel = (name: string, level: number) => {
     if (!onCategoriesChange) return;
+    const clamped = Math.max(1, Math.min(5, level));
     onCategoriesChange(
-      categories.map((c) => (c.category === name ? { ...c, level } : c))
+      categories.map((c) => (c.category === name ? { ...c, level: clamped } : c))
     );
   };
 
@@ -374,19 +377,11 @@ export default function DesignerExtras({
                       <span className="text-sm font-medium text-gray-700">{cat.name}</span>
                     </label>
                     {selected && (
-                      <div className="mt-3 flex items-center gap-3 pl-7">
-                        <input
-                          type="range"
-                          min={1}
-                          max={10}
-                          value={selected.level}
-                          onChange={(e) => setCategoryLevel(cat.name, Number(e.target.value))}
-                          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-gray-200 accent-emerald-600"
-                        />
-                        <span className="w-8 text-center text-sm font-semibold text-emerald-600">
-                          {selected.level}
-                        </span>
-                      </div>
+                      <LevelButtonGroup
+                        value={Math.max(1, Math.min(5, selected.level))}
+                        onChange={(l) => setCategoryLevel(cat.name, l)}
+                        accent="emerald"
+                      />
                     )}
                   </div>
                 );
@@ -399,7 +394,7 @@ export default function DesignerExtras({
       {/* Skill Sets */}
       <div>
         <h3 className="mb-1 text-sm font-semibold text-gray-800">Skill Sets</h3>
-        <p className="mb-3 text-xs text-gray-500">Select your skills and rate your proficiency level (1-10)</p>
+        <p className="mb-3 text-xs text-gray-500">Select your skills and rate your proficiency level (1-5)</p>
 
         {availableSkills.length === 0 ? (
           <p className="text-sm text-gray-400">No skills configured for this category yet.</p>
