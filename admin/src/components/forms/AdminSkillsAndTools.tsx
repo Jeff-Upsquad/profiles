@@ -43,10 +43,12 @@ export default function AdminSkillsAndTools({
   const toggleSkill = (name: string) => {
     const existing = skills.find((s) => s.skill === name);
     if (existing) onSkillsChange(skills.filter((s) => s.skill !== name));
-    else onSkillsChange([...skills, { skill: name, level: 5 }]);
+    else onSkillsChange([...skills, { skill: name, level: 3 }]);
   };
-  const setLevel = (name: string, level: number) =>
-    onSkillsChange(skills.map((s) => (s.skill === name ? { ...s, level } : s)));
+  const setLevel = (name: string, level: number) => {
+    const clamped = Math.max(1, Math.min(5, level));
+    onSkillsChange(skills.map((s) => (s.skill === name ? { ...s, level: clamped } : s)));
+  };
 
   const toggleLeveled = (name: string) => {
     const existing = tools.find((t) => t.name === name);
@@ -78,7 +80,7 @@ export default function AdminSkillsAndTools({
     <div className="space-y-8">
       <div>
         <h3 className="mb-1 text-sm font-semibold text-gray-800">Skill Sets</h3>
-        <p className="mb-3 text-xs text-gray-500">Toggle skills and rate proficiency (1–10)</p>
+        <p className="mb-3 text-xs text-gray-500">Toggle skills and rate proficiency (1–5)</p>
         {availableSkills.length === 0 ? (
           <p className="text-sm text-gray-400">No skills configured for this category.</p>
         ) : (
@@ -97,16 +99,22 @@ export default function AdminSkillsAndTools({
                     <span className="text-sm font-medium text-gray-700">{s.name}</span>
                   </label>
                   {sel && (
-                    <div className="mt-3 flex items-center gap-3 pl-7">
-                      <input
-                        type="range"
-                        min={1}
-                        max={10}
-                        value={sel.level}
-                        onChange={(e) => setLevel(s.name, Number(e.target.value))}
-                        className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-gray-200 accent-indigo-600"
-                      />
-                      <span className="w-8 text-center text-sm font-semibold text-indigo-600">{sel.level}</span>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 pl-7">
+                      <span className="mr-1 text-xs font-medium text-gray-500">Proficiency</span>
+                      {[1, 2, 3, 4, 5].map((lvl) => (
+                        <button
+                          key={lvl}
+                          type="button"
+                          onClick={() => setLevel(s.name, lvl)}
+                          className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                            sel.level === lvl
+                              ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                              : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {LEVEL_LABELS[lvl]}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>

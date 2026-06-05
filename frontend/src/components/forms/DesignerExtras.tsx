@@ -218,8 +218,8 @@ export default function DesignerExtras({
   const isDesigner = categorySlug === 'designer';
   const categoriesLabel = isDesigner ? 'Categories and Skills' : 'Categories';
   const categoriesHelp = isDesigner
-    ? 'Pick the categories and skills you specialize in and rate your proficiency (1-10) — your portfolio uploads are organized by these.'
-    : 'Pick the genres you specialize in and rate your proficiency (1-10) — your portfolio uploads are organized by these.';
+    ? 'Pick the categories and skills you specialize in and rate your proficiency (1-5) — your portfolio uploads are organized by these.'
+    : 'Pick the genres you specialize in and rate your proficiency (1-5) — your portfolio uploads are organized by these.';
   const { data: availableSkills = [] } = useQuery<SkillItem[]>({
     queryKey: ['templateSkills', categoryId],
     queryFn: async () => {
@@ -278,13 +278,14 @@ export default function DesignerExtras({
     if (existing) {
       onSkillsChange(skills.filter((s) => s.skill !== skillName));
     } else {
-      onSkillsChange([...skills, { skill: skillName, level: 5 }]);
+      onSkillsChange([...skills, { skill: skillName, level: 3 }]);
     }
   };
 
   const setSkillLevel = (skillName: string, level: number) => {
+    const clamped = Math.max(1, Math.min(5, level));
     onSkillsChange(
-      skills.map((s) => (s.skill === skillName ? { ...s, level } : s))
+      skills.map((s) => (s.skill === skillName ? { ...s, level: clamped } : s))
     );
   };
 
@@ -302,19 +303,11 @@ export default function DesignerExtras({
           <span className="text-sm font-medium text-gray-700">{skill.name}</span>
         </label>
         {selected && (
-          <div className="mt-3 flex items-center gap-3 pl-7">
-            <input
-              type="range"
-              min={1}
-              max={10}
-              value={selected.level}
-              onChange={(e) => setSkillLevel(skill.name, Number(e.target.value))}
-              className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-gray-200 accent-indigo-600"
-            />
-            <span className="w-8 text-center text-sm font-semibold text-indigo-600">
-              {selected.level}
-            </span>
-          </div>
+          <LevelButtonGroup
+            value={Math.max(1, Math.min(5, selected.level))}
+            onChange={(l) => setSkillLevel(skill.name, l)}
+            accent="indigo"
+          />
         )}
       </div>
     );

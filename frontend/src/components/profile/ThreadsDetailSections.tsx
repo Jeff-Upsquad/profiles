@@ -86,8 +86,13 @@ function getLevelLabel(dots: number): string {
   }
 }
 
-function SkillRow({ skill, level }: { skill: string; level: number }) {
-  const dots = Math.max(1, Math.min(5, Math.ceil(level / 2)));
+function SkillRow({ skill, level, maxLevel = 5 }: { skill: string; level: number; maxLevel?: number }) {
+  // maxLevel=5  -> dots = level (1..5)
+  // maxLevel=10 -> dots = Math.ceil(level / 2) (legacy 1..10 scale)
+  const dots =
+    maxLevel === 10
+      ? Math.max(1, Math.min(5, Math.ceil(level / 2)))
+      : Math.max(1, Math.min(5, Math.round(level)));
   return (
     <div className="flex items-center justify-between">
       <span className="text-[14px] font-medium text-zinc-800">{skill}</span>
@@ -108,11 +113,11 @@ function SkillRow({ skill, level }: { skill: string; level: number }) {
   );
 }
 
-function SkillRowList({ skills }: { skills: { skill: string; level: number }[] }) {
+function SkillRowList({ skills, maxLevel = 5 }: { skills: { skill: string; level: number }[]; maxLevel?: number }) {
   return (
     <div className="flex flex-col gap-3">
       {skills.map((s) => (
-        <SkillRow key={s.skill} skill={s.skill} level={s.level} />
+        <SkillRow key={s.skill} skill={s.skill} level={s.level} maxLevel={maxLevel} />
       ))}
     </div>
   );
@@ -124,12 +129,14 @@ function SkillsSection({
   delay,
   groupMap,
   groupOrder,
+  maxLevel = 5,
 }: {
   label: string;
   skills: { skill: string; level: number }[];
   delay: number;
   groupMap?: Record<string, string | null>;
   groupOrder?: string[];
+  maxLevel?: number;
 }) {
   const { groups, hasNamedGroups } = groupItemsByName(skills, (s) => s.skill, groupMap, groupOrder);
 
@@ -143,12 +150,12 @@ function SkillsSection({
           {Array.from(groups.entries()).map(([groupName, list]) => (
             <div key={groupName || '_ungrouped'}>
               {groupName && <GroupSubHeading name={groupName} />}
-              <SkillRowList skills={list} />
+              <SkillRowList skills={list} maxLevel={maxLevel} />
             </div>
           ))}
         </div>
       ) : (
-        <SkillRowList skills={skills} />
+        <SkillRowList skills={skills} maxLevel={maxLevel} />
       )}
     </div>
   );
@@ -347,9 +354,14 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   const sections: React.ReactNode[] = [];
 
   // Special field_data keys: _skills, _categories, _accounting_software, _tools, _ai_tools
-  const skills: { skill: string; level: number }[] = [...(fieldData?._skills ?? [])].sort(
-    (a, b) => b.level - a.level
-  );
+  // Skills use the 1-5 scale (post the level-selector upgrade). Tolerate
+  // legacy 1-10 rows by clamping to 1-5.
+  const skills: { skill: string; level: number }[] = (fieldData?._skills ?? [])
+    .map((s: { skill: string; level: number }) => ({
+      skill: s.skill,
+      level: Math.max(1, Math.min(5, Math.round(s.level))),
+    }))
+    .sort((a: { skill: string; level: number }, b: { skill: string; level: number }) => b.level - a.level);
   // Categories: legacy rows may still carry plain string[] from the
   // pre-proficiency version — coerce both shapes into {skill, level}
   // so SkillsSection renders them uniformly.
@@ -370,11 +382,18 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   const toolsLabel = accountingSoftware.length > 0 ? 'Other Tools' : 'Tools';
 
   // Categories section (dot indicators, like Skills) — rendered above Core
-  // Skills, mirroring the edit form's section ordering.
+  // Skills, mirroring the edit form's section ordering. Categories still use
+  // the legacy 1-10 scale; skills use 1-5 (post the level-selector upgrade).
   if (categories.length > 0) {
     const delay = sectionIndex * 0.04;
     sections.push(
-      <SkillsSection key="_categories" label={categoriesLabel} skills={categories} delay={delay} />
+      <SkillsSection
+        key="_categories"
+        label={categoriesLabel}
+        skills={categories}
+        delay={delay}
+        maxLevel={10}
+      />
     );
     sectionIndex++;
   }

@@ -231,7 +231,12 @@ export default function TalentProfileView({
   const waPhone = cleanPhoneForLink(talentUser?.phone);
   const whatsappHref = waPhone ? `https://wa.me/${waPhone}` : null;
   const crmHref = waPhone ? `https://shcrm.squadhub.in/app/leads/lookup?phone=${waPhone}` : null;
-  const skills: { skill: string; level: number }[] = profile.field_data?._skills ?? [];
+  const skills: { skill: string; level: number }[] = (profile.field_data?._skills ?? []).map(
+    (s: { skill: string; level: number }) => ({
+      skill: s.skill,
+      level: Math.max(1, Math.min(5, Math.round(s.level))),
+    })
+  );
   const tools: LeveledItem[] = coerceLeveledList(profile.field_data?._tools);
   const aiTools: LeveledItem[] = coerceLeveledList(profile.field_data?._ai_tools);
   const rawCategories: any[] = profile.field_data?._categories ?? [];
@@ -563,7 +568,7 @@ export default function TalentProfileView({
                     <span className="w-40 text-sm font-medium text-gray-700">{s.skill}</span>
                     <div className="flex-1">
                       <div className="h-2 rounded-full bg-gray-200">
-                        <div className="h-2 rounded-full bg-indigo-600" style={{ width: `${(s.level / 10) * 100}%` }} />
+                        <div className="h-2 rounded-full bg-indigo-600" style={{ width: `${(s.level / 5) * 100}%` }} />
                       </div>
                     </div>
                     <span className="w-8 text-center text-sm font-semibold text-indigo-600">{s.level}</span>
@@ -656,7 +661,12 @@ function SourceProfileSection({
   source: SourceProfile;
   fields: CategoryField[];
 }) {
-  const skills: { skill: string; level: number }[] = source.field_data?._skills ?? [];
+  const skills: { skill: string; level: number }[] = (source.field_data?._skills ?? []).map(
+    (s: { skill: string; level: number }) => ({
+      skill: s.skill,
+      level: Math.max(1, Math.min(5, Math.round(s.level))),
+    })
+  );
   const tools: LeveledItem[] = coerceLeveledList(source.field_data?._tools);
   const aiTools: LeveledItem[] = coerceLeveledList(source.field_data?._ai_tools);
   const rawCategories: any[] = source.field_data?._categories ?? [];
@@ -728,7 +738,7 @@ function SourceProfileSection({
                 <span className="w-40 text-sm font-medium text-gray-700">{s.skill}</span>
                 <div className="flex-1">
                   <div className="h-2 rounded-full bg-gray-200">
-                    <div className="h-2 rounded-full bg-indigo-600" style={{ width: `${(s.level / 10) * 100}%` }} />
+                    <div className="h-2 rounded-full bg-indigo-600" style={{ width: `${(s.level / 5) * 100}%` }} />
                   </div>
                 </div>
                 <span className="w-8 text-center text-sm font-semibold text-indigo-600">{s.level}</span>

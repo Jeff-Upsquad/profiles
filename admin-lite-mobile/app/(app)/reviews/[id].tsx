@@ -114,7 +114,12 @@ export default function ProfileReviewScreen() {
       ]
     : [];
 
-  const skills = fieldData._skills as { skill: string; level: number }[] | undefined;
+  const skills: { skill: string; level: number }[] | undefined = Array.isArray(fieldData._skills)
+    ? (fieldData._skills as { skill: string; level: number }[]).map((s) => ({
+        skill: s.skill,
+        level: Math.max(1, Math.min(5, Math.round(s.level))),
+      }))
+    : undefined;
   // `_tools` is `{name, level}[]` after the proficiency upgrade; tolerate
   // legacy `string[]` rows by coercing.
   const tools: { name: string; level: number }[] = (() => {
@@ -213,7 +218,7 @@ export default function ProfileReviewScreen() {
                 <View
                   style={[
                     styles.skillFill,
-                    { width: `${Math.min(100, (s.level / 10) * 100)}%` },
+                    { width: `${Math.min(100, (s.level / 5) * 100)}%` },
                   ]}
                 />
               </View>
