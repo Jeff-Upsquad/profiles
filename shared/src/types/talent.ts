@@ -22,6 +22,10 @@ export interface TalentUser {
   approved_at?: string;
   approved_by?: string;
   is_active: boolean;
+  skip_onboarding?: boolean;
+  skip_onboarding_at?: string | null;
+  skip_onboarding_by?: string | null;
+  skip_onboarding_reason?: string | null;
   created_at: string;
   updated_at: string;
 }

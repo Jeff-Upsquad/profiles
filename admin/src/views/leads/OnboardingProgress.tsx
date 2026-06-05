@@ -2,6 +2,7 @@ interface OnboardingProgressProps {
   progress: {
     signed_up: boolean;
     onboarding_completed: boolean;
+    onboarding_bypassed?: boolean;
     basic_profile_completed: boolean;
     job_profile_completed: boolean;
     portfolio_completed: boolean;
@@ -22,6 +23,7 @@ export default function OnboardingProgress({ progress }: OnboardingProgressProps
       {STAGES.map((stage, i) => {
         const done = progress[stage.key];
         const isLast = i === STAGES.length - 1;
+        const isBypassed = stage.key === 'onboarding_completed' && progress.onboarding_bypassed === true;
         return (
           <li key={stage.key} className="relative flex gap-3">
             {/* Vertical connector line */}
@@ -53,6 +55,11 @@ export default function OnboardingProgress({ progress }: OnboardingProgressProps
               }`}
             >
               {stage.label}
+              {isBypassed && (
+                <span className="ml-2 inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-700">
+                  Bypassed
+                </span>
+              )}
             </span>
           </li>
         );

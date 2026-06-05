@@ -76,7 +76,7 @@ export default function TalentDashboard() {
   const { data: profiles, isLoading } = useMyProfiles();
   const { data: onboardingProgress } = useMyOnboardingProgress();
   const isApproved = user?.approval_status === 'approved';
-  const onboarded = user?.onboarding_completed !== false;
+  const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
 
   const showOnboardingStrip = (() => {
     if (!onboardingProgress) return false;
