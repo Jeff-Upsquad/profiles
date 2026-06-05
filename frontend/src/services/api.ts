@@ -12,6 +12,8 @@ const REFRESH_KEY = 'squadhire_refresh';
 const PUBLIC_PATHS = [
   '/',
   '/login',
+  '/login/talent',
+  '/login/business',
   '/signup/talent',
   '/signup/business',
   '/forgot-password',
