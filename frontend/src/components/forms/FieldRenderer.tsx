@@ -247,6 +247,55 @@ export default function FieldRenderer({
         </div>
       );
 
+    case 'experience': {
+      const yearsValue = value && typeof value === 'object' ? (value as any).years : undefined;
+      const monthsValue = value && typeof value === 'object' ? (value as any).months : undefined;
+      const yearOptions = Array.from({ length: 51 }, (_, i) => ({
+        label: i === 1 ? '1 year' : `${i} years`,
+        value: String(i),
+      }));
+      const monthOptions = Array.from({ length: 12 }, (_, i) => ({
+        label: i === 1 ? '1 month' : `${i} months`,
+        value: String(i),
+      }));
+      const update = (key: 'years' | 'months', v: string) => {
+        const num = v === '' ? 0 : Number(v);
+        const next = { years: 0, months: 0, ...(value && typeof value === 'object' ? value : {}), [key]: num };
+        onChange(next);
+      };
+      return (
+        <div className="w-full">
+          {field_label && (
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {field_label}
+              {is_required && <span className="ml-0.5 text-red-500">*</span>}
+            </label>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              value={yearsValue === undefined ? '' : String(yearsValue)}
+              onChange={(e) => update('years', e.target.value)}
+              options={yearOptions}
+              placeholder="Years"
+              disabled={disabled}
+              required={is_required}
+            />
+            <Select
+              value={monthsValue === undefined ? '' : String(monthsValue)}
+              onChange={(e) => update('months', e.target.value)}
+              options={monthOptions}
+              placeholder="Months"
+              disabled={disabled}
+            />
+          </div>
+          {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+          {helper_text && !error && (
+            <p className="mt-1 text-xs text-gray-500">{helper_text}</p>
+          )}
+        </div>
+      );
+    }
+
     default:
       return (
         <div>

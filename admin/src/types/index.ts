@@ -31,7 +31,7 @@ export interface CategoryField {
   category_id: string;
   field_key: string;
   field_label: string;
-  field_type: 'text' | 'textarea' | 'number' | 'currency' | 'email' | 'phone' | 'select' | 'multi_select' | 'file_upload' | 'date';
+  field_type: 'text' | 'textarea' | 'number' | 'currency' | 'email' | 'phone' | 'select' | 'multi_select' | 'file_upload' | 'date' | 'experience';
   is_required: boolean;
   is_active: boolean;
   sort_order: number;

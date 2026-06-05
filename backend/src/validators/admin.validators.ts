@@ -35,6 +35,7 @@ const fieldTypeEnum = z.enum([
   'multi_select',
   'file_upload',
   'date',
+  'experience',
 ]);
 
 export const createFieldSchema = z.object({

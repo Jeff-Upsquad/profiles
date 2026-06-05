@@ -178,6 +178,64 @@ export default function FieldRenderer({
         </div>
       );
 
+    case 'experience': {
+      const yearsValue = value && typeof value === 'object' ? (value as any).years : undefined;
+      const monthsValue = value && typeof value === 'object' ? (value as any).months : undefined;
+      const yearOptions = Array.from({ length: 51 }, (_, i) => ({
+        label: i === 1 ? '1 year' : `${i} years`,
+        value: String(i),
+      }));
+      const monthOptions = Array.from({ length: 12 }, (_, i) => ({
+        label: i === 1 ? '1 month' : `${i} months`,
+        value: String(i),
+      }));
+      const update = (key: 'years' | 'months', v: string) => {
+        const num = v === '' ? 0 : Number(v);
+        const next = { years: 0, months: 0, ...(value && typeof value === 'object' ? value : {}), [key]: num };
+        onChange(next);
+      };
+      return (
+        <div className="w-full">
+          {labelEl}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <select
+                value={yearsValue === undefined ? '' : String(yearsValue)}
+                onChange={(e) => update('years', e.target.value)}
+                disabled={disabled}
+                aria-label={`${field_label} years`}
+                className={`block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                  error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500'
+                }`}
+              >
+                <option value="">Years</option>
+                {yearOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <select
+                value={monthsValue === undefined ? '' : String(monthsValue)}
+                onChange={(e) => update('months', e.target.value)}
+                disabled={disabled}
+                aria-label={`${field_label} months`}
+                className={`block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                  error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500'
+                }`}
+              >
+                <option value="">Months</option>
+                {monthOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {errOrHelper}
+        </div>
+      );
+    }
+
     default:
       return (
         <div>

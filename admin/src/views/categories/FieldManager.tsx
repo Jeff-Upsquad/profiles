@@ -33,6 +33,7 @@ const FIELD_TYPES = [
   'tags',
   'rich_text',
   'json',
+  'experience',
 ];
 
 function FieldForm({

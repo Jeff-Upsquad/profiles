@@ -122,6 +122,15 @@ function renderFieldValue(field: CategoryField, value: any) {
     return opt?.label || String(value);
   }
   if (field.field_type === 'currency') return `$${Number(value).toLocaleString()}`;
+  if (field.field_type === 'experience' && typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    const y = (value as any).years;
+    const m = (value as any).months;
+    if (typeof y === 'number' && typeof m === 'number') {
+      const yPart = y === 1 ? '1 year' : `${y} years`;
+      const mPart = m === 1 ? '1 month' : `${m} months`;
+      return `${yPart} ${mPart}`;
+    }
+  }
   if (field.field_type === 'file_upload') {
     return (
       <a href={value} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
