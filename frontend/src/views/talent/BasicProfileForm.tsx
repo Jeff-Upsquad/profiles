@@ -144,7 +144,11 @@ export default function BasicProfileForm() {
 
   useEffect(() => {
     if (profile) {
-      setForm(profile);
+      setForm({
+        ...profile,
+        permanent_country: profile.permanent_country || 'India',
+        country: profile.country || 'India',
+      });
       if (profile.education_courses) setEducationCourses(profile.education_courses);
       if (profile.experience) setExperienceEntries(profile.experience);
       if (profile.bank_account_number) setConfirmAccountNumber(profile.bank_account_number);
