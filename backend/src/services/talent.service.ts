@@ -907,9 +907,25 @@ async function validateFieldData(categoryId: string, fieldData: Record<string, a
     .eq('category_id', categoryId)
     .eq('is_active', true);
 
-  if (!fields) return [];
-
   const errors: string[] = [];
+
+  // Built-in Experience pseudo-field. Always present on job profiles; not
+  // stored in category_fields but validated here.
+  const experience = fieldData._experience;
+  if (experience === undefined || experience === null) {
+    errors.push('Experience is required');
+  } else if (typeof experience !== 'object' || Array.isArray(experience)) {
+    errors.push('Experience must be a { years, months } object');
+  } else {
+    const { years, months } = experience as { years?: unknown; months?: unknown };
+    const yearsBad = typeof years !== 'number' || !Number.isInteger(years) || years < 0 || years > 50;
+    const monthsBad = typeof months !== 'number' || !Number.isInteger(months) || months < 0 || months > 11;
+    if (yearsBad || monthsBad) {
+      errors.push('Experience must be 0–50 years and 0–11 months');
+    }
+  }
+
+  if (!fields) return errors;
 
   for (const field of fields) {
     const value = fieldData[field.field_key];
@@ -994,9 +1010,15 @@ async function validateRequiredFields(categoryId: string, fieldData: Record<stri
     .eq('is_active', true)
     .eq('is_required', true);
 
-  if (!fields) return [];
-
   const errors: string[] = [];
+
+  // Built-in Experience pseudo-field is always required on every job profile.
+  const exp = fieldData._experience;
+  if (exp === undefined || exp === null) {
+    errors.push('Experience is required');
+  }
+
+  if (!fields) return errors;
 
   for (const field of fields) {
     const value = fieldData[field.field_key];

@@ -340,6 +340,16 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
     return String(value);
   };
 
+  const formatExperience = (value: unknown): string | null => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const { years, months } = value as { years?: unknown; months?: unknown };
+    if (typeof years !== 'number' || typeof months !== 'number') return null;
+    if (years === 0 && months === 0) return null;
+    const yPart = years === 1 ? '1 year' : `${years} years`;
+    const mPart = months === 1 ? '1 month' : `${months} months`;
+    return `${yPart} ${mPart}`;
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -368,6 +378,9 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
   // Build change notes per section
   const userNotes = prev?._user ? buildUserChangeNotes(talentUser, prev._user) : [];
   const fieldChangeNotes = prev ? buildFieldChangeNotes(sortedFields, profile.field_data ?? {}, prev, changedKeys) : [];
+  const experienceNote = prev && changedKeys.has('_experience')
+    ? `Experience: "${formatExperience(prev._experience) ?? '(empty)'}" → "${formatExperience(profile.field_data?._experience) ?? '(empty)'}"`
+    : null;
   const skillNotes = prev && changedKeys.has('_skills') ? buildSkillChangeNotes(profile.field_data?._skills ?? [], prev._skills) : [];
   const toolsCurrent = toolNames(profile.field_data?._tools);
   const toolsPrev = toolNames(prev?._tools);
@@ -441,6 +454,15 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
       <div className="rounded-xl border border-gray-200 bg-white p-6">
         <h2 className="mb-4 text-lg font-semibold text-gray-900">Profile Details</h2>
         <dl className="divide-y divide-gray-100">
+          {(() => {
+            const expLabel = formatExperience(profile.field_data?._experience);
+            return expLabel ? (
+              <div className="py-3 sm:flex sm:gap-4">
+                <dt className="text-sm font-medium text-gray-500 sm:w-1/3">Experience</dt>
+                <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:w-2/3">{expLabel}</dd>
+              </div>
+            ) : null;
+          })()}
           {sortedFields.map((field) => (
             <div key={field.id} className="py-3 sm:flex sm:gap-4">
               <dt className="text-sm font-medium text-gray-500 sm:w-1/3">{field.field_label}</dt>
@@ -450,7 +472,7 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
             </div>
           ))}
         </dl>
-        <ChangeNote notes={fieldChangeNotes} />
+        <ChangeNote notes={experienceNote ? [experienceNote, ...fieldChangeNotes] : fieldChangeNotes} />
       </div>
 
       {/* Skills & Tools */}

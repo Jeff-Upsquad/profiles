@@ -141,6 +141,16 @@ function renderFieldValue(field: CategoryField, value: any) {
   return String(value);
 }
 
+function formatExperience(value: unknown): string | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const { years, months } = value as { years?: unknown; months?: unknown };
+  if (typeof years !== 'number' || typeof months !== 'number') return null;
+  if (years === 0 && months === 0) return null;
+  const yPart = years === 1 ? '1 year' : `${years} years`;
+  const mPart = months === 1 ? '1 month' : `${months} months`;
+  return `${yPart} ${mPart}`;
+}
+
 export default function TalentProfileView({
   categoryId,
   profileId,
@@ -534,6 +544,15 @@ export default function TalentProfileView({
           <div className="rounded-xl border border-gray-200 bg-white p-6">
             <h2 className="mb-4 text-lg font-semibold text-gray-900">Profile Details</h2>
             <dl className="divide-y divide-gray-100">
+              {(() => {
+                const expLabel = formatExperience(profile.field_data?._experience);
+                return expLabel ? (
+                  <div className="py-3 sm:flex sm:gap-4">
+                    <dt className="text-sm font-medium text-gray-500 sm:w-1/3">Experience</dt>
+                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:w-2/3">{expLabel}</dd>
+                  </div>
+                ) : null;
+              })()}
               {sortedFields.map((field) => (
                 <div key={field.id} className="py-3 sm:flex sm:gap-4">
                   <dt className="text-sm font-medium text-gray-500 sm:w-1/3">{field.field_label}</dt>
@@ -706,10 +725,19 @@ function SourceProfileSection({
 
   return (
     <div className="space-y-4">
-      {sortedFields.length > 0 && (
+      {(sortedFields.length > 0 || formatExperience(source.field_data?._experience)) && (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
           <h3 className="mb-4 text-base font-semibold text-gray-900">Profile Details</h3>
           <dl className="divide-y divide-gray-100">
+            {(() => {
+              const expLabel = formatExperience(source.field_data?._experience);
+              return expLabel ? (
+                <div className="py-3 sm:flex sm:gap-4">
+                  <dt className="text-sm font-medium text-gray-500 sm:w-1/3">Experience</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:w-2/3">{expLabel}</dd>
+                </div>
+              ) : null;
+            })()}
             {sortedFields.map((field) => (
               <div key={field.id} className="py-3 sm:flex sm:gap-4">
                 <dt className="text-sm font-medium text-gray-500 sm:w-1/3">{field.field_label}</dt>

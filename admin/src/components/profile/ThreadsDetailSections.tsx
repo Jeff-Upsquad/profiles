@@ -160,6 +160,16 @@ function FieldRow({ label, value, delay }: { label: string; value: string; delay
   );
 }
 
+function formatExperience(value: unknown): string | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const { years, months } = value as { years?: unknown; months?: unknown };
+  if (typeof years !== 'number' || typeof months !== 'number') return null;
+  if (years === 0 && months === 0) return null;
+  const yPart = years === 1 ? '1 year' : `${years} years`;
+  const mPart = months === 1 ? '1 month' : `${months} months`;
+  return `${yPart} ${mPart}`;
+}
+
 function TextBlock({ label, text, delay }: { label: string; text: string; delay: number }) {
   return (
     <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
@@ -291,6 +301,14 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   if (languages && languages.length > 0) {
     const delay = sectionIndex * 0.04;
     sections.push(<LanguagesSection key="_languages" languages={languages} delay={delay} />);
+    sectionIndex++;
+  }
+
+  // Built-in Experience pseudo-field (always present on job profiles).
+  const experienceLabel = formatExperience(fieldData?._experience);
+  if (experienceLabel) {
+    const delay = sectionIndex * 0.04;
+    sections.push(<FieldRow key="_experience" label="Experience" value={experienceLabel} delay={delay} />);
     sectionIndex++;
   }
 

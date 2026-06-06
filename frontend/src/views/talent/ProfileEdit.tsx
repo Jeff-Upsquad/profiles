@@ -15,6 +15,25 @@ import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguageP
 import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
 import Button from '@/components/ui/Button';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
+import type { CategoryField } from '@/types';
+
+const BUILTIN_EXPERIENCE_FIELD: CategoryField = {
+  id: '_experience',
+  category_id: '',
+  field_key: '_experience',
+  field_label: 'Experience',
+  field_type: 'experience',
+  is_required: true,
+  is_active: true,
+  sort_order: -1,
+  helper_text: 'How many years and months of relevant work experience do you have?',
+};
+
+function isExperienceEmpty(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return true;
+  const { years, months } = value as { years?: unknown; months?: unknown };
+  return (typeof years !== 'number' || years < 0 || years > 50) && (typeof months !== 'number' || months < 0 || months > 11);
+}
 
 const TINTS = ['tint-purple', 'tint-blue', 'tint-orange', 'tint-green', 'tint-pink', 'tint-amber'] as const;
 function tintFor(seed: string): string {
@@ -109,6 +128,10 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
+
+    if (isExperienceEmpty(values._experience)) {
+      newErrors._experience = 'Experience is required';
+    }
 
     for (const field of categoryWithFields?.fields ?? []) {
       if (!field.is_active) continue;
@@ -303,7 +326,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
             </div>
           </div>
           <DynamicFormRenderer
-            fields={categoryWithFields?.fields ?? []}
+            fields={[BUILTIN_EXPERIENCE_FIELD, ...(categoryWithFields?.fields ?? [])]}
             values={values}
             onChange={handleChange}
             errors={errors}
