@@ -287,25 +287,11 @@ export default function BasicProfileForm() {
       const missingOfficial = !form.permanent_country || !form.permanent_state || !form.permanent_district || !form.permanent_city;
       if (missingOfficial) { toast.error('Country, state, district and city are required for official address'); return; }
       if (!form.permanent_pin_code) { toast.error('PIN code is required for official address'); return; }
-      if (!currentSameAsOfficial) {
-        const missingCurrent = !form.country || !form.state || !form.current_district || !form.city;
-        if (missingCurrent) { toast.error('Country, state, district and city are required for current address'); return; }
-        if (!form.pin_code) { toast.error('PIN code is required for current address'); return; }
-      }
+      const missingCurrent = !form.country || !form.state || !form.current_district || !form.city;
+      if (missingCurrent) { toast.error('Country, state, district and city are required for current address'); return; }
+      if (!form.pin_code) { toast.error('PIN code is required for current address'); return; }
       if (form.permanent_pin_code && !/^\d{6}$/.test(form.permanent_pin_code)) {
         toast.error('Official PIN code must be 6 digits'); return;
-      }
-      if (currentSameAsOfficial) {
-        saveMutation.mutate({
-          ...form,
-          current_address: (form.permanent_address || null) as any,
-          country: (form.permanent_country || null) as any,
-          state: (form.permanent_state || null) as any,
-          current_district: (form.permanent_district || null) as any,
-          city: (form.permanent_city || null) as any,
-          pin_code: (form.permanent_pin_code || null) as any,
-        });
-        return;
       }
     }
 
@@ -668,9 +654,27 @@ export default function BasicProfileForm() {
                         onChange={(e) => {
                           const checked = e.target.checked;
                           setCurrentSameAsOfficial(checked);
-                          if (checked) {
-                            setForm((prev) => ({ ...prev, current_address: '', country: '', state: '', current_district: '', city: '', pin_code: '' }));
-                          }
+                          setForm((prev) =>
+                            checked
+                              ? {
+                                  ...prev,
+                                  current_address: prev.permanent_address || '',
+                                  country: prev.permanent_country || '',
+                                  state: prev.permanent_state || '',
+                                  current_district: prev.permanent_district || '',
+                                  city: prev.permanent_city || '',
+                                  pin_code: prev.permanent_pin_code || '',
+                                }
+                              : {
+                                  ...prev,
+                                  current_address: '',
+                                  country: '',
+                                  state: '',
+                                  current_district: '',
+                                  city: '',
+                                  pin_code: '',
+                                }
+                          );
                         }}
                       />
                       Same as official address
@@ -684,44 +688,42 @@ export default function BasicProfileForm() {
                       Your current address matters — some brands prefer people from particular areas or near their office.
                     </p>
                   </div>
-                  {!currentSameAsOfficial && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="mb-1.5 block text-[13px] font-medium text-[#3F3F46]">Address</label>
-                        <textarea
-                          className="block w-full rounded-lg border border-[#E8E5DE] bg-white px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-[#a3a3a3] focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/12 transition-all duration-200"
-                          rows={3} value={form.current_address || ''} onChange={set('current_address')} placeholder="Your current address"
-                        />
-                      </div>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <Select label="Country" required options={COUNTRIES} value={form.country || ''}
-                          onChange={(e) => setForm((prev) => ({ ...prev, country: e.target.value, state: '', current_district: '' }))}
-                        />
-                        {form.country === 'India' ? (
-                          <Select label="State" required placeholder="Select state" options={INDIAN_STATES} value={form.state || ''}
-                            onChange={(e) => setForm((prev) => ({ ...prev, state: e.target.value, current_district: '' }))}
-                          />
-                        ) : (
-                          <Input label="State / Region" required value={form.state || ''} onChange={set('state')} placeholder="State or region" />
-                        )}
-                      </div>
-                      <div className="grid gap-4 sm:grid-cols-3">
-                        {form.country === 'India' && form.state ? (
-                          <Select label="District" required placeholder="Select district"
-                            options={(DISTRICTS_BY_STATE[form.state] || []).map((d) => ({ label: d, value: d }))}
-                            value={form.current_district || ''} onChange={set('current_district')}
-                          />
-                        ) : (
-                          <Input label="District" required value={form.current_district || ''} onChange={set('current_district')}
-                            placeholder={form.country === 'India' ? 'Select a state first' : 'District'}
-                            disabled={form.country === 'India' && !form.state}
-                          />
-                        )}
-                        <Input label="City" required value={form.city || ''} onChange={set('city')} placeholder="City" helperText="enter nearest city" />
-                        <Input label="PIN Code" required value={form.pin_code || ''} onChange={set('pin_code')} placeholder="6-digit PIN" helperText="6-digit Indian PIN code" />
-                      </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="mb-1.5 block text-[13px] font-medium text-[#3F3F46]">Address</label>
+                      <textarea
+                        className="block w-full rounded-lg border border-[#E8E5DE] bg-white px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-[#a3a3a3] focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/12 transition-all duration-200"
+                        rows={3} value={form.current_address || ''} onChange={set('current_address')} placeholder="Your current address"
+                      />
                     </div>
-                  )}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Select label="Country" required options={COUNTRIES} value={form.country || ''}
+                        onChange={(e) => setForm((prev) => ({ ...prev, country: e.target.value, state: '', current_district: '' }))}
+                      />
+                      {form.country === 'India' ? (
+                        <Select label="State" required placeholder="Select state" options={INDIAN_STATES} value={form.state || ''}
+                          onChange={(e) => setForm((prev) => ({ ...prev, state: e.target.value, current_district: '' }))}
+                        />
+                      ) : (
+                        <Input label="State / Region" required value={form.state || ''} onChange={set('state')} placeholder="State or region" />
+                      )}
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      {form.country === 'India' && form.state ? (
+                        <Select label="District" required placeholder="Select district"
+                          options={(DISTRICTS_BY_STATE[form.state] || []).map((d) => ({ label: d, value: d }))}
+                          value={form.current_district || ''} onChange={set('current_district')}
+                        />
+                      ) : (
+                        <Input label="District" required value={form.current_district || ''} onChange={set('current_district')}
+                          placeholder={form.country === 'India' ? 'Select a state first' : 'District'}
+                          disabled={form.country === 'India' && !form.state}
+                        />
+                      )}
+                      <Input label="City" required value={form.city || ''} onChange={set('city')} placeholder="City" helperText="enter nearest city" />
+                      <Input label="PIN Code" required value={form.pin_code || ''} onChange={set('pin_code')} placeholder="6-digit PIN" helperText="6-digit Indian PIN code" />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
