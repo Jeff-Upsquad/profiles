@@ -119,6 +119,7 @@ export default function BasicProfileForm() {
   const [educationCourses, setEducationCourses] = useState<EducationEntry[]>([]);
   const [experienceEntries, setExperienceEntries] = useState<ExperienceEntry[]>([]);
   const [currentSameAsOfficial, setCurrentSameAsOfficial] = useState(false);
+  const [officialSameAsCurrent, setOfficialSameAsCurrent] = useState(false);
   const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
 
   const { data: profile, isLoading } = useQuery<BasicProfile | null>({
@@ -165,6 +166,7 @@ export default function BasicProfileForm() {
         eq(profile.city, profile.permanent_city) &&
         eq(profile.pin_code, profile.permanent_pin_code);
       if (hasAnyPermanent && (!hasAnyCurrent || currentEqualsPermanent)) setCurrentSameAsOfficial(true);
+      if (hasAnyCurrent && (!hasAnyPermanent || currentEqualsPermanent)) setOfficialSameAsCurrent(true);
     }
   }, [profile]);
 
@@ -603,7 +605,42 @@ export default function BasicProfileForm() {
             {activeSection === 2 && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="mb-1 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Official Address</h3>
+                  <div className="mb-1 flex items-center justify-between gap-4">
+                    <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Official Address</h3>
+                    <label className="flex cursor-pointer items-center gap-2 font-[family-name:var(--font-inter)] text-[13px] text-[#525252]">
+                      <input
+                        type="checkbox" className="h-4 w-4 rounded border-[#E8E5DE] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
+                        checked={officialSameAsCurrent}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setOfficialSameAsCurrent(checked);
+                          if (checked) setCurrentSameAsOfficial(false);
+                          setForm((prev) =>
+                            checked
+                              ? {
+                                  ...prev,
+                                  permanent_address: prev.current_address || '',
+                                  permanent_country: prev.country || '',
+                                  permanent_state: prev.state || '',
+                                  permanent_district: prev.current_district || '',
+                                  permanent_city: prev.city || '',
+                                  permanent_pin_code: prev.pin_code || '',
+                                }
+                              : {
+                                  ...prev,
+                                  permanent_address: '',
+                                  permanent_country: '',
+                                  permanent_state: '',
+                                  permanent_district: '',
+                                  permanent_city: '',
+                                  permanent_pin_code: '',
+                                }
+                          );
+                        }}
+                      />
+                      Same as current address
+                    </label>
+                  </div>
                   <p className="mb-4 text-sm text-[#737373]">As shown on your ID proofs (Aadhaar, PAN, etc.).</p>
                   <div className="space-y-4">
                     <div>
@@ -654,6 +691,7 @@ export default function BasicProfileForm() {
                         onChange={(e) => {
                           const checked = e.target.checked;
                           setCurrentSameAsOfficial(checked);
+                          if (checked) setOfficialSameAsCurrent(false);
                           setForm((prev) =>
                             checked
                               ? {
