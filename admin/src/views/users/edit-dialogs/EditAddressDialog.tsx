@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import { useAdminUpdateBasicProfile } from '@/hooks/useAdminTalentEdit';
+import { COUNTRIES, INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-locations';
 
 interface AddressBlock {
   address: string;
@@ -55,6 +57,12 @@ function AddressFields({
   const update = (key: keyof AddressBlock, val: string) =>
     setValues({ ...values, [key]: val });
 
+  const onCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
+    setValues({ ...values, country: e.target.value, state: '', district: '' });
+
+  const onStateChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
+    setValues({ ...values, state: e.target.value, district: '' });
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <div className="sm:col-span-2">
@@ -65,21 +73,48 @@ function AddressFields({
           placeholder="House / Flat / Street"
         />
       </div>
-      <Input
+      <Select
         label="Country"
+        options={COUNTRIES}
         value={values.country}
-        onChange={(e) => update('country', e.target.value)}
+        onChange={onCountryChange}
+        placeholder="Select country"
       />
-      <Input
-        label="State"
-        value={values.state}
-        onChange={(e) => update('state', e.target.value)}
-      />
-      <Input
-        label="District"
-        value={values.district}
-        onChange={(e) => update('district', e.target.value)}
-      />
+      {values.country === 'India' ? (
+        <Select
+          label="State"
+          required
+          placeholder="Select state"
+          options={INDIAN_STATES}
+          value={values.state}
+          onChange={onStateChange}
+        />
+      ) : (
+        <Input
+          label="State / Region"
+          value={values.state}
+          onChange={(e) => update('state', e.target.value)}
+          placeholder="State or region"
+        />
+      )}
+      {values.country === 'India' && values.state ? (
+        <Select
+          label="District"
+          required
+          placeholder="Select district"
+          options={(DISTRICTS_BY_STATE[values.state] || []).map((d) => ({ label: d, value: d }))}
+          value={values.district}
+          onChange={(e) => update('district', e.target.value)}
+        />
+      ) : (
+        <Input
+          label="District"
+          value={values.district}
+          onChange={(e) => update('district', e.target.value)}
+          placeholder={values.country === 'India' ? 'Select a state first' : 'District'}
+          disabled={values.country === 'India' && !values.state}
+        />
+      )}
       <Input
         label="City"
         value={values.city}
