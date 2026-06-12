@@ -20,6 +20,7 @@ interface PublishedCard {
   plan_label: string | null;
   talents: { pending: number; accepted: number; rejected: number; shortlisted_by_business: number; rejected_by_business: number };
   selected_talent_user_id: string | null;
+  subscription_activated_at: string | null;
 }
 
 interface CardsResponse {
@@ -315,11 +316,15 @@ function PublishedCardRow({
         >
           {IconEye}
         </a>
-        {card.selected_talent_user_id && (
+        {card.subscription_activated_at ? (
+          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+            Assigned
+          </span>
+        ) : card.selected_talent_user_id ? (
           <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-800">
             Selected
           </span>
-        )}
+        ) : null}
         <span
           className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700"
           title={`Talents: ${t.accepted} accepted, ${t.rejected} rejected, ${t.pending} pending`}

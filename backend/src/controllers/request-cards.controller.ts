@@ -2,9 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
-import { findMatchingTalents } from '../services/subscription-matcher.service.js';
 import * as upsquadApi from '../services/upsquad-api.service.js';
-import { notifyTalentSubscriptionCardReceived } from '../services/talent-whatsapp.service.js';
+import { fanOutBroadcast } from '../services/subscription.service.js';
 
 // Map upsquad's tier vocabulary to canonical names sent downstream.
 // 'Elite' is being renamed to 'Top Talents' — Phase 1 accepts both
@@ -275,29 +274,11 @@ export async function publishCard(req: Request, res: Response, next: NextFunctio
     if (!card) throw new AppError(404, 'Card not found');
 
     const matchRules = card.match_rules as Record<string, unknown>;
-    const categoryIds = Array.isArray(matchRules?.category_ids) ? matchRules.category_ids : [];
     const distribution = req.body?.distribution || card.distribution || 'broadcast';
 
-    // Match talents and insert recipients
-    if (distribution === 'broadcast' && categoryIds.length > 0) {
-      const talentIds = await findMatchingTalents(matchRules as any);
-      if (talentIds.length > 0) {
-        const rows = talentIds.map((tid) => ({
-          card_id: cardId,
-          talent_user_id: tid,
-          status: 'pending',
-        }));
-        await supabaseAdmin
-          .from('subscription_card_recipients')
-          .upsert(rows, { onConflict: 'card_id,talent_user_id', ignoreDuplicates: true });
-
-        const cardContent = (card.content ?? {}) as Record<string, unknown>;
-        for (const tid of talentIds) {
-          notifyTalentSubscriptionCardReceived(tid, cardId, cardContent).catch((err) => {
-            console.error('[request-cards] notifyTalentSubscriptionCardReceived (publish) threw', err);
-          });
-        }
-      }
+    // Match talents and insert recipients (shared with the reopen-for-new-talents flow)
+    if (distribution === 'broadcast') {
+      await fanOutBroadcast(cardId, matchRules, (card.content ?? {}) as Record<string, unknown>);
     }
 
     // Update card status and distribution

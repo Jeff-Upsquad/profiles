@@ -27,7 +27,7 @@ export async function unreadCount(req: Request, res: Response, next: NextFunctio
 
 export async function adminListCards(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const status = typeof req.query.status === 'string' && (req.query.status === 'active' || req.query.status === 'archived')
+    const status = typeof req.query.status === 'string' && (req.query.status === 'active' || req.query.status === 'assigned' || req.query.status === 'archived')
       ? req.query.status
       : undefined;
     const distribution = typeof req.query.distribution === 'string' && (req.query.distribution === 'broadcast' || req.query.distribution === 'manual')
@@ -96,6 +96,16 @@ export async function adminUndoSelection(req: Request, res: Response, next: Next
     const { cardId } = req.params as { cardId: string };
     await subscriptionService.adminUndoSelection(cardId);
     res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function reopenCard(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { cardId } = req.params as { cardId: string };
+    const result = await subscriptionService.reopenForNewTalents(cardId);
+    res.json({ success: true, ...result });
   } catch (err) {
     next(err);
   }

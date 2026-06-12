@@ -4,7 +4,7 @@ import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { findMatchingTalents } from './subscription-matcher.service.js';
 import { deliverCallback } from './squadhub-callback.service.js';
-import { notifyNewCard, notifySelected } from './push.service.js';
+import { notifyNewCard, notifySelected, notifyUnassigned } from './push.service.js';
 import { getTalentTiersByUserIds } from './talent-tier.service.js';
 import { notifyTalentSubscriptionCardReceived } from './talent-whatsapp.service.js';
 import type {
@@ -805,7 +805,7 @@ export async function getUnreadCount(talentUserId: string): Promise<number> {
 export interface AdminCardRow {
   id: string;
   external_id: string | null;
-  status: 'active' | 'archived';
+  status: 'active' | 'assigned' | 'archived';
   distribution: 'broadcast' | 'manual';
   published_at: string;
   expires_at: string | null;
@@ -818,6 +818,11 @@ export interface AdminCardRow {
   subscription_request_id: number | null;
   talents: { pending: number; accepted: number; rejected: number; shortlisted_by_business: number; rejected_by_business: number };
   selected_talent_user_id: string | null;
+  selected_at: string | null;
+  // Set once SquadHub finalizes the selection — the card is then "Assigned"
+  // (the talent is live in their My Clients tab). Lets the admin UI tell the
+  // pre-activation "Selected" state apart from the post-activation "Assigned".
+  subscription_activated_at: string | null;
 }
 
 export interface AdminListCardsInput {
@@ -830,7 +835,7 @@ export interface AdminListCardsInput {
 export async function listAllForAdmin(input: AdminListCardsInput): Promise<AdminCardRow[]> {
   let q = supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, status, distribution, published_at, expires_at, content, match_rules, source, subscription_request_id, selected_talent_user_id')
+    .select('id, external_id, status, distribution, published_at, expires_at, content, match_rules, source, subscription_request_id, selected_talent_user_id, selected_at, subscription_activated_at')
     .order('published_at', { ascending: false });
 
   if (input.status === 'active' || input.status === 'assigned' || input.status === 'archived') {
@@ -904,6 +909,8 @@ export async function listAllForAdmin(input: AdminListCardsInput): Promise<Admin
       subscription_request_id: c.subscription_request_id ?? null,
       talents: countsByCard.get(c.id) ?? { pending: 0, accepted: 0, rejected: 0, shortlisted_by_business: 0, rejected_by_business: 0 },
       selected_talent_user_id: c.selected_talent_user_id ?? null,
+      selected_at: c.selected_at ?? null,
+      subscription_activated_at: c.subscription_activated_at ?? null,
     };
   });
 
@@ -922,7 +929,7 @@ export async function listAllForAdmin(input: AdminListCardsInput): Promise<Admin
 export async function getCardForAdmin(cardId: string): Promise<AdminCardRow> {
   const { data: c, error } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, status, distribution, published_at, expires_at, content, match_rules, source, subscription_request_id, selected_talent_user_id')
+    .select('id, external_id, status, distribution, published_at, expires_at, content, match_rules, source, subscription_request_id, selected_talent_user_id, selected_at, subscription_activated_at')
     .eq('id', cardId)
     .single();
   if (error) throw new AppError(error.code === 'PGRST116' ? 404 : 500, error.message);
@@ -945,6 +952,8 @@ export async function getCardForAdmin(cardId: string): Promise<AdminCardRow> {
     subscription_request_id: (c as any).subscription_request_id ?? null,
     talents: { pending: 0, accepted: 0, rejected: 0, shortlisted_by_business: 0, rejected_by_business: 0 },
     selected_talent_user_id: (c as any).selected_talent_user_id ?? null,
+    selected_at: (c as any).selected_at ?? null,
+    subscription_activated_at: (c as any).subscription_activated_at ?? null,
   };
 }
 
@@ -1539,14 +1548,34 @@ export async function adminSelectRecipient(
   return { card_id: cardId, selected_talent_user_id: talentUserId };
 }
 
+/**
+ * Clear a card's selection/assignment and reopen it.
+ *
+ * Funnels BOTH the pre-activation "Selected" state and the post-activation
+ * "Assigned" state (subscription_activated_at set) back to a clean `active`
+ * card with no selected talent. This is the shared primitive behind the admin
+ * "Unassign", "Reassign" (unassign → pick another), and "Reopen" actions.
+ *
+ * - recipients: clears selected_at + passed_over_at, so accepted talents stay
+ *   accepted and become re-selectable.
+ * - card: clears selected_talent_user_id, selected_at, subscription_activated_at
+ *   and resets status to 'active'.
+ * - SquadHub: always fires the selection-undo callback; ADDITIONALLY fires the
+ *   activation-undo callback when the card had been activated, so SquadHub can
+ *   reverse the live subscription on their side.
+ * - notifies the unassigned talent (push).
+ */
 export async function adminUndoSelection(cardId: string): Promise<void> {
   const { data: card } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, selected_at')
+    .select('id, external_id, selected_at, selected_talent_user_id, subscription_activated_at, content')
     .eq('id', cardId)
     .maybeSingle();
   if (!card) throw new AppError(404, 'Card not found');
   if (!(card as any).selected_at) throw new AppError(409, 'No selection to undo');
+
+  const wasActivated = Boolean((card as any).subscription_activated_at);
+  const previousTalentId = (card as any).selected_talent_user_id as string | null;
 
   await supabaseAdmin
     .from('subscription_card_recipients')
@@ -1562,7 +1591,12 @@ export async function adminUndoSelection(cardId: string): Promise<void> {
 
   await supabaseAdmin
     .from('subscription_cards')
-    .update({ selected_talent_user_id: null, selected_at: null })
+    .update({
+      selected_talent_user_id: null,
+      selected_at: null,
+      subscription_activated_at: null,
+      status: 'active',
+    })
     .eq('id', cardId);
 
   const externalId = (card as any).external_id as string | undefined;
@@ -1570,7 +1604,88 @@ export async function adminUndoSelection(cardId: string): Promise<void> {
     deliverSelectionUndoCallback(externalId).catch((err) => {
       console.error('[subscription] deliverSelectionUndoCallback threw', err);
     });
+    // The card had a live subscription on SquadHub — ask them to reverse it.
+    if (wasActivated) {
+      deliverActivationUndoCallback(externalId, new Date().toISOString()).catch((err) => {
+        console.error('[subscription] deliverActivationUndoCallback threw', err);
+      });
+    }
   }
+
+  // Let the previously selected/assigned talent know they were unassigned.
+  if (previousTalentId) {
+    notifyUnassigned(cardId, previousTalentId, ((card as any).content ?? {}) as Record<string, unknown>).catch((err) => {
+      console.error('[subscription] notifyUnassigned threw', err);
+    });
+  }
+}
+
+/**
+ * Broadcast fan-out: find talents matching the card's rules and insert a
+ * `pending` recipient row for each (existing rows are left intact via
+ * ignoreDuplicates). Notifies each matched talent. Shared by the admin publish
+ * flow and the "reopen for new talents" action. No-op when the card has no
+ * category match rules. Returns the number of talents matched.
+ */
+export async function fanOutBroadcast(
+  cardId: string,
+  matchRules: Record<string, unknown>,
+  content: Record<string, unknown>,
+): Promise<number> {
+  const categoryIds = extractCategoryIds(matchRules);
+  if (categoryIds.length === 0) return 0;
+
+  const talentIds = await findMatchingTalents(matchRules as any);
+  if (talentIds.length === 0) return 0;
+
+  const rows = talentIds.map((tid) => ({
+    card_id: cardId,
+    talent_user_id: tid,
+    status: 'pending' as const,
+  }));
+  await supabaseAdmin
+    .from('subscription_card_recipients')
+    .upsert(rows, { onConflict: 'card_id,talent_user_id', ignoreDuplicates: true });
+
+  for (const tid of talentIds) {
+    notifyTalentSubscriptionCardReceived(tid, cardId, content).catch((err) => {
+      console.error('[subscription] notifyTalentSubscriptionCardReceived (fan-out) threw', err);
+    });
+  }
+
+  return talentIds.length;
+}
+
+/**
+ * Reopen an assigned/selected card to a fresh pool of talents. Clears any
+ * existing assignment, then (for broadcast cards) re-runs the matcher fan-out.
+ * Manual cards are only cleared — talents are re-added via SquadHub manual
+ * assignment. Returns how many talents the broadcast matched (0 for manual).
+ */
+export async function reopenForNewTalents(cardId: string): Promise<{ matched: number }> {
+  const { data: card } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id, distribution, match_rules, content, selected_at, status')
+    .eq('id', cardId)
+    .maybeSingle();
+  if (!card) throw new AppError(404, 'Card not found');
+
+  // Clear any current assignment first (resets selection + activation + status).
+  if ((card as any).selected_at) {
+    await adminUndoSelection(cardId);
+  } else if ((card as any).status !== 'active') {
+    await supabaseAdmin.from('subscription_cards').update({ status: 'active' }).eq('id', cardId);
+  }
+
+  let matched = 0;
+  if ((card as any).distribution === 'broadcast') {
+    matched = await fanOutBroadcast(
+      cardId,
+      ((card as any).match_rules ?? {}) as Record<string, unknown>,
+      ((card as any).content ?? {}) as Record<string, unknown>,
+    );
+  }
+  return { matched };
 }
 
 // ─── Webhook-driven selection (SquadHub selected a talent) ───────────────
@@ -1740,6 +1855,37 @@ async function deliverSelectionUndoCallback(externalId: string): Promise<void> {
     });
   } catch (err) {
     console.warn('[subscription] selection undo callback failed', err instanceof Error ? err.message : err);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Fired when an admin unassigns a card that SquadHub had already ACTIVATED
+// (a live subscription). Tells SquadHub to reverse the activation on their
+// side so the two systems don't drift. Fire-and-forget like the selection
+// callbacks — a no-op until SquadHub implements the `/card-activation-undo`
+// handler (tracked separately).
+async function deliverActivationUndoCallback(externalId: string, unassignedAt: string): Promise<void> {
+  const url = env.SQUADHUB_CALLBACK_URL;
+  if (!url) return;
+
+  const activationUndoUrl = url.replace(/\/card-responses\/?$/, '/card-activation-undo');
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3_000);
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (env.SQUADHUB_CALLBACK_SECRET) {
+      headers['X-SquadHub-Signature'] = env.SQUADHUB_CALLBACK_SECRET;
+    }
+    await fetch(activationUndoUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ external_id: externalId, unassigned_at: unassignedAt }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    console.warn('[subscription] activation undo callback failed', err instanceof Error ? err.message : err);
   } finally {
     clearTimeout(timer);
   }

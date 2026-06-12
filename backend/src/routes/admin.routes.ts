@@ -403,6 +403,7 @@ router.post(
 );
 router.post('/subscription-cards/:cardId/select', subscriptionController.adminSelectRecipient);
 router.post('/subscription-cards/:cardId/undo-selection', subscriptionController.adminUndoSelection);
+router.post('/subscription-cards/:cardId/reopen', subscriptionController.reopenCard);
 
 // ---------------------------------------------------------------------------
 // Subscription Requests (from upsquad pricing page)
