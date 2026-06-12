@@ -22,6 +22,13 @@ type Recipient = {
 
 type Response = { items: Recipient[] };
 
+type CardInfo = {
+  status: 'active' | 'assigned' | 'archived';
+  distribution: 'broadcast' | 'manual';
+  subscription_activated_at: string | null;
+  selected_talent_user_id: string | null;
+};
+
 function formatRelative(iso: string | null): string {
   if (!iso) return '';
   const diff = Date.now() - new Date(iso).getTime();
@@ -51,24 +58,32 @@ export default function RecipientsPanel({
       api.get(`/admin/subscription-cards/${cardId}/recipients`).then((r) => r.data),
   });
 
+  // Card-level state — lets us tell the pre-activation "Selected" state apart
+  // from the post-activation "Assigned" (live subscription) state, and know
+  // whether reopen re-broadcasts (broadcast) or defers to SquadHub (manual).
+  const { data: card } = useQuery<CardInfo>({
+    queryKey: ['admin-card', cardId],
+    queryFn: () => api.get(`/admin/subscription-cards/${cardId}`).then((r) => r.data),
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-card-recipients', cardId] });
+    queryClient.invalidateQueries({ queryKey: ['admin-card', cardId] });
+    queryClient.invalidateQueries({ queryKey: ['admin-published-cards'] });
+  };
+
   const removeFromDashboard = useMutation({
     mutationFn: (recipientId: string) =>
       api
         .post(`/admin/subscription-cards/${cardId}/recipients/${recipientId}/remove-from-dashboard`)
         .then((r) => r.data as { removed: number }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-card-recipients', cardId] });
-      queryClient.invalidateQueries({ queryKey: ['admin-published-cards'] });
-    },
+    onSuccess: invalidate,
   });
 
   const selectRecipient = useMutation({
     mutationFn: (recipientId: string) =>
       api.post(`/admin/subscription-cards/${cardId}/select`, { recipient_id: recipientId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-card-recipients', cardId] });
-      queryClient.invalidateQueries({ queryKey: ['admin-published-cards'] });
-    },
+    onSuccess: invalidate,
     onError: (err: any) =>
       alert(err?.response?.data?.message || err.message || 'Failed to select recipient'),
   });
@@ -76,15 +91,31 @@ export default function RecipientsPanel({
   const undoSelection = useMutation({
     mutationFn: () =>
       api.post(`/admin/subscription-cards/${cardId}/undo-selection`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-card-recipients', cardId] });
-      queryClient.invalidateQueries({ queryKey: ['admin-published-cards'] });
-    },
+    onSuccess: invalidate,
     onError: (err: any) =>
       alert(err?.response?.data?.message || err.message || 'Failed to undo selection'),
   });
 
+  const reopenCard = useMutation({
+    mutationFn: () =>
+      api.post(`/admin/subscription-cards/${cardId}/reopen`).then((r) => r.data as { matched: number }),
+    onSuccess: (res) => {
+      invalidate();
+      const n = res?.matched ?? 0;
+      alert(
+        card?.distribution === 'manual'
+          ? 'Card reopened. Re-invite talents from SquadHub (this is a manual / soft-published card).'
+          : `Card reopened — ${n} matching talent${n === 1 ? '' : 's'} re-invited.`,
+      );
+    },
+    onError: (err: any) =>
+      alert(err?.response?.data?.message || err.message || 'Failed to reopen card'),
+  });
+
   const hasSelection = (data?.items || []).some((r) => r.selected_at);
+  const isAssigned = Boolean(card?.subscription_activated_at);
+  const isManual = card?.distribution === 'manual';
+  const busy = undoSelection.isPending || reopenCard.isPending;
 
   const groups = useMemo(() => {
     const items = data?.items || [];
@@ -108,17 +139,44 @@ export default function RecipientsPanel({
           </button>
         </div>
         {hasSelection && (
-          <div className="flex items-center justify-between border-b border-gray-200 bg-blue-50 px-5 py-2.5">
-            <p className="text-xs text-blue-700 font-medium">A talent has been selected for this card.</p>
-            <button
-              onClick={() => {
-                if (window.confirm('Undo the selection? The card will reopen.')) undoSelection.mutate();
-              }}
-              disabled={undoSelection.isPending}
-              className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-            >
-              Undo selection
-            </button>
+          <div className={`space-y-2 border-b border-gray-200 px-5 py-3 ${isAssigned ? 'bg-emerald-50' : 'bg-blue-50'}`}>
+            <p className={`text-xs font-medium ${isAssigned ? 'text-emerald-800' : 'text-blue-800'}`}>
+              {isAssigned
+                ? 'This talent is assigned — the subscription is live on SquadHub.'
+                : 'A talent has been selected for this card.'}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => {
+                  const msg = isAssigned
+                    ? 'Unassign this talent?\n\nThis ENDS the live subscription on SquadHub — reconcile it there too. The card reopens so you can select someone else.'
+                    : 'Unassign this talent? The card reopens so you can select someone else.';
+                  if (window.confirm(msg)) undoSelection.mutate();
+                }}
+                disabled={busy}
+                className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                {undoSelection.isPending ? 'Unassigning…' : 'Unassign'}
+              </button>
+              <button
+                onClick={() => {
+                  const head = isAssigned
+                    ? 'Reopen this card to new talents?\n\nThis unassigns the current talent and ENDS the live subscription on SquadHub (reconcile it there too).'
+                    : 'Reopen this card to new talents? This unassigns the current talent.';
+                  const tail = isManual
+                    ? '\n\nThis is a manual / soft-published card — re-invite talents from SquadHub.'
+                    : '\n\nMatching talents will be re-invited.';
+                  if (window.confirm(head + tail)) reopenCard.mutate();
+                }}
+                disabled={busy}
+                className="rounded-md border border-blue-200 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+              >
+                {reopenCard.isPending ? 'Reopening…' : 'Reopen for new talents'}
+              </button>
+            </div>
+            <p className="text-[11px] text-gray-500">
+              To reassign, unassign and then pick another talent below.
+            </p>
           </div>
         )}
         <div className="flex-1 overflow-y-auto p-5 space-y-6 text-sm">

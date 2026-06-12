@@ -2,7 +2,7 @@ import { getFirebaseApp } from '../config/firebase.js';
 import { supabaseAdmin } from '../config/supabase.js';
 
 interface PushPayload {
-  type: 'new_card' | 'selected' | 'cancelled';
+  type: 'new_card' | 'selected' | 'cancelled' | 'unassigned';
   title: string;
   body: string;
   card_id: string;
@@ -108,6 +108,20 @@ export async function notifySelected(
     type: 'selected',
     title: "You've Been Selected!",
     body: buildCardBody("Congratulations! You were selected for {brand_name}'s opportunity", content),
+    card_id: cardId,
+    route: '/responded',
+  });
+}
+
+export async function notifyUnassigned(
+  cardId: string,
+  talentUserId: string,
+  content: Record<string, unknown>,
+): Promise<void> {
+  await sendToUsers([talentUserId], {
+    type: 'unassigned',
+    title: 'Assignment Update',
+    body: buildCardBody("Your assignment for {brand_name}'s opportunity has been updated by the team", content),
     card_id: cardId,
     route: '/responded',
   });
