@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { INDUSTRY_OPTIONS } from '@/constants/industries';
 
 export interface IndustryExperienceEntry {
@@ -14,6 +14,12 @@ interface Props {
   value: IndustryExperienceEntry[];
   onChange: (next: IndustryExperienceEntry[]) => void;
 }
+
+const MONTHS: [string, string][] = [
+  ['01', 'January'], ['02', 'February'], ['03', 'March'], ['04', 'April'],
+  ['05', 'May'], ['06', 'June'], ['07', 'July'], ['08', 'August'],
+  ['09', 'September'], ['10', 'October'], ['11', 'November'], ['12', 'December'],
+];
 
 function monthsBetween(from: string, to: string): number {
   if (!from) return 0;
@@ -43,11 +49,73 @@ function formatMonth(value: string): string {
   return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'short', year: 'numeric' });
 }
 
-const inputCls =
-  'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500';
+const fieldCls =
+  'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:bg-gray-50 disabled:text-gray-400';
+
+/** Month + Year dropdown pair — friendlier than the native <input type="month">.
+ * Value is 'YYYY-MM' (or '' when incomplete). */
+function MonthYearSelect({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  // Internal month/year state so a partial pick (month before year) sticks
+  // instead of collapsing to '' through the combined value.
+  const [month, setMonth] = useState(value ? value.split('-')[1] : '');
+  const [year, setYear] = useState(value ? value.split('-')[0] : '');
+  useEffect(() => {
+    const internal = month && year ? `${year}-${month}` : '';
+    if (value !== internal) {
+      setMonth(value ? value.split('-')[1] : '');
+      setYear(value ? value.split('-')[0] : '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 55 }, (_, i) => String(currentYear - i));
+  const update = (m: string, y: string) => {
+    setMonth(m);
+    setYear(y);
+    onChange(m && y ? `${y}-${m}` : '');
+  };
+  return (
+    <div className="flex gap-2">
+      <select
+        aria-label="Month"
+        disabled={disabled}
+        value={month}
+        onChange={(e) => update(e.target.value, year)}
+        className={fieldCls}
+      >
+        <option value="">Month</option>
+        {MONTHS.map(([v, l]) => (
+          <option key={v} value={v}>{l}</option>
+        ))}
+      </select>
+      <select
+        aria-label="Year"
+        disabled={disabled}
+        value={year}
+        onChange={(e) => update(month, e.target.value)}
+        className={`${fieldCls} max-w-[7rem]`}
+      >
+        <option value="">Year</option>
+        {years.map((y) => (
+          <option key={y} value={y}>{y}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
 
 export default function IndustryExperiencePicker({ value, onChange }: Props) {
   const [industry, setIndustry] = useState('');
+  const [otherText, setOtherText] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [current, setCurrent] = useState(false);
@@ -55,20 +123,23 @@ export default function IndustryExperiencePicker({ value, onChange }: Props) {
 
   const reset = () => {
     setIndustry('');
+    setOtherText('');
     setFrom('');
     setTo('');
     setCurrent(false);
   };
 
   const add = () => {
+    const finalIndustry = industry === 'Other' ? otherText.trim() : industry;
     if (!industry) return setError('Select an industry');
+    if (industry === 'Other' && !finalIndustry) return setError('Enter the industry name');
     if (!from) return setError('Enter a start date');
     if (!current && !to) return setError('Enter an end date (or mark as current)');
     if (!current && to && from > to) return setError('End date must be after start date');
-    if (value.some((v) => v.industry === industry && v.from === from)) {
+    if (value.some((v) => v.industry === finalIndustry && v.from === from)) {
       return setError('That industry and start date is already added');
     }
-    onChange([...value, { industry, from, to: current ? '' : to, current }]);
+    onChange([...value, { industry: finalIndustry, from, to: current ? '' : to, current }]);
     reset();
     setError('');
   };
@@ -77,9 +148,10 @@ export default function IndustryExperiencePicker({ value, onChange }: Props) {
     onChange(value.filter((_, i) => i !== idx));
   };
 
-  // Industries already added (with no remaining "Other" cap) are hidden from the
-  // dropdown to reduce duplicates — except "Other", which can repeat.
-  const usedSingles = new Set(value.filter((v) => v.industry !== 'Other').map((v) => v.industry));
+  // Hide already-added predefined industries from the dropdown (except "Other",
+  // which can repeat). Custom "Other" values aren't in the list, so they never
+  // affect this filter.
+  const usedSingles = new Set(value.map((v) => v.industry));
 
   return (
     <div>
@@ -116,55 +188,65 @@ export default function IndustryExperiencePicker({ value, onChange }: Props) {
 
       {/* Add row */}
       <div className="rounded-lg border border-dashed border-gray-300 p-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="sm:col-span-2">
+        <div className="space-y-3">
+          <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">Industry</label>
             <select
-              className={inputCls}
+              className={fieldCls}
               value={industry}
               onChange={(e) => {
                 setIndustry(e.target.value);
+                if (e.target.value !== 'Other') setOtherText('');
                 setError('');
               }}
             >
               <option value="">Select an industry…</option>
-              {INDUSTRY_OPTIONS.filter((o) => o === industry || o === 'Other' || !usedSingles.has(o)).map(
-                (opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                )
-              )}
+              {INDUSTRY_OPTIONS.filter(
+                (o) => o === industry || o === 'Other' || !usedSingles.has(o)
+              ).map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
             </select>
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">From</label>
-            <input
-              type="month"
-              className={inputCls}
-              value={from}
-              max={to || undefined}
-              onChange={(e) => {
-                setFrom(e.target.value);
-                setError('');
-              }}
-            />
-          </div>
+          {industry === 'Other' && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Which industry?</label>
+              <input
+                type="text"
+                className={fieldCls}
+                placeholder="e.g. Aviation, Logistics, Defence…"
+                value={otherText}
+                onChange={(e) => {
+                  setOtherText(e.target.value);
+                  setError('');
+                }}
+              />
+            </div>
+          )}
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">To</label>
-            <input
-              type="month"
-              className={inputCls}
-              value={to}
-              min={from || undefined}
-              disabled={current}
-              onChange={(e) => {
-                setTo(e.target.value);
-                setError('');
-              }}
-            />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">From</label>
+              <MonthYearSelect
+                value={from}
+                onChange={(v) => {
+                  setFrom(v);
+                  setError('');
+                }}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">To</label>
+              <MonthYearSelect
+                value={to}
+                disabled={current}
+                onChange={(v) => {
+                  setTo(v);
+                  setError('');
+                }}
+              />
+            </div>
           </div>
         </div>
 

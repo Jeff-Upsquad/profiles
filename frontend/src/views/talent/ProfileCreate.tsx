@@ -105,6 +105,7 @@ export default function ProfileCreate() {
     if (draftProfileId) return;
     if (autoSaveInFlight.current) return;
     if (!selectedCategory) return;
+    if (selectedCategory.slug === 'sales') return; // sales has no portfolio — skip early draft
 
     autoSaveInFlight.current = true;
     setAutoSaving(true);
@@ -165,7 +166,7 @@ export default function ProfileCreate() {
       newErrors._languages = 'At least one language must be set as native';
     }
 
-    if (!portfolioItems || portfolioItems.length === 0) {
+    if (selectedCategory?.slug !== 'sales' && (!portfolioItems || portfolioItems.length === 0)) {
       newErrors._portfolio = 'At least one portfolio item is required';
     }
 
@@ -435,7 +436,8 @@ export default function ProfileCreate() {
             )}
           </section>
 
-          {/* Portfolio */}
+          {/* Portfolio — not required for sales profiles */}
+          {selectedCategory.slug !== 'sales' && (
           <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-pink flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
@@ -479,6 +481,7 @@ export default function ProfileCreate() {
               <p className="mt-3 text-sm text-red-600">{errors._portfolio}</p>
             )}
           </section>
+          )}
         </div>
       )}
 

@@ -162,7 +162,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
       newErrors._languages = 'At least one language must be set as native';
     }
 
-    if (!portfolioItems || portfolioItems.length === 0) {
+    if (profile?.category?.slug !== 'sales' && (!portfolioItems || portfolioItems.length === 0)) {
       newErrors._portfolio = 'At least one portfolio item is required';
     }
 
@@ -390,8 +390,8 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
           )}
         </section>
 
-        {/* Portfolio */}
-        {profile && (
+        {/* Portfolio — not required for sales profiles */}
+        {profile && profile.category?.slug !== 'sales' && (
           <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-pink flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
