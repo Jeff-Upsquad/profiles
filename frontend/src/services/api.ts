@@ -19,6 +19,7 @@ const PUBLIC_PATHS = [
   '/forgot-password',
   '/apply/creative',
   '/apply/accountant',
+  '/apply/sales',
 ];
 
 const api = axios.create({

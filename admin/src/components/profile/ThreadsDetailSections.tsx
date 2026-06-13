@@ -218,6 +218,42 @@ function FileLink({ label, url, delay }: { label: string; url: string; delay: nu
   );
 }
 
+function formatExpMonth(value: string): string {
+  if (!value) return '';
+  const [y, m] = String(value).split('-').map(Number);
+  if (!y || !m) return String(value);
+  return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'short', year: 'numeric' });
+}
+
+function IndustryExperienceSection({
+  items,
+  delay,
+}: {
+  items: { industry: string; from?: string; to?: string; current?: boolean }[];
+  delay: number;
+}) {
+  return (
+    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
+      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
+        Industry Experience
+      </h3>
+      <div className="flex flex-col gap-2">
+        {items.map((it, idx) => {
+          const range = [formatExpMonth(it.from ?? ''), it.current ? 'Present' : formatExpMonth(it.to ?? '')]
+            .filter(Boolean)
+            .join(' – ');
+          return (
+            <div key={`${it.industry}-${it.from}-${idx}`} className="flex items-center justify-between gap-3">
+              <span className="text-[14px] font-medium text-zinc-800">{it.industry}</span>
+              {range && <span className="text-[12px] text-zinc-500">{range}</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, languages, categorySlug }: ThreadsDetailSectionsProps) {
   const categoriesLabel = categorySlug === 'designer' ? 'Categories and Skills' : 'Categories';
   const activeFields = fields
@@ -253,6 +289,10 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   const accountingSoftware: LeveledItem[] = coerceLeveledList(fieldData?._accounting_software);
   const tools: LeveledItem[] = coerceLeveledList(fieldData?._tools);
   const aiTools: LeveledItem[] = coerceLeveledList(fieldData?._ai_tools);
+  const industryExperience: { industry: string; from?: string; to?: string; current?: boolean }[] =
+    Array.isArray(fieldData?._industry_experience)
+      ? fieldData._industry_experience.filter((e: any) => e && e.industry)
+      : [];
 
   // Rename "Tools" → "Other Tools" only when Accounting Software is also present
   const toolsLabel = accountingSoftware.length > 0 ? 'Other Tools' : 'Tools';
@@ -274,6 +314,14 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
     const delay = sectionIndex * 0.04;
     sections.push(
       <SkillsSection key="_skills" label="Core Skills" skills={skills} delay={delay} />
+    );
+    sectionIndex++;
+  }
+
+  if (industryExperience.length > 0) {
+    const delay = sectionIndex * 0.04;
+    sections.push(
+      <IndustryExperienceSection key="_industry_experience" items={industryExperience} delay={delay} />
     );
     sectionIndex++;
   }

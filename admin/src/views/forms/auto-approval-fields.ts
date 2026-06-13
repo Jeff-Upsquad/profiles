@@ -77,6 +77,16 @@ export const FORM_FIELD_DEFINITIONS: Record<string, FieldDef[]> = {
     { key: 'current_salary', label: 'Current Salary', type: 'number' },
     { key: 'expected_salary', label: 'Expected Salary', type: 'number' },
   ],
+  sales: [
+    { key: 'country', label: 'Country', type: 'string', options: COUNTRIES },
+    { key: 'state', label: 'State', type: 'string', options: INDIAN_STATES },
+    { key: 'current_district', label: 'District', type: 'string' },
+    { key: 'gender', label: 'Gender', type: 'string', options: GENDER_OPTIONS },
+    { key: 'age', label: 'Age', type: 'number' },
+    { key: 'work_type_seeking', label: 'Work Type Seeking', type: 'string[]', options: WORK_TYPE_SEEKING },
+    { key: 'experience_years', label: 'Experience (years)', type: 'number' },
+    { key: 'industry_experience', label: 'Industry Experience', type: 'string' },
+  ],
 };
 
 export const OPERATORS_BY_TYPE: Record<FieldType, { label: string; value: string }[]> = {

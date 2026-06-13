@@ -60,6 +60,7 @@ const STATUS_LABELS: Record<string, string> = {
 const FORM_TYPE_LABELS: Record<string, string> = {
   creative: 'Creative',
   accountant: 'Accountant',
+  sales: 'Sales',
 };
 
 export default function SignupTalent() {

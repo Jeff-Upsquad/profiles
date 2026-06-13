@@ -357,11 +357,13 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
               aiTools={coerceLeveledList(values._ai_tools)}
               categories={values._categories ?? []}
               accountingSoftware={values._accounting_software ?? []}
+              industryExperience={values._industry_experience ?? []}
               onSkillsChange={(s) => handleChange('_skills', s)}
               onToolsChange={(t) => handleChange('_tools', t)}
               onAiToolsChange={(at) => handleChange('_ai_tools', at)}
               onCategoriesChange={(c) => handleChange('_categories', c)}
               onAccountingSoftwareChange={(v) => handleChange('_accounting_software', v)}
+              onIndustryExperienceChange={(v) => handleChange('_industry_experience', v)}
               showAccountingSoftware={profile.category?.slug === 'accountant'}
             />
           </section>

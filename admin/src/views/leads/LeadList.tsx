@@ -80,6 +80,7 @@ const STATUS_LABELS: Record<string, string> = {
 const CATEGORY_LABELS: Record<string, string> = {
   creative: 'Creative',
   accountant: 'Accountant',
+  sales: 'Sales',
 };
 
 const CATEGORY_CARDS: { value: string; label: string; description: string; iconBg: string; iconColor: string; icon: React.ReactNode }[] = [
@@ -104,6 +105,18 @@ const CATEGORY_CARDS: { value: string; label: string; description: string; iconB
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m-6 4h6m-6 4h4M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
+  {
+    value: 'sales',
+    label: 'Sales',
+    description: 'Sales, business development, and account management professionals.',
+    iconBg: 'bg-amber-100',
+    iconColor: 'text-amber-600',
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
       </svg>
     ),
   },

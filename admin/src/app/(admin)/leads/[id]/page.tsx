@@ -11,7 +11,7 @@ import api from '@/services/api';
 // canonical /admin/leads?form_type=<X>&selected=<id> URL. External deep-links
 // (CRM "SquadHire candidate" badge, anywhere else) and the admin's own
 // UserDetail "View lead" Link both flow through here.
-type LeadFetch = { form_type: 'creative' | 'accountant' };
+type LeadFetch = { form_type: 'creative' | 'accountant' | 'sales' };
 
 export default function LeadDetailPage() {
   const params = useParams();

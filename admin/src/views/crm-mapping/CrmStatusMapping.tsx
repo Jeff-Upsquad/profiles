@@ -45,6 +45,7 @@ const SQUADHIRE_STATUSES = [
 const FORM_TYPE_OPTIONS = [
   { value: 'creative', label: 'Creative (Designer / Editor)' },
   { value: 'accountant', label: 'Accountant' },
+  { value: 'sales', label: 'Sales' },
 ];
 
 const EMPTY_PIPELINE: PipelineConfig = { pipeline_name: '', mappings: {} };

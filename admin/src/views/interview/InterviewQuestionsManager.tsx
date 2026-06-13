@@ -29,6 +29,7 @@ const FIELD_TYPE_OPTIONS: { value: Question['field_type']; label: string }[] = [
 const FORM_TYPE_OPTIONS = [
   { value: 'creative', label: 'Creative' },
   { value: 'accountant', label: 'Accountant' },
+  { value: 'sales', label: 'Sales' },
 ];
 
 interface FormState {

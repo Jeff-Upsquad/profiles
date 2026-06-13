@@ -26,6 +26,24 @@ export const creativeLeadSchema = z.object({
   utm_campaign: z.string().optional(),
 });
 
+export const salesLeadSchema = z.object({
+  form_type: z.literal('sales'),
+  name: z.string().min(1, 'Name is required').max(200),
+  phone: z.string().regex(phoneRegex, 'Valid phone number is required'),
+  email: z.string().email('Valid email is required'),
+  age: z.number().int().min(16).max(100),
+  gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']),
+  country: z.string().min(1, 'Country is required').max(100),
+  state: z.string().min(1, 'State is required').max(100),
+  current_district: z.string().min(1, 'District is required').max(100),
+  work_type_seeking: workTypeSeekingSchema,
+  experience_years: z.string().min(1, 'Years of experience is required'),
+  industry_experience: z.string().min(1, 'Industry experience is required').max(500),
+  utm_source: z.string().optional(),
+  utm_medium: z.string().optional(),
+  utm_campaign: z.string().optional(),
+});
+
 export const accountantLeadSchema = z.object({
   form_type: z.literal('accountant'),
   name: z.string().min(1, 'Name is required').max(200),
@@ -58,6 +76,7 @@ export const accountantLeadSchema = z.object({
 export const createLeadSchema = z.discriminatedUnion('form_type', [
   creativeLeadSchema,
   accountantLeadSchema,
+  salesLeadSchema,
 ]);
 
 export const checkExistingContactSchema = z
@@ -140,6 +159,7 @@ export const updateLeadNoteSchema = z.object({
 
 export type CreateCreativeLeadInput = z.infer<typeof creativeLeadSchema>;
 export type CreateAccountantLeadInput = z.infer<typeof accountantLeadSchema>;
+export type CreateSalesLeadInput = z.infer<typeof salesLeadSchema>;
 export type CreateLeadInput = z.infer<typeof createLeadSchema>;
 export type UpdateLeadStatusInput = z.infer<typeof updateLeadStatusSchema>;
 export type UpdateLeadProfileTypeInput = z.infer<typeof updateLeadProfileTypeSchema>;
