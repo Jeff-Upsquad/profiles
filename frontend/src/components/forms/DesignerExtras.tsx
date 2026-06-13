@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
 import MultiSelectSearch from '@/components/ui/MultiSelectSearch';
+import IndustryExperiencePicker, {
+  type IndustryExperienceEntry,
+} from '@/components/forms/IndustryExperiencePicker';
 import {
   ACCOUNTING_SOFTWARE_PRIMARY,
   ACCOUNTING_SOFTWARE_OTHER,
@@ -42,11 +45,14 @@ interface DesignerExtrasProps {
   aiTools?: LeveledItem[];
   categories?: CategoryWithLevel[];
   accountingSoftware?: LeveledItem[];
+  industryExperience?: IndustryExperienceEntry[];
   onSkillsChange: (skills: SkillWithLevel[]) => void;
   onToolsChange: (tools: LeveledItem[]) => void;
   onAiToolsChange?: (aiTools: LeveledItem[]) => void;
   onCategoriesChange?: (categories: CategoryWithLevel[]) => void;
   onAccountingSoftwareChange?: (accountingSoftware: LeveledItem[]) => void;
+  /** When provided, renders an "Industry Experience" section between Skill Sets and Tools. */
+  onIndustryExperienceChange?: (industryExperience: IndustryExperienceEntry[]) => void;
   /** When true, renders an "Accounting Software" picker before Tools and relabels Tools to "Other Tools". */
   showAccountingSoftware?: boolean;
 }
@@ -210,11 +216,13 @@ export default function DesignerExtras({
   aiTools = [],
   categories = [],
   accountingSoftware = [],
+  industryExperience = [],
   onSkillsChange,
   onToolsChange,
   onAiToolsChange,
   onCategoriesChange,
   onAccountingSoftwareChange,
+  onIndustryExperienceChange,
   showAccountingSoftware = false,
 }: DesignerExtrasProps) {
   const isDesigner = categorySlug === 'designer';
@@ -406,6 +414,21 @@ export default function DesignerExtras({
           />
         )}
       </div>
+
+      {/* Industry Experience — pick an industry and the date range worked.
+          Rendered between Skill Sets and Tools for every category that wires it. */}
+      {onIndustryExperienceChange && (
+        <div>
+          <h3 className="mb-1 text-sm font-semibold text-gray-800">Industry Experience</h3>
+          <p className="mb-3 text-xs text-gray-500">
+            Add the industries you have experience in and the period you worked in each.
+          </p>
+          <IndustryExperiencePicker
+            value={industryExperience}
+            onChange={onIndustryExperienceChange}
+          />
+        </div>
+      )}
 
       {/* Accounting Software (accountant category only) — per-item proficiency
           1-5 (Learning / Beginner / Intermediate / Advanced / Expert). */}

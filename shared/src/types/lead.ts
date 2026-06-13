@@ -1,9 +1,20 @@
-export type LeadFormType = 'creative' | 'accountant';
+export type LeadFormType = 'creative' | 'accountant' | 'sales';
 export type LeadStatus = 'new' | 'contacted' | 'converted' | 'rejected';
 
 export interface CreativeFormData {
   role: 'Editor' | 'Designer' | 'Editor + Designer';
   portfolio_link: string;
+}
+
+export interface SalesFormData {
+  age: number;
+  gender: string;
+  country: string;
+  state: string;
+  current_district: string;
+  work_type_seeking: string[];
+  experience_years: string;
+  industry_experience: string;
 }
 
 export interface AccountantFormData {
@@ -31,7 +42,7 @@ export interface LeadSubmission {
   name: string;
   email: string | null;
   phone: string;
-  form_data: CreativeFormData | AccountantFormData;
+  form_data: CreativeFormData | AccountantFormData | SalesFormData;
   resume_url: string | null;
   utm_source: string | null;
   utm_medium: string | null;
@@ -74,4 +85,22 @@ export interface CreateAccountantLeadPayload {
   resume_url: string;
 }
 
-export type CreateLeadPayload = CreateCreativeLeadPayload | CreateAccountantLeadPayload;
+export interface CreateSalesLeadPayload {
+  form_type: 'sales';
+  name: string;
+  phone: string;
+  email: string;
+  age: number;
+  gender: string;
+  country: string;
+  state: string;
+  current_district: string;
+  work_type_seeking: string[];
+  experience_years: string;
+  industry_experience: string;
+}
+
+export type CreateLeadPayload =
+  | CreateCreativeLeadPayload
+  | CreateAccountantLeadPayload
+  | CreateSalesLeadPayload;

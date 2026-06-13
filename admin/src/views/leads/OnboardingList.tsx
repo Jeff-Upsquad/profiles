@@ -60,6 +60,7 @@ const FORM_TYPE_TABS: { value: string; label: string }[] = [
   { value: '', label: 'All' },
   { value: 'creative', label: 'Creative' },
   { value: 'accountant', label: 'Accountant' },
+  { value: 'sales', label: 'Sales' },
 ];
 
 function StageRow({ progress }: { progress: OnboardingProgress }) {

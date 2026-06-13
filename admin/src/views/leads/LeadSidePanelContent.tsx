@@ -61,6 +61,11 @@ const FIELD_LABELS: Record<string, string> = {
   languages: 'Languages',
   experience_details: 'Details of Experience',
   resume_url: 'Resume URL',
+  country: 'Country',
+  state: 'State',
+  current_district: 'District',
+  work_type_seeking: 'Looking For',
+  industry_experience: 'Industry Experience',
 };
 
 function formatValue(key: string, value: any): string {
