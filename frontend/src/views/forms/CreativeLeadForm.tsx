@@ -282,7 +282,7 @@ export default function CreativeLeadForm() {
         </div>
 
         {/* Hero card */}
-        <header className="saas-lift card-hero relative mt-3 overflow-hidden px-6 py-4 sm:mt-8 sm:px-12 sm:py-14 lg:px-16 lg:py-16">
+        <header className="saas-lift card-hero relative mt-3 overflow-hidden px-6 py-5 sm:mt-5 sm:px-10 sm:py-8 lg:px-12 lg:py-9">
           <div
             aria-hidden
             className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-[0.18] blur-3xl"
@@ -303,17 +303,17 @@ export default function CreativeLeadForm() {
           <div className="relative grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px] lg:items-end">
             <div>
               <span className="badge-prism">Talent · Creative Track</span>
-              <h1 className="font-display-saas mt-2 text-2xl font-bold leading-[1.1] text-canvas-900 sm:text-5xl sm:leading-[1.05] lg:text-[56px]">
+              <h1 className="font-display-saas mt-2 text-xl font-bold leading-[1.15] text-canvas-900 sm:text-3xl sm:leading-[1.1] lg:text-[36px]">
                 For designers and editors{' '}
                 <span className="text-prism text-prism-animated">who care about craft.</span>
               </h1>
-              <p className="mt-2 max-w-xl text-sm leading-relaxed text-canvas-600 sm:mt-3 sm:text-lg">
+              <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-canvas-600 sm:mt-2">
                 Tell us who you are, share your work — we&rsquo;ll match you with Businesses, Brands, and Employers
                 who care about craft as much as you do. Four chapters, about three minutes.
               </p>
             </div>
 
-            <div className="surface-saas grid grid-cols-2 gap-3 px-4 py-3 sm:gap-6 sm:px-5 sm:py-4">
+            <div className="surface-saas grid grid-cols-2 gap-3 px-4 py-3 sm:gap-4 sm:px-4 sm:py-3">
               <div>
                 <p className="font-display-saas text-lg font-bold text-canvas-900 sm:text-2xl">04</p>
                 <p className="mt-0.5 text-xs font-medium text-canvas-500 sm:mt-1">Chapters</p>
@@ -390,11 +390,28 @@ export default function CreativeLeadForm() {
                   }}
                   onBlur={() => {
                     const digits = form.phone.replace(countryCode, '');
-                    if (digits.length >= 7) dup.checkPhone(digits);
+                    if (!digits) return;
+                    if (digits.length < 7 || digits.length > 15) {
+                      setErrors((prev) => ({ ...prev, phone: 'Enter a valid phone number' }));
+                      return;
+                    }
+                    dup.checkPhone(form.phone);
                   }}
                 />
               </div>
               {errors.phone && <p className="mt-2 text-xs text-red-600">{errors.phone}</p>}
+              {dup.phoneDuplicate && (
+                <p className="mt-2 text-xs text-amber-700">
+                  This number is already registered with us.{' '}
+                  <button
+                    type="button"
+                    onClick={() => dup.setShowModal(true)}
+                    className="font-semibold underline underline-offset-2 hover:text-amber-900"
+                  >
+                    Contact Talent Support
+                  </button>
+                </p>
+              )}
             </div>
 
             <div id="field-email" className="field-saas">
@@ -408,9 +425,29 @@ export default function CreativeLeadForm() {
                   set('email')(e);
                   dup.clearEmail();
                 }}
-                onBlur={() => dup.checkEmail(form.email)}
+                onBlur={() => {
+                  const email = form.email.trim();
+                  if (!email) return;
+                  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                    setErrors((prev) => ({ ...prev, email: 'Enter a valid email' }));
+                    return;
+                  }
+                  dup.checkEmail(form.email);
+                }}
                 error={errors.email}
               />
+              {dup.emailDuplicate && (
+                <p className="mt-2 text-xs text-amber-700">
+                  This email is already registered with us.{' '}
+                  <button
+                    type="button"
+                    onClick={() => dup.setShowModal(true)}
+                    className="font-semibold underline underline-offset-2 hover:text-amber-900"
+                  >
+                    Contact Talent Support
+                  </button>
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
