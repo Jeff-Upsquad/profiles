@@ -366,7 +366,7 @@ export default function AccountantLeadForm() {
         </div>
 
         {/* Hero card */}
-        <header className="saas-lift card-hero relative mt-3 overflow-hidden px-6 py-4 sm:mt-8 sm:px-12 sm:py-14 lg:px-16 lg:py-16">
+        <header className="saas-lift card-hero relative mt-3 overflow-hidden px-6 py-5 sm:mt-5 sm:px-10 sm:py-8 lg:px-12 lg:py-9">
           {/* Iridescent decorative blob, top-right */}
           <div
             aria-hidden
@@ -388,17 +388,17 @@ export default function AccountantLeadForm() {
           <div className="relative grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px] lg:items-end">
             <div>
               <span className="badge-prism">Talent · Accountant Track</span>
-              <h1 className="font-display-saas mt-2 text-2xl font-bold leading-[1.1] text-canvas-900 sm:text-5xl sm:leading-[1.05] lg:text-[56px]">
+              <h1 className="font-display-saas mt-2 text-xl font-bold leading-[1.15] text-canvas-900 sm:text-3xl sm:leading-[1.1] lg:text-[36px]">
                 The only platform built for accountants{' '}
                 <span className="text-prism text-prism-animated">who care about craft.</span>
               </h1>
-              <p className="mt-2 max-w-xl text-sm leading-relaxed text-canvas-600 sm:mt-3 sm:text-lg">
+              <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-canvas-600 sm:mt-2">
                 We match you with employers that respect your expertise — full-time, freelance, hybrid.
                 Six chapters. About five minutes.
               </p>
             </div>
 
-            <div className="surface-saas grid grid-cols-2 gap-3 px-4 py-3 sm:gap-6 sm:px-5 sm:py-4">
+            <div className="surface-saas grid grid-cols-2 gap-3 px-4 py-3 sm:gap-4 sm:px-4 sm:py-3">
               <div>
                 <p className="font-display-saas text-lg font-bold text-canvas-900 sm:text-2xl">06</p>
                 <p className="mt-0.5 text-xs font-medium text-canvas-500 sm:mt-1">Chapters</p>
@@ -468,12 +468,30 @@ export default function AccountantLeadForm() {
                     dup.clearPhone();
                   }}
                   onBlur={() => {
+                    const phone = form.phone.replace(/\s/g, '');
                     const digits = form.phone.replace(/^\+91/, '');
-                    if (digits.length === 10) dup.checkPhone(digits);
+                    if (!digits) return;
+                    if (!/^\+?91[6-9]\d{9}$/.test(phone)) {
+                      setErrors((prev) => ({ ...prev, phone: 'Enter a valid 10-digit mobile number' }));
+                      return;
+                    }
+                    dup.checkPhone(form.phone);
                   }}
                 />
               </div>
               {errors.phone && <p className="mt-2 text-xs text-red-600">{errors.phone}</p>}
+              {dup.phoneDuplicate && (
+                <p className="mt-2 text-xs text-amber-700">
+                  This number is already registered with us.{' '}
+                  <button
+                    type="button"
+                    onClick={() => dup.setShowModal(true)}
+                    className="font-semibold underline underline-offset-2 hover:text-amber-900"
+                  >
+                    Contact Talent Support
+                  </button>
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -512,9 +530,29 @@ export default function AccountantLeadForm() {
                   set('email')(e);
                   dup.clearEmail();
                 }}
-                onBlur={() => dup.checkEmail(form.email)}
+                onBlur={() => {
+                  const email = form.email.trim();
+                  if (!email) return;
+                  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                    setErrors((prev) => ({ ...prev, email: 'Enter a valid email' }));
+                    return;
+                  }
+                  dup.checkEmail(form.email);
+                }}
                 error={errors.email}
               />
+              {dup.emailDuplicate && (
+                <p className="mt-2 text-xs text-amber-700">
+                  This email is already registered with us.{' '}
+                  <button
+                    type="button"
+                    onClick={() => dup.setShowModal(true)}
+                    className="font-semibold underline underline-offset-2 hover:text-amber-900"
+                  >
+                    Contact Talent Support
+                  </button>
+                </p>
+              )}
             </div>
           </Section>
 

@@ -39,8 +39,12 @@ export function useDuplicateContactCheck() {
   );
 
   const checkPhone = useCallback(
-    async (digits: string) => {
-      if (digits.length !== 10) return;
+    async (rawPhone: string) => {
+      // Identity is the last 10 digits — the same normalization the backend and the
+      // check_contact_exists RPC use — so any number is checked regardless of country
+      // code or formatting, as long as a full (10+ digit) number was entered.
+      const digits = rawPhone.replace(/\D/g, '').slice(-10);
+      if (digits.length < 10) return;
       const exists = await fetchExists({ phone: digits }, `p:${digits}`);
       setPhoneDuplicate(exists);
       if (exists) setShowModal(true);
