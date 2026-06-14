@@ -1775,10 +1775,12 @@ export async function handleSelectionUndoWebhook(
 ): Promise<void> {
   const { data: card } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id')
+    .select('id, selected_talent_user_id, content')
     .eq('external_id', externalCardId)
     .maybeSingle();
   if (!card) return;
+
+  const previousTalentId = (card as any).selected_talent_user_id as string | null;
 
   await supabaseAdmin
     .from('subscription_card_recipients')
@@ -1794,8 +1796,47 @@ export async function handleSelectionUndoWebhook(
 
   await supabaseAdmin
     .from('subscription_cards')
-    .update({ selected_talent_user_id: null, selected_at: null, status: 'active' })
+    .update({ selected_talent_user_id: null, selected_at: null, subscription_activated_at: null, status: 'active' })
     .eq('id', (card as any).id);
+
+  // Notify the previously selected/assigned talent that their client was removed
+  // (covers SquadHub-initiated unassign + reopen, both of which fire this).
+  if (previousTalentId) {
+    notifyUnassigned((card as any).id, previousTalentId, ((card as any).content ?? {}) as Record<string, unknown>).catch((err) => {
+      console.error('[subscription] notifyUnassigned (selection-undo webhook) threw', err);
+    });
+  }
+}
+
+/**
+ * Fresh broadcast — triggered by SquadHub's "Broadcast to talents" after a
+ * reopen. Wipes the prior round's recipients and re-fans-out to the FULL
+ * matching pool so every matching talent gets a fresh offer. The recreated rows
+ * carry new ids, so responses flow back to SquadHub as a clean new round.
+ */
+export async function freshBroadcast(externalCardId: string): Promise<{ matched: number }> {
+  const { data: card } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id, status, match_rules, content')
+    .eq('external_id', externalCardId)
+    .maybeSingle();
+  if (!card) return { matched: 0 };
+  const cid = (card as any).id as string;
+
+  // Wipe the prior round's recipients (a true fresh ask to everyone).
+  await supabaseAdmin.from('subscription_card_recipients').delete().eq('card_id', cid);
+
+  // Make sure the card is live before re-inviting.
+  if ((card as any).status !== 'active') {
+    await supabaseAdmin.from('subscription_cards').update({ status: 'active' }).eq('id', cid);
+  }
+
+  const matched = await fanOutBroadcast(
+    cid,
+    ((card as any).match_rules ?? {}) as Record<string, unknown>,
+    ((card as any).content ?? {}) as Record<string, unknown>,
+  );
+  return { matched };
 }
 
 // ─── Selection callback delivery to SquadHub ─────────────────────────────

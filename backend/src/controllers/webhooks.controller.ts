@@ -108,6 +108,20 @@ export async function handleCardActivation(
   }
 }
 
+export async function handleFreshBroadcast(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { card_id } = req.body;
+    const result = await subscriptionService.freshBroadcast(card_id);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function removeAssignedTalent(
   req: Request,
   res: Response,

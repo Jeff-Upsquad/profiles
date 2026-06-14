@@ -153,6 +153,13 @@ export const cardActivationWebhookSchema = z.object({
   activated_at: z.string().datetime({ offset: true }),
 });
 
+// Fired by SquadHub's "Broadcast to talents" after a reopen — wipe the prior
+// round and re-fan-out to the full matching pool (a fresh ask to everyone).
+export const cardFreshBroadcastWebhookSchema = z.object({
+  type: z.literal('card_fresh_broadcast').optional(),
+  card_id: z.string().min(1).max(200),
+});
+
 export type SelectRecipientInput = z.infer<typeof selectRecipientSchema>;
 export type CardSelectionWebhookInput = z.infer<typeof cardSelectionWebhookSchema>;
 export type CardSelectionUndoWebhookInput = z.infer<typeof cardSelectionUndoWebhookSchema>;

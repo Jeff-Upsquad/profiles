@@ -15,6 +15,7 @@ import {
   cardSelectionWebhookSchema,
   cardSelectionUndoWebhookSchema,
   cardActivationWebhookSchema,
+  cardFreshBroadcastWebhookSchema,
   talentAcceptedWebhookSchema,
 } from '../validators/subscription.validators.js';
 
@@ -88,6 +89,15 @@ router.post(
   verifySquadhubSecret,
   validate({ body: cardActivationWebhookSchema }),
   webhooksController.handleCardActivation
+);
+
+// SquadHub's "Broadcast to talents" after a reopen — wipe the prior round and
+// re-fan-out to the full matching pool (fresh ask to everyone).
+router.post(
+  '/squadhub/cards/fresh-broadcast',
+  verifySquadhubSecret,
+  validate({ body: cardFreshBroadcastWebhookSchema }),
+  webhooksController.handleFreshBroadcast
 );
 
 // Returns the full talent recipient list for a card (by SquadHub external_id).
