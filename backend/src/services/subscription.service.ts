@@ -1826,10 +1826,21 @@ export async function freshBroadcast(externalCardId: string): Promise<{ matched:
   // Wipe the prior round's recipients (a true fresh ask to everyone).
   await supabaseAdmin.from('subscription_card_recipients').delete().eq('card_id', cid);
 
-  // Make sure the card is live before re-inviting.
-  if ((card as any).status !== 'active') {
-    await supabaseAdmin.from('subscription_cards').update({ status: 'active' }).eq('id', cid);
-  }
+  // Reset the card to a clean, receivable state before re-inviting. Talents only
+  // see cards that are status='active' AND archived_at IS NULL; clear any
+  // prior-round selection / activation / recall so the fresh round is clean and
+  // independent of the selection-undo callback's timing.
+  await supabaseAdmin
+    .from('subscription_cards')
+    .update({
+      status: 'active',
+      archived_at: null,
+      recalled_at: null,
+      selected_at: null,
+      selected_talent_user_id: null,
+      subscription_activated_at: null,
+    })
+    .eq('id', cid);
 
   const matched = await fanOutBroadcast(
     cid,
