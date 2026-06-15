@@ -27,6 +27,11 @@ class SubscriptionCard {
   }
 
   String? get title => content['title'] as String?;
+  String? get description => content['description'] as String?;
+  String? get imageUrl => content['imageUrl'] as String?;
+  bool get isPopular => content['is_popular'] == true;
+  /// Content-level expiry the web renders as a relative "Expires …" line.
+  String? get contentExpiresAt => content['expiresAt'] as String?;
   String? get brandName => content['brand_name'] as String?;
   String? get planName => content['plan_name'] as String?;
   String? get subscriptionName => content['subscription_name'] as String?;

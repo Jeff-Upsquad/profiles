@@ -6,6 +6,7 @@ import 'config/router.dart';
 import 'core/constants.dart';
 import 'core/theme.dart';
 import 'providers/providers.dart';
+import 'services/notification_service.dart';
 
 class TalentApp extends ConsumerStatefulWidget {
   const TalentApp({super.key});
@@ -32,8 +33,12 @@ class _TalentAppState extends ConsumerState<TalentApp> {
   Future<void> _setupPushNotifications() async {
     final messaging = FirebaseMessaging.instance;
 
-    final settings = await messaging.requestPermission();
-    if (settings.authorizationStatus != AuthorizationStatus.authorized) return;
+    // Set up local-notification rendering + tap routing first. We do NOT bail
+    // out if the user declines the prompt: FCM data messages still arrive (so
+    // in-app refresh keeps working), the user just won't see banners until they
+    // enable notifications in system settings.
+    await initNotifications(onTap: _handleRoute);
+    await messaging.requestPermission();
 
     final token = await messaging.getToken();
     if (token != null) {
@@ -42,21 +47,41 @@ class _TalentAppState extends ConsumerState<TalentApp> {
 
     messaging.onTokenRefresh.listen(_registerToken);
 
+    // Foreground: the OS does not display data-only messages, so render one
+    // ourselves, then refresh the lists.
     FirebaseMessaging.onMessage.listen((message) {
-      ref.invalidate(pendingCardsProvider);
-      ref.invalidate(respondedCardsProvider);
+      showLocalNotification(message);
+      ref.invalidate(subscriptionListProvider);
       ref.invalidate(unreadCountProvider);
     });
 
-    FirebaseMessaging.onMessageOpenedApp.listen((_) {
-      ref.invalidate(pendingCardsProvider);
+    // A tap that resumes the app from background (FCM notification-type path).
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      ref.invalidate(subscriptionListProvider);
       ref.invalidate(unreadCountProvider);
+      final route = message.data['route']?.toString();
+      if (route != null && route.isNotEmpty) _handleRoute(route);
     });
 
     final initialMessage = await messaging.getInitialMessage();
     if (initialMessage != null) {
-      ref.invalidate(pendingCardsProvider);
+      ref.invalidate(subscriptionListProvider);
       ref.invalidate(unreadCountProvider);
+    }
+
+    // Cold-start via a tapped local notification (terminated → launched).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final route = consumeLaunchRoute();
+      if (route != null) _handleRoute(route);
+    });
+  }
+
+  void _handleRoute(String route) {
+    if (!mounted) return;
+    // Only navigate to real in-app tabs; the router redirects to /login if the
+    // session isn't authenticated yet.
+    if (route == '/pending' || route == '/responded') {
+      ref.read(routerProvider).go(route);
     }
   }
 
