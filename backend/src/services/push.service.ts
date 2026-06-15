@@ -46,8 +46,21 @@ async function sendToUsers(userIds: string[], payload: PushPayload): Promise<voi
     try {
       const res = await firebase.messaging().sendEachForMulticast({
         tokens: batch,
+        // Send BOTH a notification block and data. The notification block lets
+        // Android render the alert itself when the app is backgrounded or
+        // killed (data-only messages can't reliably wake the app on OEMs like
+        // Motorola/Xiaomi). `data` is still carried for tap-routing and the
+        // foreground path. channelId must match the app's channel so it lands
+        // on the high-importance "Offers & Updates" channel (heads-up + sound).
+        notification: { title: payload.title, body: payload.body },
         data: dataStrings,
-        android: { priority: 'high' },
+        android: {
+          priority: 'high',
+          notification: {
+            channelId: 'subscription_offers',
+            sound: 'default',
+          },
+        },
       });
 
       const idsToDelete: string[] = [];

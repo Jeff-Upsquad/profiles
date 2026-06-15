@@ -34,7 +34,10 @@ class AuthUser {
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     return AuthUser(
       id: json['id'] as String,
-      email: json['email'] as String,
+      // `/auth/me` returns the talent_users row, which has no `email` column
+      // (email lives on the auth user). Only the login response carries it.
+      // Tolerate its absence so session restore doesn't throw → silent logout.
+      email: (json['email'] as String?) ?? '',
       role: (json['role'] as String?) ?? 'talent',
       fullName: json['full_name'] as String?,
     );

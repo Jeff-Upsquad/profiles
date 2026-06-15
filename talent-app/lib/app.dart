@@ -16,11 +16,27 @@ class TalentApp extends ConsumerStatefulWidget {
 }
 
 class _TalentAppState extends ConsumerState<TalentApp> {
+  String? _fcmToken;
+
+  /// A notification's target route captured before the session is ready
+  /// (e.g. cold start from a tap). Flushed once the user is authenticated.
+  String? _pendingRoute;
+
   @override
   void initState() {
     super.initState();
     _setupPushNotifications();
     _setupSessionExpiry();
+
+    // When the user becomes authenticated: register the FCM token (the push
+    // setup runs once at startup, before a fresh login completes) and navigate
+    // to any route a notification tap was waiting on.
+    ref.listenManual(authProvider, (prev, next) {
+      if (next.status == AuthStatus.authenticated) {
+        if (_fcmToken != null) _registerToken(_fcmToken!);
+        _flushPendingRoute();
+      }
+    });
   }
 
   void _setupSessionExpiry() {
@@ -42,10 +58,14 @@ class _TalentAppState extends ConsumerState<TalentApp> {
 
     final token = await messaging.getToken();
     if (token != null) {
+      _fcmToken = token;
       _registerToken(token);
     }
 
-    messaging.onTokenRefresh.listen(_registerToken);
+    messaging.onTokenRefresh.listen((t) {
+      _fcmToken = t;
+      _registerToken(t);
+    });
 
     // Foreground: the OS does not display data-only messages, so render one
     // ourselves, then refresh the lists.
@@ -63,26 +83,36 @@ class _TalentAppState extends ConsumerState<TalentApp> {
       if (route != null && route.isNotEmpty) _handleRoute(route);
     });
 
+    // Cold-start via a tapped FCM notification (app was terminated).
     final initialMessage = await messaging.getInitialMessage();
     if (initialMessage != null) {
       ref.invalidate(subscriptionListProvider);
       ref.invalidate(unreadCountProvider);
+      final route = initialMessage.data['route']?.toString();
+      if (route != null && route.isNotEmpty) _handleRoute(route);
     }
 
     // Cold-start via a tapped local notification (terminated → launched).
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final route = consumeLaunchRoute();
-      if (route != null) _handleRoute(route);
-    });
+    final launchRoute = consumeLaunchRoute();
+    if (launchRoute != null) _handleRoute(launchRoute);
   }
 
+  /// Navigate to a notification's route, or defer it until the session is
+  /// authenticated (cold start). The auth listener calls [_flushPendingRoute].
   void _handleRoute(String route) {
-    if (!mounted) return;
-    // Only navigate to real in-app tabs; the router redirects to /login if the
-    // session isn't authenticated yet.
-    if (route == '/pending' || route == '/responded') {
-      ref.read(routerProvider).go(route);
+    if (route != '/pending' && route != '/responded') return;
+    final authed = ref.read(authProvider).status == AuthStatus.authenticated;
+    if (authed) {
+      _pendingRoute = null;
+      if (mounted) ref.read(routerProvider).go(route);
+    } else {
+      _pendingRoute = route;
     }
+  }
+
+  void _flushPendingRoute() {
+    final route = _pendingRoute;
+    if (route != null) _handleRoute(route);
   }
 
   void _registerToken(String token) {

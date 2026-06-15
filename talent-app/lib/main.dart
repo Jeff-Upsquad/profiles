@@ -8,9 +8,13 @@ import 'services/notification_service.dart';
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Runs in a separate isolate when the app is backgrounded or terminated.
-  // Firebase must be re-initialized here before we can render the notification.
   await Firebase.initializeApp();
-  await showLocalNotification(message);
+  // When the message carries a `notification` payload, Android draws it itself
+  // in this state — drawing our own too would double it. Only render manually
+  // for data-only messages (where the OS shows nothing).
+  if (message.notification == null) {
+    await showLocalNotification(message);
+  }
 }
 
 Future<void> main() async {

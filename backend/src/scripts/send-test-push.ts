@@ -71,6 +71,10 @@ async function main(): Promise<void> {
 
   const res = await firebase.messaging().sendEachForMulticast({
     tokens: tokens.map((t) => t.token as string),
+    notification: {
+      title: 'Test notification',
+      body: 'If you can see this, push notifications are working 🎉',
+    },
     data: {
       type: 'new_card',
       title: 'Test notification',
@@ -78,7 +82,10 @@ async function main(): Promise<void> {
       card_id: '',
       route: '/pending',
     },
-    android: { priority: 'high' },
+    android: {
+      priority: 'high',
+      notification: { channelId: 'subscription_offers', sound: 'default' },
+    },
   });
 
   console.log(`✓ success: ${res.successCount}   ✗ failure: ${res.failureCount}`);
