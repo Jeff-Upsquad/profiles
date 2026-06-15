@@ -21,6 +21,7 @@ export const WORK_TYPE_SEEKING_OPTIONS = [
   { label: 'Freelance work', value: 'Freelance work' },
   { label: 'Full Time Job', value: 'Full Time Job' },
   { label: 'Part Time Job', value: 'Part Time Job' },
+  { label: 'UpSquad Partner Program', value: 'UpSquad Partner Program' },
 ];
 
 export const KERALA_DISTRICTS = [

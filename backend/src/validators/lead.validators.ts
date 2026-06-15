@@ -4,7 +4,7 @@ import { z } from 'zod';
 const phoneRegex = /^(\+?91)?[6-9]\d{9}$/;
 
 const workTypeSeekingSchema = z
-  .array(z.enum(['Freelance work', 'Full Time Job', 'Part Time Job']))
+  .array(z.enum(['Freelance work', 'Full Time Job', 'Part Time Job', 'UpSquad Partner Program']))
   .min(1, 'Select at least one work type you are looking for');
 
 export const creativeLeadSchema = z.object({
