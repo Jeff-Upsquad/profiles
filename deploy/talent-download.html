@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Download SquadHire — Talent App</title>
+  <style>
+    :root{
+      --primary:#4F46E5; --primary-dark:#3730A3;
+      --ink:#0F172A; --muted:#64748B; --line:#E2E8F0; --bg:#F8FAFC;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      color:var(--ink); min-height:100dvh; display:flex; align-items:center; justify-content:center;
+      padding:24px;
+      background:
+        radial-gradient(1200px 600px at 50% -10%, #EEF0FF 0%, rgba(238,240,255,0) 60%),
+        var(--bg);
+    }
+    .card{
+      width:100%; max-width:420px; background:#fff; border:1px solid var(--line);
+      border-radius:24px; padding:32px 28px;
+      box-shadow:0 24px 60px -20px rgba(79,70,229,.25), 0 8px 24px -12px rgba(15,23,42,.12);
+      text-align:center;
+    }
+    .logo{
+      width:72px; height:72px; margin:0 auto 18px; border-radius:20px;
+      background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:0 10px 24px -8px rgba(79,70,229,.55);
+    }
+    .logo svg{width:38px;height:38px;color:#fff}
+    h1{font-size:26px;font-weight:800;letter-spacing:-.02em}
+    .tag{color:var(--muted);font-size:14px;margin-top:4px}
+    .pill{
+      display:inline-block;margin-top:16px;padding:6px 14px;border-radius:999px;
+      background:#EEF0FF;color:var(--primary-dark);font-size:13px;font-weight:600;
+    }
+    .btn{
+      display:flex;align-items:center;justify-content:center;gap:10px;
+      width:100%;margin-top:24px;padding:16px;border:none;border-radius:14px;cursor:pointer;
+      background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;
+      font-size:17px;font-weight:700;text-decoration:none;
+      box-shadow:0 12px 24px -10px rgba(79,70,229,.6);transition:transform .15s ease,box-shadow .15s ease;
+    }
+    .btn:active{transform:translateY(1px)}
+    .btn svg{width:20px;height:20px}
+    .hint{margin-top:10px;font-size:12px;color:var(--muted)}
+    .steps{margin-top:28px;text-align:left}
+    .steps h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px}
+    .step{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+    .num{
+      flex:0 0 24px;width:24px;height:24px;border-radius:50%;background:#EEF0FF;color:var(--primary-dark);
+      font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px;
+    }
+    .step p{font-size:14px;line-height:1.45}
+    .step b{color:var(--ink)}
+    .foot{margin-top:26px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.5H11l-1 8.5L19.5 10H13l0-8Z"/></svg>
+    </div>
+    <h1>SquadHire</h1>
+    <p class="tag">Powered by UpSquad — Talent App</p>
+    <span class="pill" id="version">Latest version</span>
+
+    <a class="btn" id="download" href="/talent-app/talent-app-latest.apk" download>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/>
+      </svg>
+      Download for Android
+    </a>
+    <p class="hint">Android only · ~52&nbsp;MB</p>
+
+    <section class="steps">
+      <h2>How to install</h2>
+      <div class="step"><div class="num">1</div><p>Tap <b>Download for Android</b> above.</p></div>
+      <div class="step"><div class="num">2</div><p>Open the downloaded <b>.apk</b> file from your notifications or Files.</p></div>
+      <div class="step"><div class="num">3</div><p>If prompted, allow <b>"Install from this source"</b>, then tap <b>Install</b>.</p></div>
+    </section>
+
+    <p class="foot">Already installed? Downloading again simply updates the app.</p>
+  </main>
+
+  <script>
+    // Keep the page in sync with the published release without redeploying it.
+    fetch('/api/app-config').then(r => r.json()).then(c => {
+      if (c && typeof c.download_url === 'string' && c.download_url) {
+        document.getElementById('download').setAttribute('href', c.download_url);
+      }
+      if (c && c.min_version) {
+        document.getElementById('version').textContent = 'Version ' + c.min_version;
+      }
+    }).catch(function(){ /* keep static fallbacks */ });
+  </script>
+</body>
+</html>
