@@ -55,6 +55,11 @@ export const ingestSubscriptionCardSchema = z.object({
   // haven't been updated yet keep behaving as before — once SquadHub starts
   // sending the flag explicitly, secondaries get filtered.
   is_secondary: z.boolean().default(false),
+  // Shared id across the per-tier sibling cards SquadHub fanned out from one
+  // multi-tier brief. The business dashboard collapses cards with the same
+  // group_id into a single card with a tab per tier. Null/absent on
+  // single-tier and legacy cards — those render as one card each, unchanged.
+  group_id: z.string().uuid().nullable().optional(),
 });
 
 export const removeTalentFromCardSchema = z.object({

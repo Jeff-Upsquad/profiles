@@ -50,6 +50,11 @@ function cardTitle(card: BusinessSubscriptionCardSummary): string {
 
 function planSubtitle(card: BusinessSubscriptionCardSummary): string | null {
   const { plan_name, plan_tier } = card;
+  // Multi-tier brief: list all of its tiers instead of a single one.
+  const tiers = card.tiers ?? [];
+  if (card.is_group && tiers.length > 0) {
+    return plan_name ? `${plan_name} · ${tiers.join(' · ')}` : tiers.join(' · ');
+  }
   if (plan_name && plan_tier) return `${plan_name} · ${plan_tier}`;
   if (plan_name) return plan_name;
   if (plan_tier) return `${plan_tier} tier`;
@@ -378,7 +383,9 @@ function SubscriptionCardRow({
   index: number;
   tipSlot?: React.ReactNode;
 }) {
-  const price = formatPrice(card.customer_monthly_price, card.currency);
+  const rawPrice = formatPrice(card.customer_monthly_price, card.currency);
+  // For a multi-tier brief the price is the lowest tier — label it "from".
+  const price = rawPrice && card.is_group ? `from ${rawPrice}` : rawPrice;
   const published = formatPublishedAt(card.published_at);
   const accepted = card.counts.accepted;
   const shortlisted = card.counts.shortlisted;

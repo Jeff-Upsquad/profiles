@@ -43,6 +43,11 @@ function cardTitle(card: BusinessSubscriptionCardSummary): string {
 
 function planSubtitle(card: BusinessSubscriptionCardSummary): string | null {
   const { plan_name, plan_tier } = card;
+  // Multi-tier brief: list all of its tiers instead of a single one.
+  const tiers = card.tiers ?? [];
+  if (card.is_group && tiers.length > 0) {
+    return plan_name ? `${plan_name} · ${tiers.join(' · ')}` : tiers.join(' · ');
+  }
   if (plan_name && plan_tier) return `${plan_name} · ${plan_tier}`;
   if (plan_name) return plan_name;
   if (plan_tier) return `${plan_tier} tier`;
@@ -251,7 +256,8 @@ function EmptyState({ tab, hasNoCards }: { tab: Tab; hasNoCards: boolean }) {
 }
 
 function AssignedCardRow({ card, index }: { card: BusinessSubscriptionCardSummary; index: number }) {
-  const price = formatPrice(card.customer_monthly_price, card.currency);
+  const rawPrice = formatPrice(card.customer_monthly_price, card.currency);
+  const price = rawPrice && card.is_group ? `from ${rawPrice}` : rawPrice;
   const published = formatPublishedAt(card.published_at);
   const tint = tintFor(card.id);
   const selectedCount = card.counts.selected ?? 0;
@@ -324,7 +330,8 @@ function CardRow({
   index: number;
   tipSlot?: React.ReactNode;
 }) {
-  const price = formatPrice(card.customer_monthly_price, card.currency);
+  const rawPrice = formatPrice(card.customer_monthly_price, card.currency);
+  const price = rawPrice && card.is_group ? `from ${rawPrice}` : rawPrice;
   const published = formatPublishedAt(card.published_at);
   const forReview = card.counts.for_review ?? 0;
   const shortlisted = card.counts.shortlisted;

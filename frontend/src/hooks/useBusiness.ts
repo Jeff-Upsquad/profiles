@@ -126,6 +126,12 @@ export interface BusinessSubscriptionCardSummary {
    *  the Open section but renders a "Recalled" tag. */
   recalled_at: string | null;
   category_ids: string[];
+  /** Tiers this card covers. A multi-tier brief is collapsed server-side into
+   *  one card spanning several tiers; single-tier cards have one entry. */
+  tiers?: string[];
+  /** True when this row represents a multi-tier brief (several tier siblings
+   *  collapsed into one card). customer_monthly_price is then the lowest tier. */
+  is_group?: boolean;
   counts: { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number };
 }
 
@@ -208,6 +214,11 @@ export interface CardRecipientForBusiness {
   category: { id: string; name: string; slug: string } | null;
   tier: string | null;
   tier_custom: string | null;
+  /** The tier card this talent was matched into (for multi-tier briefs). */
+  card_id?: string;
+  /** Proposed monthly price of this talent's tier card — shown to the business. */
+  proposed_price?: number | null;
+  currency?: string | null;
   business_review_status: 'shortlisted' | 'rejected' | null;
   business_reviewed_at: string | null;
   selected_at: string | null;

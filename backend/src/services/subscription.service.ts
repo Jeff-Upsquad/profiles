@@ -309,6 +309,10 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     // is_secondary: SquadHub flags child cards. Written on every ingest so
     // a card that flips primary↔secondary can't get stuck on the wrong side.
     is_secondary: input.is_secondary,
+    // group_id: links the per-tier sibling cards of one multi-tier brief so the
+    // business dashboard collapses them into a single tabbed card. Written on
+    // every ingest so a re-publish can set or clear it.
+    group_id: input.group_id ?? null,
     // status: write only when SquadHub sent one. On insert we still default
     // to 'active' via the column default; on update we preserve the existing
     // status when `status` is omitted so a plain content refresh doesn't
@@ -342,6 +346,7 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       recalled_at: row.recalled_at,
       archived_at: row.archived_at,
       is_secondary: row.is_secondary,
+      group_id: row.group_id,
     };
     if (input.status) updatePatch.status = input.status;
 
