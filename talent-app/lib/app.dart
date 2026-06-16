@@ -6,6 +6,7 @@ import 'config/router.dart';
 import 'core/constants.dart';
 import 'core/theme.dart';
 import 'providers/providers.dart';
+import 'services/notification_service.dart';
 
 class TalentApp extends ConsumerStatefulWidget {
   const TalentApp({super.key});
@@ -15,11 +16,27 @@ class TalentApp extends ConsumerStatefulWidget {
 }
 
 class _TalentAppState extends ConsumerState<TalentApp> {
+  String? _fcmToken;
+
+  /// A notification's target route captured before the session is ready
+  /// (e.g. cold start from a tap). Flushed once the user is authenticated.
+  String? _pendingRoute;
+
   @override
   void initState() {
     super.initState();
     _setupPushNotifications();
     _setupSessionExpiry();
+
+    // When the user becomes authenticated: register the FCM token (the push
+    // setup runs once at startup, before a fresh login completes) and navigate
+    // to any route a notification tap was waiting on.
+    ref.listenManual(authProvider, (prev, next) {
+      if (next.status == AuthStatus.authenticated) {
+        if (_fcmToken != null) _registerToken(_fcmToken!);
+        _flushPendingRoute();
+      }
+    });
   }
 
   void _setupSessionExpiry() {
@@ -32,32 +49,70 @@ class _TalentAppState extends ConsumerState<TalentApp> {
   Future<void> _setupPushNotifications() async {
     final messaging = FirebaseMessaging.instance;
 
-    final settings = await messaging.requestPermission();
-    if (settings.authorizationStatus != AuthorizationStatus.authorized) return;
+    // Set up local-notification rendering + tap routing first. We do NOT bail
+    // out if the user declines the prompt: FCM data messages still arrive (so
+    // in-app refresh keeps working), the user just won't see banners until they
+    // enable notifications in system settings.
+    await initNotifications(onTap: _handleRoute);
+    await messaging.requestPermission();
 
     final token = await messaging.getToken();
     if (token != null) {
+      _fcmToken = token;
       _registerToken(token);
     }
 
-    messaging.onTokenRefresh.listen(_registerToken);
+    messaging.onTokenRefresh.listen((t) {
+      _fcmToken = t;
+      _registerToken(t);
+    });
 
+    // Foreground: the OS does not display data-only messages, so render one
+    // ourselves, then refresh the lists.
     FirebaseMessaging.onMessage.listen((message) {
-      ref.invalidate(pendingCardsProvider);
-      ref.invalidate(respondedCardsProvider);
+      showLocalNotification(message);
+      ref.invalidate(subscriptionListProvider);
       ref.invalidate(unreadCountProvider);
     });
 
-    FirebaseMessaging.onMessageOpenedApp.listen((_) {
-      ref.invalidate(pendingCardsProvider);
+    // A tap that resumes the app from background (FCM notification-type path).
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      ref.invalidate(subscriptionListProvider);
       ref.invalidate(unreadCountProvider);
+      final route = message.data['route']?.toString();
+      if (route != null && route.isNotEmpty) _handleRoute(route);
     });
 
+    // Cold-start via a tapped FCM notification (app was terminated).
     final initialMessage = await messaging.getInitialMessage();
     if (initialMessage != null) {
-      ref.invalidate(pendingCardsProvider);
+      ref.invalidate(subscriptionListProvider);
       ref.invalidate(unreadCountProvider);
+      final route = initialMessage.data['route']?.toString();
+      if (route != null && route.isNotEmpty) _handleRoute(route);
     }
+
+    // Cold-start via a tapped local notification (terminated → launched).
+    final launchRoute = consumeLaunchRoute();
+    if (launchRoute != null) _handleRoute(launchRoute);
+  }
+
+  /// Navigate to a notification's route, or defer it until the session is
+  /// authenticated (cold start). The auth listener calls [_flushPendingRoute].
+  void _handleRoute(String route) {
+    if (route != '/pending' && route != '/responded') return;
+    final authed = ref.read(authProvider).status == AuthStatus.authenticated;
+    if (authed) {
+      _pendingRoute = null;
+      if (mounted) ref.read(routerProvider).go(route);
+    } else {
+      _pendingRoute = route;
+    }
+  }
+
+  void _flushPendingRoute() {
+    final route = _pendingRoute;
+    if (route != null) _handleRoute(route);
   }
 
   void _registerToken(String token) {

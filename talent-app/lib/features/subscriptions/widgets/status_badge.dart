@@ -50,6 +50,15 @@ class StatusBadge extends StatelessWidget {
         icon: Icons.remove_circle_outline,
       );
 
+  /// Shown instead of "Not Selected" when the card itself has been assigned
+  /// (filled) — the round is closed rather than this talent being passed over.
+  factory StatusBadge.closed() => const StatusBadge(
+        label: 'Closed',
+        color: AppColors.textTertiary,
+        backgroundColor: AppColors.divider,
+        icon: Icons.lock_outline_rounded,
+      );
+
   @override
   Widget build(BuildContext context) {
     return Container(

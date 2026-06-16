@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Prevents R8 resource shrinking from discarding the notification icon, which
+     is referenced only by name string at runtime (flutter_local_notifications).
+     Without this, notifications can silently fail to display in release builds. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_notify" />

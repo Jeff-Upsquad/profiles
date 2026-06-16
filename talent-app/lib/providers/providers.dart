@@ -4,9 +4,11 @@ import '../services/secure_storage.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/subscription_service.dart';
+import '../services/talent_service.dart';
 import '../services/push_service.dart';
 import '../models/auth_response.dart';
 import '../models/subscription_card.dart';
+import '../models/talent_me.dart';
 
 // ─── Singletons ──────────────────────────────────────────────────────────────
 
@@ -23,6 +25,10 @@ final authServiceProvider = Provider((ref) {
 
 final subscriptionServiceProvider = Provider((ref) {
   return SubscriptionService(ref.watch(apiClientProvider));
+});
+
+final talentServiceProvider = Provider((ref) {
+  return TalentService(ref.watch(apiClientProvider));
 });
 
 final pushServiceProvider = Provider((ref) {
@@ -136,17 +142,26 @@ final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new)
 
 // ─── Subscription providers ─────────────────────────────────────────────────
 
-final pendingCardsProvider = FutureProvider.autoDispose<List<SubscriptionCardRecipient>>((ref) async {
+/// Fetches subscription recipients for a backend-supported status filter:
+/// `pending` | `accepted` | `rejected` | `all`. Keyed by status so the Pending
+/// and Responded screens (and the Responded filter chips) each cache their own
+/// list. Invalidate the whole family with `ref.invalidate(subscriptionListProvider)`.
+final subscriptionListProvider = FutureProvider.autoDispose
+    .family<List<SubscriptionCardRecipient>, String>((ref, status) async {
   final service = ref.watch(subscriptionServiceProvider);
-  return service.list(status: 'pending');
+  return service.list(status: status);
 });
 
-final respondedCardsProvider = FutureProvider.autoDispose<List<SubscriptionCardRecipient>>((ref) async {
-  final service = ref.watch(subscriptionServiceProvider);
-  return service.list(status: 'responded');
-});
+final pendingCardsProvider = subscriptionListProvider('pending');
 
 final unreadCountProvider = FutureProvider.autoDispose<int>((ref) async {
   final service = ref.watch(subscriptionServiceProvider);
   return service.getUnreadCount();
+});
+
+// ─── Talent profile (for WhatsApp toggle + inactive-profile guard) ───────────
+
+final talentMeProvider = FutureProvider.autoDispose<TalentMe>((ref) async {
+  final service = ref.watch(talentServiceProvider);
+  return service.getMe();
 });

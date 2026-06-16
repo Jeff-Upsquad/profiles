@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/providers.dart';
+import '../models/subscription_card.dart';
 import '../features/auth/splash_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/subscriptions/pending_screen.dart';
 import '../features/subscriptions/responded_screen.dart';
+import '../features/subscriptions/subscription_detail_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../widgets/app_bottom_nav.dart';
 
@@ -47,6 +49,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         builder: (_, _) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/subscription-detail',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final recipient = state.extra as SubscriptionCardRecipient?;
+          if (recipient == null) {
+            return const Scaffold(
+              body: Center(child: Text('Offer details unavailable')),
+            );
+          }
+          return SubscriptionDetailScreen(recipient: recipient);
+        },
       ),
       StatefulShellRoute.indexedStack(
         builder: (_, _, navigationShell) {
