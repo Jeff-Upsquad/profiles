@@ -578,6 +578,92 @@ function pickCategoryIds(matchRules: unknown): string[] {
   return raw.filter((v): v is string => typeof v === 'string' && v.length > 0);
 }
 
+// Tier display order. Talent/plan tiers arrive in mixed case ('junior',
+// 'Pro', 'Elite', 'Top Talents'); 'Elite' is the legacy name for 'Top Talents'
+// so both share a rank. Unknown tiers sort last.
+const TIER_RANK: Record<string, number> = { junior: 0, pro: 1, elite: 2, 'top talents': 2 };
+function tierRankOf(tier: string | null | undefined): number {
+  return TIER_RANK[(tier ?? '').toLowerCase().trim()] ?? 99;
+}
+
+interface DashboardCardSummary {
+  id: string;
+  external_id: string;
+  group_id: string | null;
+  brand_name: string | null;
+  subscription_name: string | null;
+  plan_name: string | null;
+  plan_tier: string | null;
+  customer_monthly_price: number | null;
+  currency: string | null;
+  status: 'active' | 'assigned' | 'archived';
+  published_at: string | null;
+  recalled_at: string | null;
+  category_ids: string[];
+  counts: { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number };
+}
+
+// Collapse the per-tier sibling cards of one multi-tier brief (same group_id)
+// into a single dashboard entry with a per-tier breakdown. Cards without a
+// group_id stay standalone. Input order is preserved; the first card seen for
+// a group is its representative (the id the business clicks through to open).
+// Counts/categories are aggregated, the lowest tier price is surfaced as the
+// "from" price, status takes the most-live across the group, and `tiers` lists
+// the group's tiers so the UI can render "Junior · Pro · Top Talents".
+function collapseByGroup(
+  perCard: DashboardCardSummary[],
+): Array<DashboardCardSummary & { tiers: string[]; is_group: boolean }> {
+  const out: Array<any> = [];
+  const groupEntry = new Map<string, any>();
+
+  for (const c of perCard) {
+    if (!c.group_id) {
+      out.push({ ...c, tiers: c.plan_tier ? [c.plan_tier] : [], is_group: false });
+      continue;
+    }
+    const existing = groupEntry.get(c.group_id);
+    if (!existing) {
+      const entry: any = {
+        ...c,
+        plan_tier: null,
+        is_group: true,
+        counts: { ...c.counts },
+        _tierSet: new Set<string>(c.plan_tier ? [c.plan_tier] : []),
+        _catSet: new Set<string>(c.category_ids),
+        _minPrice: c.customer_monthly_price,
+        _statuses: new Set<string>([c.status]),
+      };
+      groupEntry.set(c.group_id, entry);
+      out.push(entry);
+    } else {
+      for (const k of Object.keys(existing.counts)) {
+        existing.counts[k] += (c.counts as any)[k] ?? 0;
+      }
+      for (const cat of c.category_ids) existing._catSet.add(cat);
+      if (c.plan_tier) existing._tierSet.add(c.plan_tier);
+      if (typeof c.customer_monthly_price === 'number') {
+        existing._minPrice =
+          existing._minPrice == null ? c.customer_monthly_price : Math.min(existing._minPrice, c.customer_monthly_price);
+      }
+      existing._statuses.add(c.status);
+      if (!existing.currency && c.currency) existing.currency = c.currency;
+    }
+  }
+
+  return out.map((e) => {
+    if (!e.is_group) return e;
+    const { _tierSet, _catSet, _minPrice, _statuses, ...rest } = e;
+    const status = _statuses.has('active') ? 'active' : _statuses.has('assigned') ? 'assigned' : 'archived';
+    return {
+      ...rest,
+      tiers: Array.from(_tierSet as Set<string>).sort((a, b) => tierRankOf(a) - tierRankOf(b)),
+      category_ids: Array.from(_catSet as Set<string>),
+      customer_monthly_price: _minPrice ?? null,
+      status,
+    };
+  });
+}
+
 export async function listMySubscriptionCards(businessUserId: string) {
   // Resolve the caller's contact_email so we can rescue cards whose
   // business_user_id was left null at ingest time. SquadHub may publish
@@ -598,7 +684,7 @@ export async function listMySubscriptionCards(businessUserId: string) {
   const { data: cards, error } = await supabaseAdmin
     .from('subscription_cards')
     .select(
-      'id, external_id, content, match_rules, status, published_at, expires_at, created_at, business_user_id, recalled_at, is_secondary',
+      'id, external_id, content, match_rules, status, published_at, expires_at, created_at, business_user_id, recalled_at, is_secondary, group_id',
     )
     .or(orFilter)
     // Hide SquadHub-side secondary cards from the business dashboard — only
@@ -725,12 +811,13 @@ export async function listMySubscriptionCards(businessUserId: string) {
     }
   }
 
-  return list.map((card: any) => {
+  const perCard: DashboardCardSummary[] = list.map((card: any) => {
     const content = (card.content ?? {}) as Record<string, unknown>;
     const categoryIds = pickCategoryIds(card.match_rules);
     return {
       id: card.id as string,
       external_id: card.external_id as string,
+      group_id: (card.group_id as string | null) ?? null,
       brand_name: (content.brand_name as string) ?? null,
       subscription_name: (content.subscription_name as string) ?? null,
       plan_name: (content.plan_name as string) ?? null,
@@ -745,12 +832,16 @@ export async function listMySubscriptionCards(businessUserId: string) {
       counts: counts.get(card.id as string)!,
     };
   });
+
+  // One dashboard card per brief: collapse the per-tier siblings into a single
+  // entry with a tier breakdown (single-tier/legacy cards pass through as-is).
+  return collapseByGroup(perCard);
 }
 
 export async function getMySubscriptionCard(businessUserId: string, cardId: string) {
   const { data: card, error } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, content, match_rules, status, published_at, expires_at, business_user_id, recalled_at')
+    .select('id, external_id, content, match_rules, status, published_at, expires_at, business_user_id, recalled_at, group_id')
     .eq('id', cardId)
     .maybeSingle();
 
@@ -777,6 +868,32 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
   // business dashboard can render a complete subscription summary.
   const matchRules = ((card as any).match_rules ?? {}) as Record<string, unknown>;
 
+  // For a multi-tier brief, this card is one tier sibling. Surface the union of
+  // the group's tiers so the header reads "Junior · Pro · Top Talents" and the
+  // review page can offer a sub-tab per tier (the per-talent prices come from
+  // getCardRecipientsForReview).
+  let targetTiers = Array.isArray(matchRules.target_tiers) ? (matchRules.target_tiers as string[]) : [];
+  const groupId = (card as any).group_id as string | null;
+  if (groupId) {
+    const { data: siblings } = await supabaseAdmin
+      .from('subscription_cards')
+      .select('content, match_rules')
+      .eq('group_id', groupId)
+      .is('archived_at', null);
+    const tierSet = new Set<string>();
+    for (const s of siblings ?? []) {
+      const sc = ((s as any).content ?? {}) as Record<string, unknown>;
+      if (typeof sc.plan_tier === 'string' && sc.plan_tier) tierSet.add(sc.plan_tier);
+      const sm = ((s as any).match_rules ?? {}) as Record<string, unknown>;
+      if (Array.isArray(sm.target_tiers)) {
+        for (const t of sm.target_tiers as string[]) if (t) tierSet.add(t);
+      }
+    }
+    if (tierSet.size > 0) {
+      targetTiers = Array.from(tierSet).sort((a, b) => tierRankOf(a) - tierRankOf(b));
+    }
+  }
+
   return {
     id: card.id as string,
     external_id: card.external_id as string,
@@ -793,7 +910,7 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
     business_nature: (content.business_nature as string) ?? null,
     hours_label: (content.hours_label as string) ?? null,
     working_days: Array.isArray(content.working_days) ? content.working_days : null,
-    target_tiers: Array.isArray(matchRules.target_tiers) ? (matchRules.target_tiers as string[]) : [],
+    target_tiers: targetTiers,
     target_languages: Array.isArray(matchRules.target_languages) ? (matchRules.target_languages as string[]) : [],
     target_regions: Array.isArray(matchRules.target_regions)
       ? (matchRules.target_regions as Array<{ country_id: string; region: string }>)
@@ -948,7 +1065,7 @@ export async function getInterests(businessUserId: string) {
 async function verifyCardOwnership(businessUserId: string, cardId: string) {
   const { data: card, error } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, business_user_id, match_rules, selected_at, selected_talent_user_id, external_id, content, status')
+    .select('id, business_user_id, match_rules, selected_at, selected_talent_user_id, external_id, content, status, group_id')
     .eq('id', cardId)
     .maybeSingle();
 
@@ -959,14 +1076,56 @@ async function verifyCardOwnership(businessUserId: string, cardId: string) {
   return card as any;
 }
 
+// Resolve the set of cards that make up a brief: the per-tier siblings sharing
+// group_id, or just [card] for a single-tier / legacy card. The siblings of a
+// group belong to the same business (group_id is unique per brief), so this is
+// safe to call after verifyCardOwnership on any one of them. Used so the review
+// page and the shortlist/select actions operate across every tier of the brief
+// even though the dashboard only hands back the representative card's id.
+async function resolveGroupCards(card: any): Promise<any[]> {
+  const groupId = card.group_id as string | null;
+  if (!groupId) return [card];
+  const { data: siblings } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id, match_rules, content, status, selected_at, selected_talent_user_id, group_id, business_user_id')
+    .eq('group_id', groupId)
+    .is('archived_at', null);
+  return siblings && siblings.length > 0 ? siblings : [card];
+}
+
 export async function getCardRecipientsForReview(businessUserId: string, cardId: string) {
   const card = await verifyCardOwnership(businessUserId, cardId);
-  const categoryIds = pickCategoryIds(card.match_rules);
+
+  // For a multi-tier brief, gather all the tier sibling cards (same group_id)
+  // so the business reviews every tier's accepted talents in one place, split
+  // by tier on the client. Each recipient keeps its own card_id so we can tag
+  // it with that tier's proposed price. Single-tier cards resolve to [card].
+  const groupCards = await resolveGroupCards(card);
+  const cardIds = groupCards.map((c: any) => c.id as string);
+
+  // Union of every tier card's categories — eligibility is checked against the
+  // whole group so a talent approved in the brief's category shows regardless
+  // of which tier card matched them.
+  const categoryIdSet = new Set<string>();
+  for (const c of groupCards) for (const cat of pickCategoryIds(c.match_rules)) categoryIdSet.add(cat);
+  const categoryIds = Array.from(categoryIdSet);
+
+  // Per-tier proposed price (customer_monthly_price) + currency, keyed by the
+  // card a recipient belongs to. This is the "proposed price" the business sees
+  // next to each talent.
+  const priceByCard = new Map<string, { price: number | null; currency: string | null }>();
+  for (const c of groupCards) {
+    const content = ((c as any).content ?? {}) as Record<string, unknown>;
+    priceByCard.set(c.id as string, {
+      price: typeof content.customer_monthly_price === 'number' ? content.customer_monthly_price : null,
+      currency: (content.currency as string) ?? null,
+    });
+  }
 
   const { data: recipients, error } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('id, talent_user_id, status, responded_at, selected_at, passed_over_at, business_review_status, business_reviewed_at')
-    .eq('card_id', cardId)
+    .select('id, card_id, talent_user_id, status, responded_at, selected_at, passed_over_at, business_review_status, business_reviewed_at')
+    .in('card_id', cardIds)
     .eq('status', 'accepted')
     .is('cancelled_at', null)
     .order('responded_at', { ascending: false });
@@ -1012,41 +1171,44 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
   const visibleTalentIds = Array.from(profileMap.keys());
   const tiers = await getTalentTiersByUserIds(visibleTalentIds);
 
-  // Use the card-level selected_talent_user_id as fallback when the
-  // recipient row doesn't have selected_at stamped (e.g. SquadHub admin
-  // assigned the card without going through the selection webhook).
-  const cardSelectedTalent = card.selected_talent_user_id as string | null;
-  const cardSelectedAt = card.selected_at as string | null;
-  const cardStatus = card.content?.status ?? (card as any).status ?? null;
-
-  // Determine effective selected talent. Three tiers:
-  //  1. card.selected_talent_user_id is set → use it
-  //  2. Any recipient already has selected_at → that recipient is selected
-  //  3. Card is 'assigned' with selected_at but no selection data at either
-  //     level (webhook propagation gap) → infer from accepted recipients:
-  //     if exactly one accepted recipient exists, they must be the selection.
   const acceptedRows = rows.filter((r: any) => profileMap.has(r.talent_user_id));
-  const anyRecipientSelected = acceptedRows.some((r: any) => !!r.selected_at);
 
-  let inferredSelectedTalent: string | null = cardSelectedTalent;
-  if (
-    !inferredSelectedTalent &&
-    !anyRecipientSelected &&
-    (card as any).status === 'assigned' &&
-    cardSelectedAt &&
-    acceptedRows.length === 1
-  ) {
-    inferredSelectedTalent = (acceptedRows[0] as any).talent_user_id as string;
+  // Selection is resolved per tier card (each tier card can be independently
+  // assigned). Mirrors the original single-card logic, applied per card:
+  //  1. card.selected_talent_user_id is set → use it
+  //  2. Any recipient on that card has selected_at → they're selected
+  //  3. Card is 'assigned' with selected_at but no explicit selection
+  //     (webhook gap) and has exactly one accepted recipient → infer it.
+  const acceptedByCard = new Map<string, any[]>();
+  for (const r of acceptedRows) {
+    const arr = acceptedByCard.get(r.card_id as string) ?? [];
+    arr.push(r);
+    acceptedByCard.set(r.card_id as string, arr);
+  }
+  const selectionByCard = new Map<string, { selectedTalent: string | null; selectedAt: string | null }>();
+  for (const c of groupCards) {
+    const accForCard = acceptedByCard.get(c.id as string) ?? [];
+    const cardSelectedTalent = (c.selected_talent_user_id as string | null) ?? null;
+    const cardSelectedAt = (c.selected_at as string | null) ?? null;
+    let inferred: string | null = cardSelectedTalent;
+    const anySelected = accForCard.some((r: any) => !!r.selected_at);
+    if (!inferred && !anySelected && (c as any).status === 'assigned' && cardSelectedAt && accForCard.length === 1) {
+      inferred = accForCard[0].talent_user_id as string;
+    }
+    selectionByCard.set(c.id as string, { selectedTalent: inferred, selectedAt: cardSelectedAt });
   }
 
   return acceptedRows
     .map((r: any) => {
       const talent = talentMap.get(r.talent_user_id) ?? {};
       const profile = profileMap.get(r.talent_user_id);
-      const isCardSelected = inferredSelectedTalent && r.talent_user_id === inferredSelectedTalent;
+      const sel = selectionByCard.get(r.card_id as string) ?? { selectedTalent: null, selectedAt: null };
+      const isCardSelected = sel.selectedTalent && r.talent_user_id === sel.selectedTalent;
+      const price = priceByCard.get(r.card_id as string) ?? { price: null, currency: null };
       return {
         recipient_id: r.id as string,
         talent_user_id: r.talent_user_id as string,
+        card_id: r.card_id as string,
         talent_name: talent.full_name ?? null,
         profile_photo_url: talent.profile_photo_url ?? null,
         current_location: talent.current_location ?? null,
@@ -1055,10 +1217,14 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
         category: profile?.categories ?? null,
         tier: tiers[r.talent_user_id]?.tier ?? null,
         tier_custom: tiers[r.talent_user_id]?.tier_custom ?? null,
+        // Proposed price for this talent = the customer monthly price of the
+        // tier card they were matched into.
+        proposed_price: price.price,
+        currency: price.currency,
         business_review_status: r.business_review_status ?? null,
         business_reviewed_at: r.business_reviewed_at ?? null,
-        selected_at: r.selected_at ?? (isCardSelected ? cardSelectedAt : null),
-        passed_over_at: r.passed_over_at ?? (inferredSelectedTalent && !isCardSelected ? cardSelectedAt : null),
+        selected_at: r.selected_at ?? (isCardSelected ? sel.selectedAt : null),
+        passed_over_at: r.passed_over_at ?? (sel.selectedTalent && !isCardSelected ? sel.selectedAt : null),
         responded_at: r.responded_at ?? null,
       };
     });
@@ -1071,20 +1237,25 @@ export async function reviewCardRecipient(
   action: 'shortlist' | 'reject' | 'unshortlist',
 ) {
   const card = await verifyCardOwnership(businessUserId, cardId);
-
-  if (card.selected_at) {
-    throw new AppError(409, 'Card already has a selected talent');
-  }
+  const groupCards = await resolveGroupCards(card);
+  const groupCardIds = groupCards.map((c: any) => c.id as string);
 
   const { data: recipient, error: recErr } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('id, status, cancelled_at')
+    .select('id, status, cancelled_at, card_id')
     .eq('id', recipientId)
-    .eq('card_id', cardId)
+    .in('card_id', groupCardIds)
     .maybeSingle();
 
   if (recErr) throw new AppError(500, recErr.message);
   if (!recipient) throw new AppError(404, 'Recipient not found');
+
+  // Selection is per tier card: block review only if the recipient's own tier
+  // card already has a final selection, not because a sibling tier does.
+  const ownCard = groupCards.find((c: any) => c.id === (recipient as any).card_id);
+  if (ownCard?.selected_at) {
+    throw new AppError(409, 'Card already has a selected talent');
+  }
   if ((recipient as any).status !== 'accepted') {
     throw new AppError(400, 'Recipient must have accepted before review');
   }
@@ -1112,24 +1283,28 @@ export async function businessSelectRecipient(
   recipientId: string,
 ) {
   const card = await verifyCardOwnership(businessUserId, cardId);
-
-  if (card.selected_at) {
-    throw new AppError(409, 'A talent has already been selected for this card');
-  }
+  const groupCards = await resolveGroupCards(card);
+  const groupCardIds = groupCards.map((c: any) => c.id as string);
 
   // Verify the recipient is shortlisted by the business
   const { data: recipient } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('id, business_review_status')
+    .select('id, business_review_status, card_id')
     .eq('id', recipientId)
-    .eq('card_id', cardId)
+    .in('card_id', groupCardIds)
     .maybeSingle();
 
   if (!recipient) throw new AppError(404, 'Recipient not found');
+
+  // Selection is per tier card.
+  const ownCard = groupCards.find((c: any) => c.id === (recipient as any).card_id);
+  if (ownCard?.selected_at) {
+    throw new AppError(409, 'A talent has already been selected for this card');
+  }
   if ((recipient as any).business_review_status !== 'shortlisted') {
     throw new AppError(400, 'Only shortlisted recipients can be selected');
   }
 
-  // Delegate to the existing selection logic
-  return adminSelectRecipient(cardId, recipientId);
+  // Delegate to the existing selection logic, on the recipient's own tier card.
+  return adminSelectRecipient((recipient as any).card_id as string, recipientId);
 }

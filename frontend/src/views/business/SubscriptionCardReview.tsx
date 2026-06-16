@@ -33,6 +33,20 @@ function formatPrice(amount: number | null, currency: string | null): string | n
   return `${symbol}${amount.toLocaleString()}/mo`;
 }
 
+// Map a talent/plan tier to one of the three standard review buckets. Mixed
+// case and the legacy 'Elite' name both fold onto 'Top Talents'. Custom/unknown
+// tiers return null — they only show under the "All" tab.
+function normalizeTier(tier: string | null | undefined): string | null {
+  const t = (tier ?? '').toLowerCase().trim();
+  if (t === 'junior') return 'Junior';
+  if (t === 'pro') return 'Pro';
+  if (t === 'elite' || t === 'top talents') return 'Top Talents';
+  return null;
+}
+
+// Highest tier first, matching the requested All · Top talents · Pro · Junior order.
+const TIER_TAB_ORDER = ['Top Talents', 'Pro', 'Junior'];
+
 export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
   const router = useRouter();
   const { user } = useAuth();
@@ -41,10 +55,23 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
   const reviewMutation = useReviewCardRecipient(cardId);
   const selectMutation = useSelectCardRecipient(cardId);
   const [confirmSelect, setConfirmSelect] = useState<CardRecipientForBusiness | null>(null);
+  // Active tier sub-tab ('all' or a normalized tier). Only shown for multi-tier
+  // briefs, where the review sections split into All · Top talents · Pro · Junior.
+  const [activeTier, setActiveTier] = useState<string>('all');
 
   const hasSelection = useMemo(() => {
     return (recipients ?? []).some((r) => r.selected_at);
   }, [recipients]);
+
+  // Tiers this brief spans, ordered highest-first, used to build the sub-tabs.
+  const groupTiers = useMemo(() => {
+    const present = new Set<string>();
+    for (const t of card?.target_tiers ?? []) {
+      const n = normalizeTier(t);
+      if (n) present.add(n);
+    }
+    return TIER_TAB_ORDER.filter((t) => present.has(t));
+  }, [card?.target_tiers]);
 
   const isClosed = card?.status === 'archived' || !!card?.recalled_at;
 
@@ -66,6 +93,16 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
   const selected = useMemo(() => {
     return (recipients ?? []).filter((r) => r.selected_at);
   }, [recipients]);
+
+  // Tier sub-tab filtering applied to both review sections.
+  const tierMatches = (r: CardRecipientForBusiness) =>
+    activeTier === 'all' || normalizeTier(r.tier) === activeTier;
+  const forReviewView = forReview.filter(tierMatches);
+  const shortlistedView = shortlisted.filter(tierMatches);
+  const tierCount = (key: string) => {
+    const pool = [...forReview, ...shortlisted];
+    return key === 'all' ? pool.length : pool.filter((r) => normalizeTier(r.tier) === key).length;
+  };
 
   if (cardLoading) {
     return (
@@ -283,23 +320,46 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
         </div>
       ) : (
         <>
+          {/* Tier sub-tabs — only for multi-tier briefs. Filters both the
+              "New talents for review" and "Shortlisted" sections below. */}
+          {groupTiers.length > 1 && (
+            <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-[#E8E5DE] bg-white px-3 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+              {[{ key: 'all', label: 'All' }, ...groupTiers.map((t) => ({ key: t, label: t }))].map((tab) => {
+                const isActive = activeTier === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTier(tab.key)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                      isActive ? 'bg-[#0a0a0a] text-white' : 'bg-[#F7F6F3] text-[#525252] hover:text-[#0a0a0a]'
+                    }`}
+                  >
+                    {tab.label}
+                    <span className={`ml-1 ${isActive ? 'opacity-80' : 'text-[#a3a3a3]'}`}>{tierCount(tab.key)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <div className="rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="border-b border-[#E8E5DE] px-5 py-4 sm:px-6">
               <div className="flex items-center justify-between">
                 <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
                   New talents for review
                 </h2>
-                <span className="text-xs text-[#a3a3a3]">{forReview.length} total</span>
+                <span className="text-xs text-[#a3a3a3]">{forReviewView.length} total</span>
               </div>
             </div>
 
-            {forReview.length === 0 ? (
+            {forReviewView.length === 0 ? (
               <div className="px-6 py-10 text-center">
                 <p className="text-sm text-[#737373]">No new talents to review.</p>
               </div>
             ) : (
               <ul className="divide-y divide-[#E8E5DE]">
-                {forReview.map((r, i) => (
+                {forReviewView.map((r, i) => (
                   <li key={r.recipient_id} className="relative px-5 py-3 sm:px-6">
                     <div className="flex items-center gap-4">
                       <RecipientLink recipient={r} inactive={(isClosed || hasSelection) && !r.selected_at}>
@@ -344,17 +404,17 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
                 <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
                   Shortlisted
                 </h2>
-                <span className="text-xs text-[#a3a3a3]">{shortlisted.length} total</span>
+                <span className="text-xs text-[#a3a3a3]">{shortlistedView.length} total</span>
               </div>
             </div>
 
-            {shortlisted.length === 0 ? (
+            {shortlistedView.length === 0 ? (
               <div className="px-6 py-10 text-center">
                 <p className="text-sm text-[#737373]">No shortlisted talents yet. Review talents above to add them here.</p>
               </div>
             ) : (
               <ul className="divide-y divide-[#E8E5DE]">
-                {shortlisted.map((r) => (
+                {shortlistedView.map((r) => (
                   <li key={r.recipient_id} className="px-5 py-3 sm:px-6">
                     <div className="flex items-center gap-4">
                       <RecipientLink recipient={r} inactive={(isClosed || hasSelection) && !r.selected_at}>
@@ -464,6 +524,14 @@ function RecipientInfo({ recipient: r }: { recipient: CardRecipientForBusiness }
         {r.tier && (
           <span className="shrink-0 rounded-full bg-[#E5DFFC] px-2 py-0.5 text-[10px] font-semibold text-[#0a0a0a]">
             {r.tier_custom || r.tier}
+          </span>
+        )}
+        {r.proposed_price != null && (
+          <span
+            className="shrink-0 rounded-full bg-[#F2FCBC] px-2 py-0.5 text-[10px] font-semibold text-[#0a0a0a]"
+            title="Proposed monthly price for this tier"
+          >
+            {formatPrice(r.proposed_price, r.currency ?? null)}
           </span>
         )}
       </div>
