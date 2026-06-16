@@ -455,14 +455,20 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
             }
           } else {
             recipientCount = count ?? newTalentIds.length;
-            const updateContent = input.content ?? {};
-            notifyNewCard(existing.id, newTalentIds, updateContent).catch((err) => {
-              console.error('[subscription] notifyNewCard (update) threw', err);
-            });
-            for (const tid of newTalentIds) {
-              notifyTalentSubscriptionCardReceived(tid, existing.id, updateContent).catch((err) => {
-                console.error('[subscription] notifyTalentSubscriptionCardReceived (update) threw', err);
+            // Ingest is a silent sync by default: the recipient rows above make
+            // the card visible in talent queues, but talents are only *notified*
+            // (push + WhatsApp) on an explicit broadcast. Flip
+            // NOTIFY_TALENT_ON_INGEST=true to also notify on ingest/edit.
+            if (env.NOTIFY_TALENT_ON_INGEST) {
+              const updateContent = input.content ?? {};
+              notifyNewCard(existing.id, newTalentIds, updateContent).catch((err) => {
+                console.error('[subscription] notifyNewCard (update) threw', err);
               });
+              for (const tid of newTalentIds) {
+                notifyTalentSubscriptionCardReceived(tid, existing.id, updateContent).catch((err) => {
+                  console.error('[subscription] notifyTalentSubscriptionCardReceived (update) threw', err);
+                });
+              }
             }
           }
         }
@@ -519,14 +525,19 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       // fix can backfill. Log loudly and move on.
     } else {
       recipientCount = count ?? recipients.length;
-      const insertContent = input.content ?? {};
-      notifyNewCard(inserted.id, talentIds, insertContent).catch((err) => {
-        console.error('[subscription] notifyNewCard threw', err);
-      });
-      for (const tid of talentIds) {
-        notifyTalentSubscriptionCardReceived(tid, inserted.id, insertContent).catch((err) => {
-          console.error('[subscription] notifyTalentSubscriptionCardReceived threw', err);
+      // Silent sync by default — the rows above make the card visible in talent
+      // queues, but talents are only notified on an explicit broadcast. Flip
+      // NOTIFY_TALENT_ON_INGEST=true to also notify on ingest.
+      if (env.NOTIFY_TALENT_ON_INGEST) {
+        const insertContent = input.content ?? {};
+        notifyNewCard(inserted.id, talentIds, insertContent).catch((err) => {
+          console.error('[subscription] notifyNewCard threw', err);
         });
+        for (const tid of talentIds) {
+          notifyTalentSubscriptionCardReceived(tid, inserted.id, insertContent).catch((err) => {
+            console.error('[subscription] notifyTalentSubscriptionCardReceived threw', err);
+          });
+        }
       }
     }
   }
@@ -1647,6 +1658,12 @@ export async function fanOutBroadcast(
     .from('subscription_card_recipients')
     .upsert(rows, { onConflict: 'card_id,talent_user_id', ignoreDuplicates: true });
 
+  // Explicit broadcast → notify via both channels (push + WhatsApp). Ingest is
+  // a silent sync by default (NOTIFY_TALENT_ON_INGEST), so the broadcast is the
+  // point where talents actually get pinged.
+  notifyNewCard(cardId, talentIds, content).catch((err) => {
+    console.error('[subscription] notifyNewCard (fan-out) threw', err);
+  });
   for (const tid of talentIds) {
     notifyTalentSubscriptionCardReceived(tid, cardId, content).catch((err) => {
       console.error('[subscription] notifyTalentSubscriptionCardReceived (fan-out) threw', err);

@@ -49,6 +49,17 @@ const envSchema = z.object({
   // is silently disabled.
   SQUADHIRE_CRM_SYSTEM_EVENTS_URL: z.string().url().optional(),
 
+  // Notify talents when a card is *ingested* (created/edited/synced via the
+  // SquadHub webhook), not just when it's explicitly broadcast. Default false:
+  // ingest silently syncs the card + reconciles recipient rows (so it still
+  // appears in talent queues), but WhatsApp/push fire only on an explicit
+  // broadcast (fanOutBroadcast / manual assignment). Set to 'true' to restore
+  // the old "ingest also notifies" behaviour.
+  NOTIFY_TALENT_ON_INGEST: z
+    .string()
+    .default('false')
+    .transform((val) => val === 'true' || val === '1'),
+
   // Public origin of the SquadHire admin app (Next.js). Used to build
   // talent-profile / user URLs returned by /api/integrations/squadcrm/talents
   // /lookup-by-phone so the CRM can deep-link operators into admin. Should

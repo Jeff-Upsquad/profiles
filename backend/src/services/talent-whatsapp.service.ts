@@ -11,6 +11,10 @@ import { env } from '../config/env.js';
 
 const CRM_TIMEOUT_MS = 5_000;
 const THROTTLE_WINDOW_MS = 24 * 60 * 60 * 1000;
+// Burst-dedup window: when several cards fan out to the same talent at once,
+// each fires this notify concurrently. Collapse them into a single WhatsApp.
+// Short enough that a genuinely later card still nudges promptly.
+const BURST_DEDUP_WINDOW_MS = 2 * 60 * 1000;
 
 const SYSTEM_EVENT_TYPE = 'talent_subscription_card_received';
 
@@ -161,9 +165,10 @@ export async function notifyTalentSubscriptionCardReceived(
     return;
   }
 
-  // Throttle: if the previous WhatsApp was sent within the last 24h AND the
-  // talent still has any unviewed prior card, skip. Once they engage with the
-  // app (viewed_at gets stamped on fetch), the next card fires right away.
+  // Engagement throttle: if the previous WhatsApp was sent within the last 24h
+  // AND the talent still has any unviewed prior card, skip. Once they engage
+  // with the app (viewed_at gets stamped on fetch), the next card fires right
+  // away.
   if (talent.last_subscription_whatsapp_at) {
     const lastSentMs = new Date(talent.last_subscription_whatsapp_at).getTime();
     const withinWindow = Date.now() - lastSentMs < THROTTLE_WINDOW_MS;
@@ -179,6 +184,55 @@ export async function notifyTalentSubscriptionCardReceived(
       }
     }
   }
+
+  // Burst dedup (atomic). The engagement throttle above is a check-then-act
+  // read: when several cards fan out to this talent at once, every concurrent
+  // call passes it and we'd send one WhatsApp per card — duplicate "new
+  // subscription request" pings in the same minute. Claim the send slot with a
+  // single conditional UPDATE that stamps last_subscription_whatsapp_at = now()
+  // only if it's null or older than the burst window. Postgres serializes
+  // concurrent updates to the row and re-checks the WHERE against the updated
+  // value, so exactly one caller wins the claim; the rest match zero rows and
+  // bow out. We stamp *before* the CRM round-trip (closing the race) and roll
+  // the stamp back if the send doesn't actually go out.
+  const claimCutoffIso = new Date(Date.now() - BURST_DEDUP_WINDOW_MS).toISOString();
+  const claimNowIso = new Date().toISOString();
+  const { data: claimed, error: claimErr } = await supabaseAdmin
+    .from('talent_users')
+    .update({ last_subscription_whatsapp_at: claimNowIso })
+    .eq('id', talentUserId)
+    .or(`last_subscription_whatsapp_at.is.null,last_subscription_whatsapp_at.lt.${claimCutoffIso}`)
+    .select('id');
+  if (claimErr) {
+    console.error('[talent-whatsapp] burst-dedup claim failed:', claimErr);
+    // Fail-closed: without a confirmed claim we can't guarantee a single send,
+    // so skip rather than risk a duplicate.
+    await logAutomationEvent({
+      event_type: 'talent_card_whatsapp_failed',
+      talent_user_id: talentUserId,
+      metadata: { card_id: cardId, error: 'claim_failed' },
+    });
+    return;
+  }
+  if (!claimed || claimed.length === 0) {
+    // A concurrent (or very recent) send already claimed the slot — dedup.
+    await logAutomationEvent({
+      event_type: 'talent_card_whatsapp_throttled',
+      talent_user_id: talentUserId,
+      metadata: { card_id: cardId, reason: 'burst_dedup' },
+    });
+    return;
+  }
+
+  // We own the send slot and have already stamped last_subscription_whatsapp_at.
+  // If the send doesn't actually go out, restore the prior stamp so the next
+  // real card isn't suppressed.
+  const releaseClaim = async () => {
+    await supabaseAdmin
+      .from('talent_users')
+      .update({ last_subscription_whatsapp_at: talent.last_subscription_whatsapp_at })
+      .eq('id', talentUserId);
+  };
 
   const brandName = pickString(cardContent, 'brand_name', 'business_name', 'company_name');
   const cardTitle = pickString(cardContent, 'title', 'subscription_name', 'plan_label', 'name');
@@ -201,10 +255,7 @@ export async function notifyTalentSubscriptionCardReceived(
   const result = await postToCrm(payload);
 
   if (result.ok && !result.skipped) {
-    await supabaseAdmin
-      .from('talent_users')
-      .update({ last_subscription_whatsapp_at: new Date().toISOString() })
-      .eq('id', talentUserId);
+    // Stamp already set by the burst-dedup claim; just record the send.
     await logAutomationEvent({
       event_type: 'talent_card_whatsapp_sent',
       talent_user_id: talentUserId,
@@ -212,13 +263,16 @@ export async function notifyTalentSubscriptionCardReceived(
     });
   } else if (result.ok && result.skipped) {
     // CRM returned 200 but didn't actually dispatch (e.g. no template
-    // configured for this event yet). Log it but don't arm the throttle.
+    // configured for this event yet). Release the claim so the next real card
+    // can fire, and don't arm the throttle.
+    await releaseClaim();
     await logAutomationEvent({
       event_type: 'talent_card_whatsapp_skipped',
       talent_user_id: talentUserId,
       metadata: { card_id: cardId, reason: result.reason ?? 'crm_skipped' },
     });
   } else {
+    await releaseClaim();
     await logAutomationEvent({
       event_type: 'talent_card_whatsapp_failed',
       talent_user_id: talentUserId,
