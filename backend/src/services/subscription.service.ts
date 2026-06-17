@@ -313,6 +313,10 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     // business dashboard collapses them into a single tabbed card. Written on
     // every ingest so a re-publish can set or clear it.
     group_id: input.group_id ?? null,
+    // card_type: which client path this card belongs to (subscription /
+    // assignment / hiring). Written on every ingest so a re-publish can change
+    // it. Talent clients tag by it; the business portal splits Assignments out.
+    card_type: input.card_type ?? 'subscription',
     // status: write only when SquadHub sent one. On insert we still default
     // to 'active' via the column default; on update we preserve the existing
     // status when `status` is omitted so a plain content refresh doesn't
@@ -347,6 +351,7 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       archived_at: row.archived_at,
       is_secondary: row.is_secondary,
       group_id: row.group_id,
+      card_type: row.card_type,
     };
     if (input.status) updatePatch.status = input.status;
 
@@ -572,6 +577,9 @@ interface RecipientRow {
     status: 'active' | 'assigned' | 'archived';
     published_at: string;
     expires_at: string | null;
+    // Product line. Talent clients render a "Subscription" / "Assignment" tag
+    // off this (both types share the same Pending/Responded feed).
+    card_type: 'subscription' | 'assignment' | 'hiring';
   } | null;
 }
 
@@ -594,12 +602,15 @@ export async function listForTalent(
   // with. cancelled_at is the signal: it's stamped by the ingest handler
   // when SquadHub sends status='archived' (recall, close, or cancel-
   // subscription on the lead).
+  // Subscriptions and Assignments are separate talent modules — list one line.
+  const cardType = (query as { card_type?: 'subscription' | 'assignment' }).card_type ?? 'subscription';
   let q = supabaseAdmin
     .from('subscription_card_recipients')
     .select(
-      'id, status, responded_at, cancelled_at, selected_at, passed_over_at, created_at, viewed_at, subscription_cards!inner(id, external_id, content, status, published_at, expires_at, archived_at)'
+      'id, status, responded_at, cancelled_at, selected_at, passed_over_at, created_at, viewed_at, subscription_cards!inner(id, external_id, content, status, published_at, expires_at, archived_at, card_type)'
     )
     .eq('talent_user_id', talentUserId)
+    .eq('subscription_cards.card_type', cardType)
     // Hard-archived cards (SquadHub Archive tab) disappear from every
     // talent view, including the Responded tab — the spec requires them
     // to be invisible everywhere, not just demoted. Filter at the joined
@@ -809,6 +820,9 @@ export async function getUnreadCount(talentUserId: string): Promise<number> {
     .eq('status', 'pending')
     .is('cancelled_at', null)
     .eq('subscription_cards.status', 'active')
+    // Subscriptions badge counts subscription offers only — assignments have
+    // their own module.
+    .eq('subscription_cards.card_type', 'subscription')
     // Mirror listForTalent: hard-archived cards never count as unread.
     .is('subscription_cards.archived_at', null);
 

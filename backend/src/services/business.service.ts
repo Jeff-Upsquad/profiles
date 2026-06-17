@@ -599,6 +599,7 @@ interface DashboardCardSummary {
   status: 'active' | 'assigned' | 'archived';
   published_at: string | null;
   recalled_at: string | null;
+  card_type: 'subscription' | 'assignment' | 'hiring';
   category_ids: string[];
   counts: { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number };
 }
@@ -664,7 +665,12 @@ function collapseByGroup(
   });
 }
 
-export async function listMySubscriptionCards(businessUserId: string) {
+export async function listMySubscriptionCards(
+  businessUserId: string,
+  // Which product line to list. The business portal renders subscriptions and
+  // assignments in two separate sections, so each call filters to one type.
+  cardType: 'subscription' | 'assignment' = 'subscription',
+) {
   // Resolve the caller's contact_email so we can rescue cards whose
   // business_user_id was left null at ingest time. SquadHub may publish
   // a card before the business_users row exists (the lead accepts their
@@ -684,9 +690,12 @@ export async function listMySubscriptionCards(businessUserId: string) {
   const { data: cards, error } = await supabaseAdmin
     .from('subscription_cards')
     .select(
-      'id, external_id, content, match_rules, status, published_at, expires_at, created_at, business_user_id, recalled_at, is_secondary, group_id',
+      'id, external_id, content, match_rules, status, published_at, expires_at, created_at, business_user_id, recalled_at, is_secondary, group_id, card_type',
     )
     .or(orFilter)
+    // Split subscriptions from assignments — the portal shows each in its own
+    // section, so a subscription list must not surface assignment cards.
+    .eq('card_type', cardType)
     // Hide SquadHub-side secondary cards from the business dashboard — only
     // primary cards represent a distinct hire opportunity. Secondaries are
     // structural duplicates with the same brand/role.
@@ -828,6 +837,7 @@ export async function listMySubscriptionCards(businessUserId: string) {
       status: card.status as 'active' | 'assigned' | 'archived',
       published_at: card.published_at as string | null,
       recalled_at: (card.recalled_at as string | null | undefined) ?? null,
+      card_type: (card.card_type as 'subscription' | 'assignment' | 'hiring') ?? 'subscription',
       category_ids: categoryIds,
       counts: counts.get(card.id as string)!,
     };
@@ -841,7 +851,7 @@ export async function listMySubscriptionCards(businessUserId: string) {
 export async function getMySubscriptionCard(businessUserId: string, cardId: string) {
   const { data: card, error } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, content, match_rules, status, published_at, expires_at, business_user_id, recalled_at, group_id')
+    .select('id, external_id, content, match_rules, status, published_at, expires_at, business_user_id, recalled_at, group_id, card_type')
     .eq('id', cardId)
     .maybeSingle();
 
@@ -906,7 +916,8 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
     customer_monthly_price:
       typeof content.customer_monthly_price === 'number' ? content.customer_monthly_price : null,
     currency: (content.currency as string) ?? null,
-    description: (content.description as string) ?? null,
+    // Assignments carry their scope in notes; subscriptions use description.
+    description: (content.description as string) ?? (content.notes as string) ?? null,
     business_nature: (content.business_nature as string) ?? null,
     hours_label: (content.hours_label as string) ?? null,
     working_days: Array.isArray(content.working_days) ? content.working_days : null,
@@ -929,6 +940,13 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
     recalled_at: ((card as any).recalled_at as string | null) ?? null,
     published_at: card.published_at as string | null,
     expires_at: card.expires_at as string | null,
+    // Product line + project timeline so the detail can render an Assignment
+    // view (budget + duration/deadline) instead of subscription plan fields.
+    card_type: ((card as any).card_type as 'subscription' | 'assignment' | 'hiring')
+      ?? (content.card_type as 'subscription' | 'assignment' | 'hiring')
+      ?? 'subscription',
+    assignment_details:
+      (content.assignment_details as Record<string, unknown> | null) ?? null,
     category_ids: categoryIds,
     categories,
   };

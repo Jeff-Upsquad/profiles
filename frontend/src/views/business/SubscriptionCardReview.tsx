@@ -33,6 +33,15 @@ function formatPrice(amount: number | null, currency: string | null): string | n
   return `${symbol}${amount.toLocaleString()}/mo`;
 }
 
+// Format an ISO date ("2026-07-15") as "15 Jul 2026" (day · English month · year).
+function fmtDate(s: string | null | undefined): string {
+  const v = (s ?? '').trim();
+  if (!v) return '';
+  const d = new Date(`${v}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return v;
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 // Map a talent/plan tier to one of the three standard review buckets. Mixed
 // case and the legacy 'Elite' name both fold onto 'Top Talents'. Custom/unknown
 // tiers return null — they only show under the "All" tab.
@@ -47,8 +56,19 @@ function normalizeTier(tier: string | null | undefined): string | null {
 // Highest tier first, matching the requested All · Top talents · Pro · Junior order.
 const TIER_TAB_ORDER = ['Top Talents', 'Pro', 'Junior'];
 
-export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
+export default function SubscriptionCardReview({
+  cardId,
+  variant = 'subscription',
+}: {
+  cardId: string;
+  variant?: 'subscription' | 'assignment';
+}) {
   const router = useRouter();
+  // Assignments reuse this review view but live under their own route, so the
+  // back-nav + labels read "assignments" instead of "subscription".
+  const isAssignment = variant === 'assignment';
+  const backHref = isAssignment ? '/business/assignments' : '/business/subscription';
+  const backLabel = isAssignment ? 'Back to assignments' : 'Back to subscriptions';
   const { user } = useAuth();
   const { data: card, isLoading: cardLoading, error: cardError } = useMySubscriptionCard(cardId);
   const { data: recipients, isLoading: recipientsLoading } = useCardRecipients(cardId);
@@ -118,10 +138,10 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
       <div className="rounded-2xl border border-[#E8E5DE] bg-white p-10 text-center">
         <p className="text-sm font-medium text-[#0a0a0a]">Card not found.</p>
         <button
-          onClick={() => router.push('/business/subscription')}
+          onClick={() => router.push(backHref)}
           className="mt-3 text-xs font-medium text-indigo-600 hover:underline"
         >
-          Back to subscriptions
+          {backLabel}
         </button>
       </div>
     );
@@ -130,11 +150,14 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
   // Prefer the company over the brand for the title — the brand is often the
   // brand the talent will work *on*, not the customer's name. Fall back to
   // brand, then subscription_name.
-  const titleLead = card.customer_company || card.brand_name || card.subscription_name || 'Subscription card';
+  const titleLead = card.customer_company || card.brand_name || card.subscription_name || (isAssignment ? 'Assignment card' : 'Subscription card');
   const title = card.subscription_name && titleLead !== card.subscription_name
     ? `${titleLead} · ${card.subscription_name}`
     : titleLead;
   const price = formatPrice(card.customer_monthly_price, card.currency);
+  // Assignments are one-off projects — show the budget without the "/mo" suffix.
+  const priceDisplay = isAssignment && price ? price.replace(/\/mo$/, '') : price;
+  const timeline = card.assignment_details ?? null;
 
   function handleReview(recipientId: string, action: 'shortlist' | 'reject' | 'unshortlist') {
     reviewMutation.mutate({ recipientId, action });
@@ -155,13 +178,13 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
     <div className="space-y-4">
       {/* Back */}
       <button
-        onClick={() => router.push('/business/subscription')}
+        onClick={() => router.push(backHref)}
         className="inline-flex items-center gap-1 text-sm font-medium text-[#737373] hover:text-[#0a0a0a] transition-colors"
       >
         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
-        Back to subscriptions
+        {backLabel}
       </button>
 
       {/* Card details */}
@@ -183,7 +206,7 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
             )}
             {price && (
               <span className="rounded-full bg-[#F2FCBC] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
-                {price}
+                {priceDisplay}
               </span>
             )}
           </div>
@@ -202,8 +225,8 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
           </div>
         )}
 
-        {/* === Subscription === plan, tier, hours, working days, deliverables */}
-        <Section title="Subscription">
+        {/* === Subscription / Assignment === plan, tier, hours, working days, deliverables */}
+        <Section title={isAssignment ? 'Assignment' : 'Subscription'}>
           <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
             {card.subscription_name && (
               <DetailRow label="Service">{card.subscription_name}</DetailRow>
@@ -219,7 +242,7 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
             {card.hours_label && (
               <DetailRow label="Availability">{card.hours_label}</DetailRow>
             )}
-            {card.working_days && card.working_days.length > 0 && (
+            {!isAssignment && card.working_days && card.working_days.length > 0 && (
               <DetailRow label="Working days">{card.working_days.join(', ')}</DetailRow>
             )}
           </dl>
@@ -268,13 +291,31 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
 
         {/* === Budget === */}
         {price && (
-          <Section title="Budget">
-            <p className="text-lg font-semibold text-[#0a0a0a]">{price}</p>
+          <Section title={isAssignment ? 'Project budget' : 'Budget'}>
+            <p className="text-lg font-semibold text-[#0a0a0a]">{priceDisplay}</p>
+          </Section>
+        )}
+
+        {/* === Timeline (assignments only) === */}
+        {isAssignment && timeline && (timeline.duration || timeline.start_date || timeline.deadline) && (
+          <Section title="Timeline">
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+              {timeline.duration && <DetailRow label="Duration">{timeline.duration}</DetailRow>}
+              {timeline.start_date && <DetailRow label="Start date">{fmtDate(timeline.start_date)}</DetailRow>}
+              {timeline.deadline && <DetailRow label="Deadline">{fmtDate(timeline.deadline)}</DetailRow>}
+            </dl>
+          </Section>
+        )}
+
+        {/* === Scope & deliverables (assignments) — the client's project brief === */}
+        {isAssignment && card.description && (
+          <Section title="Scope & deliverables">
+            <p className="whitespace-pre-line text-sm text-[#525252]">{card.description}</p>
           </Section>
         )}
 
         {/* === About the brand === customer's own brief */}
-        {(card.brand_name || card.business_nature || card.customer_location || card.description) && (
+        {(card.brand_name || card.business_nature || card.customer_location || (!isAssignment && card.description)) && (
           <Section title="About the brand">
             <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
               {card.brand_name && card.brand_name !== card.customer_company && (
@@ -287,7 +328,7 @@ export default function SubscriptionCardReview({ cardId }: { cardId: string }) {
                 <DetailRow label="Location of business">{card.customer_location}</DetailRow>
               )}
             </dl>
-            {card.description && (
+            {!isAssignment && card.description && (
               <p className="mt-3 whitespace-pre-line text-sm text-[#525252]">
                 {card.description}
               </p>

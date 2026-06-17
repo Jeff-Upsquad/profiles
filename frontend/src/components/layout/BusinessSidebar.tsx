@@ -11,6 +11,7 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
   const dashboardActive =
     pathname === '/business/dashboard' || pathname.startsWith('/business/dashboard/');
   const subscriptionActive = pathname.startsWith('/business/subscription');
+  const assignmentsActive = pathname.startsWith('/business/assignments');
   const allProfilesActive = pathname.startsWith('/business/talent-access');
   const jobPostsActive = pathname.startsWith('/business/job-posts');
   const howItWorksActive = pathname.startsWith('/business/how-it-works');
@@ -74,6 +75,24 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
           }
         >
           My subscription
+        </SidebarLink>
+
+        <SidebarLink
+          href="/business/assignments"
+          active={assignmentsActive}
+          onNavigate={onNavigate}
+          icon={
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+              />
+            </svg>
+          }
+        >
+          My assignments
         </SidebarLink>
 
         <SidebarLink

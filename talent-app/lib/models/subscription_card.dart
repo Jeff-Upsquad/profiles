@@ -5,6 +5,9 @@ class SubscriptionCard {
   final String status;
   final String publishedAt;
   final String? expiresAt;
+  /// Product line — 'subscription' (default) or 'assignment'. Both types share
+  /// the same feed; the UI tags each card with this so they're distinguishable.
+  final String cardType;
 
   SubscriptionCard({
     required this.id,
@@ -13,18 +16,32 @@ class SubscriptionCard {
     required this.status,
     required this.publishedAt,
     this.expiresAt,
+    this.cardType = 'subscription',
   });
 
   factory SubscriptionCard.fromJson(Map<String, dynamic> json) {
+    final content = (json['content'] as Map<String, dynamic>?) ?? {};
     return SubscriptionCard(
       id: json['id'] as String,
       externalId: json['external_id'] as String,
-      content: (json['content'] as Map<String, dynamic>?) ?? {},
+      content: content,
       status: json['status'] as String,
       publishedAt: json['published_at'] as String,
       expiresAt: json['expires_at'] as String?,
+      // Prefer the top-level column; fall back to the value SquadHub also
+      // stamps into content; default to subscription for legacy payloads.
+      cardType: (json['card_type'] as String?) ??
+          (content['card_type'] as String?) ??
+          'subscription',
     );
   }
+
+  bool get isAssignment => cardType == 'assignment';
+  Map<String, dynamic> get assignmentDetails =>
+      (content['assignment_details'] as Map<String, dynamic>?) ?? const {};
+  String? get assignmentDuration => assignmentDetails['duration'] as String?;
+  String? get assignmentStartDate => assignmentDetails['start_date'] as String?;
+  String? get assignmentDeadline => assignmentDetails['deadline'] as String?;
 
   String? get title => content['title'] as String?;
   String? get description => content['description'] as String?;

@@ -43,6 +43,9 @@ class SubscriptionListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tint = tintFor(_heading);
+    // Tag the row so freelance Assignments stand apart from subscriptions in
+    // the same feed.
+    final isAssignment = recipient.card?.isAssignment ?? false;
 
     return Material(
       color: Colors.white,
@@ -69,15 +72,43 @@ class SubscriptionListTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _heading,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              _heading,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isAssignment
+                                  ? const Color(0xFFFEF3C7)
+                                  : const Color(0xFFF0F0F0),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              isAssignment ? 'Assignment' : 'Subscription',
+                              style: TextStyle(
+                                color: isAssignment
+                                    ? const Color(0xFF92400E)
+                                    : const Color(0xFF525252),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(

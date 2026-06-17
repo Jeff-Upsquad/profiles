@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { useMySubscriptionCards, type BusinessSubscriptionCardSummary } from '@/hooks/useBusiness';
+import { useMySubscriptionCards, useMyAssignmentCards, type BusinessSubscriptionCardSummary } from '@/hooks/useBusiness';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
 
@@ -62,9 +62,24 @@ function tintFor(seed: string): string {
   return TINTS[Math.abs(hash) % TINTS.length];
 }
 
-export default function BusinessSubscription() {
+export default function BusinessSubscription({
+  variant = 'subscription',
+}: {
+  variant?: 'subscription' | 'assignment';
+} = {}) {
   const { user } = useAuth();
-  const { data: cards, isLoading } = useMySubscriptionCards();
+  const isAssignment = variant === 'assignment';
+  const noun = isAssignment ? 'assignment' : 'subscription';
+  const nounPlural = isAssignment ? 'assignments' : 'subscriptions';
+  const Noun = isAssignment ? 'Assignment' : 'Subscription';
+  // Only the active variant's query fetches (the other is disabled), so the
+  // page that isn't shown doesn't fire a request.
+  const subQuery = useMySubscriptionCards(!isAssignment);
+  const asgQuery = useMyAssignmentCards(isAssignment);
+  const { data: cards, isLoading } = isAssignment ? asgQuery : subQuery;
+  // Card detail/review reuses one component, but assignments get their own
+  // route so the URL + back-nav read "assignments", not "subscription".
+  const detailBase = isAssignment ? '/business/assignments' : '/business/subscription';
   const [tab, setTab] = useState<Tab>('open');
 
   const allCards = cards ?? [];
@@ -81,14 +96,14 @@ export default function BusinessSubscription() {
           <div>
             <div className="mb-2.5 stagger-1">
               <span className="eyebrow-rainbow">
-                {open.length} {open.length === 1 ? 'subscription' : 'subscriptions'} active
+                {open.length} {open.length === 1 ? noun : nounPlural} active
               </span>
             </div>
             <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
-              My <span className="text-rainbow">subscription</span>.
+              My <span className="text-rainbow">{noun}</span>.
             </h1>
             <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
-              Review and select talents for your subscription cards.
+              Review and select talents for your {noun} cards.
             </p>
           </div>
         </div>
@@ -100,7 +115,7 @@ export default function BusinessSubscription() {
           <div className="flex items-center justify-between border-b border-[#E8E5DE] px-6 py-5">
             <div>
               <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
-                Active Subscriptions
+                Active {Noun}s
               </h2>
               <p className="mt-0.5 text-sm text-[#737373]">
                 Talents have been assigned to these cards.
@@ -112,7 +127,7 @@ export default function BusinessSubscription() {
           </div>
           <ul className="divide-y divide-[#E8E5DE]">
             {assigned.map((card, i) => (
-              <AssignedCardRow key={card.id} card={card} index={i} />
+              <AssignedCardRow key={card.id} card={card} index={i} detailBase={detailBase} />
             ))}
           </ul>
         </div>
@@ -123,7 +138,7 @@ export default function BusinessSubscription() {
         <div className="flex items-center justify-between border-b border-[#E8E5DE] px-6 py-5">
           <div>
             <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
-              Subscription Cards
+              {Noun} Cards
             </h2>
             <p className="mt-0.5 text-sm text-[#737373]">
               Tap a card to review and shortlist talents.
@@ -142,7 +157,7 @@ export default function BusinessSubscription() {
             ))}
           </div>
         ) : visible.length === 0 ? (
-          <EmptyState tab={tab} hasNoCards={allCards.length === 0} />
+          <EmptyState tab={tab} hasNoCards={allCards.length === 0} noun={noun} />
         ) : (
           <ul className="divide-y divide-[#E8E5DE]">
             {visible.map((card, i) => (
@@ -151,6 +166,7 @@ export default function BusinessSubscription() {
                 card={card}
                 muted={tab === 'closed'}
                 index={i}
+                detailBase={detailBase}
                 tipSlot={
                   i === 0 && tab === 'open' && user?.id ? (
                     <FirstItemTip
@@ -228,16 +244,16 @@ function TabButton({
   );
 }
 
-function EmptyState({ tab, hasNoCards }: { tab: Tab; hasNoCards: boolean }) {
+function EmptyState({ tab, hasNoCards, noun = 'subscription' }: { tab: Tab; hasNoCards: boolean; noun?: string }) {
   const heading = hasNoCards
-    ? 'No subscription cards yet'
+    ? `No ${noun} cards yet`
     : tab === 'open'
       ? 'No open cards'
       : 'No closed cards yet';
   const description = hasNoCards
     ? "Cards will appear here once they're published to your account."
     : tab === 'open'
-      ? 'All your active subscriptions will land here.'
+      ? `All your active ${noun}s will land here.`
       : 'Finished hires and archived cards will land here.';
 
   return (
@@ -255,7 +271,7 @@ function EmptyState({ tab, hasNoCards }: { tab: Tab; hasNoCards: boolean }) {
   );
 }
 
-function AssignedCardRow({ card, index }: { card: BusinessSubscriptionCardSummary; index: number }) {
+function AssignedCardRow({ card, index, detailBase }: { card: BusinessSubscriptionCardSummary; index: number; detailBase: string }) {
   const rawPrice = formatPrice(card.customer_monthly_price, card.currency);
   const price = rawPrice && card.is_group ? `from ${rawPrice}` : rawPrice;
   const published = formatPublishedAt(card.published_at);
@@ -265,7 +281,7 @@ function AssignedCardRow({ card, index }: { card: BusinessSubscriptionCardSummar
   return (
     <li className={`stagger-${Math.min(index + 1, 6)}`}>
       <Link
-        href={`/business/subscription/${card.id}`}
+        href={`${detailBase}/${card.id}`}
         className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#F7F6F3]"
       >
         <div
@@ -324,11 +340,13 @@ function CardRow({
   muted,
   index,
   tipSlot,
+  detailBase,
 }: {
   card: BusinessSubscriptionCardSummary;
   muted: boolean;
   index: number;
   tipSlot?: React.ReactNode;
+  detailBase: string;
 }) {
   const rawPrice = formatPrice(card.customer_monthly_price, card.currency);
   const price = rawPrice && card.is_group ? `from ${rawPrice}` : rawPrice;
@@ -341,7 +359,7 @@ function CardRow({
   return (
     <li className={`relative stagger-${Math.min(index + 1, 6)}`}>
       <Link
-        href={`/business/subscription/${card.id}`}
+        href={`${detailBase}/${card.id}`}
         className={`group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#F7F6F3] ${
           muted ? 'opacity-70' : ''
         }`}

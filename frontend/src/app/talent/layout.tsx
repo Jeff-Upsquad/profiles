@@ -13,6 +13,7 @@ const ROUTE_TO_MODULE: Record<string, string> = {
   '/talent/basic-profile': 'basic-profile',
   '/talent/profiles': 'profiles',
   '/talent/subscriptions': 'subscriptions',
+  '/talent/assignments': 'subscriptions',
   '/talent/my-clients': 'subscriptions',
   '/talent/settings': 'settings',
   '/talent/notifications': 'notifications',
@@ -110,6 +111,15 @@ export default function TalentLayout({
         </svg>
       ),
       badge: unread > 0 ? <Badge variant="indigo">{unread}</Badge> : undefined,
+    },
+    {
+      label: 'Assignments',
+      to: '/talent/assignments',
+      icon: (
+        <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+      ),
     },
     {
       label: 'My Clients',
