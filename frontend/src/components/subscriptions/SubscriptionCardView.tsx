@@ -37,6 +37,13 @@ export default function SubscriptionCardView({ item }: Props) {
 
   const brandName = (item.card.content.brand_name as string)?.trim() || (item.card.content.title as string)?.trim() || 'Subscription';
   const tint = tintFor(brandName);
+  // Product line — tag the card so freelance Assignments stand apart from
+  // subscriptions in the same feed. Falls back to content.card_type (the value
+  // also rides in the card payload) then 'subscription'.
+  const cardType =
+    item.card.card_type || (item.card.content.card_type as string) || 'subscription';
+  const isAssignment = cardType === 'assignment';
+  const typeLabel = isAssignment ? 'Assignment' : 'Subscription';
 
   const handle = (action: 'accept' | 'reject') => {
     respond.mutate({ recipientId: item.id, action });
@@ -64,6 +71,13 @@ export default function SubscriptionCardView({ item }: Props) {
               {brandName}
             </p>
           </div>
+          {/* Product-line tag — distinguishes Subscription vs Assignment. */}
+          <span
+            className="relative ml-auto shrink-0 self-start rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider backdrop-blur-sm"
+            style={{ color: 'var(--tint-icon)' }}
+          >
+            {typeLabel}
+          </span>
         </div>
       </div>
 

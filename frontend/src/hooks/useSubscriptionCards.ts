@@ -57,16 +57,22 @@ export interface SubscriptionCardItem {
     status: 'active' | 'assigned' | 'archived';
     published_at: string;
     expires_at: string | null;
+    // Product line — 'assignment' = freelance project. Both types share this
+    // feed; the UI tags each card so they're distinguishable at a glance.
+    card_type?: 'subscription' | 'assignment' | 'hiring';
   };
 }
 
-export function useMySubscriptionCards(filter: SubscriptionListFilter = 'pending') {
+export function useMySubscriptionCards(
+  filter: SubscriptionListFilter = 'pending',
+  cardType: 'subscription' | 'assignment' = 'subscription',
+) {
   return useQuery({
-    queryKey: ['subscriptions', filter],
+    queryKey: ['subscriptions', cardType, filter],
     queryFn: async () => {
       const { data } = await api.get<{ items: SubscriptionCardItem[] }>(
         '/talent/subscriptions',
-        { params: { status: filter } }
+        { params: { status: filter, card_type: cardType } }
       );
       return data.items ?? [];
     },

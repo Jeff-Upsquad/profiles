@@ -147,7 +147,19 @@ export async function getSharedProfilePortfolio(req: Request, res: Response, nex
 
 export async function getMySubscriptionCards(req: Request, res: Response, next: NextFunction) {
   try {
-    const cards = await businessService.listMySubscriptionCards(req.user!.id);
+    const cards = await businessService.listMySubscriptionCards(req.user!.id, 'subscription');
+    res.json({ cards });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Freelance Assignment cards for the business — same shape as subscription
+// cards, listed in a separate Assignments section. Detail / recipient-review
+// routes are shared (they resolve a card by id regardless of product line).
+export async function getMyAssignmentCards(req: Request, res: Response, next: NextFunction) {
+  try {
+    const cards = await businessService.listMySubscriptionCards(req.user!.id, 'assignment');
     res.json({ cards });
   } catch (err) {
     next(err);

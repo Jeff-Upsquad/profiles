@@ -60,6 +60,11 @@ export const ingestSubscriptionCardSchema = z.object({
   // group_id into a single card with a tab per tier. Null/absent on
   // single-tier and legacy cards — those render as one card each, unchanged.
   group_id: z.string().uuid().nullable().optional(),
+  // Product line. 'assignment' = a one-off freelance project (talent clients
+  // tag it in the same feed; the business portal lists it under Assignments).
+  // Defaults to 'subscription' so a pre-update SquadHub that doesn't send the
+  // field keeps ingesting cards as subscriptions.
+  card_type: z.enum(['subscription', 'assignment', 'hiring']).default('subscription'),
 });
 
 export const removeTalentFromCardSchema = z.object({
@@ -119,6 +124,9 @@ export const cardIdRecipientIdParamSchema = z.object({
 
 export const listSubscriptionsQuerySchema = z.object({
   status: z.enum(['pending', 'accepted', 'rejected', 'all']).default('pending'),
+  // Talent has separate Subscriptions and Assignments modules — each lists one
+  // product line. Defaults to 'subscription' so the existing feed is unchanged.
+  card_type: z.enum(['subscription', 'assignment']).default('subscription'),
 });
 
 export const respondToSubscriptionSchema = z.object({

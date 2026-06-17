@@ -11,6 +11,17 @@ function asString(v: unknown): string {
   return typeof v === 'string' ? v : String(v);
 }
 
+// Format an ISO date string ("2026-07-15") as "15 Jul 2026" (day · English
+// month · year). Parsed as local midnight so the day doesn't shift by timezone.
+// Returns the raw value unchanged if it isn't a parseable date.
+function fmtDate(s: string): string {
+  const v = s.trim();
+  if (!v) return v;
+  const d = new Date(`${v}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return v;
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 function asStringArray(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
   return v
@@ -213,9 +224,19 @@ export default function SubscriptionCardContent({ content }: Props) {
   const priceFormatted =
     priceLabelRaw || formatPrice(content.monthly_price, content.currency);
 
-  const workingDaysSorted = [...asStringArray(content.working_days)].sort(
-    (a, b) => weekIndex(a) - weekIndex(b),
-  );
+  // Assignment cards reuse monthly_price as the one-off project budget. Relabel
+  // the Payment section and surface the timeline (plan/hours are absent on
+  // these cards, so those sections self-hide).
+  const isAssignment = asString(content.card_type).trim() === 'assignment';
+  const assignmentDetails = (content.assignment_details ?? {}) as Record<string, unknown>;
+  const assignmentDuration = asString(assignmentDetails.duration).trim();
+  const assignmentStartDate = asString(assignmentDetails.start_date).trim();
+  const assignmentDeadline = asString(assignmentDetails.deadline).trim();
+
+  // Assignments don't use working days — drop them so the section self-hides.
+  const workingDaysSorted = isAssignment
+    ? []
+    : [...asStringArray(content.working_days)].sort((a, b) => weekIndex(a) - weekIndex(b));
   const weekdayDays = workingDaysSorted.filter((d) => !isWeekend(d));
   const weekendDays = workingDaysSorted.filter(isWeekend);
   const brandName = asString(content.brand_name).trim();
@@ -285,7 +306,8 @@ export default function SubscriptionCardContent({ content }: Props) {
           <div>
             <SectionLabel icon={IconBriefcase} color="#0070C9">Work commitment</SectionLabel>
             <div className="mt-2 grid gap-2">
-              {/* Hours sub-card */}
+              {/* Hours sub-card — hidden for assignments (no hourly-commitment concept) */}
+              {!isAssignment && (
               <div className="tint-blue rounded-xl p-3" style={{ color: 'var(--tint-icon)' }}>
                 <p className="flex items-center gap-1.5 font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-wider opacity-70">
                   <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">{IconClock}</span>
@@ -306,6 +328,7 @@ export default function SubscriptionCardContent({ content }: Props) {
                   <p className="mt-1 text-sm font-medium opacity-70">No hourly commitment</p>
                 )}
               </div>
+              )}
 
               {/* Deliverables sub-card */}
               <div className="tint-blue rounded-xl p-3" style={{ color: 'var(--tint-icon)' }}>
@@ -347,14 +370,25 @@ export default function SubscriptionCardContent({ content }: Props) {
         );
       })()}
 
-      {/* Payment — green tint */}
+      {/* Payment — green tint. Assignments show a one-off project budget. */}
       {priceFormatted && (
         <div>
-          <SectionLabel icon={IconMoney} color="#1F7E36">Payment</SectionLabel>
+          <SectionLabel icon={IconMoney} color="#1F7E36">{isAssignment ? 'Project budget' : 'Payment'}</SectionLabel>
           <p className="mt-1 font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#1F7E36]">
             {priceFormatted}
-            <span className="font-[family-name:var(--font-inter)] text-xs font-normal text-[#1F7E36]/70"> /month</span>
+            {!isAssignment && (
+              <span className="font-[family-name:var(--font-inter)] text-xs font-normal text-[#1F7E36]/70"> /month</span>
+            )}
           </p>
+          {isAssignment && (assignmentDuration || assignmentStartDate || assignmentDeadline) && (
+            <p className="mt-1 font-[family-name:var(--font-inter)] text-xs text-[#737373]">
+              {[
+                assignmentDuration && `Duration: ${assignmentDuration}`,
+                assignmentStartDate && `Starts ${fmtDate(assignmentStartDate)}`,
+                assignmentDeadline && `Due ${fmtDate(assignmentDeadline)}`,
+              ].filter(Boolean).join('  ·  ')}
+            </p>
+          )}
         </div>
       )}
 

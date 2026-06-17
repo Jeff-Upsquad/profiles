@@ -130,6 +130,7 @@ export default function RespondedListView({ items }: Props) {
                         </div>
                       </div>
                       <div className="flex flex-shrink-0 items-center gap-2">
+                        {item.card.card_type === 'assignment' && <Badge variant="yellow">Assignment</Badge>}
                         {item.status === 'accepted' && <Badge variant="green">Accepted</Badge>}
                         {item.status === 'rejected' && <Badge variant="red">Declined</Badge>}
                         {cancelled && <Badge variant="gray">Cancelled</Badge>}

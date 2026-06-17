@@ -132,6 +132,9 @@ export interface BusinessSubscriptionCardSummary {
   /** True when this row represents a multi-tier brief (several tier siblings
    *  collapsed into one card). customer_monthly_price is then the lowest tier. */
   is_group?: boolean;
+  /** Product line — 'assignment' = freelance project. The portal lists
+   *  subscriptions and assignments in separate sections. */
+  card_type?: 'subscription' | 'assignment' | 'hiring';
   counts: { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number };
 }
 
@@ -165,17 +168,38 @@ export interface BusinessSubscriptionCardDetail {
   recalled_at: string | null;
   published_at: string | null;
   expires_at: string | null;
+  card_type?: 'subscription' | 'assignment' | 'hiring';
+  assignment_details?: {
+    duration?: string | null;
+    start_date?: string | null;
+    deadline?: string | null;
+    scope_type?: string | null;
+  } | null;
   category_ids: string[];
   categories: Array<{ id: string; name: string; slug: string }>;
 }
 
-export function useMySubscriptionCards() {
+export function useMySubscriptionCards(enabled = true) {
   return useQuery<BusinessSubscriptionCardSummary[]>({
     queryKey: ['my-subscription-cards'],
     queryFn: async () => {
       const { data } = await api.get('/business/my-subscription-cards');
       return data.cards ?? [];
     },
+    enabled,
+  });
+}
+
+// Freelance Assignment cards for this business — same summary shape, separate
+// section. Detail/review reuse the shared /my-subscription-cards/:id endpoints.
+export function useMyAssignmentCards(enabled = true) {
+  return useQuery<BusinessSubscriptionCardSummary[]>({
+    queryKey: ['my-assignment-cards'],
+    queryFn: async () => {
+      const { data } = await api.get('/business/my-assignment-cards');
+      return data.cards ?? [];
+    },
+    enabled,
   });
 }
 

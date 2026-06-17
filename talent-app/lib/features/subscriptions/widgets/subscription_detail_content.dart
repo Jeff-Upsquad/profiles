@@ -72,6 +72,8 @@ class SubscriptionDetailContent extends StatelessWidget {
   }
 
   List<String> get _workingDaysSorted {
+    // Assignments don't use working days — drop them so the section self-hides.
+    if (card.isAssignment) return [];
     final raw = card.workingDays;
     if (raw == null) return [];
     final days = raw.map((e) => e.toString().trim()).where((s) => s.isNotEmpty).toList();
@@ -379,7 +381,8 @@ class SubscriptionDetailContent extends StatelessWidget {
       children: [
         _SectionLabel(
           icon: Icons.payments_outlined,
-          label: 'Payment',
+          // Assignments reuse monthly_price as a one-off project budget.
+          label: card.isAssignment ? 'Project budget' : 'Payment',
           color: kPaymentColor,
         ),
         const SizedBox(height: 6),
@@ -392,18 +395,41 @@ class SubscriptionDetailContent extends StatelessWidget {
               fontWeight: FontWeight.w700,
               letterSpacing: -0.5,
             ),
-            children: [
-              TextSpan(
-                text: ' /month',
-                style: TextStyle(
-                  color: kPaymentColor.withValues(alpha: 0.7),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ],
+            children: card.isAssignment
+                ? const <TextSpan>[]
+                : [
+                    TextSpan(
+                      text: ' /month',
+                      style: TextStyle(
+                        color: kPaymentColor.withValues(alpha: 0.7),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
           ),
         ),
+        if (card.isAssignment &&
+            ((card.assignmentDuration ?? '').trim().isNotEmpty ||
+                (card.assignmentStartDate ?? '').trim().isNotEmpty ||
+                (card.assignmentDeadline ?? '').trim().isNotEmpty)) ...[
+          const SizedBox(height: 4),
+          Text(
+            [
+              if ((card.assignmentDuration ?? '').trim().isNotEmpty)
+                'Duration: ${card.assignmentDuration!.trim()}',
+              if ((card.assignmentStartDate ?? '').trim().isNotEmpty)
+                'Starts ${card.assignmentStartDate!.trim()}',
+              if ((card.assignmentDeadline ?? '').trim().isNotEmpty)
+                'Due ${card.assignmentDeadline!.trim()}',
+            ].join('  ·  '),
+            style: TextStyle(
+              color: kPaymentColor.withValues(alpha: 0.7),
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
       ],
     );
   }

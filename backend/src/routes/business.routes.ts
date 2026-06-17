@@ -57,6 +57,9 @@ router.get('/my-categories/:categoryId/profiles/:profileId/portfolio', businessC
 
 // Subscription cards published to this business (via SquadHub webhook)
 router.get('/my-subscription-cards', businessController.getMySubscriptionCards);
+// Freelance assignment cards — separate list, same card shape. Detail and
+// recipient-review routes below are shared (resolved by card id, not type).
+router.get('/my-assignment-cards', businessController.getMyAssignmentCards);
 router.get('/my-subscription-cards/:cardId', businessController.getMySubscriptionCard);
 router.get(
   '/my-subscription-cards/:cardId/shortlisted-profiles',
