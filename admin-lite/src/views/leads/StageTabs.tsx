@@ -6,7 +6,7 @@ import api from '@/services/api';
 import toast from 'react-hot-toast';
 import ArchiveLeadModal from './ArchiveLeadModal';
 
-type Status =
+type Stage =
   | 'new'
   | 'share_form'
   | 'form_filled'
@@ -24,13 +24,13 @@ type Status =
   | 'no_response'
   | 'archived';
 
-interface StatusDef {
-  value: Status;
+interface StageDef {
+  value: Stage;
   label: string;
   color: string;
 }
 
-const CREATIVE_STATUSES: StatusDef[] = [
+const CREATIVE_STAGES: StageDef[] = [
   { value: 'new', label: 'New', color: 'bg-blue-50 text-blue-700 border-blue-200' },
   { value: 'share_form', label: 'Share Form', color: 'bg-sky-50 text-sky-700 border-sky-200' },
   { value: 'form_filled', label: 'Form Filled / For Review', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
@@ -45,7 +45,7 @@ const CREATIVE_STATUSES: StatusDef[] = [
   { value: 'no_response', label: 'No Response / In Active', color: 'bg-gray-50 text-gray-700 border-gray-200' },
 ];
 
-const DEFAULT_STATUSES: StatusDef[] = [
+const DEFAULT_STAGES: StageDef[] = [
   { value: 'new', label: 'New', color: 'bg-blue-50 text-blue-700 border-blue-200' },
   { value: 'under_review', label: 'Under Review', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
   { value: 'shortlisted', label: 'Shortlisted', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
@@ -64,19 +64,19 @@ const RING_COLOR: Record<string, string> = {
 interface Props {
   leadId: string;
   leadName: string;
-  currentStatus: string;
+  currentStage: string;
   formType?: string;
 }
 
-export default function StatusTabs({ leadId, leadName, currentStatus, formType }: Props) {
+export default function StageTabs({ leadId, leadName, currentStage, formType }: Props) {
   const queryClient = useQueryClient();
   const [archiveOpen, setArchiveOpen] = useState(false);
 
-  const statuses = formType === 'creative' ? CREATIVE_STATUSES : DEFAULT_STATUSES;
+  const stages = formType === 'creative' ? CREATIVE_STAGES : DEFAULT_STAGES;
 
-  const updateStatus = useMutation({
+  const updateStage = useMutation({
     mutationFn: async (payload: {
-      status: Status;
+      status: Stage;
       admin_notes?: string;
       archive_reason?: string;
     }) => {
@@ -85,7 +85,7 @@ export default function StatusTabs({ leadId, leadName, currentStatus, formType }
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-lead', leadId] });
       queryClient.invalidateQueries({ queryKey: ['admin-leads'] });
-      toast.success('Status updated');
+      toast.success('Stage updated');
       setArchiveOpen(false);
     },
     onError: (err: any) => {
@@ -93,33 +93,33 @@ export default function StatusTabs({ leadId, leadName, currentStatus, formType }
     },
   });
 
-  const handleClick = (value: Status) => {
-    if (value === currentStatus) return;
+  const handleClick = (value: Stage) => {
+    if (value === currentStage) return;
     if (value === 'archived') {
       setArchiveOpen(true);
       return;
     }
-    updateStatus.mutate({ status: value });
+    updateStage.mutate({ status: value });
   };
 
   return (
     <>
       <div className="flex flex-wrap gap-1.5">
-        {statuses.map((s) => {
-          const active = s.value === currentStatus;
+        {stages.map((s) => {
+          const active = s.value === currentStage;
           const ringColor = RING_COLOR[s.value] ?? 'ring-indigo-300';
           return (
             <button
               key={s.value}
               type="button"
               onClick={() => handleClick(s.value)}
-              disabled={active || updateStatus.isPending}
+              disabled={active || updateStage.isPending}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
                 active
                   ? `${s.color} shadow-sm ring-2 ring-offset-1 ${ringColor}`
                   : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
               }`}
-              title={active ? 'Current status' : `Switch to ${s.label}`}
+              title={active ? 'Current stage' : `Switch to ${s.label}`}
             >
               {s.label}
             </button>
@@ -130,10 +130,10 @@ export default function StatusTabs({ leadId, leadName, currentStatus, formType }
       <ArchiveLeadModal
         isOpen={archiveOpen}
         leadName={leadName}
-        pending={updateStatus.isPending}
+        pending={updateStage.isPending}
         onClose={() => setArchiveOpen(false)}
         onSubmit={(reason, note) =>
-          updateStatus.mutate({
+          updateStage.mutate({
             status: 'archived',
             archive_reason: reason,
             admin_notes: note,

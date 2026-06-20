@@ -6,7 +6,7 @@ const cards = [
   {
     href: '/(app)/(tabs)/leads',
     title: 'Candidates',
-    description: 'Applications from the intake form. Filter, review, update status.',
+    description: 'Applications from the intake form. Filter, review, update stage.',
     icon: 'people' as const,
   },
   {

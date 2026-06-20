@@ -20,16 +20,16 @@ import { groupItemsByBucket } from '../../../src/lib/groupLeadsByBucket';
 import { formatIndianPhone } from '../../../src/lib/phone';
 import {
   FORM_TYPE_TABS,
-  STATUS_COLORS,
-  STATUS_LABELS,
-  STATUS_OPTIONS,
+  STAGE_COLORS,
+  STAGE_LABELS,
+  STAGE_OPTIONS,
 } from '../../../src/constants/leads';
 import type { Lead, LeadsResponse } from '../../../src/types';
 
 export default function LeadsScreen() {
   const router = useRouter();
   const [formType, setFormType] = useState('');
-  const [status, setStatus] = useState('');
+  const [stage, setStage] = useState('');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -41,14 +41,14 @@ export default function LeadsScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [formType, status, debouncedSearch]);
+  }, [formType, stage, debouncedSearch]);
 
   const { data, isLoading, isFetching, refetch } = useQuery<LeadsResponse>({
-    queryKey: ['admin-leads', formType, status, debouncedSearch, page],
+    queryKey: ['admin-leads', formType, stage, debouncedSearch, page],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (formType) params.set('form_type', formType);
-      if (status) params.set('status', status);
+      if (stage) params.set('status', stage);
       if (debouncedSearch) params.set('search', debouncedSearch);
       params.set('page', String(page));
       params.set('limit', '25');
@@ -83,9 +83,9 @@ export default function LeadsScreen() {
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
           <View style={{ flex: 1 }}>
             <Picker
-              value={status}
-              options={STATUS_OPTIONS}
-              onChange={setStatus}
+              value={stage}
+              options={STAGE_OPTIONS}
+              onChange={setStage}
             />
           </View>
         </View>
@@ -123,7 +123,7 @@ export default function LeadsScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>No candidates match your filters</Text>
-            <Text style={styles.emptyBody}>Try clearing the search or status.</Text>
+            <Text style={styles.emptyBody}>Try clearing the search or stage.</Text>
           </View>
         }
         ListFooterComponent={
@@ -187,8 +187,8 @@ function LeadRow({ lead, onPress }: { lead: Lead; onPress: () => void }) {
         </Text>
       </View>
       <View style={{ alignItems: 'flex-end', gap: 4 }}>
-        <Badge color={STATUS_COLORS[lead.status] || 'gray'}>
-          {STATUS_LABELS[lead.status] || lead.status}
+        <Badge color={STAGE_COLORS[lead.status] || 'gray'}>
+          {STAGE_LABELS[lead.status] || lead.status}
         </Badge>
         <Text style={styles.date}>
           {new Date(lead.created_at).toLocaleDateString('en-IN', {
