@@ -19,23 +19,23 @@ const STAGES = [
 
 export default function OnboardingProgress({ progress }: OnboardingProgressProps) {
   return (
-    <ul className="space-y-0">
+    <ol className="flex items-start">
       {STAGES.map((stage, i) => {
         const done = progress[stage.key];
         const isLast = i === STAGES.length - 1;
         const isBypassed = stage.key === 'onboarding_completed' && progress.onboarding_bypassed === true;
         return (
-          <li key={stage.key} className="relative flex gap-3">
-            {/* Vertical connector line */}
+          <li key={stage.key} className="relative flex flex-1 flex-col items-center px-1 text-center">
+            {/* Horizontal connector line to the next step */}
             {!isLast && (
               <span
-                className={`absolute left-[11px] top-6 h-full w-0.5 ${
+                className={`absolute left-1/2 top-3 h-0.5 w-full -translate-y-1/2 ${
                   done ? 'bg-green-300' : 'bg-gray-200'
                 }`}
               />
             )}
-            {/* Circle / check icon */}
-            <span className="relative z-10 flex h-6 w-6 flex-shrink-0 items-center justify-center">
+            {/* Circle / check icon (white bg masks the line behind it) */}
+            <span className="relative z-10 flex h-6 w-6 flex-shrink-0 items-center justify-center bg-white">
               {done ? (
                 <svg className="h-6 w-6 text-green-500" viewBox="0 0 24 24" fill="currentColor">
                   <path
@@ -50,20 +50,20 @@ export default function OnboardingProgress({ progress }: OnboardingProgressProps
             </span>
             {/* Label */}
             <span
-              className={`pb-5 pt-0.5 text-sm font-medium ${
+              className={`mt-2 text-xs font-medium leading-tight ${
                 done ? 'text-gray-900' : 'text-gray-400'
               }`}
             >
               {stage.label}
-              {isBypassed && (
-                <span className="ml-2 inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-700">
-                  Bypassed
-                </span>
-              )}
             </span>
+            {isBypassed && (
+              <span className="mt-1 inline-flex items-center rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-700">
+                Bypassed
+              </span>
+            )}
           </li>
         );
       })}
-    </ul>
+    </ol>
   );
 }
