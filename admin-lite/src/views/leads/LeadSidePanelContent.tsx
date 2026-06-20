@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
-import StatusTabs from './StatusTabs';
+import StageTabs from './StageTabs';
 import ProfileTypeTabs from './ProfileTypeTabs';
 import TalentOnboardingSection from './TalentOnboardingSection';
 import InterviewInvitationSection from '@/views/interview/InterviewInvitationSection';
@@ -169,9 +169,9 @@ export default function LeadSidePanelContent({ leadId }: { leadId: string }) {
         </div>
       </div>
 
-      {/* Status */}
-      <Section title="Status">
-        <StatusTabs leadId={lead.id} leadName={lead.name} currentStatus={lead.status} formType={lead.form_type} />
+      {/* Stage */}
+      <Section title="Stage">
+        <StageTabs leadId={lead.id} leadName={lead.name} currentStage={lead.status} formType={lead.form_type} />
         {lead.status === 'archived' && lead.archive_reason && (
           <p className="mt-3 text-xs text-gray-500">
             Archived — <span className="font-medium">{lead.archive_reason.replace(/_/g, ' ')}</span>

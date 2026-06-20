@@ -32,7 +32,7 @@ interface Lead {
   created_at: string;
 }
 
-type Status =
+type Stage =
   | 'new'
   | 'under_review'
   | 'shortlisted'
@@ -43,7 +43,7 @@ type Status =
   | 'converted'
   | 'rejected';
 
-const STATUS_LABELS: Record<string, string> = {
+const STAGE_LABELS: Record<string, string> = {
   new: 'New',
   under_review: 'Under Review',
   shortlisted: 'Shortlisted',
@@ -56,7 +56,7 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: 'Rejected',
 };
 
-const statusColors: Record<string, 'blue' | 'yellow' | 'green' | 'red' | 'indigo' | 'gray'> = {
+const stageColors: Record<string, 'blue' | 'yellow' | 'green' | 'red' | 'indigo' | 'gray'> = {
   new: 'blue',
   under_review: 'yellow',
   shortlisted: 'indigo',
@@ -69,8 +69,8 @@ const statusColors: Record<string, 'blue' | 'yellow' | 'green' | 'red' | 'indigo
   rejected: 'red',
 };
 
-// Allowed forward transitions from each status
-const NEXT_STATUSES: Record<string, Status[]> = {
+// Allowed forward transitions from each stage
+const NEXT_STAGES: Record<string, Stage[]> = {
   new: ['under_review', 'shortlisted', 'archived'],
   under_review: ['shortlisted', 'archived'],
   shortlisted: ['partner_onboarding', 'archived'],
@@ -133,8 +133,8 @@ export default function LeadDetail({ id }: { id: string }) {
     enabled: !!id,
   });
 
-  // Status update state
-  const [nextStatus, setNextStatus] = useState<string>('');
+  // Stage update state
+  const [nextStage, setNextStage] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [archiveReason, setArchiveReason] = useState('');
@@ -151,9 +151,9 @@ export default function LeadDetail({ id }: { id: string }) {
     }
   }, [lead]);
 
-  const updateStatus = useMutation({
+  const updateStage = useMutation({
     mutationFn: async (payload: {
-      status: Status;
+      status: Stage;
       admin_notes?: string;
       archive_reason?: string;
     }) => {
@@ -162,15 +162,15 @@ export default function LeadDetail({ id }: { id: string }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-lead', id] });
       queryClient.invalidateQueries({ queryKey: ['admin-leads'] });
-      toast.success('Status updated');
+      toast.success('Stage updated');
       setNotes('');
-      setNextStatus('');
+      setNextStage('');
       setShowArchiveModal(false);
       setArchiveReason('');
       setArchiveNote('');
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.error || err.response?.data?.message || 'Failed to update status');
+      toast.error(err.response?.data?.error || err.response?.data?.message || 'Failed to update stage');
     },
   });
 
@@ -212,15 +212,15 @@ export default function LeadDetail({ id }: { id: string }) {
     return String(value);
   };
 
-  const nextStatuses = NEXT_STATUSES[lead.status] ?? ['archived'];
+  const nextStages = NEXT_STAGES[lead.status] ?? ['archived'];
 
-  const handleApplyStatus = () => {
-    if (!nextStatus) return;
-    if (nextStatus === 'archived') {
+  const handleApplyStage = () => {
+    if (!nextStage) return;
+    if (nextStage === 'archived') {
       setShowArchiveModal(true);
       return;
     }
-    updateStatus.mutate({ status: nextStatus as Status, admin_notes: notes || undefined });
+    updateStage.mutate({ status: nextStage as Stage, admin_notes: notes || undefined });
   };
 
   const handleArchiveSubmit = () => {
@@ -232,7 +232,7 @@ export default function LeadDetail({ id }: { id: string }) {
       toast.error('Please add a note explaining why');
       return;
     }
-    updateStatus.mutate({
+    updateStage.mutate({
       status: 'archived',
       archive_reason: archiveReason,
       admin_notes: archiveNote,
@@ -254,8 +254,8 @@ export default function LeadDetail({ id }: { id: string }) {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{lead.name}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <Badge variant={statusColors[lead.status] || 'gray'}>
-              {STATUS_LABELS[lead.status] || lead.status}
+            <Badge variant={stageColors[lead.status] || 'gray'}>
+              {STAGE_LABELS[lead.status] || lead.status}
             </Badge>
             <Badge variant={lead.form_type === 'creative' ? 'indigo' : 'gray'}>
               {lead.form_type}
@@ -442,13 +442,13 @@ export default function LeadDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* Status Management */}
+      {/* Stage Management */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h2 className="mb-1 text-lg font-semibold text-gray-900">Update Status</h2>
+        <h2 className="mb-1 text-lg font-semibold text-gray-900">Update Stage</h2>
         <p className="mb-4 text-sm text-gray-500">
           Current:{' '}
           <span className="font-medium text-gray-900">
-            {STATUS_LABELS[lead.status] || lead.status}
+            {STAGE_LABELS[lead.status] || lead.status}
           </span>
           {lead.status === 'archived' && lead.archive_reason && (
             <span className="text-gray-500">
@@ -469,7 +469,7 @@ export default function LeadDetail({ id }: { id: string }) {
           <input
             type="text"
             className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            placeholder="Add a note that will be saved with the status change..."
+            placeholder="Add a note that will be saved with the stage change..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
@@ -477,28 +477,28 @@ export default function LeadDetail({ id }: { id: string }) {
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-[220px]">
             <label className="mb-1 block text-xs font-medium text-gray-600">
-              New status
+              New stage
             </label>
             <select
-              value={nextStatus}
-              onChange={(e) => setNextStatus(e.target.value)}
+              value={nextStage}
+              onChange={(e) => setNextStage(e.target.value)}
               className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="">Select status...</option>
-              {nextStatuses.map((s) => (
+              <option value="">Select stage...</option>
+              {nextStages.map((s) => (
                 <option key={s} value={s}>
-                  {STATUS_LABELS[s]}
+                  {STAGE_LABELS[s]}
                 </option>
               ))}
             </select>
           </div>
           <Button
-            disabled={!nextStatus}
-            loading={updateStatus.isPending}
-            variant={nextStatus === 'archived' ? 'danger' : 'primary'}
-            onClick={handleApplyStatus}
+            disabled={!nextStage}
+            loading={updateStage.isPending}
+            variant={nextStage === 'archived' ? 'danger' : 'primary'}
+            onClick={handleApplyStage}
           >
-            {nextStatus === 'archived' ? 'Archive…' : 'Update'}
+            {nextStage === 'archived' ? 'Archive…' : 'Update'}
           </Button>
         </div>
       </div>
@@ -558,7 +558,7 @@ export default function LeadDetail({ id }: { id: string }) {
             </Button>
             <Button
               variant="danger"
-              loading={updateStatus.isPending}
+              loading={updateStage.isPending}
               onClick={handleArchiveSubmit}
             >
               Archive

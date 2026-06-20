@@ -33,7 +33,7 @@ interface LeadsResponse {
   total_pages: number;
 }
 
-const statusColors: Record<string, 'blue' | 'yellow' | 'green' | 'red' | 'indigo' | 'gray'> = {
+const stageColors: Record<string, 'blue' | 'yellow' | 'green' | 'red' | 'indigo' | 'gray'> = {
   new: 'blue',
   share_form: 'blue',
   form_filled: 'yellow',
@@ -55,7 +55,7 @@ const statusColors: Record<string, 'blue' | 'yellow' | 'green' | 'red' | 'indigo
   rejected: 'red',
 };
 
-const STATUS_LABELS: Record<string, string> = {
+const STAGE_LABELS: Record<string, string> = {
   new: 'New',
   share_form: 'Share Form',
   form_filled: 'Form Filled',
@@ -286,7 +286,7 @@ export default function LeadList() {
         </button>
         <h1 className="text-2xl font-bold text-gray-900">{categoryLabel} Candidates</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Applications grouped by time. Click a row to review and update status instantly.
+          Applications grouped by time. Click a row to review and update stage instantly.
         </p>
       </div>
 
@@ -352,16 +352,16 @@ export default function LeadList() {
         onApply={(rules) => updateQuery({ form_data_filter: rules ? JSON.stringify(rules) : null, page: '1' })}
       />
 
-      {/* Status, Tier & Search Filters */}
+      {/* Stage, Tier & Search Filters */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-44">
-          <label className="mb-1 block text-xs font-medium text-gray-600">Status</label>
+          <label className="mb-1 block text-xs font-medium text-gray-600">Stage</label>
           <select
             className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             value={status}
             onChange={(e) => updateQuery({ status: e.target.value, page: '1' })}
           >
-            <option value="">All statuses</option>
+            <option value="">All stages</option>
             <option value="new">New</option>
             <option value="under_review">Under Review</option>
             <option value="shortlisted">Shortlisted</option>
@@ -462,8 +462,8 @@ export default function LeadList() {
                           </p>
                         </div>
                         <div className="hidden sm:block">
-                          <Badge variant={statusColors[lead.status] || 'gray'}>
-                            {STATUS_LABELS[lead.status] || lead.status}
+                          <Badge variant={stageColors[lead.status] || 'gray'}>
+                            {STAGE_LABELS[lead.status] || lead.status}
                           </Badge>
                         </div>
                         <div className="hidden w-24 text-right text-xs text-gray-400 md:block">

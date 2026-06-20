@@ -1,4 +1,4 @@
-export const STATUS_LABELS: Record<string, string> = {
+export const STAGE_LABELS: Record<string, string> = {
   new: 'New',
   share_form: 'Share Form',
   form_filled: 'Form Filled',
@@ -20,7 +20,7 @@ export const STATUS_LABELS: Record<string, string> = {
   rejected: 'Rejected',
 };
 
-export const STATUS_COLORS: Record<
+export const STAGE_COLORS: Record<
   string,
   'blue' | 'yellow' | 'green' | 'red' | 'indigo' | 'gray'
 > = {
@@ -51,8 +51,8 @@ export const FORM_TYPE_TABS: { value: string; label: string }[] = [
   { value: 'accountant', label: 'Accountant' },
 ];
 
-export const STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: '', label: 'All statuses' },
+export const STAGE_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'All stages' },
   { value: 'new', label: 'New' },
   { value: 'share_form', label: 'Share Form' },
   { value: 'form_filled', label: 'Form Filled' },

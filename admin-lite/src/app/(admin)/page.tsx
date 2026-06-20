@@ -6,7 +6,7 @@ const cards = [
   {
     href: '/leads',
     title: 'Candidates',
-    description: 'Applications from the public intake form. Filter, review, update status.',
+    description: 'Applications from the public intake form. Filter, review, update stage.',
   },
   {
     href: '/approvals',

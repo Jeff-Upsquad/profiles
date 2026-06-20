@@ -22,9 +22,9 @@ import ArchiveLeadModal from '../../../src/components/leads/ArchiveLeadModal';
 import { formatIndianPhone, cleanPhoneForLink } from '../../../src/lib/phone';
 import {
   PROFILE_TYPE_OPTIONS,
-  STATUS_COLORS,
-  STATUS_LABELS,
-  STATUS_OPTIONS,
+  STAGE_COLORS,
+  STAGE_LABELS,
+  STAGE_OPTIONS,
 } from '../../../src/constants/leads';
 import type { LeadFull } from '../../../src/types';
 
@@ -43,7 +43,7 @@ export default function LeadDetailScreen() {
     enabled: !!id,
   });
 
-  const updateStatus = useMutation({
+  const updateStage = useMutation({
     mutationFn: async (vars: { status: string; archive_reason?: string; admin_notes?: string }) => {
       await api.patch(`/admin/leads/${id}/status`, vars);
     },
@@ -87,8 +87,8 @@ export default function LeadDetailScreen() {
           <Badge color={lead.form_type === 'creative' ? 'indigo' : 'gray'}>
             {lead.form_type}
           </Badge>
-          <Badge color={STATUS_COLORS[lead.status] || 'gray'}>
-            {STATUS_LABELS[lead.status] || lead.status}
+          <Badge color={STAGE_COLORS[lead.status] || 'gray'}>
+            {STAGE_LABELS[lead.status] || lead.status}
           </Badge>
         </View>
 
@@ -120,15 +120,15 @@ export default function LeadDetailScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Status</Text>
+        <Text style={styles.sectionTitle}>Stage</Text>
         <Picker
           value={lead.status}
-          options={STATUS_OPTIONS.filter((o) => o.value !== '')}
+          options={STAGE_OPTIONS.filter((o) => o.value !== '')}
           onChange={(next) => {
             if (next === 'archived') {
               setArchiveOpen(true);
             } else if (next !== lead.status) {
-              updateStatus.mutate({ status: next });
+              updateStage.mutate({ status: next });
             }
           }}
         />
@@ -231,12 +231,12 @@ export default function LeadDetailScreen() {
         visible={archiveOpen}
         onClose={() => setArchiveOpen(false)}
         onSubmit={(reason, note) => {
-          updateStatus.mutate(
+          updateStage.mutate(
             { status: 'archived', archive_reason: reason, admin_notes: note || undefined },
             { onSuccess: () => setArchiveOpen(false) },
           );
         }}
-        loading={updateStatus.isPending}
+        loading={updateStage.isPending}
       />
     </ScrollView>
   );
