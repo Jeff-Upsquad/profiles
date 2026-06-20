@@ -38,6 +38,14 @@ const envSchema = z.object({
   SQUADHUB_CALLBACK_URL: z.string().url().optional(),
   SQUADHUB_CALLBACK_SECRET: z.string().min(32).optional(),
 
+  // Identity stamped as the author of candidate writes (status changes, notes)
+  // that originate from SquadHub's Candidates mini app via the signed
+  // /api/integrations/squadhub/candidates/* surface. lead_notes.created_by is
+  // NOT NULL, so this must be a valid uuid for note writes to succeed — when
+  // unset, candidate note/status writes return 503. The acting SquadHub user's
+  // email arrives in the X-SquadHub-Actor header and is logged for traceability.
+  SQUADHUB_SERVICE_USER_ID: z.string().uuid().optional(),
+
   // SquadHire CRM (shcrm) → Profiles inbound: shared secret used to verify the
   // X-SquadCRM-Signature header when the CRM pushes lead-stage changes back
   // here. Optional — when unset, /webhooks/squadcrm/lead-stage returns 503.

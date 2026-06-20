@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as integrationsController from '../controllers/integrations.controller.js';
+import * as candidatesController from '../controllers/integrations-candidates.controller.js';
 import {
   verifySquadhubSecret,
   verifySquadcrmSecret,
@@ -60,6 +61,25 @@ router.delete(
   verifySquadhubSecret,
   integrationsController.deleteSquadhubGrant,
 );
+
+// Candidates — SquadHub's "Candidates" mini app reads/writes lead_submissions
+// through this signed surface. Reads are full; writes (status, notes, soft
+// delete/restore) are authored by the SquadHub service identity. Heavier
+// actions (permanent delete, interview invites, talent onboarding) are
+// deliberately NOT exposed here and stay in SquadHire's own admin.
+router.get('/squadhub/candidates', verifySquadhubSecret, candidatesController.listCandidates);
+// Literal sub-collections (onboarding / interviews) must precede the /:id route.
+router.get('/squadhub/candidates/onboarding', verifySquadhubSecret, candidatesController.listOnboarding);
+router.get('/squadhub/candidates/interviews', verifySquadhubSecret, candidatesController.listInterviews);
+router.patch('/squadhub/candidates/interviews/:id/reviewed', verifySquadhubSecret, candidatesController.setInterviewReviewed);
+router.get('/squadhub/candidates/:id', verifySquadhubSecret, candidatesController.getCandidate);
+router.patch('/squadhub/candidates/:id/status', verifySquadhubSecret, candidatesController.updateCandidateStatus);
+router.get('/squadhub/candidates/:id/notes', verifySquadhubSecret, candidatesController.listCandidateNotes);
+router.post('/squadhub/candidates/:id/notes', verifySquadhubSecret, candidatesController.createCandidateNote);
+router.patch('/squadhub/candidates/notes/:noteId', verifySquadhubSecret, candidatesController.updateCandidateNote);
+router.delete('/squadhub/candidates/notes/:noteId', verifySquadhubSecret, candidatesController.deleteCandidateNote);
+router.delete('/squadhub/candidates/:id', verifySquadhubSecret, candidatesController.softDeleteCandidate);
+router.patch('/squadhub/candidates/:id/restore', verifySquadhubSecret, candidatesController.restoreCandidate);
 
 // SquadHire CRM — phone-keyed talent lookup. Returns the deep-link to admin
 // (or null when SQUADHIRE_ADMIN_URL is unset) plus the talent's name and
