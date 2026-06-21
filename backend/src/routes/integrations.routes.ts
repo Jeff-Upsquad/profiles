@@ -68,7 +68,8 @@ router.delete(
 // actions (permanent delete, interview invites, talent onboarding) are
 // deliberately NOT exposed here and stay in SquadHire's own admin.
 router.get('/squadhub/candidates', verifySquadhubSecret, candidatesController.listCandidates);
-// Literal sub-collections (onboarding / interviews) must precede the /:id route.
+// Literal sub-collections (forms / onboarding / interviews) must precede the /:id route.
+router.get('/squadhub/candidates/forms', verifySquadhubSecret, candidatesController.listPublicForms);
 router.get('/squadhub/candidates/onboarding', verifySquadhubSecret, candidatesController.listOnboarding);
 router.get('/squadhub/candidates/interviews', verifySquadhubSecret, candidatesController.listInterviews);
 router.patch('/squadhub/candidates/interviews/:id/reviewed', verifySquadhubSecret, candidatesController.setInterviewReviewed);
