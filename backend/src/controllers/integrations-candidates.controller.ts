@@ -72,6 +72,31 @@ export async function listCandidateNotes(req: Request, res: Response, next: Next
   }
 }
 
+/**
+ * Category resolvers — SquadHub calls these to authorise note/interview writes
+ * by the record's REAL category (the note/interview id carries no candidate id
+ * on those routes, so the category must be resolved authoritatively here).
+ */
+export async function getCandidateNoteFormType(req: Request, res: Response, next: NextFunction) {
+  try {
+    const form_type = await leadService.getLeadNoteFormType(req.params.noteId as string);
+    if (!form_type) throw new AppError(404, 'Note not found');
+    res.json({ form_type });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getInterviewFormType(req: Request, res: Response, next: NextFunction) {
+  try {
+    const form_type = await interviewService.getInvitationFormType(req.params.id as string);
+    if (!form_type) throw new AppError(404, 'Interview not found');
+    res.json({ form_type });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Writes (authored by the SquadHub service identity)
 // ---------------------------------------------------------------------------

@@ -237,6 +237,29 @@ export async function setInvitationReviewed(
   return data;
 }
 
+/**
+ * The candidate category (form_type) an interview invitation belongs to, via its
+ * lead. Lets SquadHub authorise the reviewed-toggle by the invitation's REAL
+ * category rather than a client-supplied hint. Null when missing.
+ */
+export async function getInvitationFormType(invitationId: string): Promise<string | null> {
+  const { data: invitation, error } = await supabaseAdmin
+    .from('interview_invitations')
+    .select('lead_id')
+    .eq('id', invitationId)
+    .maybeSingle();
+  if (error) throw new AppError(500, `Failed to resolve interview: ${error.message}`);
+  if (!invitation?.lead_id) return null;
+
+  const { data: lead, error: leadErr } = await supabaseAdmin
+    .from('lead_submissions')
+    .select('form_type')
+    .eq('id', invitation.lead_id)
+    .maybeSingle();
+  if (leadErr) throw new AppError(500, `Failed to resolve interview category: ${leadErr.message}`);
+  return lead?.form_type ?? null;
+}
+
 export async function getLatestInvitationForLead(leadId: string) {
   const { data, error } = await supabaseAdmin
     .from('interview_invitations')

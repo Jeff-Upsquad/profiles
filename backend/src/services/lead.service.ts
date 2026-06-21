@@ -605,6 +605,29 @@ export async function deleteLeadNote(noteId: string) {
   return { success: true };
 }
 
+/**
+ * The candidate category (form_type) a note belongs to, via its lead. Lets
+ * SquadHub authorise note edit/delete by the note's REAL category rather than a
+ * client-supplied hint. Returns null when the note (or its lead) is missing.
+ */
+export async function getLeadNoteFormType(noteId: string): Promise<string | null> {
+  const { data: note, error } = await supabaseAdmin
+    .from('lead_notes')
+    .select('lead_id')
+    .eq('id', noteId)
+    .maybeSingle();
+  if (error) throw new AppError(500, `Failed to resolve note: ${error.message}`);
+  if (!note?.lead_id) return null;
+
+  const { data: lead, error: leadErr } = await supabaseAdmin
+    .from('lead_submissions')
+    .select('form_type')
+    .eq('id', note.lead_id)
+    .maybeSingle();
+  if (leadErr) throw new AppError(500, `Failed to resolve note category: ${leadErr.message}`);
+  return lead?.form_type ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // Soft-delete / Restore / Permanent delete (admin)
 // ---------------------------------------------------------------------------

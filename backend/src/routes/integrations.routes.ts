@@ -72,6 +72,9 @@ router.get('/squadhub/candidates', verifySquadhubSecret, candidatesController.li
 router.get('/squadhub/candidates/onboarding', verifySquadhubSecret, candidatesController.listOnboarding);
 router.get('/squadhub/candidates/interviews', verifySquadhubSecret, candidatesController.listInterviews);
 router.patch('/squadhub/candidates/interviews/:id/reviewed', verifySquadhubSecret, candidatesController.setInterviewReviewed);
+// Category resolvers for SquadHub's permission checks (literal paths, before /:id).
+router.get('/squadhub/candidates/interviews/:id/form-type', verifySquadhubSecret, candidatesController.getInterviewFormType);
+router.get('/squadhub/candidates/notes/:noteId/form-type', verifySquadhubSecret, candidatesController.getCandidateNoteFormType);
 router.get('/squadhub/candidates/:id', verifySquadhubSecret, candidatesController.getCandidate);
 router.patch('/squadhub/candidates/:id/status', verifySquadhubSecret, candidatesController.updateCandidateStatus);
 router.get('/squadhub/candidates/:id/notes', verifySquadhubSecret, candidatesController.listCandidateNotes);
