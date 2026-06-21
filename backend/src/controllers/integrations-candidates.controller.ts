@@ -13,12 +13,19 @@ import { AppError } from '../middleware/errorHandler.middleware.js';
  * so SquadHub never duplicates it.
  *
  * Writes are authored by SQUADHUB_SERVICE_USER_ID (lead_notes.created_by is NOT
- * NULL). The acting SquadHub user's email rides in X-SquadHub-Actor and is
- * logged so the audit trail records who acted from SquadHub.
+ * NULL). The acting SquadHub user's email/name ride in X-SquadHub-Actor[-Name]:
+ * logged for the audit trail and, for notes, persisted to lead_notes.author_email
+ * / author_name so SquadHub can show who actually wrote each note.
  */
 
 function actorOf(req: Request): string | null {
   const raw = req.header('x-squadhub-actor') ?? req.header('X-SquadHub-Actor');
+  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null;
+}
+
+/** The acting SquadHub user's display name, if they have one. */
+function actorNameOf(req: Request): string | null {
+  const raw = req.header('x-squadhub-actor-name') ?? req.header('X-SquadHub-Actor-Name');
   return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null;
 }
 
@@ -157,10 +164,11 @@ export async function updateCandidateStatus(req: Request, res: Response, next: N
 export async function createCandidateNote(req: Request, res: Response, next: NextFunction) {
   try {
     const actor = actorOf(req);
+    const actorName = actorNameOf(req);
     const author = serviceUserId();
     const content = String(req.body?.content ?? '');
     console.log(`[candidates] note added on ${req.params.id} by SquadHub actor=${actor ?? 'unknown'}`);
-    const note = await leadService.createLeadNote(req.params.id as string, content, author);
+    const note = await leadService.createLeadNote(req.params.id as string, content, author, actor, actorName);
     res.status(201).json(note);
   } catch (err) {
     next(err);
