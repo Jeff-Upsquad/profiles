@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as leadService from '../services/lead.service.js';
 import * as interviewService from '../services/interview.service.js';
+import * as formConfigService from '../services/form-config.service.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 
@@ -49,6 +50,43 @@ export async function listCandidates(req: Request, res: Response, next: NextFunc
       limit: limit ? Number(limit) : undefined,
     });
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Public candidate forms (the /apply/* lead-capture pages). SquadHub's
+ * "Public Forms" panel lists these so an admin can copy/open the live links.
+ * We return each form's full public URL, built from this app's own public
+ * origin (FRONTEND_URL — the same origin used for password-reset/invite links),
+ * so SquadHub never has to know the SquadHire domain.
+ */
+function publicFormsOrigin(): string {
+  const raw =
+    process.env.FRONTEND_URL ||
+    env.CORS_ORIGIN?.split(',')[0] ||
+    'http://localhost:5173';
+  return raw.trim().replace(/\/+$/, '');
+}
+
+export async function listPublicForms(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const origin = publicFormsOrigin();
+    const forms = await formConfigService.getPublicForms();
+    const shaped = (forms ?? []).map((f: any) => {
+      const urlPath = String(f.url_path ?? `/apply/${f.form_type}`);
+      const normalizedPath = urlPath.startsWith('/') ? urlPath : `/${urlPath}`;
+      return {
+        form_type: f.form_type,
+        title: f.title ?? f.form_type,
+        description: f.description ?? '',
+        url_path: normalizedPath,
+        public_url: `${origin}${normalizedPath}`,
+        enabled: !!f.enabled,
+      };
+    });
+    res.json({ forms: shaped });
   } catch (err) {
     next(err);
   }
