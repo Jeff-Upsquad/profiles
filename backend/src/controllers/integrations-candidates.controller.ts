@@ -58,15 +58,13 @@ export async function listCandidates(req: Request, res: Response, next: NextFunc
 /**
  * Public candidate forms (the /apply/* lead-capture pages). SquadHub's
  * "Public Forms" panel lists these so an admin can copy/open the live links.
- * We return each form's full public URL, built from this app's own public
- * origin (FRONTEND_URL — the same origin used for password-reset/invite links),
- * so SquadHub never has to know the SquadHire domain.
+ * We return each form's full public URL built from the public origin that
+ * actually serves the /apply/* pages. FRONTEND_URL / CORS_ORIGIN are internal
+ * (IP:port) on the prod host, so we DON'T derive the public link from them —
+ * use the canonical public domain, overridable via PUBLIC_FORMS_BASE_URL.
  */
 function publicFormsOrigin(): string {
-  const raw =
-    process.env.FRONTEND_URL ||
-    env.CORS_ORIGIN?.split(',')[0] ||
-    'http://localhost:5173';
+  const raw = process.env.PUBLIC_FORMS_BASE_URL || 'https://squadhire.upsquadconnect.com';
   return raw.trim().replace(/\/+$/, '');
 }
 
