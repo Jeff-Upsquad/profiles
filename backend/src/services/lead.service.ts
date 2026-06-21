@@ -568,11 +568,13 @@ export async function listLeadNotes(leadId: string) {
 export async function createLeadNote(
   leadId: string,
   content: string,
-  adminUserId: string
+  adminUserId: string,
+  authorEmail: string | null = null,
+  authorName: string | null = null
 ) {
   const { data, error } = await supabaseAdmin
     .from('lead_notes')
-    .insert({ lead_id: leadId, content, created_by: adminUserId })
+    .insert({ lead_id: leadId, content, created_by: adminUserId, author_email: authorEmail, author_name: authorName })
     .select('*')
     .single();
 
