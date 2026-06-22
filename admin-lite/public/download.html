@@ -156,8 +156,7 @@
     <p class="download-msg" id="downloadMsg">
       Download started. Check your notifications for progress.
     </p>
-    <p class="version">Version 2.0.1 &bull; Android &bull; 80 MB</p>
-    <p class="version">Updated on 22 Apr 2026</p>
+    <p class="version" id="version">Version 2.0.2 &bull; Android</p>
 
     <p class="note">
       After downloading, open the APK file to install.<br>
@@ -183,6 +182,17 @@
           btn.classList.remove('is-disabled');
         }, 5000);
       });
+
+      // Keep the page in sync with the published release without redeploying it.
+      fetch('/api/admin-lite/version').then(function (r) { return r.json(); }).then(function (res) {
+        var c = res && res.data;
+        if (!c) return;
+        if (c.apk_url) btn.setAttribute('href', c.apk_url);
+        if (c.version_name) {
+          var v = document.getElementById('version');
+          if (v) v.textContent = 'Version ' + c.version_name + ' • Android';
+        }
+      }).catch(function () { /* keep static fallback */ });
     })();
   </script>
 </body>
