@@ -1,6 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
+# DEPRECATED: use ./scripts/release.sh instead (npm run release / npm run publish).
+# This script uploads the APK + refreshes the download page but does NOT write
+# the in-app updater manifest (version.json), so running it directly leaves the
+# updater unaware of the new build. release.sh does everything this does, plus
+# the sha256 + manifest publish that the in-app updater needs.
+
 # Admin-Lite Android publish pipeline
 # Usage: ./scripts/publish.sh [version]
 # Example: ./scripts/publish.sh 2.0.1

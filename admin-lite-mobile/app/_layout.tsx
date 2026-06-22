@@ -6,14 +6,23 @@ import { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { queryClient } from '../src/services/queryClient';
 import { useAuthStore } from '../src/stores/authStore';
+import { useUpdateStore } from '../src/stores/updateStore';
+import UpdateGate from '../src/components/UpdateGate';
 
 export default function RootLayout() {
   const isLoading = useAuthStore((s) => s.isLoading);
   const restoreSession = useAuthStore((s) => s.restoreSession);
+  const checkForUpdate = useUpdateStore((s) => s.check);
 
   useEffect(() => {
     restoreSession();
   }, [restoreSession]);
+
+  // Poll the release manifest once at launch; the inline UpdateCard / blocking
+  // UpdateGate surface any newer build.
+  useEffect(() => {
+    checkForUpdate();
+  }, [checkForUpdate]);
 
   if (isLoading) {
     return (
@@ -33,6 +42,7 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(app)" />
         </Stack>
+        <UpdateGate />
       </SafeAreaProvider>
     </QueryClientProvider>
   );

@@ -26,7 +26,7 @@ function formatValue(field: CategoryField, value: any): string {
       .join(', ');
   }
   if (field.field_type === 'select') {
-    return (field.options ?? []).find((o) => o.value === v)?.label || String(value);
+    return (field.options ?? []).find((o) => o.value === value)?.label || String(value);
   }
   if (field.field_type === 'currency') {
     return `$${Number(value).toLocaleString()}`;
@@ -54,26 +54,6 @@ function formatExperience(value: unknown): string | null {
   const yPart = years === 1 ? '1 year' : `${years} years`;
   const mPart = months === 1 ? '1 month' : `${months} months`;
   return `${yPart} ${mPart}`;
-}
-  if (field.field_type === 'select') {
-    return (field.options ?? []).find((o) => o.value === value)?.label || String(value);
-  }
-  if (field.field_type === 'currency') {
-    return `$${Number(value).toLocaleString()}`;
-  }
-  if (field.field_type === 'experience' && typeof value === 'object' && value !== null && !Array.isArray(value)) {
-    const y = (value as any).years;
-    const m = (value as any).months;
-    if (typeof y === 'number' && typeof m === 'number') {
-      const yPart = y === 1 ? '1 year' : `${y} years`;
-      const mPart = m === 1 ? '1 month' : `${m} months`;
-      return `${yPart} ${mPart}`;
-    }
-  }
-  if (field.field_type === 'file_upload') {
-    return 'View file';
-  }
-  return String(value);
 }
 
 export default function ProfileReviewScreen() {
