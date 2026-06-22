@@ -24,7 +24,6 @@ VPS="root@72.61.245.97"
 VPS_DOWNLOAD_DIR="/var/www/admin-lite-downloads"
 APK_REMOTE_NAME="admin-lite-latest.apk"
 VPS_MANIFEST="/var/www/admin-lite-downloads/version.json"
-VPS_HTML_PATH="/var/www/admin-lite-downloads/download.html"
 APK_URL="https://squadhire.upsquadconnect.com/admin-lite/admin-lite-latest.apk"
 VERSION_ENDPOINT="https://squadhire.upsquadconnect.com/api/admin-lite/version"
 
@@ -114,7 +113,7 @@ if [ ! -f "android-keystore" ]; then
   exit 1
 fi
 
-echo "[1/7] Bumping app.json -> $VERSION (code $NEW_CODE) ..."
+echo "[1/6] Bumping app.json -> $VERSION (code $NEW_CODE) ..."
 node -e "
   const fs = require('fs');
   const p = require('./app.json');
@@ -123,30 +122,28 @@ node -e "
   fs.writeFileSync('./app.json', JSON.stringify(p, null, 2) + '\n');
 "
 
-echo "[2/7] Building APK locally (eas build --local) ..."
+echo "[2/6] Building APK locally (eas build --local) ..."
 npx eas-cli build --platform android --profile preview --local --non-interactive
 APK_PATH="$(ls -t build-*.apk 2>/dev/null | head -1)"
 [ -n "$APK_PATH" ] || { echo "ERROR: no APK produced"; exit 1; }
 echo "  Built: $APK_PATH ($(du -h "$APK_PATH" | cut -f1))"
 
-echo "[3/7] Computing sha256 ..."
+echo "[3/6] Computing sha256 ..."
 SHA="$(shasum -a 256 "$APK_PATH" | cut -d' ' -f1)"
 echo "  sha256: $SHA"
 
-echo "[4/7] Uploading APK -> $VPS:$VPS_DOWNLOAD_DIR/$APK_REMOTE_NAME ..."
+echo "[4/6] Uploading APK -> $VPS:$VPS_DOWNLOAD_DIR/$APK_REMOTE_NAME ..."
 ssh "$VPS" "mkdir -p $VPS_DOWNLOAD_DIR"
 rsync -avz --progress -e "ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=5" \
   "$APK_PATH" "$VPS:$VPS_DOWNLOAD_DIR/$APK_REMOTE_NAME"
 
-echo "[5/7] Publishing manifest -> $VPS:$VPS_MANIFEST ..."
+echo "[5/6] Publishing manifest -> $VPS:$VPS_MANIFEST ..."
 build_manifest "$SHA" | ssh "$VPS" "cat > $VPS_MANIFEST"
+# The download page (admin-lite/public/download.html) reads this manifest at
+# runtime via fetch('/api/admin-lite/version'), so no server-side page edit is
+# needed — it always reflects the published version.
 
-echo "[6/7] Refreshing download page version/timestamp ..."
-TIMESTAMP="$(TZ='Asia/Kolkata' date +'%-d %b %Y, %-I:%M %p IST')"
-ssh "$VPS" "sed -i 's/Version [0-9]\+\.[0-9]\+\.[0-9]\+/Version $VERSION/g' $VPS_HTML_PATH || true"
-ssh "$VPS" "sed -i 's/Updated on .*/Updated on $TIMESTAMP<\/p>/' $VPS_HTML_PATH || true"
-
-echo "[7/7] Committing + tagging + verifying endpoint ..."
+echo "[6/6] Committing + tagging + verifying endpoint ..."
 git add app.json
 git commit -m "admin-lite-mobile: release $VERSION (code $NEW_CODE)" || true
 git tag -f "admin-lite-release/${VERSION}" >/dev/null 2>&1 || true
