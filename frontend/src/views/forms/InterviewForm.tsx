@@ -33,7 +33,7 @@ function CompletedScreen({
   description: string;
 }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3] px-4">
+    <div className="flex min-h-screen items-center justify-center bg-[#F5F5F6] px-4">
       <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center shadow-sm">
         <h2 className="text-2xl font-semibold text-neutral-900">{title}</h2>
         <p className="mt-2 text-neutral-500">{description}</p>
@@ -41,7 +41,7 @@ function CompletedScreen({
           href="https://www.upsquadconnect.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-6 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+          className="mt-6 inline-block text-sm font-medium text-[#0a0a0a] hover:text-[#0a0a0a] hover:underline"
         >
           Know more about Upsquad →
         </a>
@@ -112,8 +112,8 @@ export default function InterviewForm({ token }: { token: string }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-[#F5F5F6]">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#0a0a0a] border-t-transparent" />
       </div>
     );
   }
@@ -146,7 +146,7 @@ export default function InterviewForm({ token }: { token: string }) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3] px-4 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-[#F5F5F6] px-4 py-12">
       <div className="w-full max-w-lg">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-semibold tracking-tight text-neutral-900">
@@ -221,7 +221,7 @@ export default function InterviewForm({ token }: { token: string }) {
                     className={`block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 ${
                       errors[q.id]
                         ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                        : 'border-neutral-300 focus:border-indigo-500 focus:ring-indigo-500'
+                        : 'border-neutral-300 focus:border-[#0a0a0a] focus:ring-[#0a0a0a]'
                     }`}
                     placeholder="Type your answer here..."
                   />
@@ -235,7 +235,7 @@ export default function InterviewForm({ token }: { token: string }) {
                     className={`block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 ${
                       errors[q.id]
                         ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                        : 'border-neutral-300 focus:border-indigo-500 focus:ring-indigo-500'
+                        : 'border-neutral-300 focus:border-[#0a0a0a] focus:ring-[#0a0a0a]'
                     }`}
                   />
                 )}
@@ -251,7 +251,7 @@ export default function InterviewForm({ token }: { token: string }) {
                           onClick={() => setAnswer(q.id, opt)}
                           className={`min-w-[80px] rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
                             selected
-                              ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                              ? 'border-[#0a0a0a] bg-[#F5F5F6] text-[#0a0a0a]'
                               : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
                           }`}
                         >
@@ -268,7 +268,7 @@ export default function InterviewForm({ token }: { token: string }) {
                       type="checkbox"
                       checked={answers[q.id] === true}
                       onChange={(e) => setAnswer(q.id, e.target.checked)}
-                      className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                      className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-[#0a0a0a] focus:ring-[#0a0a0a]"
                     />
                     <span className="text-sm text-neutral-700">I confirm</span>
                   </label>
@@ -292,7 +292,7 @@ export default function InterviewForm({ token }: { token: string }) {
             href="https://www.upsquadconnect.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-indigo-600 hover:underline"
+            className="text-[#0a0a0a] hover:underline"
           >
             www.upsquadconnect.com
           </a>

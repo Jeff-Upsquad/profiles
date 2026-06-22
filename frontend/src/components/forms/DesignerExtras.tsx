@@ -78,9 +78,9 @@ function LevelButtonGroup({
 }) {
   const selectedCls =
     accent === 'indigo'
-      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+      ? 'border-[#0a0a0a] bg-[#F5F5F6] text-[#0a0a0a]'
       : accent === 'purple'
-        ? 'border-purple-500 bg-purple-50 text-purple-700'
+        ? 'border-[#0a0a0a] bg-[#F5F5F6] text-[#0a0a0a]'
         : accent === 'emerald'
           ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
           : 'border-zinc-500 bg-zinc-100 text-zinc-800';
@@ -163,9 +163,9 @@ function LeveledCardPicker<T extends { id: string; name: string; group?: string 
 
   const checkboxCls =
     accent === 'indigo'
-      ? 'text-indigo-600 focus:ring-indigo-500'
+      ? 'text-[#0a0a0a] focus:ring-[#0a0a0a]'
       : accent === 'purple'
-        ? 'text-purple-600 focus:ring-purple-500'
+        ? 'text-[#0a0a0a] focus:ring-[#0a0a0a]'
         : 'text-zinc-600 focus:ring-zinc-500';
 
   const renderCard = (item: T) => {
@@ -307,7 +307,7 @@ export default function DesignerExtras({
         <label className="flex cursor-pointer items-center gap-3">
           <input
             type="checkbox"
-            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            className="h-4 w-4 rounded border-gray-300 text-[#0a0a0a] focus:ring-[#0a0a0a]"
             checked={!!selected}
             onChange={() => toggleSkill(skill.name)}
           />

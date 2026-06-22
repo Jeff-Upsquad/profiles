@@ -50,7 +50,7 @@ export default function SubscriptionCardView({ item }: Props) {
   };
 
   return (
-    <article className={`group relative flex flex-col overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 ${isCancelled ? 'opacity-70' : ''}`}>
+    <article className={`group relative flex flex-col overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 ${isCancelled ? 'opacity-70' : ''}`}>
       {/* Tinted top strip with brand */}
       <div className={`${tint} relative h-20 px-5 flex items-center overflow-hidden`}>
         <div className="absolute -top-6 -right-6 h-24 w-24 rounded-full bg-white/40 blur-2xl" />
@@ -86,13 +86,13 @@ export default function SubscriptionCardView({ item }: Props) {
         <SubscriptionCardContent content={item.card.content} />
 
         {/* Action footer */}
-        <div className="mt-auto flex items-center justify-end gap-2 border-t border-[#E8E5DE] pt-4">
+        <div className="mt-auto flex items-center justify-end gap-2 border-t border-[#E7E7EA] pt-4">
           {showActions ? (
             isInactive ? (
               <button
                 type="button"
                 onClick={() => setShowInactiveMessage(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#E8E5DE] bg-[#f5f5f5] px-3.5 py-2 text-sm font-semibold text-[#737373] transition-colors hover:bg-[#ebebeb]"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#E7E7EA] bg-[#f5f5f5] px-3.5 py-2 text-sm font-semibold text-[#737373] transition-colors hover:bg-[#ebebeb]"
               >
                 Profile Inactive
               </button>

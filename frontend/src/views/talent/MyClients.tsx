@@ -51,7 +51,7 @@ export default function MyClients() {
 
   if (error || !data) {
     return (
-      <div className="rounded-2xl border border-[#E8E5DE] bg-white p-10 text-center">
+      <div className="rounded-2xl border border-[#E7E7EA] bg-white p-10 text-center">
         <p className="text-sm font-medium text-[#0a0a0a]">Couldn&rsquo;t load your clients.</p>
       </div>
     );
@@ -63,7 +63,7 @@ export default function MyClients() {
   return (
     <div className="space-y-5">
       {/* Earnings + commitment summary */}
-      <section className="rounded-2xl border border-[#E8E5DE] bg-white p-5 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <section className="rounded-2xl border border-[#E7E7EA] bg-white p-5 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-baseline gap-x-6 gap-y-3">
             <div>
@@ -87,7 +87,7 @@ export default function MyClients() {
             type="button"
             onClick={() => setQuitOpen(true)}
             disabled={!hasAnyClients}
-            className="rounded-lg border border-[#E8E5DE] px-4 py-2 text-sm font-semibold text-[#525252] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg border border-[#E7E7EA] px-4 py-2 text-sm font-semibold text-[#525252] transition-colors hover:bg-[#F5F5F6] disabled:cursor-not-allowed disabled:opacity-40"
           >
             Quit a client
           </button>
@@ -153,8 +153,8 @@ function ClientSection({
     : 'bg-emerald-50 text-emerald-700';
 
   return (
-    <section className="rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-      <div className="flex items-center justify-between border-b border-[#E8E5DE] px-5 py-4 sm:px-6">
+    <section className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div className="flex items-center justify-between border-b border-[#E7E7EA] px-5 py-4 sm:px-6">
         <div>
           <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
             {title}
@@ -170,7 +170,7 @@ function ClientSection({
           <p className="text-sm text-[#737373]">{emptyMessage}</p>
         </div>
       ) : (
-        <ul className="divide-y divide-[#E8E5DE]">
+        <ul className="divide-y divide-[#E7E7EA]">
           {rows.map((r) => (
             <li key={r.recipient_id} className="px-5 py-3 sm:px-6">
               <div className="flex items-center gap-3">
@@ -221,7 +221,7 @@ Reason: `;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative mx-4 w-full max-w-md rounded-2xl border border-[#E8E5DE] bg-white p-6 shadow-2xl">
+      <div className="relative mx-4 w-full max-w-md rounded-2xl border border-[#E7E7EA] bg-white p-6 shadow-2xl">
         <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold text-[#0a0a0a]">
           Quit a client
         </h3>
@@ -236,8 +236,8 @@ Reason: `;
               key={c.recipient_id}
               className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition-colors ${
                 selectedRecipientId === c.recipient_id
-                  ? 'border-[#0a0a0a] bg-[#F7F6F3]'
-                  : 'border-[#E8E5DE] hover:bg-[#F7F6F3]'
+                  ? 'border-[#0a0a0a] bg-[#F5F5F6]'
+                  : 'border-[#E7E7EA] hover:bg-[#F5F5F6]'
               }`}
             >
               <input
@@ -271,7 +271,7 @@ Reason: `;
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-[#E8E5DE] px-4 py-2 text-sm font-semibold text-[#525252] transition-colors hover:bg-[#F7F6F3]"
+            className="rounded-lg border border-[#E7E7EA] px-4 py-2 text-sm font-semibold text-[#525252] transition-colors hover:bg-[#F5F5F6]"
           >
             Cancel
           </button>

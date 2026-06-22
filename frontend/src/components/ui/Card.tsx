@@ -13,7 +13,7 @@ export default function Card({
 }: CardProps) {
   return (
     <div
-      className={`rounded-[14px] border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-shadow duration-200 hover:shadow-[0_1px_3px_0_rgba(0,0,0,0.1),0_1px_2px_-1px_rgba(0,0,0,0.1)] ${padding ? 'p-6' : ''} ${className}`}
+      className={`rounded-[14px] border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-shadow duration-200 hover:shadow-[0_1px_3px_0_rgba(0,0,0,0.1),0_1px_2px_-1px_rgba(0,0,0,0.1)] ${padding ? 'p-6' : ''} ${className}`}
       {...rest}
     >
       {children}

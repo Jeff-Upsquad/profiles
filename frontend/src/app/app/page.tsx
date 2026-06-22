@@ -28,7 +28,7 @@ export default function TalentAppLanding() {
       <main className="mx-auto flex min-h-screen max-w-md flex-col px-6 py-12">
         {/* Brand */}
         <div className="flex items-start gap-2 text-sm font-medium tracking-tight text-[#62748E]">
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded-[7px] bg-[#4F46E5] text-[10px] font-bold text-white">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-[7px] bg-[#0A0A0A] text-[10px] font-bold text-white">
             SH
           </span>
           <div className="flex flex-col leading-tight">
@@ -41,7 +41,7 @@ export default function TalentAppLanding() {
         <div className="mt-12 flex-1">
           <div
             aria-hidden
-            className="mb-8 inline-flex h-16 w-16 items-center justify-center rounded-[18px] bg-[#4F46E5] text-white shadow-sm ring-1 ring-inset ring-white/10"
+            className="mb-8 inline-flex h-16 w-16 items-center justify-center rounded-[18px] bg-[#0A0A0A] text-white shadow-sm ring-1 ring-inset ring-white/10"
           >
             <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8">
               <path
@@ -57,7 +57,7 @@ export default function TalentAppLanding() {
           <h1 className="text-[40px] leading-[1.05] font-semibold tracking-tight text-[#0F172B]">
             SquadHire
             <br />
-            <span className="text-[#4F46E5]">Talent App</span>
+            <span className="text-[#0A0A0A]">Talent App</span>
           </h1>
           <p className="mt-4 text-[17px] leading-snug text-[#62748E]">
             Get instant notifications for new subscription offers. Accept or
@@ -76,7 +76,7 @@ export default function TalentAppLanding() {
               <a
                 href={config!.download_url}
                 download
-                className="group flex w-full items-center justify-between rounded-xl bg-[#4F46E5] px-5 py-3.5 text-sm font-medium text-white transition hover:bg-[#4338CA] active:scale-[0.99]"
+                className="group flex w-full items-center justify-between rounded-xl bg-[#0A0A0A] px-5 py-3.5 text-sm font-medium text-white transition hover:bg-[#0A0A0A] active:scale-[0.99]"
               >
                 <span className="flex items-center gap-3">
                   <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">

@@ -14,11 +14,11 @@ function tintFor(seed: string): string {
 const TIER_BADGE: Record<Tier, { label: string; className: string }> = {
   junior: {
     label: 'Junior',
-    className: 'bg-[#EDF6FD] text-[#0070C9] ring-[#D6EBFA]',
+    className: 'bg-[#F5F5F6] text-[#0a0a0a] ring-[#E7E7EA]',
   },
   pro: {
     label: 'Pro',
-    className: 'bg-[#EFEDFD] text-[#0a0a0a] ring-[#DDD8FA]',
+    className: 'bg-[#F5F5F6] text-[#0a0a0a] ring-[#F1F1F3]',
   },
   elite: {
     label: 'Top Talents',
@@ -30,7 +30,7 @@ const TIER_BADGE: Record<Tier, { label: string; className: string }> = {
   },
   custom: {
     label: 'Custom',
-    className: 'bg-[#F2F2F4] text-[#52525B] ring-[#E8E5DE]',
+    className: 'bg-[#F2F2F4] text-[#52525B] ring-[#E7E7EA]',
   },
 };
 
@@ -106,7 +106,7 @@ export default function TalentAccessProfileCard({
     return (
       <Link
         href={href}
-        className="group block overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)]"
+        className="group block overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)]"
       >
         <div className="p-4">
           <div className="flex items-start gap-3">
@@ -135,7 +135,7 @@ export default function TalentAccessProfileCard({
               {profile.top_skills.slice(0, 3).map((skill) => (
                 <span
                   key={skill}
-                  className="inline-flex items-center rounded-full bg-[#F2FCBC] px-2 py-0.5 text-[11px] font-medium text-[#0a0a0a]"
+                  className="inline-flex items-center rounded-full bg-[#FFFAC2] px-2 py-0.5 text-[11px] font-medium text-[#0a0a0a]"
                 >
                   {skill}
                 </span>
@@ -171,7 +171,7 @@ export default function TalentAccessProfileCard({
   return (
     <Link
       href={href}
-      className="group flex items-center gap-4 overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#E8E5DE] hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] sm:px-5"
+      className="group flex items-center gap-4 overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#E7E7EA] hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] sm:px-5"
     >
       <Avatar name={profile.full_name} url={profile.profile_photo_url} tint={tint} />
 
@@ -203,7 +203,7 @@ export default function TalentAccessProfileCard({
           {profile.top_skills.slice(0, 2).map((skill) => (
             <span
               key={skill}
-              className="inline-flex items-center rounded-full bg-[#F2FCBC] px-2 py-0.5 text-[11px] font-medium text-[#0a0a0a]"
+              className="inline-flex items-center rounded-full bg-[#FFFAC2] px-2 py-0.5 text-[11px] font-medium text-[#0a0a0a]"
             >
               {skill}
             </span>

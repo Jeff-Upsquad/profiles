@@ -62,11 +62,11 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#F5F5F6] via-white to-[#F5F5F6] px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link href="/" className="inline-flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-lg font-bold text-white">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0a0a0a] text-lg font-bold text-white">
               S
             </div>
             <span className="text-2xl font-bold text-gray-900">SquadHire</span>
@@ -167,7 +167,7 @@ export default function Login() {
                 <div className="flex items-center justify-end">
                   <Link
                     href="/forgot-password"
-                    className="text-sm text-indigo-600 hover:text-indigo-800"
+                    className="text-sm text-[#0a0a0a] hover:text-[#0a0a0a]"
                   >
                     Forgot password?
                   </Link>
@@ -213,7 +213,7 @@ export default function Login() {
           {mode === 'talent' && (
             <div className="mt-6 text-center text-sm text-gray-500">
               Have an invitation?{' '}
-              <Link href="/signup/talent" className="font-medium text-indigo-600 hover:text-indigo-800">
+              <Link href="/signup/talent" className="font-medium text-[#0a0a0a] hover:text-[#0a0a0a]">
                 Sign up as Talent
               </Link>
             </div>

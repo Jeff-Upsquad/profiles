@@ -91,7 +91,7 @@ export default function BusinessSubscription({
   return (
     <div className="space-y-6">
       {/* ── Hero ── */}
-      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="mb-2.5 stagger-1">
@@ -111,8 +111,8 @@ export default function BusinessSubscription({
 
       {/* ── Active Subscriptions (Assigned) ── */}
       {assigned.length > 0 && (
-        <div className="rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="flex items-center justify-between border-b border-[#E8E5DE] px-6 py-5">
+        <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between border-b border-[#E7E7EA] px-6 py-5">
             <div>
               <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                 Active {Noun}s
@@ -121,11 +121,11 @@ export default function BusinessSubscription({
                 Talents have been assigned to these cards.
               </p>
             </div>
-            <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-700">
+            <span className="rounded-full bg-[#E7E7EA] px-2.5 py-1 text-xs font-semibold text-[#0a0a0a]">
               {assigned.length}
             </span>
           </div>
-          <ul className="divide-y divide-[#E8E5DE]">
+          <ul className="divide-y divide-[#E7E7EA]">
             {assigned.map((card, i) => (
               <AssignedCardRow key={card.id} card={card} index={i} detailBase={detailBase} />
             ))}
@@ -134,8 +134,8 @@ export default function BusinessSubscription({
       )}
 
       {/* ── Cards list ── */}
-      <div className="rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center justify-between border-b border-[#E8E5DE] px-6 py-5">
+      <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="flex items-center justify-between border-b border-[#E7E7EA] px-6 py-5">
           <div>
             <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
               {Noun} Cards
@@ -159,7 +159,7 @@ export default function BusinessSubscription({
         ) : visible.length === 0 ? (
           <EmptyState tab={tab} hasNoCards={allCards.length === 0} noun={noun} />
         ) : (
-          <ul className="divide-y divide-[#E8E5DE]">
+          <ul className="divide-y divide-[#E7E7EA]">
             {visible.map((card, i) => (
               <CardRow
                 key={card.id}
@@ -196,7 +196,7 @@ function TabBar({
   closedCount: number;
 }) {
   return (
-    <div className="-mx-6 border-b border-[#E8E5DE] px-6" role="tablist" aria-label="Subscription cards">
+    <div className="-mx-6 border-b border-[#E7E7EA] px-6" role="tablist" aria-label="Subscription cards">
       <div className="flex gap-1 overflow-x-auto">
         <TabButton active={active === 'open'} onClick={() => onChange('open')} count={openCount}>
           Open
@@ -235,7 +235,7 @@ function TabButton({
       <span>{children}</span>
       <span
         className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-          active ? 'bg-[#F2FCBC] text-[#0a0a0a]' : 'bg-[#f0f0f0] text-[#737373]'
+          active ? 'bg-[#FFFAC2] text-[#0a0a0a]' : 'bg-[#f0f0f0] text-[#737373]'
         }`}
       >
         {count}
@@ -258,7 +258,7 @@ function EmptyState({ tab, hasNoCards, noun = 'subscription' }: { tab: Tab; hasN
 
   return (
     <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFFAC2]">
         <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-3.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-1.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 007.586 13H4" />
         </svg>
@@ -282,7 +282,7 @@ function AssignedCardRow({ card, index, detailBase }: { card: BusinessSubscripti
     <li className={`stagger-${Math.min(index + 1, 6)}`}>
       <Link
         href={`${detailBase}/${card.id}`}
-        className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#F7F6F3]"
+        className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#F5F5F6]"
       >
         <div
           className={`${tint} flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl`}
@@ -298,13 +298,13 @@ function AssignedCardRow({ card, index, detailBase }: { card: BusinessSubscripti
             <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
               {cardTitle(card)}
             </p>
-            <span className="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+            <span className="shrink-0 rounded-full bg-[#E7E7EA] px-2 py-0.5 text-[10px] font-semibold text-[#0a0a0a]">
               Assigned
             </span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
             {selectedCount > 0 && (
-              <span className="font-medium text-sky-700">
+              <span className="font-medium text-[#0a0a0a]">
                 {selectedCount} talent{selectedCount !== 1 ? 's' : ''} selected
               </span>
             )}
@@ -360,7 +360,7 @@ function CardRow({
     <li className={`relative stagger-${Math.min(index + 1, 6)}`}>
       <Link
         href={`${detailBase}/${card.id}`}
-        className={`group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#F7F6F3] ${
+        className={`group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#F5F5F6] ${
           muted ? 'opacity-70' : ''
         }`}
       >
@@ -409,9 +409,9 @@ function CardRow({
             </span>
           )}
           {shortlisted > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#F5F5F6] px-2 py-0.5 font-medium text-[#0a0a0a]">
               <span>{shortlisted}</span>
-              <span className="text-indigo-500">shortlisted</span>
+              <span className="text-[#0a0a0a]">shortlisted</span>
             </span>
           )}
         </div>

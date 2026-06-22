@@ -44,7 +44,7 @@ export default function ChangePassword() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#F5F5F6] via-white to-[#F5F5F6] px-4">
       <div className="w-full max-w-md">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-lg">
           <h2 className="mb-1 text-2xl font-bold text-gray-900">
@@ -87,7 +87,7 @@ export default function ChangePassword() {
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                className="text-sm font-medium text-[#0a0a0a] hover:text-[#0a0a0a]"
               >
                 Cancel
               </button>

@@ -2,11 +2,11 @@
 
 html {
   color-scheme: light;
-  background-color: #F7F6F3;
+  background-color: #FFFFFF;
 }
 
 body {
-  background-color: #F7F6F3;
+  background-color: #FFFFFF;
   font-family: var(--font-jakarta), 'Helvetica Neue', system-ui, sans-serif;
   color: #0a0a0a;
   -webkit-font-smoothing: antialiased;
@@ -15,69 +15,69 @@ body {
 @source "../src/**/*.{js,ts,jsx,tsx,mdx}";
 
 @theme {
-  /* ── Neutral Scale (warm cream → near black) ── */
-  --color-cu-50:  #F7F6F3;
-  --color-cu-100: #F0EDE5;
-  --color-cu-200: #E8E5DE;
-  --color-cu-300: #D4CFC5;
+  /* ── Neutral Scale (white → near black, cool grey) ── */
+  --color-cu-50:  #FAFAFA;
+  --color-cu-100: #F5F5F6;
+  --color-cu-200: #E7E7EA;
+  --color-cu-300: #D4D4D8;
   --color-cu-400: #a3a3a3;
   --color-cu-500: #737373;
   --color-cu-600: #525252;
   --color-cu-700: #3F3F46;
   --color-cu-800: #27272A;
   --color-cu-900: #0a0a0a;
-  --color-cu-950: #090C1D;
+  --color-cu-950: #1C1C1F;
 
-  /* ── Iris repointed → UpSquad lime (primary brand accent) ── */
+  /* ── Iris repointed → UpSquad pale-yellow (signature accent) ── */
   --color-iris-50:  #FFFEF0;
-  --color-iris-100: #FFFCD9;
-  --color-iris-200: #FEF8B0;
-  --color-iris-300: #FDF59A;
-  --color-iris-400: #FCF487;
-  --color-iris-500: #FCF487;
-  --color-iris-600: #F5E55A;
-  --color-iris-700: #C9BC2A;
+  --color-iris-100: #FFFDD9;
+  --color-iris-200: #FFFBB0;
+  --color-iris-300: #FFFA9A;
+  --color-iris-400: #FFFF99;
+  --color-iris-500: #FFFF99;
+  --color-iris-600: #F2F26B;
+  --color-iris-700: #C9C92A;
 
-  /* ── UpSquad Brand Tokens ── */
-  --color-brand-purple: #FCF487;  /* lime (primary CTA) */
-  --color-brand-pink:   #a8e8e8;  /* mint */
-  --color-brand-yellow: #f0fb29;
-  --color-brand-blue:   #a8e8e8;  /* alias mint */
-  --color-brand-green:  #42cc77;
-  --color-brand-orange: #F76808;
+  /* ── UpSquad Brand Tokens (monochrome + pale-yellow accent) ── */
+  --color-brand-purple: #FFFF99;  /* pale-yellow accent (signature) */
+  --color-brand-pink:   #E7E7EA;  /* neutral grey */
+  --color-brand-yellow: #FFFF99;
+  --color-brand-blue:   #E7E7EA;  /* neutral grey */
+  --color-brand-green:  #42cc77;  /* success (functional status) */
+  --color-brand-orange: #F76808;  /* warning (functional status) */
 
-  /* ── ClickUp Brand Accents (kept for legacy compat — repointed) ── */
+  /* ── Legacy accents (repointed → neutral / functional) ── */
   --color-cu-orange: #F76808;
-  --color-cu-pink:   #a8e8e8;   /* mint */
-  --color-cu-blue:   #a8e8e8;   /* mint */
+  --color-cu-pink:   #E7E7EA;
+  --color-cu-blue:   #E7E7EA;
   --color-cu-green:  #42cc77;
-  --color-cu-teal:   #a8e8e8;
+  --color-cu-teal:   #E7E7EA;
 
   /* ── Semantic Surface Tokens ── */
   --color-surface-main:   #FFFFFF;
-  --color-surface-box:    #F7F6F3;
-  --color-surface-muted:  #F5F5F2;
+  --color-surface-box:    #F5F5F6;
+  --color-surface-muted:  #FAFAFA;
   --color-border-default: #0a0a0a;
-  --color-border-light:   #E8E5DE;
+  --color-border-light:   #E7E7EA;
 }
 
 /* ── UpSquad Design Tokens ── */
 :root {
-  --cu-bg: #F7F6F3;
-  --cu-bg-box: #F5F5F2;
-  --cu-bg-surface: #EDECE7;
-  --cu-bg-surface-hover: #E4E2DA;
+  --cu-bg: #FFFFFF;
+  --cu-bg-box: #F5F5F6;
+  --cu-bg-surface: #F1F1F3;
+  --cu-bg-surface-hover: #E7E7EA;
   --cu-border: #0a0a0a;
-  --cu-border-soft: #E8E5DE;
-  --cu-border-light: #F0EDE5;
+  --cu-border-soft: #E7E7EA;
+  --cu-border-light: #F1F1F3;
   --cu-text-main: #0a0a0a;
   --cu-text-secondary: #525252;
   --cu-text-tertiary: #737373;
   --cu-text-muted: #a3a3a3;
-  --cu-accent: #FCF487;
-  --cu-accent-hover: #F5E55A;
+  --cu-accent: #FFFF99;
+  --cu-accent-hover: #F2F26B;
   --cu-accent-on: #0a0a0a;          /* text color used on top of accent bg */
-  --cu-mint: #a8e8e8;
+  --cu-mint: #E7E7EA;
   --cu-green: #42cc77;
   --cu-orange: #F76808;
 
@@ -205,11 +205,11 @@ body {
 }
 
 .btn-v5-primary {
-  background: #FCF487;       /* lime */
+  background: #FFFF99;       /* pale-yellow accent */
   color: #0a0a0a;
 }
 .btn-v5-primary:hover:not(:disabled) {
-  background: #F5E55A;
+  background: #F2F26B;
 }
 
 .btn-v5-secondary {
@@ -217,7 +217,7 @@ body {
   color: #0a0a0a;
 }
 .btn-v5-secondary:hover:not(:disabled) {
-  background: #F5F5F2;
+  background: #F5F5F6;
 }
 
 .btn-v5-lg {
@@ -296,7 +296,7 @@ body {
   gap: 0.5rem;
   padding: 0.35rem 0.75rem;
   border-radius: var(--cu-radius-full);
-  background: #FCF487;
+  background: #FFFF99;
   border: 1.5px solid #0a0a0a;
   color: #0a0a0a;
   font-family: var(--font-inter), sans-serif;
@@ -320,11 +320,11 @@ body {
 .ring-conic {
   background: conic-gradient(
     from 90deg,
-    #a8e8e8 0deg,
-    #FCF487 135deg,
-    #f0fb29 187deg,
-    #42cc77 269deg,
-    #a8e8e8 360deg
+    #E7E7EA 0deg,
+    #FFFF99 135deg,
+    #F2F26B 187deg,
+    #D4D4D8 269deg,
+    #E7E7EA 360deg
   );
 }
 
@@ -385,7 +385,7 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(60% 65% at 50% 100%, rgba(168, 232, 232, 0.35) 0%, rgba(247, 246, 243, 0) 70%);
+  background: radial-gradient(60% 65% at 50% 100%, rgba(255, 255, 153, 0.32) 0%, rgba(255, 255, 255, 0) 70%);
   pointer-events: none;
   border-radius: inherit;
 }
@@ -393,7 +393,7 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(55% 60% at 100% 0%, rgba(212, 255, 77, 0.28) 0%, rgba(247, 246, 243, 0) 65%);
+  background: radial-gradient(55% 60% at 100% 0%, rgba(255, 255, 153, 0.24) 0%, rgba(255, 255, 255, 0) 65%);
   pointer-events: none;
   border-radius: inherit;
 }
@@ -401,7 +401,7 @@ body {
   position: absolute;
   width: 60%;
   height: 60%;
-  background: #a8e8e8;
+  background: #FFFAC2;
   filter: blur(120px);
   opacity: 0.4;
   pointer-events: none;
@@ -432,13 +432,13 @@ body {
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 9999px;
-  background: #FCF487;
+  background: #FFFF99;
   border: 1px solid #0a0a0a;
 }
 
-/* ── Lime highlight text (primary brand emphasis) ── */
+/* ── Pale-yellow highlight text (primary brand emphasis) ── */
 .text-rainbow {
-  background-color: #FCF487;
+  background-color: #FFFF99;
   color: #0a0a0a;
   padding: 0 0.25em;
   border-radius: 6px;
@@ -446,9 +446,9 @@ body {
   -webkit-box-decoration-break: clone;
 }
 
-/* ── Lime highlight background (block fills) ── */
+/* ── Pale-yellow highlight background (block fills) ── */
 .bg-rainbow {
-  background: #FCF487;
+  background: #FFFF99;
   color: #0a0a0a;
 }
 
@@ -456,12 +456,13 @@ body {
 /* ── Pastel-Tint Stat Cards (harmonized w/ brand) ── */
 /* ─────────────────────────────────────────────────── */
 
-.tint-orange { background: #FDEDE7; --tint-icon: #F76808; --tint-text: #C04A05; }
-.tint-blue   { background: #E8F8F8; --tint-icon: #2A9D9D; --tint-text: #1A6B6B; }
-.tint-green  { background: #E6F8EC; --tint-icon: #2DA94F; --tint-text: #1F7E36; }
-.tint-purple { background: #F2FCBC; --tint-icon: #7AA51F; --tint-text: #4F6E14; }
-.tint-pink   { background: #FDEDF6; --tint-icon: #E94B8E; --tint-text: #B82D6A; }
-.tint-amber  { background: #FDF6E7; --tint-icon: #D97706; --tint-text: #92400E; }
+/* ── Monochrome tint surfaces (neutral greys + faint pale-yellow ties) ── */
+.tint-orange { background: #FAFAFA; --tint-icon: #0a0a0a; --tint-text: #525252; }
+.tint-blue   { background: #F4F4F6; --tint-icon: #0a0a0a; --tint-text: #525252; }
+.tint-green  { background: #F1F1F3; --tint-icon: #0a0a0a; --tint-text: #525252; }
+.tint-purple { background: #FFFAC2; --tint-icon: #0a0a0a; --tint-text: #525252; }
+.tint-pink   { background: #F5F5F6; --tint-icon: #0a0a0a; --tint-text: #525252; }
+.tint-amber  { background: #FFFEE0; --tint-icon: #0a0a0a; --tint-text: #525252; }
 
 .stat-card {
   position: relative;
@@ -494,7 +495,7 @@ body {
   font-weight: 700;
   letter-spacing: -0.02em;
   color: #0a0a0a;
-  background: #FCF487;
+  background: #FFFF99;
   border: 2px solid #0a0a0a;
   cursor: pointer;
   transition: transform 0.16s ease, box-shadow 0.18s ease, background-color 0.2s ease;
@@ -503,7 +504,7 @@ body {
 }
 .btn-iridescent:hover:not(:disabled) {
   transform: translate(-2px, -2px);
-  background: #F5E55A;
+  background: #F2F26B;
   box-shadow: 6px 6px 0 0 #000;
 }
 .btn-iridescent:active:not(:disabled) {
@@ -533,11 +534,11 @@ body {
   inset: -2px;
   background: conic-gradient(
     from 90deg,
-    #a8e8e8 0deg,
-    #FCF487 135deg,
-    #f0fb29 187deg,
-    #42cc77 269deg,
-    #a8e8e8 360deg
+    #E7E7EA 0deg,
+    #FFFF99 135deg,
+    #F2F26B 187deg,
+    #D4D4D8 269deg,
+    #E7E7EA 360deg
   );
   border-radius: inherit;
   z-index: -1;

@@ -108,11 +108,11 @@ export default function BusinessBottomNav() {
                 href={item.href}
                 className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors ${
                   active
-                    ? 'text-indigo-700'
+                    ? 'text-[#0a0a0a]'
                     : 'text-zinc-500 hover:text-zinc-900'
                 }`}
               >
-                <span className={active ? 'text-indigo-600' : ''}>{item.icon}</span>
+                <span className={active ? 'text-[#0a0a0a]' : ''}>{item.icon}</span>
                 {item.label}
               </Link>
             );

@@ -227,7 +227,7 @@ export default function ProfileCreate() {
     return (
       <div className="space-y-6">
         {/* Compact Hero */}
-        <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
+        <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-6 sm:px-7 sm:py-7">
           <div className="hero-content">
             <div className="mb-2.5 stagger-1">
               <span className="eyebrow-rainbow">Step 1 of 2 · Pick a category</span>
@@ -250,8 +250,8 @@ export default function ProfileCreate() {
             ))}
           </div>
         ) : availableCategories.length === 0 ? (
-          <div className="rounded-2xl border border-[#E8E5DE] bg-white px-6 py-14 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+          <div className="rounded-2xl border border-[#E7E7EA] bg-white px-6 py-14 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFFAC2]">
               <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -269,7 +269,7 @@ export default function ProfileCreate() {
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`group relative flex flex-col items-start overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white p-5 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] hover:border-[#0a0a0a]/30 active:scale-[0.99] stagger-${Math.min(i + 1, 6)}`}
+                  className={`group relative flex flex-col items-start overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white p-5 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] hover:border-[#0a0a0a]/30 active:scale-[0.99] stagger-${Math.min(i + 1, 6)}`}
                 >
                   <div
                     className={`${tint} mb-4 flex h-11 w-11 items-center justify-center rounded-xl`}
@@ -305,7 +305,7 @@ export default function ProfileCreate() {
   return (
     <div className="space-y-6">
       {/* Compact Hero with back button */}
-      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-5 sm:px-7 sm:py-6">
+      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-5 sm:px-7 sm:py-6">
         <div className="hero-content flex items-start gap-4">
           <button
             onClick={() => {
@@ -347,7 +347,7 @@ export default function ProfileCreate() {
       {!isApproved && <PendingApprovalBanner />}
 
       {fieldsLoading ? (
-        <div className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-8 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-8 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="space-y-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-10 animate-pulse rounded-lg bg-[#f0f0f0]" />
@@ -357,7 +357,7 @@ export default function ProfileCreate() {
       ) : (
         <div className="space-y-6">
           {/* Profile Details */}
-          <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <section className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-purple flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -381,7 +381,7 @@ export default function ProfileCreate() {
 
           {/* Skills & Tools */}
           {selectedCategory && (
-            <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <section className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               <div className="mb-5 flex items-start gap-3">
                 <div className="tint-orange flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -416,7 +416,7 @@ export default function ProfileCreate() {
           )}
 
           {/* Languages */}
-          <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <section className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-blue flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -438,7 +438,7 @@ export default function ProfileCreate() {
 
           {/* Portfolio — not required for sales profiles */}
           {selectedCategory.slug !== 'sales' && (
-          <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <section className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-pink flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -464,7 +464,7 @@ export default function ProfileCreate() {
                 categoryId={selectedCategory.id}
               />
             ) : (
-              <div className="rounded-xl border-2 border-dashed border-[#E8E5DE] bg-[#F7F6F3] p-8 text-center">
+              <div className="rounded-xl border-2 border-dashed border-[#E7E7EA] bg-[#F5F5F6] p-8 text-center">
                 <p className="text-sm text-[#737373]">
                   {autoSaving ? (
                     <span className="inline-flex items-center gap-1.5">
@@ -486,7 +486,7 @@ export default function ProfileCreate() {
       )}
 
       {/* Sticky action bar */}
-      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E8E5DE] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
+      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E7E7EA] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
         <div className="text-xs text-[#737373] px-2">
           {!isApproved && !autoApproveActive && 'Submission unlocks once your account is approved.'}
           {!isApproved && autoApproveActive && (

@@ -96,8 +96,8 @@ export default function RespondedListView({ items }: Props) {
           <h2 className="mb-3 font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
             {group.label}
           </h2>
-          <div className="overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <ul className="divide-y divide-[#E8E5DE]">
+          <div className="overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <ul className="divide-y divide-[#E7E7EA]">
               {group.items.map((item) => {
                 const isOpen = openId === item.id;
                 const cancelled = item.cancelled_at != null;
@@ -111,7 +111,7 @@ export default function RespondedListView({ items }: Props) {
                     <button
                       type="button"
                       onClick={() => setOpenId(isOpen ? null : item.id)}
-                      className="group flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-[#F7F6F3]"
+                      className="group flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-[#F5F5F6]"
                     >
                       <div
                         className={`${tint} flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${cancelled ? 'opacity-60' : ''}`}
@@ -152,7 +152,7 @@ export default function RespondedListView({ items }: Props) {
                       </div>
                     </button>
                     {isOpen && (
-                      <div className={`border-t border-[#E8E5DE] bg-[#F7F6F3] px-5 py-5 ${cancelled ? 'opacity-60' : ''}`}>
+                      <div className={`border-t border-[#E7E7EA] bg-[#F5F5F6] px-5 py-5 ${cancelled ? 'opacity-60' : ''}`}>
                         <SubscriptionCardContent content={item.card.content} />
                       </div>
                     )}

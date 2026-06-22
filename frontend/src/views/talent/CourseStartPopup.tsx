@@ -51,10 +51,10 @@ export default function CourseStartPopup({ course, onDismiss }: CourseStartPopup
         }}
       >
         {/* Animated rainbow accent at top */}
-        <div className="h-1.5 w-full bg-gradient-to-r from-[#FF8B47] via-[#D24DFF] to-[#5BB7FF]" />
+        <div className="h-1.5 w-full bg-gradient-to-r from-[#FFF27A] via-[#0A0A0A] to-[#737373]" />
 
         <div className="px-7 pt-7 pb-6">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FFEEDB] via-[#F2FCBC] to-[#E5F1FF]">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FFEEDB] via-[#FFFAC2] to-[#F5F5F6]">
             <svg
               className="h-9 w-9"
               fill="none"
@@ -64,9 +64,9 @@ export default function CourseStartPopup({ course, onDismiss }: CourseStartPopup
             >
               <defs>
                 <linearGradient id="start-grad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#FF8B47" />
-                  <stop offset="50%" stopColor="#D24DFF" />
-                  <stop offset="100%" stopColor="#5BB7FF" />
+                  <stop offset="0%" stopColor="#FFF27A" />
+                  <stop offset="50%" stopColor="#0A0A0A" />
+                  <stop offset="100%" stopColor="#737373" />
                 </linearGradient>
               </defs>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />

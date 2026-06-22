@@ -32,7 +32,7 @@ export default function TalentOffersView({
   return (
     <div className="space-y-6">
       {/* Compact Hero */}
-      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-content flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="mb-2.5 stagger-1">
@@ -55,7 +55,7 @@ export default function TalentOffersView({
       <WhatsAppUpdatesToggle />
 
       {/* V5 Tab Control */}
-      <div className="inline-flex items-center gap-1 rounded-xl bg-[#F7F6F3] p-1.5 border border-[#E8E5DE]">
+      <div className="inline-flex items-center gap-1 rounded-xl bg-[#F5F5F6] p-1.5 border border-[#E7E7EA]">
         {TABS.map((t) => {
           const isActive = tab === t.key;
           const count = t.key === 'pending' ? pendingNum : null;
@@ -72,7 +72,7 @@ export default function TalentOffersView({
               {t.label}
               {count !== null && count > 0 && (
                 <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${
-                  isActive ? 'bg-[#F2FCBC] text-[#0a0a0a]' : 'bg-[#E8E5DE] text-[#525252]'
+                  isActive ? 'bg-[#FFFAC2] text-[#0a0a0a]' : 'bg-[#E7E7EA] text-[#525252]'
                 }`}>
                   {count}
                 </span>
@@ -85,7 +85,7 @@ export default function TalentOffersView({
       {isLoading && (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="rounded-2xl border border-[#E8E5DE] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div key={i} className="rounded-2xl border border-[#E7E7EA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               <div className="h-32 animate-pulse rounded-xl bg-[#f0f0f0]" />
               <div className="mt-4 h-4 w-3/4 animate-pulse rounded bg-[#f0f0f0]" />
               <div className="mt-2 h-3 w-full animate-pulse rounded bg-[#f0f0f0]" />
@@ -110,10 +110,10 @@ export default function TalentOffersView({
       )}
 
       {!isLoading && !isError && (data?.length ?? 0) === 0 && (
-        <div className="relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-6 py-16 text-center">
+        <div className="relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFFAC2]">
               {tab === 'pending' ? (
                 <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-3.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-1.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 007.586 13H4" />
@@ -183,7 +183,7 @@ function WhatsAppUpdatesToggle() {
   };
 
   return (
-    <div className="flex items-start justify-between gap-4 rounded-2xl border border-[#E8E5DE] bg-white px-5 py-4">
+    <div className="flex items-start justify-between gap-4 rounded-2xl border border-[#E7E7EA] bg-white px-5 py-4">
       <div className="min-w-0">
         <h3 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
           WhatsApp updates

@@ -48,7 +48,7 @@ export function FirstItemTip({ storageKey, message }: FirstItemTipProps) {
         <div className="relative rounded-xl bg-[#0a0a0a] px-3.5 py-3 text-white shadow-[0_8px_24px_-8px_rgba(10,10,10,0.4)]">
           <div className="flex items-start gap-2.5">
             <svg
-              className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#F2FCBC]"
+              className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#FFFAC2]"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -79,7 +79,7 @@ export function FirstItemTip({ storageKey, message }: FirstItemTipProps) {
             <button
               type="button"
               onClick={dismiss}
-              className="text-[11px] font-semibold text-[#F2FCBC] transition-opacity hover:opacity-80"
+              className="text-[11px] font-semibold text-[#FFFAC2] transition-opacity hover:opacity-80"
             >
               Got it
             </button>

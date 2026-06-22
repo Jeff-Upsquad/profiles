@@ -224,7 +224,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
   if (!profile) {
     return (
-      <div className="rounded-2xl border border-[#E8E5DE] bg-white py-16 px-6 text-center">
+      <div className="rounded-2xl border border-[#E7E7EA] bg-white py-16 px-6 text-center">
         <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Profile not found</h3>
       </div>
     );
@@ -235,7 +235,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   return (
     <div className="space-y-6">
       {/* Compact Hero with back button */}
-      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-5 sm:px-7 sm:py-6">
+      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-5 sm:px-7 sm:py-6">
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <button
@@ -311,7 +311,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
       <div className="space-y-6">
         {/* Profile Details */}
-        <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <section className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="mb-5 flex items-start gap-3">
             <div className="tint-purple flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -335,7 +335,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
         {/* Skills & Tools */}
         {profile && (
-          <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <section className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-orange flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -370,7 +370,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
         )}
 
         {/* Languages */}
-        <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <section className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="mb-5 flex items-start gap-3">
             <div className="tint-blue flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -392,7 +392,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
         {/* Portfolio — not required for sales profiles */}
         {profile && profile.category?.slug !== 'sales' && (
-          <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <section className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-pink flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -418,7 +418,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
                 categoryId={profile.category_id}
               />
             ) : (
-              <div className="rounded-xl border-2 border-dashed border-[#E8E5DE] bg-[#F7F6F3] p-8 text-center">
+              <div className="rounded-xl border-2 border-dashed border-[#E7E7EA] bg-[#F5F5F6] p-8 text-center">
                 <p className="text-sm text-[#737373]">
                   Pick at least one skill or category above to upload portfolio items.
                 </p>
@@ -432,7 +432,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
       </div>
 
       {/* Sticky action bar */}
-      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E8E5DE] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
+      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E7E7EA] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
         <div className="text-xs text-[#737373] px-2">
           {dirty ? 'You have unsaved changes' : 'No changes yet'}
         </div>

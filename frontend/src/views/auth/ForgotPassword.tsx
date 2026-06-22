@@ -25,11 +25,11 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#F5F5F6] via-white to-[#F5F5F6] px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link href="/" className="inline-flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-lg font-bold text-white">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0a0a0a] text-lg font-bold text-white">
               S
             </div>
             <span className="text-2xl font-bold text-gray-900">SquadHire</span>
@@ -50,7 +50,7 @@ export default function ForgotPassword() {
                 We've sent a password reset link to <strong>{email}</strong>.
                 Please check your inbox and follow the instructions.
               </p>
-              <Link href="/login/talent" className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+              <Link href="/login/talent" className="text-sm font-medium text-[#0a0a0a] hover:text-[#0a0a0a]">
                 Back to login
               </Link>
             </div>
@@ -76,7 +76,7 @@ export default function ForgotPassword() {
               </form>
 
               <div className="mt-6 text-center">
-                <Link href="/login" className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+                <Link href="/login" className="text-sm font-medium text-[#0a0a0a] hover:text-[#0a0a0a]">
                   Back to login
                 </Link>
               </div>

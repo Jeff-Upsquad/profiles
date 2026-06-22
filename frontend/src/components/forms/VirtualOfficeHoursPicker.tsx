@@ -103,20 +103,20 @@ export default function VirtualOfficeHoursPicker({ value, onChange }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3">
+      <div className="grid grid-cols-2 gap-3 rounded-lg border border-[#E7E7EA] bg-[#F5F5F6] px-4 py-3">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-indigo-700">
+          <p className="text-xs font-medium uppercase tracking-wide text-[#0a0a0a]">
             Total per week
           </p>
-          <p className="mt-0.5 text-xl font-bold text-indigo-900">
+          <p className="mt-0.5 text-xl font-bold text-[#0a0a0a]">
             {fmt(weekly)} <span className="text-sm font-medium">hrs</span>
           </p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-indigo-700">
+          <p className="text-xs font-medium uppercase tracking-wide text-[#0a0a0a]">
             Total per month
           </p>
-          <p className="mt-0.5 text-xl font-bold text-indigo-900">
+          <p className="mt-0.5 text-xl font-bold text-[#0a0a0a]">
             {fmt(monthly)} <span className="text-sm font-medium">hrs</span>
           </p>
         </div>
@@ -137,7 +137,7 @@ export default function VirtualOfficeHoursPicker({ value, onChange }: Props) {
                     type="time"
                     value={row.from}
                     onChange={(e) => update(row.day, { from: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]"
                     aria-label={`${day.label} from time`}
                   />
                   <span className="text-xs text-gray-400">to</span>
@@ -145,7 +145,7 @@ export default function VirtualOfficeHoursPicker({ value, onChange }: Props) {
                     type="time"
                     value={row.to}
                     onChange={(e) => update(row.day, { to: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]"
                     aria-label={`${day.label} to time`}
                   />
                 </div>
@@ -158,7 +158,7 @@ export default function VirtualOfficeHoursPicker({ value, onChange }: Props) {
                   <button
                     type="button"
                     onClick={applyMondayToWeekdays}
-                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+                    className="text-xs font-medium text-[#0a0a0a] hover:text-[#0a0a0a]"
                   >
                     Apply to all weekdays (Tue–Fri)
                   </button>

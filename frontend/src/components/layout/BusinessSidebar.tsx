@@ -198,7 +198,7 @@ function SidebarLink({
       onClick={onNavigate}
       className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
         active
-          ? 'bg-indigo-50 text-indigo-700'
+          ? 'bg-[#F5F5F6] text-[#0a0a0a]'
           : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
       }`}
     >

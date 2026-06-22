@@ -6,7 +6,7 @@ export default function PendingApprovalBanner() {
 
   if (autoApprove) {
     return (
-      <div className="flex items-start gap-3 rounded-[14px] border border-[#0a0a0a] bg-[#F2FCBC] p-4">
+      <div className="flex items-start gap-3 rounded-[14px] border border-[#0a0a0a] bg-[#FFFAC2] p-4">
         <svg
           className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#0a0a0a]"
           fill="none"

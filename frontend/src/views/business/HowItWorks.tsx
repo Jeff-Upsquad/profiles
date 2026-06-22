@@ -44,12 +44,12 @@ export default function HowItWorks() {
 
   return (
     <div className="space-y-6">
-      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-glow-blur" />
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
             <div className="mb-2.5 stagger-1">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F2FCBC] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFFAC2] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -75,7 +75,7 @@ export default function HowItWorks() {
                 className={`font-[family-name:var(--font-inter)] rounded-lg border bg-white px-3 py-1.5 text-[13px] font-medium text-[#0a0a0a] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/30 focus:border-[#0a0a0a] ${
                   !hasSelected
                     ? 'border-[#0a0a0a] ring-2 ring-[#0a0a0a]/30 animate-pulse'
-                    : 'border-[#E8E5DE]'
+                    : 'border-[#E7E7EA]'
                 }`}
               >
                 {availableLanguages.map((lang) => (
@@ -92,10 +92,10 @@ export default function HowItWorks() {
       {isLoading ? (
         <div className="aspect-video rounded-2xl bg-[#f0f0f0] animate-pulse" />
       ) : videos.length === 0 ? (
-        <div className="relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-6 py-16 text-center">
+        <div className="relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFFAC2]">
               <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -110,7 +110,7 @@ export default function HowItWorks() {
           </div>
         </div>
       ) : !hasSelected && availableLanguages.length > 1 ? (
-        <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#0a0a0a]/40 bg-gradient-to-br from-[#F2FCBC]/60 to-white px-6 py-10 text-center">
+        <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#0a0a0a]/40 bg-gradient-to-br from-[#FFFAC2]/60 to-white px-6 py-10 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center text-[#0a0a0a]">
@@ -127,7 +127,7 @@ export default function HowItWorks() {
           </div>
         </div>
       ) : currentVideo ? (
-        <div className="overflow-hidden rounded-2xl border border-[#E8E5DE] bg-[#09090B] shadow-[0_8px_30px_-8px_rgba(0,0,0,0.15)]">
+        <div className="overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#09090B] shadow-[0_8px_30px_-8px_rgba(0,0,0,0.15)]">
           <div className="aspect-video">
             <iframe
               src={loomEmbedUrl(currentVideo.loom_url)}
@@ -138,15 +138,15 @@ export default function HowItWorks() {
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-[#E8E5DE] bg-white px-6 py-12 text-center">
+        <div className="rounded-2xl border border-[#E7E7EA] bg-white px-6 py-12 text-center">
           <p className="text-sm text-[#737373]">
             No video available for {LANGUAGE_LABELS[language] ?? language}. Try selecting another language.
           </p>
         </div>
       )}
 
-      <div className="rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden">
-        <div className="flex border-b border-[#E8E5DE]">
+      <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden">
+        <div className="flex border-b border-[#E7E7EA]">
           <button
             onClick={() => setActiveTab('hire')}
             className={`flex-1 px-6 py-3.5 text-sm font-semibold transition-colors relative ${
@@ -179,7 +179,7 @@ export default function HowItWorks() {
           {activeTab === 'hire' ? (
             <div className="space-y-4">
               <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#F2FCBC]">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#FFFAC2]">
                   <svg className="h-5 w-5 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
@@ -203,8 +203,8 @@ export default function HowItWorks() {
           ) : (
             <div className="space-y-4">
               <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#EFF8FF]">
-                  <svg className="h-5 w-5 text-[#2B7FD4]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#F5F5F6]">
+                  <svg className="h-5 w-5 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                   </svg>
                 </div>
@@ -234,7 +234,7 @@ export default function HowItWorks() {
 function Feature({ icon, text }: { icon: string; text: string }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-[#F7F6F3]">
+      <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-[#F5F5F6]">
         <FeatureIcon name={icon} />
       </div>
       <p className="font-[family-name:var(--font-inter)] text-sm text-[#525252]">{text}</p>
