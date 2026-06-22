@@ -103,7 +103,7 @@ export default function FileUploadField({
         onClick={() => !disabled && inputRef.current?.click()}
         className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-8 transition-colors ${
           dragOver
-            ? 'border-indigo-400 bg-indigo-50'
+            ? 'border-[#737373] bg-[#F5F5F6]'
             : 'border-gray-300 bg-gray-50 hover:border-gray-400'
         } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
       >
@@ -111,7 +111,7 @@ export default function FileUploadField({
           <div className="text-center">
             <div className="mb-2 h-2 w-48 overflow-hidden rounded-full bg-gray-200">
               <div
-                className="h-full rounded-full bg-indigo-600 transition-all"
+                className="h-full rounded-full bg-[#0a0a0a] transition-all"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -123,7 +123,7 @@ export default function FileUploadField({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
             <p className="text-sm text-gray-600">
-              <span className="font-medium text-indigo-600">Click to upload</span> or drag and drop
+              <span className="font-medium text-[#0a0a0a]">Click to upload</span> or drag and drop
             </p>
             <p className="mt-1 text-xs text-gray-400">PNG, JPG, PDF up to 10MB</p>
           </>

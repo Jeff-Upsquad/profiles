@@ -20,7 +20,7 @@ const variantStyles: Record<Variant, string> = {
   ghost:
     'bg-transparent text-[#525252] hover:bg-[#f0f0f0] focus-visible:ring-[#0a0a0a]/15',
   outline:
-    'border border-[#E8E5DE] bg-transparent text-[#0a0a0a] hover:bg-[#f0f0f0] focus-visible:ring-[#0a0a0a]/15',
+    'border border-[#E7E7EA] bg-transparent text-[#0a0a0a] hover:bg-[#f0f0f0] focus-visible:ring-[#0a0a0a]/15',
 };
 
 const sizeStyles: Record<Size, string> = {

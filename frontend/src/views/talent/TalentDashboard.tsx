@@ -145,10 +145,10 @@ export default function TalentDashboard() {
   if (!onboarded) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-8 py-12 text-center shadow-[0_8px_30px_-6px_rgba(0,0,0,0.08)]">
+        <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-8 py-12 text-center shadow-[0_8px_30px_-6px_rgba(0,0,0,0.08)]">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
-            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#FFFAC2]">
               <svg className="h-7 w-7 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -175,7 +175,7 @@ export default function TalentDashboard() {
   return (
     <div className="space-y-8">
       {/* ── Hero Section (compact) ── */}
-      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-glow-blur" />
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="max-w-2xl">
@@ -208,7 +208,7 @@ export default function TalentDashboard() {
             </Link>
             <Link
               href="/talent/profiles"
-              className="font-[family-name:var(--font-inter)] inline-flex items-center gap-1.5 rounded-lg border border-[#E8E5DE] bg-white px-3.5 py-2 text-sm font-semibold text-[#0a0a0a] transition-all duration-200 hover:bg-[#f0f0f0] active:scale-[0.97]"
+              className="font-[family-name:var(--font-inter)] inline-flex items-center gap-1.5 rounded-lg border border-[#E7E7EA] bg-white px-3.5 py-2 text-sm font-semibold text-[#0a0a0a] transition-all duration-200 hover:bg-[#f0f0f0] active:scale-[0.97]"
             >
               View Profiles
             </Link>
@@ -218,7 +218,7 @@ export default function TalentDashboard() {
 
       {/* ── Onboarding progress strip (hides 7 days after all stages complete) ── */}
       {showOnboardingStrip && onboardingProgress && (
-        <section className="rounded-2xl border border-[#E8E5DE] bg-white px-5 py-5 sm:px-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <section className="rounded-2xl border border-[#E7E7EA] bg-white px-5 py-5 sm:px-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="font-[family-name:var(--font-jakarta)] text-base font-semibold tracking-[-0.015em] text-[#0a0a0a]">
@@ -279,8 +279,8 @@ export default function TalentDashboard() {
       {/* ── Two-column: Recent Profiles + Quick Tips ── */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Recent Profiles — main column */}
-        <div className="lg:col-span-2 rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="flex items-center justify-between border-b border-[#E8E5DE] px-6 py-5">
+        <div className="lg:col-span-2 rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between border-b border-[#E7E7EA] px-6 py-5">
             <div>
               <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
                 Recent Profiles
@@ -300,7 +300,7 @@ export default function TalentDashboard() {
 
           {recentProfiles.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFFAC2]">
                 <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
@@ -319,14 +319,14 @@ export default function TalentDashboard() {
               </Link>
             </div>
           ) : (
-            <ul className="divide-y divide-[#E8E5DE]">
+            <ul className="divide-y divide-[#E7E7EA]">
               {recentProfiles.map((profile, i) => (
                 <li
                   key={profile.id}
-                  className={`group flex items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-[#F7F6F3] stagger-${Math.min(i + 1, 6)}`}
+                  className={`group flex items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-[#F5F5F6] stagger-${Math.min(i + 1, 6)}`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#f0f0f0] text-[#525252] transition-colors group-hover:bg-[#F2FCBC] group-hover:text-[#0a0a0a]">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#f0f0f0] text-[#525252] transition-colors group-hover:bg-[#FFFAC2] group-hover:text-[#0a0a0a]">
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
@@ -346,7 +346,7 @@ export default function TalentDashboard() {
                     </Badge>
                     <Link
                       href={`/talent/profiles/${profile.id}`}
-                      className="font-[family-name:var(--font-inter)] hidden sm:inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-[#0a0a0a] transition-colors hover:bg-[#F2FCBC]"
+                      className="font-[family-name:var(--font-inter)] hidden sm:inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-[#0a0a0a] transition-colors hover:bg-[#FFFAC2]"
                     >
                       View
                       <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
@@ -390,7 +390,7 @@ export default function TalentDashboard() {
           </div>
 
           {/* Quick links */}
-          <div className="rounded-2xl border border-[#E8E5DE] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="rounded-2xl border border-[#E7E7EA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <h3 className="mb-3 font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
               Quick actions
             </h3>
@@ -403,7 +403,7 @@ export default function TalentDashboard() {
                 <Link
                   key={item.to}
                   href={item.to}
-                  className="group flex items-center justify-between rounded-lg px-2 py-2 text-[13px] font-medium text-[#525252] transition-colors hover:bg-[#F7F6F3] hover:text-[#0a0a0a]"
+                  className="group flex items-center justify-between rounded-lg px-2 py-2 text-[13px] font-medium text-[#525252] transition-colors hover:bg-[#F5F5F6] hover:text-[#0a0a0a]"
                 >
                   <span className="flex items-center gap-2.5">
                     <svg className="h-4 w-4 text-[#a3a3a3] group-hover:text-[#0a0a0a] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>

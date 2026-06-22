@@ -20,7 +20,7 @@ export default function Navbar() {
           : '/';
 
   return (
-    <nav className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-md border-b border-[#E8E5DE]">
+    <nav className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-md border-b border-[#E7E7EA]">
       <div className="mx-auto max-w-[1120px] px-5 sm:px-6">
         <div className="flex h-[60px] items-center justify-between gap-8">
           {/* Logo */}
@@ -109,7 +109,7 @@ export default function Navbar() {
 
         {/* Mobile menu */}
         {mobileOpen && (
-          <div className="border-t border-[#E8E5DE] py-3 md:hidden">
+          <div className="border-t border-[#E7E7EA] py-3 md:hidden">
             {user ? (
               <div className="space-y-3">
                 <div className="px-1">

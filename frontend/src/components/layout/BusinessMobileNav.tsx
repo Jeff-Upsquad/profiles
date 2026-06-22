@@ -50,7 +50,7 @@ function Pill({
       href={href}
       className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
         active
-          ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+          ? 'border-[#0a0a0a] bg-[#0a0a0a] text-white shadow-sm'
           : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
       }`}
     >

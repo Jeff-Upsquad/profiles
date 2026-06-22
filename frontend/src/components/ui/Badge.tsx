@@ -12,9 +12,9 @@ const variantStyles: Record<BadgeVariant, string> = {
   green: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
   yellow: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
   red: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
-  gray: 'bg-[#f0f0f0] text-[#525252] ring-1 ring-inset ring-[#E8E5DE]',
-  indigo: 'bg-[#F2FCBC] text-[#0a0a0a] ring-1 ring-inset ring-[#0a0a0a]',
-  blue: 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200',
+  gray: 'bg-[#f0f0f0] text-[#525252] ring-1 ring-inset ring-[#E7E7EA]',
+  indigo: 'bg-[#FFFAC2] text-[#0a0a0a] ring-1 ring-inset ring-[#0a0a0a]',
+  blue: 'bg-[#F5F5F6] text-[#0a0a0a] ring-1 ring-inset ring-[#E7E7EA]',
 };
 
 export function statusToBadgeVariant(status: string): BadgeVariant {

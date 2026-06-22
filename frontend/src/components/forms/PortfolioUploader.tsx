@@ -71,7 +71,7 @@ function ItemSkillChips({ profileId, item, selectedSkills, availableSkills }: It
             }}
             className={`rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${
               isSelected
-                ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                ? 'border-[#0a0a0a] bg-[#F5F5F6] text-[#0a0a0a]'
                 : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
             }`}
           >
@@ -104,7 +104,7 @@ function ItemCategorySelect({ profileId, itemId, current, options }: ItemCategor
           category_name: value === '' ? null : value,
         });
       }}
-      className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+      className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 focus:border-[#737373] focus:outline-none focus:ring-1 focus:ring-[#737373]"
     >
       <option value="">Uncategorized</option>
       {options.map((c) => (

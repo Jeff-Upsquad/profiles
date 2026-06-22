@@ -232,18 +232,18 @@ export default function SignupTalent() {
 
   if (authLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#F5F5F6] via-white to-[#F5F5F6]">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#0a0a0a] border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-start justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4 py-12">
+    <div className="flex min-h-screen items-start justify-center bg-gradient-to-br from-[#F5F5F6] via-white to-[#F5F5F6] px-4 py-12">
       <div className="w-full max-w-2xl">
         <div className="mb-6 text-center">
           <Link href="/" className="inline-flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-lg font-bold text-white">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0a0a0a] text-lg font-bold text-white">
               S
             </div>
             <span className="text-2xl font-bold text-gray-900">UpSquad</span>
@@ -265,7 +265,7 @@ export default function SignupTalent() {
               </p>
               <Link
                 href="/login"
-                className="mt-6 inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                className="mt-6 inline-flex items-center gap-1 text-sm font-medium text-[#0a0a0a] hover:text-[#0a0a0a]"
               >
                 Sign In Now
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -300,7 +300,7 @@ export default function SignupTalent() {
 
               {candidateLoading ? (
                 <div className="flex items-center justify-center py-6">
-                  <div className="h-6 w-6 animate-spin rounded-full border-3 border-indigo-600 border-t-transparent" />
+                  <div className="h-6 w-6 animate-spin rounded-full border-3 border-[#0a0a0a] border-t-transparent" />
                   <span className="ml-2 text-sm text-gray-500">Checking your application status...</span>
                 </div>
               ) : candidateSubmissions.length > 0 ? (
@@ -311,7 +311,7 @@ export default function SignupTalent() {
                       <div key={i} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-gray-900">{s.name}</span>
-                          <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
+                          <span className="rounded-full bg-[#E7E7EA] px-2.5 py-0.5 text-xs font-medium text-[#0a0a0a]">
                             {FORM_TYPE_LABELS[s.form_type] || s.form_type}
                           </span>
                         </div>
@@ -454,7 +454,7 @@ export default function SignupTalent() {
                           setCountryCode(newCode);
                           setForm((prev) => ({ ...prev, phone: newCode + digits }));
                         }}
-                        className="w-[110px] shrink-0 rounded-lg border border-[#E8E5DE] bg-white px-2 text-sm font-medium text-[#0a0a0a] shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
+                        className="w-[110px] shrink-0 rounded-lg border border-[#E7E7EA] bg-white px-2 text-sm font-medium text-[#0a0a0a] shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
                       >
                         {COUNTRY_CODES.map((cc) => (
                           <option key={cc.code} value={cc.code}>{cc.label}</option>
@@ -470,7 +470,7 @@ export default function SignupTalent() {
                           setForm((prev) => ({ ...prev, phone: countryCode + digits }));
                         }}
                         placeholder="Phone number"
-                        className="block w-full rounded-lg border border-[#E8E5DE] px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-all duration-200 placeholder:text-[#a3a3a3] focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/12 bg-white text-[#0a0a0a]"
+                        className="block w-full rounded-lg border border-[#E7E7EA] px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-all duration-200 placeholder:text-[#a3a3a3] focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/12 bg-white text-[#0a0a0a]"
                       />
                     </div>
                   </div>
@@ -535,30 +535,30 @@ export default function SignupTalent() {
                       </div>
                     )}
                     {!checkLoading && !checkResult?.has_account && !checkResult?.has_invitation && checkResult && checkResult.submissions.length > 0 && (
-                      <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                      <div className="rounded-lg border border-[#E7E7EA] bg-[#F5F5F6] px-4 py-3">
                         <div className="flex items-start gap-3">
-                          <svg className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <svg className="mt-0.5 h-5 w-5 shrink-0 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                           <div className="flex-1">
-                            <p className="text-sm font-medium text-blue-900">We found your application</p>
-                            <p className="mt-0.5 text-sm text-blue-800">
+                            <p className="text-sm font-medium text-[#0a0a0a]">We found your application</p>
+                            <p className="mt-0.5 text-sm text-[#0a0a0a]">
                               You'll receive an invitation to sign up once your application is approved.
                             </p>
                             <div className="mt-2 space-y-1.5">
                               {checkResult.submissions.map((s, i) => (
                                 <div key={i} className="flex flex-wrap items-center gap-2 text-xs">
-                                  <span className="font-medium text-blue-900">{s.name}</span>
-                                  <span className="rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700">
+                                  <span className="font-medium text-[#0a0a0a]">{s.name}</span>
+                                  <span className="rounded-full bg-[#E7E7EA] px-2 py-0.5 font-medium text-[#0a0a0a]">
                                     {FORM_TYPE_LABELS[s.form_type] || s.form_type}
                                   </span>
-                                  <span className="text-blue-700">{STATUS_LABELS[s.status] || s.status}</span>
+                                  <span className="text-[#0a0a0a]">{STATUS_LABELS[s.status] || s.status}</span>
                                 </div>
                               ))}
                             </div>
-                            <p className="mt-2 text-xs text-blue-700">
+                            <p className="mt-2 text-xs text-[#0a0a0a]">
                               Need help?{' '}
-                              <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:text-blue-900">
+                              <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:text-[#0a0a0a]">
                                 Contact WhatsApp Talent Support
                               </a>
                             </p>
@@ -684,7 +684,7 @@ export default function SignupTalent() {
                 Already have an account?{' '}
                 <Link
                   href="/login"
-                  className="font-medium text-indigo-600 hover:text-indigo-800"
+                  className="font-medium text-[#0a0a0a] hover:text-[#0a0a0a]"
                 >
                   Sign in
                 </Link>
@@ -693,7 +693,7 @@ export default function SignupTalent() {
                 Are you a business?{' '}
                 <Link
                   href="/signup/business"
-                  className="font-medium text-indigo-600 hover:text-indigo-800"
+                  className="font-medium text-[#0a0a0a] hover:text-[#0a0a0a]"
                 >
                   Sign up as Business
                 </Link>

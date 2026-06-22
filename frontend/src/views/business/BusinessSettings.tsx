@@ -58,7 +58,7 @@ export default function BusinessSettings() {
   return (
     <div className="space-y-6">
       {/* ── Hero ── */}
-      <section className="hero-container hero-glow-blue relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-blue relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="mb-2.5 stagger-1">
@@ -76,7 +76,7 @@ export default function BusinessSettings() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* ── Company section ── */}
-        <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <section className="rounded-2xl border border-[#E7E7EA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="mb-5 flex items-start gap-4">
             <div className="tint-purple flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl">
               <svg
@@ -138,7 +138,7 @@ export default function BusinessSettings() {
         </section>
 
         {/* ── Contact person section ── */}
-        <section className="rounded-2xl border border-[#E8E5DE] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <section className="rounded-2xl border border-[#E7E7EA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="mb-5 flex items-start gap-4">
             <div className="tint-green flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl">
               <svg
@@ -187,7 +187,7 @@ export default function BusinessSettings() {
 
         {/* ── Sticky save bar ── */}
         <div className="sticky bottom-4 z-10">
-          <div className="flex items-center justify-end gap-3 rounded-2xl border border-[#E8E5DE] bg-white/95 px-5 py-3 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)] backdrop-blur-sm">
+          <div className="flex items-center justify-end gap-3 rounded-2xl border border-[#E7E7EA] bg-white/95 px-5 py-3 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)] backdrop-blur-sm">
             <p className="hidden text-xs text-[#737373] sm:block">
               Changes are saved to your account
             </p>

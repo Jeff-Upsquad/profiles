@@ -182,7 +182,7 @@ export default function TalentAccessBrowse({ meta, onLogout }: Props) {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search by name…"
-                  className="min-w-0 flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:w-72 sm:flex-initial"
+                  className="min-w-0 flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-[#0a0a0a] focus:outline-none focus:ring-1 focus:ring-[#0a0a0a] sm:w-72 sm:flex-initial"
                 />
               </div>
               <p className="text-xs text-zinc-500">

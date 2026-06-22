@@ -373,7 +373,7 @@ export default function AccountantLeadForm() {
             className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-[0.18] blur-3xl"
             style={{
               backgroundImage:
-                'linear-gradient(96deg, #FF8B47 0%, #FF5B8B 28%, #D24DFF 52%, #FCF487 76%, #5BB7FF 100%)',
+                'linear-gradient(96deg, #FFF27A 0%, #737373 28%, #0A0A0A 52%, #FFFF99 76%, #737373 100%)',
             }}
           />
           <div
@@ -381,7 +381,7 @@ export default function AccountantLeadForm() {
             className="pointer-events-none absolute -bottom-32 -left-20 h-72 w-72 rounded-full opacity-[0.12] blur-3xl"
             style={{
               backgroundImage:
-                'linear-gradient(96deg, #5BB7FF 0%, #FCF487 50%, #FF5B8B 100%)',
+                'linear-gradient(96deg, #737373 0%, #FFFF99 50%, #737373 100%)',
             }}
           />
 

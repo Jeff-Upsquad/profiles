@@ -70,7 +70,7 @@ function Dropdown({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+        className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] ${
           value ? 'border-gray-300 text-gray-900' : 'border-gray-300 text-gray-400'
         }`}
       >
@@ -90,11 +90,11 @@ function Dropdown({
               <button
                 type="button"
                 onClick={() => { onChange(opt.value); setOpen(false); }}
-                className={`flex w-full flex-col px-3 py-2 text-left transition-colors hover:bg-indigo-50 ${
-                  opt.value === value ? 'bg-indigo-50' : ''
+                className={`flex w-full flex-col px-3 py-2 text-left transition-colors hover:bg-[#F5F5F6] ${
+                  opt.value === value ? 'bg-[#F5F5F6]' : ''
                 }`}
               >
-                <span className={`text-sm font-medium ${opt.value === value ? 'text-indigo-700' : 'text-gray-900'}`}>
+                <span className={`text-sm font-medium ${opt.value === value ? 'text-[#0a0a0a]' : 'text-gray-900'}`}>
                   {opt.label}
                 </span>
                 {opt.desc && (
@@ -187,7 +187,7 @@ export default function LanguagePicker({ value, onChange }: LanguagePickerProps)
         <button
           type="button"
           onClick={addLanguage}
-          className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-800"
+          className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-[#0a0a0a] hover:text-[#0a0a0a]"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />

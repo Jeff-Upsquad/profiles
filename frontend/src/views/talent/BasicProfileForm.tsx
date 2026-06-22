@@ -444,7 +444,7 @@ export default function BasicProfileForm() {
   return (
     <div className="space-y-8">
       {/* ── Hero Section (compact) ── */}
-      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-5 sm:px-7 sm:py-6">
+      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-5 sm:px-7 sm:py-6">
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
             <div className="mb-2.5 stagger-1">
@@ -464,7 +464,7 @@ export default function BasicProfileForm() {
           <div className="stagger-4">
             <div className="relative flex h-16 w-16 items-center justify-center">
               <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="42" fill="none" stroke="#E8E5DE" strokeWidth="9" />
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#E7E7EA" strokeWidth="9" />
                 <circle
                   cx="50" cy="50" r="42" fill="none"
                   stroke="url(#prog-grad)"
@@ -474,9 +474,9 @@ export default function BasicProfileForm() {
                 />
                 <defs>
                   <linearGradient id="prog-grad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#FF8B47" />
-                    <stop offset="50%" stopColor="#D24DFF" />
-                    <stop offset="100%" stopColor="#5BB7FF" />
+                    <stop offset="0%" stopColor="#FFF27A" />
+                    <stop offset="50%" stopColor="#0A0A0A" />
+                    <stop offset="100%" stopColor="#737373" />
                   </linearGradient>
                 </defs>
               </svg>
@@ -492,7 +492,7 @@ export default function BasicProfileForm() {
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         {/* Sidebar Stepper */}
         <aside className="lg:sticky lg:top-6 lg:self-start">
-          <div className="rounded-2xl border border-[#E8E5DE] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="rounded-2xl border border-[#E7E7EA] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <h3 className="mb-2 px-2 pt-1 font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
               Sections
             </h3>
@@ -511,8 +511,8 @@ export default function BasicProfileForm() {
                       section.disabled
                         ? 'cursor-not-allowed opacity-40'
                         : isActive
-                          ? 'bg-[#F7F6F3] shadow-[0_1px_3px_0_rgba(0,0,0,0.08)]'
-                          : 'hover:bg-[#F7F6F3]'
+                          ? 'bg-[#F5F5F6] shadow-[0_1px_3px_0_rgba(0,0,0,0.08)]'
+                          : 'hover:bg-[#F5F5F6]'
                     }`}
                   >
                     <div
@@ -521,7 +521,7 @@ export default function BasicProfileForm() {
                           ? 'bg-emerald-50 text-emerald-600'
                           : isActive
                             ? `${section.tint}`
-                            : 'bg-[#f0f0f0] text-[#a3a3a3] group-hover:bg-[#E8E5DE]'
+                            : 'bg-[#f0f0f0] text-[#a3a3a3] group-hover:bg-[#E7E7EA]'
                       }`}
                       style={isActive && !isComplete ? { color: 'var(--tint-icon)' } : undefined}
                     >
@@ -554,7 +554,7 @@ export default function BasicProfileForm() {
 
         {/* Form Content */}
         <form onSubmit={handleSave} className="min-w-0 space-y-6">
-          <div className="rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-8 shadow-[0_1px_2px_rgba(0,0,0,0.04)] section-rise" key={activeSection}>
+          <div className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-8 shadow-[0_1px_2px_rgba(0,0,0,0.04)] section-rise" key={activeSection}>
             <SectionHeader section={sections[activeSection]} />
 
             {/* Section 1: Basic Details */}
@@ -573,15 +573,15 @@ export default function BasicProfileForm() {
                   </div>
                 </div>
 
-                <div className="border-t border-[#E8E5DE] pt-6">
+                <div className="border-t border-[#E7E7EA] pt-6">
                   <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Work Preference</h3>
                   <p className="mb-3 mt-0.5 text-sm text-[#737373]">What type of work are you looking for? You can select more than one.</p>
                   <div className="flex flex-col gap-2.5">
                     {WORK_PREFERENCE_OPTIONS.map((opt) => (
-                      <label key={opt.value} className="group flex cursor-pointer items-start gap-3 rounded-xl border border-[#E8E5DE] px-4 py-3 text-sm transition-all duration-200 has-[:checked]:border-[#0a0a0a] has-[:checked]:bg-[#F2FCBC] hover:border-[#a3a3a3] has-[:checked]:hover:border-[#0a0a0a]">
+                      <label key={opt.value} className="group flex cursor-pointer items-start gap-3 rounded-xl border border-[#E7E7EA] px-4 py-3 text-sm transition-all duration-200 has-[:checked]:border-[#0a0a0a] has-[:checked]:bg-[#FFFAC2] hover:border-[#a3a3a3] has-[:checked]:hover:border-[#0a0a0a]">
                         <input
                           type="checkbox"
-                          className="mt-0.5 h-4 w-4 rounded border-[#E8E5DE] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
+                          className="mt-0.5 h-4 w-4 rounded border-[#E7E7EA] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
                           checked={(form.employment_type || []).includes(opt.value)}
                           onChange={() => toggleWorkPreference(opt.value)}
                         />
@@ -613,7 +613,7 @@ export default function BasicProfileForm() {
                     <div>
                       <label className="mb-1.5 block text-[13px] font-medium text-[#3F3F46]">Address</label>
                       <textarea
-                        className="block w-full rounded-lg border border-[#E8E5DE] bg-white px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-[#a3a3a3] focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/12 transition-all duration-200"
+                        className="block w-full rounded-lg border border-[#E7E7EA] bg-white px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-[#a3a3a3] focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/12 transition-all duration-200"
                         rows={3} value={form.permanent_address || ''} onChange={set('permanent_address')} placeholder="Address line"
                       />
                     </div>
@@ -648,12 +648,12 @@ export default function BasicProfileForm() {
                   </div>
                 </div>
 
-                <div className="border-t border-[#E8E5DE] pt-6">
+                <div className="border-t border-[#E7E7EA] pt-6">
                   <div className="mb-2 flex items-center justify-between gap-4">
                     <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Current Address</h3>
                     <label className="flex cursor-pointer items-center gap-2 font-[family-name:var(--font-inter)] text-[13px] text-[#525252]">
                       <input
-                        type="checkbox" className="h-4 w-4 rounded border-[#E8E5DE] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
+                        type="checkbox" className="h-4 w-4 rounded border-[#E7E7EA] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
                         checked={currentSameAsOfficial}
                         onChange={(e) => {
                           const checked = e.target.checked;
@@ -696,7 +696,7 @@ export default function BasicProfileForm() {
                     <div>
                       <label className="mb-1.5 block text-[13px] font-medium text-[#3F3F46]">Address</label>
                       <textarea
-                        className="block w-full rounded-lg border border-[#E8E5DE] bg-white px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-[#a3a3a3] focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/12 transition-all duration-200"
+                        className="block w-full rounded-lg border border-[#E7E7EA] bg-white px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-[#a3a3a3] focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/12 transition-all duration-200"
                         rows={3} value={form.current_address || ''} onChange={set('current_address')} placeholder="Your current address"
                       />
                     </div>
@@ -758,9 +758,9 @@ export default function BasicProfileForm() {
                       const checked = (form.availability || []).includes(opt.value);
                       const salaryKey = opt.value === 'full_time' ? 'expected_salary_full_time' : 'expected_salary_part_time';
                       return (
-                        <div key={opt.value} className="rounded-xl border border-[#E8E5DE] px-4 py-3 transition-all duration-200 has-[:checked]:border-[#0a0a0a] has-[:checked]:bg-[#F2FCBC]">
+                        <div key={opt.value} className="rounded-xl border border-[#E7E7EA] px-4 py-3 transition-all duration-200 has-[:checked]:border-[#0a0a0a] has-[:checked]:bg-[#FFFAC2]">
                           <label className="flex cursor-pointer items-center gap-2.5 text-sm">
-                            <input type="checkbox" className="h-4 w-4 rounded border-[#E8E5DE] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
+                            <input type="checkbox" className="h-4 w-4 rounded border-[#E7E7EA] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
                               checked={checked} onChange={() => toggleMulti('availability', opt.value)}
                             />
                             <span className="font-[family-name:var(--font-inter)] font-medium text-[#0a0a0a]">{opt.label}</span>
@@ -781,8 +781,8 @@ export default function BasicProfileForm() {
                   <h3 className="mb-2 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Job Type</h3>
                   <div className="grid gap-2.5 sm:grid-cols-2">
                     {JOB_TYPE_OPTIONS.map((opt) => (
-                      <label key={opt.value} className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-[#E8E5DE] px-4 py-3 text-sm transition-all duration-200 has-[:checked]:border-[#0a0a0a] has-[:checked]:bg-[#F2FCBC]">
-                        <input type="checkbox" className="h-4 w-4 rounded border-[#E8E5DE] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
+                      <label key={opt.value} className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-[#E7E7EA] px-4 py-3 text-sm transition-all duration-200 has-[:checked]:border-[#0a0a0a] has-[:checked]:bg-[#FFFAC2]">
+                        <input type="checkbox" className="h-4 w-4 rounded border-[#E7E7EA] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
                           checked={(form.job_type || []).includes(opt.value)} onChange={() => toggleMulti('job_type', opt.value)}
                         />
                         <span className="font-[family-name:var(--font-inter)] font-medium text-[#0a0a0a]">{opt.label}</span>
@@ -804,7 +804,7 @@ export default function BasicProfileForm() {
             {/* Section 8: ID Proofs */}
             {activeSection === 7 && (
               <div className="space-y-6">
-                <div className="rounded-xl border border-[#E8E5DE] bg-[#F7F6F3] p-5">
+                <div className="rounded-xl border border-[#E7E7EA] bg-[#F5F5F6] p-5">
                   <div className="mb-4 flex items-center gap-2.5">
                     <div className="tint-amber flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: 'var(--tint-icon)' }}>
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -831,7 +831,7 @@ export default function BasicProfileForm() {
                     </div>
                   </div>
                 </div>
-                <div className="rounded-xl border border-[#E8E5DE] bg-[#F7F6F3] p-5">
+                <div className="rounded-xl border border-[#E7E7EA] bg-[#F5F5F6] p-5">
                   <div className="mb-4 flex items-center gap-2.5">
                     <div className="tint-amber flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: 'var(--tint-icon)' }}>
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -867,7 +867,7 @@ export default function BasicProfileForm() {
                 <div className="relative">
                   {form.profile_picture_url ? (
                     <>
-                      <img src={form.profile_picture_url} alt="Profile" className="h-32 w-32 rounded-2xl object-cover ring-1 ring-[#E8E5DE]" />
+                      <img src={form.profile_picture_url} alt="Profile" className="h-32 w-32 rounded-2xl object-cover ring-1 ring-[#E7E7EA]" />
                       <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-white ring-4 ring-white">
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -875,7 +875,7 @@ export default function BasicProfileForm() {
                       </div>
                     </>
                   ) : (
-                    <div className="flex h-32 w-32 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+                    <div className="flex h-32 w-32 items-center justify-center rounded-2xl bg-[#FFFAC2]">
                       <svg className="h-12 w-12 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
@@ -917,7 +917,7 @@ export default function BasicProfileForm() {
             {/* Section 11: Resume */}
             {activeSection === 10 && (
               <div>
-                <div className="rounded-xl border-2 border-dashed border-[#E8E5DE] bg-[#F7F6F3] p-10 text-center transition-colors hover:border-[#0a0a0a]/50 hover:bg-[#F2FCBC]/30">
+                <div className="rounded-xl border-2 border-dashed border-[#E7E7EA] bg-[#F5F5F6] p-10 text-center transition-colors hover:border-[#0a0a0a]/50 hover:bg-[#FFFAC2]/30">
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
                     <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -946,7 +946,7 @@ export default function BasicProfileForm() {
           </div>
 
           {/* ── Sticky Action Bar ── */}
-          <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-2xl border border-[#E8E5DE] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
+          <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-2xl border border-[#E7E7EA] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
             <Button type="button" variant="ghost" disabled={activeSection === 0} onClick={() => goToSection(-1)}>
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />

@@ -79,7 +79,7 @@ export default function CategoryProfilesPage(props: { params: Promise<Params> })
                 {photo ? (
                   <img src={photo} alt="" className="h-10 w-10 rounded-full object-cover" />
                 ) : (
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-600">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#E7E7EA] text-sm font-semibold text-[#0a0a0a]">
                     {name[0]?.toUpperCase()}
                   </div>
                 )}

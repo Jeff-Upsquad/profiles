@@ -73,13 +73,13 @@ export default function MultiSelectSearch({
           {selected.map((val) => (
             <span
               key={val}
-              className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700"
+              className="inline-flex items-center gap-1 rounded-md bg-[#F5F5F6] px-2 py-1 text-xs font-medium text-[#0a0a0a]"
             >
               {getLabel(val)}
               <button
                 type="button"
                 onClick={() => removeItem(val)}
-                className="ml-0.5 text-indigo-400 hover:text-indigo-600"
+                className="ml-0.5 text-[#737373] hover:text-[#0a0a0a]"
               >
                 <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -94,10 +94,10 @@ export default function MultiSelectSearch({
       <div className="relative">
         <input
           type="text"
-          className={`block w-full rounded-lg border px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+          className={`block w-full rounded-lg border px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] ${
             error
               ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-              : 'border-gray-300 focus:border-indigo-500'
+              : 'border-gray-300 focus:border-[#0a0a0a]'
           }`}
           placeholder={placeholder}
           value={search}
@@ -112,7 +112,7 @@ export default function MultiSelectSearch({
               <li key={opt.value}>
                 <button
                   type="button"
-                  className="w-full px-3 py-2 text-left text-gray-700 hover:bg-indigo-50 hover:text-indigo-700"
+                  className="w-full px-3 py-2 text-left text-gray-700 hover:bg-[#F5F5F6] hover:text-[#0a0a0a]"
                   onClick={() => addItem(opt.value)}
                 >
                   {opt.label}

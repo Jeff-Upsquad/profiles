@@ -57,8 +57,8 @@ export default function ChipSelect({
               onClick={() => toggle(opt.value)}
               className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all ${
                 isSelected
-                  ? (chipClassName?.selected ?? 'border-indigo-600 bg-indigo-600 text-white shadow-sm')
-                  : (chipClassName?.unselected ?? 'border-gray-300 bg-white text-gray-700 hover:border-indigo-300 hover:bg-indigo-50')
+                  ? (chipClassName?.selected ?? 'border-[#0a0a0a] bg-[#0a0a0a] text-white shadow-sm')
+                  : (chipClassName?.unselected ?? 'border-gray-300 bg-white text-gray-700 hover:border-[#737373] hover:bg-[#F5F5F6]')
               }`}
             >
               {opt.label}

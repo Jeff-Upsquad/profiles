@@ -146,8 +146,8 @@ function SectionLabel({
 function Chip({ children, tint = 'neutral' }: { children: React.ReactNode; tint?: 'neutral' | 'purple' }) {
   const classes =
     tint === 'purple'
-      ? 'bg-[#F2FCBC] text-[#0a0a0a] ring-1 ring-inset ring-[#0a0a0a]'
-      : 'bg-[#F7F6F3] text-[#525252] ring-1 ring-inset ring-[#E8E5DE]';
+      ? 'bg-[#FFFAC2] text-[#0a0a0a] ring-1 ring-inset ring-[#0a0a0a]'
+      : 'bg-[#F5F5F6] text-[#525252] ring-1 ring-inset ring-[#E7E7EA]';
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-[family-name:var(--font-inter)] text-xs font-medium ${classes}`}>
       {children}
@@ -272,7 +272,7 @@ export default function SubscriptionCardContent({ content }: Props) {
           src={imageUrl}
           alt=""
           referrerPolicy="no-referrer"
-          className="h-32 w-full rounded-xl object-cover ring-1 ring-[#E8E5DE]"
+          className="h-32 w-full rounded-xl object-cover ring-1 ring-[#E7E7EA]"
         />
       )}
 
@@ -304,7 +304,7 @@ export default function SubscriptionCardContent({ content }: Props) {
 
         return (
           <div>
-            <SectionLabel icon={IconBriefcase} color="#0070C9">Work commitment</SectionLabel>
+            <SectionLabel icon={IconBriefcase} color="#0a0a0a">Work commitment</SectionLabel>
             <div className="mt-2 grid gap-2">
               {/* Hours sub-card — hidden for assignments (no hourly-commitment concept) */}
               {!isAssignment && (
@@ -394,7 +394,7 @@ export default function SubscriptionCardContent({ content }: Props) {
 
       {/* Secondary details */}
       {(workingDaysSorted.length > 0 || hasClientBrief || countries.length > 0 || languages.length > 0) && (
-        <div className="space-y-3 border-t border-[#E8E5DE] pt-3">
+        <div className="space-y-3 border-t border-[#E7E7EA] pt-3">
           {workingDaysSorted.length > 0 && (
             <div>
               <SectionLabel icon={IconCalendar}>Working Days</SectionLabel>
@@ -405,7 +405,7 @@ export default function SubscriptionCardContent({ content }: Props) {
                 {weekendDays.length > 0 && (
                   <>
                     {weekdayDays.length > 0 && (
-                      <span aria-hidden="true" className="mx-0.5 h-3 w-px bg-[#E8E5DE]" />
+                      <span aria-hidden="true" className="mx-0.5 h-3 w-px bg-[#E7E7EA]" />
                     )}
                     <span className="font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-wider text-[#737373]">
                       Weekend

@@ -10,20 +10,20 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        /* ── UpSquad Brand (neo-brutalist) ── */
+        /* ── UpSquad Brand (monochrome + pale-yellow accent) ── */
         brand: {
-          purple: '#FCF487',  // signature lime — primary CTA
-          pink: '#a8e8e8',    // mint — secondary accent
-          yellow: '#f0fb29',  // bright yellow-green
-          blue: '#a8e8e8',    // alias for mint
-          green: '#42cc77',   // success
-          orange: '#F76808',  // warning/alert
+          purple: '#FFFF99',  // signature pale-yellow — primary accent
+          pink: '#E7E7EA',    // neutral grey — secondary surface
+          yellow: '#FFFF99',  // pale-yellow accent
+          blue: '#E7E7EA',    // neutral grey
+          green: '#42cc77',   // success (functional status)
+          orange: '#F76808',  // warning/alert (functional status)
         },
-        /* ── Warm cream surfaces ── */
+        /* ── Surfaces (white + cool greys) ── */
         surface: {
-          DEFAULT: '#F7F6F3',     // page background
-          secondary: '#F5F5F2',   // cards/sections
-          dark: '#090C1D',        // footer/dark sections
+          DEFAULT: '#FFFFFF',     // page background
+          secondary: '#F5F5F6',   // cards/sections
+          dark: '#1C1C1F',        // footer/dark sections
         },
         /* ── Text scale ── */
         text: {
@@ -31,23 +31,23 @@ const config: Config = {
           secondary: '#525252',
           muted: '#a3a3a3',
         },
-        /* ── Legacy primary scale (warm browns) ── */
+        /* ── Primary neutral scale (cool greys) ── */
         primary: {
-          50: '#faf9f7',
-          100: '#f5f3ef',
-          200: '#e8e5de',
-          300: '#d4cfc5',
-          400: '#b8b0a2',
-          500: '#9c9283',
-          600: '#7a6f5f',
-          700: '#5c5347',
-          800: '#3d3730',
-          900: '#1f1b17',
+          50: '#fafafa',
+          100: '#f5f5f6',
+          200: '#e7e7ea',
+          300: '#d4d4d8',
+          400: '#a3a3a3',
+          500: '#737373',
+          600: '#525252',
+          700: '#3f3f46',
+          800: '#27272a',
+          900: '#0a0a0a',
         },
         warm: {
-          bg: '#F7F6F3',
+          bg: '#FFFFFF',
           card: '#FFFFFF',
-          border: '#E8E5DE',
+          border: '#E7E7EA',
         },
         accent: {
           DEFAULT: '#1a1a1a',
@@ -55,7 +55,7 @@ const config: Config = {
           muted: '#8a8a8a',
         },
         dark: {
-          900: '#090C1D',
+          900: '#1C1C1F',
         },
       },
       boxShadow: {

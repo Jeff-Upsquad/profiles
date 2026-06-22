@@ -135,11 +135,11 @@ export default function SubscriptionCardReview({
 
   if (cardError || !card) {
     return (
-      <div className="rounded-2xl border border-[#E8E5DE] bg-white p-10 text-center">
+      <div className="rounded-2xl border border-[#E7E7EA] bg-white p-10 text-center">
         <p className="text-sm font-medium text-[#0a0a0a]">Card not found.</p>
         <button
           onClick={() => router.push(backHref)}
-          className="mt-3 text-xs font-medium text-indigo-600 hover:underline"
+          className="mt-3 text-xs font-medium text-[#0a0a0a] hover:underline"
         >
           {backLabel}
         </button>
@@ -188,7 +188,7 @@ export default function SubscriptionCardReview({
       </button>
 
       {/* Card details */}
-      <div className="rounded-2xl border border-[#E8E5DE] bg-white p-4 sm:p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div className="rounded-2xl border border-[#E7E7EA] bg-white p-4 sm:p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="truncate font-[family-name:var(--font-jakarta)] text-lg font-semibold text-[#0a0a0a]">
@@ -205,7 +205,7 @@ export default function SubscriptionCardReview({
               </span>
             )}
             {price && (
-              <span className="rounded-full bg-[#F2FCBC] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
+              <span className="rounded-full bg-[#FFFAC2] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
                 {priceDisplay}
               </span>
             )}
@@ -217,7 +217,7 @@ export default function SubscriptionCardReview({
             {card.categories.map((cat) => (
               <span
                 key={cat.id}
-                className="rounded-full bg-[#E5DFFC] px-2.5 py-0.5 text-[11px] font-medium text-[#0a0a0a]"
+                className="rounded-full bg-[#F1F1F3] px-2.5 py-0.5 text-[11px] font-medium text-[#0a0a0a]"
               >
                 {cat.name}
               </span>
@@ -364,7 +364,7 @@ export default function SubscriptionCardReview({
           {/* Tier sub-tabs — only for multi-tier briefs. Filters both the
               "New talents for review" and "Shortlisted" sections below. */}
           {groupTiers.length > 1 && (
-            <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-[#E8E5DE] bg-white px-3 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-[#E7E7EA] bg-white px-3 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               {[{ key: 'all', label: 'All' }, ...groupTiers.map((t) => ({ key: t, label: t }))].map((tab) => {
                 const isActive = activeTier === tab.key;
                 return (
@@ -373,7 +373,7 @@ export default function SubscriptionCardReview({
                     type="button"
                     onClick={() => setActiveTier(tab.key)}
                     className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                      isActive ? 'bg-[#0a0a0a] text-white' : 'bg-[#F7F6F3] text-[#525252] hover:text-[#0a0a0a]'
+                      isActive ? 'bg-[#0a0a0a] text-white' : 'bg-[#F5F5F6] text-[#525252] hover:text-[#0a0a0a]'
                     }`}
                   >
                     {tab.label}
@@ -384,8 +384,8 @@ export default function SubscriptionCardReview({
             </div>
           )}
 
-          <div className="rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <div className="border-b border-[#E8E5DE] px-5 py-4 sm:px-6">
+          <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div className="border-b border-[#E7E7EA] px-5 py-4 sm:px-6">
               <div className="flex items-center justify-between">
                 <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
                   New talents for review
@@ -399,7 +399,7 @@ export default function SubscriptionCardReview({
                 <p className="text-sm text-[#737373]">No new talents to review.</p>
               </div>
             ) : (
-              <ul className="divide-y divide-[#E8E5DE]">
+              <ul className="divide-y divide-[#E7E7EA]">
                 {forReviewView.map((r, i) => (
                   <li key={r.recipient_id} className="relative px-5 py-3 sm:px-6">
                     <div className="flex items-center gap-4">
@@ -420,7 +420,7 @@ export default function SubscriptionCardReview({
                           type="button"
                           disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
                           onClick={() => handleReview(r.recipient_id, 'reject')}
-                          className="rounded-lg border border-[#E8E5DE] px-3 py-1.5 text-xs font-semibold text-[#737373] transition-colors hover:border-red-200 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="rounded-lg border border-[#E7E7EA] px-3 py-1.5 text-xs font-semibold text-[#737373] transition-colors hover:border-red-200 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           Reject
                         </button>
@@ -439,8 +439,8 @@ export default function SubscriptionCardReview({
           </div>
 
           {/* Shortlisted */}
-          <div className="rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <div className="border-b border-[#E8E5DE] px-5 py-4 sm:px-6">
+          <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div className="border-b border-[#E7E7EA] px-5 py-4 sm:px-6">
               <div className="flex items-center justify-between">
                 <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
                   Shortlisted
@@ -454,7 +454,7 @@ export default function SubscriptionCardReview({
                 <p className="text-sm text-[#737373]">No shortlisted talents yet. Review talents above to add them here.</p>
               </div>
             ) : (
-              <ul className="divide-y divide-[#E8E5DE]">
+              <ul className="divide-y divide-[#E7E7EA]">
                 {shortlistedView.map((r) => (
                   <li key={r.recipient_id} className="px-5 py-3 sm:px-6">
                     <div className="flex items-center gap-4">
@@ -467,7 +467,7 @@ export default function SubscriptionCardReview({
                           type="button"
                           disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
                           onClick={() => handleReview(r.recipient_id, 'unshortlist')}
-                          className="rounded-lg border border-[#E8E5DE] px-3 py-1.5 text-xs font-semibold text-[#737373] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-40"
+                          className="rounded-lg border border-[#E7E7EA] px-3 py-1.5 text-xs font-semibold text-[#737373] transition-colors hover:bg-[#F5F5F6] disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           Unshortlist
                         </button>
@@ -498,7 +498,7 @@ export default function SubscriptionCardReview({
       {confirmSelect && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setConfirmSelect(null)} />
-          <div className="relative mx-4 w-full max-w-md rounded-2xl border border-[#E8E5DE] bg-white p-6 shadow-2xl">
+          <div className="relative mx-4 w-full max-w-md rounded-2xl border border-[#E7E7EA] bg-white p-6 shadow-2xl">
             <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold text-[#0a0a0a]">
               Confirm selection
             </h3>
@@ -513,7 +513,7 @@ export default function SubscriptionCardReview({
               <button
                 type="button"
                 onClick={() => setConfirmSelect(null)}
-                className="rounded-lg border border-[#E8E5DE] px-4 py-2 text-sm font-semibold text-[#525252] transition-colors hover:bg-[#F7F6F3]"
+                className="rounded-lg border border-[#E7E7EA] px-4 py-2 text-sm font-semibold text-[#525252] transition-colors hover:bg-[#F5F5F6]"
               >
                 Cancel
               </button>
@@ -563,13 +563,13 @@ function RecipientInfo({ recipient: r }: { recipient: CardRecipientForBusiness }
           {r.talent_name || 'Unknown talent'}
         </p>
         {r.tier && (
-          <span className="shrink-0 rounded-full bg-[#E5DFFC] px-2 py-0.5 text-[10px] font-semibold text-[#0a0a0a]">
+          <span className="shrink-0 rounded-full bg-[#F1F1F3] px-2 py-0.5 text-[10px] font-semibold text-[#0a0a0a]">
             {r.tier_custom || r.tier}
           </span>
         )}
         {r.proposed_price != null && (
           <span
-            className="shrink-0 rounded-full bg-[#F2FCBC] px-2 py-0.5 text-[10px] font-semibold text-[#0a0a0a]"
+            className="shrink-0 rounded-full bg-[#FFFAC2] px-2 py-0.5 text-[10px] font-semibold text-[#0a0a0a]"
             title="Proposed monthly price for this tier"
           >
             {formatPrice(r.proposed_price, r.currency ?? null)}
@@ -608,7 +608,7 @@ function RecipientLink({ recipient: r, children, inactive = false }: { recipient
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="mt-3 border-t border-[#E8E5DE] pt-3">
+    <div className="mt-3 border-t border-[#E7E7EA] pt-3">
       <h2 className="mb-1.5 font-[family-name:var(--font-jakarta)] text-[13px] font-semibold text-[#0a0a0a]">
         {title}
       </h2>

@@ -90,13 +90,13 @@ function NotificationMedia({ media }: { media: MediaItem[] }) {
   return (
     <div className="mt-3 space-y-2">
       {media.map((m, i) => (
-        <div key={i} className="rounded-lg overflow-hidden border border-[#E8E5DE]">
+        <div key={i} className="rounded-lg overflow-hidden border border-[#E7E7EA]">
           {m.type === 'image' && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={m.url}
               alt={m.name ?? 'image'}
-              className="w-full max-h-72 object-contain bg-[#F7F6F3]"
+              className="w-full max-h-72 object-contain bg-[#F5F5F6]"
             />
           )}
           {m.type === 'pdf' && (
@@ -194,7 +194,7 @@ export default function TalentNotifications() {
   return (
     <div className="space-y-6">
       {/* Compact Hero */}
-      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-content flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="mb-2.5 stagger-1">
@@ -214,7 +214,7 @@ export default function TalentNotifications() {
               type="button"
               onClick={() => markAllRead.mutate()}
               disabled={markAllRead.isPending}
-              className="self-start sm:self-end inline-flex items-center rounded-full border border-[#E8E5DE] bg-white px-3 py-1.5 text-xs font-medium text-[#0a0a0a] hover:bg-[#F7F6F3] disabled:opacity-50"
+              className="self-start sm:self-end inline-flex items-center rounded-full border border-[#E7E7EA] bg-white px-3 py-1.5 text-xs font-medium text-[#0a0a0a] hover:bg-[#F5F5F6] disabled:opacity-50"
             >
               Mark all read
             </button>
@@ -223,7 +223,7 @@ export default function TalentNotifications() {
       </section>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 rounded-xl border border-[#E8E5DE] bg-white p-1">
+      <div className="flex items-center gap-1 rounded-xl border border-[#E7E7EA] bg-white p-1">
         {([
           ['unread', 'Unread', unreadCount],
           ['all', 'All', notifications.length],
@@ -236,7 +236,7 @@ export default function TalentNotifications() {
             className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
               tab === key
                 ? 'bg-[#0a0a0a] text-white'
-                : 'text-[#525252] hover:bg-[#F7F6F3]'
+                : 'text-[#525252] hover:bg-[#F5F5F6]'
             }`}
           >
             {label}
@@ -254,10 +254,10 @@ export default function TalentNotifications() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-6 py-16 text-center">
+        <div className="relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFFAC2]">
               <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
@@ -286,7 +286,7 @@ export default function TalentNotifications() {
             return (
               <article
                 key={notif.id}
-                className={`group relative rounded-2xl border border-[#E8E5DE] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden stagger-${Math.min(i + 1, 6)}`}
+                className={`group relative rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden stagger-${Math.min(i + 1, 6)}`}
               >
                 <div className="flex items-start gap-3 px-5 py-4">
                   {!notif.read && (

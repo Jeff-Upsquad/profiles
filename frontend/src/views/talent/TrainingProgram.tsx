@@ -76,7 +76,7 @@ function LanguagePicker({
         className={`font-[family-name:var(--font-inter)] rounded-lg border bg-white px-3 py-1.5 text-[13px] font-medium text-[#0a0a0a] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/30 focus:border-[#0a0a0a] ${
           highlight
             ? 'border-[#0a0a0a] ring-2 ring-[#0a0a0a]/30 animate-pulse'
-            : 'border-[#E8E5DE]'
+            : 'border-[#E7E7EA]'
         }`}
       >
         {available.map((lang) => (
@@ -91,7 +91,7 @@ function LanguagePicker({
 
 function LanguageSelectionPrompt() {
   return (
-    <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#0a0a0a]/40 bg-gradient-to-br from-[#F2FCBC]/60 to-white px-6 py-10 sm:py-8 text-center sm:text-left">
+    <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#0a0a0a]/40 bg-gradient-to-br from-[#FFFAC2]/60 to-white px-6 py-10 sm:py-8 text-center sm:text-left">
       <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
       <div className="relative sm:flex sm:items-end sm:justify-between sm:gap-6">
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center text-[#0a0a0a] sm:hidden">
@@ -125,7 +125,7 @@ function ProgressBar({ completed, total, color = 'rainbow' }: { completed: numbe
         <div
           className={`h-full rounded-full transition-all duration-500 ${
             color === 'rainbow'
-              ? 'bg-gradient-to-r from-[#FF8B47] via-[#D24DFF] to-[#5BB7FF]'
+              ? 'bg-gradient-to-r from-[#FFF27A] via-[#0A0A0A] to-[#737373]'
               : 'bg-[#0a0a0a]'
           }`}
           style={{ width: `${pct}%` }}
@@ -168,7 +168,7 @@ function LessonCard({ lesson, index, language }: { lesson: TrainingLesson; index
   };
 
   return (
-    <div className="group rounded-2xl border border-[#E8E5DE] overflow-hidden bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)]">
+    <div className="group rounded-2xl border border-[#E7E7EA] overflow-hidden bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)]">
       <div className="aspect-video bg-[#09090B] relative">
         <iframe
           src={loomEmbedUrl(videoUrl)}
@@ -255,7 +255,7 @@ function ChapterAccordion({
   return (
     <div
       className={`rounded-2xl border bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${
-        locked ? 'border-[#E8E5DE] opacity-60' : 'border-[#E8E5DE]'
+        locked ? 'border-[#E7E7EA] opacity-60' : 'border-[#E7E7EA]'
       }`}
       title={locked ? lockedReason : undefined}
     >
@@ -263,7 +263,7 @@ function ChapterAccordion({
         onClick={() => !locked && setExpanded(!expanded)}
         disabled={locked}
         className={`w-full px-5 sm:px-6 py-5 flex items-center gap-4 text-left transition-colors ${
-          locked ? 'cursor-not-allowed' : 'hover:bg-[#F7F6F3]'
+          locked ? 'cursor-not-allowed' : 'hover:bg-[#F5F5F6]'
         }`}
       >
         <div
@@ -335,15 +335,15 @@ function CountdownChip({ course, now }: { course: TrainingCourse; now: Date }) {
   const remaining = formatRemaining(course.expires_at, now);
   return (
     <div
-      className="flex items-center gap-2 rounded-full border border-[#E8E5DE] bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+      className="flex items-center gap-2 rounded-full border border-[#E7E7EA] bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
       style={{
-        backgroundImage: 'linear-gradient(white, white), linear-gradient(135deg, #FF8B47, #D24DFF, #5BB7FF)',
+        backgroundImage: 'linear-gradient(white, white), linear-gradient(135deg, #FFF27A, #0A0A0A, #737373)',
         backgroundOrigin: 'border-box',
         backgroundClip: 'padding-box, border-box',
         border: '1.5px solid transparent',
       }}
     >
-      <svg className="h-3.5 w-3.5 text-[#D24DFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <svg className="h-3.5 w-3.5 text-[#0A0A0A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
       <span className="font-[family-name:var(--font-inter)] text-[12px] font-medium text-[#0a0a0a] truncate max-w-[180px]">
@@ -471,7 +471,7 @@ function CourseSection({
       {course.expired && <ReopenRequestBanner courseId={course.id} />}
 
       {needsStart && !showPopup && (
-        <div className="rounded-xl border border-[#E8E5DE] bg-[#F7F6F3] px-4 py-3 text-sm text-[#525252]">
+        <div className="rounded-xl border border-[#E7E7EA] bg-[#F5F5F6] px-4 py-3 text-sm text-[#525252]">
           Click <button onClick={() => setPopupDismissed(false)} className="text-[#0a0a0a] font-medium underline-offset-2 hover:underline">Start course</button> to begin.
         </div>
       )}
@@ -479,7 +479,7 @@ function CourseSection({
       {needsLanguageSelection ? (
         <LanguageSelectionPrompt />
       ) : course.chapters.length === 0 ? (
-        <div className="rounded-2xl border border-[#E8E5DE] bg-white px-6 py-8 text-center text-sm text-[#737373]">
+        <div className="rounded-2xl border border-[#E7E7EA] bg-white px-6 py-8 text-center text-sm text-[#737373]">
           No chapters yet.
         </div>
       ) : (
@@ -538,7 +538,7 @@ function OnboardingTraining() {
 
   return (
     <div className="space-y-6">
-      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-glow-blur" />
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
@@ -562,10 +562,10 @@ function OnboardingTraining() {
       {isLoading ? (
         <div className="h-32 bg-[#f0f0f0] rounded-2xl animate-pulse" />
       ) : courses.length === 0 ? (
-        <div className="relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-6 py-16 text-center">
+        <div className="relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFFAC2]">
               <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -588,7 +588,7 @@ function OnboardingTraining() {
             />
           ))}
 
-          <div className="rounded-2xl border border-[#E8E5DE] bg-white p-6 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="rounded-2xl border border-[#E7E7EA] bg-white p-6 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             {allComplete ? (
               <>
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50">
@@ -670,7 +670,7 @@ function FullTrainingProgram() {
 
   return (
     <div className="space-y-6">
-      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-5 py-6 sm:px-7 sm:py-7">
+      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-6 sm:px-7 sm:py-7">
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
             <div className="mb-2.5 stagger-1">
@@ -688,7 +688,7 @@ function FullTrainingProgram() {
           {totals.total > 0 && (
             <div className="relative flex h-16 w-16 items-center justify-center stagger-4">
               <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="42" fill="none" stroke="#E8E5DE" strokeWidth="9" />
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#E7E7EA" strokeWidth="9" />
                 <circle
                   cx="50" cy="50" r="42" fill="none"
                   stroke="url(#train-grad)"
@@ -698,9 +698,9 @@ function FullTrainingProgram() {
                 />
                 <defs>
                   <linearGradient id="train-grad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#FF8B47" />
-                    <stop offset="50%" stopColor="#D24DFF" />
-                    <stop offset="100%" stopColor="#5BB7FF" />
+                    <stop offset="0%" stopColor="#FFF27A" />
+                    <stop offset="50%" stopColor="#0A0A0A" />
+                    <stop offset="100%" stopColor="#737373" />
                   </linearGradient>
                 </defs>
               </svg>
@@ -723,10 +723,10 @@ function FullTrainingProgram() {
           ))}
         </div>
       ) : isEmpty ? (
-        <div className="relative overflow-hidden rounded-2xl border border-[#E8E5DE] bg-white px-6 py-16 text-center">
+        <div className="relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F2FCBC]">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFFAC2]">
               <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

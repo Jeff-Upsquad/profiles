@@ -84,7 +84,7 @@ function Section({ title, count, onClear, scroll, children }: SectionProps) {
       <div
         className={
           scroll
-            ? 'max-h-48 space-y-1 overflow-y-auto rounded-lg border border-[#E8E5DE] bg-[#F7F6F3] p-2'
+            ? 'max-h-48 space-y-1 overflow-y-auto rounded-lg border border-[#E7E7EA] bg-[#F5F5F6] p-2'
             : 'space-y-1'
         }
       >
@@ -104,7 +104,7 @@ function CheckboxRow({ checked, onChange, children }: CheckboxRowProps) {
   return (
     <label
       className={`group flex min-w-0 cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors ${
-        checked ? 'bg-[#F2FCBC] text-[#0a0a0a]' : 'text-[#525252] hover:bg-[#F7F6F3]'
+        checked ? 'bg-[#FFFAC2] text-[#0a0a0a]' : 'text-[#525252] hover:bg-[#F5F5F6]'
       }`}
     >
       <span
@@ -159,7 +159,7 @@ function TierChip({
       className={`group relative flex items-center justify-center rounded-lg border px-2.5 py-2 font-[family-name:var(--font-inter)] text-[13px] font-semibold transition-all duration-150 active:scale-[0.97] ${
         checked
           ? `${tier.tint} border-transparent shadow-[0_1px_2px_rgba(0,0,0,0.06)]`
-          : 'border-[#E8E5DE] bg-white text-[#525252] hover:border-[#D4D4D8] hover:bg-[#F7F6F3] hover:text-[#0a0a0a]'
+          : 'border-[#E7E7EA] bg-white text-[#525252] hover:border-[#D4D4D8] hover:bg-[#F5F5F6] hover:text-[#0a0a0a]'
       }`}
       style={checked ? { color: 'var(--tint-text)' } : undefined}
     >
@@ -254,7 +254,7 @@ export default function TalentAccessFilters({ categoryId, value, onChange, filte
           disabled={totalSelected === 0}
           className={`rounded-lg px-2.5 py-1 font-[family-name:var(--font-inter)] text-[11px] font-semibold transition-colors ${
             totalSelected > 0
-              ? 'text-[#0a0a0a] hover:bg-[#F2FCBC]'
+              ? 'text-[#0a0a0a] hover:bg-[#FFFAC2]'
               : 'cursor-default text-[#D4D4D8]'
           }`}
         >
@@ -285,7 +285,7 @@ export default function TalentAccessFilters({ categoryId, value, onChange, filte
             <button
               type="button"
               onClick={() => setTierExpanded((v) => !v)}
-              className="flex w-full items-center justify-between rounded-lg border border-[#E8E5DE] bg-[#F7F6F3] px-3 py-2 text-left font-[family-name:var(--font-inter)] text-[12px] font-medium text-[#525252] transition-colors hover:bg-[#F0F0F0]"
+              className="flex w-full items-center justify-between rounded-lg border border-[#E7E7EA] bg-[#F5F5F6] px-3 py-2 text-left font-[family-name:var(--font-inter)] text-[12px] font-medium text-[#525252] transition-colors hover:bg-[#F0F0F0]"
             >
               <span className="flex items-center gap-1.5">
                 <svg
