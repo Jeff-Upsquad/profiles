@@ -7,7 +7,8 @@
     "android": "expo start --android",
     "web": "expo start --web",
     "build:apk": "eas build --platform android --profile preview --local --non-interactive",
-    "publish": "bash scripts/publish.sh"
+    "release": "bash scripts/release.sh",
+    "publish": "bash scripts/release.sh"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -16,10 +17,14 @@
     "@tanstack/react-query": "^5.99.2",
     "axios": "^1.15.1",
     "expo": "~54.0.33",
+    "expo-application": "~7.0.8",
     "expo-asset": "~12.0.12",
     "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.13",
+    "expo-crypto": "~15.0.8",
+    "expo-file-system": "~19.0.21",
     "expo-font": "~14.0.11",
+    "expo-intent-launcher": "~13.0.8",
     "expo-linking": "~8.0.11",
     "expo-router": "~6.0.23",
     "expo-secure-store": "~15.0.8",

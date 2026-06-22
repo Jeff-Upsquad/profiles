@@ -18,6 +18,7 @@ import webhookRouter from './routes/webhooks.routes.js';
 import integrationsRouter from './routes/integrations.routes.js';
 import pushRouter from './routes/push.routes.js';
 import * as pushController from './controllers/push.controller.js';
+import * as appVersionController from './controllers/app-version.controller.js';
 import { startCallbackSweeper } from './services/squadhub-callback.service.js';
 
 const app = express();
@@ -80,6 +81,11 @@ app.use('/api/webhooks', webhookRouter);
 app.use('/api/integrations', integrationsRouter);
 app.use('/api/talent/push', pushRouter);
 app.get('/api/app-config', pushController.appConfig);
+
+// In-app updater manifests for the sideloaded mobile apps. Public (no auth),
+// polled on launch; mirror the SquadHub partner app's GET /partner-app/version.
+app.get('/api/talent-app/version', appVersionController.talentApp);
+app.get('/api/admin-lite/version', appVersionController.adminLite);
 
 // ---------------------------------------------------------------------------
 // Global error handler (must be registered after all routes)

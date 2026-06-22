@@ -1,6 +1,7 @@
 import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import UpdateCard from '../../../src/components/UpdateCard';
 
 const cards = [
   {
@@ -31,6 +32,8 @@ export default function Dashboard() {
       <Text style={styles.subtitle}>
         Focused workflow for candidates, user approvals, and profile reviews.
       </Text>
+
+      <UpdateCard />
 
       <View style={styles.cards}>
         {cards.map((card) => (

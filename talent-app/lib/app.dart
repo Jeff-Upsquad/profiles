@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'config/router.dart';
 import 'core/constants.dart';
 import 'core/theme.dart';
+import 'features/update/update_gate.dart';
 import 'providers/providers.dart';
 import 'services/notification_service.dart';
+import 'services/update_controller.dart';
 
 class TalentApp extends ConsumerStatefulWidget {
   const TalentApp({super.key});
@@ -27,6 +29,10 @@ class _TalentAppState extends ConsumerState<TalentApp> {
     super.initState();
     _setupPushNotifications();
     _setupSessionExpiry();
+
+    // Poll the release manifest once at launch; the inline UpdateCard / blocking
+    // UpdateGate surface any newer build.
+    ref.read(updateControllerProvider.notifier).check();
 
     // When the user becomes authenticated: register the FCM token (the push
     // setup runs once at startup, before a fresh login completes) and navigate
@@ -135,6 +141,13 @@ class _TalentAppState extends ConsumerState<TalentApp> {
       theme: buildAppTheme(),
       routerConfig: router,
       debugShowCheckedModeBanner: false,
+      // Overlay the forced-update gate above every route.
+      builder: (context, child) => Stack(
+        children: [
+          child ?? const SizedBox.shrink(),
+          const Positioned.fill(child: UpdateGate()),
+        ],
+      ),
     );
   }
 }

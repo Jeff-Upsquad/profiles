@@ -85,6 +85,15 @@ const envSchema = z.object({
   // Talent app distribution
   TALENT_APP_MIN_VERSION: z.string().default('1.0.0'),
   TALENT_APP_DOWNLOAD_URL: z.string().optional(),
+
+  // In-app updater manifests (served by GET /api/talent-app/version and
+  // /api/admin-lite/version). Optional path overrides — when unset the backend
+  // reads the committed defaults in backend/ (talent-app-release-manifest.json,
+  // admin-lite-release-manifest.json). In production point these at the host
+  // files the release scripts write, e.g. /var/www/talent-app-downloads/version.json
+  // and /var/www/admin-lite-downloads/version.json.
+  TALENT_APP_MANIFEST_PATH: z.string().optional(),
+  ADMIN_LITE_MANIFEST_PATH: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

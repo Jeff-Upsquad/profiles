@@ -6,6 +6,7 @@ import '../../core/subscription_utils.dart';
 import '../../models/subscription_card.dart';
 import '../../providers/providers.dart';
 import '../../widgets/shimmer_loading.dart';
+import '../update/update_card.dart';
 import 'widgets/empty_state.dart';
 import 'widgets/subscription_list_tile.dart';
 
@@ -34,6 +35,7 @@ class PendingScreen extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                const UpdateCard(),
                 const _WhatsAppToggle(),
                 const SizedBox(height: 16),
                 if (items.isEmpty)
