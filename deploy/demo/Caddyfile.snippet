@@ -1,0 +1,12 @@
+# SquadHire HOSTED DEMO — Caddy site block.
+# Append to /opt/squadhub/Caddyfile (the squadhub-caddy container's config),
+# then validate + graceful reload:
+#   docker exec squadhub-caddy caddy validate --config /etc/caddy/Caddyfile
+#   docker exec squadhub-caddy caddy reload   --config /etc/caddy/Caddyfile
+#
+# Caddy terminates TLS (auto Let's Encrypt) and forwards to the host nginx on
+# :8080, which routes by server_name to the demo stack. Requires a DNS A record:
+#   squadhire-demo.upsquadconnect.com  ->  72.61.245.97
+squadhire-demo.upsquadconnect.com {
+	reverse_proxy host.docker.internal:8080
+}
