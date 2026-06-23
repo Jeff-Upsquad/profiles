@@ -1,199 +1,285 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Lite - Download</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Download Admin Lite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Sometype+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #F1F5F9;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
+    :root{
+      --ink:#0A0A0A; --text:#404040; --muted:#525252; --faint:#A3A3A3; --dot:#D4D4D4;
+      --line:rgba(0,0,0,.08); --line-strong:rgba(0,0,0,.18);
+      --chip:#F5F5F2; --accent:#FFFF99; --card:#ffffff;
     }
-    .card {
-      background: #fff;
-      border-radius: 20px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-      max-width: 400px;
-      width: 100%;
-      padding: 40px 32px;
-      text-align: center;
+    *{box-sizing:border-box;margin:0;padding:0}
+    html{-webkit-text-size-adjust:100%}
+    body{
+      font-family:'Plus Jakarta Sans','Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+      color:var(--ink); min-height:100dvh;
+      background:
+        radial-gradient(ellipse 60% 50% at 15% 10%, rgba(0,0,0,.05) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 50% at 85% 90%, rgba(0,0,0,.04) 0%, transparent 60%),
+        linear-gradient(180deg,#fafafa 0%,#ffffff 100%);
     }
-    .logo {
-      width: 72px;
-      height: 72px;
-      border-radius: 18px;
-      background: #4F46E5;
-      color: #fff;
-      font-size: 28px;
-      font-weight: 700;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 20px;
+    .page{display:flex;flex-direction:column;min-height:100dvh}
+    .wrap{width:100%;max-width:672px;margin:0 auto}
+
+    /* type helpers */
+    .heading{font-family:'Plus Jakarta Sans','Inter',sans-serif}
+    .mono{
+      font-family:'Sometype Mono','SFMono-Regular',Consolas,Menlo,monospace;
+      text-transform:uppercase;letter-spacing:.14em;font-weight:500;
     }
-    h1 {
-      font-size: 22px;
-      font-weight: 700;
-      color: #0F172B;
-      margin-bottom: 6px;
+
+    /* main */
+    main{flex:1;padding:48px 24px}
+
+    /* hero */
+    .hero{text-align:center;margin-bottom:40px}
+    .logo{
+      position:relative;width:80px;height:80px;margin:0 auto 20px;border-radius:22px;
+      background:var(--ink);display:flex;align-items:center;justify-content:center;
+      box-shadow:0 16px 38px -16px rgba(0,0,0,.45);
     }
-    .subtitle {
-      font-size: 14px;
-      color: #64748B;
-      margin-bottom: 28px;
+    .logo svg{width:38px;height:38px;color:#fff}
+    .logo .accent{
+      position:absolute;top:-6px;right:-6px;width:16px;height:16px;border-radius:50%;
+      background:var(--accent);border:2px solid #FAFAFA;
     }
-    .features {
-      text-align: left;
-      margin-bottom: 28px;
-      padding: 0 8px;
+    h1{font-size:32px;font-weight:800;letter-spacing:-.03em;line-height:1.05}
+    .lede{max-width:28rem;margin:12px auto 0;font-size:16px;line-height:1.6;color:var(--muted)}
+
+    /* cards */
+    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 24px -16px rgba(0,0,0,.12)}
+    .card-hover{transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease}
+    .card-hover:hover{transform:translateY(-2px);border-color:var(--line-strong);box-shadow:0 14px 30px -16px rgba(0,0,0,.18)}
+
+    /* download card */
+    .download-card{padding:32px;text-align:center;margin-bottom:32px}
+    .btn{
+      display:inline-flex;align-items:center;gap:10px;border-radius:999px;padding:14px 28px;
+      font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;
+      background:var(--ink);color:#fff;border:1px solid var(--ink);
+      box-shadow:0 10px 24px -10px rgba(0,0,0,.5);
+      transition:transform .25s ease,box-shadow .25s ease,background .25s ease;
     }
-    .feature {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 0;
-      font-size: 14px;
-      color: #334155;
+    .btn:hover{transform:translateY(-2px);background:#000;box-shadow:0 16px 30px -12px rgba(0,0,0,.55)}
+    .btn:active{transform:translateY(0);box-shadow:0 8px 18px -10px rgba(0,0,0,.5)}
+    .btn svg{width:20px;height:20px}
+    .meta{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 12px;margin-top:20px;font-size:10px;color:var(--muted)}
+    .meta .pill{border-radius:999px;background:var(--accent);color:var(--ink);padding:4px 10px}
+    .meta .sep{width:4px;height:4px;border-radius:50%;background:var(--dot)}
+    .signed{margin-top:16px;font-size:12px;line-height:1.6;color:var(--faint)}
+
+    /* sections */
+    section{margin-bottom:32px}
+    .section-title{font-size:18px;font-weight:700;letter-spacing:-.02em;margin-bottom:20px}
+
+    /* what's new */
+    #whatsnew{display:none}
+    #whatsnew ul{list-style:none;display:flex;flex-direction:column;gap:10px}
+    #whatsnew li{display:flex;gap:12px;font-size:14px;line-height:1.4;color:var(--text)}
+    #whatsnew li .bullet{flex:0 0 6px;width:6px;height:6px;margin-top:7px;border-radius:50%;background:var(--ink)}
+
+    /* features */
+    .features{display:grid;grid-template-columns:1fr;gap:12px}
+    .feature{display:flex;align-items:flex-start;gap:14px;padding:16px}
+    .feature .ic{flex:0 0 36px;width:36px;height:36px;border-radius:10px;background:var(--chip);display:flex;align-items:center;justify-content:center}
+    .feature .ic svg{width:18px;height:18px;color:var(--ink)}
+    .feature .ft-label{font-size:14px;font-weight:600;color:var(--ink)}
+    .feature .ft-body{margin-top:2px;font-size:13px;line-height:1.4;color:var(--muted)}
+
+    /* install */
+    .install{padding:24px}
+    .install .section-title{font-size:16px;margin-bottom:16px}
+    .steps{list-style:none;display:flex;flex-direction:column;gap:12px}
+    .step{display:flex;align-items:flex-start;gap:12px}
+    .step .num{
+      flex:0 0 24px;width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;
+      font-size:11px;display:flex;align-items:center;justify-content:center;
     }
-    .feature .icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      background: #EEF2FF;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      font-size: 16px;
-    }
-    .download-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      background: #4F46E5;
-      color: #fff;
-      font-size: 16px;
-      font-weight: 600;
-      padding: 14px 32px;
-      border-radius: 12px;
-      text-decoration: none;
-      width: 100%;
-      transition: background 0.2s, opacity 0.2s;
-    }
-    .download-btn:hover { background: #4338CA; }
-    .download-btn.is-disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-      background: #4F46E5;
-    }
-    .download-btn svg { width: 20px; height: 20px; }
-    .download-msg {
-      display: none;
-      margin-top: 16px;
-      padding: 12px 14px;
-      background: #ECFDF5;
-      color: #065F46;
-      border: 1px solid #A7F3D0;
-      border-radius: 10px;
-      font-size: 13px;
-      line-height: 1.5;
-      text-align: left;
-    }
-    .download-msg.is-visible { display: block; }
-    .version {
-      font-size: 12px;
-      color: #94A3B8;
-      margin-top: 12px;
-    }
-    .note {
-      font-size: 12px;
-      color: #94A3B8;
-      margin-top: 20px;
-      line-height: 1.5;
+    .step .txt{padding-top:2px;font-size:14px;line-height:1.6;color:var(--text)}
+
+    /* footer */
+    footer{border-top:1px solid var(--line);padding:24px}
+    .foot{font-size:10px;color:var(--faint);text-align:center}
+
+    @media (min-width:640px){
+      h1{font-size:40px}
+      .lede{font-size:18px}
+      .features{grid-template-columns:1fr 1fr}
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="logo">AL</div>
-    <h1>Admin Lite</h1>
-    <p class="subtitle">Focused admin tools for candidates and approvals</p>
+  <div class="page">
+    <!-- Main -->
+    <main>
+      <div class="wrap">
+        <!-- Hero -->
+        <div class="hero">
+          <div class="logo" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+            <span class="accent"></span>
+          </div>
+          <h1 class="heading">Admin Lite</h1>
+          <p class="lede">Review candidates, approve sign-ups, and clear profile submissions from your phone — the admin companion for SquadHire.</p>
+        </div>
 
-    <div class="features">
-      <div class="feature">
-        <div class="icon">&#128100;</div>
-        <span>Review candidate applications</span>
-      </div>
-      <div class="feature">
-        <div class="icon">&#9989;</div>
-        <span>Approve talent sign-ups</span>
-      </div>
-      <div class="feature">
-        <div class="icon">&#128221;</div>
-        <span>Review profile submissions</span>
-      </div>
-      <div class="feature">
-        <div class="icon">&#128241;</div>
-        <span>Mobile-friendly workflow</span>
-      </div>
-    </div>
+        <!-- Download card -->
+        <div class="card download-card">
+          <a class="btn" id="download" href="/admin-lite/admin-lite-latest.apk" download>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 19h16" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Download APK
+          </a>
+          <div class="meta mono">
+            <span class="pill" id="version">v2.0.3</span>
+            <span class="sep"></span>
+            <span>Android 6.0+</span>
+            <span class="sep"></span>
+            <span>Staff only</span>
+          </div>
+          <p class="signed" id="signed">Signed build — the app keeps itself up to date after install.</p>
+        </div>
 
-    <a href="/admin-lite/admin-lite-latest.apk" class="download-btn" id="downloadBtn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-        <polyline points="7 10 12 15 17 10"/>
-        <line x1="12" y1="15" x2="12" y2="3"/>
-      </svg>
-      Download for Android
-    </a>
-    <p class="download-msg" id="downloadMsg">
-      Download started. Check your notifications for progress.
-    </p>
-    <p class="version" id="version">Version 2.0.2 &bull; Android</p>
+        <!-- What's new (populated from release_notes when present) -->
+        <section id="whatsnew">
+          <h2 class="section-title heading">What&rsquo;s new</h2>
+          <ul id="whatsnew-list"></ul>
+        </section>
 
-    <p class="note">
-      After downloading, open the APK file to install.<br>
-      You may need to enable &ldquo;Install from unknown sources&rdquo; in your device settings.
-    </p>
+        <!-- What you get -->
+        <section>
+          <h2 class="section-title heading">What you get</h2>
+          <div class="features">
+            <div class="card card-hover feature">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+              <div>
+                <div class="ft-label heading">Review candidates</div>
+                <div class="ft-body">Browse and screen new applicants on the go.</div>
+              </div>
+            </div>
+            <div class="card card-hover feature">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg></span>
+              <div>
+                <div class="ft-label heading">Approve sign-ups</div>
+                <div class="ft-body">Approve or reject talent sign-ups with a tap.</div>
+              </div>
+            </div>
+            <div class="card card-hover feature">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></span>
+              <div>
+                <div class="ft-label heading">Profile submissions</div>
+                <div class="ft-body">Check profile edits and submissions for accuracy.</div>
+              </div>
+            </div>
+            <div class="card card-hover feature">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg></span>
+              <div>
+                <div class="ft-label heading">Built for mobile</div>
+                <div class="ft-body">A focused admin workspace made for your phone.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- How to install -->
+        <section class="card install">
+          <h2 class="section-title heading">How to install</h2>
+          <ol class="steps">
+            <li class="step"><span class="num mono">1</span><span class="txt">Tap <strong>Download APK</strong> above on your Android phone.</span></li>
+            <li class="step"><span class="num mono">2</span><span class="txt">If prompted, allow installation from this source in Settings.</span></li>
+            <li class="step"><span class="num mono">3</span><span class="txt">Open <strong>Admin Lite</strong> and sign in with your admin account email. It auto-updates after that.</span></li>
+          </ol>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+      <div class="foot mono wrap">© SquadHire · Powered by UpSquad</div>
+    </footer>
   </div>
 
   <script>
-    (function () {
-      var btn = document.getElementById('downloadBtn');
-      var msg = document.getElementById('downloadMsg');
-      var locked = false;
-      btn.addEventListener('click', function (e) {
-        if (locked) {
-          e.preventDefault();
-          return;
-        }
-        locked = true;
-        msg.classList.add('is-visible');
-        btn.classList.add('is-disabled');
-        setTimeout(function () {
-          locked = false;
-          btn.classList.remove('is-disabled');
-        }, 5000);
-      });
+    // "Last updated 23 Jun 2026, 5:33 PM IST" — releases are managed from India,
+    // so the date is shown in IST regardless of the visitor's timezone.
+    function formatUpdated(value) {
+      if (!value) return null;
+      var d = new Date(value);
+      if (isNaN(d.getTime())) return null;
+      var date = new Intl.DateTimeFormat('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata'
+      }).format(d);
+      var time = new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata'
+      }).format(d);
+      return 'Last updated ' + date + ', ' + time + ' IST';
+    }
 
-      // Keep the page in sync with the published release without redeploying it.
-      fetch('/api/admin-lite/version').then(function (r) { return r.json(); }).then(function (res) {
-        var c = res && res.data;
-        if (!c) return;
-        if (c.apk_url) btn.setAttribute('href', c.apk_url);
-        if (c.version_name) {
-          var v = document.getElementById('version');
-          if (v) v.textContent = 'Version ' + c.version_name + ' • Android';
+    // Footnote line: "Version 2.0.3 · Last updated 23 Jun 2026, 5:33 PM IST".
+    // The manifest carries no publish date, so the date comes from the APK's
+    // Last-Modified header (a cheap HEAD — same-origin on the live host), which
+    // tracks the shipped build's real publish time. Whatever parts we can
+    // resolve are joined; if none, the static note stays.
+    function setUpdated(apkUrl, publishedAt, versionName) {
+      var verPart = versionName ? ('Version ' + versionName) : '';
+      function apply(dateLine) {
+        var parts = [];
+        if (verPart) parts.push(verPart);
+        if (dateLine) parts.push(dateLine);
+        if (parts.length) document.getElementById('signed').textContent = parts.join(' · ');
+      }
+      var fromManifest = formatUpdated(publishedAt);
+      if (fromManifest) { apply(fromManifest); return; }
+      if (!apkUrl) { apply(null); return; }
+      fetch(apkUrl, { method: 'HEAD' }).then(function(r){
+        apply(formatUpdated(r.headers.get('last-modified')));
+      }).catch(function(){ apply(null); });
+    }
+
+    // Keep the page in sync with the published release without redeploying it.
+    // The release manifest (written by scripts/release.sh on every release) is
+    // the single source of truth for the latest version + APK URL, so the badge,
+    // download link and "What's new" track the shipped build automatically.
+    fetch('/api/admin-lite/version').then(function(r){ return r.json(); }).then(function(res){
+      var m = res && res.data;
+      if (!m) return;
+      var apkUrl = (typeof m.apk_url === 'string' && m.apk_url) ? m.apk_url : '/admin-lite/admin-lite-latest.apk';
+      if (typeof m.apk_url === 'string' && m.apk_url) {
+        document.getElementById('download').setAttribute('href', m.apk_url);
+      }
+      if (m.version_name) {
+        document.getElementById('version').textContent = 'v' + m.version_name;
+      }
+      setUpdated(apkUrl, m.published_at, m.version_name);
+      if (typeof m.release_notes === 'string' && m.release_notes.trim()) {
+        var lines = m.release_notes.split('\n')
+          .map(function(l){ return l.replace(/^[•\-\s]+/, '').trim(); })
+          .filter(Boolean);
+        if (lines.length) {
+          var ul = document.getElementById('whatsnew-list');
+          lines.forEach(function(line){
+            var li = document.createElement('li');
+            var dot = document.createElement('span');
+            dot.className = 'bullet';
+            var span = document.createElement('span');
+            span.textContent = line;
+            li.appendChild(dot);
+            li.appendChild(span);
+            ul.appendChild(li);
+          });
+          document.getElementById('whatsnew').style.display = 'block';
         }
-      }).catch(function () { /* keep static fallback */ });
-    })();
+      }
+    }).catch(function(){
+      // Manifest unreachable — still try the APK's Last-Modified off the static path.
+      setUpdated('/admin-lite/admin-lite-latest.apk', null);
+    });
   </script>
 </body>
 </html>
