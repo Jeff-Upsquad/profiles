@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 import * as ctrl from '../controllers/staff-auth.controller.js';
 import { validate } from '../middleware/validate.middleware.js';
 import { staffAuth } from '../middleware/staff-auth.middleware.js';
-import { staffLoginSchema } from '../validators/staff-auth.validators.js';
+import { staffLoginSchema, staffSsoExchangeSchema } from '../validators/staff-auth.validators.js';
 
 const router = Router();
 
@@ -18,6 +18,8 @@ const loginLimiter = rateLimit({
 
 // Public — unauthenticated
 router.post('/login', loginLimiter, validate({ body: staffLoginSchema }), ctrl.login);
+// Public — "Sign in with SquadHub" one-time code exchange (proven by the code).
+router.post('/sso/exchange', loginLimiter, validate({ body: staffSsoExchangeSchema }), ctrl.ssoExchange);
 
 // Authenticated via staff JWT
 router.use(staffAuth);

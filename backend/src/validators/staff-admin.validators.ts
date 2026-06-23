@@ -8,6 +8,12 @@ export const createStaffSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
+export const createStaffFromSquadhubSchema = z.object({
+  squadhub_user_id: z.string().uuid('A valid SquadHub user is required'),
+  email: z.string().email('A valid email is required'),
+  name: z.string().min(1, 'Name is required').max(120),
+});
+
 export const updateStaffSchema = z
   .object({
     name: z.string().min(1).max(120).optional(),
@@ -30,5 +36,6 @@ export const putGrantsSchema = z.object({
 });
 
 export type CreateStaffInput = z.infer<typeof createStaffSchema>;
+export type CreateStaffFromSquadhubInput = z.infer<typeof createStaffFromSquadhubSchema>;
 export type UpdateStaffInput = z.infer<typeof updateStaffSchema>;
 export type PutGrantsInput = z.infer<typeof putGrantsSchema>;

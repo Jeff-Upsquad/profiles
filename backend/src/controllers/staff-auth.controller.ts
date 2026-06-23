@@ -1,12 +1,27 @@
 import { Request, Response, NextFunction } from 'express';
 import * as service from '../services/staff-auth.service.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
-import type { StaffLoginInput } from '../validators/staff-auth.validators.js';
+import type { StaffLoginInput, StaffSsoExchangeInput } from '../validators/staff-auth.validators.js';
 
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const { email, password } = req.body as StaffLoginInput;
     const result = await service.login(email, password);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * "Sign in with SquadHub": the staff portal redirected the user to SquadHub,
+ * which sent back a one-time code. Exchange it for a staff session. Public —
+ * authentication is proven by the code, not a staff JWT.
+ */
+export async function ssoExchange(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { code } = req.body as StaffSsoExchangeInput;
+    const result = await service.loginViaSquadhub(code);
     res.json(result);
   } catch (err) {
     next(err);

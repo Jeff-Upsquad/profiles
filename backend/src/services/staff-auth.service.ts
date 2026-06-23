@@ -4,6 +4,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import type { ModuleGrants, ModulePermission } from '../../../shared/src/types/access.js';
+import { exchangeSquadhubCode } from './squadhub-sso.service.js';
 
 const SESSION_DURATION_HOURS = 24;
 const TOKEN_ROLE = 'staff' as const;
@@ -65,34 +66,71 @@ export async function login(emailRaw: string, password: string) {
   const ok = await bcrypt.compare(password, (staff as any).password_hash as string);
   if (!ok) throw invalid();
 
+  return issueStaffSession({
+    id: (staff as any).id as string,
+    email: (staff as any).email as string,
+    name: (staff as any).name as string,
+  });
+}
+
+/** Mint a staff JWT + revocable session row and return the login payload. */
+async function issueStaffSession(staff: { id: string; email: string; name: string }) {
   const sessionExpiry = new Date(Date.now() + SESSION_DURATION_HOURS * 60 * 60 * 1000);
   const payload: StaffTokenPayload = {
-    sub: (staff as any).id as string,
-    email: (staff as any).email as string,
+    sub: staff.id,
+    email: staff.email,
     role: TOKEN_ROLE,
   };
   const token = jwt.sign(payload, env.JWT_SECRET, { expiresIn: `${SESSION_DURATION_HOURS}h` });
 
   const { error: sessionError } = await supabaseAdmin.from('staff_sessions').insert({
-    staff_user_id: (staff as any).id,
+    staff_user_id: staff.id,
     token,
     expires_at: sessionExpiry.toISOString(),
   });
   if (sessionError) throw new AppError(500, 'Failed to create session');
 
-  const grants = await getGrantsMap((staff as any).id as string);
+  const grants = await getGrantsMap(staff.id);
 
   return {
     access_token: token,
     expires_at: sessionExpiry.toISOString(),
-    user: {
-      id: (staff as any).id as string,
-      email: (staff as any).email as string,
-      name: (staff as any).name as string,
-      role: TOKEN_ROLE,
-    },
+    user: { id: staff.id, email: staff.email, name: staff.name, role: TOKEN_ROLE },
     grants,
   };
+}
+
+/**
+ * "Sign in with SquadHub" — exchange the one-time code for the SquadHub user's
+ * identity, then mint a staff session for the matching, admin-provisioned staff
+ * row. No password is involved; the row is linked by squadhub_user_id, which is
+ * what gates access (so a mis-typed email at provisioning time can't grant it).
+ */
+export async function loginViaSquadhub(code: string) {
+  const identity = await exchangeSquadhubCode(code);
+
+  const { data: staff, error } = await supabaseAdmin
+    .from('staff_users')
+    .select('id, email, name, is_active, auth_provider')
+    .eq('squadhub_user_id', identity.id)
+    .maybeSingle();
+  if (error) throw new AppError(500, error.message);
+
+  if (!staff || (staff as any).auth_provider !== 'squadhub') {
+    throw new AppError(
+      403,
+      'Your SquadHub account has not been granted staff access yet. Please ask an administrator.',
+    );
+  }
+  if (!(staff as any).is_active) {
+    throw new AppError(403, 'Your account is inactive. Please contact the administrator.');
+  }
+
+  return issueStaffSession({
+    id: (staff as any).id as string,
+    email: (staff as any).email as string,
+    name: (staff as any).name as string,
+  });
 }
 
 /**

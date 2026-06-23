@@ -2,8 +2,10 @@ import { Request, Response, NextFunction } from 'express';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { hashPassword } from '../services/staff-auth.service.js';
+import { fetchSquadhubDirectory } from '../services/squadhub-sso.service.js';
 import type {
   CreateStaffInput,
+  CreateStaffFromSquadhubInput,
   UpdateStaffInput,
   PutGrantsInput,
 } from '../validators/staff-admin.validators.js';
@@ -122,6 +124,58 @@ export async function createStaff(req: Request, res: Response, next: NextFunctio
         email: normalizedEmail,
         name,
         password_hash,
+        created_by: req.user?.id ?? null,
+      })
+      .select(STAFF_FIELDS)
+      .single();
+    if (error) throw new AppError(500, error.message);
+
+    res.status(201).json({ staff: data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Search SquadHub's directory for users to grant staff access to (full admin). */
+export async function listSquadhubDirectory(req: Request, res: Response, next: NextFunction) {
+  try {
+    requireFullAdmin(req);
+    const search = ((req.query.search as string | undefined) ?? '').trim();
+    const users = await fetchSquadhubDirectory(search);
+    res.json({ users });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Provision a SquadHub user as staff (full admin). No password: the row is
+ * linked by squadhub_user_id and they sign in via "Sign in with SquadHub".
+ * Modules are assigned afterwards via the grant matrix, same as any staff user.
+ */
+export async function createStaffFromSquadhub(req: Request, res: Response, next: NextFunction) {
+  try {
+    requireFullAdmin(req);
+    const { squadhub_user_id, email, name } = req.body as CreateStaffFromSquadhubInput;
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Already provisioned, by SquadHub link or by email.
+    const { data: existing } = await supabaseAdmin
+      .from('staff_users')
+      .select('id')
+      .or(`squadhub_user_id.eq.${squadhub_user_id},email.eq.${normalizedEmail}`)
+      .limit(1);
+    if (existing && existing.length > 0) {
+      throw new AppError(409, 'This person already has staff access');
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('staff_users')
+      .insert({
+        email: normalizedEmail,
+        name,
+        auth_provider: 'squadhub',
+        squadhub_user_id,
         created_by: req.user?.id ?? null,
       })
       .select(STAFF_FIELDS)
