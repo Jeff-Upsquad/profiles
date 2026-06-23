@@ -5,259 +5,36 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import GlobalSearch from '@/components/GlobalSearch';
+import { NAV_SECTIONS } from '@/config/modules';
+import { IS_STAFF } from '@/lib/appMode';
 
-type NavItem = {
-  label: string;
-  href: string;
-  icon: React.ReactNode;
-};
-
-type NavSection = {
-  section: string;
-  items: NavItem[];
-};
-
-const navSections: NavSection[] = [
-  {
-    section: 'Overview',
-    items: [
-      {
-        label: 'Dashboard',
-        href: '/',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-          </svg>
-        ),
-      },
-    ],
-  },
-  {
-    section: 'Talent',
-    items: [
-      {
-        label: 'Partner Program',
-        href: '/talents?type=partner_program',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-          </svg>
-        ),
-      },
-      {
-        label: 'Freelance',
-        href: '/talents?type=freelance',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-        ),
-      },
-      {
-        label: 'Jobs',
-        href: '/talents?type=salary',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-        ),
-      },
-      {
-        label: 'Invitations',
-        href: '/invitations',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-        ),
-      },
-      {
-        label: 'Approvals',
-        href: '/approvals',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        ),
-      },
-      {
-        label: 'Reviews',
-        href: '/reviews',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-          </svg>
-        ),
-      },
-      {
-        label: 'Training',
-        href: '/training',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        ),
-      },
-    ],
-  },
-  {
-    section: 'Clients & Pipeline',
-    items: [
-      {
-        label: 'Business',
-        href: '/business',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-          </svg>
-        ),
-      },
-      {
-        label: 'Candidates',
-        href: '/leads',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-          </svg>
-        ),
-      },
-      {
-        label: 'Shortlists',
-        href: '/shortlists',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-          </svg>
-        ),
-      },
-      {
-        label: 'Published Cards',
-        href: '/published-cards',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 7.125C2.25 6.504 2.754 6 3.375 6h6c.621 0 1.125.504 1.125 1.125v3.75c0 .621-.504 1.125-1.125 1.125h-6a1.125 1.125 0 01-1.125-1.125v-3.75zM14.25 8.625c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v8.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-8.25zM3.75 16.125c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v2.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-2.25z" />
-          </svg>
-        ),
-      },
-      {
-        label: 'Talent Access',
-        href: '/talent-access',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-          </svg>
-        ),
-      },
-    ],
-  },
-  {
-    section: 'Content',
-    items: [
-      {
-        label: 'Categories',
-        href: '/categories',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
-        ),
-      },
-      {
-        label: 'How it works',
-        href: '/how-it-works',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        ),
-      },
-      {
-        label: 'Public Forms',
-        href: '/forms',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-        ),
-      },
-      {
-        label: 'Notifications',
-        href: '/notifications',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-          </svg>
-        ),
-      },
-    ],
-  },
-  {
-    section: 'System',
-    items: [
-      {
-        label: 'Users',
-        href: '/users',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
-        ),
-      },
-      {
-        label: 'Talent App',
-        href: '/talent-app',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 18h.01M8 21h8a1 1 0 001-1V4a1 1 0 00-1-1H8a1 1 0 00-1 1v16a1 1 0 001 1z" />
-          </svg>
-        ),
-      },
-      {
-        label: 'Access Requests',
-        href: '/access-requests',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-          </svg>
-        ),
-      },
-      {
-        label: 'Automations',
-        href: '/automations',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        ),
-      },
-      {
-        label: 'CRM Mapping',
-        href: '/crm-mapping',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
-          </svg>
-        ),
-      },
-      {
-        label: 'Archive',
-        href: '/recycle-bin',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        ),
-      },
-    ],
-  },
-];
+/**
+ * Resolve which module owns the current pathname (longest href prefix wins),
+ * so the layout can gate the whole page centrally — covering every module
+ * without per-page edits. Returns null for unmapped routes (left ungated).
+ */
+function moduleForPathname(pathname: string | null): string | null {
+  if (!pathname) return null;
+  if (pathname === '/' || pathname === '') return 'dashboard';
+  let best: string | null = null;
+  let bestLen = -1;
+  for (const section of NAV_SECTIONS) {
+    for (const item of section.items) {
+      const base = item.href.split('?')[0];
+      if (base === '/') continue;
+      if ((pathname === base || pathname.startsWith(base + '/')) && base.length > bestLen) {
+        best = item.module;
+        bestLen = base.length;
+      }
+    }
+  }
+  return best;
+}
 
 function SidebarNav() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { can, isFullAdmin } = useAuth();
 
   const isNavItemActive = (href: string) => {
     if (!pathname) return false;
@@ -274,9 +51,22 @@ function SidebarNav() {
     return searchParams?.get('type') === expectedType;
   };
 
+  // Which modules the current user may see in the sidebar. Dashboard is always
+  // visible; Team & Access is the full-admin management surface (v1).
+  const isVisible = (moduleSlug: string) => {
+    if (moduleSlug === 'dashboard') return true;
+    if (moduleSlug === 'team-access') return isFullAdmin;
+    return can(moduleSlug);
+  };
+
+  const sections = NAV_SECTIONS.map((section) => ({
+    section: section.section,
+    items: section.items.filter((item) => isVisible(item.module)),
+  })).filter((section) => section.items.length > 0);
+
   return (
     <nav className="flex-1 px-3 py-4 overflow-y-auto">
-      {navSections.map((section, idx) => (
+      {sections.map((section, idx) => (
         <div key={section.section} className={idx === 0 ? '' : 'mt-4'}>
           <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
             {section.section}
@@ -303,13 +93,33 @@ function SidebarNav() {
   );
 }
 
+function AccessDenied() {
+  return (
+    <div className="flex h-full items-center justify-center p-10">
+      <div className="max-w-sm text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
+          <svg className="h-6 w-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m0 0v.01M12 9v2m-7 8h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <h2 className="text-lg font-semibold text-gray-900">No access to this module</h2>
+        <p className="mt-1 text-sm text-gray-500">
+          You don&apos;t have permission to view this section. Contact an administrator if you
+          think this is a mistake.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { user, isLoading, logout } = useAuth();
+  const pathname = usePathname();
+  const { user, isLoading, logout, can, permissionFor, isFullAdmin } = useAuth();
 
   if (isLoading) {
     return (
@@ -323,13 +133,20 @@ export default function AdminLayout({
     return router.push('/login');
   }
 
+  // Central per-module page guard (defense-in-depth alongside backend gating).
+  const activeModule = moduleForPathname(pathname);
+  const pageBlocked = !!activeModule && activeModule !== 'dashboard'
+    && (activeModule === 'team-access' ? !isFullAdmin : !can(activeModule, 'view'));
+  // View-only users get a banner so they know writes are disabled.
+  const viewOnly = !isFullAdmin && !!activeModule && permissionFor(activeModule) === 'view';
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
       <aside className="w-64 bg-gray-900 text-white flex flex-col flex-shrink-0">
         <div className="px-6 py-5 border-b border-gray-800">
           <h1 className="text-xl font-bold tracking-tight">SquadHire</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Admin Panel</p>
+          <p className="text-xs text-gray-400 mt-0.5">{IS_STAFF ? 'Staff Portal' : 'Admin Panel'}</p>
           <p className="text-[10px] text-gray-500 mt-0.5">Powered by UpSquad</p>
         </div>
 
@@ -364,7 +181,19 @@ export default function AdminLayout({
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6">
-          {children}
+          {pageBlocked ? (
+            <AccessDenied />
+          ) : (
+            <>
+              {viewOnly && (
+                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+                  You have <span className="font-semibold">view-only</span> access to this module.
+                  Editing actions are disabled.
+                </div>
+              )}
+              {children}
+            </>
+          )}
         </main>
       </div>
     </div>

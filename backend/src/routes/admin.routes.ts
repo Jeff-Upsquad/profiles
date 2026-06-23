@@ -12,8 +12,11 @@ import * as accessRequestsController from '../controllers/access-requests.contro
 import * as savedFilterController from '../controllers/saved-filter.controller.js';
 import * as notificationsController from '../controllers/notifications.controller.js';
 import * as appInstallController from '../controllers/app-install.controller.js';
-import { authenticate } from '../middleware/auth.middleware.js';
-import { requireRole } from '../middleware/rbac.middleware.js';
+import * as staffAdminController from '../controllers/staff-admin.controller.js';
+import {
+  requireAdminOrStaff,
+  enforceModuleAccess,
+} from '../middleware/module-access.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import {
   createCategorySchema,
@@ -75,11 +78,17 @@ import {
   grantBusinessAccessSchema,
   rejectCourseReopenSchema,
 } from '../validators/access-requests.validators.js';
+import {
+  createStaffSchema,
+  updateStaffSchema,
+  putGrantsSchema,
+} from '../validators/staff-admin.validators.js';
 
 const router = Router();
 
-// All admin routes require authentication + admin role
-router.use(authenticate, requireRole('admin'));
+// Authenticate as a full admin OR a staff user, then gate every request by the
+// staff user's per-module grants. Full admins bypass enforceModuleAccess.
+router.use(requireAdminOrStaff, enforceModuleAccess);
 
 // ---------------------------------------------------------------------------
 // Dashboard
@@ -583,5 +592,23 @@ router.post(
   notificationsController.createAdmin,
 );
 router.delete('/notifications/:id', notificationsController.deleteAdmin);
+
+// ---------------------------------------------------------------------------
+// Team & Access (staff users + per-module grants)
+//
+// Gated by enforceModuleAccess as the `team-access` module: full admins manage
+// the whole roster; staff who hold `admin` on a module may delegate that module
+// (staff-account CRUD stays full-admin-only — see the controller).
+// ---------------------------------------------------------------------------
+
+router.get('/modules', staffAdminController.listModules);
+router.get('/staff', staffAdminController.listStaff);
+router.post('/staff', validate({ body: createStaffSchema }), staffAdminController.createStaff);
+router.get('/staff/:id', staffAdminController.getStaff);
+router.patch('/staff/:id', validate({ body: updateStaffSchema }), staffAdminController.updateStaff);
+router.delete('/staff/:id', staffAdminController.deleteStaff);
+router.get('/staff/:id/grants', staffAdminController.listGrants);
+router.put('/staff/:id/grants', validate({ body: putGrantsSchema }), staffAdminController.putGrants);
+router.delete('/staff/:id/grants/:slug', staffAdminController.deleteGrant);
 
 export default router;

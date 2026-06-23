@@ -12,7 +12,7 @@
 
 set -e
 
-for svc in profiles-api profiles-frontend profiles-admin profiles-admin-lite; do
+for svc in profiles-api profiles-frontend profiles-admin profiles-staff profiles-admin-lite; do
   if pm2 id "$svc" >/dev/null 2>&1; then
     echo "=== Restarting $svc with env reload ==="
     pm2 restart "$svc" --update-env

@@ -31,8 +31,14 @@ Reserve `+10` per worktree slot so multiple previews can run concurrently.
 |-------------|------|------|------|------|
 | admin       | 3000 | 3010 | 3020 | 3030 |
 | frontend    | 3001 | 3011 | 3021 | 3031 |
+| staff       | 3005 | 3015 | 3025 | 3035 |
 | admin-lite  | 3100 | 3110 | 3120 | 3130 |
 | backend     | 5000 | 5010 | 5020 | 5030 |
+
+> **staff** is not a separate package — it's the `admin/` Next.js app started with
+> `NEXT_PUBLIC_APP_MODE=staff` (resolves `basePath: /staff`, `distDir: .next-staff`).
+> Run it with `cd admin && NEXT_PUBLIC_APP_MODE=staff npx next dev -p <port>`.
+> In prod it's a second PM2 process (`profiles-staff`, port 3007) off the same build dir.
 
 The four base entries (`admin`, `frontend`, `backend`, `admin-lite`) already exist in `.claude/launch.json`. When you create a worktree you need to preview, **append** a named entry to `.claude/launch.json` pointing at the worktree's subpackage on the reserved port — same style as `/Users/jeffzeena/squadhub/.claude/launch.json`:
 

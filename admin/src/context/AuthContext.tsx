@@ -6,15 +6,25 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/services/api';
+import { IS_STAFF, ACCESS_KEY, REFRESH_KEY } from '@/lib/appMode';
+import {
+  meetsLevel,
+  type ModuleGrants,
+  type ModulePermission,
+} from '../../../shared/src/types/access';
 
 interface User {
   id: string;
   email: string;
   role: string;
+  name?: string;
+  /** Staff only — live per-module grant map. Full admins have no grants (all access). */
+  grants?: ModuleGrants;
 }
 
 interface AuthContextType {
@@ -23,6 +33,14 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
+  /** True for full admins (admin app). Staff are never full admins. */
+  isFullAdmin: boolean;
+  /** Does the current user have at least `level` on `moduleSlug`? Admins always do. */
+  can: (moduleSlug: string, level?: ModulePermission) => boolean;
+  /** The user's tier on a module, or null. Admins are treated as 'admin'. */
+  permissionFor: (moduleSlug: string) => ModulePermission | null;
+  /** null = all modules (full admin); otherwise the granted slugs. */
+  permittedModuleSlugs: string[] | null;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -31,14 +49,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem('squadhire_admin_token');
+    return localStorage.getItem(ACCESS_KEY);
   });
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   const logout = useCallback(() => {
-    localStorage.removeItem('squadhire_admin_token');
-    localStorage.removeItem('squadhire_admin_refresh');
+    localStorage.removeItem(ACCESS_KEY);
+    localStorage.removeItem(REFRESH_KEY);
     setToken(null);
     setUser(null);
     router.push('/login');
@@ -52,13 +70,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const { data } = await api.get('/auth/me');
-        const userData = data.user || data;
-        if (userData.role !== 'admin') {
-          logout();
-          return;
+        if (IS_STAFF) {
+          const { data } = await api.get('/staff-auth/me');
+          const u = data.user || data;
+          setUser({ ...u, grants: data.grants || {} });
+        } else {
+          const { data } = await api.get('/auth/me');
+          const userData = data.user || data;
+          if (userData.role !== 'admin') {
+            logout();
+            return;
+          }
+          setUser(userData);
         }
-        setUser(userData);
       } catch {
         logout();
       } finally {
@@ -70,6 +94,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [token, logout]);
 
   const login = async (email: string, password: string) => {
+    if (IS_STAFF) {
+      const { data } = await api.post('/staff-auth/login', { email, password });
+      const accessToken = data.access_token;
+      localStorage.setItem(ACCESS_KEY, accessToken);
+      setToken(accessToken);
+      setUser({ ...(data.user || {}), grants: data.grants || {} });
+      router.push('/');
+      return;
+    }
+
     const { data } = await api.post('/auth/login', { email, password });
     const userData = data.user || data;
     const accessToken = data.access_token || data.token || data.accessToken;
@@ -79,17 +113,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Access denied. Admin privileges required.');
     }
 
-    localStorage.setItem('squadhire_admin_token', accessToken);
+    localStorage.setItem(ACCESS_KEY, accessToken);
     if (refreshToken) {
-      localStorage.setItem('squadhire_admin_refresh', refreshToken);
+      localStorage.setItem(REFRESH_KEY, refreshToken);
     }
     setToken(accessToken);
     setUser(userData);
     router.push('/');
   };
 
+  const isFullAdmin = user?.role === 'admin';
+
+  const can = useCallback(
+    (moduleSlug: string, level: ModulePermission = 'view') => {
+      if (!user) return false;
+      if (user.role === 'admin') return true;
+      return meetsLevel(user.grants?.[moduleSlug], level);
+    },
+    [user],
+  );
+
+  const permissionFor = useCallback(
+    (moduleSlug: string): ModulePermission | null => {
+      if (!user) return null;
+      if (user.role === 'admin') return 'admin';
+      return user.grants?.[moduleSlug] ?? null;
+    },
+    [user],
+  );
+
+  const permittedModuleSlugs = useMemo<string[] | null>(() => {
+    if (!user) return [];
+    if (user.role === 'admin') return null; // all
+    return Object.keys(user.grants ?? {});
+  }, [user]);
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        login,
+        logout,
+        isLoading,
+        isFullAdmin,
+        can,
+        permissionFor,
+        permittedModuleSlugs,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

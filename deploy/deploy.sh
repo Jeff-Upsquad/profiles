@@ -15,6 +15,7 @@ API_PORT=5000
 FRONTEND_PORT=3002
 ADMIN_PORT=3003
 ADMIN_LITE_PORT=3004
+STAFF_PORT=3007
 
 echo "=== Pulling latest code ==="
 cd "$REPO_DIR"
@@ -35,6 +36,13 @@ cd "$REPO_DIR/admin"
 npm install
 npm run build
 
+# Staff portal = the admin codebase rebuilt in staff mode (basePath /staff,
+# distDir .next-staff). Same source, restricted runtime. Must run AFTER the
+# default admin build so the two outputs don't share a dir.
+echo "=== Building staff portal (admin in staff mode) ==="
+cd "$REPO_DIR/admin"
+NEXT_PUBLIC_APP_MODE=staff npm run build
+
 echo "=== Building admin-lite ==="
 cd "$REPO_DIR/admin-lite"
 npm install
@@ -50,7 +58,7 @@ echo "=== Restarting services ==="
 # to `pm2 restart` (even `pm2 restart all`) — it silently ships stale secrets.
 #
 # For env-only reloads between deploys (no rebuild), use deploy/reload-env.sh.
-pm2 delete profiles-api profiles-frontend profiles-admin profiles-admin-lite 2>/dev/null || true
+pm2 delete profiles-api profiles-frontend profiles-admin profiles-staff profiles-admin-lite 2>/dev/null || true
 
 cd "$REPO_DIR/backend"
 pm2 start "npm run start" --name profiles-api
@@ -60,6 +68,12 @@ pm2 start "npm run start -- -p $FRONTEND_PORT" --name profiles-frontend
 
 cd "$REPO_DIR/admin"
 pm2 start "npm run start -- -p $ADMIN_PORT" --name profiles-admin
+
+# Staff portal — same admin dir, started in staff mode so next.config resolves
+# basePath /staff + distDir .next-staff. NEXT_PUBLIC_APP_MODE must be in the
+# process env at spawn (pm2 caches env at start).
+cd "$REPO_DIR/admin"
+NEXT_PUBLIC_APP_MODE=staff pm2 start "npm run start -- -p $STAFF_PORT" --name profiles-staff
 
 cd "$REPO_DIR/admin-lite"
 pm2 start "npm run start -- -p $ADMIN_LITE_PORT" --name profiles-admin-lite
@@ -74,5 +88,6 @@ echo "✓ Deploy complete!"
 echo "  API:        http://localhost:$API_PORT"
 echo "  Frontend:   http://localhost:$FRONTEND_PORT"
 echo "  Admin:      http://localhost:$ADMIN_PORT"
+echo "  Staff:      http://localhost:$STAFF_PORT"
 echo "  Admin-Lite: http://localhost:$ADMIN_LITE_PORT"
 pm2 status
