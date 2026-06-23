@@ -34,6 +34,20 @@ export interface CreateStaffPayload {
   password: string;
 }
 
+export interface SquadhubDirectoryUser {
+  id: string;
+  email: string;
+  name: string;
+  user_type: string;
+  partner_org: string | null;
+}
+
+export interface CreateStaffFromSquadhubPayload {
+  squadhub_user_id: string;
+  email: string;
+  name: string;
+}
+
 export interface UpdateStaffPayload {
   name?: string;
   is_active?: boolean;
@@ -59,6 +73,21 @@ export function useStaffList() {
       const { data } = await api.get('/admin/staff');
       return data.staff ?? [];
     },
+  });
+}
+
+/** Searchable SquadHub directory for the "Import from SquadHub" picker. */
+export function useSquadhubDirectory(search: string, enabled: boolean) {
+  return useQuery<SquadhubDirectoryUser[]>({
+    queryKey: ['admin', 'squadhub-directory', search],
+    queryFn: async () => {
+      const { data } = await api.get('/admin/staff/squadhub-directory', {
+        params: search ? { search } : undefined,
+      });
+      return data.users ?? [];
+    },
+    enabled,
+    staleTime: 30_000,
   });
 }
 
@@ -92,6 +121,25 @@ export function useCreateStaff() {
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.error || err?.response?.data?.message || 'Failed to create staff user');
+    },
+  });
+}
+
+/** Provision a SquadHub user as staff (no password — they sign in via SquadHub). */
+export function useCreateStaffFromSquadhub() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: CreateStaffFromSquadhubPayload) => {
+      const { data } = await api.post('/admin/staff/from-squadhub', payload);
+      return data.staff as StaffSummary;
+    },
+    onSuccess: () => {
+      invalidateStaff(qc);
+    },
+    onError: (err: any) => {
+      toast.error(
+        err?.response?.data?.error || err?.response?.data?.message || 'Failed to grant access',
+      );
     },
   });
 }

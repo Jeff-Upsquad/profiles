@@ -5,7 +5,25 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import { IS_STAFF } from '@/lib/appMode';
+import { IS_STAFF, BASE_PATH } from '@/lib/appMode';
+
+// SquadHub web origin that hosts the SSO authorize bridge (/launch/squadhire).
+// Inlined at build time; when unset, the "Sign in with SquadHub" button hides.
+const SQUADHUB_WEB = process.env.NEXT_PUBLIC_SQUADHUB_WEB_URL;
+
+function startSquadhubSso() {
+  if (!SQUADHUB_WEB) return;
+  const state =
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : String(Math.random()).slice(2);
+  sessionStorage.setItem('squadhub_sso_state', state);
+  const redirectUri = `${window.location.origin}${BASE_PATH}/sso/callback`;
+  const url = new URL('/launch/squadhire', SQUADHUB_WEB);
+  url.searchParams.set('redirect_uri', redirectUri);
+  url.searchParams.set('state', state);
+  window.location.href = url.toString();
+}
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -98,6 +116,28 @@ export default function AdminLoginPage() {
               Sign in
             </Button>
           </form>
+
+          {IS_STAFF && SQUADHUB_WEB && (
+            <>
+              <div className="my-4 flex items-center gap-3">
+                <div className="h-px flex-1 bg-gray-200" />
+                <span className="text-xs text-gray-400">or</span>
+                <div className="h-px flex-1 bg-gray-200" />
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                className="w-full"
+                onClick={startSquadhubSso}
+              >
+                Sign in with SquadHub
+              </Button>
+              <p className="mt-2 text-center text-xs text-gray-400">
+                Use your SquadHub email and password.
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

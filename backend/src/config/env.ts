@@ -38,6 +38,12 @@ const envSchema = z.object({
   SQUADHUB_CALLBACK_URL: z.string().url().optional(),
   SQUADHUB_CALLBACK_SECRET: z.string().min(32).optional(),
 
+  // Base origin of the SquadHub server API, used for "Sign in with SquadHub" SSO
+  // (one-time code exchange + staff directory). Optional — when unset we derive
+  // it from SQUADHUB_CALLBACK_URL's origin, so most deploys need not set it.
+  // The server-to-server calls reuse SQUADHUB_CALLBACK_SECRET for signing.
+  SQUADHUB_API_URL: z.string().url().optional(),
+
   // Identity stamped as the author of candidate writes (status changes, notes)
   // that originate from SquadHub's Candidates mini app via the signed
   // /api/integrations/squadhub/candidates/* surface. lead_notes.created_by is

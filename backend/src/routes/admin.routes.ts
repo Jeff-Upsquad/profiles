@@ -80,6 +80,7 @@ import {
 } from '../validators/access-requests.validators.js';
 import {
   createStaffSchema,
+  createStaffFromSquadhubSchema,
   updateStaffSchema,
   putGrantsSchema,
 } from '../validators/staff-admin.validators.js';
@@ -603,6 +604,14 @@ router.delete('/notifications/:id', notificationsController.deleteAdmin);
 
 router.get('/modules', staffAdminController.listModules);
 router.get('/staff', staffAdminController.listStaff);
+// SquadHub directory + provisioning — registered before /staff/:id so the
+// literal paths aren't captured by the :id param.
+router.get('/staff/squadhub-directory', staffAdminController.listSquadhubDirectory);
+router.post(
+  '/staff/from-squadhub',
+  validate({ body: createStaffFromSquadhubSchema }),
+  staffAdminController.createStaffFromSquadhub,
+);
 router.post('/staff', validate({ body: createStaffSchema }), staffAdminController.createStaff);
 router.get('/staff/:id', staffAdminController.getStaff);
 router.patch('/staff/:id', validate({ body: updateStaffSchema }), staffAdminController.updateStaff);

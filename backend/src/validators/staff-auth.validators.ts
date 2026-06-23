@@ -6,3 +6,9 @@ export const staffLoginSchema = z.object({
 });
 
 export type StaffLoginInput = z.infer<typeof staffLoginSchema>;
+
+export const staffSsoExchangeSchema = z.object({
+  code: z.string().min(1, 'Missing sign-in code'),
+});
+
+export type StaffSsoExchangeInput = z.infer<typeof staffSsoExchangeSchema>;

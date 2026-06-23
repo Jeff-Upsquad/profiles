@@ -12,6 +12,8 @@ import {
 } from '@/hooks/useTeamAccess';
 import StaffForm from './StaffForm';
 import GrantMatrix from './GrantMatrix';
+import SquadhubPicker, { type GrantResult } from './SquadhubPicker';
+import AccessApprovedDialog from './AccessApprovedDialog';
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -28,8 +30,15 @@ export default function TeamAccessList() {
   const deleteMutation = useDeleteStaff();
 
   const [showCreate, setShowCreate] = useState(false);
+  const [createMode, setCreateMode] = useState<'squadhub' | 'manual'>('squadhub');
+  const [granted, setGranted] = useState<GrantResult | null>(null);
   const [editing, setEditing] = useState<StaffSummary | null>(null);
   const [managing, setManaging] = useState<StaffSummary | null>(null);
+
+  function openCreate() {
+    setCreateMode('squadhub');
+    setShowCreate(true);
+  }
 
   function toggleActive(s: StaffSummary) {
     const verb = s.is_active ? 'Deactivate' : 'Reactivate';
@@ -54,7 +63,7 @@ export default function TeamAccessList() {
             (View / Edit / Full / Admin).
           </p>
         </div>
-        <Button onClick={() => setShowCreate(true)}>Add staff user</Button>
+        <Button onClick={openCreate}>Add staff user</Button>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
@@ -130,7 +139,53 @@ export default function TeamAccessList() {
       </div>
 
       <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Add staff user">
-        <StaffForm onSuccess={() => setShowCreate(false)} onCancel={() => setShowCreate(false)} />
+        <div className="space-y-4">
+          <div className="inline-flex rounded-lg bg-gray-100 p-0.5 text-sm font-medium">
+            <button
+              type="button"
+              onClick={() => setCreateMode('squadhub')}
+              className={`rounded-md px-3 py-1.5 transition ${
+                createMode === 'squadhub' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              From SquadHub
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreateMode('manual')}
+              className={`rounded-md px-3 py-1.5 transition ${
+                createMode === 'manual' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Manual login
+            </button>
+          </div>
+
+          {createMode === 'squadhub' ? (
+            <SquadhubPicker
+              onGranted={(r) => {
+                setShowCreate(false);
+                setGranted(r);
+              }}
+            />
+          ) : (
+            <StaffForm onSuccess={() => setShowCreate(false)} onCancel={() => setShowCreate(false)} />
+          )}
+        </div>
+      </Modal>
+
+      <Modal isOpen={!!granted} onClose={() => setGranted(null)} title="Staff access">
+        {granted && (
+          <AccessApprovedDialog
+            result={granted}
+            onClose={() => setGranted(null)}
+            onManageAccess={() => {
+              const g = granted;
+              setGranted(null);
+              setManaging({ ...g.staff, grants: [] });
+            }}
+          />
+        )}
       </Modal>
 
       <Modal isOpen={!!editing} onClose={() => setEditing(null)} title="Edit staff user">

@@ -31,6 +31,12 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
+  /** Apply a staff session obtained out-of-band (e.g. "Sign in with SquadHub"). */
+  applyStaffSession: (data: {
+    access_token: string;
+    user: { id: string; email: string; name?: string; role?: string };
+    grants?: ModuleGrants;
+  }) => void;
   logout: () => void;
   isLoading: boolean;
   /** True for full admins (admin app). Staff are never full admins. */
@@ -122,6 +128,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/');
   };
 
+  const applyStaffSession = useCallback(
+    (data: {
+      access_token: string;
+      user: { id: string; email: string; name?: string; role?: string };
+      grants?: ModuleGrants;
+    }) => {
+      localStorage.setItem(ACCESS_KEY, data.access_token);
+      setToken(data.access_token);
+      setUser({
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.name,
+        role: data.user.role || 'staff',
+        grants: data.grants || {},
+      });
+    },
+    [],
+  );
+
   const isFullAdmin = user?.role === 'admin';
 
   const can = useCallback(
@@ -154,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         token,
         login,
+        applyStaffSession,
         logout,
         isLoading,
         isFullAdmin,
