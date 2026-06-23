@@ -64,6 +64,7 @@ export async function getLeads(req: Request, res: Response, next: NextFunction) 
     }
     const result = await leadService.getLeadSubmissions({
       form_type: form_type as string | undefined,
+      form_types: req.candidateCategoryFilter,
       status: status as string | undefined,
       profile_type: profile_type as string | undefined,
       search: search as string | undefined,
@@ -95,6 +96,7 @@ export async function getOnboardingLeads(req: Request, res: Response, next: Next
     const { form_type, search, page, limit } = req.query;
     const result = await leadService.getOnboardingLeads({
       form_type: form_type as string | undefined,
+      form_types: req.candidateCategoryFilter,
       search: search as string | undefined,
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,

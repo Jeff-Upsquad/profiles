@@ -2,19 +2,22 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 const TABS = [
-  { href: '/leads', label: 'Applications' },
-  { href: '/leads/interviews', label: 'Interview Responses' },
-  { href: '/leads/onboarding', label: 'Onboarding' },
+  { href: '/leads', label: 'Applications', section: 'applications' },
+  { href: '/leads/interviews', label: 'Interview Responses', section: 'interviews' },
+  { href: '/leads/onboarding', label: 'Onboarding', section: 'onboarding' },
 ];
 
 export default function LeadsTabs() {
   const pathname = usePathname();
+  const { canCandidateSection } = useAuth();
+  const tabs = TABS.filter((tab) => canCandidateSection(tab.section));
 
   return (
     <div className="flex gap-2 border-b border-gray-200">
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const active =
           tab.href === '/leads'
             ? pathname === '/leads'

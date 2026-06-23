@@ -16,6 +16,7 @@ import {
   meetsLevel,
   type ModuleGrants,
   type ModulePermission,
+  type ModuleScopes,
 } from '../../../shared/src/types/access';
 
 interface User {
@@ -25,6 +26,8 @@ interface User {
   name?: string;
   /** Staff only — live per-module grant map. Full admins have no grants (all access). */
   grants?: ModuleGrants;
+  /** Staff only — intra-module scopes (e.g. candidates category/section restrictions). */
+  scopes?: ModuleScopes;
 }
 
 interface AuthContextType {
@@ -41,6 +44,11 @@ interface AuthContextType {
   permissionFor: (moduleSlug: string) => ModulePermission | null;
   /** null = all modules (full admin); otherwise the granted slugs. */
   permittedModuleSlugs: string[] | null;
+  /** Candidates intra-module scope. null = all (full admin or unrestricted). */
+  allowedCandidateCategories: () => string[] | null;
+  allowedCandidateSections: () => string[] | null;
+  canCandidateCategory: (value: string) => boolean;
+  canCandidateSection: (value: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -73,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (IS_STAFF) {
           const { data } = await api.get('/staff-auth/me');
           const u = data.user || data;
-          setUser({ ...u, grants: data.grants || {} });
+          setUser({ ...u, grants: data.grants || {}, scopes: data.scopes || {} });
         } else {
           const { data } = await api.get('/auth/me');
           const userData = data.user || data;
@@ -99,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const accessToken = data.access_token;
       localStorage.setItem(ACCESS_KEY, accessToken);
       setToken(accessToken);
-      setUser({ ...(data.user || {}), grants: data.grants || {} });
+      setUser({ ...(data.user || {}), grants: data.grants || {}, scopes: data.scopes || {} });
       router.push('/');
       return;
     }
@@ -148,6 +156,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return Object.keys(user.grants ?? {});
   }, [user]);
 
+  // Candidates intra-module scope. null = unrestricted (full admin, or no scope
+  // set, or empty list = all). Otherwise the explicit allow-list.
+  const allowedCandidateCategories = useCallback((): string[] | null => {
+    if (!user || user.role === 'admin') return null;
+    const cats = user.scopes?.candidates?.categories;
+    return cats && cats.length > 0 ? cats : null;
+  }, [user]);
+
+  const allowedCandidateSections = useCallback((): string[] | null => {
+    if (!user || user.role === 'admin') return null;
+    const secs = user.scopes?.candidates?.sections;
+    return secs && secs.length > 0 ? secs : null;
+  }, [user]);
+
+  const canCandidateCategory = useCallback(
+    (value: string) => {
+      const a = allowedCandidateCategories();
+      return !a || a.includes(value);
+    },
+    [allowedCandidateCategories],
+  );
+
+  const canCandidateSection = useCallback(
+    (value: string) => {
+      const a = allowedCandidateSections();
+      return !a || a.includes(value);
+    },
+    [allowedCandidateSections],
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -160,6 +198,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         can,
         permissionFor,
         permittedModuleSlugs,
+        allowedCandidateCategories,
+        allowedCandidateSections,
+        canCandidateCategory,
+        canCandidateSection,
       }}
     >
       {children}

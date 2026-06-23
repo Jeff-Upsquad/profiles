@@ -121,6 +121,7 @@ export async function listInvitations(req: Request, res: Response, next: NextFun
     const result = await interviewService.listInterviewInvitations({
       status: (status as any) || undefined,
       form_type: form_type as string | undefined,
+      form_types: req.candidateCategoryFilter,
       search: search as string | undefined,
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,

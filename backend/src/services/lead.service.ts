@@ -145,6 +145,7 @@ const SAFE_FIELD_RE = /^[a-zA-Z_][a-zA-Z0-9_]{0,63}$/;
 
 export async function getLeadSubmissions(filters: {
   form_type?: string;
+  form_types?: string[];
   status?: string;
   profile_type?: string;
   search?: string;
@@ -175,6 +176,9 @@ export async function getLeadSubmissions(filters: {
 
   if (filters.form_type) {
     query = query.eq('form_type', filters.form_type);
+  } else if (filters.form_types && filters.form_types.length > 0) {
+    // Category-scoped staff: constrain to their allowed categories.
+    query = query.in('form_type', filters.form_types);
   }
   if (filters.status) {
     query = query.eq('status', filters.status);
@@ -244,6 +248,7 @@ export async function getLeadSubmissions(filters: {
 
 export async function getOnboardingLeads(filters: {
   form_type?: string;
+  form_types?: string[];
   search?: string;
   page?: number;
   limit?: number;
@@ -265,6 +270,8 @@ export async function getOnboardingLeads(filters: {
 
   if (filters.form_type) {
     query = query.eq('form_type', filters.form_type);
+  } else if (filters.form_types && filters.form_types.length > 0) {
+    query = query.in('form_type', filters.form_types);
   }
   if (filters.search) {
     query = query.or(
@@ -605,6 +612,17 @@ export async function deleteLeadNote(noteId: string) {
 
   if (error) throw new AppError(500, `Failed to delete note: ${error.message}`);
   return { success: true };
+}
+
+/** The candidate category (form_type) of a lead. Returns null if not found. */
+export async function getLeadFormType(id: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from('lead_submissions')
+    .select('form_type')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw new AppError(500, `Failed to resolve lead: ${error.message}`);
+  return (data?.form_type as string | undefined) ?? null;
 }
 
 /**

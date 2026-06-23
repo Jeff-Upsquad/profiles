@@ -3,7 +3,12 @@ import bcrypt from 'bcryptjs';
 import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
-import type { ModuleGrants, ModulePermission } from '../../../shared/src/types/access.js';
+import type {
+  ModuleGrants,
+  ModulePermission,
+  ModuleScopes,
+  CandidateScope,
+} from '../../../shared/src/types/access.js';
 
 const SESSION_DURATION_HOURS = 24;
 const TOKEN_ROLE = 'staff' as const;
@@ -20,6 +25,7 @@ export interface StaffSession {
   email: string;
   name: string;
   grants: ModuleGrants;
+  candidateScope: CandidateScope | null;
 }
 
 function normalizeEmail(email: string): string {
@@ -30,19 +36,25 @@ export async function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, BCRYPT_ROUNDS);
 }
 
-/** Live per-module grant map for a staff user (slug -> tier). */
-export async function getGrantsMap(staffUserId: string): Promise<ModuleGrants> {
+/** Live per-module grants (slug -> tier) + intra-module scopes for a staff user. */
+export async function getStaffAccess(
+  staffUserId: string,
+): Promise<{ grants: ModuleGrants; scopes: ModuleScopes }> {
   const { data, error } = await supabaseAdmin
     .from('staff_module_grants')
-    .select('module_slug, permission')
+    .select('module_slug, permission, scope')
     .eq('staff_user_id', staffUserId);
   if (error) throw new AppError(500, error.message);
 
   const grants: ModuleGrants = {};
+  const scopes: ModuleScopes = {};
   for (const row of data ?? []) {
-    grants[(row as any).module_slug as string] = (row as any).permission as ModulePermission;
+    const slug = (row as any).module_slug as string;
+    grants[slug] = (row as any).permission as ModulePermission;
+    const scope = (row as any).scope as CandidateScope | null;
+    if (scope) scopes[slug] = scope;
   }
-  return grants;
+  return { grants, scopes };
 }
 
 export async function login(emailRaw: string, password: string) {
@@ -80,7 +92,7 @@ export async function login(emailRaw: string, password: string) {
   });
   if (sessionError) throw new AppError(500, 'Failed to create session');
 
-  const grants = await getGrantsMap((staff as any).id as string);
+  const { grants, scopes } = await getStaffAccess((staff as any).id as string);
 
   return {
     access_token: token,
@@ -92,6 +104,7 @@ export async function login(emailRaw: string, password: string) {
       role: TOKEN_ROLE,
     },
     grants,
+    scopes,
   };
 }
 
@@ -128,13 +141,14 @@ export async function validateStaffToken(token: string): Promise<StaffSession> {
   if (!staff) throw new AppError(401, 'Account not found');
   if (!(staff as any).is_active) throw new AppError(403, 'Account is inactive');
 
-  const grants = await getGrantsMap(payload.sub);
+  const { grants, scopes } = await getStaffAccess(payload.sub);
 
   return {
     id: (staff as any).id as string,
     email: (staff as any).email as string,
     name: (staff as any).name as string,
     grants,
+    candidateScope: scopes['candidates'] ?? null,
   };
 }
 

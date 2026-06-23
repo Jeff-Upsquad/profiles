@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
-import type { ModulePermission } from '../../../shared/src/types/access';
+import type { ModulePermission, CandidateScope } from '../../../shared/src/types/access';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -16,6 +16,8 @@ export interface AdminModuleInfo {
 export interface StaffGrant {
   module_slug: string;
   permission: ModulePermission;
+  /** Candidates only — intra-module category/section scope. */
+  scope?: CandidateScope | null;
 }
 
 export interface StaffSummary {

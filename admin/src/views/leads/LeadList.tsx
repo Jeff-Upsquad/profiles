@@ -4,6 +4,7 @@ import { useMemo, useCallback } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import api from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import LeadsTabs from './LeadsTabs';
@@ -143,6 +144,7 @@ export default function LeadList() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { canCandidateCategory } = useAuth();
 
   const formType = searchParams.get('form_type') || '';
   const status = searchParams.get('status') || '';
@@ -179,6 +181,10 @@ export default function LeadList() {
 
   const isHubMode = !formType;
 
+  // Category access: only show cards the user is allowed; block out-of-scope URLs.
+  const visibleCards = CATEGORY_CARDS.filter((cat) => canCandidateCategory(cat.value));
+  const categoryBlocked = !isHubMode && !canCandidateCategory(formType);
+
   const { data, isLoading, isPlaceholderData } = useQuery<LeadsResponse>({
     queryKey: ['admin-leads', formType, status, profileType, search, page, role, signedUp, deleted, formDataFilterParam],
     queryFn: async () => {
@@ -206,7 +212,7 @@ export default function LeadList() {
     queryKey: ['admin-leads-counts'],
     queryFn: async () => {
       const results = await Promise.all(
-        CATEGORY_CARDS.map(async (cat) => {
+        visibleCards.map(async (cat) => {
           const { data } = await api.get(`/admin/leads?form_type=${cat.value}&page=1&limit=1`);
           return [cat.value, data.total as number] as const;
         })
@@ -233,6 +239,25 @@ export default function LeadList() {
     if (next) updateQuery({ selected: next.id });
   };
 
+  if (categoryBlocked) {
+    return (
+      <div className="space-y-6">
+        <LeadsTabs />
+        <div className="rounded-xl border border-gray-200 bg-white py-12 text-center">
+          <p className="text-sm text-gray-500">
+            You don&apos;t have access to this candidate category.
+          </p>
+          <button
+            onClick={() => updateQuery({ form_type: null, page: '1', role: null, selected: null })}
+            className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-800"
+          >
+            Back to categories
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (isHubMode) {
     return (
       <div className="space-y-6">
@@ -244,7 +269,7 @@ export default function LeadList() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {CATEGORY_CARDS.map((cat) => (
+          {visibleCards.map((cat) => (
             <button
               key={cat.value}
               onClick={() => updateQuery({ form_type: cat.value, page: '1', role: null })}
