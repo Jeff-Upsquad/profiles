@@ -1,4 +1,4 @@
-export type UserRole = 'talent' | 'business' | 'admin';
+export type UserRole = 'talent' | 'business' | 'admin' | 'staff';
 
 export interface SignupTalentPayload {
   email: string;

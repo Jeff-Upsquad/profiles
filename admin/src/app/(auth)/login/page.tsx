@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import { IS_STAFF } from '@/lib/appMode';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -50,10 +51,14 @@ export default function AdminLoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">SquadHire Admin</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {IS_STAFF ? 'SquadHire Staff' : 'SquadHire Admin'}
+          </h1>
           <p className="text-xs text-gray-400 mt-0.5">Powered by UpSquad</p>
           <p className="text-sm text-gray-500 mt-1">
-            Sign in to access the admin panel
+            {IS_STAFF
+              ? 'Sign in to your staff portal'
+              : 'Sign in to access the admin panel'}
           </p>
         </div>
 

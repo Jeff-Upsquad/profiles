@@ -1,4 +1,5 @@
 import axios, { AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
+import { ACCESS_KEY, REFRESH_KEY, LOGIN_PATH, IS_STAFF } from '@/lib/appMode';
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -7,9 +8,7 @@ declare module 'axios' {
   }
 }
 
-const ACCESS_KEY = 'squadhire_admin_token';
-const REFRESH_KEY = 'squadhire_admin_refresh';
-const PUBLIC_PATHS = ['/login'];
+const PUBLIC_PATHS = [LOGIN_PATH];
 
 const api = axios.create({
   baseURL: '/api',
@@ -30,7 +29,7 @@ function clearAuthAndRedirect() {
   localStorage.removeItem(ACCESS_KEY);
   localStorage.removeItem(REFRESH_KEY);
   if (typeof window !== 'undefined' && !PUBLIC_PATHS.includes(window.location.pathname)) {
-    window.location.href = '/login';
+    window.location.href = LOGIN_PATH;
   }
 }
 
@@ -66,6 +65,13 @@ api.interceptors.response.use(
     const config = error.config as InternalAxiosRequestConfig | undefined;
 
     if (error.response?.status !== 401 || !config) {
+      return Promise.reject(error);
+    }
+
+    // Staff tokens are short-lived custom JWTs with no Supabase refresh path —
+    // a 401 means re-login. Skip the refresh dance entirely.
+    if (IS_STAFF) {
+      clearAuthAndRedirect();
       return Promise.reject(error);
     }
 
