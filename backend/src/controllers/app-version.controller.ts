@@ -5,20 +5,20 @@ import { createManifestLoader, VersionManifest } from '../lib/version-manifest.j
 // present, clients compute "installed >= manifest" and see no update (rather
 // than an error). Release scripts overwrite the real manifest on the VPS.
 const talentFallback: VersionManifest = {
-  version_code: 4,
-  version_name: '1.0.3',
+  version_code: 5,
+  version_name: '1.0.4',
   apk_url: 'https://squadhire.upsquadconnect.com/talent-app/talent-app-latest.apk',
-  sha256: '',
+  sha256: '9c5aa91a032dbb34e518e70064ff0e0cf3780b35cb1528048e319071a6d0afa2',
   release_notes: '',
   force_update: false,
   min_supported_version_code: 1,
 };
 
 const adminLiteFallback: VersionManifest = {
-  version_code: 3,
-  version_name: '2.0.1',
+  version_code: 4,
+  version_name: '2.0.2',
   apk_url: 'https://squadhire.upsquadconnect.com/admin-lite/admin-lite-latest.apk',
-  sha256: '',
+  sha256: '1726c712416b7c3d6fab495603567c22a9ea06936ffb12f3c4aa2ecb45557b69',
   release_notes: '',
   force_update: false,
   min_supported_version_code: 1,

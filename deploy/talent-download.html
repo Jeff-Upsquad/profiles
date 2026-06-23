@@ -89,12 +89,17 @@
 
   <script>
     // Keep the page in sync with the published release without redeploying it.
-    fetch('/api/app-config').then(r => r.json()).then(c => {
-      if (c && typeof c.download_url === 'string' && c.download_url) {
-        document.getElementById('download').setAttribute('href', c.download_url);
+    // The release manifest (written by scripts/release.sh on every release) is
+    // the single source of truth for the latest version + APK URL, so the badge
+    // tracks the shipped build automatically instead of a hand-bumped env var.
+    fetch('/api/talent-app/version').then(r => r.json()).then(res => {
+      var m = res && res.data;
+      if (!m) return;
+      if (typeof m.apk_url === 'string' && m.apk_url) {
+        document.getElementById('download').setAttribute('href', m.apk_url);
       }
-      if (c && c.min_version) {
-        document.getElementById('version').textContent = 'Version ' + c.min_version;
+      if (m.version_name) {
+        document.getElementById('version').textContent = 'Version ' + m.version_name;
       }
     }).catch(function(){ /* keep static fallbacks */ });
   </script>

@@ -1,9 +1,9 @@
 {
-  "version_code": 4,
-  "version_name": "1.0.3",
+  "version_code": 5,
+  "version_name": "1.0.4",
   "apk_url": "https://squadhire.upsquadconnect.com/talent-app/talent-app-latest.apk",
-  "sha256": "",
-  "release_notes": "",
+  "sha256": "9c5aa91a032dbb34e518e70064ff0e0cf3780b35cb1528048e319071a6d0afa2",
+  "release_notes": "• in-app self-updaters for talent-app + admin-lite\n• retheme Talent & Business modules to UpSquadConnect palette\n• persist note author (email + name) on lead_notes\n• use public domain for candidate form links\n• public forms list for SquadHub Candidates\n• resolve note/interview category for SquadHub auth",
   "force_update": false,
   "min_supported_version_code": 1
 }

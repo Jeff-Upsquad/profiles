@@ -1,9 +1,9 @@
 {
-  "version_code": 3,
-  "version_name": "2.0.1",
+  "version_code": 4,
+  "version_name": "2.0.2",
   "apk_url": "https://squadhire.upsquadconnect.com/admin-lite/admin-lite-latest.apk",
-  "sha256": "",
-  "release_notes": "",
+  "sha256": "1726c712416b7c3d6fab495603567c22a9ea06936ffb12f3c4aa2ecb45557b69",
+  "release_notes": "• in-app self-updaters for talent-app + admin-lite\n• retheme Talent & Business modules to UpSquadConnect palette\n• persist note author (email + name) on lead_notes\n• use public domain for candidate form links\n• public forms list for SquadHub Candidates\n• resolve note/interview category for SquadHub auth",
   "force_update": false,
   "min_supported_version_code": 1
 }
