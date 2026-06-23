@@ -11,6 +11,7 @@ import * as howItWorksController from '../controllers/how-it-works.controller.js
 import * as accessRequestsController from '../controllers/access-requests.controller.js';
 import * as savedFilterController from '../controllers/saved-filter.controller.js';
 import * as notificationsController from '../controllers/notifications.controller.js';
+import * as appInstallController from '../controllers/app-install.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -381,6 +382,12 @@ router.patch(
 );
 router.post('/users/:id/reset-password', adminController.resetUserPassword);
 router.delete('/users/:id', adminController.deleteUser);
+
+// ---------------------------------------------------------------------------
+// Talent App — install/version tracking
+// ---------------------------------------------------------------------------
+
+router.get('/talent-app/installs', appInstallController.listInstalls);
 
 // ---------------------------------------------------------------------------
 // Recycle Bin

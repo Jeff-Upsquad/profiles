@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import '../services/subscription_service.dart';
 import '../services/talent_service.dart';
 import '../services/push_service.dart';
+import '../services/app_install_service.dart';
 import '../models/auth_response.dart';
 import '../models/subscription_card.dart';
 import '../models/talent_me.dart';
@@ -33,6 +34,10 @@ final talentServiceProvider = Provider((ref) {
 
 final pushServiceProvider = Provider((ref) {
   return PushService(ref.watch(apiClientProvider));
+});
+
+final appInstallServiceProvider = Provider((ref) {
+  return AppInstallService(ref.watch(apiClientProvider));
 });
 
 // ─── Auth state ──────────────────────────────────────────────────────────────

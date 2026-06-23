@@ -40,8 +40,17 @@ class _TalentAppState extends ConsumerState<TalentApp> {
     ref.listenManual(authProvider, (prev, next) {
       if (next.status == AuthStatus.authenticated) {
         if (_fcmToken != null) _registerToken(_fcmToken!);
+        _recordAppCheckin();
         _flushPendingRoute();
       }
+    });
+  }
+
+  /// Report the installed build to the backend so admins can track who has the
+  /// app and which version. Fire-and-forget — never blocks or surfaces errors.
+  void _recordAppCheckin() {
+    ref.read(appInstallServiceProvider).checkin().catchError((Object e) {
+      debugPrint('[app-checkin] failed: $e');
     });
   }
 

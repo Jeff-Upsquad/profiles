@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as talentController from '../controllers/talent.controller.js';
 import * as trainingController from '../controllers/training.controller.js';
 import * as notificationsController from '../controllers/notifications.controller.js';
+import * as appInstallController from '../controllers/app-install.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -13,11 +14,16 @@ import {
 } from '../validators/talent.validators.js';
 import { requireApprovalOrAutoApprove } from '../middleware/approval.middleware.js';
 import { requestCourseReopenSchema } from '../validators/access-requests.validators.js';
+import { appCheckinSchema } from '../validators/app-install.validators.js';
 
 const router = Router();
 
 // All talent routes require authentication + talent role
 router.use(authenticate, requireRole('talent'));
+
+// App install/version check-in — fired by the mobile app once per launch so the
+// admin panel can see who has the talent app and which build they run.
+router.post('/app-checkin', validate({ body: appCheckinSchema }), appInstallController.checkin);
 
 // Talent user (self)
 router.get('/me', talentController.getMe);
