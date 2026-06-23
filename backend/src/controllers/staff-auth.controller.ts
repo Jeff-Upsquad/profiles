@@ -39,6 +39,7 @@ export async function me(req: Request, res: Response, next: NextFunction) {
         role: 'staff',
       },
       grants: req.staff.grants,
+      scopes: req.staff.candidateScope ? { candidates: req.staff.candidateScope } : {},
     });
   } catch (err) {
     next(err);

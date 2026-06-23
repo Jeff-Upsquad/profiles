@@ -63,14 +63,18 @@ export async function listStaff(_req: Request, res: Response, next: NextFunction
     // Attach a compact grant summary so the list can show module counts.
     const { data: grants } = await supabaseAdmin
       .from('staff_module_grants')
-      .select('staff_user_id, module_slug, permission');
+      .select('staff_user_id, module_slug, permission, scope');
 
-    const byUser: Record<string, { module_slug: string; permission: ModulePermission }[]> = {};
+    const byUser: Record<
+      string,
+      { module_slug: string; permission: ModulePermission; scope: unknown }[]
+    > = {};
     for (const g of grants ?? []) {
       const uid = (g as any).staff_user_id as string;
       (byUser[uid] ||= []).push({
         module_slug: (g as any).module_slug,
         permission: (g as any).permission,
+        scope: (g as any).scope ?? null,
       });
     }
 
@@ -95,7 +99,7 @@ export async function getStaff(req: Request, res: Response, next: NextFunction) 
 
     const { data: grants } = await supabaseAdmin
       .from('staff_module_grants')
-      .select('module_slug, permission')
+      .select('module_slug, permission, scope')
       .eq('staff_user_id', id);
 
     res.json({ staff, grants: grants ?? [] });
@@ -240,7 +244,7 @@ export async function listGrants(req: Request, res: Response, next: NextFunction
     const id = req.params.id as string;
     const { data, error } = await supabaseAdmin
       .from('staff_module_grants')
-      .select('module_slug, permission')
+      .select('module_slug, permission, scope')
       .eq('staff_user_id', id);
     if (error) throw new AppError(500, error.message);
     res.json({ grants: data ?? [] });
@@ -283,8 +287,12 @@ export async function putGrants(req: Request, res: Response, next: NextFunction)
       }
     }
 
-    const desired = new Map<string, ModulePermission>();
-    for (const g of grants) desired.set(g.module_slug, g.permission);
+    const desired = new Map<string, { permission: ModulePermission; scope: unknown }>();
+    for (const g of grants) {
+      // Intra-module scope is only meaningful for the candidates module.
+      const scopeVal = g.module_slug === 'candidates' ? ((g as any).scope ?? null) : null;
+      desired.set(g.module_slug, { permission: g.permission, scope: scopeVal });
+    }
 
     // Determine which existing rows to delete:
     //  - full admin: any module not in the desired set (complete replace)
@@ -311,10 +319,11 @@ export async function putGrants(req: Request, res: Response, next: NextFunction)
     }
 
     if (desired.size > 0) {
-      const rows = Array.from(desired.entries()).map(([module_slug, permission]) => ({
+      const rows = Array.from(desired.entries()).map(([module_slug, v]) => ({
         staff_user_id: id,
         module_slug,
-        permission,
+        permission: v.permission,
+        scope: v.scope,
         updated_at: new Date().toISOString(),
       }));
       const { error: upErr } = await supabaseAdmin

@@ -17,6 +17,7 @@ import {
   requireAdminOrStaff,
   enforceModuleAccess,
 } from '../middleware/module-access.middleware.js';
+import { enforceCandidateScope } from '../middleware/candidate-scope.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import {
   createCategorySchema,
@@ -88,8 +89,10 @@ import {
 const router = Router();
 
 // Authenticate as a full admin OR a staff user, then gate every request by the
-// staff user's per-module grants. Full admins bypass enforceModuleAccess.
-router.use(requireAdminOrStaff, enforceModuleAccess);
+// staff user's per-module grants. Full admins bypass the access middlewares.
+// enforceCandidateScope adds the Candidates module's intra-module (category +
+// section) gate on top of the module-level tier check.
+router.use(requireAdminOrStaff, enforceModuleAccess, enforceCandidateScope);
 
 // ---------------------------------------------------------------------------
 // Dashboard

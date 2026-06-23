@@ -1,6 +1,25 @@
 import { z } from 'zod';
+import {
+  CANDIDATE_CATEGORY_VALUES,
+  CANDIDATE_SECTION_VALUES,
+} from '../../../shared/src/types/access.js';
 
 const permission = z.enum(['view', 'edit', 'full', 'admin']);
+
+// Intra-module scope (candidates). Empty/omitted dimension = unrestricted.
+const candidateScopeSchema = z
+  .object({
+    categories: z.array(z.string()).optional(),
+    sections: z.array(z.string()).optional(),
+  })
+  .refine(
+    (s) => (s.categories ?? []).every((c) => (CANDIDATE_CATEGORY_VALUES as string[]).includes(c)),
+    { message: 'Unknown candidate category' },
+  )
+  .refine(
+    (s) => (s.sections ?? []).every((sec) => (CANDIDATE_SECTION_VALUES as string[]).includes(sec)),
+    { message: 'Unknown candidate section' },
+  );
 
 export const createStaffSchema = z.object({
   email: z.string().email('A valid email is required'),
@@ -30,6 +49,7 @@ export const putGrantsSchema = z.object({
       z.object({
         module_slug: z.string().min(1),
         permission,
+        scope: candidateScopeSchema.nullish(),
       }),
     )
     .max(100),

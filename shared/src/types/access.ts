@@ -50,4 +50,45 @@ export interface StaffUser {
 export interface StaffModuleGrant {
   module_slug: string;
   permission: ModulePermission;
+  /** Candidates only — intra-module scope. Absent/empty key = unrestricted. */
+  scope?: CandidateScope | null;
+}
+
+// ── Candidates module: second access layer (categories + sections) ──────────
+
+/** Lead categories (lead_submissions.form_type — fixed enum). */
+export const CANDIDATE_CATEGORIES = [
+  { value: 'creative', label: 'Creative' },
+  { value: 'accountant', label: 'Accountant' },
+  { value: 'sales', label: 'Sales' },
+] as const;
+
+/** Candidates sub-sections (the three tabs). */
+export const CANDIDATE_SECTIONS = [
+  { value: 'applications', label: 'Applications' },
+  { value: 'interviews', label: 'Interview Responses' },
+  { value: 'onboarding', label: 'Onboarding' },
+] as const;
+
+export type CandidateCategory = (typeof CANDIDATE_CATEGORIES)[number]['value'];
+export type CandidateSection = (typeof CANDIDATE_SECTIONS)[number]['value'];
+
+export const CANDIDATE_CATEGORY_VALUES = CANDIDATE_CATEGORIES.map((c) => c.value);
+export const CANDIDATE_SECTION_VALUES = CANDIDATE_SECTIONS.map((s) => s.value);
+
+/**
+ * Intra-module scope for a candidates grant. An absent or empty list on a
+ * dimension means "all" on that dimension (deny nothing).
+ */
+export interface CandidateScope {
+  categories?: string[];
+  sections?: string[];
+}
+
+/** Per-module scope map (only `candidates` is meaningful today). */
+export type ModuleScopes = Record<string, CandidateScope>;
+
+/** True when `allowed` (the scope list) permits `value`. Empty/undefined = all. */
+export function scopeAllows(allowed: string[] | undefined | null, value: string): boolean {
+  return !allowed || allowed.length === 0 || allowed.includes(value);
 }

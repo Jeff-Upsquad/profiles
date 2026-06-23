@@ -1,5 +1,5 @@
 import { UserRole } from '../../../shared/src/types/auth.js';
-import { ModuleGrants } from '../../../shared/src/types/access.js';
+import { ModuleGrants, CandidateScope } from '../../../shared/src/types/access.js';
 
 declare global {
   namespace Express {
@@ -21,7 +21,12 @@ declare global {
         email: string;
         name: string;
         grants: ModuleGrants;
+        // Intra-module scope for the candidates grant (null = unrestricted).
+        candidateScope?: CandidateScope | null;
       };
+      // Set by enforceCandidateScope on list routes: constrain the query to
+      // these categories (form_types). Undefined = unrestricted.
+      candidateCategoryFilter?: string[];
     }
   }
 }

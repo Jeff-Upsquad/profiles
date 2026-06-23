@@ -148,6 +148,7 @@ export async function createInvitation(leadId: string, adminUserId?: string) {
 export async function listInterviewInvitations(filters: {
   status?: 'submitted' | 'pending' | 'expired' | 'all';
   form_type?: string;
+  form_types?: string[];
   search?: string;
   page?: number;
   limit?: number;
@@ -178,6 +179,8 @@ export async function listInterviewInvitations(filters: {
 
   if (filters.form_type) {
     query = query.eq('lead.form_type', filters.form_type);
+  } else if (filters.form_types && filters.form_types.length > 0) {
+    query = query.in('lead.form_type', filters.form_types);
   }
 
   if (filters.search) {
