@@ -1,5 +1,5 @@
 -- ============================================================
--- 00076_top_talents_tier_phase2_backfill.sql
+-- 00093_top_talents_tier_phase2_backfill.sql
 --
 -- Top Talents tier rename — Phase 2 (data backfill)
 --
