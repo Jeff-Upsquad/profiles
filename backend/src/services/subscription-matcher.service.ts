@@ -85,16 +85,26 @@ export async function findMatchingTalents(matchRules: MatchRules): Promise<strin
   }
   {
     const profileIds = rows.map((r) => r.id);
+    // Case-insensitive tier match. The stored tier (v_talent_profile_tier.tier)
+    // is PascalCase 'Top Talents' for the top bracket but lowercase for legacy
+    // junior/pro/elite, while SquadHub sends PascalCase over the wire. A
+    // PostgREST `.in('tier', tiers)` is case-sensitive, so it silently dropped
+    // every 'Top Talents' talent (incoming was lowercased to 'top talents').
+    // Compare on lowercased values both sides so casing never loses a match.
+    const tierSet = new Set(tiers); // `tiers` is already lowercased above
     const { data: tierRows, error: tierErr } = await supabaseAdmin
       .from('v_talent_profile_tier')
-      .select('talent_profile_id')
-      .in('talent_profile_id', profileIds)
-      .in('tier', tiers);
+      .select('talent_profile_id, tier')
+      .in('talent_profile_id', profileIds);
     if (tierErr) {
       console.error('[subscription-matcher] tier query failed', tierErr);
       throw tierErr;
     }
-    const allowed = new Set((tierRows ?? []).map((r: any) => r.talent_profile_id as string));
+    const allowed = new Set(
+      (tierRows ?? [])
+        .filter((r: any) => tierSet.has(String(r.tier ?? '').toLowerCase()))
+        .map((r: any) => r.talent_profile_id as string),
+    );
     rows = rows.filter((r) => allowed.has(r.id));
     if (rows.length === 0) return [];
   }
