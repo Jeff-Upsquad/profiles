@@ -170,7 +170,7 @@ type TalentSpec = {
   state: string;
   languages: Array<{ language: string; proficiency: string }>;
   categorySlug: string;
-  tier: 'junior' | 'pro' | 'elite';
+  tier: 'junior' | 'pro' | 'Top Talents';
   skills: string[];
   tools: string[];
   aiTools: string[];
@@ -320,17 +320,17 @@ async function main() {
   // Talents
   log('Creating talent accounts + profiles…');
   const talentSpecs: TalentSpec[] = [
-    { slug: 'priya', fullName: 'Priya Menon', gender: 'female', age: 29, district: 'Kochi', state: 'Kerala', languages: [{ language: 'English', proficiency: 'Fluent' }, { language: 'Malayalam', proficiency: 'Native' }], categorySlug: 'accountant', tier: 'elite', skills: ['GST Filing', 'Bookkeeping', 'Financial Statement Preparation'], tools: ['Tally', 'Zohobooks', 'Microsoft Excel'], aiTools: ['ChatGPT', 'Dext'], salaryFullTime: 55000 },
+    { slug: 'priya', fullName: 'Priya Menon', gender: 'female', age: 29, district: 'Kochi', state: 'Kerala', languages: [{ language: 'English', proficiency: 'Fluent' }, { language: 'Malayalam', proficiency: 'Native' }], categorySlug: 'accountant', tier: 'Top Talents', skills: ['GST Filing', 'Bookkeeping', 'Financial Statement Preparation'], tools: ['Tally', 'Zohobooks', 'Microsoft Excel'], aiTools: ['ChatGPT', 'Dext'], salaryFullTime: 55000 },
     { slug: 'arjun', fullName: 'Arjun Nair', gender: 'male', age: 34, district: 'Bengaluru', state: 'Karnataka', languages: [{ language: 'English', proficiency: 'Fluent' }, { language: 'Hindi', proficiency: 'Fluent' }], categorySlug: 'accountant', tier: 'pro', skills: ['TDS Calculations and Filing', 'Payroll Processing', 'MIS Reporting'], tools: ['QuickBooks', 'Microsoft Excel'], aiTools: ['Microsoft Copilot'], salaryFullTime: 48000 },
     { slug: 'fatima', fullName: 'Fatima Sheikh', gender: 'female', age: 26, district: 'Hyderabad', state: 'Telangana', languages: [{ language: 'English', proficiency: 'Fluent' }, { language: 'Urdu', proficiency: 'Native' }], categorySlug: 'accountant', tier: 'junior', skills: ['Bank Reconciliation', 'Bookkeeping'], tools: ['Tally', 'Google Sheets'], aiTools: ['ChatGPT'], salaryFullTime: 32000 },
     { slug: 'rahul', fullName: 'Rahul Verma', gender: 'male', age: 31, district: 'Pune', state: 'Maharashtra', languages: [{ language: 'English', proficiency: 'Fluent' }, { language: 'Hindi', proficiency: 'Native' }], categorySlug: 'accountant', tier: 'pro', skills: ['ITR Filing Business', 'GST Filing', 'Financial Statement Preparation'], tools: ['Zohobooks', 'Microsoft Excel'], aiTools: ['Claude'], salaryFullTime: 50000 },
-    { slug: 'sneha', fullName: 'Sneha Pillai', gender: 'female', age: 28, district: 'Thiruvananthapuram', state: 'Kerala', languages: [{ language: 'English', proficiency: 'Fluent' }, { language: 'Malayalam', proficiency: 'Native' }, { language: 'Tamil', proficiency: 'Intermediate' }], categorySlug: 'accountant', tier: 'elite', skills: ['Payroll Processing', 'GST Filing', 'MIS Reporting'], tools: ['Tally', 'QuickBooks'], aiTools: ['ChatGPT', 'Dext'], salaryFullTime: 58000 },
+    { slug: 'sneha', fullName: 'Sneha Pillai', gender: 'female', age: 28, district: 'Thiruvananthapuram', state: 'Kerala', languages: [{ language: 'English', proficiency: 'Fluent' }, { language: 'Malayalam', proficiency: 'Native' }, { language: 'Tamil', proficiency: 'Intermediate' }], categorySlug: 'accountant', tier: 'Top Talents', skills: ['Payroll Processing', 'GST Filing', 'MIS Reporting'], tools: ['Tally', 'QuickBooks'], aiTools: ['ChatGPT', 'Dext'], salaryFullTime: 58000 },
     { slug: 'vikram', fullName: 'Vikram Singh', gender: 'male', age: 36, district: 'Jaipur', state: 'Rajasthan', languages: [{ language: 'English', proficiency: 'Fluent' }, { language: 'Hindi', proficiency: 'Native' }], categorySlug: 'accountant', tier: 'junior', skills: ['Bookkeeping', 'Bank Reconciliation'], tools: ['Tally', 'Microsoft Excel'], aiTools: ['ChatGPT'], salaryFullTime: 30000 },
-    { slug: 'ananya', fullName: 'Ananya Das', gender: 'female', age: 27, district: 'Kolkata', state: 'West Bengal', languages: [{ language: 'English', proficiency: 'Fluent' }, { language: 'Bengali', proficiency: 'Native' }], categorySlug: 'designer-editor', tier: 'elite', skills: ['Video Editing', 'Color Grading', 'Motion Graphics'], tools: ['Adobe Premiere Pro', 'After Effects', 'DaVinci Resolve'], aiTools: ['Runway', 'Midjourney'], salaryFullTime: 62000 },
+    { slug: 'ananya', fullName: 'Ananya Das', gender: 'female', age: 27, district: 'Kolkata', state: 'West Bengal', languages: [{ language: 'English', proficiency: 'Fluent' }, { language: 'Bengali', proficiency: 'Native' }], categorySlug: 'designer-editor', tier: 'Top Talents', skills: ['Video Editing', 'Color Grading', 'Motion Graphics'], tools: ['Adobe Premiere Pro', 'After Effects', 'DaVinci Resolve'], aiTools: ['Runway', 'Midjourney'], salaryFullTime: 62000 },
     { slug: 'karthik', fullName: 'Karthik Reddy', gender: 'male', age: 30, district: 'Chennai', state: 'Tamil Nadu', languages: [{ language: 'English', proficiency: 'Fluent' }, { language: 'Tamil', proficiency: 'Native' }], categorySlug: 'designer-editor', tier: 'pro', skills: ['Graphic Design', 'Thumbnail Design', 'Motion Graphics'], tools: ['Photoshop', 'Figma', 'After Effects'], aiTools: ['Midjourney', 'Adobe Firefly'], salaryFullTime: 45000 },
     { slug: 'meera', fullName: 'Meera Joshi', gender: 'female', age: 25, district: 'Ahmedabad', state: 'Gujarat', languages: [{ language: 'English', proficiency: 'Fluent' }, { language: 'Gujarati', proficiency: 'Native' }, { language: 'Hindi', proficiency: 'Fluent' }], categorySlug: 'designer-editor', tier: 'junior', skills: ['Video Editing', 'Thumbnail Design'], tools: ['CapCut', 'Photoshop'], aiTools: ['ChatGPT'], salaryFullTime: 28000 },
     { slug: 'rohan', fullName: 'Rohan Kapoor', gender: 'male', age: 33, district: 'Mumbai', state: 'Maharashtra', languages: [{ language: 'English', proficiency: 'Fluent' }, { language: 'Hindi', proficiency: 'Native' }], categorySlug: 'designer-editor', tier: 'pro', skills: ['Motion Graphics', 'Color Grading', 'Sound Design'], tools: ['After Effects', 'DaVinci Resolve', 'Adobe Premiere Pro'], aiTools: ['Runway', 'ChatGPT'], salaryFullTime: 52000 },
-    { slug: 'divya', fullName: 'Divya Krishnan', gender: 'female', age: 29, district: 'Coimbatore', state: 'Tamil Nadu', languages: [{ language: 'English', proficiency: 'Fluent' }, { language: 'Tamil', proficiency: 'Native' }], categorySlug: 'designer-editor', tier: 'elite', skills: ['Graphic Design', 'Motion Graphics', 'Video Editing'], tools: ['Figma', 'Photoshop', 'After Effects'], aiTools: ['Midjourney', 'Adobe Firefly', 'ChatGPT'], salaryFullTime: 60000 },
+    { slug: 'divya', fullName: 'Divya Krishnan', gender: 'female', age: 29, district: 'Coimbatore', state: 'Tamil Nadu', languages: [{ language: 'English', proficiency: 'Fluent' }, { language: 'Tamil', proficiency: 'Native' }], categorySlug: 'designer-editor', tier: 'Top Talents', skills: ['Graphic Design', 'Motion Graphics', 'Video Editing'], tools: ['Figma', 'Photoshop', 'After Effects'], aiTools: ['Midjourney', 'Adobe Firefly', 'ChatGPT'], salaryFullTime: 60000 },
     { slug: 'aditya', fullName: 'Aditya Rao', gender: 'male', age: 28, district: 'Mangaluru', state: 'Karnataka', languages: [{ language: 'English', proficiency: 'Fluent' }, { language: 'Kannada', proficiency: 'Native' }], categorySlug: 'designer-editor', tier: 'junior', skills: ['Video Editing', 'Thumbnail Design'], tools: ['CapCut', 'Adobe Premiere Pro'], aiTools: ['ChatGPT'], salaryFullTime: 30000 },
     // Lifecycle states (NOT shared with businesses — they only show in the
     // talent's own dashboard and the admin approval queue):
@@ -426,7 +426,7 @@ async function main() {
       description: 'Looking for an experienced accountant to own GST, TDS and monthly MIS for a fast-growing fintech.',
       business_nature: 'Financial Services',
       plan_name: 'Dedicated — Full Time',
-      subscription_name: 'Accountant (Elite)',
+      subscription_name: 'Accountant (Top Talents)',
       hours_label: '8 hrs/day',
       capacity_label: '1 dedicated talent',
       working_days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
@@ -496,7 +496,7 @@ async function main() {
   const tierCards = [
     { tier: 'Junior', price: 30000, ext: 'demo-card-group-jr', hrs: '4 hrs/day' },
     { tier: 'Pro', price: 45000, ext: 'demo-card-group-pro', hrs: '6 hrs/day' },
-    { tier: 'Elite', price: 60000, ext: 'demo-card-group-elite', hrs: '8 hrs/day' },
+    { tier: 'Top Talents', price: 60000, ext: 'demo-card-group-elite', hrs: '8 hrs/day' },
   ];
   for (const tc of tierCards) {
     await ins('subscription_cards', {

@@ -6,17 +6,17 @@ import * as upsquadApi from '../services/upsquad-api.service.js';
 import { fanOutBroadcast } from '../services/subscription.service.js';
 
 // Map upsquad's tier vocabulary to canonical names sent downstream.
-// 'Elite' is being renamed to 'Top Talents' — Phase 1 accepts both
-// the legacy ('elite'/'elites') and new ('top talents'/'top_talents')
-// tokens from upsquad. The legacy keys can be dropped in Phase 3 once
-// upsquad has fully cut over to the new vocabulary.
+// 'Elite' has been renamed to 'Top Talents'. The legacy 'elite'/'elites'
+// input spellings are still accepted here (defensive parsing of an upstream
+// that may not have cut over yet) but now normalise to the new canonical
+// 'Top Talents' — they are never stored or sent as 'Elite' anymore.
 const TIER_MAP: Record<string, string> = {
   juniors: 'Junior',
   junior: 'Junior',
   pros: 'Pro',
   pro: 'Pro',
-  elites: 'Elite',
-  elite: 'Elite',
+  elites: 'Top Talents',
+  elite: 'Top Talents',
   'top talents': 'Top Talents',
   'top_talents': 'Top Talents',
   toptalents: 'Top Talents',

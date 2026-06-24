@@ -405,7 +405,7 @@ export default function LeadList() {
             <option value="">All tiers</option>
             <option value="junior">Junior</option>
             <option value="pro">Pro</option>
-            <option value="elite">Elite (legacy)</option>
+            <option value="elite">Top Talents (legacy)</option>
             <option value="Top Talents">Top Talents</option>
             <option value="custom">Custom</option>
             <option value="none">Unassigned</option>
