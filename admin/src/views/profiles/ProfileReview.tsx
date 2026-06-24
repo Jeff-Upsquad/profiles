@@ -17,7 +17,7 @@ interface LinkedLead {
   created_at: string;
   utm_source: string | null;
   utm_campaign: string | null;
-  profile_type: 'junior' | 'pro' | 'elite' | 'Top Talents' | 'custom' | null;
+  profile_type: 'junior' | 'pro' | 'Top Talents' | 'custom' | null;
   name: string;
 }
 

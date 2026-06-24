@@ -10,7 +10,7 @@ import TierBadge from '@/components/ui/TierBadge';
 import { cleanPhoneForLink } from '@/lib/phone';
 import { coerceLeveledList, LEVEL_LABELS, type LeveledItem } from '../../../../shared/src/types/talent';
 
-type Tier = 'junior' | 'pro' | 'elite' | 'Top Talents' | 'custom';
+type Tier = 'junior' | 'pro' | 'Top Talents' | 'custom';
 const TIER_OPTIONS: { value: Tier | null; label: string }[] = [
   { value: null, label: 'None' },
   { value: 'junior', label: 'Junior' },
@@ -26,7 +26,7 @@ interface LinkedLead {
   created_at: string;
   utm_source: string | null;
   utm_campaign: string | null;
-  profile_type: 'junior' | 'pro' | 'elite' | 'Top Talents' | 'custom' | null;
+  profile_type: 'junior' | 'pro' | 'Top Talents' | 'custom' | null;
   name: string;
 }
 

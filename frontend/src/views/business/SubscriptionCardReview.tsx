@@ -43,13 +43,13 @@ function fmtDate(s: string | null | undefined): string {
 }
 
 // Map a talent/plan tier to one of the three standard review buckets. Mixed
-// case and the legacy 'Elite' name both fold onto 'Top Talents'. Custom/unknown
-// tiers return null — they only show under the "All" tab.
+// case folds onto the canonical name. Custom/unknown tiers return null —
+// they only show under the "All" tab.
 function normalizeTier(tier: string | null | undefined): string | null {
   const t = (tier ?? '').toLowerCase().trim();
   if (t === 'junior') return 'Junior';
   if (t === 'pro') return 'Pro';
-  if (t === 'elite' || t === 'top talents') return 'Top Talents';
+  if (t === 'top talents') return 'Top Talents';
   return null;
 }
 

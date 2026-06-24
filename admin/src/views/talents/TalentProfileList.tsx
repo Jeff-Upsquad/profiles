@@ -23,7 +23,7 @@ interface TalentProfile {
     is_active?: boolean;
   };
   categories?: { name: string };
-  tier: 'junior' | 'pro' | 'elite' | 'Top Talents' | 'custom' | null;
+  tier: 'junior' | 'pro' | 'Top Talents' | 'custom' | null;
   tier_custom: string | null;
   // Structured location from talent_profiles_basic. Preferred over
   // resolveLocation(current_location) which only parses freeform text.
@@ -32,8 +32,7 @@ interface TalentProfile {
 }
 
 // Internal dashboard bucket. 'Top Talents' is the bucket for the renamed
-// 'Elite' tier — during Phase 1 both legacy 'elite' and new 'Top Talents'
-// profile.tier values are folded into this single bucket by tierKeyOf().
+// (formerly 'Elite') tier; tierKeyOf() folds profile.tier into it.
 type TierKey = 'Top Talents' | 'pro' | 'junior' | 'custom' | 'none';
 
 const statusVariant: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
@@ -63,9 +62,8 @@ const TIER_OPTIONS: { key: TierKey | ''; label: string }[] = [
 ];
 
 // `tier` on the card is the raw value to send back to the API when an
-// admin clicks the card. We send 'Top Talents' (the new canonical value)
-// for the renamed bucket; the server still accepts the legacy 'elite'
-// during Phase 1.
+// admin clicks the card. We send 'Top Talents' (the canonical value) for
+// the renamed bucket.
 const TIER_CARDS: { key: TierKey; label: string; tier: 'Top Talents' | 'pro' | 'junior' | null; borderColor: string }[] = [
   { key: 'Top Talents', label: 'Top Talents', tier: 'Top Talents', borderColor: 'border-indigo-300' },
   { key: 'pro', label: 'Pro', tier: 'pro', borderColor: 'border-green-300' },
@@ -75,7 +73,7 @@ const TIER_CARDS: { key: TierKey; label: string; tier: 'Top Talents' | 'pro' | '
 
 function tierKeyOf(profile: TalentProfile): TierKey {
   if (!profile.tier) return 'none';
-  if (profile.tier === 'elite' || profile.tier === 'Top Talents') return 'Top Talents';
+  if (profile.tier === 'Top Talents') return 'Top Talents';
   if (profile.tier === 'pro' || profile.tier === 'junior' || profile.tier === 'custom') return profile.tier;
   return 'none';
 }

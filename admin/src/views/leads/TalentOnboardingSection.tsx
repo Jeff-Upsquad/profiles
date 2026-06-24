@@ -18,12 +18,9 @@ interface Props {
   linkedTalent: { id: string; full_name: string } | null;
 }
 
-// Phase 1 of the Elite -> Top Talents rename keeps the legacy 'elite' key
-// so existing DB rows render with the new label. New writes use 'Top Talents'.
 const TIER_LABELS: Record<string, string> = {
   junior: 'Junior',
   pro: 'Pro',
-  elite: 'Top Talents',
   'Top Talents': 'Top Talents',
 };
 
