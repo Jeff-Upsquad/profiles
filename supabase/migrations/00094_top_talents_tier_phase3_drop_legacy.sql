@@ -1,5 +1,5 @@
 -- ============================================================
--- 00077_top_talents_tier_phase3_drop_legacy.sql
+-- 00094_top_talents_tier_phase3_drop_legacy.sql
 --
 -- Top Talents tier rename — Phase 3 (drop legacy 'elite')
 --

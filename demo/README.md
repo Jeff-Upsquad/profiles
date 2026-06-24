@@ -111,7 +111,7 @@ The full talent/business list is printed by `npm run seed:demo`.
 - **2 job categories** — *Accountant* and *Designer + Editor* — each with its
   skills / tools / AI-tools profile-form templates.
 - **12 talent accounts** across both categories, approved & active, with basic
-  profiles, tiers (junior / pro / elite), Indian locations and languages.
+  profiles, tiers (junior / pro / Top Talents), Indian locations and languages.
 - **3 business accounts** (Acme Fintech, PixelWorks Studio, Bright Retail Co),
   each subscribed to categories with **shared talent profiles** so the business
   dashboard is populated. One has a 30-day **talent-access grant**.
