@@ -1417,13 +1417,31 @@ export async function manualAssignTalent(
   // the cancelled audit row without conflict.
   const { data: existing } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('id')
+    .select('id, status')
     .eq('card_id', (card as any).id)
     .eq('talent_user_id', input.talent_id)
     .is('cancelled_at', null)
     .maybeSingle();
 
+  const manualContent = (card as any).content ?? {};
+
   if (existing) {
+    // The recipient row already exists — e.g. the card was synced to Profiles
+    // during soft-publish and is only now being broadcast. A manual assignment
+    // IS the explicit "notify the talent now" signal, so still fire the
+    // notifications instead of bailing silently (otherwise "Broadcast to
+    // talents" never reaches push/WhatsApp for pre-synced recipients). Guard on
+    // `pending` so we don't re-ping talents who already accepted/rejected.
+    // WhatsApp de-duplication (2-min burst window + 24h engagement throttle)
+    // lives inside notifyTalentSubscriptionCardReceived, so re-firing is safe.
+    if ((existing as any).status === 'pending') {
+      notifyNewCard((card as any).id, [input.talent_id], manualContent).catch((err) => {
+        console.error('[subscription] notifyNewCard (manual re-notify) threw', err);
+      });
+      notifyTalentSubscriptionCardReceived(input.talent_id, (card as any).id, manualContent).catch((err) => {
+        console.error('[subscription] notifyTalentSubscriptionCardReceived (manual re-notify) threw', err);
+      });
+    }
     return {
       card_id: (card as any).id as string,
       talent_user_id: input.talent_id,
@@ -1440,7 +1458,6 @@ export async function manualAssignTalent(
     });
   if (insErr) throw new AppError(500, insErr.message);
 
-  const manualContent = (card as any).content ?? {};
   notifyNewCard((card as any).id, [input.talent_id], manualContent).catch((err) => {
     console.error('[subscription] notifyNewCard (manual) threw', err);
   });
