@@ -1,18 +1,13 @@
 import { supabaseAdmin } from '../config/supabase.js';
 
-// 'elite' is being renamed to 'Top Talents' (Phase 1 accepts both;
-// Phase 2 backfills lowercase 'elite' rows to 'Top Talents'; Phase 3
-// drops the old value). Note the case asymmetry: legacy values are
-// lowercase, the new value is PascalCase with a space to match Squad
-// Hub's chosen canonical string across both DBs.
-export type TierType = 'junior' | 'pro' | 'elite' | 'Top Talents' | 'custom';
+// The 'Elite'/'elite' tier has been renamed to 'Top Talents'. Data is
+// backfilled and the CHECK constraints no longer accept the legacy value.
+export type TierType = 'junior' | 'pro' | 'Top Talents' | 'custom';
 
-// Tolerant predicate for the Top Talents tier — accepts the new value
-// AND every legacy spelling (Profiles lowercase 'elite', Squad Hub
-// PascalCase 'Elite'). Use this when displaying or filtering by tier so
-// the application keeps working through the multi-phase rename.
+// Predicate for the Top Talents bracket. Kept as a helper so callers don't
+// hardcode the literal when displaying or filtering by tier.
 export function isTopTalentsTier(t: string | null | undefined): boolean {
-  return t === 'Top Talents' || t === 'Elite' || t === 'elite';
+  return t === 'Top Talents';
 }
 
 export interface TalentTier {

@@ -98,7 +98,7 @@ export interface Profile {
   source_designer_profile_id?: string | null;
   source_editor_profile_id?: string | null;
   source_profiles?: GhostSourceProfile[];
-  tier?: 'junior' | 'pro' | 'elite' | 'Top Talents' | 'custom' | null;
+  tier?: 'junior' | 'pro' | 'Top Talents' | 'custom' | null;
   tier_custom?: string | null;
 }
 

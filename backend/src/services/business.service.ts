@@ -579,9 +579,8 @@ function pickCategoryIds(matchRules: unknown): string[] {
 }
 
 // Tier display order. Talent/plan tiers arrive in mixed case ('junior',
-// 'Pro', 'Elite', 'Top Talents'); 'Elite' is the legacy name for 'Top Talents'
-// so both share a rank. Unknown tiers sort last.
-const TIER_RANK: Record<string, number> = { junior: 0, pro: 1, elite: 2, 'top talents': 2 };
+// 'Pro', 'Top Talents'). Unknown tiers sort last.
+const TIER_RANK: Record<string, number> = { junior: 0, pro: 1, 'top talents': 2 };
 function tierRankOf(tier: string | null | undefined): number {
   return TIER_RANK[(tier ?? '').toLowerCase().trim()] ?? 99;
 }

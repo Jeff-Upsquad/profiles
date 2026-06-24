@@ -86,8 +86,8 @@ export async function findMatchingTalents(matchRules: MatchRules): Promise<strin
   {
     const profileIds = rows.map((r) => r.id);
     // Case-insensitive tier match. The stored tier (v_talent_profile_tier.tier)
-    // is PascalCase 'Top Talents' for the top bracket but lowercase for legacy
-    // junior/pro/elite, while SquadHub sends PascalCase over the wire. A
+    // is PascalCase 'Top Talents' for the top bracket but lowercase for
+    // junior/pro, while SquadHub sends PascalCase over the wire. A
     // PostgREST `.in('tier', tiers)` is case-sensitive, so it silently dropped
     // every 'Top Talents' talent (incoming was lowercased to 'top talents').
     // Compare on lowercased values both sides so casing never loses a match.

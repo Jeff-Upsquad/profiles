@@ -496,7 +496,7 @@ async function main() {
   const tierCards = [
     { tier: 'Junior', price: 30000, ext: 'demo-card-group-jr', hrs: '4 hrs/day' },
     { tier: 'Pro', price: 45000, ext: 'demo-card-group-pro', hrs: '6 hrs/day' },
-    { tier: 'Top Talents', price: 60000, ext: 'demo-card-group-elite', hrs: '8 hrs/day' },
+    { tier: 'Top Talents', price: 60000, ext: 'demo-card-group-top-talents', hrs: '8 hrs/day' },
   ];
   for (const tc of tierCards) {
     await ins('subscription_cards', {

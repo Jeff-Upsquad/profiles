@@ -120,7 +120,7 @@ export const ARCHIVE_REASON_VALUES = [
   'other',
 ] as const;
 
-export const PROFILE_TYPE_VALUES = ['junior', 'pro', 'elite', 'Top Talents', 'custom'] as const;
+export const PROFILE_TYPE_VALUES = ['junior', 'pro', 'Top Talents', 'custom'] as const;
 
 export const updateLeadStatusSchema = z
   .object({

@@ -5,18 +5,13 @@ import { AppError } from '../middleware/errorHandler.middleware.js';
 import * as upsquadApi from '../services/upsquad-api.service.js';
 import { fanOutBroadcast } from '../services/subscription.service.js';
 
-// Map upsquad's tier vocabulary to canonical names sent downstream.
-// 'Elite' has been renamed to 'Top Talents'. The legacy 'elite'/'elites'
-// input spellings are still accepted here (defensive parsing of an upstream
-// that may not have cut over yet) but now normalise to the new canonical
-// 'Top Talents' — they are never stored or sent as 'Elite' anymore.
+// Map upsquad's tier vocabulary to canonical names sent downstream
+// (Junior/Pro/Top Talents/Custom). Unknown values are dropped.
 const TIER_MAP: Record<string, string> = {
   juniors: 'Junior',
   junior: 'Junior',
   pros: 'Pro',
   pro: 'Pro',
-  elites: 'Top Talents',
-  elite: 'Top Talents',
   'top talents': 'Top Talents',
   'top_talents': 'Top Talents',
   toptalents: 'Top Talents',

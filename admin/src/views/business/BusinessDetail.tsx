@@ -34,7 +34,7 @@ interface SharedProfile {
       current_location?: string;
     };
     category?: Category;
-    tier?: 'junior' | 'pro' | 'elite' | 'Top Talents' | 'custom' | null;
+    tier?: 'junior' | 'pro' | 'Top Talents' | 'custom' | null;
     tier_custom?: string | null;
   };
 }
@@ -50,7 +50,7 @@ interface TalentProfile {
     current_location?: string;
     profile_photo_url?: string;
   };
-  tier?: 'junior' | 'pro' | 'elite' | 'custom' | null;
+  tier?: 'junior' | 'pro' | 'custom' | null;
   tier_custom?: string | null;
 }
 

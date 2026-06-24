@@ -131,7 +131,7 @@ export const paginationSchema = z.object({
 
 export const setProfileTierSchema = z
   .object({
-    tier: z.enum(['junior', 'pro', 'elite', 'Top Talents', 'custom']).nullable(),
+    tier: z.enum(['junior', 'pro', 'Top Talents', 'custom']).nullable(),
     tier_custom: z.string().max(100).optional().nullable(),
   })
   .refine(

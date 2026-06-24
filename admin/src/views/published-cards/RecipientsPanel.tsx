@@ -9,7 +9,7 @@ type Recipient = {
   id: string;
   talent_user_id: string;
   talent_name: string | null;
-  tier: 'junior' | 'pro' | 'elite' | 'Top Talents' | 'custom' | null;
+  tier: 'junior' | 'pro' | 'Top Talents' | 'custom' | null;
   tier_custom: string | null;
   status: 'pending' | 'accepted' | 'rejected';
   responded_at: string | null;
