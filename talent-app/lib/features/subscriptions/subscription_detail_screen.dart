@@ -24,8 +24,13 @@ class _SubscriptionDetailScreenState
 
   SubscriptionCardRecipient get recipient => widget.recipient;
 
+  // Only a live offer is respondable. An expired/filled card — status != 'active'
+  // (e.g. 'assigned' once another talent was selected) — is read-only: no
+  // Accept/Decline, just like the web. Pending tab cards are always 'active'.
   bool get _showActions =>
-      recipient.isPending && !recipient.isCancelled;
+      recipient.isPending &&
+      !recipient.isCancelled &&
+      recipient.card?.status == 'active';
 
   Future<void> _respond(String action) async {
     setState(() => _loading = true);
@@ -168,6 +173,9 @@ class _SubscriptionDetailScreenState
       badges.add(StatusBadge.accepted());
     } else if (recipient.isRejected) {
       badges.add(StatusBadge.rejected());
+    } else if (recipient.isPending && recipient.card?.status == 'assigned') {
+      // Never responded and the card went to someone else — read-only.
+      badges.add(StatusBadge.expired());
     }
     if (recipient.isCancelled) badges.add(StatusBadge.cancelled());
 
