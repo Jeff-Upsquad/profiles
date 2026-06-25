@@ -1580,10 +1580,15 @@ export async function adminSelectRecipient(
     .neq('id', recipientId)
     .is('passed_over_at', null);
 
-  // Mark card
+  // Mark card. Set status='assigned' (same as the SquadHub-admin webhook path,
+  // handleSelectionWebhook) so the slot reads as filled everywhere: the card
+  // leaves other un-responded talents' Pending tab and surfaces in Expired,
+  // and passed-over accepted talents get the "Closed" badge. Without this the
+  // card stayed 'active' and others could still see — and accept — a taken slot.
+  // adminUndoSelection resets status back to 'active', so unassign/reopen still work.
   await supabaseAdmin
     .from('subscription_cards')
-    .update({ selected_talent_user_id: talentUserId, selected_at: now })
+    .update({ status: 'assigned', selected_talent_user_id: talentUserId, selected_at: now })
     .eq('id', cardId);
 
   notifySelected(cardId, talentUserId, (card as any).content ?? {}).catch((err) => {
