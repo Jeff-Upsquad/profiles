@@ -123,7 +123,13 @@ export const cardIdRecipientIdParamSchema = z.object({
 });
 
 export const listSubscriptionsQuerySchema = z.object({
-  status: z.enum(['pending', 'accepted', 'rejected', 'all']).default('pending'),
+  // 'responded' = accepted ∪ rejected (web merges the two into one tab).
+  // 'expired'   = never responded, but the card was already given to someone
+  //               else. 'accepted'/'rejected' kept for the mobile app, which
+  //               still lists them separately.
+  status: z
+    .enum(['pending', 'responded', 'expired', 'accepted', 'rejected', 'all'])
+    .default('pending'),
   // Talent has separate Subscriptions and Assignments modules — each lists one
   // product line. Defaults to 'subscription' so the existing feed is unchanged.
   card_type: z.enum(['subscription', 'assignment']).default('subscription'),

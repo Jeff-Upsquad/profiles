@@ -48,7 +48,9 @@ function dayLabel(iso: string | null): string {
 function groupByDay(items: SubscriptionCardItem[]): DateGroup[] {
   const groups = new Map<string, DateGroup>();
   for (const item of items) {
-    const sortKey = item.responded_at ?? item.cancelled_at ?? '';
+    // Expired rows were never responded to (responded_at/cancelled_at null), so
+    // fall back to when the card was published to keep them sensibly dated.
+    const sortKey = item.responded_at ?? item.cancelled_at ?? item.card.published_at ?? '';
     const key = dayKey(sortKey);
     if (!groups.has(key)) {
       groups.set(key, { key, label: dayLabel(sortKey), items: [] });
@@ -57,8 +59,8 @@ function groupByDay(items: SubscriptionCardItem[]): DateGroup[] {
   }
   for (const g of groups.values()) {
     g.items.sort((a, b) => {
-      const at = (a.responded_at ?? a.cancelled_at ?? '') || '';
-      const bt = (b.responded_at ?? b.cancelled_at ?? '') || '';
+      const at = (a.responded_at ?? a.cancelled_at ?? a.card.published_at ?? '') || '';
+      const bt = (b.responded_at ?? b.cancelled_at ?? b.card.published_at ?? '') || '';
       return bt.localeCompare(at);
     });
   }
@@ -133,6 +135,9 @@ export default function RespondedListView({ items }: Props) {
                         {item.card.card_type === 'assignment' && <Badge variant="yellow">Assignment</Badge>}
                         {item.status === 'accepted' && <Badge variant="green">Accepted</Badge>}
                         {item.status === 'rejected' && <Badge variant="red">Declined</Badge>}
+                        {/* Expired tab: never-responded rows whose card went to
+                            someone else. Read-only, like the other terminal states. */}
+                        {item.status === 'pending' && !cancelled && <Badge variant="gray">Expired</Badge>}
                         {cancelled && <Badge variant="gray">Cancelled</Badge>}
                         {item.selected_at && <Badge variant="blue">Selected</Badge>}
                         {item.passed_over_at && !item.selected_at && (
