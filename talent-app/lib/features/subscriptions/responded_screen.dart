@@ -10,7 +10,7 @@ import 'widgets/empty_state.dart';
 import 'widgets/status_badge.dart';
 import 'widgets/subscription_list_tile.dart';
 
-enum _Filter { all, accepted, declined }
+enum _Filter { responded, expired }
 
 class RespondedScreen extends ConsumerStatefulWidget {
   const RespondedScreen({super.key});
@@ -20,12 +20,14 @@ class RespondedScreen extends ConsumerStatefulWidget {
 }
 
 class _RespondedScreenState extends ConsumerState<RespondedScreen> {
-  _Filter _filter = _Filter.all;
+  _Filter _filter = _Filter.responded;
 
   String get _status => switch (_filter) {
-        _Filter.all => 'all',
-        _Filter.accepted => 'accepted',
-        _Filter.declined => 'rejected',
+        // Responded merges the old Accepted + Declined tabs; Expired = offers
+        // the talent never responded to that were already given to someone
+        // else. Both filters are resolved server-side.
+        _Filter.responded => 'responded',
+        _Filter.expired => 'expired',
       };
 
   @override
@@ -42,9 +44,8 @@ class _RespondedScreenState extends ConsumerState<RespondedScreen> {
             child: SegmentedButton<_Filter>(
               showSelectedIcon: false,
               segments: const [
-                ButtonSegment(value: _Filter.all, label: Text('All')),
-                ButtonSegment(value: _Filter.accepted, label: Text('Accepted')),
-                ButtonSegment(value: _Filter.declined, label: Text('Declined')),
+                ButtonSegment(value: _Filter.responded, label: Text('Responded')),
+                ButtonSegment(value: _Filter.expired, label: Text('Expired')),
               ],
               selected: {_filter},
               onSelectionChanged: (s) => setState(() => _filter = s.first),
@@ -54,22 +55,19 @@ class _RespondedScreenState extends ConsumerState<RespondedScreen> {
             child: cards.when(
               loading: () => const ShimmerCardList(),
               error: (e, _) => _ErrorState(onRetry: () => ref.invalidate(provider)),
-              data: (raw) {
-                // The 'all' filter also returns pending offers — keep only responded.
-                final items = _filter == _Filter.all
-                    ? raw.where((r) => !r.isPending).toList()
-                    : raw;
-
+              data: (items) {
                 if (items.isEmpty) {
                   return EmptyState(
-                    icon: Icons.check_circle_outline,
+                    icon: _filter == _Filter.expired
+                        ? Icons.timer_off_outlined
+                        : Icons.check_circle_outline,
                     title: switch (_filter) {
-                      _Filter.all => 'No responses yet',
-                      _Filter.accepted => 'No accepted offers',
-                      _Filter.declined => 'No declined offers',
+                      _Filter.responded => 'No responses yet',
+                      _Filter.expired => 'No expired offers',
                     },
-                    subtitle:
-                        'Once you accept or decline an offer, it will appear here.',
+                    subtitle: _filter == _Filter.expired
+                        ? 'Offers that closed before you responded will show up here.'
+                        : 'Once you accept or decline an offer, it will appear here.',
                   );
                 }
 
@@ -104,7 +102,9 @@ class _DayGroup {
 }
 
 String _sortKeyOf(SubscriptionCardRecipient r) =>
-    r.respondedAt ?? r.cancelledAt ?? '';
+    // Expired rows were never responded to, so fall back to the card's publish
+    // date to keep them sensibly dated.
+    r.respondedAt ?? r.cancelledAt ?? r.card?.publishedAt ?? '';
 
 List<_DayGroup> _groupByDay(List<SubscriptionCardRecipient> items) {
   final map = <String, _DayGroup>{};
@@ -181,6 +181,8 @@ class _Trailing extends StatelessWidget {
     }
     if (recipient.isAccepted) return StatusBadge.accepted();
     if (recipient.isRejected) return StatusBadge.rejected();
+    // Expired tab: never-responded rows whose card went to someone else.
+    if (recipient.isPending) return StatusBadge.expired();
     return null;
   }
 
