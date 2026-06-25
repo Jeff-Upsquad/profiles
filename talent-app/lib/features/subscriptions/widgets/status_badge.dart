@@ -59,6 +59,15 @@ class StatusBadge extends StatelessWidget {
         icon: Icons.lock_outline_rounded,
       );
 
+  /// Expired tab — the talent never responded and the card was already given
+  /// to someone else, so the offer is no longer actionable.
+  factory StatusBadge.expired() => const StatusBadge(
+        label: 'Expired',
+        color: AppColors.textTertiary,
+        backgroundColor: AppColors.divider,
+        icon: Icons.timer_off_outlined,
+      );
+
   @override
   Widget build(BuildContext context) {
     return Container(
