@@ -1143,6 +1143,22 @@ export async function respond(
   const newStatus = input.action === 'accept' ? 'accepted' : 'rejected';
   const respondedAt = new Date().toISOString();
 
+  // Block responses to a card that's no longer live. A recipient row can still
+  // read 'pending' on a card that's been FILLED (status='assigned' once another
+  // talent was selected) — pending talents aren't auto-rejected — so the
+  // status/cancelled_at guards below aren't enough on their own. Without this a
+  // talent on a stale screen or an older app build could accept an already-taken
+  // slot.
+  const { data: cardRow } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('subscription_cards!inner(status)')
+    .eq('id', recipientId)
+    .eq('talent_user_id', talentUserId)
+    .maybeSingle();
+  if (cardRow && (cardRow as any).subscription_cards?.status !== 'active') {
+    throw new AppError(409, 'This offer is no longer available');
+  }
+
   // The `status = 'pending'` + `cancelled_at IS NULL` guards prevent both
   // double-response races and accepting/rejecting an offer the partner has
   // since recalled. RLS enforces the same rules; this guard is defense in
