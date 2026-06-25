@@ -12,8 +12,8 @@ import { useTalentMe, useUpdateTalentMe } from '@/hooks/useTalentMe';
 
 const TABS: { key: SubscriptionListFilter; label: string }[] = [
   { key: 'pending', label: 'Pending' },
-  { key: 'accepted', label: 'Accepted' },
-  { key: 'rejected', label: 'Rejected' },
+  { key: 'responded', label: 'Responded' },
+  { key: 'expired', label: 'Expired' },
 ];
 
 export default function TalentOffersView({
@@ -127,16 +127,16 @@ export default function TalentOffersView({
             <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
               {tab === 'pending'
                 ? 'No offers right now'
-                : tab === 'accepted'
-                  ? 'No accepted offers yet'
-                  : 'No declined offers'}
+                : tab === 'responded'
+                  ? 'No responses yet'
+                  : 'No expired offers'}
             </h3>
             <p className="mx-auto mt-1.5 max-w-sm text-sm text-[#737373]">
               {tab === 'pending'
                 ? `We'll notify you when a brand sends ${isAssignment ? 'an assignment' : 'a subscription'} offer.`
-                : tab === 'accepted'
-                  ? "You haven't accepted any offers yet."
-                  : "You haven't declined any offers."}
+                : tab === 'responded'
+                  ? "Offers you accept or decline will show up here."
+                  : "Offers that closed before you responded will show up here."}
             </p>
           </div>
         </div>

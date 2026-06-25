@@ -627,6 +627,24 @@ export async function listForTalent(
       .eq('status', 'pending')
       .is('cancelled_at', null)
       .eq('subscription_cards.status', 'active');
+  } else if (query.status === 'responded') {
+    // Responded tab = everything the talent acted on, accepted or rejected.
+    // (Web merges the old Accepted / Rejected tabs into one.) Cancelled-but-
+    // responded rows stay visible, annotated with a Cancelled tag, same as the
+    // legacy accepted/rejected tabs.
+    q = q.in('status', ['accepted', 'rejected']);
+  } else if (query.status === 'expired') {
+    // Expired tab = the talent never responded, but the card was already given
+    // to someone else. On selection SquadHub stamps card.status='assigned',
+    // which drops these out of Pending (it requires an active card), so today
+    // they silently vanish. Surface them read-only so the talent can see the
+    // offer closed without them. cancelled_at IS NULL keeps recalled/closed
+    // cards out — that's a different (Cancelled) state, not "someone else got
+    // it".
+    q = q
+      .eq('status', 'pending')
+      .is('cancelled_at', null)
+      .eq('subscription_cards.status', 'assigned');
   } else if (query.status === 'accepted') {
     q = q.eq('status', 'accepted');
   } else if (query.status === 'rejected') {
