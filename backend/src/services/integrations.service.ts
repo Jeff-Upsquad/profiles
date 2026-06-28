@@ -178,6 +178,64 @@ export async function lookupUsersByEmail(
     }));
 }
 
+// ── Talent availability (for SquadHub's Subscription Assignments view) ──
+
+export interface TalentAvailabilityResult {
+  talent_user_id: string;
+  // Raw self-declared virtual office hours: [{ day, from, to }] with HH:MM times.
+  virtual_office_hours: Array<{ day?: string; from?: string; to?: string }>;
+  // Sum of (to − from) across all entries, in hours (a weekly total).
+  weekly_hours: number;
+}
+
+const AVAILABILITY_TIME_RE = /^\d{1,2}:\d{2}$/;
+
+function timeToMinutes(t: unknown): number | null {
+  if (typeof t !== 'string' || !AVAILABILITY_TIME_RE.test(t)) return null;
+  const [h, m] = t.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+function weeklyHoursFromVirtualOffice(entries: unknown): number {
+  if (!Array.isArray(entries)) return 0;
+  let minutes = 0;
+  for (const e of entries) {
+    const from = timeToMinutes((e as any)?.from);
+    const to = timeToMinutes((e as any)?.to);
+    if (from == null || to == null) continue;
+    minutes += Math.max(0, to - from);
+  }
+  return Math.round((minutes / 60) * 100) / 100;
+}
+
+/**
+ * Batch-fetch the self-declared availability (virtual office hours) for a set of
+ * talents, keyed by talent_user_id. SquadHub uses this to show "available hours"
+ * alongside the hours it has committed a talent to via subscription cards.
+ * Talents with no basic profile / no hours simply don't appear in the result.
+ */
+export async function getTalentAvailability(
+  talentUserIds: string[],
+): Promise<TalentAvailabilityResult[]> {
+  if (talentUserIds.length === 0) return [];
+  const batch = talentUserIds.slice(0, LOOKUP_BATCH_LIMIT);
+
+  const { data, error } = await supabaseAdmin
+    .from('talent_profiles_basic')
+    .select('talent_user_id, virtual_office_hours')
+    .in('talent_user_id', batch);
+  if (error) throw new AppError(500, error.message);
+
+  return (data ?? []).map((row: any) => ({
+    talent_user_id: row.talent_user_id as string,
+    virtual_office_hours: Array.isArray(row.virtual_office_hours)
+      ? row.virtual_office_hours
+      : [],
+    weekly_hours: weeklyHoursFromVirtualOffice(row.virtual_office_hours),
+  }));
+}
+
 // ── Phone-based talent lookup (for SquadHire CRM admin deep-link) ──
 
 export interface TalentByPhoneResult {
