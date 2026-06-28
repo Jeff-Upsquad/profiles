@@ -58,6 +58,42 @@ export async function lookupUsersByEmail(
   }
 }
 
+const talentAvailabilitySchema = z.object({
+  talent_user_ids: z.array(z.string().uuid()).min(1).max(50),
+});
+
+// SquadHub's Subscription Assignments view calls this to show each talent's
+// self-declared "available hours" next to the hours it has committed them to.
+// Returns a map keyed by talent_user_id; talents without a basic profile or
+// without any virtual office hours are simply absent from the map.
+export async function getTalentAvailability(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = talentAvailabilitySchema.parse(req.body);
+    const results = await integrationsService.getTalentAvailability(body.talent_user_ids);
+    const byId: Record<
+      string,
+      { virtual_office_hours: Array<{ day?: string; from?: string; to?: string }>; weekly_hours: number }
+    > = {};
+    for (const r of results) {
+      byId[r.talent_user_id] = {
+        virtual_office_hours: r.virtual_office_hours,
+        weekly_hours: r.weekly_hours,
+      };
+    }
+    res.json({ success: true, data: byId });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0].message));
+      return;
+    }
+    next(err);
+  }
+}
+
 const lookupTalentByPhoneSchema = z.object({
   phone_e164: z.string().regex(/^\+[1-9]\d{1,14}$/, 'phone_e164 must be E.164'),
 });

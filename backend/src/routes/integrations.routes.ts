@@ -45,6 +45,15 @@ router.post(
   integrationsController.lookupUsersByEmail,
 );
 
+// Batch talent availability (self-declared virtual office hours → weekly hours),
+// keyed by talent_user_id. Powers the "available hours" column in SquadHub's
+// Subscription Assignments per-user view.
+router.post(
+  '/squadhub/talents/availability',
+  verifySquadhubSecret,
+  integrationsController.getTalentAvailability,
+);
+
 // Talent access grants — SquadHub originates and we mirror.
 router.post(
   '/squadhub/talent-access/grants',
