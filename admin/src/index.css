@@ -38,3 +38,91 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* ─────────────────────────────────────────────────── */
+/* ── Talent-wizard design tokens (User Detail view) ── */
+/* ─────────────────────────────────────────────────── */
+:root {
+  --cu-shadow-brutal-sm: 3px 3px 0 0 #000;
+  --cu-shadow-brutal:    4px 4px 0 0 #000;
+}
+
+.font-jakarta { font-family: var(--font-jakarta), sans-serif; }
+
+/* Monochrome tint surfaces (neutral greys + faint pale-yellow ties) */
+.tint-orange { background: #FAFAFA; --tint-icon: #0a0a0a; }
+.tint-blue   { background: #F4F4F6; --tint-icon: #0a0a0a; }
+.tint-green  { background: #F1F1F3; --tint-icon: #0a0a0a; }
+.tint-purple { background: #FFFAC2; --tint-icon: #0a0a0a; }
+.tint-pink   { background: #F5F5F6; --tint-icon: #0a0a0a; }
+.tint-amber  { background: #FFFEE0; --tint-icon: #0a0a0a; }
+
+/* Eyebrow pill */
+.eyebrow-rainbow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1.5px solid #0a0a0a;
+  box-shadow: 2px 2px 0 0 #000;
+  font-family: var(--font-inter), sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #0a0a0a;
+}
+.eyebrow-rainbow::before {
+  content: '';
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 9999px;
+  background: #FFFF99;
+  border: 1px solid #0a0a0a;
+}
+
+/* Pale-yellow highlight text */
+.text-rainbow {
+  background-color: #FFFF99;
+  color: #0a0a0a;
+  padding: 0 0.25em;
+  border-radius: 6px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Primary brutal CTA */
+.btn-iridescent {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.25rem;
+  border-radius: 12px;
+  font-family: var(--font-inter), sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #0a0a0a;
+  background: #FFFF99;
+  border: 2px solid #0a0a0a;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.18s ease, background-color 0.2s ease;
+  box-shadow: var(--cu-shadow-brutal);
+  isolation: isolate;
+}
+.btn-iridescent:hover:not(:disabled) {
+  transform: translate(-2px, -2px);
+  background: #F2F26B;
+  box-shadow: 6px 6px 0 0 #000;
+}
+.btn-iridescent:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 0 #000;
+}
+.btn-iridescent:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
