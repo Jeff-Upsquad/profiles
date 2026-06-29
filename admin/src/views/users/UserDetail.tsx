@@ -316,56 +316,115 @@ function FieldGrid({ rows }: { rows: FieldRow[] }) {
   );
 }
 
+/* ── Wizard icons (mirrors talent BasicProfileForm section icons) ── */
+const svgIcon = (d: string, size = 'h-5 w-5') => (
+  <svg className={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+    <path strokeLinecap="round" strokeLinejoin="round" d={d} />
+  </svg>
+);
+const ICON = {
+  profiles: 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+  basic: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+  language: 'M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129',
+  address: 'M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z',
+  education: 'M12 14l9-5-9-5-9 5 9 5zm0 0v6m6.16-9.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479',
+  experience: 'M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16',
+  jobPref: 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+  freelance: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+  idProof: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+  profilePic: 'M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9zm12 4a3 3 0 11-6 0 3 3 0 016 0z',
+  bank: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
+  resume: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z',
+  account: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
+  onboarding: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.247m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.247',
+  enrollments: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
+};
+
+interface WizardSection {
+  key: string;
+  name: string;
+  description: string;
+  tint: string;
+  iconPath: string;
+  content: ReactNode;
+  admin?: boolean;
+  disabled?: boolean;
+  complete?: boolean;
+  onEdit?: () => void;
+  trailing?: ReactNode;
+  no?: number;
+}
+
 function EditButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+      className="flex-shrink-0 rounded-lg border border-[#E7E7EA] px-3 py-1.5 text-xs font-semibold text-[#0a0a0a] transition-colors hover:bg-[#f5f5f6]"
     >
       Edit
     </button>
   );
 }
 
-function SectionHeader({
-  title,
-  onEdit,
-  trailing,
-}: {
-  title: string;
-  onEdit?: () => void;
-  trailing?: ReactNode;
-}) {
+function WizardSectionHeader({ section }: { section: WizardSection }) {
   return (
-    <div className="mb-3 flex items-center justify-between gap-2">
-      <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-        {trailing}
+    <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="flex items-start gap-4">
+        <div
+          className={`${section.tint} flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl`}
+          style={{ color: 'var(--tint-icon)' }}
+        >
+          {svgIcon(section.iconPath)}
+        </div>
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-jakarta text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">
+              {section.name}
+            </h2>
+            {section.admin && (
+              <span className="rounded-full border border-[#0a0a0a] bg-[#FFFAC2] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0a0a0a]">
+                Admin section
+              </span>
+            )}
+            {section.trailing}
+          </div>
+          <p className="mt-0.5 text-sm text-[#737373]">{section.description}</p>
+        </div>
       </div>
-      {onEdit && <EditButton onClick={onEdit} />}
+      {section.onEdit && <EditButton onClick={section.onEdit} />}
     </div>
   );
 }
 
-function Section({
-  title,
-  rows,
-  onEdit,
-}: {
-  title: string;
-  rows: FieldRow[];
-  onEdit?: () => void;
-}) {
+function ProgressRing({ pct }: { pct: number }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
-      <SectionHeader title={title} onEdit={onEdit} />
-      <FieldGrid rows={rows} />
+    <div className="relative flex h-16 w-16 items-center justify-center">
+      <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="42" fill="none" stroke="#E7E7EA" strokeWidth="9" />
+        <circle
+          cx="50" cy="50" r="42" fill="none"
+          stroke="url(#prog-grad)"
+          strokeWidth="9" strokeLinecap="round"
+          strokeDasharray={`${(pct / 100) * 264} 264`}
+          className="transition-all duration-700"
+        />
+        <defs>
+          <linearGradient id="prog-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#FFF27A" />
+            <stop offset="50%" stopColor="#0A0A0A" />
+            <stop offset="100%" stopColor="#737373" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <span className="font-jakarta text-base font-semibold tracking-[-0.02em] text-[#0a0a0a]">
+        {pct}%
+      </span>
     </div>
   );
 }
 
-function OnboardingBypassCard({
+function OnboardingBypassBody({
   user,
   isPending,
   onToggle,
@@ -387,15 +446,12 @@ function OnboardingBypassCard({
   };
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
+    <div>
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-sm font-semibold text-gray-900">Onboarding Course</h2>
-          <p className="mt-1 text-xs text-gray-500">
-            When enabled, this talent is treated as having completed the onboarding course
-            and is not gated by it on the talent dashboard.
-          </p>
-        </div>
+        <p className="text-sm text-[#737373]">
+          When enabled, this talent is treated as having completed the onboarding course
+          and is not gated by it on the talent dashboard.
+        </p>
         <button
           type="button"
           role="switch"
@@ -452,147 +508,6 @@ function OnboardingBypassCard({
   );
 }
 
-function PreferenceSection({
-  title,
-  selected,
-  rows,
-  onEdit,
-}: {
-  title: string;
-  selected: boolean;
-  rows: FieldRow[];
-  onEdit?: () => void;
-}) {
-  return (
-    <div
-      className={`rounded-xl border border-gray-200 bg-white px-5 py-4 ${
-        selected ? '' : 'opacity-60'
-      }`}
-    >
-      <SectionHeader
-        title={title}
-        onEdit={onEdit}
-        trailing={
-          <Badge variant={selected ? 'green' : 'gray'}>
-            {selected ? 'Selected' : 'Not selected'}
-          </Badge>
-        }
-      />
-      <FieldGrid rows={rows} />
-    </div>
-  );
-}
-
-function AddressSection({
-  permanent,
-  current,
-  onEdit,
-}: {
-  permanent: FieldRow[];
-  current: FieldRow[];
-  onEdit?: () => void;
-}) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
-      <SectionHeader title="Address" onEdit={onEdit} />
-      <div>
-        <h3 className="mb-3 text-base font-semibold text-gray-900">Official Address</h3>
-        <FieldGrid rows={permanent} />
-      </div>
-      <div className="mt-5 border-t border-gray-200 pt-4">
-        <h3 className="mb-3 text-base font-semibold text-gray-900">Current Address</h3>
-        <FieldGrid rows={current} />
-      </div>
-    </div>
-  );
-}
-
-function ProfilePictureSection({
-  url,
-  onEdit,
-}: {
-  url?: string | null;
-  onEdit?: () => void;
-}) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
-      <SectionHeader title="Profile Picture" onEdit={onEdit} />
-      {url ? (
-        <div className="flex items-center gap-4">
-          <img
-            src={url}
-            alt="Profile"
-            className="h-24 w-24 rounded-xl object-cover ring-1 ring-gray-200"
-          />
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-indigo-600 hover:underline"
-          >
-            View original
-          </a>
-        </div>
-      ) : (
-        <div className="text-sm">{PLACEHOLDER}</div>
-      )}
-    </div>
-  );
-}
-
-function JobProfileCards({ profiles }: { profiles: ProfileSummary[] }) {
-  const router = useRouter();
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
-      <h2 className="mb-3 text-lg font-semibold text-gray-900">
-        Job Profiles ({profiles.length})
-      </h2>
-      {profiles.length === 0 ? (
-        <p className="py-8 text-center text-sm text-gray-500">
-          No job profiles created yet
-        </p>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {profiles.map((p) => {
-            const isLive = p.status === 'approved';
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => router.push(`/talents/${p.category_id}/${p.id}`)}
-                className="group flex flex-col items-start gap-2 rounded-xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-indigo-300 hover:shadow-md"
-              >
-                <div className="flex w-full items-start justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-gray-900 break-words">
-                    {p.categories?.name ?? 'Profile'}
-                  </h3>
-                  {isLive && (
-                    <span className="flex-shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-700 ring-1 ring-inset ring-green-200">
-                      Live
-                    </span>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <Badge variant={statusVariant[p.status] ?? 'gray'}>
-                    {p.status.replace('_', ' ')}
-                  </Badge>
-                  <TierBadge tier={p.tier} tierCustom={p.tier_custom} />
-                  {!p.is_active && p.status !== 'inactive' && (
-                    <Badge variant="gray">Inactive</Badge>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500">
-                  Created {new Date(p.created_at).toLocaleDateString()}
-                </p>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 interface CourseEnrollment {
   course_id: string;
   course_title: string;
@@ -607,6 +522,7 @@ export default function UserDetail({ userId }: { userId: string }) {
   const queryClient = useQueryClient();
   const { suspendUser, setUserActive, setOnboardingBypass, deleteUser } = useUserActions();
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const [activeSection, setActiveSection] = useState(0);
 
   const { data, isLoading, error } = useQuery<UserDetailResponse>({
     queryKey: ['admin-user-detail', userId],
@@ -690,25 +606,15 @@ export default function UserDetail({ userId }: { userId: string }) {
   const wantsFreelance = (basic?.employment_type ?? []).includes('freelance');
   const name = splitName(user.full_name);
 
-  // 1. Basic Details (mirrors talent Section 1)
   const basicDetails: FieldRow[] = [
     { label: 'First Name', value: name.first },
     { label: 'Middle Name', value: name.middle },
     { label: 'Last Name', value: name.last },
     { label: 'Email', value: user.email },
     { label: 'Phone Number', value: formatIndianPhone(user.phone) },
-    {
-      label: 'Work Preference',
-      value: <Tags items={basic?.employment_type ?? null} />,
-    },
+    { label: 'Work Preference', value: <Tags items={basic?.employment_type ?? null} /> },
   ];
 
-  // 2. Language (mirrors talent Section 2)
-  const languageRows: FieldRow[] = [
-    { label: 'Languages Spoken', value: formatLanguages(user.languages_spoken) },
-  ];
-
-  // 3. Address (mirrors talent Section 3)
   const officialAddressRows: FieldRow[] = [
     { label: 'Address', value: basic?.permanent_address },
     { label: 'Country', value: basic?.permanent_country },
@@ -727,61 +633,23 @@ export default function UserDetail({ userId }: { userId: string }) {
     { label: 'PIN Code', value: basic?.pin_code },
   ];
 
-  // 4. Job Preference (mirrors talent Section 4)
   const jobPrefs: FieldRow[] = [
     { label: 'Availability', value: <Tags items={basic?.availability ?? null} /> },
     { label: 'Job Type', value: <Tags items={basic?.job_type ?? null} /> },
-    {
-      label: 'Expected Salary (Full-time)',
-      value: formatCurrency(basic?.expected_salary_full_time),
-    },
-    {
-      label: 'Expected Salary (Part-time)',
-      value: formatCurrency(basic?.expected_salary_part_time),
-    },
+    { label: 'Expected Salary (Full-time)', value: formatCurrency(basic?.expected_salary_full_time) },
+    { label: 'Expected Salary (Part-time)', value: formatCurrency(basic?.expected_salary_part_time) },
     ...(basic?.expected_salary_monthly != null
-      ? [
-          {
-            label: 'Expected Salary (Monthly, legacy)',
-            value: formatCurrency(basic.expected_salary_monthly),
-          },
-        ]
+      ? [{ label: 'Expected Salary (Monthly, legacy)', value: formatCurrency(basic.expected_salary_monthly) }]
       : []),
   ];
 
-  // 4. Education & Courses (mirrors talent Section 4)
-  const educationRows: FieldRow[] = [
-    { label: 'Courses', value: formatEducation(basic?.education_courses) },
-  ];
-
-  // 5. Experience (mirrors talent Section 5)
-  const experienceRows: FieldRow[] = [
-    { label: 'Experience', value: formatExperience(basic?.experience) },
-  ];
-
-  // 7. Freelance Preference (mirrors talent Section 7)
-  const freelancePrefs: FieldRow[] = [
-    {
-      label: 'Virtual Office Hours',
-      value: formatVirtualHours(basic?.virtual_office_hours),
-    },
-  ];
-
-  // 8. ID Proofs (mirrors talent Section 8)
   const idProofs: FieldRow[] = [
     { label: 'Aadhaar Number', value: basic?.aadhaar_number },
-    {
-      label: 'Aadhaar Card Copy',
-      value: <FileLink url={basic?.aadhaar_file_url ?? null} />,
-    },
+    { label: 'Aadhaar Card Copy', value: <FileLink url={basic?.aadhaar_file_url ?? null} /> },
     { label: 'PAN Number', value: basic?.pan_number },
-    {
-      label: 'PAN Card Copy',
-      value: <FileLink url={basic?.pan_file_url ?? null} />,
-    },
+    { label: 'PAN Card Copy', value: <FileLink url={basic?.pan_file_url ?? null} /> },
   ];
 
-  // 10. Bank Account (mirrors talent Section 10)
   const bankAccount: FieldRow[] = [
     { label: 'Account Holder Name', value: basic?.bank_account_holder },
     { label: 'Bank Name', value: basic?.bank_name },
@@ -790,12 +658,6 @@ export default function UserDetail({ userId }: { userId: string }) {
     { label: 'Branch Name', value: basic?.bank_branch_name },
   ];
 
-  // 11. Resume (mirrors talent Section 11)
-  const resumeRows: FieldRow[] = [
-    { label: 'Resume', value: <FileLink url={basic?.resume_url ?? null} label="View resume" /> },
-  ];
-
-  // Account status — admin metadata, not part of basic profile
   const accountStatus: FieldRow[] = [
     { label: 'Joined', value: formatDate(user.created_at) },
     {
@@ -817,229 +679,524 @@ export default function UserDetail({ userId }: { userId: string }) {
     },
   ];
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          {photoUrl ? (
-            <img
-              src={photoUrl}
-              alt={user.full_name}
-              className="h-20 w-20 rounded-full object-cover ring-2 ring-gray-200"
-            />
-          ) : (
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100 text-2xl font-semibold text-gray-400 ring-2 ring-gray-200">
-              {user.full_name?.[0]?.toUpperCase() ?? '?'}
-            </div>
-          )}
+  const selectedBadge = (selected: boolean) => (
+    <Badge variant={selected ? 'green' : 'gray'}>{selected ? 'Selected' : 'Not selected'}</Badge>
+  );
+
+  // ── Build wizard sections ──
+  const sections: WizardSection[] = [
+    {
+      key: 'profiles',
+      name: 'Job Profiles',
+      description: 'Job profiles this talent has created',
+      tint: 'tint-purple',
+      iconPath: ICON.profiles,
+      admin: true,
+      content:
+        profiles.length === 0 ? (
+          <p className="py-8 text-center text-sm text-gray-500">No job profiles created yet</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {profiles.map((p) => {
+              const isLive = p.status === 'approved';
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => router.push(`/talents/${p.category_id}/${p.id}`)}
+                  className="group flex flex-col items-start gap-2 rounded-xl border-2 border-[#0a0a0a] bg-white p-4 text-left shadow-[var(--cu-shadow-brutal-sm)] transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[var(--cu-shadow-brutal)]"
+                >
+                  <div className="flex w-full items-start justify-between gap-2">
+                    <h3 className="font-jakarta text-sm font-semibold text-gray-900 break-words">
+                      {p.categories?.name ?? 'Profile'}
+                    </h3>
+                    {isLive && (
+                      <span className="flex-shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-700 ring-1 ring-inset ring-green-200">
+                        Live
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge variant={statusVariant[p.status] ?? 'gray'}>
+                      {p.status.replace('_', ' ')}
+                    </Badge>
+                    <TierBadge tier={p.tier} tierCustom={p.tier_custom} />
+                    {!p.is_active && p.status !== 'inactive' && <Badge variant="gray">Inactive</Badge>}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Created {new Date(p.created_at).toLocaleDateString()}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        ),
+    },
+    {
+      key: 'basic',
+      name: 'Basic Details',
+      description: 'Name, contact and work preference',
+      tint: 'tint-purple',
+      iconPath: ICON.basic,
+      complete: !!user.full_name && (basic?.employment_type?.length ?? 0) > 0,
+      onEdit: () => setEditTarget('basic'),
+      content: <FieldGrid rows={basicDetails} />,
+    },
+    {
+      key: 'language',
+      name: 'Language',
+      description: 'Languages this talent speaks',
+      tint: 'tint-blue',
+      iconPath: ICON.language,
+      complete: (user.languages_spoken?.length ?? 0) > 0,
+      onEdit: () => setEditTarget('language'),
+      content: <FieldGrid rows={[{ label: 'Languages Spoken', value: formatLanguages(user.languages_spoken) }]} />,
+    },
+    {
+      key: 'address',
+      name: 'Address',
+      description: 'Official and current locations',
+      tint: 'tint-orange',
+      iconPath: ICON.address,
+      complete: !!(basic?.permanent_address || basic?.permanent_city || basic?.permanent_state),
+      onEdit: () => setEditTarget('address'),
+      content: (
+        <div className="space-y-5">
           <div>
-            <button
-              onClick={() => router.push('/users')}
-              className="mb-2 text-sm text-gray-500 hover:text-indigo-600"
-            >
-              &larr; Back to Users
-            </button>
-            <h1 className="text-2xl font-bold text-gray-900">{user.full_name}</h1>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              {user.approval_status && (
-                <Badge variant={statusVariant[user.approval_status] ?? 'gray'}>
-                  {TITLE_CASE(user.approval_status)}
-                </Badge>
-              )}
-              {!user.is_active && <Badge variant="gray">Inactive</Badge>}
-            </div>
+            <h3 className="mb-3 font-jakarta text-base font-semibold text-[#0a0a0a]">Official Address</h3>
+            <FieldGrid rows={officialAddressRows} />
+          </div>
+          <div className="border-t border-[#E7E7EA] pt-5">
+            <h3 className="mb-3 font-jakarta text-base font-semibold text-[#0a0a0a]">Current Address</h3>
+            <FieldGrid rows={currentAddressRows} />
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {whatsappHref && (
-            <a
-              href={whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 shadow-sm hover:bg-green-100"
+      ),
+    },
+    {
+      key: 'education',
+      name: 'Education & Courses',
+      description: 'Educational background and courses',
+      tint: 'tint-blue',
+      iconPath: ICON.education,
+      complete: (basic?.education_courses?.length ?? 0) > 0,
+      onEdit: () => setEditTarget('education'),
+      content: <FieldGrid rows={[{ label: 'Courses', value: formatEducation(basic?.education_courses) }]} />,
+    },
+    {
+      key: 'experience',
+      name: 'Experience',
+      description: 'Work history and previous roles',
+      tint: 'tint-pink',
+      iconPath: ICON.experience,
+      complete: (basic?.experience?.length ?? 0) > 0,
+      onEdit: () => setEditTarget('experience'),
+      content: <FieldGrid rows={[{ label: 'Experience', value: formatExperience(basic?.experience) }]} />,
+    },
+    {
+      key: 'jobPref',
+      name: 'Job Preference',
+      description: 'Salary expectations and job type',
+      tint: 'tint-green',
+      iconPath: ICON.jobPref,
+      disabled: !wantsSalary,
+      trailing: selectedBadge(wantsSalary),
+      complete:
+        wantsSalary &&
+        !!(
+          basic?.availability?.length ||
+          basic?.job_type?.length ||
+          basic?.expected_salary_full_time ||
+          basic?.expected_salary_part_time
+        ),
+      onEdit: () => setEditTarget('jobPref'),
+      content: <FieldGrid rows={jobPrefs} />,
+    },
+    {
+      key: 'freelance',
+      name: 'Freelance Preference',
+      description: 'Virtual office hours and availability',
+      tint: 'tint-pink',
+      iconPath: ICON.freelance,
+      disabled: !wantsFreelance,
+      trailing: selectedBadge(wantsFreelance),
+      complete: wantsFreelance && (basic?.virtual_office_hours?.some((h) => h.from && h.to) ?? false),
+      onEdit: () => setEditTarget('freelance'),
+      content: <FieldGrid rows={[{ label: 'Virtual Office Hours', value: formatVirtualHours(basic?.virtual_office_hours) }]} />,
+    },
+    {
+      key: 'idProof',
+      name: 'ID Proofs',
+      description: 'Aadhaar and PAN card details',
+      tint: 'tint-amber',
+      iconPath: ICON.idProof,
+      complete: !!(basic?.aadhaar_number || basic?.pan_number),
+      onEdit: () => setEditTarget('idProof'),
+      content: <FieldGrid rows={idProofs} />,
+    },
+    {
+      key: 'profilePic',
+      name: 'Profile Picture',
+      description: 'A clear photo for the profile',
+      tint: 'tint-purple',
+      iconPath: ICON.profilePic,
+      complete: !!photoUrl,
+      onEdit: () => setEditTarget('profilePic'),
+      content: photoUrl ? (
+        <div className="flex items-center gap-4">
+          <img src={photoUrl} alt="Profile" className="h-24 w-24 rounded-xl object-cover ring-1 ring-gray-200" />
+          <a href={photoUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-600 hover:underline">
+            View original
+          </a>
+        </div>
+      ) : (
+        <div className="text-sm">{PLACEHOLDER}</div>
+      ),
+    },
+    {
+      key: 'bank',
+      name: 'Bank Account',
+      description: 'Where we send payments',
+      tint: 'tint-blue',
+      iconPath: ICON.bank,
+      complete: !!(basic?.bank_account_number || basic?.bank_name),
+      onEdit: () => setEditTarget('bank'),
+      content: <FieldGrid rows={bankAccount} />,
+    },
+    {
+      key: 'resume',
+      name: 'Resume',
+      description: 'Resume in PDF format',
+      tint: 'tint-orange',
+      iconPath: ICON.resume,
+      complete: !!basic?.resume_url,
+      onEdit: () => setEditTarget('resume'),
+      content: <FieldGrid rows={[{ label: 'Resume', value: <FileLink url={basic?.resume_url ?? null} label="View resume" /> }]} />,
+    },
+    {
+      key: 'account',
+      name: 'Account Status',
+      description: 'Approval, visibility and join metadata',
+      tint: 'tint-blue',
+      iconPath: ICON.account,
+      admin: true,
+      content: <FieldGrid rows={accountStatus} />,
+    },
+    {
+      key: 'onboarding',
+      name: 'Onboarding Course',
+      description: 'Bypass the onboarding gate for this talent',
+      tint: 'tint-amber',
+      iconPath: ICON.onboarding,
+      admin: true,
+      content: (
+        <OnboardingBypassBody
+          user={user}
+          isPending={setOnboardingBypass.isPending}
+          onToggle={(enabled, reason) =>
+            setOnboardingBypass.mutate({ userId: user.id, skipOnboarding: enabled, reason })
+          }
+        />
+      ),
+    },
+    ...(enrollments.length > 0
+      ? [
+          {
+            key: 'enrollments',
+            name: `Course Enrollments (${enrollments.length})`,
+            description: 'Training courses this talent has started',
+            tint: 'tint-green',
+            iconPath: ICON.enrollments,
+            admin: true,
+            content: (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Course</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Started</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Deadline</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {enrollments.map((e) => (
+                      <tr key={e.course_id}>
+                        <td className="px-4 py-4 text-sm font-medium text-gray-900">{e.course_title}</td>
+                        <td className="px-4 py-4 text-sm text-gray-500">{new Date(e.started_at).toLocaleDateString()}</td>
+                        <td className="px-4 py-4 text-sm text-gray-500">{e.expires_at ? new Date(e.expires_at).toLocaleDateString() : '-'}</td>
+                        <td className="px-4 py-4">
+                          <Badge variant={e.expired ? 'red' : 'green'}>{e.expired ? 'Expired' : 'Active'}</Badge>
+                        </td>
+                        <td className="px-4 py-4">
+                          {e.expired && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              loading={reopenCourse.isPending && reopenCourse.variables === e.course_id}
+                              onClick={() => {
+                                if (window.confirm('Reopen this course? The user will see the Start button again and get a fresh countdown timer.')) {
+                                  reopenCourse.mutate(e.course_id);
+                                }
+                              }}
+                            >
+                              Reopen
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ),
+          } as WizardSection,
+        ]
+      : []),
+  ];
+
+  // Number the talent-profile (non-admin) sections.
+  let pno = 0;
+  sections.forEach((s) => {
+    if (!s.admin) s.no = ++pno;
+  });
+
+  const profileSections = sections.filter((s) => !s.admin);
+  const enabledSections = profileSections.filter((s) => !s.disabled).length;
+  const completedCount = profileSections.filter((s) => !s.disabled && s.complete).length;
+  const progressPct = enabledSections > 0 ? Math.round((completedCount / enabledSections) * 100) : 0;
+
+  const safeActive = Math.min(activeSection, sections.length - 1);
+  const current = sections[safeActive];
+
+  const goToSection = (delta: 1 | -1) => {
+    let i = safeActive + delta;
+    while (i >= 0 && i < sections.length && sections[i].disabled) i += delta;
+    if (i >= 0 && i < sections.length) setActiveSection(i);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* ── Hero ── */}
+      <section className="relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-5 sm:px-7 sm:py-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex min-w-0 items-start gap-4">
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt={user.full_name}
+                className="h-20 w-20 flex-shrink-0 rounded-full object-cover ring-2 ring-gray-200"
+              />
+            ) : (
+              <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-2xl font-semibold text-gray-400 ring-2 ring-gray-200">
+                {user.full_name?.[0]?.toUpperCase() ?? '?'}
+              </div>
+            )}
+            <div className="min-w-0">
+              <button
+                onClick={() => router.push('/users')}
+                className="mb-2 text-sm text-gray-500 hover:text-indigo-600"
+              >
+                &larr; Back to Users
+              </button>
+              <h1 className="font-jakarta text-2xl font-bold tracking-[-0.02em] text-[#0a0a0a]">
+                {user.full_name}
+              </h1>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                {user.approval_status && (
+                  <Badge variant={statusVariant[user.approval_status] ?? 'gray'}>
+                    {TITLE_CASE(user.approval_status)}
+                  </Badge>
+                )}
+                {!user.is_active && <Badge variant="gray">Inactive</Badge>}
+              </div>
+              <div className="mt-3">
+                <span className="eyebrow-rainbow">
+                  {completedCount} of {enabledSections} sections complete
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-start gap-4 lg:items-end">
+            <div className="flex flex-wrap items-center gap-2">
+              {whatsappHref && (
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 shadow-sm hover:bg-green-100"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                  </svg>
+                  WhatsApp
+                </a>
+              )}
+              {crmHref && (
+                <a
+                  href={crmHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 shadow-sm hover:bg-blue-100"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+                  </svg>
+                  Open in CRM
+                </a>
+              )}
+              {leadId && (
+                <Link
+                  href={`/leads/${leadId}`}
+                  className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm hover:bg-indigo-100"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                  </svg>
+                  View Candidate
+                </Link>
+              )}
+              <DropdownMenu
+                ariaLabel="More actions"
+                items={[
+                  {
+                    label: user.is_active ? 'Mark Inactive' : 'Mark Active',
+                    onClick: () => setUserActive.mutate({ userId: user.id, isActive: !user.is_active }),
+                    loading: setUserActive.isPending,
+                  },
+                  {
+                    label: user.suspended ? 'Unsuspend' : 'Suspend',
+                    onClick: () => suspendUser.mutate({ userId: user.id, suspend: !user.suspended }),
+                    loading: suspendUser.isPending,
+                  },
+                  {
+                    label: 'Delete',
+                    variant: 'danger',
+                    onClick: handleDelete,
+                    loading: deleteUser.isPending,
+                  },
+                ] satisfies DropdownMenuItem[]}
+              />
+            </div>
+            <ProgressRing pct={progressPct} />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Layout: Sidebar Stepper + Section ── */}
+      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
+        {/* Sidebar */}
+        <aside className="lg:sticky lg:top-6 lg:self-start">
+          <div className="rounded-2xl border border-[#E7E7EA] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <h3 className="mb-2 px-2 pt-1 text-[11px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
+              Sections
+            </h3>
+            <nav className="flex flex-col gap-0.5">
+              {sections.map((section, i) => {
+                const isActive = i === safeActive;
+                const isComplete = !!section.complete;
+                return (
+                  <button
+                    key={section.key}
+                    type="button"
+                    onClick={() => !section.disabled && setActiveSection(i)}
+                    disabled={section.disabled}
+                    title={section.disabled ? 'Talent has not selected the matching work preference' : undefined}
+                    className={`group flex items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-all duration-200 ${
+                      section.disabled
+                        ? 'cursor-not-allowed opacity-40'
+                        : isActive
+                          ? 'bg-[#F5F5F6] shadow-[0_1px_3px_0_rgba(0,0,0,0.08)]'
+                          : 'hover:bg-[#F5F5F6]'
+                    }`}
+                  >
+                    <div
+                      className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg transition-colors ${
+                        isComplete
+                          ? 'bg-emerald-50 text-emerald-600'
+                          : isActive
+                            ? section.tint
+                            : 'bg-[#f0f0f0] text-[#a3a3a3] group-hover:bg-[#E7E7EA]'
+                      }`}
+                      style={isActive && !isComplete ? { color: 'var(--tint-icon)' } : undefined}
+                    >
+                      {isComplete ? (
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : section.admin ? (
+                        svgIcon(section.iconPath, 'h-4 w-4')
+                      ) : (
+                        <span className="text-xs font-semibold">{section.no}</span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`flex items-center gap-1.5 text-[13px] font-semibold truncate ${isActive ? 'text-[#0a0a0a]' : 'text-[#525252]'}`}>
+                        <span className="truncate">{section.name}</span>
+                        {section.admin && (
+                          <span className="flex-shrink-0 rounded bg-[#FFFAC2] px-1 text-[9px] font-bold uppercase tracking-wide text-[#0a0a0a]">
+                            Admin
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-[11px] text-[#a3a3a3] truncate">
+                        {section.disabled
+                          ? 'Locked'
+                          : section.admin
+                            ? 'Admin'
+                            : isComplete
+                              ? 'Complete'
+                              : 'Not started'}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        </aside>
+
+        {/* Active section */}
+        <div className="min-w-0 space-y-6">
+          <div className="rounded-2xl border border-[#E7E7EA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-8">
+            <WizardSectionHeader section={current} />
+            {current.content}
+          </div>
+
+          {/* Action bar */}
+          <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-2xl border border-[#E7E7EA] bg-white/95 p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)] backdrop-blur-md">
+            <button
+              type="button"
+              disabled={safeActive === 0}
+              onClick={() => goToSection(-1)}
+              className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-[#525252] transition-colors hover:bg-[#f0f0f0] disabled:pointer-events-none disabled:opacity-40"
             >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
-              WhatsApp
-            </a>
-          )}
-          {crmHref && (
-            <a
-              href={crmHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 shadow-sm hover:bg-blue-100"
+              Previous
+            </button>
+            <span className="text-xs font-medium text-[#a3a3a3]">
+              {safeActive + 1} / {sections.length}
+            </span>
+            <button
+              type="button"
+              disabled={safeActive === sections.length - 1}
+              onClick={() => goToSection(1)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#0a0a0a] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#0a0a0a]/85 disabled:pointer-events-none disabled:opacity-40"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+              Next
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
-              Open in CRM
-            </a>
-          )}
-          {leadId && (
-            <Link
-              href={`/leads/${leadId}`}
-              className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm hover:bg-indigo-100"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-              </svg>
-              View Candidate
-            </Link>
-          )}
-          <DropdownMenu
-            ariaLabel="More actions"
-            items={[
-              {
-                label: user.is_active ? 'Mark Inactive' : 'Mark Active',
-                onClick: () =>
-                  setUserActive.mutate({
-                    userId: user.id,
-                    isActive: !user.is_active,
-                  }),
-                loading: setUserActive.isPending,
-              },
-              {
-                label: user.suspended ? 'Unsuspend' : 'Suspend',
-                onClick: () =>
-                  suspendUser.mutate({
-                    userId: user.id,
-                    suspend: !user.suspended,
-                  }),
-                loading: suspendUser.isPending,
-              },
-              {
-                label: 'Delete',
-                variant: 'danger',
-                onClick: handleDelete,
-                loading: deleteUser.isPending,
-              },
-            ] satisfies DropdownMenuItem[]}
-          />
+            </button>
+          </div>
         </div>
       </div>
 
-      <JobProfileCards profiles={profiles} />
-
-      <Section
-        title="Basic Details"
-        rows={basicDetails}
-        onEdit={() => setEditTarget('basic')}
-      />
-      <Section
-        title="Language"
-        rows={languageRows}
-        onEdit={() => setEditTarget('language')}
-      />
-      <AddressSection
-        permanent={officialAddressRows}
-        current={currentAddressRows}
-        onEdit={() => setEditTarget('address')}
-      />
-      <Section
-        title="Education & Courses"
-        rows={educationRows}
-        onEdit={() => setEditTarget('education')}
-      />
-      <Section
-        title="Experience"
-        rows={experienceRows}
-        onEdit={() => setEditTarget('experience')}
-      />
-      <PreferenceSection
-        title="Job Preference"
-        selected={wantsSalary}
-        rows={jobPrefs}
-        onEdit={() => setEditTarget('jobPref')}
-      />
-      <PreferenceSection
-        title="Freelance Preference"
-        selected={wantsFreelance}
-        rows={freelancePrefs}
-        onEdit={() => setEditTarget('freelance')}
-      />
-      <Section
-        title="ID Proofs"
-        rows={idProofs}
-        onEdit={() => setEditTarget('idProof')}
-      />
-      <ProfilePictureSection url={photoUrl} onEdit={() => setEditTarget('profilePic')} />
-      <Section
-        title="Bank Account"
-        rows={bankAccount}
-        onEdit={() => setEditTarget('bank')}
-      />
-      <Section
-        title="Resume"
-        rows={resumeRows}
-        onEdit={() => setEditTarget('resume')}
-      />
-      <Section title="Account Status" rows={accountStatus} />
-
-      <OnboardingBypassCard
-        user={user}
-        isPending={setOnboardingBypass.isPending}
-        onToggle={(enabled, reason) =>
-          setOnboardingBypass.mutate({
-            userId: user.id,
-            skipOnboarding: enabled,
-            reason,
-          })
-        }
-      />
-
-      {enrollments.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-          <div className="border-b border-gray-200 px-6 py-4">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Course Enrollments ({enrollments.length})
-            </h2>
-          </div>
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Course</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Started</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Deadline</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {enrollments.map((e) => (
-                <tr key={e.course_id}>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{e.course_title}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{new Date(e.started_at).toLocaleDateString()}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{e.expires_at ? new Date(e.expires_at).toLocaleDateString() : '-'}</td>
-                  <td className="px-6 py-4">
-                    <Badge variant={e.expired ? 'red' : 'green'}>
-                      {e.expired ? 'Expired' : 'Active'}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4">
-                    {e.expired && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        loading={reopenCourse.isPending && reopenCourse.variables === e.course_id}
-                        onClick={() => {
-                          if (window.confirm('Reopen this course? The user will see the Start button again and get a fresh countdown timer.')) {
-                            reopenCourse.mutate(e.course_id);
-                          }
-                        }}
-                      >
-                        Reopen
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
+      {/* ── Edit dialogs ── */}
       <EditBasicDetailsDialog
         open={editTarget === 'basic'}
         onClose={() => setEditTarget(null)}
