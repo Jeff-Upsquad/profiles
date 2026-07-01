@@ -152,3 +152,22 @@ export async function getCardRecipients(
     next(err);
   }
 }
+
+/**
+ * Read-only preview of the talents a card's match_rules would reach. Runs the
+ * matcher without ingesting the card or writing/notifying anyone. Used by
+ * SquadHub to show the audience on a published (not-yet-broadcast) card.
+ */
+export async function previewCardRecipients(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { match_rules } = req.body as { match_rules: Record<string, unknown> };
+    const preview = await subscriptionService.previewRecipientsByRules(match_rules ?? {});
+    res.json({ data: preview.talents, count: preview.count });
+  } catch (err) {
+    next(err);
+  }
+}

@@ -12,6 +12,7 @@ import {
   removeAssignedTalentSchema,
   removeTalentFromCardSchema,
   externalIdParamSchema,
+  previewCardRecipientsSchema,
   cardSelectionWebhookSchema,
   cardSelectionUndoWebhookSchema,
   cardActivationWebhookSchema,
@@ -106,6 +107,16 @@ router.post(
   '/squadhub/cards/recipients',
   verifySquadhubSecret,
   webhooksController.getCardRecipients
+);
+
+// Read-only match preview. SquadHub sends a card's match_rules and gets back
+// the would-be matching talents (names + count) WITHOUT ingesting the card or
+// notifying anyone. Powers the audience preview on a published card.
+router.post(
+  '/squadhub/cards/recipients/preview',
+  verifySquadhubSecret,
+  validate({ body: previewCardRecipientsSchema }),
+  webhooksController.previewCardRecipients
 );
 
 // SquadHire CRM (shcrm) reports a Kanban card move so we can mirror the new

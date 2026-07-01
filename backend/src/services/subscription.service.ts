@@ -1133,6 +1133,40 @@ export async function listRecipientsByExternalId(externalId: string) {
   }));
 }
 
+/**
+ * Read-only preview of who a card's match_rules WOULD reach, without ingesting
+ * the card, writing any recipient rows, or notifying anyone. Used by SquadHub
+ * to show the matching-talent audience on a published (not-yet-broadcast) card.
+ *
+ * Runs the same matcher (`findMatchingTalents`) that broadcast delivery uses,
+ * then resolves display names. Returns names only — no email/PII — since this
+ * is a pre-broadcast preview, not the real recipient list.
+ */
+export async function previewRecipientsByRules(
+  matchRules: Record<string, unknown>,
+): Promise<{ count: number; talents: Array<{ talent_user_id: string; talent_name: string }> }> {
+  const talentIds = await findMatchingTalents(matchRules as any);
+  if (talentIds.length === 0) return { count: 0, talents: [] };
+
+  const { data: talents, error } = await supabaseAdmin
+    .from('talent_users')
+    .select('id, full_name')
+    .in('id', talentIds);
+  if (error) throw new AppError(500, error.message);
+
+  const nameById = new Map<string, string>();
+  for (const t of talents ?? []) {
+    const u = t as { id: string; full_name: string | null };
+    nameById.set(u.id, u.full_name || 'Unknown talent');
+  }
+
+  const list = talentIds.map((id) => ({
+    talent_user_id: id,
+    talent_name: nameById.get(id) ?? 'Unknown talent',
+  }));
+  return { count: list.length, talents: list };
+}
+
 // ─── Talent response ───────────────────────────────────────────────────────
 
 export async function respond(
