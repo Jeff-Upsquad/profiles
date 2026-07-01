@@ -10,6 +10,10 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 
 const CRM_TIMEOUT_MS = 5_000;
+// Master switch for the 24h engagement throttle below. Temporarily OFF so
+// re-broadcasts re-ping every matching talent (the burst-dedup still prevents
+// duplicate sends within a single fan-out). Flip back to `true` to restore.
+const ENGAGEMENT_THROTTLE_ENABLED = false;
 const THROTTLE_WINDOW_MS = 24 * 60 * 60 * 1000;
 // Burst-dedup window: when several cards fan out to the same talent at once,
 // each fires this notify concurrently. Collapse them into a single WhatsApp.
@@ -169,7 +173,7 @@ export async function notifyTalentSubscriptionCardReceived(
   // AND the talent still has any unviewed prior card, skip. Once they engage
   // with the app (viewed_at gets stamped on fetch), the next card fires right
   // away.
-  if (talent.last_subscription_whatsapp_at) {
+  if (ENGAGEMENT_THROTTLE_ENABLED && talent.last_subscription_whatsapp_at) {
     const lastSentMs = new Date(talent.last_subscription_whatsapp_at).getTime();
     const withinWindow = Date.now() - lastSentMs < THROTTLE_WINDOW_MS;
     if (withinWindow) {
