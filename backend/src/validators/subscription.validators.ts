@@ -117,6 +117,13 @@ export const externalIdParamSchema = z.object({
   externalId: z.string().min(1).max(200),
 });
 
+// Read-only match preview: SquadHub sends just the card's match_rules and gets
+// back the would-be matching talents. Free-form like ingest's match_rules so
+// the shape can evolve without a Profiles migration.
+export const previewCardRecipientsSchema = z.object({
+  match_rules: z.record(z.unknown()).default({}),
+});
+
 export const cardIdRecipientIdParamSchema = z.object({
   cardId: z.string().uuid(),
   recipientId: z.string().uuid(),
