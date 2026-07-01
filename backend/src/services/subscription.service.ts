@@ -1758,18 +1758,46 @@ export async function fanOutBroadcast(
   const talentIds = await findMatchingTalents(matchRules as any);
   if (talentIds.length === 0) return 0;
 
-  const rows = talentIds.map((tid) => ({
-    card_id: cardId,
-    talent_user_id: tid,
-    status: 'pending' as const,
-  }));
-  await supabaseAdmin
+  // Insert a pending row for each matched talent that doesn't already have an
+  // active (non-cancelled) one. We CANNOT `.upsert({ onConflict: 'card_id,
+  // talent_user_id' })` here: the only unique index on that pair is PARTIAL
+  // (`... WHERE cancelled_at IS NULL`), so Postgres rejects the ON CONFLICT
+  // arbiter and the write errors out. Left unchecked, that silently inserted
+  // ZERO rows while the notify loop below still fired — talents got a WhatsApp
+  // for a card with no recipient row, so it never showed in their subscription
+  // list. Dedup in code + a plain insert avoids the partial-index arbiter.
+  const { data: existingRows, error: existErr } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .upsert(rows, { onConflict: 'card_id,talent_user_id', ignoreDuplicates: true });
+    .select('talent_user_id')
+    .eq('card_id', cardId)
+    .is('cancelled_at', null);
+  if (existErr) {
+    throw new AppError(500, `fanOutBroadcast: failed to read existing recipients: ${existErr.message}`);
+  }
+  const existing = new Set((existingRows ?? []).map((r: any) => r.talent_user_id as string));
+  const toInsert = talentIds.filter((tid) => !existing.has(tid));
+  if (toInsert.length > 0) {
+    const { error: insErr } = await supabaseAdmin
+      .from('subscription_card_recipients')
+      .insert(
+        toInsert.map((tid) => ({
+          card_id: cardId,
+          talent_user_id: tid,
+          status: 'pending' as const,
+        })),
+      );
+    // 23505 = a concurrent fan-out inserted the same row first; that's fine.
+    // Any OTHER error means the rows aren't there — abort BEFORE notifying so
+    // we never message talents about a card they can't see (the bug above).
+    if (insErr && insErr.code !== '23505') {
+      throw new AppError(500, `fanOutBroadcast: failed to insert recipients: ${insErr.message}`);
+    }
+  }
 
-  // Explicit broadcast → notify via both channels (push + WhatsApp). Ingest is
-  // a silent sync by default (NOTIFY_TALENT_ON_INGEST), so the broadcast is the
-  // point where talents actually get pinged.
+  // Rows now exist for every matched talent → safe to notify via both channels
+  // (push + WhatsApp). Ingest is a silent sync by default
+  // (NOTIFY_TALENT_ON_INGEST), so the broadcast is the point where talents
+  // actually get pinged.
   notifyNewCard(cardId, talentIds, content).catch((err) => {
     console.error('[subscription] notifyNewCard (fan-out) threw', err);
   });
