@@ -17,7 +17,10 @@ export const createCourseSchema = z
     category_ids: z.array(z.string().uuid('Each category_id must be a valid UUID')).optional(),
   })
   .refine(
-    (data) => !data.is_onboarding || (data.category_ids && data.category_ids.length > 0),
+    (data) =>
+      !data.is_onboarding ||
+      data.available_to_all ||
+      (data.category_ids && data.category_ids.length > 0),
     { message: 'Onboarding courses require at least one category', path: ['category_ids'] },
   )
   .refine(
