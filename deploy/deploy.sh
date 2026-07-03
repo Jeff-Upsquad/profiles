@@ -91,3 +91,23 @@ echo "  Admin:      http://localhost:$ADMIN_PORT"
 echo "  Staff:      http://localhost:$STAFF_PORT"
 echo "  Admin-Lite: http://localhost:$ADMIN_LITE_PORT"
 pm2 status
+
+# ---------------------------------------------------------------------------
+# Cascade to the hosted demo so it tracks main automatically. The demo is a
+# SEPARATE checkout (/root/Profiles-demo) with its own Supabase + .env;
+# deploy-demo.sh pulls main, rebuilds admin+frontend+backend, applies new
+# demo-DB migrations, and restarts ONLY the profiles-demo-* processes.
+#
+# Guarded and non-fatal: it runs in a subshell whose failure is swallowed by
+# `|| echo`, so a demo build/migration problem can never fail the prod deploy
+# above (which has already completed at this point).
+# ---------------------------------------------------------------------------
+DEMO_DEPLOY="/root/Profiles-demo/deploy/deploy-demo.sh"
+if [ -f "$DEMO_DEPLOY" ]; then
+  echo ""
+  echo "=== Cascading to hosted demo (non-fatal) ==="
+  ( bash "$DEMO_DEPLOY" ) || echo "⚠ Demo update FAILED — prod is unaffected. Inspect: bash $DEMO_DEPLOY"
+else
+  echo ""
+  echo "ℹ Demo deploy script not found at $DEMO_DEPLOY — skipping demo update."
+fi
