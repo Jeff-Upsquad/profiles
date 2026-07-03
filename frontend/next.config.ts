@@ -2,15 +2,16 @@ import type { NextConfig } from 'next';
 import path from 'path';
 
 // CSP frame-src allowlist. YouTube is for portfolio link embeds (link-paste
-// feature). Loom is for training program lesson videos (admin-curated only,
-// not user-supplied). Backend validators are the actual security boundary;
-// CSP is defense-in-depth against a stray iframe URL.
+// feature). Loom and SquadClips (clips.squadhub.in) are for training program
+// lesson videos (admin-curated only, not user-supplied). Backend validators are
+// the actual security boundary; CSP is defense-in-depth against a stray iframe URL.
 const FRAME_SRC_ALLOWLIST = [
   "'self'",
   'https://www.youtube.com',
   'https://www.youtube-nocookie.com',
   'https://www.loom.com',
   'https://loom.com',
+  'https://clips.squadhub.in',
 ].join(' ');
 
 const nextConfig: NextConfig = {
