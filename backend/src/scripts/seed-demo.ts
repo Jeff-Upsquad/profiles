@@ -317,6 +317,54 @@ async function main() {
     ['Wedding', 'Shorts / Reels', 'Corporate', 'Motion Graphics'],
   );
 
+  // Standalone Designer and Video Editor categories (mirror prod). "Designer +
+  // Editor" above is the auto-generated ghost the picker hides; these two are
+  // the categories a talent actually picks. Kept as flat (ungrouped) tool lists
+  // to match prod. Without these, the demo picker only offers Accountant/Sales.
+  const designerOnlyId = await upsertCategory(
+    'Designer',
+    'designer',
+    'Graphic, brand, and visual design professionals.',
+    20,
+  );
+  const videoEditorId = await upsertCategory(
+    'Video Editor',
+    'video-editor',
+    'Video editing, color grading, and motion graphics professionals.',
+    30,
+  );
+  categoryIdBySlug['designer'] = designerOnlyId;
+  categoryIdBySlug['video-editor'] = videoEditorId;
+
+  await seedTemplate(
+    designerOnlyId,
+    [],
+    [
+      { name: 'Adobe Photoshop', group: '' },
+      { name: 'Adobe Illustrator', group: '' },
+      { name: 'Affinity Designer', group: '' },
+      { name: 'Canva', group: '' },
+      { name: 'Procreate', group: '' },
+      { name: 'After Effects', group: '' },
+    ],
+    ['Gemini - nana banana', 'Freepik', 'Midjourney'],
+    ['Branding', 'Logo Design', 'UI Designs', 'UX Designs', 'Visual Identity Design', 'Social Media Creatives', 'Product & Print Design', 'Motion & Advanced Design'],
+  );
+  await seedTemplate(
+    videoEditorId,
+    ['Storytelling', 'Continuity awareness', 'Audio syncing & balancing', 'Color grading & correction', 'Typography & text animation basics', 'Sound Design', 'VFX', 'AI tools for editing'],
+    [
+      { name: 'Adobe Premiere Pro', group: '' },
+      { name: 'DaVinci Resolve', group: '' },
+      { name: 'Final Cut Pro (FCP)', group: '' },
+      { name: 'CapCut', group: '' },
+      { name: 'VN Video Editor', group: '' },
+      { name: 'InShot', group: '' },
+    ],
+    ['Descript', 'OpusClip', 'Vizard.ai', 'Runway', 'Kling AI', 'Luma Dream Machine', 'HeyGen', 'Synthesia', 'Google Veo', 'Pika Labs', 'Seedance', 'Higgsfield AI', 'Grok'],
+    ['Shorts Edits', 'Youtube Video', 'Events', 'Wedding', 'Automobile', 'Architecture', 'Landscape', 'Short Films', 'Movies', 'Music and Albums', 'AI Video', 'Motion Graphics', 'Podcasts & Interviews'],
+  );
+
   // Talents
   log('Creating talent accounts + profiles…');
   const talentSpecs: TalentSpec[] = [
