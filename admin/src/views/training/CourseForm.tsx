@@ -45,7 +45,10 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
     );
   };
 
-  const requiresCategories = isOnboarding;
+  // Onboarding courses normally target specific categories, but one marked
+  // "Available to all users" reaches everyone regardless of category, so no
+  // category is required in that case.
+  const requiresCategories = isOnboarding && !availableToAll;
   const categoryError = requiresCategories && selectedCategoryIds.length === 0;
   const countdownError = countdownEnabled && (!Number.isFinite(countdownAmount) || countdownAmount <= 0);
 
