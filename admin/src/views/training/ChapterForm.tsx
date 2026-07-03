@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import { useCategories } from '@/hooks/useCategories';
 import {
   useCreateChapter,
   useUpdateChapter,
@@ -24,13 +25,28 @@ export default function ChapterForm({ chapter, courseId, onClose }: ChapterFormP
   const [gatesProfileCreation, setGatesProfileCreation] = useState(
     chapter?.gates_profile_creation ?? false,
   );
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
+    chapter?.categories?.map((c) => c.id) ?? [],
+  );
 
   const effectiveCourseId = courseId ?? chapter?.course_id ?? null;
   const { data: course } = useCourse(effectiveCourseId ?? undefined);
+  const { data: categories } = useCategories();
   const createMutation = useCreateChapter();
   const updateMutation = useUpdateChapter();
   const isEditing = !!chapter;
   const isPending = createMutation.isPending || updateMutation.isPending;
+
+  // Standalone chapters (not under a course) get their category links directly.
+  // Course chapters inherit categories from the course, so the picker is hidden
+  // and no chapter-level category_ids are sent for them.
+  const isStandalone = !effectiveCourseId;
+
+  const toggleCategory = (id: string) => {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    );
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -42,6 +58,12 @@ export default function ChapterForm({ chapter, courseId, onClose }: ChapterFormP
       linked_module: linkedModule || null,
       gates_profile_creation: gatesProfileCreation,
       course_id: effectiveCourseId,
+      // Only send when standalone AND at least one is chosen: the backend
+      // requires category_ids to be non-empty when present, and course
+      // chapters must keep omitting it (they inherit from the course).
+      ...(isStandalone && selectedCategoryIds.length > 0
+        ? { category_ids: selectedCategoryIds }
+        : {}),
     };
 
     try {
@@ -121,6 +143,43 @@ export default function ChapterForm({ chapter, courseId, onClose }: ChapterFormP
           The talent sidebar module that will be unlocked when this chapter is completed.
         </p>
       </div>
+
+      {isStandalone && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Categories
+            <span className="ml-2 text-xs font-normal text-gray-500">
+              (which talents this chapter applies to)
+            </span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {(categories ?? [])
+              .filter((c) => c.is_active)
+              .map((cat) => {
+                const selected = selectedCategoryIds.includes(cat.id);
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => toggleCategory(cat.id)}
+                    className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
+                      selected
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                );
+              })}
+          </div>
+          {linkedModule && selectedCategoryIds.length === 0 && (
+            <p className="mt-1 text-sm text-amber-600">
+              Select at least one category, or this gate won&apos;t apply to any talent.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
         <label htmlFor="chapter-gates-profile" className="flex items-start gap-2 cursor-pointer">
