@@ -804,6 +804,10 @@ export async function listMyClients(talentUserId: string): Promise<MyClientsResp
     )
     .eq('talent_user_id', talentUserId)
     .not('selected_at', 'is', null)
+    // A cancelled row is a retired round (recall / fresh broadcast), never a
+    // live client — required because a fresh broadcast returns the card to
+    // 'active', so the archived_at join filter alone no longer excludes it.
+    .is('cancelled_at', null)
     .is('subscription_cards.archived_at', null)
     .order('selected_at', { ascending: false });
 
@@ -1295,11 +1299,17 @@ export async function handleTalentAcceptedByWebhook(
   if (cardErr) throw new AppError(500, cardErr.message);
   if (!card) throw new AppError(404, 'Card not found');
 
+  // A (card, talent) pair can hold several rows once a round has been retired
+  // (recall / fresh broadcast): at most one active row (partial unique index
+  // WHERE cancelled_at IS NULL) plus cancelled audit rows. Prefer the active
+  // row; fall back to a cancelled one so the 409 below still explains itself.
   const { data: existing, error: readErr } = await supabaseAdmin
     .from('subscription_card_recipients')
     .select('id, status, cancelled_at')
     .eq('card_id', (card as any).id)
     .eq('talent_user_id', talentUserId)
+    .order('cancelled_at', { ascending: false, nullsFirst: true })
+    .limit(1)
     .maybeSingle();
   if (readErr) throw new AppError(500, readErr.message);
   if (!existing) {
@@ -1457,7 +1467,7 @@ export async function manualAssignTalent(
 ): Promise<ManualAssignTalentResult> {
   const { data: card, error: cardErr } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, content, status')
+    .select('id, content, status, selected_talent_user_id, business_user_id, match_rules')
     .eq('external_id', input.card_id)
     .maybeSingle();
   if (cardErr) throw new AppError(500, cardErr.message);
@@ -1485,13 +1495,120 @@ export async function manualAssignTalent(
   // the cancelled audit row without conflict.
   const { data: existing } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('id, status')
+    .select('id, status, selected_at')
     .eq('card_id', (card as any).id)
     .eq('talent_user_id', input.talent_id)
     .is('cancelled_at', null)
     .maybeSingle();
 
   const manualContent = (card as any).content ?? {};
+
+  // Direct-assign mode (SquadHub change-talent on a live assignment): the
+  // talent is already the finalized recipient on the SquadHub side, so record
+  // them as accepted + selected and promote the card in one step. A plain
+  // pending offer would never surface — My Clients requires selected_at, and
+  // a pending row joined to an 'assigned' card renders in the Expired tab.
+  if (input.assigned === true) {
+    const assignedAt = input.assigned_at ?? new Date().toISOString();
+
+    // Idempotency: the talent is already selected here AND the card already
+    // points at them (a sweeper retry after a delivery that actually landed,
+    // or a re-fired webhook). Rewriting the stamps and re-pushing "You've
+    // been selected!" would only spam the talent — bail as a no-op.
+    if (
+      existing &&
+      (existing as any).selected_at != null &&
+      (card as any).selected_talent_user_id === input.talent_id
+    ) {
+      return {
+        card_id: (card as any).id as string,
+        talent_user_id: input.talent_id,
+        inserted: false,
+      };
+    }
+
+    if (existing) {
+      const patch: Record<string, unknown> = {
+        selected_at: assignedAt,
+        passed_over_at: null,
+      };
+      // Preserve a real acceptance's responded_at; promote anything else.
+      if ((existing as any).status !== 'accepted') {
+        patch.status = 'accepted';
+        patch.responded_at = assignedAt;
+      }
+      const { error: updErr } = await supabaseAdmin
+        .from('subscription_card_recipients')
+        .update(patch)
+        .eq('id', (existing as any).id);
+      if (updErr) throw new AppError(500, updErr.message);
+    } else {
+      const { error: insErr } = await supabaseAdmin
+        .from('subscription_card_recipients')
+        .insert({
+          card_id: (card as any).id,
+          talent_user_id: input.talent_id,
+          status: 'accepted',
+          responded_at: assignedAt,
+          selected_at: assignedAt,
+        });
+      if (insErr) throw new AppError(500, insErr.message);
+    }
+
+    // Pass over other accepted-but-unselected recipients (mirrors the
+    // selection webhook) so the round reads as decided. Live round only —
+    // cancelled rows are retired audit state from an earlier round.
+    await supabaseAdmin
+      .from('subscription_card_recipients')
+      .update({ passed_over_at: assignedAt })
+      .eq('card_id', (card as any).id)
+      .eq('status', 'accepted')
+      .neq('talent_user_id', input.talent_id)
+      .is('cancelled_at', null)
+      .is('selected_at', null)
+      .is('passed_over_at', null);
+
+    // Promote the card: pointer + stamps so My Clients shows it as Assigned
+    // immediately (activation webhook re-stamping activated_at is idempotent).
+    const { error: cardUpdErr } = await supabaseAdmin
+      .from('subscription_cards')
+      .update({
+        selected_talent_user_id: input.talent_id,
+        selected_at: assignedAt,
+        subscription_activated_at: assignedAt,
+        status: 'assigned',
+      })
+      .eq('id', (card as any).id);
+    if (cardUpdErr) throw new AppError(500, cardUpdErr.message);
+
+    // Surface the talent on the linked business's dashboard — the removal leg
+    // of a swap withdraws the OUTGOING talent's share, and neither respond()
+    // nor the talent-accepted webhook fires for a synthesized acceptance
+    // (the latter short-circuits on alreadyAccepted), so without this write
+    // the business would see no shared talent at all after a swap.
+    const businessUserId = (card as any).business_user_id as string | null;
+    if (businessUserId) {
+      try {
+        await writeAcceptedTalentToDashboard(
+          businessUserId,
+          input.talent_id,
+          (card as any).match_rules,
+        );
+      } catch (err) {
+        console.error('[subscription] writeAcceptedTalentToDashboard (direct assign) threw', err);
+      }
+    }
+
+    notifySelected((card as any).id, input.talent_id, manualContent).catch((err) => {
+      console.error('[subscription] notifySelected (direct assign) threw', err);
+    });
+
+    return {
+      card_id: (card as any).id as string,
+      talent_user_id: input.talent_id,
+      inserted: !existing,
+    };
+  }
 
   if (existing) {
     // The recipient row already exists — e.g. the card was synced to Profiles
@@ -1547,31 +1664,85 @@ export interface RemoveAssignedTalentResult {
 }
 
 /**
- * SquadHub admin removed a previously-assigned talent from a card. Drops the
- * recipient row so the card disappears from the talent's subscription tab.
+ * SquadHub admin removed a previously-assigned talent from a card. Retires the
+ * talent's active recipient row (soft-cancel, same pattern as recall /
+ * freshBroadcast) so the offer leaves their Pending tab while a responded row
+ * stays visible with a Cancelled tag; already-cancelled rows from retired
+ * rounds are audit history and stay untouched. A hard delete here would wipe
+ * that history and leave any late SquadHub callback pointing at a missing row.
  *
- * Idempotent: returns `removed: 0` if the recipient (or the card itself) is
- * already gone — common after a Recall on the SquadHub side, which clears
- * recipients server-side and may fire removals for the same talents.
+ * Idempotent: returns `removed: 0` if there is no ACTIVE row for the pair (or
+ * the card itself is unknown) — common after a Recall on the SquadHub side,
+ * which already cancelled the rows and may fire removals for the same talents.
+ * `removed` counts newly-cancelled rows (0 or 1 under the partial unique
+ * index), so retries stay silent and never re-notify.
  */
 export async function removeAssignedTalent(
   input: RemoveAssignedTalentInput
 ): Promise<RemoveAssignedTalentResult> {
   const { data: card } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id')
+    .select('id, selected_talent_user_id, content')
     .eq('external_id', input.card_id)
     .maybeSingle();
   if (!card) {
     return { card_id: null, talent_user_id: input.talent_id, removed: 0 };
   }
 
+  // Selection stamps are cleared for the same reason freshBroadcast clears
+  // them: My Clients keys on selected_at, and a cancelled row must not read
+  // as a live decision anywhere. manualAssignTalent / fanOutBroadcast both
+  // skip cancelled rows, so a later re-assignment inserts a fresh row.
   const { error, count } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .delete({ count: 'exact' })
+    .update(
+      {
+        cancelled_at: input.removed_at ?? new Date().toISOString(),
+        selected_at: null,
+        passed_over_at: null,
+      },
+      { count: 'exact' },
+    )
     .eq('card_id', (card as any).id)
-    .eq('talent_user_id', input.talent_id);
+    .eq('talent_user_id', input.talent_id)
+    .is('cancelled_at', null);
   if (error) throw new AppError(500, error.message);
+
+  // If this talent was the card-level assignee, clear the pointer so the admin
+  // Published Cards badge / business portal stop naming a talent whose
+  // recipient row is retired. Guarded on a match so a racing direct-assign for a
+  // REPLACEMENT talent (change-talent fires removal + assignment concurrently)
+  // is never clobbered — by then the pointer names the new talent, not this one.
+  if ((card as any).selected_talent_user_id === input.talent_id) {
+    const { error: ptrErr } = await supabaseAdmin
+      .from('subscription_cards')
+      .update({ selected_talent_user_id: null })
+      .eq('id', (card as any).id)
+      .eq('selected_talent_user_id', input.talent_id);
+    if (ptrErr) {
+      console.error('[subscription] removeAssignedTalent pointer clear failed', ptrErr);
+    }
+  }
+
+  // Best-effort: withdraw the talent's profile from the linked business's
+  // dashboard (written at acceptance). Idempotent — removed:0 when no share.
+  try {
+    await removeFromBusinessDashboard(input.card_id, input.talent_id);
+  } catch (err) {
+    console.error('[subscription] removeAssignedTalent dashboard cleanup failed', err);
+  }
+
+  // A live engagement ending should not be silent — SquadHub's change-talent
+  // sets notify:true. Pre-broadcast hand-pick removals keep the old silence.
+  if (input.notify === true && (count ?? 0) > 0) {
+    notifyUnassigned(
+      (card as any).id,
+      input.talent_id,
+      ((card as any).content ?? {}) as Record<string, unknown>,
+    ).catch((err) => {
+      console.error('[subscription] notifyUnassigned (manual removal) threw', err);
+    });
+  }
 
   return {
     card_id: (card as any).id as string,
@@ -1860,12 +2031,15 @@ export async function handleSelectionWebhook(
   const cid = (card as any).id as string;
 
   if (talentIds.length > 0) {
-    // Stamp selected on each specified talent
+    // Stamp selected on each specified talent. cancelled_at IS NULL keeps
+    // retired rounds' rows (recall / fresh broadcast) untouched — only the
+    // live round carries selection state.
     await supabaseAdmin
       .from('subscription_card_recipients')
       .update({ selected_at: selectedAt, passed_over_at: null })
       .eq('card_id', cid)
       .eq('status', 'accepted')
+      .is('cancelled_at', null)
       .in('talent_user_id', talentIds);
 
     // Pass over non-selected accepted talents
@@ -1874,6 +2048,7 @@ export async function handleSelectionWebhook(
       .update({ passed_over_at: selectedAt })
       .eq('card_id', cid)
       .eq('status', 'accepted')
+      .is('cancelled_at', null)
       .is('selected_at', null)
       .is('passed_over_at', null);
 
@@ -1884,11 +2059,13 @@ export async function handleSelectionWebhook(
     }
   } else {
     // SquadHub selected only partners — pass over all accepted talents
+    // (live round only; cancelled rows are retired audit state).
     await supabaseAdmin
       .from('subscription_card_recipients')
       .update({ passed_over_at: selectedAt })
       .eq('card_id', cid)
       .eq('status', 'accepted')
+      .is('cancelled_at', null)
       .is('passed_over_at', null);
   }
 
@@ -1964,9 +2141,11 @@ export async function handleSelectionUndoWebhook(
 
 /**
  * Fresh broadcast — triggered by SquadHub's "Broadcast to talents" after a
- * reopen. Wipes the prior round's recipients and re-fans-out to the FULL
- * matching pool so every matching talent gets a fresh offer. The recreated rows
- * carry new ids, so responses flow back to SquadHub as a clean new round.
+ * reopen. Retires the prior round's recipients (soft-cancel, keeping the
+ * accepted/rejected audit rows SquadHub also archives on its side) and
+ * re-fans-out to the FULL matching pool so every matching talent gets a fresh
+ * offer. The new rows carry new ids, so responses flow back to SquadHub as a
+ * clean new round.
  */
 export async function freshBroadcast(externalCardId: string): Promise<{ matched: number }> {
   const { data: card } = await supabaseAdmin
@@ -1977,8 +2156,21 @@ export async function freshBroadcast(externalCardId: string): Promise<{ matched:
   if (!card) return { matched: 0 };
   const cid = (card as any).id as string;
 
-  // Wipe the prior round's recipients (a true fresh ask to everyone).
-  await supabaseAdmin.from('subscription_card_recipients').delete().eq('card_id', cid);
+  // Retire the prior round's recipients with cancelled_at rather than deleting
+  // them: SquadHub keeps archived copies of the old round, so a hard delete
+  // forks the two systems' histories and leaves any late talent-response
+  // callback pointing at a missing row. The partial unique index
+  // (`WHERE cancelled_at IS NULL`) lets the fresh round's rows insert alongside
+  // the retired ones, and fanOutBroadcast dedups against non-cancelled rows
+  // only, so everyone still gets a fresh ask. Selection stamps are cleared so
+  // an old selected row can't resurface in My Clients once the card goes back
+  // to 'active' — the same reset the selection-undo callback applies, minus
+  // the dependence on that callback's timing.
+  await supabaseAdmin
+    .from('subscription_card_recipients')
+    .update({ cancelled_at: new Date().toISOString(), selected_at: null, passed_over_at: null })
+    .eq('card_id', cid)
+    .is('cancelled_at', null);
 
   // Reset the card to a clean, receivable state before re-inviting. Talents only
   // see cards that are status='active' AND archived_at IS NULL; clear any
