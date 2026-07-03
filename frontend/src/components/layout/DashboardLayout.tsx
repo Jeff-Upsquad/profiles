@@ -10,6 +10,8 @@ export interface SidebarItem {
   badge?: React.ReactNode;
   disabled?: boolean;
   tooltip?: string;
+  /** When true, renders a divider above this item to start a new section. */
+  groupStart?: boolean;
 }
 
 interface DashboardLayoutProps {
@@ -58,8 +60,12 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
             }`}
           >
             <nav className="flex flex-col gap-0.5 p-3">
-              {sidebarItems.map((item) =>
-                item.disabled ? (
+              {sidebarItems.map((item, index) => {
+                const divider =
+                  item.groupStart && index > 0 ? (
+                    <div key={`${item.to}-divider`} className="my-2 h-px bg-[#E7E7EA]" />
+                  ) : null;
+                const node = item.disabled ? (
                   <div
                     key={item.to}
                     title={item.tooltip}
@@ -86,8 +92,9 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
                     <span className="flex-1">{item.label}</span>
                     {item.badge}
                   </Link>
-                ),
-              )}
+                );
+                return divider ? [divider, node] : node;
+              })}
             </nav>
           </aside>
         ) : null}
