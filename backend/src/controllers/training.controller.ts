@@ -233,7 +233,14 @@ async function fetchUserCategoryIds(userId: string): Promise<string[]> {
 export async function getMyTraining(req: Request, res: Response, next: NextFunction) {
   try {
     const userId = req.user!.id;
-    const categoryIds = await fetchUserCategoryIds(userId);
+    // Categories the talent has a profile in, plus any whose profile-gate lesson
+    // they've completed — so a gate course stays listed in the Training Program
+    // (rewatchable) even before they finish building that profile.
+    const [profileCategoryIds, gateCategoryIds] = await Promise.all([
+      fetchUserCategoryIds(userId),
+      trainingService.getStartedGateCategoryIds(userId),
+    ]);
+    const categoryIds = [...new Set([...profileCategoryIds, ...gateCategoryIds])];
 
     const [courses, chapters, progress] = await Promise.all([
       trainingService.getMyCourses(userId, categoryIds),
