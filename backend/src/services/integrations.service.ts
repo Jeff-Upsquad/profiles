@@ -241,7 +241,7 @@ export async function getTalentAvailability(
 export interface TalentByPhoneResult {
   // 'talent' = matched a talent_users row directly (or via a lead_submission's
   // linked_talent_user_id). 'candidate' = no talent_user matched but a
-  // lead_submission did, so the CRM links to the Candidate admin page instead.
+  // lead_submission did, so the CRM links to the Candidates page instead.
   kind: 'talent' | 'candidate';
   // talent_users.id when kind = 'talent'; lead_submissions.id when 'candidate'.
   talent_user_id: string;
@@ -249,8 +249,10 @@ export interface TalentByPhoneResult {
   // For 'talent': 'approved' | 'pending' | 'rejected' | 'draft' | 'no_profile'
   // For 'candidate': lead_submissions.status ('new' | 'contacted' | 'converted' | 'rejected')
   profile_status: string;
-  // Absolute URL into the SquadHire admin. null when SQUADHIRE_ADMIN_URL is
-  // not configured — the CRM treats null and a 404 the same.
+  // Absolute URL into the SquadHire staff portal (/staff — CRM operators are
+  // staff users, not admins; field keeps its historical name for wire compat).
+  // null when SQUADHIRE_ADMIN_URL is not configured — the CRM treats null and
+  // a 404 the same.
   admin_url: string | null;
 }
 
@@ -265,7 +267,7 @@ export interface TalentByPhoneResult {
  *      - if linked_talent_user_id is set, resolve as kind = 'talent' against
  *        that user (handles the case where the talent's stored phone is
  *        typo'd but the lead_submission has the correct number).
- *      - otherwise return as kind = 'candidate' with /leads/{id} admin URL.
+ *      - otherwise return as kind = 'candidate' with a staff-portal leads URL.
  *   3. Return null only when nothing matches in either table.
  */
 export async function lookupTalentByPhone(
@@ -378,9 +380,11 @@ async function rankAndBuildTalentResult(
   const adminBase = (env.SQUADHIRE_ADMIN_URL || '').replace(/\/$/, '');
   // Always land operators on the talent user overview — that page exposes the
   // WhatsApp / Open in CRM / Edit Profile / Mark Inactive actions they actually
-  // need. The per-category /admin/talents/<cat>/<profile> page is a job-
-  // profile detail and not what the CRM badge should open.
-  const adminUrl = adminBase ? `${adminBase}/admin/users/${winner.user.id}` : null;
+  // need. The per-category talents/<cat>/<profile> page is a job-profile
+  // detail and not what the CRM badge should open. Target the staff portal
+  // (/staff), not /admin — CRM operators are staff users and can't log into
+  // the full admin app.
+  const adminUrl = adminBase ? `${adminBase}/staff/users/${winner.user.id}` : null;
 
   return {
     kind: 'talent',
@@ -421,15 +425,16 @@ async function resolveCandidateByLast10(
     if (linked) return linked;
   }
 
-  // The admin Candidates page is a category hub at /admin/leads; drilling
-  // into a single lead requires form_type to pick the in-category list, plus
-  // selected=<id> to pop the side panel. /admin/leads/<id> alone redirects to
-  // the bare hub and won't open the lead.
+  // The Candidates page is a category hub at /leads; drilling into a single
+  // lead requires form_type to pick the in-category list, plus selected=<id>
+  // to pop the side panel. /leads/<id> alone redirects to the bare hub and
+  // won't open the lead. Target the staff portal (/staff), not /admin — CRM
+  // operators are staff users and can't log into the full admin app.
   const adminBase = (env.SQUADHIRE_ADMIN_URL || '').replace(/\/$/, '');
   const formType = match.form_type as string | null;
   const adminUrl =
     adminBase && formType
-      ? `${adminBase}/admin/leads?form_type=${encodeURIComponent(formType)}&selected=${encodeURIComponent(match.id)}`
+      ? `${adminBase}/staff/leads?form_type=${encodeURIComponent(formType)}&selected=${encodeURIComponent(match.id)}`
       : null;
 
   return {
