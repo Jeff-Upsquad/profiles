@@ -106,11 +106,17 @@ export default function TrainingChapterList({ courseId }: TrainingChapterListPro
                   </td>
                   <td className="px-6 py-4 text-gray-500 uppercase text-xs font-medium">{ch.language ?? 'en'}</td>
                   <td className="px-6 py-4 text-gray-500 text-xs">
-                    {ch.linked_module ? (
-                      <Badge variant="indigo">
-                        {{ 'basic-profile': 'Basic Profile', profiles: 'Job Profiles', subscriptions: 'Subscriptions', settings: 'Settings', notifications: 'Notifications' }[ch.linked_module] ?? ch.linked_module}
-                      </Badge>
-                    ) : '—'}
+                    <div className="flex flex-wrap gap-1">
+                      {ch.linked_module ? (
+                        <Badge variant="indigo">
+                          {{ 'basic-profile': 'Basic Profile', profiles: 'Job Profiles', subscriptions: 'Subscriptions', settings: 'Settings', notifications: 'Notifications' }[ch.linked_module] ?? ch.linked_module}
+                        </Badge>
+                      ) : null}
+                      {ch.gates_profile_creation && (
+                        <Badge variant="yellow">Profile gate</Badge>
+                      )}
+                      {!ch.linked_module && !ch.gates_profile_creation && '—'}
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-gray-500">{ch.lesson_count}</td>
                   <td className="px-6 py-4">

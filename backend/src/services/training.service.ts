@@ -756,27 +756,14 @@ export async function markLessonIncomplete(userId: string, lessonId: string) {
 // Module access
 // ---------------------------------------------------------------------------
 
-export async function getModuleAccess(userId: string, categoryIds: string[]) {
-  if (categoryIds.length === 0) return { unlocked: [] as string[], locked: [] as any[] };
-
-  // Grandfather: users with at least one approved profile bypass module locks
-  const { data: approvedProfiles, error: apErr } = await supabaseAdmin
-    .from('talent_profiles')
-    .select('id')
-    .eq('talent_user_id', userId)
-    .eq('status', 'approved')
-    .is('deleted_at', null)
-    .limit(1);
-
-  if (apErr) throw new AppError(500, `Failed to check approval status: ${apErr.message}`);
-  const hasApprovedProfile = (approvedProfiles?.length ?? 0) > 0;
-
-  // Parallel grandfather: an admin-set onboarding bypass unlocks everything
-  // just like having an approved profile would. Roll it into the same
-  // `hasApprovedProfile` signal so the chapter loop below treats them
-  // identically.
-  const bypassed = !hasApprovedProfile && (await isOnboardingBypassed(userId));
-  const treatsAsGrandfathered = hasApprovedProfile || bypassed;
+/**
+ * Resolve the set of chapter ids linked to any of the given categories — both
+ * directly (training_chapter_categories) and via a course-level category link
+ * (training_course_categories → chapters of non-deleted courses). Shared by
+ * module-access and profile-creation gating.
+ */
+async function resolveChapterIdsForCategories(categoryIds: string[]): Promise<string[]> {
+  if (categoryIds.length === 0) return [];
 
   // Find chapters via legacy training_chapter_categories link (chapters without a course)
   const { data: chapterJoinRows, error: jErr } = await supabaseAdmin
@@ -806,12 +793,37 @@ export async function getModuleAccess(userId: string, categoryIds: string[]) {
     courseChapterIds = (courseChapters ?? []).map((c: any) => c.id);
   }
 
-  const chapterIds = [
+  return [
     ...new Set([
       ...(chapterJoinRows ?? []).map((r: any) => r.chapter_id),
       ...courseChapterIds,
     ]),
   ];
+}
+
+export async function getModuleAccess(userId: string, categoryIds: string[]) {
+  if (categoryIds.length === 0) return { unlocked: [] as string[], locked: [] as any[] };
+
+  // Grandfather: users with at least one approved profile bypass module locks
+  const { data: approvedProfiles, error: apErr } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('id')
+    .eq('talent_user_id', userId)
+    .eq('status', 'approved')
+    .is('deleted_at', null)
+    .limit(1);
+
+  if (apErr) throw new AppError(500, `Failed to check approval status: ${apErr.message}`);
+  const hasApprovedProfile = (approvedProfiles?.length ?? 0) > 0;
+
+  // Parallel grandfather: an admin-set onboarding bypass unlocks everything
+  // just like having an approved profile would. Roll it into the same
+  // `hasApprovedProfile` signal so the chapter loop below treats them
+  // identically.
+  const bypassed = !hasApprovedProfile && (await isOnboardingBypassed(userId));
+  const treatsAsGrandfathered = hasApprovedProfile || bypassed;
+
+  const chapterIds = await resolveChapterIdsForCategories(categoryIds);
   if (chapterIds.length === 0) return { unlocked: [] as string[], locked: [] as any[] };
 
   const { data: chapters, error: cErr } = await supabaseAdmin
@@ -871,6 +883,103 @@ export async function getModuleAccess(userId: string, categoryIds: string[]) {
   }
 
   return { unlocked, locked };
+}
+
+// ---------------------------------------------------------------------------
+// Profile-creation gate (per category)
+// ---------------------------------------------------------------------------
+
+export interface ProfileGate {
+  /** True when the talent must finish the chapter before building this profile. */
+  locked: boolean;
+  /**
+   * The gate chapter to render (with lessons/videos/completion), or null when
+   * the category has no profile-gate chapter. When multiple gate chapters exist
+   * this is the first one still incomplete (else the first chapter).
+   */
+  chapter: any | null;
+}
+
+/**
+ * Profile-creation gate for a single category. A chapter linked to that
+ * category and flagged `gates_profile_creation` must have all its lessons
+ * completed before the talent can build a job profile in that category.
+ *
+ * Unlike module access, this gate does NOT grandfather talents with an approved
+ * profile — every category's lesson is required. The admin `skip_onboarding`
+ * bypass still applies (for QA). Opt-in: a category with no such chapter is not
+ * gated. Returns the full gate chapter (lessons + videos + completed flags) so
+ * the create flow can render it inline without depending on the talent's own
+ * training payload (the target category may not be among their profiles yet).
+ */
+export async function getProfileGate(userId: string, categoryId: string): Promise<ProfileGate> {
+  if (!categoryId) return { locked: false, chapter: null };
+
+  const chapterIds = await resolveChapterIdsForCategories([categoryId]);
+  if (chapterIds.length === 0) return { locked: false, chapter: null };
+
+  const { data: chapters, error: cErr } = await supabaseAdmin
+    .from('training_chapters')
+    .select('*')
+    .in('id', chapterIds)
+    .eq('is_active', true)
+    .eq('gates_profile_creation', true)
+    .order('sort_order', { ascending: true });
+
+  if (cErr) throw new AppError(500, `Failed to fetch gate chapters: ${cErr.message}`);
+  if (!chapters || chapters.length === 0) return { locked: false, chapter: null };
+
+  const gateChapterIds = chapters.map((c: any) => c.id);
+
+  const [lessonsResult, progressResult] = await Promise.all([
+    supabaseAdmin
+      .from('training_lessons')
+      .select('*')
+      .in('chapter_id', gateChapterIds)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true }),
+    supabaseAdmin
+      .from('training_lesson_progress')
+      .select('lesson_id')
+      .eq('talent_user_id', userId),
+  ]);
+
+  if (lessonsResult.error) throw new AppError(500, `Failed to fetch lessons: ${lessonsResult.error.message}`);
+  if (progressResult.error) throw new AppError(500, `Failed to fetch progress: ${progressResult.error.message}`);
+
+  const completedSet = new Set((progressResult.data ?? []).map((p: any) => p.lesson_id));
+  const lessonsWithVideos = await attachVideos(lessonsResult.data ?? []);
+
+  const lessonsByChapter: Record<string, any[]> = {};
+  for (const l of lessonsWithVideos) {
+    (lessonsByChapter[l.chapter_id] ??= []).push({ ...l, completed: completedSet.has(l.id) });
+  }
+
+  // Build the renderable chapter payloads (skip chapters with no lessons).
+  const chapterPayloads = chapters
+    .map((ch: any) => {
+      const lessons = lessonsByChapter[ch.id] ?? [];
+      return {
+        ...ch,
+        lessons,
+        completed_count: lessons.filter((l: any) => l.completed).length,
+        total_count: lessons.length,
+      };
+    })
+    .filter((ch: any) => ch.total_count > 0);
+
+  if (chapterPayloads.length === 0) return { locked: false, chapter: null };
+
+  const totalLessons = chapterPayloads.reduce((sum: number, ch: any) => sum + ch.total_count, 0);
+  const completedLessons = chapterPayloads.reduce((sum: number, ch: any) => sum + ch.completed_count, 0);
+
+  const bypassed = await isOnboardingBypassed(userId);
+  const locked = !bypassed && completedLessons < totalLessons;
+
+  // Render the first chapter that still has an incomplete lesson; else the first.
+  const firstIncomplete = chapterPayloads.find((ch: any) => ch.completed_count < ch.total_count);
+
+  return { locked, chapter: firstIncomplete ?? chapterPayloads[0] };
 }
 
 // ---------------------------------------------------------------------------

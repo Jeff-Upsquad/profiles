@@ -271,6 +271,7 @@ export function useMarkLessonComplete() {
       qc.invalidateQueries({ queryKey: ['onboardingTraining'] });
       qc.invalidateQueries({ queryKey: ['onboardingCourses'] });
       qc.invalidateQueries({ queryKey: ['moduleAccess'] });
+      qc.invalidateQueries({ queryKey: ['profileGate'] });
     },
   });
 }
@@ -287,6 +288,7 @@ export function useMarkLessonIncomplete() {
       qc.invalidateQueries({ queryKey: ['onboardingTraining'] });
       qc.invalidateQueries({ queryKey: ['onboardingCourses'] });
       qc.invalidateQueries({ queryKey: ['moduleAccess'] });
+      qc.invalidateQueries({ queryKey: ['profileGate'] });
     },
   });
 }
@@ -314,6 +316,34 @@ export function useModuleAccess() {
     queryFn: async () => {
       const { data } = await api.get('/talent/training/module-access');
       return data;
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Profile-creation gate (per category)
+// ---------------------------------------------------------------------------
+
+export interface ProfileGate {
+  /** True when the talent must finish `chapter` before building this profile. */
+  locked: boolean;
+  /** The gate chapter to render (lessons/videos/completion), or null when the
+   *  category has no profile-gate lesson (opt-in — build immediately). */
+  chapter: TrainingChapter | null;
+}
+
+/**
+ * Whether the talent must complete a training chapter before creating a job
+ * profile in `categoryId`. Returns `locked: false` when the category has no
+ * gate lesson or the lessons are already done.
+ */
+export function useProfileGate(categoryId: string | undefined) {
+  return useQuery<ProfileGate>({
+    queryKey: ['profileGate', categoryId],
+    enabled: !!categoryId,
+    queryFn: async () => {
+      const { data } = await api.get(`/talent/training/profile-gate/${categoryId}`);
+      return { locked: !!data.locked, chapter: data.chapter ?? null };
     },
   });
 }

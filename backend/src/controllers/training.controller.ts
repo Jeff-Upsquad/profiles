@@ -315,6 +315,20 @@ export async function getModuleAccess(req: Request, res: Response, next: NextFun
   }
 }
 
+// Profile-creation gate for a single category (the one being built). Returns
+// { locked, chapter } — the chapter (with lessons) that must be completed
+// before the talent can create a job profile in that category.
+export async function getProfileGate(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.id;
+    const categoryId = req.params.categoryId as string;
+    const gate = await trainingService.getProfileGate(userId, categoryId);
+    res.json(gate);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Talent — Onboarding
 // ---------------------------------------------------------------------------

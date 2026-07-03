@@ -70,6 +70,7 @@ export const createChapterSchema = z.object({
   is_onboarding: z.boolean().optional(),
   language: z.string().max(10).optional(),
   linked_module: linkedModuleEnum.nullable().optional(),
+  gates_profile_creation: z.boolean().optional(),
   course_id: z.string().uuid().nullable().optional(),
   category_ids: z
     .array(z.string().uuid('Each category_id must be a valid UUID'))
@@ -85,6 +86,7 @@ export const updateChapterSchema = z.object({
   is_onboarding: z.boolean().optional(),
   language: z.string().max(10).optional(),
   linked_module: linkedModuleEnum.nullable().optional(),
+  gates_profile_creation: z.boolean().optional(),
   course_id: z.string().uuid().nullable().optional(),
   category_ids: z
     .array(z.string().uuid('Each category_id must be a valid UUID'))
