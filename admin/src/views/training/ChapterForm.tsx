@@ -108,6 +108,8 @@ export default function ChapterForm({ chapter, courseId, onClose }: ChapterFormP
           <option value="basic-profile">Basic Profile</option>
           <option value="profiles">Job Profiles</option>
           <option value="subscriptions">Subscriptions</option>
+          <option value="assignments">Assignments</option>
+          <option value="jobs">Job Openings</option>
           <option value="settings">Settings</option>
           <option value="notifications">Notifications</option>
         </select>

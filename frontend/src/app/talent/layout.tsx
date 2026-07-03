@@ -6,6 +6,7 @@ import DashboardLayout, { type SidebarItem } from '@/components/layout/Dashboard
 import Badge from '@/components/ui/Badge';
 import { useUnreadSubscriptionCount } from '@/hooks/useSubscriptionCards';
 import { useModuleAccess, useMyTraining } from '@/hooks/useTraining';
+import ModuleUnlockGate from '@/components/training/ModuleUnlockGate';
 
 const ALWAYS_ACCESSIBLE = ['/talent/dashboard', '/talent/training', '/talent/contact-support'];
 
@@ -13,10 +14,22 @@ const ROUTE_TO_MODULE: Record<string, string> = {
   '/talent/basic-profile': 'basic-profile',
   '/talent/profiles': 'profiles',
   '/talent/subscriptions': 'subscriptions',
-  '/talent/assignments': 'subscriptions',
+  '/talent/assignments': 'assignments',
+  '/talent/job-openings': 'jobs',
   '/talent/my-clients': 'subscriptions',
   '/talent/settings': 'settings',
   '/talent/notifications': 'notifications',
+};
+
+/** Human-facing labels for the inline unlock gate header, keyed by module slug. */
+const MODULE_LABELS: Record<string, string> = {
+  'basic-profile': 'Basic Profile',
+  profiles: 'Job Profiles',
+  subscriptions: 'Subscriptions',
+  assignments: 'Assignments',
+  jobs: 'Job Openings',
+  settings: 'Settings',
+  notifications: 'Notifications',
 };
 
 export default function TalentLayout({
@@ -69,7 +82,18 @@ export default function TalentLayout({
     return !onboarded;
   };
 
-  if (pathname && isModuleLocked(pathname)) {
+  const currentModule = pathname
+    ? Object.entries(ROUTE_TO_MODULE).find(
+        ([r]) => pathname === r || pathname.startsWith(r + '/'),
+      )?.[1]
+    : undefined;
+  const currentLock = currentModule ? lockedMap.get(currentModule) : undefined;
+  const currentRouteLocked = !!pathname && isModuleLocked(pathname);
+
+  // Locked route with no unlock video to show (e.g. onboarding incomplete and
+  // no linked training chapter) — fall back to the dashboard as before. When
+  // there IS a linked chapter we instead render the unlock gate inline below.
+  if (currentRouteLocked && !currentLock) {
     router.push('/talent/dashboard');
     return null;
   }
@@ -206,14 +230,34 @@ export default function TalentLayout({
     if (unlockedSet.has(mod)) return item;
     const lock = lockedMap.get(mod);
     if (lock) {
+      // Locked, but there's an unlock video — keep the item clickable so the
+      // talent can open it and watch the training inline. Show a lock badge
+      // (with progress) instead of the normal badge.
+      const tooltip = `Complete "${lock.chapter_title}" to unlock (${lock.completed}/${lock.total})`;
       return {
         ...item,
-        disabled: true,
-        tooltip: `Complete "${lock.chapter_title}" to unlock (${lock.completed}/${lock.total})`,
+        tooltip,
+        badge: (
+          <span title={tooltip} className="inline-flex items-center text-[#a3a3a3]">
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </span>
+        ),
       };
     }
     return onboarded ? item : { ...item, disabled: true, tooltip: 'Complete training to unlock' };
   });
 
-  return <DashboardLayout sidebarItems={gatedItems}>{children}</DashboardLayout>;
+  const content =
+    currentRouteLocked && currentLock ? (
+      <ModuleUnlockGate
+        moduleLabel={MODULE_LABELS[currentLock.module] ?? 'this section'}
+        chapterId={currentLock.chapter_id}
+      />
+    ) : (
+      children
+    );
+
+  return <DashboardLayout sidebarItems={gatedItems}>{content}</DashboardLayout>;
 }

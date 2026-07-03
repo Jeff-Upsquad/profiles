@@ -53,6 +53,8 @@ const linkedModuleEnum = z.enum([
   'basic-profile',
   'profiles',
   'subscriptions',
+  'assignments',
+  'jobs',
   'settings',
   'notifications',
 ]);

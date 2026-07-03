@@ -297,6 +297,7 @@ export function useMarkLessonIncomplete() {
 
 interface LockedModule {
   module: string;
+  chapter_id: string;
   chapter_title: string;
   completed: number;
   total: number;

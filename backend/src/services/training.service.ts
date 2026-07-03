@@ -850,7 +850,7 @@ export async function getModuleAccess(userId: string, categoryIds: string[]) {
   }
 
   const unlocked: string[] = [];
-  const locked: { module: string; chapter_title: string; completed: number; total: number }[] = [];
+  const locked: { module: string; chapter_id: string; chapter_title: string; completed: number; total: number }[] = [];
 
   for (const ch of chapters) {
     const lessonIds = lessonsByChapter[ch.id] ?? [];
@@ -862,6 +862,7 @@ export async function getModuleAccess(userId: string, categoryIds: string[]) {
     } else {
       locked.push({
         module: ch.linked_module,
+        chapter_id: ch.id,
         chapter_title: ch.title,
         completed: completedCount,
         total,

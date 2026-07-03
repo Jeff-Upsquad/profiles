@@ -140,7 +140,7 @@ function ProgressBar({ completed, total, color = 'rainbow' }: { completed: numbe
 
 const WATCH_COOLDOWN_SECONDS = 60;
 
-function LessonCard({ lesson, index, language }: { lesson: TrainingLesson; index: number; language: string }) {
+export function LessonCard({ lesson, index, language }: { lesson: TrainingLesson; index: number; language: string }) {
   const markComplete = useMarkLessonComplete();
   const markIncomplete = useMarkLessonIncomplete();
   const isPending = markComplete.isPending || markIncomplete.isPending;
