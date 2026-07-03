@@ -24,7 +24,9 @@ import {
 } from '@/hooks/useTraining';
 import CourseStartPopup from './CourseStartPopup';
 
-function loomEmbedUrl(shareUrl: string): string {
+// Both supported providers (Loom and SquadClips / clips.squadhub.in) expose a
+// chrome-free player at the same token under `/embed/` instead of `/share/`.
+function videoEmbedUrl(shareUrl: string): string {
   return shareUrl.replace('/share/', '/embed/');
 }
 
@@ -171,10 +173,10 @@ export function LessonCard({ lesson, index, language }: { lesson: TrainingLesson
     <div className="group rounded-2xl border border-[#E7E7EA] overflow-hidden bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)]">
       <div className="aspect-video bg-[#09090B] relative">
         <iframe
-          src={loomEmbedUrl(videoUrl)}
+          src={videoEmbedUrl(videoUrl)}
           className="w-full h-full"
           allowFullScreen
-          allow="autoplay; fullscreen"
+          allow="autoplay; fullscreen; picture-in-picture"
         />
         <div className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 backdrop-blur-sm">
           <span className="font-[family-name:var(--font-inter)] text-[11px] font-semibold text-white">

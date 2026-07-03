@@ -150,7 +150,7 @@ export default function LessonForm({ chapterId, lesson, onClose }: LessonFormPro
                 type="url"
                 value={video.loom_url}
                 onChange={(e) => updateVideo(index, 'loom_url', e.target.value)}
-                placeholder="https://www.loom.com/share/abc123..."
+                placeholder="Loom or SquadClips share URL"
                 className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 required
               />
@@ -173,7 +173,7 @@ export default function LessonForm({ chapterId, lesson, onClose }: LessonFormPro
           <p className="mt-1 text-sm text-red-600">Each language can only appear once</p>
         )}
         <p className="mt-1 text-xs text-gray-500">
-          Add a Loom video for each language you want to support. The talent user picks their language when starting the training.
+          Add a Loom or SquadClips (clips.squadhub.in) share link for each language you want to support. The talent user picks their language when starting the training.
         </p>
       </div>
 

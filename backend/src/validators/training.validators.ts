@@ -98,14 +98,20 @@ export const updateChapterSchema = z.object({
 // Lesson schemas
 // ---------------------------------------------------------------------------
 
+// Training lesson videos may be hosted on Loom or on SquadClips
+// (clips.squadhub.in). Both expose a `/share/<token>` link that the talent
+// player turns into an `/embed/<token>` iframe.
 const loomUrlRegex = /^https:\/\/(www\.)?loom\.com\/share\/[\w-]+/;
+const squadClipsUrlRegex = /^https:\/\/clips\.squadhub\.in\/share\/[\w-]+/;
+const isSupportedVideoUrl = (url: string) =>
+  loomUrlRegex.test(url) || squadClipsUrlRegex.test(url);
 
 const lessonVideoSchema = z.object({
   language: z.string().min(1).max(10),
   loom_url: z
     .string()
     .url('Must be a valid URL')
-    .refine((url) => loomUrlRegex.test(url), 'Must be a valid Loom share URL'),
+    .refine(isSupportedVideoUrl, 'Must be a valid Loom or SquadClips share URL'),
 });
 
 export const createLessonSchema = z.object({
