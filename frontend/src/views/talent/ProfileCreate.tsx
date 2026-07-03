@@ -16,6 +16,8 @@ import { useAuth } from '@/context/AuthContext';
 import { coerceLeveledList } from '../../../../shared/src/types/talent';
 import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
 import ApprovalCelebration from '@/components/talent/ApprovalCelebration';
+import ProfileTrainingGate from '@/components/training/ProfileTrainingGate';
+import { useProfileGate } from '@/hooks/useTraining';
 import type { Category, CategoryField } from '@/types';
 
 const BUILTIN_EXPERIENCE_FIELD: CategoryField = {
@@ -71,6 +73,10 @@ export default function ProfileCreate() {
   const { data: categoryWithFields, isLoading: fieldsLoading } = useCategoryWithFields(
     selectedCategory?.slug
   );
+  // Per-category training gate: the talent must finish this category's lesson
+  // before the build form is shown. `locked: false` (no lesson / already done)
+  // lets the form through immediately.
+  const { data: profileGate, isLoading: gateLoading } = useProfileGate(selectedCategory?.id);
   const { data: portfolioItems } = usePortfolioItems(draftProfileId ?? undefined);
 
   useEffect(() => {
@@ -365,7 +371,7 @@ export default function ProfileCreate() {
 
       {!isApproved && <PendingApprovalBanner />}
 
-      {fieldsLoading ? (
+      {gateLoading || fieldsLoading ? (
         <div className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-8 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="space-y-4">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -373,6 +379,11 @@ export default function ProfileCreate() {
             ))}
           </div>
         </div>
+      ) : profileGate?.locked && profileGate.chapter ? (
+        <ProfileTrainingGate
+          categoryName={selectedCategory.name}
+          chapter={profileGate.chapter}
+        />
       ) : (
         <div className="space-y-6">
           {/* Profile Details */}
@@ -504,7 +515,8 @@ export default function ProfileCreate() {
         </div>
       )}
 
-      {/* Sticky action bar */}
+      {/* Sticky action bar — hidden while the category's training gate is unmet */}
+      {!(profileGate?.locked && profileGate.chapter) && (
       <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E7E7EA] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
         <div className="text-xs text-[#737373] px-2">
           {!isApproved && !autoApproveActive && 'Submission unlocks once your account is approved.'}
@@ -532,6 +544,7 @@ export default function ProfileCreate() {
           </button>
         </div>
       </div>
+      )}
 
       {celebrationPhase && <ApprovalCelebration phase={celebrationPhase} />}
     </div>

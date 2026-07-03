@@ -21,6 +21,9 @@ export default function ChapterForm({ chapter, courseId, onClose }: ChapterFormP
   const [sortOrder, setSortOrder] = useState(chapter?.sort_order ?? 0);
   const [isActive, setIsActive] = useState(chapter?.is_active ?? true);
   const [linkedModule, setLinkedModule] = useState(chapter?.linked_module ?? '');
+  const [gatesProfileCreation, setGatesProfileCreation] = useState(
+    chapter?.gates_profile_creation ?? false,
+  );
 
   const effectiveCourseId = courseId ?? chapter?.course_id ?? null;
   const { data: course } = useCourse(effectiveCourseId ?? undefined);
@@ -37,6 +40,7 @@ export default function ChapterForm({ chapter, courseId, onClose }: ChapterFormP
       sort_order: sortOrder,
       is_active: isActive,
       linked_module: linkedModule || null,
+      gates_profile_creation: gatesProfileCreation,
       course_id: effectiveCourseId,
     };
 
@@ -116,6 +120,26 @@ export default function ChapterForm({ chapter, courseId, onClose }: ChapterFormP
         <p className="mt-1 text-xs text-gray-500">
           The talent sidebar module that will be unlocked when this chapter is completed.
         </p>
+      </div>
+
+      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+        <label htmlFor="chapter-gates-profile" className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            id="chapter-gates-profile"
+            checked={gatesProfileCreation}
+            onChange={(e) => setGatesProfileCreation(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          <span className="text-sm text-gray-700">
+            <span className="font-medium">Gate job-profile creation</span>
+            <span className="mt-0.5 block text-xs text-gray-500">
+              When on, talents must finish this chapter before creating a job profile in the linked
+              category. Remember to link this chapter to that category (add it to a course/category, or
+              a category-linked chapter) so it also shows in their Training Program.
+            </span>
+          </span>
+        </label>
       </div>
 
       <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">

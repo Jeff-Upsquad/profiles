@@ -30,6 +30,7 @@ export interface TrainingChapter {
   is_onboarding: boolean;
   language: string;
   linked_module?: string | null;
+  gates_profile_creation?: boolean;
   course_id?: string | null;
   categories: { id: string; name: string; slug: string }[];
   lesson_count: number;
@@ -193,6 +194,7 @@ export function useCreateChapter() {
       is_onboarding?: boolean;
       language?: string;
       linked_module?: string | null;
+      gates_profile_creation?: boolean;
       course_id?: string | null;
       category_ids?: string[];
     }) => {
@@ -224,6 +226,7 @@ export function useUpdateChapter() {
       is_onboarding?: boolean;
       language?: string;
       linked_module?: string | null;
+      gates_profile_creation?: boolean;
       course_id?: string | null;
       category_ids?: string[];
     }) => {
