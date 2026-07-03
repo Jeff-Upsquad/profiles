@@ -86,19 +86,31 @@ export const manualAssignTalentSchema = z.object({
   card_id: z.string().min(1).max(200),
   talent_id: z.string().uuid(),
   assigned_at: z.string().datetime({ offset: true }).optional(),
+  /** Direct-assign mode: the talent is already the card's finalized recipient
+   *  on SquadHub (change-talent swap on a live assignment). Record them as
+   *  accepted + selected and promote the card — NOT a pending offer, which on
+   *  an assigned card would land in the talent's Expired tab. */
+  assigned: z.boolean().optional(),
 });
 
 /**
  * Inbound notification from SquadHub when an admin removes a previously-
- * assigned talent from a card. Delete the recipient row so the talent stops
- * seeing the card in their subscriptions tab. Idempotent — a removal for a
- * card+talent pair that's already gone returns `removed: 0`.
+ * assigned talent from a card. Soft-cancels the talent's active recipient row
+ * (cancelled_at stamp, same as recall / fresh broadcast) so the offer leaves
+ * their Pending tab while retired rounds' audit rows survive. Idempotent — a
+ * removal for a pair with no active row returns `removed: 0`.
  */
 export const removeAssignedTalentSchema = z.object({
   type: z.literal('manual_assignment_removal').optional(),
   card_id: z.string().min(1).max(200),
   talent_id: z.string().uuid(),
+  /** Used as the row's cancelled_at when provided, keeping the two systems'
+   *  audit timestamps aligned. */
   removed_at: z.string().datetime({ offset: true }).optional(),
+  /** Push an "assignment updated" notification to the removed talent. Sent by
+   *  SquadHub's change-talent (a live engagement ending); pre-broadcast
+   *  hand-pick removals stay silent as before. */
+  notify: z.boolean().optional(),
 });
 
 /**
