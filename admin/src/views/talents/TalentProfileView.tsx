@@ -74,6 +74,7 @@ interface ProfileData {
     languages_spoken: string[];
     profile_photo_url?: string;
     is_active?: boolean;
+    suspended?: boolean;
   };
   categories?: { name: string; slug: string };
   portfolio_items?: PortfolioItem[];
@@ -199,6 +200,25 @@ export default function TalentProfileView({
     },
   });
 
+  const suspendUser = useMutation({
+    mutationFn: async ({ userId, suspend }: { userId: string; suspend: boolean }) => {
+      await api.patch(`/admin/users/${userId}/suspend`, { suspend });
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['talent-profile', profileId] });
+      queryClient.invalidateQueries({ queryKey: ['talent-profiles'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-user-detail', vars.userId] });
+      toast.success(
+        vars.suspend
+          ? 'Account suspended — no new subscriptions, assignments, or job opportunities'
+          : 'Account unsuspended',
+      );
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to update suspension');
+    },
+  });
+
   const { data: fields } = useQuery<CategoryField[]>({
     queryKey: ['category-fields', profile?.category_id],
     queryFn: async () => {
@@ -308,6 +328,7 @@ export default function TalentProfileView({
             {talentUser?.is_active === false && (
               <Badge variant="gray">Talent account inactive</Badge>
             )}
+            {talentUser?.suspended === true && <Badge variant="red">Suspended</Badge>}
           </div>
           <div className="mt-2 flex items-center gap-1.5 text-sm text-gray-600">
             <svg className="h-4 w-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -379,6 +400,26 @@ export default function TalentProfileView({
           >
             {profile.is_active ? 'Mark Inactive' : 'Mark Active'}
           </Button>
+          {talentUser?.id && (
+            <Button
+              variant={talentUser.suspended ? 'primary' : 'danger'}
+              size="sm"
+              loading={suspendUser.isPending}
+              onClick={() => {
+                const suspend = !talentUser.suspended;
+                if (
+                  !suspend ||
+                  window.confirm(
+                    `Suspend ${talentUser.full_name ?? 'this talent'}? They will not receive any new subscriptions, assignments, or job opportunities until unsuspended. Existing engagements are not affected.`,
+                  )
+                ) {
+                  suspendUser.mutate({ userId: talentUser.id, suspend });
+                }
+              }}
+            >
+              {talentUser.suspended ? 'Unsuspend' : 'Suspend'}
+            </Button>
+          )}
           <button
             onClick={() => router.push(`/talents/${categoryId}/${profileId}/preview`)}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"

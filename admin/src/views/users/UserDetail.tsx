@@ -1010,6 +1010,7 @@ export default function UserDetail({ userId }: { userId: string }) {
                   </Badge>
                 )}
                 {!user.is_active && <Badge variant="gray">Inactive</Badge>}
+                {user.suspended && <Badge variant="red">Suspended</Badge>}
               </div>
               <div className="mt-3">
                 <span className="eyebrow-rainbow">

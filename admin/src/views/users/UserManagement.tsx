@@ -216,6 +216,7 @@ export default function UserManagement() {
                         <div className="flex items-center gap-2">
                           <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
                           {!user.is_active && <Badge variant="gray">Inactive</Badge>}
+                          {user.suspended && <Badge variant="red">Suspended</Badge>}
                         </div>
                         {user.email && <div className="text-xs text-gray-500">{user.email}</div>}
                       </td>

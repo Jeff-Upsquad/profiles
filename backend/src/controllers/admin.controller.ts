@@ -632,8 +632,12 @@ export async function searchUsers(req: Request, res: Response, next: NextFunctio
 
 export async function suspendUser(req: Request, res: Response, next: NextFunction) {
   try {
-    const { suspend } = req.body;
-    const result = await adminService.suspendUser(req.params.id as string, suspend ?? true);
+    const { suspend, reason } = req.body;
+    const result = await adminService.suspendUser(
+      req.params.id as string,
+      suspend ?? true,
+      typeof reason === 'string' ? reason : null,
+    );
     res.json(result);
   } catch (err) {
     next(err);

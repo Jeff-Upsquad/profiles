@@ -46,11 +46,14 @@ export async function findMatchingTalents(matchRules: MatchRules): Promise<strin
     return [];
   }
 
-  // Step 1: Base query — category + experience
+  // Step 1: Base query — category + experience. Suspended talents are
+  // excluded here so every fan-out path (ingest, broadcast, fresh broadcast,
+  // reopen, publish) is gated in one place.
   let qb = supabaseAdmin
     .from('talent_profiles')
-    .select('id, talent_user_id')
+    .select('id, talent_user_id, talent_users!inner(suspended)')
     .eq('status', 'approved')
+    .eq('talent_users.suspended', false)
     .in('category_id', categoryIds);
 
   const minExp = Number(matchRules.min_experience_years) || 0;

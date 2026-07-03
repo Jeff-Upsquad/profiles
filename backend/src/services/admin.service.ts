@@ -804,14 +804,35 @@ export async function extendBusinessAccess(
   };
 }
 
-export async function suspendUser(userId: string, suspend: boolean) {
+// Suspension blocks NEW opportunities only (subscription/assignment/hiring
+// cards — enforced in subscription-matcher + manual-assign + admin-select).
+// It does not ban login and does not touch existing engagements.
+// talent_users.suspended is the source of truth; auth user_metadata is kept
+// as a mirror for backwards compat with anything reading the old flag. The
+// endpoint also serves business users, who have no talent_users row — for
+// them only the metadata flag is written, as before.
+export async function suspendUser(userId: string, suspend: boolean, reason?: string | null) {
+  const { data: talentRows, error: talentErr } = await supabaseAdmin
+    .from('talent_users')
+    .update({
+      suspended: suspend,
+      suspended_at: suspend ? new Date().toISOString() : null,
+      suspended_reason: suspend ? (reason ?? null) : null,
+    })
+    .eq('id', userId)
+    .select('id');
+  if (talentErr) throw new AppError(500, talentErr.message);
+
   const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-    ban_duration: suspend ? 'none' : undefined,
     user_metadata: { suspended: suspend },
   });
-
   if (error) throw new AppError(400, error.message);
-  return { message: suspend ? 'User suspended' : 'User unsuspended' };
+
+  return {
+    message: suspend ? 'User suspended' : 'User unsuspended',
+    suspended: suspend,
+    is_talent: (talentRows?.length ?? 0) > 0,
+  };
 }
 
 // Set tier on a single talent profile from the Talents admin UI.
