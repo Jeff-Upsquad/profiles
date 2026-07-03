@@ -982,6 +982,73 @@ export async function getProfileGate(userId: string, categoryId: string): Promis
   return { locked, chapter: firstIncomplete ?? chapterPayloads[0] };
 }
 
+/**
+ * Categories for which this talent has completed at least one profile-gate
+ * lesson. The Training Program is otherwise scoped to categories the talent
+ * already has a profile in; this lets a gate course still show up there once
+ * the talent has watched its lesson (so it stays viewable/rewatchable) even
+ * before they finish building that profile. Resolves each started gate chapter
+ * back to its categories via the direct chapter link and the course link.
+ */
+export async function getStartedGateCategoryIds(userId: string): Promise<string[]> {
+  const { data: gateChapters, error: gErr } = await supabaseAdmin
+    .from('training_chapters')
+    .select('id, course_id')
+    .eq('is_active', true)
+    .eq('gates_profile_creation', true);
+  if (gErr) throw new AppError(500, `Failed to fetch gate chapters: ${gErr.message}`);
+  if (!gateChapters || gateChapters.length === 0) return [];
+
+  const { data: lessons, error: lErr } = await supabaseAdmin
+    .from('training_lessons')
+    .select('id, chapter_id')
+    .in('chapter_id', gateChapters.map((c: any) => c.id))
+    .eq('is_active', true);
+  if (lErr) throw new AppError(500, `Failed to fetch gate lessons: ${lErr.message}`);
+  if (!lessons || lessons.length === 0) return [];
+
+  const { data: progress, error: pErr } = await supabaseAdmin
+    .from('training_lesson_progress')
+    .select('lesson_id')
+    .eq('talent_user_id', userId)
+    .in('lesson_id', lessons.map((l: any) => l.id));
+  if (pErr) throw new AppError(500, `Failed to fetch gate progress: ${pErr.message}`);
+
+  const completed = new Set((progress ?? []).map((p: any) => p.lesson_id));
+  const startedChapterIds = new Set(
+    lessons.filter((l: any) => completed.has(l.id)).map((l: any) => l.chapter_id),
+  );
+  if (startedChapterIds.size === 0) return [];
+
+  const startedCourseIds = [
+    ...new Set(
+      gateChapters
+        .filter((c: any) => startedChapterIds.has(c.id) && c.course_id)
+        .map((c: any) => c.course_id),
+    ),
+  ];
+
+  const categoryIds = new Set<string>();
+
+  const { data: chCats, error: ccErr } = await supabaseAdmin
+    .from('training_chapter_categories')
+    .select('category_id')
+    .in('chapter_id', [...startedChapterIds]);
+  if (ccErr) throw new AppError(500, `Failed to fetch chapter categories: ${ccErr.message}`);
+  (chCats ?? []).forEach((r: any) => categoryIds.add(r.category_id));
+
+  if (startedCourseIds.length > 0) {
+    const { data: coCats, error: coErr } = await supabaseAdmin
+      .from('training_course_categories')
+      .select('category_id')
+      .in('course_id', startedCourseIds);
+    if (coErr) throw new AppError(500, `Failed to fetch course categories: ${coErr.message}`);
+    (coCats ?? []).forEach((r: any) => categoryIds.add(r.category_id));
+  }
+
+  return [...categoryIds];
+}
+
 // ---------------------------------------------------------------------------
 // Talent — Courses
 // ---------------------------------------------------------------------------
