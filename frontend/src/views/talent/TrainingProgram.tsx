@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -528,6 +528,21 @@ function OnboardingTraining() {
     { completed: 0, total: 0 },
   );
   const allComplete = totals.total > 0 && totals.completed === totals.total;
+
+  // Auto-unlock: the moment every onboarding lesson is complete, flip the
+  // onboarding flag automatically so the account unlocks without needing a
+  // separate "Build Profile" click. Fires once per mount; the ref guard
+  // prevents duplicate mutations while the request is in flight. If it fails
+  // the manual "Build Profile" button below stays as a fallback.
+  const autoUnlockFired = useRef(false);
+  useEffect(() => {
+    if (allComplete && !autoUnlockFired.current && !completeOnboarding.isPending) {
+      autoUnlockFired.current = true;
+      completeOnboarding.mutateAsync().catch(() => {
+        // leave the flag set; the explicit button remains available to retry
+      });
+    }
+  }, [allComplete, completeOnboarding]);
 
   const handleBuildProfile = async () => {
     try {
