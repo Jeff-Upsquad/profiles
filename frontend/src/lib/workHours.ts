@@ -74,6 +74,14 @@ export function fmt(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
+// Minutes since midnight → 24h "HH:MM" (1440 → "24:00").
+export function minutesToTime(min: number): string {
+  const c = Math.max(0, Math.min(1440, Math.round(min)));
+  const h = Math.floor(c / 60);
+  const m = c % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
 // ── 12-hour time helpers (UI is 12h AM/PM; storage stays 24h "HH:MM") ──
 
 export interface Time12 {
