@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import {
   type DayId,
   type DayHours,
@@ -8,10 +8,10 @@ import {
   WEEKDAYS,
   WEEKEND,
   ALL_DAYS,
+  toMinutes,
+  minutesToTime,
   monthlyOccurrences,
   fmt,
-  parse12,
-  build24,
   format12,
 } from '@/lib/workHours';
 
@@ -22,74 +22,106 @@ interface Props {
   onDailyAvailableChange: (next: DayAvailableHours[]) => void;
 }
 
-const MINUTES = [0, 15, 30, 45];
-const HOURS12 = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+const DEFAULT_FROM = '09:00';
+const DEFAULT_TO = '17:00';
+const MIN = 0;
+const MAX = 1440; // minutes in a day
+const STEP = 30;
+const GAP = 30; // keep the two handles at least 30 min apart
 
-// ── 12-hour AM/PM time input (stores 24h "HH:MM") ──
-function Time12Input({
-  value,
+// Display a minute value in 12h form ('12:00 AM' for the 24:00 end-of-day).
+function label(min: number): string {
+  return min >= MAX ? '12:00 AM' : format12(minutesToTime(min));
+}
+
+// ── Horizontal dual-handle time-window slider (stores 24h "HH:MM") ──
+function TimeRangeSlider({
+  from,
+  to,
   onChange,
-  ariaLabel,
 }: {
-  value: string;
-  onChange: (v: string) => void;
-  ariaLabel: string;
+  from: string;
+  to: string;
+  onChange: (from: string, to: string) => void;
 }) {
-  const parts = parse12(value);
-  const hour12 = parts?.hour12 ?? '';
-  const minute = parts?.minute ?? 0;
-  const meridiem = parts?.meridiem ?? 'AM';
+  const trackRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<'from' | 'to' | null>(null);
 
-  const emit = (h: number | '', m: number, mer: 'AM' | 'PM') => {
-    if (h === '') {
-      onChange('');
-      return;
-    }
-    onChange(build24({ hour12: h, minute: m, meridiem: mer }));
+  const f = toMinutes(from) ?? 540;
+  const t = toMinutes(to) ?? 1020;
+
+  const snap = (v: number) => Math.round(Math.min(MAX, Math.max(MIN, v)) / STEP) * STEP;
+  const valueAt = (clientX: number) => {
+    const el = trackRef.current;
+    if (!el) return f;
+    const rect = el.getBoundingClientRect();
+    return snap(MIN + ((clientX - rect.left) / rect.width) * (MAX - MIN));
   };
 
-  const selectClass =
-    'rounded-lg border border-gray-300 px-2 py-1.5 text-sm shadow-sm focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/20';
+  const move = (e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    const v = valueAt(e.clientX);
+    if (dragRef.current === 'from') onChange(minutesToTime(Math.min(v, t - GAP)), minutesToTime(t));
+    else onChange(minutesToTime(f), minutesToTime(Math.max(v, f + GAP)));
+  };
+  const start = (which: 'from' | 'to') => (e: React.PointerEvent) => {
+    dragRef.current = which;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const end = (e: React.PointerEvent) => {
+    dragRef.current = null;
+    try {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      /* no-op */
+    }
+  };
+  const nudge = (which: 'from' | 'to') => (e: React.KeyboardEvent) => {
+    const d = e.key === 'ArrowRight' ? STEP : e.key === 'ArrowLeft' ? -STEP : 0;
+    if (!d) return;
+    e.preventDefault();
+    if (which === 'from') onChange(minutesToTime(Math.min(snap(f + d), t - GAP)), minutesToTime(t));
+    else onChange(minutesToTime(f), minutesToTime(Math.max(snap(t + d), f + GAP)));
+  };
+
+  const pct = (v: number) => `${((v - MIN) / (MAX - MIN)) * 100}%`;
+
+  const handle = (which: 'from' | 'to', v: number) => (
+    <div
+      role="slider"
+      aria-label={which === 'from' ? 'Office start time' : 'Office end time'}
+      aria-valuetext={label(v)}
+      tabIndex={0}
+      onPointerDown={start(which)}
+      onPointerMove={move}
+      onPointerUp={end}
+      onKeyDown={nudge(which)}
+      className="absolute top-1/2 z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none rounded-full border-2 border-[#0a0a0a] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.2)] transition-transform active:scale-110 active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/30"
+      style={{ left: pct(v) }}
+    />
+  );
 
   return (
-    <div className="flex items-center gap-1.5">
-      <select
-        aria-label={`${ariaLabel} hour`}
-        className={selectClass}
-        value={hour12}
-        onChange={(e) => emit(e.target.value ? Number(e.target.value) : '', minute, meridiem)}
-      >
-        <option value="">--</option>
-        {HOURS12.map((h) => (
-          <option key={h} value={h}>
-            {h}
-          </option>
-        ))}
-      </select>
-      <span className="text-gray-400">:</span>
-      <select
-        aria-label={`${ariaLabel} minute`}
-        className={selectClass}
-        value={minute}
-        disabled={hour12 === ''}
-        onChange={(e) => emit(hour12, Number(e.target.value), meridiem)}
-      >
-        {MINUTES.map((m) => (
-          <option key={m} value={m}>
-            {String(m).padStart(2, '0')}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label={`${ariaLabel} AM or PM`}
-        className={selectClass}
-        value={meridiem}
-        disabled={hour12 === ''}
-        onChange={(e) => emit(hour12, minute, e.target.value as 'AM' | 'PM')}
-      >
-        <option value="AM">AM</option>
-        <option value="PM">PM</option>
-      </select>
+    <div className="pt-2">
+      <div className="mb-2.5 text-sm font-semibold text-[#0a0a0a]">
+        {label(f)} <span className="text-gray-400">–</span> {label(t)}
+      </div>
+      <div ref={trackRef} className="relative mx-2.5 h-2 rounded-full bg-gray-200">
+        <div
+          className="absolute h-2 rounded-full bg-[#0a0a0a]"
+          style={{ left: pct(f), right: `calc(100% - ${pct(t)})` }}
+        />
+        {handle('from', f)}
+        {handle('to', t)}
+      </div>
+      {/* AM/PM markers — kept faint on purpose */}
+      <div className="mx-2.5 mt-2 flex justify-between text-[10px] text-gray-400">
+        <span>12 AM</span>
+        <span>6 AM</span>
+        <span>12 PM</span>
+        <span>6 PM</span>
+        <span>12 AM</span>
+      </div>
     </div>
   );
 }
@@ -103,19 +135,6 @@ export default function PartnerProgramPreference({
   const officeMap = useMemo(() => new Map(officeHours.map((h) => [h.day, h])), [officeHours]);
   const dailyMap = useMemo(() => new Map(dailyAvailable.map((d) => [d.day, d])), [dailyAvailable]);
 
-  const selectedDays = ALL_DAYS.filter((d) => officeMap.has(d.id));
-
-  const weekly = selectedDays.reduce((s, d) => s + (dailyMap.get(d.id)?.hours ?? 0), 0);
-  const monthly = useMemo(() => {
-    const now = new Date();
-    const total = selectedDays.reduce(
-      (s, d) => s + (dailyMap.get(d.id)?.hours ?? 0) * monthlyOccurrences(d.id, now),
-      0
-    );
-    return +total.toFixed(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [officeHours, dailyAvailable]);
-
   const groupTime = (group: typeof WEEKDAYS) => {
     const first = group.find((d) => officeMap.has(d.id));
     const entry = first ? officeMap.get(first.id) : undefined;
@@ -125,18 +144,23 @@ export default function PartnerProgramPreference({
   const toggleDay = (day: DayId, group: typeof WEEKDAYS) => {
     if (officeMap.has(day)) {
       onOfficeHoursChange(officeHours.filter((h) => h.day !== day));
-      onDailyAvailableChange(dailyAvailable.filter((d) => d.day !== day));
     } else {
-      const { from, to } = groupTime(group);
+      let { from, to } = groupTime(group);
+      if (!from || !to) {
+        from = DEFAULT_FROM;
+        to = DEFAULT_TO;
+      }
       onOfficeHoursChange([...officeHours, { day, from, to }]);
     }
   };
 
-  const setGroupTime = (group: typeof WEEKDAYS, field: 'from' | 'to', value: string) => {
+  const setGroupWindow = (group: typeof WEEKDAYS, from: string, to: string) => {
     const ids = new Set(group.map((d) => d.id));
-    onOfficeHoursChange(officeHours.map((h) => (ids.has(h.day) ? { ...h, [field]: value } : h)));
+    onOfficeHoursChange(officeHours.map((h) => (ids.has(h.day) ? { ...h, from, to } : h)));
   };
 
+  // Daily Available Hours are independent of the office-hours window — the
+  // talent tells us how many hours they'll actually commit each day.
   const setDayHours = (day: DayId, raw: string) => {
     const others = dailyAvailable.filter((d) => d.day !== day);
     if (raw === '') {
@@ -150,6 +174,17 @@ export default function PartnerProgramPreference({
     }
     onDailyAvailableChange([...others, { day, hours }]);
   };
+
+  const weekly = ALL_DAYS.reduce((s, d) => s + (dailyMap.get(d.id)?.hours ?? 0), 0);
+  const monthly = useMemo(() => {
+    const now = new Date();
+    const total = ALL_DAYS.reduce(
+      (s, d) => s + (dailyMap.get(d.id)?.hours ?? 0) * monthlyOccurrences(d.id, now),
+      0
+    );
+    return +total.toFixed(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dailyAvailable]);
 
   const renderGroup = (title: string, group: typeof WEEKDAYS) => {
     const hasSelection = group.some((d) => officeMap.has(d.id));
@@ -178,12 +213,11 @@ export default function PartnerProgramPreference({
           })}
         </div>
         {hasSelection && (
-          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <span className="text-xs font-medium text-[#737373]">Office hours</span>
-            <Time12Input value={from} onChange={(v) => setGroupTime(group, 'from', v)} ariaLabel={`${title} from`} />
-            <span className="text-xs text-gray-400">to</span>
-            <Time12Input value={to} onChange={(v) => setGroupTime(group, 'to', v)} ariaLabel={`${title} to`} />
-          </div>
+          <TimeRangeSlider
+            from={from || DEFAULT_FROM}
+            to={to || DEFAULT_TO}
+            onChange={(f2, t2) => setGroupWindow(group, f2, t2)}
+          />
         )}
       </div>
     );
@@ -191,78 +225,68 @@ export default function PartnerProgramPreference({
 
   return (
     <div className="space-y-8">
-      {/* Virtual Office Hours */}
+      {/* Virtual Office Hours — a time window */}
       <div>
         <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
           Virtual Office Hours <span className="text-red-500">*</span>
         </h3>
         <p className="mb-4 mt-1 text-sm text-[#737373]">
-          Pick the days you&apos;re available and set your virtual office hours for each group.
+          Pick the days you&apos;re available, then drag the slider to set your office-hours window for each group.
         </p>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2">
           {renderGroup('Weekdays (Mon–Fri)', WEEKDAYS)}
           {renderGroup('Weekend (Sat–Sun)', WEEKEND)}
         </div>
       </div>
 
-      {/* Daily Available Hours */}
+      {/* Daily Available Hours — how many hours you'll actually commit.
+          Independent of the office-hours window above. */}
       <div>
         <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
           Daily Available Hours <span className="text-red-500">*</span>
         </h3>
         <p className="mb-4 mt-1 text-sm text-[#737373]">
-          For each available day, how many hours can you commit? (Your hourly commitment.)
+          How many hours can you actually commit each day? This is separate from your office-hours window.
         </p>
 
-        {selectedDays.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[#E7E7EA] bg-[#F5F5F6] px-4 py-6 text-center text-sm text-[#737373]">
-            Select your available days under Virtual Office Hours first.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 rounded-lg border border-[#E7E7EA] bg-[#F5F5F6] px-4 py-3">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-[#0a0a0a]">Total per week</p>
-                <p className="mt-0.5 text-xl font-bold text-[#0a0a0a]">
-                  {fmt(weekly)} <span className="text-sm font-medium">hrs</span>
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-[#0a0a0a]">Total per month</p>
-                <p className="mt-0.5 text-xl font-bold text-[#0a0a0a]">
-                  {fmt(monthly)} <span className="text-sm font-medium">hrs</span>
-                </p>
-              </div>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 rounded-lg border border-[#E7E7EA] bg-[#F5F5F6] px-4 py-3">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-[#0a0a0a]">Total per week</p>
+              <p className="mt-0.5 text-xl font-bold text-[#0a0a0a]">
+                {fmt(weekly)} <span className="text-sm font-medium">hrs</span>
+              </p>
             </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-[#0a0a0a]">Total per month</p>
+              <p className="mt-0.5 text-xl font-bold text-[#0a0a0a]">
+                {fmt(monthly)} <span className="text-sm font-medium">hrs</span>
+              </p>
+            </div>
+          </div>
 
-            <div className="divide-y divide-gray-100 rounded-lg border border-gray-200">
-              {selectedDays.map((d) => {
-                const office = officeMap.get(d.id);
-                const window =
-                  office?.from && office?.to ? `${format12(office.from)} – ${format12(office.to)}` : 'No office hours set';
-                return (
-                  <div key={d.id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap">
-                    <div className="w-24 flex-shrink-0 text-sm font-medium text-gray-700">{d.label}</div>
-                    <div className="flex-1 text-xs text-gray-400">{window}</div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min={0}
-                        max={24}
-                        step={0.5}
-                        value={dailyMap.get(d.id)?.hours ?? ''}
-                        onChange={(e) => setDayHours(d.id, e.target.value)}
-                        className="w-20 rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/20"
-                        aria-label={`${d.label} available hours`}
-                      />
-                      <span className="text-xs text-gray-500">hrs</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="divide-y divide-gray-100 rounded-lg border border-gray-200">
+            {ALL_DAYS.map((d) => (
+              <div key={d.id} className="flex items-center justify-between px-4 py-3">
+                <div className="text-sm font-medium text-gray-700">{d.label}</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={24}
+                    step={0.5}
+                    value={dailyMap.get(d.id)?.hours ?? ''}
+                    onChange={(e) => setDayHours(d.id, e.target.value)}
+                    placeholder="0"
+                    className="w-20 rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/20"
+                    aria-label={`${d.label} available hours`}
+                  />
+                  <span className="text-xs text-gray-500">hrs</span>
+                </div>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
