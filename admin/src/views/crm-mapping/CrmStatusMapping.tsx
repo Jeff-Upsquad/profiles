@@ -6,6 +6,7 @@ import api from '@/services/api';
 import toast from 'react-hot-toast';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
+import { stagesForFormType } from '@/constants/leadStages';
 
 interface CrmStage {
   id: string;
@@ -25,28 +26,6 @@ interface MultiPipelineConfig {
   crm_webhook_url: string;
   pipelines: Record<string, PipelineConfig>;
 }
-
-// The internal candidate stages (lead_status_enum). The CRM pipeline is the
-// source of truth for the *right-hand* stage each maps to; these keys are the
-// stable internal identity the rest of Profiles runs on.
-const SQUADHIRE_STATUSES = [
-  { value: 'new', label: 'New' },
-  { value: 'share_form', label: 'Share Form' },
-  { value: 'form_filled', label: 'Form Filled / For Review' },
-  { value: 'under_review', label: 'Under Review' },
-  { value: 'shortlisted', label: 'Shortlisted' },
-  { value: 'signed_up', label: 'Signed Up' },
-  { value: 'partner_onboarding', label: 'Onboarding' },
-  { value: 'onboarding_training', label: 'Onboarding Training' },
-  { value: 'basic_profile', label: 'Basic Profile' },
-  { value: 'job_profile', label: 'Job Profile' },
-  { value: 'portfolio_updation', label: 'Portfolio Updation' },
-  { value: 'final_review', label: 'Final Review' },
-  { value: 'onboard_completed', label: 'Completed' },
-  { value: 'live', label: 'Live' },
-  { value: 'no_response', label: 'No Response / In Active' },
-  { value: 'archived', label: 'Archived' },
-];
 
 const FORM_TYPE_OPTIONS = [
   { value: 'creative', label: 'Creative (Designer / Editor)' },
@@ -389,6 +368,10 @@ function PipelineCard({
   const formTypeLabel =
     FORM_TYPE_OPTIONS.find((ft) => ft.value === formType)?.label ?? formType;
 
+  // The candidate stages for this category — identical to what the Leads board
+  // shows on a candidate's card, so the two never diverge.
+  const candidateStages = stagesForFormType(formType);
+
   const stages = useMemo(
     () => [...(config.stages ?? [])].sort((a, b) => a.sort_order - b.sort_order),
     [config.stages],
@@ -450,7 +433,7 @@ function PipelineCard({
             </p>
           )}
           <div className="rounded-lg border border-gray-200 divide-y divide-gray-100">
-            {SQUADHIRE_STATUSES.map((s) => {
+            {candidateStages.map((s) => {
               const selected = stageForValue(config.mappings[s.value], stages);
               return (
                 <div
