@@ -265,19 +265,21 @@ export async function onCandidateSignedUp(
 
   if (!leads || leads.length === 0) return;
 
-  const eligible = ['new', 'under_review', 'shortlisted'];
+  // Only advance leads sitting at a pre-signup stage — never regress someone
+  // already past "Signed Up" (onboarding, basic profile, etc.).
+  const eligible = ['new', 'share_form', 'form_filled', 'under_review', 'shortlisted'];
 
   for (const lead of leads) {
     if (!eligible.includes(lead.status)) continue;
 
-    // Route through updateLeadStatus so the CRM mapping webhook fires
-    // (partner_onboarding → "Onboarding Training" stage) and we no longer
-    // need the legacy "On Signed Up" template, which set the wrong stage.
+    // Signing up IS the "Signed Up" pipeline event. Route through
+    // updateLeadStatus so the CRM mapping webhook fires (signed_up → "Signed
+    // Up" stage).
     const { updateLeadStatus } = await import('./lead.service.js');
-    await updateLeadStatus(lead.id, { status: 'partner_onboarding' }, null);
+    await updateLeadStatus(lead.id, { status: 'signed_up' }, null);
 
     await logEvent({
-      event_type: 'lead_signup_onboarding',
+      event_type: 'lead_signed_up',
       lead_id: lead.id,
       talent_user_id: userId,
       triggered_by: 'system',
