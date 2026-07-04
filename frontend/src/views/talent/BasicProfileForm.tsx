@@ -172,6 +172,32 @@ export default function BasicProfileForm() {
     }
   }, [profile]);
 
+  // Keep current address mirroring the official address while "Same as official" is checked
+  useEffect(() => {
+    if (!currentSameAsOfficial) return;
+    setForm((prev) => {
+      const mirrored = {
+        current_address: prev.permanent_address || '',
+        country: prev.permanent_country || '',
+        state: prev.permanent_state || '',
+        current_district: prev.permanent_district || '',
+        city: prev.permanent_city || '',
+        pin_code: prev.permanent_pin_code || '',
+      };
+      const unchanged = (Object.keys(mirrored) as (keyof typeof mirrored)[])
+        .every((k) => (prev[k] || '') === mirrored[k]);
+      return unchanged ? prev : { ...prev, ...mirrored };
+    });
+  }, [
+    currentSameAsOfficial,
+    form.permanent_address,
+    form.permanent_country,
+    form.permanent_state,
+    form.permanent_district,
+    form.permanent_city,
+    form.permanent_pin_code,
+  ]);
+
   useEffect(() => {
     if (user) {
       const parts = (user.full_name || '').trim().split(/\s+/);
