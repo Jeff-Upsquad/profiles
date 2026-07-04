@@ -56,6 +56,20 @@ export const updateBasicProfileSchema = z.object({
     .max(7)
     .nullable()
     .optional(),
+  // Partner Program: per-day committed hours ({day, hours}); office windows
+  // reuse virtual_office_hours above.
+  daily_available_hours: z
+    .array(
+      z.object({
+        day: z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']),
+        hours: z.number().min(0).max(24),
+      })
+    )
+    .max(7)
+    .nullable()
+    .optional(),
+  // Freelance Preference checkbox — "Available to take freelance work".
+  freelance_available: z.boolean().nullable().optional(),
 
   // Education & Courses
   education_courses: z
