@@ -16,7 +16,7 @@ export function useStageLabels() {
       const res = await api.get('/admin/leads/stage-labels');
       return (res.data.labels ?? {}) as StageLabels;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
   });
 
   const labels = data ?? {};
