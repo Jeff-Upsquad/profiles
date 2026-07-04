@@ -441,7 +441,16 @@ function PipelineCard({
                   className="flex items-center gap-4 px-4 py-2.5 hover:bg-gray-50"
                 >
                   <div className="w-1/3 shrink-0">
-                    <span className="text-sm font-medium text-gray-900">{s.label}</span>
+                    {/* Show the mapped CRM name (source of truth); keep the
+                        built-in stage name as a muted subtitle when it differs
+                        so the row is still identifiable. */}
+                    <span className="text-sm font-medium text-gray-900">
+                      {selected?.name?.trim() || s.label}
+                    </span>
+                    {selected?.name?.trim() &&
+                      selected.name.trim().toLowerCase() !== s.label.toLowerCase() && (
+                        <span className="block text-xs text-gray-400">{s.label}</span>
+                      )}
                   </div>
                   <span className="text-gray-400">&rarr;</span>
                   <div className="flex-1">
