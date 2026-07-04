@@ -42,8 +42,8 @@ const TOGGLE_ITEMS: { key: keyof AutomationConfig; label: string; description: s
   },
   {
     key: 'auto_onboarding_on_signup',
-    label: 'Auto-set onboarding on signup',
-    description: 'When a candidate signs up (auto-approved or manual), move linked leads to "Onboarding."',
+    label: 'Auto-set Signed Up on signup',
+    description: 'When a candidate signs up (auto-approved or manual), move linked leads to "Signed Up."',
   },
   {
     key: 'auto_invite_on_shortlist',

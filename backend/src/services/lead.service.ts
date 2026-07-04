@@ -30,6 +30,10 @@ export async function createLeadSubmission(input: CreateLeadInput) {
       email,
       form_data,
       resume_url,
+      // Submitting the public form IS the "form filled" event, so the lead is
+      // created directly at the 'form_filled' stage (→ "Form Filled / For
+      // Review") rather than the enum default 'new'.
+      status: 'form_filled',
       utm_source: utm_source ?? null,
       utm_medium: utm_medium ?? null,
       utm_campaign: utm_campaign ?? null,
@@ -42,11 +46,10 @@ export async function createLeadSubmission(input: CreateLeadInput) {
   try {
     const { onLeadReceived, onLeadStatusChanged } = await import('./automation.service.js');
     await onLeadReceived(data.id, form_type, { name, email, phone });
-    // Also fire the generic status-mapping webhook for the initial 'new' state
-    // so the CRM can create/update the card via the same code path used for
-    // every subsequent transition. This makes the per-event "On Lead Received"
-    // template redundant — disable it once the mapping covers the new stage.
-    await onLeadStatusChanged(data.id, 'new', null);
+    // Fire the generic status-mapping webhook for the initial 'form_filled'
+    // state so the CRM creates/updates the card at "Form Filled / For Review"
+    // via the same code path used for every subsequent transition.
+    await onLeadStatusChanged(data.id, 'form_filled', null);
   } catch (err) {
     console.error('[automation] onLeadReceived failed:', err);
   }
