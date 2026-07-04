@@ -73,24 +73,30 @@ export default function GlobalSearch() {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
-  const flat: Array<{ kind: 'talent' | 'business' | 'lead'; id: string }> = [
+  const flat: Array<{ kind: 'talent' | 'business' | 'lead'; id: string; formType?: string }> = [
     ...(data?.talents ?? []).map((t) => ({ kind: 'talent' as const, id: t.id })),
     ...(data?.businesses ?? []).map((b) => ({ kind: 'business' as const, id: b.id })),
-    ...(data?.leads ?? []).map((l) => ({ kind: 'lead' as const, id: l.id })),
+    ...(data?.leads ?? []).map((l) => ({ kind: 'lead' as const, id: l.id, formType: l.form_type })),
   ];
 
   useEffect(() => {
     setActiveIndex(0);
   }, [debounced]);
 
-  const goTo = (kind: 'talent' | 'business' | 'lead', id: string) => {
+  const goTo = (kind: 'talent' | 'business' | 'lead', id: string, formType?: string) => {
     setOpen(false);
     setInput('');
     setDebounced('');
     if (kind === 'business') {
       router.push(`/business/${id}`);
     } else if (kind === 'lead') {
-      router.push(`/leads?selected=${id}`);
+      // The Candidates UI opens a lead via the side panel on its category list,
+      // so the deep-link needs form_type — without it we land on the category
+      // hub and the panel never mounts. Mirrors the /leads/<id> redirect.
+      const params = new URLSearchParams();
+      if (formType) params.set('form_type', formType);
+      params.set('selected', id);
+      router.push(`/leads?${params.toString()}`);
     } else {
       router.push(`/users/${id}`);
     }
@@ -114,7 +120,7 @@ export default function GlobalSearch() {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       const target = flat[activeIndex];
-      if (target) goTo(target.kind, target.id);
+      if (target) goTo(target.kind, target.id, target.formType);
     }
   };
 
@@ -263,7 +269,7 @@ export default function GlobalSearch() {
                         key={l.id}
                         type="button"
                         onMouseEnter={() => setActiveIndex(idx)}
-                        onClick={() => goTo('lead', l.id)}
+                        onClick={() => goTo('lead', l.id, l.form_type)}
                         className={`flex w-full items-center gap-3 px-4 py-2 text-left ${
                           isActive ? 'bg-indigo-50' : 'hover:bg-gray-50'
                         }`}
