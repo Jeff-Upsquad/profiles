@@ -6,7 +6,8 @@ import { useUpload } from '@/hooks/useUpload';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
-import VirtualOfficeHoursPicker, { type DayHours } from '@/components/forms/VirtualOfficeHoursPicker';
+import PartnerProgramPreference from '@/components/forms/PartnerProgramPreference';
+import { type DayHours, type DayAvailableHours } from '@/lib/workHours';
 import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
 import EducationPicker, { type EducationEntry } from '@/components/forms/EducationPicker';
 import ExperiencePicker, { type ExperienceEntry } from '@/components/forms/ExperiencePicker';
@@ -44,6 +45,8 @@ interface BasicProfile {
   expected_salary_full_time?: number;
   expected_salary_part_time?: number;
   virtual_office_hours?: DayHours[];
+  daily_available_hours?: DayAvailableHours[];
+  freelance_available?: boolean;
   education_courses?: EducationEntry[];
   experience?: ExperienceEntry[];
 }
@@ -78,12 +81,28 @@ const WORK_PREFERENCE_OPTIONS: { value: 'salary' | 'freelance' | 'partner_progra
   },
 ];
 
+type SectionId =
+  | 'basic_details'
+  | 'language'
+  | 'address'
+  | 'education'
+  | 'experience'
+  | 'job_preference'
+  | 'freelance_preference'
+  | 'partner_program_preference'
+  | 'profile_picture'
+  | 'id_proofs'
+  | 'bank_account'
+  | 'resume';
+
 interface SectionDef {
+  id: SectionId;
   name: string;
   description: string;
   tint: string;
   icon: ReactNode;
   disabled?: boolean;
+  optional?: boolean;
 }
 
 function SectionHeader({ section }: { section: SectionDef }) {
@@ -98,6 +117,11 @@ function SectionHeader({ section }: { section: SectionDef }) {
       <div>
         <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">
           {section.name}
+          {section.optional ? (
+            <span className="ml-2 align-middle rounded-full bg-[#F5F5F6] px-2 py-0.5 text-[11px] font-medium text-[#737373]">Optional</span>
+          ) : (
+            <span className="ml-1 text-red-500">*</span>
+          )}
         </h2>
         <p className="mt-0.5 text-sm text-[#737373]">{section.description}</p>
       </div>
@@ -351,54 +375,65 @@ export default function BasicProfileForm() {
 
   const wantsSalary = (form.employment_type || []).includes('salary');
   const wantsFreelance = (form.employment_type || []).includes('freelance');
+  const wantsPartner = (form.employment_type || []).includes('partner_program');
 
-  // Per-section completion heuristics
-  const completion = {
-    0: !!firstName,
-    1: languages.length > 0 && languages.some((l) => l.proficiency === 'native'),
-    2: !!(form.permanent_country && form.permanent_state && form.permanent_district && form.permanent_city),
-    3: educationCourses.length > 0 && educationCourses.some((e) => !!e.course_name && !!e.institution),
-    4: experienceEntries.length > 0 && experienceEntries.some((e) => !!e.company_name && !!e.designation),
-    5: (form.availability || []).length > 0 && (form.job_type || []).length > 0,
-    6: (form.virtual_office_hours || []).length > 0,
-    7: !!(form.aadhaar_number || form.pan_number),
-    8: !!form.profile_picture_url,
-    9: !!(form.bank_account_holder && form.bank_account_number && form.bank_ifsc_code),
-    10: !!form.resume_url,
+  // Per-section completion heuristics. Mirrors isBasicProfileMandatoryComplete
+  // in backend/src/services/talent.service.ts — keep the two in sync.
+  const completion: Record<SectionId, boolean> = {
+    basic_details: !!firstName,
+    language: languages.length > 0 && languages.some((l) => l.proficiency === 'native'),
+    address: !!(form.permanent_country && form.permanent_state && form.permanent_district && form.permanent_city),
+    education: educationCourses.length > 0 && educationCourses.some((e) => !!e.course_name && !!e.institution),
+    experience: experienceEntries.length > 0 && experienceEntries.some((e) => !!e.company_name && !!e.designation),
+    job_preference: (form.availability || []).length > 0 && (form.job_type || []).length > 0,
+    freelance_preference: !!form.freelance_available,
+    partner_program_preference:
+      (form.virtual_office_hours || []).some((h) => !!h.from && !!h.to) &&
+      (form.daily_available_hours || []).some((d) => d.hours > 0),
+    profile_picture: !!form.profile_picture_url,
+    id_proofs: !!(form.aadhaar_number || form.pan_number),
+    bank_account: !!(form.bank_account_holder && form.bank_account_number && form.bank_ifsc_code),
+    resume: !!form.resume_url,
   };
 
   const sections: SectionDef[] = [
     {
+      id: 'basic_details',
       name: 'Basic Details',
       description: 'Your name, contact and work preference',
       tint: 'tint-purple',
       icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
     },
     {
+      id: 'language',
       name: 'Language',
       description: 'Languages you speak fluently',
       tint: 'tint-blue',
       icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" /></svg>,
     },
     {
+      id: 'address',
       name: 'Address',
       description: 'Your official and current locations',
       tint: 'tint-orange',
       icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
     },
     {
+      id: 'education',
       name: 'Education & Courses',
       description: 'Your educational background and courses',
       tint: 'tint-blue',
       icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 14v7" /></svg>,
     },
     {
+      id: 'experience',
       name: 'Experience',
       description: 'Your work history and previous roles',
       tint: 'tint-rose',
       icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" /></svg>,
     },
     {
+      id: 'job_preference',
       name: 'Job Preference',
       description: 'Salary expectations and job type',
       tint: 'tint-green',
@@ -406,37 +441,55 @@ export default function BasicProfileForm() {
       icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>,
     },
     {
+      id: 'freelance_preference',
       name: 'Freelance Preference',
-      description: 'Virtual office hours and availability',
+      description: 'Your availability for freelance projects',
       tint: 'tint-pink',
       disabled: !wantsFreelance,
+      icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+    },
+    {
+      id: 'partner_program_preference',
+      name: 'Partner Program Preference',
+      description: 'Virtual office hours and daily availability',
+      tint: 'tint-green',
+      disabled: !wantsPartner,
       icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
     },
     {
-      name: 'ID Proofs',
-      description: 'Aadhaar and PAN card details',
-      tint: 'tint-amber',
-      icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
-    },
-    {
+      id: 'profile_picture',
       name: 'Profile Picture',
       description: 'A clear photo for your profile',
       tint: 'tint-purple',
       icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
     },
     {
+      id: 'id_proofs',
+      name: 'ID Proofs',
+      description: 'Aadhaar and PAN card details',
+      tint: 'tint-amber',
+      optional: true,
+      icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+    },
+    {
+      id: 'bank_account',
       name: 'Bank Account',
       description: 'Where we send your payments',
       tint: 'tint-blue',
+      optional: true,
       icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>,
     },
     {
+      id: 'resume',
       name: 'Resume',
       description: 'Upload your resume in PDF format',
       tint: 'tint-orange',
+      optional: !wantsSalary,
       icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>,
     },
   ];
+
+  const activeId = sections[activeSection]?.id;
 
   const goToSection = (delta: 1 | -1) => {
     let i = activeSection + delta;
@@ -449,14 +502,16 @@ export default function BasicProfileForm() {
       const next = sections.findIndex((s) => !s.disabled);
       if (next !== -1) setActiveSection(next);
     }
-  }, [wantsSalary, wantsFreelance, activeSection]);
+  }, [wantsSalary, wantsFreelance, wantsPartner, activeSection]);
 
-  // Compute progress
-  const enabledSections = sections.filter((s) => !s.disabled).length;
-  const completedCount = sections.reduce((acc, _, i) => {
-    if (sections[i].disabled) return acc;
-    return acc + (completion[i as keyof typeof completion] ? 1 : 0);
-  }, 0);
+  // Progress counts only mandatory (enabled, non-optional) sections, so 100%
+  // means every required field is done. Optional sections never block it.
+  const countedSections = sections.filter((s) => !s.disabled && !s.optional);
+  const enabledSections = countedSections.length;
+  const completedCount = countedSections.reduce(
+    (acc, s) => acc + (completion[s.id] ? 1 : 0),
+    0
+  );
   const progressPct = enabledSections > 0 ? Math.round((completedCount / enabledSections) * 100) : 0;
 
   if (isLoading) {
@@ -525,7 +580,7 @@ export default function BasicProfileForm() {
             <nav className="flex flex-col gap-0.5">
               {sections.map((section, i) => {
                 const isActive = activeSection === i;
-                const isComplete = completion[i as keyof typeof completion];
+                const isComplete = completion[section.id];
                 return (
                   <button
                     key={section.name}
@@ -568,7 +623,13 @@ export default function BasicProfileForm() {
                         {section.name}
                       </p>
                       <p className="font-[family-name:var(--font-inter)] text-[11px] text-[#a3a3a3] truncate">
-                        {section.disabled ? 'Locked' : isComplete ? 'Complete' : 'Not started'}
+                        {section.disabled
+                          ? 'Locked'
+                          : isComplete
+                            ? 'Complete'
+                            : section.optional
+                              ? 'Optional'
+                              : 'Not started'}
                       </p>
                     </div>
                   </button>
@@ -583,13 +644,13 @@ export default function BasicProfileForm() {
           <div className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-8 shadow-[0_1px_2px_rgba(0,0,0,0.04)] section-rise" key={activeSection}>
             <SectionHeader section={sections[activeSection]} />
 
-            {/* Section 1: Basic Details */}
-            {activeSection === 0 && (
+            {/* Basic Details */}
+            {activeId === 'basic_details' && (
               <div className="space-y-6">
                 <div>
                   <h3 className="mb-3 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Personal Details</h3>
                   <div className="grid gap-4 sm:grid-cols-3">
-                    <Input label="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" />
+                    <Input label="First Name" required value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" />
                     <Input label="Middle Name" value={middleName} onChange={(e) => setMiddleName(e.target.value)} placeholder="Middle name (optional)" />
                     <Input label="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" />
                   </div>
@@ -622,15 +683,15 @@ export default function BasicProfileForm() {
               </div>
             )}
 
-            {/* Section 2: Language */}
-            {activeSection === 1 && (
+            {/* Language */}
+            {activeId === 'language' && (
               <div>
                 <LanguagePicker value={languages} onChange={setLanguages} />
               </div>
             )}
 
-            {/* Section 3: Address */}
-            {activeSection === 2 && (
+            {/* Address */}
+            {activeId === 'address' && (
               <div className="space-y-6">
                 <div>
                   <h3 className="mb-1 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Official Address</h3>
@@ -758,24 +819,24 @@ export default function BasicProfileForm() {
               </div>
             )}
 
-            {/* Section 4: Education & Courses */}
-            {activeSection === 3 && (
+            {/* Education & Courses */}
+            {activeId === 'education' && (
               <EducationPicker
                 value={educationCourses}
                 onChange={setEducationCourses}
               />
             )}
 
-            {/* Section 5: Experience */}
-            {activeSection === 4 && (
+            {/* Experience */}
+            {activeId === 'experience' && (
               <ExperiencePicker
                 value={experienceEntries}
                 onChange={setExperienceEntries}
               />
             )}
 
-            {/* Section 6: Job Preference */}
-            {activeSection === 5 && (
+            {/* Job Preference */}
+            {activeId === 'job_preference' && (
               <div className="space-y-6">
                 <div>
                   <h3 className="mb-2 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Availability</h3>
@@ -819,16 +880,42 @@ export default function BasicProfileForm() {
               </div>
             )}
 
-            {/* Section 7: Freelance Preference */}
-            {activeSection === 6 && (
-              <VirtualOfficeHoursPicker
-                value={form.virtual_office_hours || []}
-                onChange={(next) => setForm((prev) => ({ ...prev, virtual_office_hours: next }))}
+            {/* Freelance Preference */}
+            {activeId === 'freelance_preference' && (
+              <div className="space-y-4">
+                <label className="group flex cursor-pointer items-start gap-3 rounded-xl border border-[#E7E7EA] px-4 py-3 text-sm transition-all duration-200 has-[:checked]:border-[#0a0a0a] has-[:checked]:bg-[#FFFAC2] hover:border-[#a3a3a3] has-[:checked]:hover:border-[#0a0a0a]">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 rounded border-[#E7E7EA] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
+                    checked={!!form.freelance_available}
+                    onChange={(e) => setForm((prev) => ({ ...prev, freelance_available: e.target.checked }))}
+                  />
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-[family-name:var(--font-inter)] text-[14px] font-medium text-[#0a0a0a]">Available to take freelance work</span>
+                    <span className="font-[family-name:var(--font-inter)] text-[13px] leading-snug text-[#525252]">Let brands know you can pick up one-off freelance projects.</span>
+                  </div>
+                </label>
+                <div className="flex items-start gap-3 rounded-xl bg-[#FDF6E7] p-4">
+                  <svg className="h-5 w-5 flex-shrink-0 text-[#D97706]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-sm text-[#92400E]">Each project has its own conditions — dates, deadlines and a fixed payment are agreed per project.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Partner Program Preference */}
+            {activeId === 'partner_program_preference' && (
+              <PartnerProgramPreference
+                officeHours={form.virtual_office_hours || []}
+                onOfficeHoursChange={(next) => setForm((prev) => ({ ...prev, virtual_office_hours: next }))}
+                dailyAvailable={form.daily_available_hours || []}
+                onDailyAvailableChange={(next) => setForm((prev) => ({ ...prev, daily_available_hours: next }))}
               />
             )}
 
-            {/* Section 8: ID Proofs */}
-            {activeSection === 7 && (
+            {/* ID Proofs */}
+            {activeId === 'id_proofs' && (
               <div className="space-y-6">
                 <div className="rounded-xl border border-[#E7E7EA] bg-[#F5F5F6] p-5">
                   <div className="mb-4 flex items-center gap-2.5">
@@ -887,8 +974,8 @@ export default function BasicProfileForm() {
               </div>
             )}
 
-            {/* Section 9: Profile Picture */}
-            {activeSection === 8 && (
+            {/* Profile Picture */}
+            {activeId === 'profile_picture' && (
               <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
                 <div className="relative">
                   {form.profile_picture_url ? (
@@ -920,8 +1007,8 @@ export default function BasicProfileForm() {
               </div>
             )}
 
-            {/* Section 10: Bank Account */}
-            {activeSection === 9 && (
+            {/* Bank Account */}
+            {activeId === 'bank_account' && (
               <div className="space-y-4">
                 <div className="flex items-start gap-3 rounded-xl bg-[#FDF6E7] p-4">
                   <svg className="h-5 w-5 flex-shrink-0 text-[#D97706]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -940,8 +1027,8 @@ export default function BasicProfileForm() {
               </div>
             )}
 
-            {/* Section 11: Resume */}
-            {activeSection === 10 && (
+            {/* Resume */}
+            {activeId === 'resume' && (
               <div>
                 <div className="rounded-xl border-2 border-dashed border-[#E7E7EA] bg-[#F5F5F6] p-10 text-center transition-colors hover:border-[#0a0a0a]/50 hover:bg-[#FFFAC2]/30">
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)]">

@@ -101,10 +101,8 @@ export async function getLeadSubmissionForTalent(userId: string) {
 // completion rules in `frontend/src/views/talent/BasicProfileForm.tsx`.
 const BASIC_PROFILE_MANDATORY_COLUMNS =
   'created_at, permanent_country, permanent_state, permanent_district, permanent_city, ' +
-  'availability, job_type, employment_type, virtual_office_hours, education_courses, experience, ' +
-  'aadhaar_number, pan_number, profile_picture_url, ' +
-  'bank_account_holder, bank_account_number, bank_ifsc_code, ' +
-  'resume_url';
+  'availability, job_type, employment_type, virtual_office_hours, daily_available_hours, ' +
+  'freelance_available, education_courses, experience, profile_picture_url, resume_url';
 
 // Returns true when every mandatory section of the basic profile is
 // filled in. Mirrors the `completion` object in BasicProfileForm.tsx so
@@ -132,9 +130,7 @@ export function isBasicProfileMandatoryComplete(
     return false;
   }
 
-  if (!Array.isArray(basic.availability) || basic.availability.length === 0) return false;
-  if (!Array.isArray(basic.job_type) || basic.job_type.length === 0) return false;
-
+  // Education & Courses and Experience are mandatory for everyone.
   const courses = Array.isArray(basic.education_courses)
     ? (basic.education_courses as Array<{ course_name?: string; institution?: string }>)
     : [];
@@ -155,17 +151,29 @@ export function isBasicProfileMandatoryComplete(
     return false;
   }
 
-  if (!basic.aadhaar_number && !basic.pan_number) return false;
   if (!basic.profile_picture_url) return false;
-  if (!basic.bank_account_holder || !basic.bank_account_number || !basic.bank_ifsc_code) return false;
-  if (!basic.resume_url) return false;
 
-  const wantsFreelance =
-    Array.isArray(basic.employment_type) && (basic.employment_type as string[]).includes('freelance');
-  if (wantsFreelance) {
-    if (!Array.isArray(basic.virtual_office_hours) || basic.virtual_office_hours.length === 0) {
-      return false;
-    }
+  // Work-preference-gated sections. ID proofs and bank account are always
+  // optional; resume is mandatory only for salary (job-seeking) talent.
+  const employment = Array.isArray(basic.employment_type)
+    ? (basic.employment_type as string[])
+    : [];
+
+  if (employment.includes('salary')) {
+    if (!Array.isArray(basic.availability) || basic.availability.length === 0) return false;
+    if (!Array.isArray(basic.job_type) || basic.job_type.length === 0) return false;
+    if (!basic.resume_url) return false;
+  }
+
+  if (employment.includes('freelance')) {
+    if (!basic.freelance_available) return false;
+  }
+
+  if (employment.includes('partner_program')) {
+    const office = Array.isArray(basic.virtual_office_hours) ? basic.virtual_office_hours : [];
+    if (!office.some((h: any) => h?.from && h?.to)) return false;
+    const daily = Array.isArray(basic.daily_available_hours) ? basic.daily_available_hours : [];
+    if (!daily.some((d: any) => typeof d?.hours === 'number' && d.hours > 0)) return false;
   }
 
   return true;
