@@ -8,11 +8,11 @@ import {
   type UpdateLeadStatusInput,
 } from '../validators/lead.validators.js';
 
-// Reverse mapping: CRM stage label → canonical internal status. The forward
-// mapping (in admin_settings.crm_status_mapping) has many-to-one collapses
-// (e.g. both `form_filled` and `under_review` → "Form Filled / For Review");
-// for the reverse we pick the canonical value the CRM should drive cards back
-// to. Lookup is case-insensitive and whitespace-tolerant.
+// Fallback reverse mapping: CRM stage label → canonical internal status, used
+// only when the admin's crm_status_mapping has no snapshot for this lead's
+// pipeline (or the stage isn't in it). The primary path is a snapshot-driven,
+// id-anchored reverse lookup built from crm_status_mapping (see below), which
+// survives CRM stage renames. Lookup here is case-insensitive/whitespace-tolerant.
 const CRM_STAGE_TO_STATUS: Record<string, (typeof LEAD_STATUS_VALUES)[number]> = {
   'new': 'new',
   'share form': 'share_form',
@@ -37,21 +37,26 @@ const leadStageWebhookSchema = z.object({
   external_lead_id: z.string().uuid().nullable().optional(),
   phone: z.string().optional(),
   stage_name: z.string().min(1, 'stage_name is required'),
+  // Optional stable CRM stage id — when present, the reverse lookup matches on
+  // it (rename-proof) instead of the stage name.
+  stage_id: z.string().min(1).optional(),
   timestamp: z.string().optional(),
 });
 
-async function findLeadId(
+type LeadRow = { id: string; form_type: string | null };
+
+async function findLead(
   externalLeadId: string | null | undefined,
   phone: string | null | undefined,
-): Promise<string | null> {
+): Promise<LeadRow | null> {
   if (externalLeadId) {
     const { data } = await supabaseAdmin
       .from('lead_submissions')
-      .select('id')
+      .select('id, form_type')
       .eq('id', externalLeadId)
       .is('deleted_at', null)
       .maybeSingle();
-    if (data?.id) return data.id;
+    if (data?.id) return data as LeadRow;
   }
 
   if (phone) {
@@ -61,7 +66,7 @@ async function findLeadId(
     // stores raw — same matching strategy as check_contact_exists).
     const { data } = await supabaseAdmin
       .from('lead_submissions')
-      .select('id')
+      .select('id, form_type')
       .filter(
         'phone',
         'like',
@@ -70,7 +75,7 @@ async function findLeadId(
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(1);
-    if (data && data.length > 0) return data[0].id;
+    if (data && data.length > 0) return data[0] as LeadRow;
   }
 
   return null;
@@ -86,9 +91,38 @@ export async function handleLeadStageChanged(
     if (!parsed.success) {
       throw new AppError(400, parsed.error.issues.map((i) => i.message).join('; '));
     }
-    const { external_lead_id, phone, stage_name } = parsed.data;
+    const { external_lead_id, phone, stage_name, stage_id } = parsed.data;
 
-    const internalStatus = CRM_STAGE_TO_STATUS[normalizeStage(stage_name)];
+    const lead = await findLead(external_lead_id ?? null, phone ?? null);
+    if (!lead) {
+      res.json({ ok: true, skipped: 'lead_not_found' });
+      return;
+    }
+
+    // Primary path: reverse-map via the admin's crm_status_mapping snapshot for
+    // this lead's pipeline. Matching by stage id (when the CRM sends it) is
+    // rename-proof; matching by the current stage name works after a refresh.
+    let internalStatus: (typeof LEAD_STATUS_VALUES)[number] | undefined;
+    try {
+      const { getAdminSetting } = await import('../services/admin.service.js');
+      const { buildReverseLookup } = await import('../services/crm-stage-mapping.js');
+      const mapping = await getAdminSetting<any>('crm_status_mapping');
+      const pipeline = lead.form_type ? mapping?.pipelines?.[lead.form_type] : undefined;
+      const { byId, byName } = buildReverseLookup(pipeline);
+      const hit =
+        (stage_id ? byId[stage_id] : undefined) ?? byName[normalizeStage(stage_name)];
+      if (hit && (LEAD_STATUS_VALUES as readonly string[]).includes(hit)) {
+        internalStatus = hit as (typeof LEAD_STATUS_VALUES)[number];
+      }
+    } catch (err) {
+      console.error('[crm-webhook] snapshot reverse-lookup failed:', err);
+    }
+
+    // Fallback: global hardcoded name table (unconfigured pipeline / no snapshot).
+    if (!internalStatus) {
+      internalStatus = CRM_STAGE_TO_STATUS[normalizeStage(stage_name)];
+    }
+
     if (!internalStatus) {
       // Stage isn't in the synced pipeline (e.g. a custom CRM column). Ack
       // with 200 so the CRM doesn't retry, but mark it as skipped.
@@ -96,16 +130,10 @@ export async function handleLeadStageChanged(
       return;
     }
 
-    const leadId = await findLeadId(external_lead_id ?? null, phone ?? null);
-    if (!leadId) {
-      res.json({ ok: true, skipped: 'lead_not_found' });
-      return;
-    }
-
     const input: UpdateLeadStatusInput = { status: internalStatus };
-    await leadService.updateLeadStatus(leadId, input, null, { source: 'crm_webhook' });
+    await leadService.updateLeadStatus(lead.id, input, null, { source: 'crm_webhook' });
 
-    res.json({ ok: true, leadId, status: internalStatus });
+    res.json({ ok: true, leadId: lead.id, status: internalStatus });
   } catch (err) {
     next(err);
   }

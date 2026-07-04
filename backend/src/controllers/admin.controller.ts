@@ -938,8 +938,25 @@ export async function syncLeadsToCrm(req: Request, res: Response, next: NextFunc
 
 export async function getCrmStatusMapping(_req: Request, res: Response, next: NextFunction) {
   try {
+    const { computeStageLabels } = await import('../services/crm-stage-mapping.js');
     const mapping = await adminService.getAdminSetting('crm_status_mapping');
-    res.json({ mapping: mapping ?? null });
+    // `labels` is a { formType -> { internalKey -> live CRM stage name } } map
+    // the Leads boards consume so a CRM rename shows everywhere, not just here.
+    const labels = computeStageLabels(mapping as any);
+    res.json({ mapping: mapping ?? null, labels });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Lightweight labels-only endpoint for the Leads boards (admin, admin-lite,
+// mobile). Resolves under the 'candidates' module so any leads viewer can read
+// it, unlike the full crm-status-mapping GET which requires the crm-mapping grant.
+export async function getLeadStageLabels(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const { computeStageLabels } = await import('../services/crm-stage-mapping.js');
+    const mapping = await adminService.getAdminSetting('crm_status_mapping');
+    res.json({ labels: computeStageLabels(mapping as any) });
   } catch (err) {
     next(err);
   }

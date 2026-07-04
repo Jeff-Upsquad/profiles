@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 import ArchiveLeadModal from './ArchiveLeadModal';
+import { useStageLabels } from '@/hooks/useStageLabels';
 
 type Stage =
   | 'new'
@@ -71,6 +72,7 @@ interface Props {
 export default function StageTabs({ leadId, leadName, currentStage, formType }: Props) {
   const queryClient = useQueryClient();
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const { labelFor } = useStageLabels();
 
   const stages = formType === 'creative' ? CREATIVE_STAGES : DEFAULT_STAGES;
 
@@ -108,6 +110,7 @@ export default function StageTabs({ leadId, leadName, currentStage, formType }: 
         {stages.map((s) => {
           const active = s.value === currentStage;
           const ringColor = RING_COLOR[s.value] ?? 'ring-indigo-300';
+          const label = labelFor(formType, s.value, s.label);
           return (
             <button
               key={s.value}
@@ -119,9 +122,9 @@ export default function StageTabs({ leadId, leadName, currentStage, formType }: 
                   ? `${s.color} shadow-sm ring-2 ring-offset-1 ${ringColor}`
                   : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
               }`}
-              title={active ? 'Current stage' : `Switch to ${s.label}`}
+              title={active ? 'Current stage' : `Switch to ${label}`}
             >
-              {s.label}
+              {label}
             </button>
           );
         })}

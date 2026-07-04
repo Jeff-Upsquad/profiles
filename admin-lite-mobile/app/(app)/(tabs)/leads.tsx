@@ -18,6 +18,7 @@ import Badge from '../../../src/components/ui/Badge';
 import Picker from '../../../src/components/ui/Picker';
 import { groupItemsByBucket } from '../../../src/lib/groupLeadsByBucket';
 import { formatIndianPhone } from '../../../src/lib/phone';
+import { useStageLabels } from '../../../src/hooks/useStageLabels';
 import {
   FORM_TYPE_TABS,
   STAGE_COLORS,
@@ -28,6 +29,7 @@ import type { Lead, LeadsResponse } from '../../../src/types';
 
 export default function LeadsScreen() {
   const router = useRouter();
+  const { labelFor } = useStageLabels();
   const [formType, setFormType] = useState('');
   const [stage, setStage] = useState('');
   const [search, setSearch] = useState('');
@@ -154,7 +156,7 @@ export default function LeadsScreen() {
             </View>
           ) : null
         }
-        renderItem={({ item }) => <LeadRow lead={item} onPress={() =>
+        renderItem={({ item }) => <LeadRow lead={item} labelFor={labelFor} onPress={() =>
           router.push(`/(app)/leads/${item.id}` as any)
         } />}
       />
@@ -162,7 +164,15 @@ export default function LeadsScreen() {
   );
 }
 
-function LeadRow({ lead, onPress }: { lead: Lead; onPress: () => void }) {
+function LeadRow({
+  lead,
+  onPress,
+  labelFor,
+}: {
+  lead: Lead;
+  onPress: () => void;
+  labelFor: (formType: string | undefined, key: string, fallback?: string) => string;
+}) {
   const initials = lead.name
     .split(' ')
     .slice(0, 2)
@@ -188,7 +198,7 @@ function LeadRow({ lead, onPress }: { lead: Lead; onPress: () => void }) {
       </View>
       <View style={{ alignItems: 'flex-end', gap: 4 }}>
         <Badge color={STAGE_COLORS[lead.status] || 'gray'}>
-          {STAGE_LABELS[lead.status] || lead.status}
+          {labelFor(lead.form_type, lead.status, STAGE_LABELS[lead.status])}
         </Badge>
         <Text style={styles.date}>
           {new Date(lead.created_at).toLocaleDateString('en-IN', {
