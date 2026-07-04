@@ -132,6 +132,10 @@ export default function CrmStatusMapping() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['crm-status-mapping'] });
+      // Also refresh the label feed the Leads boards read, so a rename shows on
+      // candidate cards / stage tabs immediately after saving — not after the
+      // stale window expires or a reload.
+      queryClient.invalidateQueries({ queryKey: ['crm-stage-labels'] });
       toast.success('Mapping saved');
       setDirty(false);
     },
