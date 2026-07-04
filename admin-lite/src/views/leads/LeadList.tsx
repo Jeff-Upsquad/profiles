@@ -10,6 +10,7 @@ import LeadsTabs from './LeadsTabs';
 import LeadSidePanel from './LeadSidePanel';
 import { groupItemsByBucket } from '@/lib/groupLeadsByBucket';
 import { formatIndianPhone } from '@/lib/phone';
+import { useStageLabels } from '@/hooks/useStageLabels';
 
 interface Lead {
   id: string;
@@ -97,6 +98,7 @@ export default function LeadList() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { labelFor } = useStageLabels();
 
   const formType = searchParams.get('form_type') || '';
   const stage = searchParams.get('status') || '';
@@ -325,7 +327,7 @@ export default function LeadList() {
                         </div>
                         <div className="hidden sm:block">
                           <Badge variant={stageColors[lead.status] || 'gray'}>
-                            {STAGE_LABELS[lead.status] || lead.status}
+                            {labelFor(lead.form_type, lead.status, STAGE_LABELS[lead.status])}
                           </Badge>
                         </div>
                         <div className="hidden w-24 text-right text-xs text-gray-400 md:block">

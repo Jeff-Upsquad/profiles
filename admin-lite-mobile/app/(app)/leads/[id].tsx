@@ -20,6 +20,7 @@ import InterviewInvitationSection from '../../../src/components/leads/InterviewI
 import TalentOnboardingSection from '../../../src/components/leads/TalentOnboardingSection';
 import ArchiveLeadModal from '../../../src/components/leads/ArchiveLeadModal';
 import { formatIndianPhone, cleanPhoneForLink } from '../../../src/lib/phone';
+import { useStageLabels } from '../../../src/hooks/useStageLabels';
 import {
   PROFILE_TYPE_OPTIONS,
   STAGE_COLORS,
@@ -32,6 +33,7 @@ export default function LeadDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { labelFor } = useStageLabels();
   const [archiveOpen, setArchiveOpen] = useState(false);
 
   const { data: lead, isLoading } = useQuery<LeadFull>({
@@ -88,7 +90,7 @@ export default function LeadDetailScreen() {
             {lead.form_type}
           </Badge>
           <Badge color={STAGE_COLORS[lead.status] || 'gray'}>
-            {STAGE_LABELS[lead.status] || lead.status}
+            {labelFor(lead.form_type, lead.status, STAGE_LABELS[lead.status])}
           </Badge>
         </View>
 
@@ -123,7 +125,10 @@ export default function LeadDetailScreen() {
         <Text style={styles.sectionTitle}>Stage</Text>
         <Picker
           value={lead.status}
-          options={STAGE_OPTIONS.filter((o) => o.value !== '')}
+          options={STAGE_OPTIONS.filter((o) => o.value !== '').map((o) => ({
+            ...o,
+            label: labelFor(lead.form_type, o.value, o.label),
+          }))}
           onChange={(next) => {
             if (next === 'archived') {
               setArchiveOpen(true);

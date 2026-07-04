@@ -329,7 +329,11 @@ export async function onLeadStatusChanged(
   const pipelineConfig = mapping.pipelines[lead.form_type];
   if (!pipelineConfig) return;
 
-  const crmStage = pipelineConfig.mappings[newStatus];
+  // Resolve the *current* CRM stage name via the cached snapshot (mapping is
+  // anchored to a stable stage id), so a rename in the CRM still targets the
+  // right stage. Falls back to legacy name-valued mappings.
+  const { resolveStageName } = await import('./crm-stage-mapping.js');
+  const crmStage = resolveStageName(pipelineConfig, newStatus);
   if (!crmStage) return;
 
   const payload = {

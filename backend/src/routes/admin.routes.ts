@@ -444,6 +444,10 @@ router.delete('/subscription-cards/:id', requestCardsController.deleteCard);
 router.get('/leads', leadController.getLeads);
 router.get('/leads/form-fields', leadController.getLeadFormFields);
 router.get('/leads/onboarding', leadController.getOnboardingLeads);
+// Live CRM stage labels ({ formType -> { key -> name } }) for the Leads boards.
+// Under /leads so it resolves to the 'candidates' module — any leads viewer can
+// read it, without needing the 'crm-mapping' grant.
+router.get('/leads/stage-labels', adminController.getLeadStageLabels);
 
 // Saved lead-filter presets (per admin user)
 router.get('/lead-filters', savedFilterController.listSavedLeadFilters);
