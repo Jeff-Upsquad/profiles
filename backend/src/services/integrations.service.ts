@@ -238,7 +238,7 @@ export async function getTalentAvailability(
 
 // ── Talent account status (for SquadHub's "former assignees" tags) ──
 
-export type TalentStatusTag = 'active' | 'inactive' | 'suspended' | 'not_found';
+export type TalentStatusTag = 'active' | 'inactive' | 'suspended' | 'blacklisted' | 'not_found';
 
 export interface TalentAccountStatusResult {
   talent_user_id: string;
@@ -248,23 +248,28 @@ export interface TalentAccountStatusResult {
   suspended: boolean;
   suspended_at: string | null;
   suspended_reason: string | null;
-  // Single-word tag for display. 'suspended' outranks 'inactive' — a suspended
-  // talent is the stronger, deliberate admin action — and both outrank an
-  // absent row's 'not_found'.
+  blacklisted: boolean;
+  blacklisted_at: string | null;
+  blacklisted_reason: string | null;
+  // Single-word tag for display, most-severe-wins:
+  //   blacklisted > suspended > inactive > active, and any real row > not_found.
+  // 'blacklisted' is the sternest deliberate admin block (migration 00099);
+  // 'suspended' is the next; both outrank the passive 'inactive' visibility off.
   status_tag: TalentStatusTag;
 }
 
 /**
  * Batch-fetch the account status of a set of talents, keyed by talent_user_id.
  * SquadHub tags former assignees on a subscription card with the talent's
- * current SquadHire standing (active / inactive / suspended). Unknown ids come
- * back as status_tag='not_found' (kept in the result, not dropped) so the
- * caller can tell "no longer on SquadHire" apart from "not asked".
+ * current SquadHire standing. Unknown ids come back as status_tag='not_found'
+ * (kept in the result, not dropped) so the caller can tell "no longer on
+ * SquadHire" apart from "not asked".
  *
- * Status is derived from two independent admin flags on talent_users:
- *   suspended = true  → blocked from new work (strongest signal)
- *   is_active = false → hidden from SquadHub (visibility off)
- * SquadHire has no "blacklisted"/"banned" state; suspension is the mechanism.
+ * Status is derived from three independent admin flags on talent_users, in
+ * descending severity:
+ *   blacklisted = true → sternest block on new work (migration 00099)
+ *   suspended   = true → block on new work
+ *   is_active   = false → hidden from SquadHub (visibility off)
  */
 export async function getTalentStatuses(
   talentUserIds: string[],
@@ -274,7 +279,7 @@ export async function getTalentStatuses(
 
   const { data, error } = await supabaseAdmin
     .from('talent_users')
-    .select('id, is_active, suspended, suspended_at, suspended_reason')
+    .select('id, is_active, suspended, suspended_at, suspended_reason, blacklisted, blacklisted_at, blacklisted_reason')
     .in('id', batch);
   if (error) throw new AppError(500, error.message);
 
@@ -291,16 +296,22 @@ export async function getTalentStatuses(
         suspended: false,
         suspended_at: null,
         suspended_reason: null,
+        blacklisted: false,
+        blacklisted_at: null,
+        blacklisted_reason: null,
         status_tag: 'not_found' as const,
       };
     }
+    const blacklisted = row.blacklisted === true;
     const suspended = row.suspended === true;
     const isActive = row.is_active !== false;
-    const status_tag: TalentStatusTag = suspended
-      ? 'suspended'
-      : !isActive
-        ? 'inactive'
-        : 'active';
+    const status_tag: TalentStatusTag = blacklisted
+      ? 'blacklisted'
+      : suspended
+        ? 'suspended'
+        : !isActive
+          ? 'inactive'
+          : 'active';
     return {
       talent_user_id: id,
       exists: true,
@@ -308,6 +319,9 @@ export async function getTalentStatuses(
       suspended,
       suspended_at: row.suspended_at ?? null,
       suspended_reason: row.suspended_reason ?? null,
+      blacklisted,
+      blacklisted_at: row.blacklisted_at ?? null,
+      blacklisted_reason: row.blacklisted_reason ?? null,
       status_tag,
     };
   });
