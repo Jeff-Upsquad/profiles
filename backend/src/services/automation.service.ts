@@ -8,6 +8,7 @@ interface AutomationConfig {
   auto_shortlist_on_approve: boolean;
   auto_onboarding_on_signup: boolean;
   auto_invite_on_shortlist: boolean;
+  auto_advance_onboarding_stages: boolean;
 }
 
 interface TemplateConfig {
@@ -25,6 +26,7 @@ const DEFAULT_CONFIG: AutomationConfig = {
   auto_shortlist_on_approve: true,
   auto_onboarding_on_signup: true,
   auto_invite_on_shortlist: true,
+  auto_advance_onboarding_stages: true,
 };
 
 // ---------------------------------------------------------------------------
@@ -56,8 +58,10 @@ async function logEvent(event: {
 // ---------------------------------------------------------------------------
 
 async function getConfig(): Promise<AutomationConfig> {
-  const cfg = await getAdminSetting<AutomationConfig>('automation_config');
-  return cfg ?? DEFAULT_CONFIG;
+  const cfg = await getAdminSetting<Partial<AutomationConfig>>('automation_config');
+  // Merge over defaults so newly-added flags (absent from the stored row) fall
+  // back to their default rather than becoming undefined/false.
+  return { ...DEFAULT_CONFIG, ...(cfg ?? {}) };
 }
 
 async function getTemplates(): Promise<TemplatesMap> {
@@ -284,6 +288,92 @@ export async function onCandidateSignedUp(
       talent_user_id: userId,
       triggered_by: 'system',
     });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Auto-advance pipeline stage from onboarding progress
+// ---------------------------------------------------------------------------
+
+// Ordered pipeline stages per form_type — a mirror of
+// admin/src/constants/leadStages.ts (CREATIVE_STAGES / DEFAULT_STAGES). Keep the
+// two in sync. Used to (a) skip a step whose target stage isn't in a pipeline
+// and (b) rank stages so we only ever advance forward.
+const CREATIVE_STAGE_ORDER = [
+  'new', 'share_form', 'form_filled', 'shortlisted', 'signed_up',
+  'onboarding_training', 'basic_profile', 'job_profile', 'portfolio_updation',
+  'final_review', 'live', 'no_response',
+];
+const DEFAULT_STAGE_ORDER = [
+  'new', 'under_review', 'shortlisted', 'partner_onboarding', 'onboard_completed', 'archived',
+];
+
+function orderedStagesForFormType(formType: string | null | undefined): string[] {
+  return formType === 'creative' ? CREATIVE_STAGE_ORDER : DEFAULT_STAGE_ORDER;
+}
+
+// Onboarding-progress key → target pipeline stage, in ascending order.
+const STEP_STAGES: Array<[string, string]> = [
+  ['signed_up', 'signed_up'],
+  ['onboarding_completed', 'onboarding_training'],
+  ['basic_profile_completed', 'basic_profile'],
+  ['job_profile_completed', 'job_profile'],
+  ['portfolio_completed', 'portfolio_updation'],
+];
+
+/**
+ * Advance every lead linked to this talent to the stage matching their furthest
+ * completed onboarding step. Forward-only: never regresses, and never touches a
+ * lead parked in a side/terminal stage or manually moved out of the sequence.
+ * Routes through updateLeadStatus so the CRM webhook fires. Idempotent — safe to
+ * call after every onboarding-related write.
+ */
+export async function syncOnboardingStage(talentUserId: string) {
+  const cfg = await getConfig();
+  if (!cfg.auto_advance_onboarding_stages) return;
+
+  const { computeOnboardingProgress } = await import('./talent.service.js');
+  const progress = await computeOnboardingProgress(talentUserId);
+
+  // Furthest completed step wins (STEP_STAGES is ascending).
+  let target: string | null = null;
+  for (const [key, stage] of STEP_STAGES) {
+    if ((progress as Record<string, unknown>)[key]) target = stage;
+  }
+  if (!target) return;
+
+  const { data: leads } = await supabaseAdmin
+    .from('lead_submissions')
+    .select('id, status, form_type')
+    .eq('linked_talent_user_id', talentUserId)
+    .is('deleted_at', null)
+    .neq('status', 'archived');
+
+  if (!leads || leads.length === 0) return;
+
+  const { updateLeadStatus } = await import('./lead.service.js');
+
+  for (const lead of leads as Array<{ id: string; status: string; form_type: string | null }>) {
+    const stages = orderedStagesForFormType(lead.form_type);
+    const targetRank = stages.indexOf(target);
+    if (targetRank === -1) continue; // target stage not part of this pipeline
+    const curRank = stages.indexOf(lead.status);
+    // curRank === -1 → parked in a side/terminal stage; respect manual placement
+    // and only ever advance forward.
+    if (curRank === -1 || targetRank <= curRank) continue;
+
+    try {
+      await updateLeadStatus(lead.id, { status: target } as any, null);
+      await logEvent({
+        event_type: 'lead_stage_auto_advanced',
+        lead_id: lead.id,
+        talent_user_id: talentUserId,
+        triggered_by: 'system',
+        metadata: { from: lead.status, to: target },
+      });
+    } catch (err) {
+      console.error('[automation] syncOnboardingStage advance failed:', err);
+    }
   }
 }
 

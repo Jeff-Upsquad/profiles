@@ -10,6 +10,7 @@ interface AutomationConfig {
   auto_shortlist_on_approve: boolean;
   auto_onboarding_on_signup: boolean;
   auto_invite_on_shortlist: boolean;
+  auto_advance_onboarding_stages: boolean;
 }
 
 interface TemplateConfig {
@@ -50,6 +51,11 @@ const TOGGLE_ITEMS: { key: keyof AutomationConfig; label: string; description: s
     label: 'Auto-invite on shortlist',
     description: 'When a candidate is shortlisted, automatically create a talent invitation if one doesn\'t exist.',
   },
+  {
+    key: 'auto_advance_onboarding_stages',
+    label: 'Auto-advance stage on onboarding progress',
+    description: 'As a candidate completes onboarding steps (training, basic profile, job profile, portfolio), automatically move their pipeline stage forward to match. Forward-only — never regresses or overrides a manual move.',
+  },
 ];
 
 const TEMPLATE_EVENTS: { key: string; label: string; description?: string }[] = [
@@ -72,6 +78,7 @@ const TEMPLATE_EVENTS: { key: string; label: string; description?: string }[] = 
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   lead_auto_shortlisted: 'Auto-shortlisted',
+  lead_stage_auto_advanced: 'Stage auto-advanced',
   lead_signup_onboarding: 'Signup → Onboarding',
   shortlist_invite_sent: 'Invitation created',
   crm_message_sent: 'CRM message sent',
@@ -85,6 +92,7 @@ const DEFAULT_CONFIG: AutomationConfig = {
   auto_shortlist_on_approve: true,
   auto_onboarding_on_signup: true,
   auto_invite_on_shortlist: true,
+  auto_advance_onboarding_stages: true,
 };
 
 function Toggle({
@@ -130,7 +138,9 @@ export default function SystemAutomation() {
     },
   });
 
-  const config = settings?.config ?? DEFAULT_CONFIG;
+  // Merge over defaults so a newly-added flag (absent from the stored row)
+  // shows its default (ON) rather than Off — matching the backend's getConfig.
+  const config = { ...DEFAULT_CONFIG, ...(settings?.config ?? {}) };
   const templates = settings?.templates ?? {};
 
   const configMutation = useMutation({
