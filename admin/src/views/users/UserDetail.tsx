@@ -46,6 +46,7 @@ interface TalentUser {
   languages_spoken?: { language: string; proficiency: string }[] | null;
   is_active: boolean;
   suspended?: boolean;
+  blacklisted?: boolean;
   approval_status?: string | null;
   approved_at?: string | null;
   skip_onboarding?: boolean;
@@ -520,7 +521,8 @@ interface CourseEnrollment {
 export default function UserDetail({ userId }: { userId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { suspendUser, setUserActive, setOnboardingBypass, deleteUser } = useUserActions();
+  const { suspendUser, blacklistUser, setUserActive, setOnboardingBypass, deleteUser } =
+    useUserActions();
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [activeSection, setActiveSection] = useState(0);
 
@@ -1011,6 +1013,7 @@ export default function UserDetail({ userId }: { userId: string }) {
                 )}
                 {!user.is_active && <Badge variant="gray">Inactive</Badge>}
                 {user.suspended && <Badge variant="red">Suspended</Badge>}
+                {user.blacklisted && <Badge variant="red">Blacklisted</Badge>}
               </div>
               <div className="mt-3">
                 <span className="eyebrow-rainbow">
@@ -1071,6 +1074,12 @@ export default function UserDetail({ userId }: { userId: string }) {
                     label: user.suspended ? 'Unsuspend' : 'Suspend',
                     onClick: () => suspendUser.mutate({ userId: user.id, suspend: !user.suspended }),
                     loading: suspendUser.isPending,
+                  },
+                  {
+                    label: user.blacklisted ? 'Unblacklist' : 'Blacklist',
+                    onClick: () =>
+                      blacklistUser.mutate({ userId: user.id, blacklist: !user.blacklisted }),
+                    loading: blacklistUser.isPending,
                   },
                   {
                     label: 'Delete',

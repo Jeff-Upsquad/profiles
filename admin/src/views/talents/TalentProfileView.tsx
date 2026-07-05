@@ -75,6 +75,7 @@ interface ProfileData {
     profile_photo_url?: string;
     is_active?: boolean;
     suspended?: boolean;
+    blacklisted?: boolean;
   };
   categories?: { name: string; slug: string };
   portfolio_items?: PortfolioItem[];
@@ -219,6 +220,25 @@ export default function TalentProfileView({
     },
   });
 
+  const blacklistUser = useMutation({
+    mutationFn: async ({ userId, blacklist }: { userId: string; blacklist: boolean }) => {
+      await api.patch(`/admin/users/${userId}/blacklist`, { blacklist });
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['talent-profile', profileId] });
+      queryClient.invalidateQueries({ queryKey: ['talent-profiles'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-user-detail', vars.userId] });
+      toast.success(
+        vars.blacklist
+          ? 'Account blacklisted — no new subscriptions, assignments, or job opportunities'
+          : 'Account unblacklisted',
+      );
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to update blacklist');
+    },
+  });
+
   const { data: fields } = useQuery<CategoryField[]>({
     queryKey: ['category-fields', profile?.category_id],
     queryFn: async () => {
@@ -329,6 +349,7 @@ export default function TalentProfileView({
               <Badge variant="gray">Talent account inactive</Badge>
             )}
             {talentUser?.suspended === true && <Badge variant="red">Suspended</Badge>}
+            {talentUser?.blacklisted === true && <Badge variant="red">Blacklisted</Badge>}
           </div>
           <div className="mt-2 flex items-center gap-1.5 text-sm text-gray-600">
             <svg className="h-4 w-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -418,6 +439,26 @@ export default function TalentProfileView({
               }}
             >
               {talentUser.suspended ? 'Unsuspend' : 'Suspend'}
+            </Button>
+          )}
+          {talentUser?.id && (
+            <Button
+              variant={talentUser.blacklisted ? 'primary' : 'danger'}
+              size="sm"
+              loading={blacklistUser.isPending}
+              onClick={() => {
+                const blacklist = !talentUser.blacklisted;
+                if (
+                  !blacklist ||
+                  window.confirm(
+                    `Blacklist ${talentUser.full_name ?? 'this talent'}? They will not receive any new subscriptions, assignments, or job opportunities until unblacklisted. Existing engagements are not affected.`,
+                  )
+                ) {
+                  blacklistUser.mutate({ userId: talentUser.id, blacklist });
+                }
+              }}
+            >
+              {talentUser.blacklisted ? 'Unblacklist' : 'Blacklist'}
             </Button>
           )}
           <button

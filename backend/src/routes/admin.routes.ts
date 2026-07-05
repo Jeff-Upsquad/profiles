@@ -387,6 +387,7 @@ router.put(
   adminController.updateUserBasicProfile,
 );
 router.patch('/users/:id/suspend', adminController.suspendUser);
+router.patch('/users/:id/blacklist', adminController.blacklistUser);
 router.patch('/users/talent/:id/active', adminController.setTalentUserActive);
 router.patch(
   '/users/talent/:id/skip-onboarding',

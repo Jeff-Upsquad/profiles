@@ -644,6 +644,20 @@ export async function suspendUser(req: Request, res: Response, next: NextFunctio
   }
 }
 
+export async function blacklistUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { blacklist, reason } = req.body;
+    const result = await adminService.blacklistUser(
+      req.params.id as string,
+      blacklist ?? true,
+      typeof reason === 'string' ? reason : null,
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function setProfileActive(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await adminService.setProfileActive(

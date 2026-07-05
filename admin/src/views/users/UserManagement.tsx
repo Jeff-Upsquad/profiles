@@ -25,6 +25,7 @@ interface TalentUser {
   created_at: string;
   email?: string;
   suspended?: boolean;
+  blacklisted?: boolean;
   is_active: boolean;
 }
 
@@ -39,6 +40,7 @@ interface BusinessUser {
   created_at: string;
   email?: string;
   suspended?: boolean;
+  blacklisted?: boolean;
 }
 
 type Tab = 'talent' | 'business';
@@ -49,7 +51,7 @@ export default function UserManagement() {
   const [search, setSearch] = useState('');
   const [resetTarget, setResetTarget] = useState<ResetTarget | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
-  const { suspendUser, setUserActive, deleteUser } = useUserActions();
+  const { suspendUser, blacklistUser, setUserActive, deleteUser } = useUserActions();
 
   const { data: talentUsers, isLoading: talentLoading } = useQuery<TalentUser[]>({
     queryKey: ['admin-users-talent'],
@@ -200,6 +202,12 @@ export default function UserManagement() {
                         suspendUser.mutate({ userId: user.id, suspend: !user.suspended }),
                     },
                     {
+                      label: user.blacklisted ? 'Unblacklist' : 'Blacklist',
+                      loading: blacklistUser.isPending && blacklistUser.variables?.userId === user.id,
+                      onClick: () =>
+                        blacklistUser.mutate({ userId: user.id, blacklist: !user.blacklisted }),
+                    },
+                    {
                       label: 'Delete',
                       variant: 'danger',
                       loading: deleteUser.isPending && deleteUser.variables === user.id,
@@ -217,6 +225,7 @@ export default function UserManagement() {
                           <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
                           {!user.is_active && <Badge variant="gray">Inactive</Badge>}
                           {user.suspended && <Badge variant="red">Suspended</Badge>}
+                          {user.blacklisted && <Badge variant="red">Blacklisted</Badge>}
                         </div>
                         {user.email && <div className="text-xs text-gray-500">{user.email}</div>}
                       </td>
@@ -278,6 +287,12 @@ export default function UserManagement() {
                       loading: suspendUser.isPending && suspendUser.variables?.userId === user.id,
                       onClick: () =>
                         suspendUser.mutate({ userId: user.id, suspend: !user.suspended }),
+                    },
+                    {
+                      label: user.blacklisted ? 'Unblacklist' : 'Blacklist',
+                      loading: blacklistUser.isPending && blacklistUser.variables?.userId === user.id,
+                      onClick: () =>
+                        blacklistUser.mutate({ userId: user.id, blacklist: !user.blacklisted }),
                     },
                     {
                       label: 'Delete',

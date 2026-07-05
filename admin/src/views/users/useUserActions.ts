@@ -25,6 +25,20 @@ export function useUserActions() {
     },
   });
 
+  const blacklistUser = useMutation({
+    mutationFn: async ({ userId, blacklist }: { userId: string; blacklist: boolean }) => {
+      await api.patch(`/admin/users/${userId}/blacklist`, { blacklist });
+    },
+    onSuccess: (_data, vars) => {
+      invalidateLists();
+      queryClient.invalidateQueries({ queryKey: ['admin-user-detail', vars.userId] });
+      toast.success(vars.blacklist ? 'User blacklisted' : 'User unblacklisted');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to update user');
+    },
+  });
+
   const setUserActive = useMutation({
     mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
       await api.patch(`/admin/users/talent/${userId}/active`, { is_active: isActive });
@@ -82,5 +96,5 @@ export function useUserActions() {
     },
   });
 
-  return { suspendUser, setUserActive, setOnboardingBypass, deleteUser };
+  return { suspendUser, blacklistUser, setUserActive, setOnboardingBypass, deleteUser };
 }

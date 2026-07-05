@@ -843,6 +843,37 @@ export async function suspendUser(userId: string, suspend: boolean, reason?: str
   };
 }
 
+// Blacklist mirrors suspension exactly (see suspendUser above): an admin-
+// controlled block on NEW opportunities only (subscription/assignment/hiring
+// cards — enforced in subscription-matcher + manual-assign + admin-select). It
+// does not ban login and does not touch existing engagements. It is a separate,
+// sterner-labeled flag, independent of `suspended`. talent_users.blacklisted is
+// the source of truth; auth user_metadata is kept as a mirror so business users
+// (who have no talent_users row) still carry the flag.
+export async function blacklistUser(userId: string, blacklist: boolean, reason?: string | null) {
+  const { data: talentRows, error: talentErr } = await supabaseAdmin
+    .from('talent_users')
+    .update({
+      blacklisted: blacklist,
+      blacklisted_at: blacklist ? new Date().toISOString() : null,
+      blacklisted_reason: blacklist ? (reason ?? null) : null,
+    })
+    .eq('id', userId)
+    .select('id');
+  if (talentErr) throw new AppError(500, talentErr.message);
+
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    user_metadata: { blacklisted: blacklist },
+  });
+  if (error) throw new AppError(400, error.message);
+
+  return {
+    message: blacklist ? 'User blacklisted' : 'User unblacklisted',
+    blacklisted: blacklist,
+    is_talent: (talentRows?.length ?? 0) > 0,
+  };
+}
+
 // Set tier on a single talent profile from the Talents admin UI.
 export async function setProfileTier(
   profileId: string,

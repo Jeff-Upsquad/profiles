@@ -1481,15 +1481,19 @@ export async function manualAssignTalent(
 
   const { data: talent, error: talentErr } = await supabaseAdmin
     .from('talent_users')
-    .select('id, suspended')
+    .select('id, suspended, blacklisted')
     .eq('id', input.talent_id)
     .maybeSingle();
   if (talentErr) throw new AppError(500, talentErr.message);
   if (!talent) throw new AppError(404, 'Talent not found');
-  // Suspended talents must not receive new offers or assignments — reject
-  // loudly so the SquadHub-side admin sees why the assignment didn't land.
+  // Suspended or blacklisted talents must not receive new offers or assignments
+  // — reject loudly so the SquadHub-side admin sees why the assignment didn't
+  // land.
   if ((talent as any).suspended === true) {
     throw new AppError(409, 'Talent is suspended on Profiles and cannot receive new assignments');
+  }
+  if ((talent as any).blacklisted === true) {
+    throw new AppError(409, 'Talent is blacklisted on Profiles and cannot receive new assignments');
   }
 
   // Only an *active* (uncancelled) row counts as "already assigned". A
@@ -1791,15 +1795,18 @@ export async function adminSelectRecipient(
   const now = new Date().toISOString();
   const talentUserId = (recipient as any).talent_user_id as string;
 
-  // A talent suspended after accepting must not be converted into a new
-  // assignment — block the selection instead of finalizing it.
+  // A talent suspended or blacklisted after accepting must not be converted into
+  // a new assignment — block the selection instead of finalizing it.
   const { data: selTalent } = await supabaseAdmin
     .from('talent_users')
-    .select('suspended')
+    .select('suspended, blacklisted')
     .eq('id', talentUserId)
     .maybeSingle();
   if ((selTalent as any)?.suspended === true) {
     throw new AppError(409, 'This talent is suspended and cannot be selected for new assignments');
+  }
+  if ((selTalent as any)?.blacklisted === true) {
+    throw new AppError(409, 'This talent is blacklisted and cannot be selected for new assignments');
   }
 
   // Stamp selected

@@ -46,9 +46,9 @@ export async function findMatchingTalents(matchRules: MatchRules): Promise<strin
     return [];
   }
 
-  // Step 1: Base query — category + experience. Suspended and inactive talents
-  // are excluded here so every fan-out path (ingest, broadcast, fresh
-  // broadcast, reopen, publish) is gated in one place.
+  // Step 1: Base query — category + experience. Suspended, blacklisted, and
+  // inactive talents are excluded here so every fan-out path (ingest, broadcast,
+  // fresh broadcast, reopen, publish) is gated in one place.
   //
   // The is_active gates mirror the business-facing RLS policy on
   // talent_profiles (migration 00026): a talent is browseable by businesses
@@ -56,13 +56,15 @@ export async function findMatchingTalents(matchRules: MatchRules): Promise<strin
   // runs as the service role, which bypasses RLS, so without these clauses an
   // inactive talent — hidden from every business search — would still be pushed
   // new cards, accept one, and end up invisible to the business that "hired"
-  // them. Suspension is a separate, stronger block (no new opportunities at all).
+  // them. Suspension and blacklist are separate, stronger blocks (no new
+  // opportunities at all); blacklist mirrors suspension as a second such flag.
   let qb = supabaseAdmin
     .from('talent_profiles')
-    .select('id, talent_user_id, talent_users!inner(suspended, is_active)')
+    .select('id, talent_user_id, talent_users!inner(suspended, blacklisted, is_active)')
     .eq('status', 'approved')
     .eq('is_active', true)
     .eq('talent_users.suspended', false)
+    .eq('talent_users.blacklisted', false)
     .eq('talent_users.is_active', true)
     .in('category_id', categoryIds);
 
