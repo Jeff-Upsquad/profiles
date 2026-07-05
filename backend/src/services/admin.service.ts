@@ -412,6 +412,14 @@ export async function approveProfile(profileId: string, adminId: string) {
     await syncGhostForTalent(data.talent_user_id);
   }
 
+  // Approving a job profile may advance the candidate's pipeline stage.
+  try {
+    const { syncOnboardingStage } = await import('./automation.service.js');
+    await syncOnboardingStage(data.talent_user_id);
+  } catch (e) {
+    console.error('[automation] syncOnboardingStage failed:', e);
+  }
+
   return data;
 }
 

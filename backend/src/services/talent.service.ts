@@ -72,6 +72,14 @@ export async function updateBasicProfile(userId: string, input: UpdateBasicProfi
       .eq('id', userId);
   }
 
+  // A now-complete basic profile may advance the candidate's pipeline stage.
+  try {
+    const { syncOnboardingStage } = await import('./automation.service.js');
+    await syncOnboardingStage(userId);
+  } catch (e) {
+    console.error('[automation] syncOnboardingStage failed:', e);
+  }
+
   return data;
 }
 
@@ -179,14 +187,43 @@ export function isBasicProfileMandatoryComplete(
   return true;
 }
 
-export async function getMyOnboardingProgress(userId: string) {
-  const { data: talent, error: talentErr } = await supabaseAdmin
+// Computes the 5 onboarding-progress booleans (+ bypass flag + the timestamps
+// the dashboard needs) for a talent. Single source of truth reused by the
+// talent dashboard strip, the admin lead drawer, and the stage auto-advance.
+// Returns all-false (signed_up=false) when the talent row doesn't exist.
+export async function computeOnboardingProgress(userId: string): Promise<{
+  signed_up: boolean;
+  onboarding_completed: boolean;
+  onboarding_bypassed: boolean;
+  basic_profile_completed: boolean;
+  job_profile_completed: boolean;
+  portfolio_completed: boolean;
+  timestamps: {
+    basic_created_at: string | null;
+    earliest_submitted_profile_at: string | null;
+    earliest_portfolio_at: string | null;
+  };
+}> {
+  const empty = {
+    signed_up: false,
+    onboarding_completed: false,
+    onboarding_bypassed: false,
+    basic_profile_completed: false,
+    job_profile_completed: false,
+    portfolio_completed: false,
+    timestamps: {
+      basic_created_at: null,
+      earliest_submitted_profile_at: null,
+      earliest_portfolio_at: null,
+    },
+  };
+
+  const { data: talent } = await supabaseAdmin
     .from('talent_users')
     .select('id, full_name, languages_spoken, onboarding_completed, skip_onboarding')
     .eq('id', userId)
-    .single();
-
-  if (talentErr || !talent) throw new AppError(404, 'Talent user not found');
+    .maybeSingle();
+  if (!talent) return empty;
 
   const [basicRes, profilesRes] = await Promise.all([
     supabaseAdmin
@@ -203,15 +240,12 @@ export async function getMyOnboardingProgress(userId: string) {
   ]);
 
   const basic = (basicRes.data ?? null) as Record<string, any> | null;
-  const basicCreatedAt: string | null = basic?.created_at ?? null;
   const profiles = (profilesRes.data ?? []) as { id: string; created_at: string; status: string }[];
-  // A job profile counts as "complete" only once the talent has
-  // submitted it (pending_review) or an admin has approved it.
-  // `draft` and `rejected` profiles do not flip the stage tick on.
+  // A job profile counts as "complete" only once submitted (pending_review) or
+  // approved. `draft` and `rejected` profiles do not flip the tick on.
   const submittedProfiles = profiles.filter(
     (p) => p.status === 'approved' || p.status === 'pending_review',
   );
-  const earliestProfileCreatedAt: string | null = submittedProfiles[0]?.created_at ?? null;
   const profileIds = profiles.map((p) => p.id);
 
   let earliestPortfolioCreatedAt: string | null = null;
@@ -225,18 +259,36 @@ export async function getMyOnboardingProgress(userId: string) {
     earliestPortfolioCreatedAt = portfolio?.[0]?.created_at ?? null;
   }
 
-  const progress = {
+  return {
     signed_up: true,
-    // An admin-set skip_onboarding flag exempts the talent from the
-    // course without rewriting onboarding_completed. Surface that as
-    // "completed" on the 5-stage strip.
+    // An admin-set skip_onboarding flag exempts the talent from the course
+    // without rewriting onboarding_completed.
     onboarding_completed: !!talent.onboarding_completed || !!talent.skip_onboarding,
+    onboarding_bypassed: !!talent.skip_onboarding,
     basic_profile_completed: isBasicProfileMandatoryComplete(basic, {
       full_name: talent.full_name ?? null,
       languages_spoken: talent.languages_spoken,
     }),
     job_profile_completed: submittedProfiles.length > 0,
     portfolio_completed: !!earliestPortfolioCreatedAt,
+    timestamps: {
+      basic_created_at: (basic?.created_at ?? null) as string | null,
+      earliest_submitted_profile_at: submittedProfiles[0]?.created_at ?? null,
+      earliest_portfolio_at: earliestPortfolioCreatedAt,
+    },
+  };
+}
+
+export async function getMyOnboardingProgress(userId: string) {
+  const p = await computeOnboardingProgress(userId);
+  if (!p.signed_up) throw new AppError(404, 'Talent user not found');
+
+  const progress = {
+    signed_up: p.signed_up,
+    onboarding_completed: p.onboarding_completed,
+    basic_profile_completed: p.basic_profile_completed,
+    job_profile_completed: p.job_profile_completed,
+    portfolio_completed: p.portfolio_completed,
   };
 
   const allCompleted =
@@ -248,9 +300,9 @@ export async function getMyOnboardingProgress(userId: string) {
   let allCompletedAt: string | null = null;
   if (allCompleted) {
     const candidates = [
-      basicCreatedAt,
-      earliestProfileCreatedAt,
-      earliestPortfolioCreatedAt,
+      p.timestamps.basic_created_at,
+      p.timestamps.earliest_submitted_profile_at,
+      p.timestamps.earliest_portfolio_at,
     ].filter((t): t is string => !!t);
     if (candidates.length > 0) {
       allCompletedAt = candidates.reduce((max, t) =>
@@ -537,6 +589,14 @@ export async function submitProfile(profileId: string, userId: string) {
     await syncGhostForTalent(userId);
   }
 
+  // Submitting a job profile may advance the candidate's pipeline stage.
+  try {
+    const { syncOnboardingStage } = await import('./automation.service.js');
+    await syncOnboardingStage(userId);
+  } catch (e) {
+    console.error('[automation] syncOnboardingStage failed:', e);
+  }
+
   return { ...data, auto_approved: didAutoApprove };
 }
 
@@ -763,6 +823,14 @@ export async function addPortfolioItem(
     .single();
 
   if (error) throw new AppError(500, `Failed to add portfolio item: ${error.message}`);
+
+  // First portfolio item may advance the candidate's pipeline stage.
+  try {
+    const { syncOnboardingStage } = await import('./automation.service.js');
+    await syncOnboardingStage(userId);
+  } catch (e) {
+    console.error('[automation] syncOnboardingStage failed:', e);
+  }
 
   // Seed the skills junction. If skill_names is omitted, the legacy
   // single skill_name is the sole tag — keeps the historical PortfolioUploader

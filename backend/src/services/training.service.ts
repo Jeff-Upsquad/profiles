@@ -1342,6 +1342,12 @@ export async function completeOnboarding(userId: string, categoryIds: string[]) 
       .update({ onboarding_completed: true })
       .eq('id', userId);
     if (error) throw new AppError(500, `Failed to complete onboarding: ${error.message}`);
+    try {
+      const { syncOnboardingStage } = await import('./automation.service.js');
+      await syncOnboardingStage(userId);
+    } catch (e) {
+      console.error('[automation] syncOnboardingStage failed:', e);
+    }
     return { message: 'Onboarding completed (admin bypass)' };
   }
 
@@ -1380,6 +1386,12 @@ export async function completeOnboarding(userId: string, categoryIds: string[]) 
     .eq('id', userId);
 
   if (error) throw new AppError(500, `Failed to complete onboarding: ${error.message}`);
+  try {
+    const { syncOnboardingStage } = await import('./automation.service.js');
+    await syncOnboardingStage(userId);
+  } catch (e) {
+    console.error('[automation] syncOnboardingStage failed:', e);
+  }
   return { message: 'Onboarding completed' };
 }
 

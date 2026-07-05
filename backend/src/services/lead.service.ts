@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { evaluateAutoApproval, parseConfig } from './auto-approval.service.js';
-import { isBasicProfileMandatoryComplete } from './talent.service.js';
+import { isBasicProfileMandatoryComplete, computeOnboardingProgress } from './talent.service.js';
 import type {
   CreateLeadInput,
   UpdateLeadStatusInput,
@@ -409,57 +409,15 @@ export async function getLeadSubmission(id: string) {
   };
 
   if (talentId) {
-    onboarding_progress.signed_up = true;
-    onboarding_progress.onboarding_completed =
-      !!(data.linked_talent as any)?.onboarding_completed ||
-      !!(data.linked_talent as any)?.skip_onboarding;
-    onboarding_progress.onboarding_bypassed =
-      !!(data.linked_talent as any)?.skip_onboarding;
-
-    // Columns needed to evaluate isBasicProfileMandatoryComplete.
-    // Kept in sync with the same constant in talent.service.ts.
-    const BASIC_COLUMNS =
-      'talent_user_id, permanent_country, permanent_state, permanent_district, permanent_city, ' +
-      'availability, job_type, employment_type, virtual_office_hours, daily_available_hours, ' +
-      'freelance_available, education_courses, experience, profile_picture_url, resume_url';
-
-    const { data: basic } = await supabaseAdmin
-      .from('talent_profiles_basic')
-      .select(BASIC_COLUMNS)
-      .eq('talent_user_id', talentId)
-      .maybeSingle();
-
-    onboarding_progress.basic_profile_completed = isBasicProfileMandatoryComplete(
-      (basic as Record<string, any> | null) ?? null,
-      {
-        full_name: ((data.linked_talent as any)?.full_name as string | null) ?? null,
-        languages_spoken: (data.linked_talent as any)?.languages_spoken,
-      },
-    );
-
-    const { data: profiles } = await supabaseAdmin
-      .from('talent_profiles')
-      .select('id, status')
-      .eq('talent_user_id', talentId)
-      .is('deleted_at', null);
-
-    // Job profile stage ticks only when the talent has at least one
-    // profile in `pending_review` or `approved` — drafts and rejected
-    // profiles do not count.
-    const submittedStatuses = (profiles ?? []).filter(
-      (p: any) => p.status === 'approved' || p.status === 'pending_review',
-    );
-    onboarding_progress.job_profile_completed = submittedStatuses.length > 0;
-
-    if (profiles && profiles.length > 0) {
-      const profileIds = profiles.map((p: any) => p.id);
-      const { count } = await supabaseAdmin
-        .from('portfolio_items')
-        .select('id', { count: 'exact', head: true })
-        .in('profile_id', profileIds);
-
-      onboarding_progress.portfolio_completed = (count ?? 0) > 0;
-    }
+    const p = await computeOnboardingProgress(talentId);
+    onboarding_progress = {
+      signed_up: p.signed_up,
+      onboarding_completed: p.onboarding_completed,
+      onboarding_bypassed: p.onboarding_bypassed,
+      basic_profile_completed: p.basic_profile_completed,
+      job_profile_completed: p.job_profile_completed,
+      portfolio_completed: p.portfolio_completed,
+    };
   }
 
   return { ...data, onboarding_progress };
