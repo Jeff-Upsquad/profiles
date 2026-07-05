@@ -236,6 +236,83 @@ export async function getTalentAvailability(
   }));
 }
 
+// ── Talent account status (for SquadHub's "former assignees" tags) ──
+
+export type TalentStatusTag = 'active' | 'inactive' | 'suspended' | 'not_found';
+
+export interface TalentAccountStatusResult {
+  talent_user_id: string;
+  // false = no talent_users row for this id (deleted, or never a talent).
+  exists: boolean;
+  is_active: boolean;
+  suspended: boolean;
+  suspended_at: string | null;
+  suspended_reason: string | null;
+  // Single-word tag for display. 'suspended' outranks 'inactive' — a suspended
+  // talent is the stronger, deliberate admin action — and both outrank an
+  // absent row's 'not_found'.
+  status_tag: TalentStatusTag;
+}
+
+/**
+ * Batch-fetch the account status of a set of talents, keyed by talent_user_id.
+ * SquadHub tags former assignees on a subscription card with the talent's
+ * current SquadHire standing (active / inactive / suspended). Unknown ids come
+ * back as status_tag='not_found' (kept in the result, not dropped) so the
+ * caller can tell "no longer on SquadHire" apart from "not asked".
+ *
+ * Status is derived from two independent admin flags on talent_users:
+ *   suspended = true  → blocked from new work (strongest signal)
+ *   is_active = false → hidden from SquadHub (visibility off)
+ * SquadHire has no "blacklisted"/"banned" state; suspension is the mechanism.
+ */
+export async function getTalentStatuses(
+  talentUserIds: string[],
+): Promise<TalentAccountStatusResult[]> {
+  if (talentUserIds.length === 0) return [];
+  const batch = Array.from(new Set(talentUserIds)).slice(0, LOOKUP_BATCH_LIMIT);
+
+  const { data, error } = await supabaseAdmin
+    .from('talent_users')
+    .select('id, is_active, suspended, suspended_at, suspended_reason')
+    .in('id', batch);
+  if (error) throw new AppError(500, error.message);
+
+  const byId = new Map<string, any>();
+  for (const row of (data ?? []) as any[]) byId.set(row.id, row);
+
+  return batch.map((id) => {
+    const row = byId.get(id);
+    if (!row) {
+      return {
+        talent_user_id: id,
+        exists: false,
+        is_active: false,
+        suspended: false,
+        suspended_at: null,
+        suspended_reason: null,
+        status_tag: 'not_found' as const,
+      };
+    }
+    const suspended = row.suspended === true;
+    const isActive = row.is_active !== false;
+    const status_tag: TalentStatusTag = suspended
+      ? 'suspended'
+      : !isActive
+        ? 'inactive'
+        : 'active';
+    return {
+      talent_user_id: id,
+      exists: true,
+      is_active: isActive,
+      suspended,
+      suspended_at: row.suspended_at ?? null,
+      suspended_reason: row.suspended_reason ?? null,
+      status_tag,
+    };
+  });
+}
+
 // ── Phone-based talent lookup (for SquadHire CRM admin deep-link) ──
 
 export interface TalentByPhoneResult {
