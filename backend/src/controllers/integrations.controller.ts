@@ -119,6 +119,9 @@ export async function getTalentStatus(
         suspended: boolean;
         suspended_at: string | null;
         suspended_reason: string | null;
+        blacklisted: boolean;
+        blacklisted_at: string | null;
+        blacklisted_reason: string | null;
         status_tag: integrationsService.TalentStatusTag;
       }
     > = {};
@@ -129,6 +132,9 @@ export async function getTalentStatus(
         suspended: r.suspended,
         suspended_at: r.suspended_at,
         suspended_reason: r.suspended_reason,
+        blacklisted: r.blacklisted,
+        blacklisted_at: r.blacklisted_at,
+        blacklisted_reason: r.blacklisted_reason,
         status_tag: r.status_tag,
       };
     }
