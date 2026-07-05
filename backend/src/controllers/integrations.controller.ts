@@ -94,6 +94,54 @@ export async function getTalentAvailability(
   }
 }
 
+const talentStatusSchema = z.object({
+  talent_user_ids: z.array(z.string().uuid()).min(1).max(50),
+});
+
+// SquadHub calls this to tag former assignees on a subscription card with the
+// talent's current SquadHire standing (active / inactive / suspended). Returns
+// a map keyed by talent_user_id; unknown ids come back with status_tag
+// 'not_found' (present, not omitted) so SquadHub can show "no longer on
+// SquadHire" rather than a silent gap.
+export async function getTalentStatus(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = talentStatusSchema.parse(req.body);
+    const results = await integrationsService.getTalentStatuses(body.talent_user_ids);
+    const byId: Record<
+      string,
+      {
+        exists: boolean;
+        is_active: boolean;
+        suspended: boolean;
+        suspended_at: string | null;
+        suspended_reason: string | null;
+        status_tag: integrationsService.TalentStatusTag;
+      }
+    > = {};
+    for (const r of results) {
+      byId[r.talent_user_id] = {
+        exists: r.exists,
+        is_active: r.is_active,
+        suspended: r.suspended,
+        suspended_at: r.suspended_at,
+        suspended_reason: r.suspended_reason,
+        status_tag: r.status_tag,
+      };
+    }
+    res.json({ success: true, data: byId });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0].message));
+      return;
+    }
+    next(err);
+  }
+}
+
 const lookupTalentByPhoneSchema = z.object({
   phone_e164: z.string().regex(/^\+[1-9]\d{1,14}$/, 'phone_e164 must be E.164'),
 });

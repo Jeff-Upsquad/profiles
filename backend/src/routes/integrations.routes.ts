@@ -54,6 +54,15 @@ router.post(
   integrationsController.getTalentAvailability,
 );
 
+// Batch talent account status (active / inactive / suspended), keyed by
+// talent_user_id. SquadHub tags former assignees on a subscription card with
+// the talent's current SquadHire standing.
+router.post(
+  '/squadhub/talents/status',
+  verifySquadhubSecret,
+  integrationsController.getTalentStatus,
+);
+
 // Talent access grants — SquadHub originates and we mirror.
 router.post(
   '/squadhub/talent-access/grants',
