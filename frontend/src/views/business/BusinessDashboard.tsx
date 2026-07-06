@@ -33,10 +33,13 @@ function formatPublishedAt(iso: string | null): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function classifyCard(card: BusinessSubscriptionCardSummary): 'live' | 'recalled' | 'closed' {
-  if (card.status === 'active' || card.status === 'assigned') return 'live';
-  if (card.recalled_at) return 'recalled';
-  return 'closed';
+function classifyCard(card: BusinessSubscriptionCardSummary): 'open' | 'active' | 'paused' | 'cancelled' {
+  // Same four buckets as the My-subscription page. Terminal wins first, then
+  // paused (an assigned card keeps status='assigned'), then the active/open split.
+  if (card.status === 'archived' || card.cancelled_at || card.recalled_at) return 'cancelled';
+  if (card.paused_at) return 'paused';
+  if (card.status === 'assigned') return 'active';
+  return 'open';
 }
 
 function cardTitle(card: BusinessSubscriptionCardSummary): string {
@@ -71,8 +74,11 @@ export default function BusinessDashboard() {
   const { data: cards, isLoading } = useMySubscriptionCards();
 
   const allCards = cards ?? [];
-  const open = allCards.filter((c) => classifyCard(c) !== 'closed');
-  const closed = allCards.filter((c) => classifyCard(c) === 'closed');
+  // "Open" here means genuinely open — published/broadcast/selected cards
+  // awaiting review. Assigned (Active), Paused and Cancelled cards live on the
+  // My-subscription page, not this homepage list.
+  const open = allCards.filter((c) => classifyCard(c) === 'open');
+  const closed = allCards.filter((c) => classifyCard(c) === 'cancelled');
 
   const totals = allCards.reduce(
     (acc, c) => ({
@@ -311,7 +317,6 @@ function SubscriptionCardRow({
   const published = formatPublishedAt(card.published_at);
   const accepted = card.counts.accepted;
   const shortlisted = card.counts.shortlisted;
-  const isRecalled = classifyCard(card) === 'recalled';
   const tint = tintFor(card.id);
 
   return (
@@ -334,14 +339,6 @@ function SubscriptionCardRow({
             <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
               {cardTitle(card)}
             </p>
-            {isRecalled && (
-              <span
-                className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800"
-                title="Card was recalled by SquadHub. Accepted talents stay in your shortlist."
-              >
-                Recalled
-              </span>
-            )}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
             {planSubtitle(card) && (
