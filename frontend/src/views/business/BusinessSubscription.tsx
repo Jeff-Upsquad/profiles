@@ -7,7 +7,13 @@ import { useMySubscriptionCards, useMyAssignmentCards, type BusinessSubscription
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
 
-type Tab = 'open' | 'closed';
+type Bucket = 'open' | 'active' | 'paused' | 'cancelled';
+
+// Inbox/card glyph used for open, paused and cancelled rows.
+const CARD_ICON =
+  'M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-3.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-1.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 007.586 13H4';
+// Check-badge glyph for the Active (assigned) rows.
+const CHECK_ICON = 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z';
 
 function formatPrice(amount: number | null, currency: string | null): string | null {
   if (amount == null) return null;
@@ -28,11 +34,15 @@ function formatPublishedAt(iso: string | null): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function classifyCard(card: BusinessSubscriptionCardSummary): 'assigned' | 'live' | 'recalled' | 'closed' {
-  if (card.status === 'assigned') return 'assigned';
-  if (card.status === 'active') return 'live';
-  if (card.recalled_at) return 'recalled';
-  return 'closed';
+// Fold the raw card status + lifecycle timestamps into one of four business-
+// facing buckets. Order matters: terminal state wins first (a cancelled card
+// can still carry a stale paused_at), then paused (a paused card keeps
+// status='assigned', so it must be checked before the active/open split).
+function classifyCard(card: BusinessSubscriptionCardSummary): Bucket {
+  if (card.status === 'archived' || card.cancelled_at || card.recalled_at) return 'cancelled';
+  if (card.paused_at) return 'paused';
+  if (card.status === 'assigned') return 'active';
+  return 'open';
 }
 
 function cardTitle(card: BusinessSubscriptionCardSummary): string {
@@ -62,6 +72,13 @@ function tintFor(seed: string): string {
   return TINTS[Math.abs(hash) % TINTS.length];
 }
 
+const TABS: Array<{ key: Bucket; label: string }> = [
+  { key: 'open', label: 'Open' },
+  { key: 'active', label: 'Active' },
+  { key: 'paused', label: 'Paused' },
+  { key: 'cancelled', label: 'Cancelled' },
+];
+
 export default function BusinessSubscription({
   variant = 'subscription',
 }: {
@@ -80,13 +97,18 @@ export default function BusinessSubscription({
   // Card detail/review reuses one component, but assignments get their own
   // route so the URL + back-nav read "assignments", not "subscription".
   const detailBase = isAssignment ? '/business/assignments' : '/business/subscription';
-  const [tab, setTab] = useState<Tab>('open');
+  const [tab, setTab] = useState<Bucket>('open');
 
   const allCards = cards ?? [];
-  const assigned = allCards.filter((c) => classifyCard(c) === 'assigned');
-  const open = allCards.filter((c) => classifyCard(c) === 'live');
-  const closed = allCards.filter((c) => classifyCard(c) === 'recalled' || classifyCard(c) === 'closed');
-  const visible = tab === 'open' ? open : closed;
+  const byBucket: Record<Bucket, BusinessSubscriptionCardSummary[]> = { open: [], active: [], paused: [], cancelled: [] };
+  for (const c of allCards) byBucket[classifyCard(c)].push(c);
+  const visible = byBucket[tab];
+  const counts: Record<Bucket, number> = {
+    open: byBucket.open.length,
+    active: byBucket.active.length,
+    paused: byBucket.paused.length,
+    cancelled: byBucket.cancelled.length,
+  };
 
   return (
     <div className="space-y-6">
@@ -96,7 +118,7 @@ export default function BusinessSubscription({
           <div>
             <div className="mb-2.5 stagger-1">
               <span className="eyebrow-rainbow">
-                {open.length} {open.length === 1 ? noun : nounPlural} active
+                {counts.active} {counts.active === 1 ? noun : nounPlural} active
               </span>
             </div>
             <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
@@ -109,31 +131,7 @@ export default function BusinessSubscription({
         </div>
       </section>
 
-      {/* ── Active Subscriptions (Assigned) ── */}
-      {assigned.length > 0 && (
-        <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="flex items-center justify-between border-b border-[#E7E7EA] px-6 py-5">
-            <div>
-              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
-                Active {Noun}s
-              </h2>
-              <p className="mt-0.5 text-sm text-[#737373]">
-                Talents have been assigned to these cards.
-              </p>
-            </div>
-            <span className="rounded-full bg-[#E7E7EA] px-2.5 py-1 text-xs font-semibold text-[#0a0a0a]">
-              {assigned.length}
-            </span>
-          </div>
-          <ul className="divide-y divide-[#E7E7EA]">
-            {assigned.map((card, i) => (
-              <AssignedCardRow key={card.id} card={card} index={i} detailBase={detailBase} />
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* ── Cards list ── */}
+      {/* ── Cards, bucketed into Open / Active / Paused / Cancelled ── */}
       <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="flex items-center justify-between border-b border-[#E7E7EA] px-6 py-5">
           <div>
@@ -147,7 +145,7 @@ export default function BusinessSubscription({
         </div>
 
         <div className="px-6 pt-4">
-          <TabBar active={tab} onChange={setTab} openCount={open.length} closedCount={closed.length} />
+          <TabBar active={tab} onChange={setTab} counts={counts} />
         </div>
 
         {isLoading ? (
@@ -157,14 +155,14 @@ export default function BusinessSubscription({
             ))}
           </div>
         ) : visible.length === 0 ? (
-          <EmptyState tab={tab} hasNoCards={allCards.length === 0} noun={noun} />
+          <EmptyState bucket={tab} hasNoCards={allCards.length === 0} noun={noun} />
         ) : (
           <ul className="divide-y divide-[#E7E7EA]">
             {visible.map((card, i) => (
               <CardRow
                 key={card.id}
                 card={card}
-                muted={tab === 'closed'}
+                bucket={tab}
                 index={i}
                 detailBase={detailBase}
                 tipSlot={
@@ -187,23 +185,20 @@ export default function BusinessSubscription({
 function TabBar({
   active,
   onChange,
-  openCount,
-  closedCount,
+  counts,
 }: {
-  active: Tab;
-  onChange: (tab: Tab) => void;
-  openCount: number;
-  closedCount: number;
+  active: Bucket;
+  onChange: (tab: Bucket) => void;
+  counts: Record<Bucket, number>;
 }) {
   return (
     <div className="-mx-6 border-b border-[#E7E7EA] px-6" role="tablist" aria-label="Subscription cards">
       <div className="flex gap-1 overflow-x-auto">
-        <TabButton active={active === 'open'} onClick={() => onChange('open')} count={openCount}>
-          Open
-        </TabButton>
-        <TabButton active={active === 'closed'} onClick={() => onChange('closed')} count={closedCount}>
-          Closed
-        </TabButton>
+        {TABS.map((t) => (
+          <TabButton key={t.key} active={active === t.key} onClick={() => onChange(t.key)} count={counts[t.key]}>
+            {t.label}
+          </TabButton>
+        ))}
       </div>
     </div>
   );
@@ -244,23 +239,22 @@ function TabButton({
   );
 }
 
-function EmptyState({ tab, hasNoCards, noun = 'subscription' }: { tab: Tab; hasNoCards: boolean; noun?: string }) {
-  const heading = hasNoCards
-    ? `No ${noun} cards yet`
-    : tab === 'open'
-      ? 'No open cards'
-      : 'No closed cards yet';
-  const description = hasNoCards
-    ? "Cards will appear here once they're published to your account."
-    : tab === 'open'
-      ? `All your active ${noun}s will land here.`
-      : 'Finished hires and archived cards will land here.';
+function EmptyState({ bucket, hasNoCards, noun }: { bucket: Bucket; hasNoCards: boolean; noun: string }) {
+  const copy: Record<Bucket, { heading: string; description: string }> = {
+    open: { heading: `No open ${noun}s`, description: `New ${noun} cards published to you will land here.` },
+    active: { heading: `No active ${noun}s`, description: 'Cards with a talent assigned and running will land here.' },
+    paused: { heading: `No paused ${noun}s`, description: `${noun[0].toUpperCase()}${noun.slice(1)}s put on hold will land here.` },
+    cancelled: { heading: `No cancelled ${noun}s`, description: `Cancelled, recalled and closed ${noun}s will land here.` },
+  };
+  const { heading, description } = hasNoCards
+    ? { heading: `No ${noun} cards yet`, description: "Cards will appear here once they're published to your account." }
+    : copy[bucket];
 
   return (
     <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFFAC2]">
         <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-3.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-1.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 007.586 13H4" />
+          <path strokeLinecap="round" strokeLinejoin="round" d={CARD_ICON} />
         </svg>
       </div>
       <h3 className="mb-1 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
@@ -271,79 +265,15 @@ function EmptyState({ tab, hasNoCards, noun = 'subscription' }: { tab: Tab; hasN
   );
 }
 
-function AssignedCardRow({ card, index, detailBase }: { card: BusinessSubscriptionCardSummary; index: number; detailBase: string }) {
-  const rawPrice = formatPrice(card.customer_monthly_price, card.currency);
-  const price = rawPrice && card.is_group ? `from ${rawPrice}` : rawPrice;
-  const published = formatPublishedAt(card.published_at);
-  const tint = tintFor(card.id);
-  const selectedCount = card.counts.selected ?? 0;
-
-  return (
-    <li className={`stagger-${Math.min(index + 1, 6)}`}>
-      <Link
-        href={`${detailBase}/${card.id}`}
-        className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#F5F5F6]"
-      >
-        <div
-          className={`${tint} flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl`}
-          style={{ color: 'var(--tint-icon)' }}
-        >
-          <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
-              {cardTitle(card)}
-            </p>
-            <span className="shrink-0 rounded-full bg-[#E7E7EA] px-2 py-0.5 text-[10px] font-semibold text-[#0a0a0a]">
-              Assigned
-            </span>
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            {selectedCount > 0 && (
-              <span className="font-medium text-[#0a0a0a]">
-                {selectedCount} talent{selectedCount !== 1 ? 's' : ''} selected
-              </span>
-            )}
-            {selectedCount > 0 && (price || published) && (
-              <span className="text-[#D4D4D8]">&middot;</span>
-            )}
-            {price && <span className="font-medium text-[#0a0a0a]">{price}</span>}
-            {published && (
-              <>
-                {price && <span className="text-[#D4D4D8]">&middot;</span>}
-                <span className="text-[#a3a3a3]">Published {published}</span>
-              </>
-            )}
-          </div>
-        </div>
-
-        <svg
-          className="h-4 w-4 flex-shrink-0 text-[#a3a3a3] opacity-0 transition-opacity group-hover:opacity-100"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2.25}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-        </svg>
-      </Link>
-    </li>
-  );
-}
-
 function CardRow({
   card,
-  muted,
+  bucket,
   index,
   tipSlot,
   detailBase,
 }: {
   card: BusinessSubscriptionCardSummary;
-  muted: boolean;
+  bucket: Bucket;
   index: number;
   tipSlot?: React.ReactNode;
   detailBase: string;
@@ -351,25 +281,45 @@ function CardRow({
   const rawPrice = formatPrice(card.customer_monthly_price, card.currency);
   const price = rawPrice && card.is_group ? `from ${rawPrice}` : rawPrice;
   const published = formatPublishedAt(card.published_at);
+  const tint = tintFor(card.id);
+  const muted = bucket === 'paused' || bucket === 'cancelled';
+
   const forReview = card.counts.for_review ?? 0;
   const shortlisted = card.counts.shortlisted;
-  const isRecalled = classifyCard(card) === 'recalled';
-  const tint = tintFor(card.id);
+  const selectedCount = card.counts.selected ?? 0;
+
+  // Status pill next to the title. Open rows carry no pill; a recalled card in
+  // the Cancelled bucket keeps its distinct amber "Recalled" tag.
+  const tag =
+    bucket === 'active'
+      ? { label: 'Assigned', cls: 'bg-[#E7E7EA] text-[#0a0a0a]' }
+      : bucket === 'paused'
+        ? { label: 'Paused', cls: 'bg-amber-100 text-amber-800' }
+        : bucket === 'cancelled'
+          ? card.recalled_at && !card.cancelled_at
+            ? { label: 'Recalled', cls: 'bg-amber-100 text-amber-800' }
+            : { label: 'Cancelled', cls: 'bg-[#F4F4F5] text-[#71717A]' }
+          : null;
+
+  // Lead meta: Active rows headline the selected-talent count; everything else
+  // leads with the plan/tier subtitle.
+  const leadBold = bucket === 'active' && selectedCount > 0;
+  const leadText = leadBold
+    ? `${selectedCount} talent${selectedCount !== 1 ? 's' : ''} selected`
+    : planSubtitle(card);
 
   return (
     <li className={`relative stagger-${Math.min(index + 1, 6)}`}>
       <Link
         href={`${detailBase}/${card.id}`}
-        className={`group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#F5F5F6] ${
-          muted ? 'opacity-70' : ''
-        }`}
+        className={`group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#F5F5F6] ${muted ? 'opacity-70' : ''}`}
       >
         <div
           className={`${tint} flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl`}
           style={{ color: 'var(--tint-icon)' }}
         >
           <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-3.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-1.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 007.586 13H4" />
+            <path strokeLinecap="round" strokeLinejoin="round" d={bucket === 'active' ? CHECK_ICON : CARD_ICON} />
           </svg>
         </div>
 
@@ -378,19 +328,17 @@ function CardRow({
             <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
               {cardTitle(card)}
             </p>
-            {isRecalled && (
-              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-                Recalled
+            {tag && (
+              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${tag.cls}`}>
+                {tag.label}
               </span>
             )}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            {planSubtitle(card) && (
-              <span className="text-[#737373]">{planSubtitle(card)}</span>
+            {leadText && (
+              <span className={leadBold ? 'font-medium text-[#0a0a0a]' : 'text-[#737373]'}>{leadText}</span>
             )}
-            {planSubtitle(card) && (price || published) && (
-              <span className="text-[#D4D4D8]">·</span>
-            )}
+            {leadText && (price || published) && <span className="text-[#D4D4D8]">·</span>}
             {price && <span className="font-medium text-[#0a0a0a]">{price}</span>}
             {published && (
               <>
@@ -401,20 +349,22 @@ function CardRow({
           </div>
         </div>
 
-        <div className="hidden sm:flex flex-shrink-0 items-center gap-2 text-[11px]">
-          {forReview > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
-              <span>{forReview}</span>
-              <span className="text-amber-500">for review</span>
-            </span>
-          )}
-          {shortlisted > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#F5F5F6] px-2 py-0.5 font-medium text-[#0a0a0a]">
-              <span>{shortlisted}</span>
-              <span className="text-[#0a0a0a]">shortlisted</span>
-            </span>
-          )}
-        </div>
+        {bucket === 'open' && (
+          <div className="hidden sm:flex flex-shrink-0 items-center gap-2 text-[11px]">
+            {forReview > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
+                <span>{forReview}</span>
+                <span className="text-amber-500">for review</span>
+              </span>
+            )}
+            {shortlisted > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#F5F5F6] px-2 py-0.5 font-medium text-[#0a0a0a]">
+                <span>{shortlisted}</span>
+                <span className="text-[#0a0a0a]">shortlisted</span>
+              </span>
+            )}
+          </div>
+        )}
 
         <svg
           className="h-4 w-4 flex-shrink-0 text-[#a3a3a3] opacity-0 transition-opacity group-hover:opacity-100"

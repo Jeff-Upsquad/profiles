@@ -49,6 +49,15 @@ export const ingestSubscriptionCardSchema = z.object({
   // disappears from BOTH talent feeds (pending and responded) AND the
   // business dashboard. SquadHub sends `null` on republish to clear it.
   archived_at: z.string().datetime({ offset: true }).nullable().optional(),
+  // Stamped by SquadHub when an admin PAUSES an assigned subscription. The card
+  // stays status='assigned' (pause only removes the talent + ends the billing
+  // term), so paused_at is the only signal that separates a Paused card from a
+  // live Active one on the business portal. SquadHub sends `null` on resume.
+  paused_at: z.string().datetime({ offset: true }).nullable().optional(),
+  // Stamped by SquadHub when an admin CANCELS a subscription (card closed).
+  // Arrives alongside status='archived'; distinguishes a true cancel from a
+  // recall (recalled_at) or plain close so the Cancelled section can label it.
+  cancelled_at: z.string().datetime({ offset: true }).nullable().optional(),
   // True when SquadHub created this card as a child of another card
   // (parent_card_id IS NOT NULL on its side). Profiles hides secondaries
   // from the business dashboard list. Defaulted to false so callers that

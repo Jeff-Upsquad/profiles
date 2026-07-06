@@ -306,6 +306,15 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     // query so the card disappears entirely. Always written so the
     // null-on-republish transition takes effect.
     archived_at: input.archived_at ?? null,
+    // paused_at: SquadHub stamps this when an assigned subscription is paused.
+    // The card keeps status='assigned' (pause only pulls the talent + ends the
+    // billing term), so this is the sole signal the business portal has to move
+    // the card from Active → Paused. Always written so resume (null) clears it.
+    paused_at: input.paused_at ?? null,
+    // cancelled_at: SquadHub stamps this on a true cancel (card closed). Rides
+    // alongside status='archived' and lets the Cancelled section tell a cancel
+    // apart from a recall/plain-close. Always written so a re-publish clears it.
+    cancelled_at: input.cancelled_at ?? null,
     // is_secondary: SquadHub flags child cards. Written on every ingest so
     // a card that flips primary↔secondary can't get stuck on the wrong side.
     is_secondary: input.is_secondary,
@@ -349,6 +358,8 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       distribution: row.distribution,
       recalled_at: row.recalled_at,
       archived_at: row.archived_at,
+      paused_at: row.paused_at,
+      cancelled_at: row.cancelled_at,
       is_secondary: row.is_secondary,
       group_id: row.group_id,
       card_type: row.card_type,
@@ -2197,14 +2208,20 @@ export async function freshBroadcast(externalCardId: string): Promise<{ matched:
 
   // Reset the card to a clean, receivable state before re-inviting. Talents only
   // see cards that are status='active' AND archived_at IS NULL; clear any
-  // prior-round selection / activation / recall so the fresh round is clean and
-  // independent of the selection-undo callback's timing.
+  // prior-round selection / activation / recall / pause / cancel so the fresh
+  // round is clean and independent of the selection-undo callback's timing.
+  // Clearing paused_at/cancelled_at matters for the business portal: a resume-
+  // via-rebroadcast reaches SquadHire through this lightweight path (not a full
+  // card re-delivery), so this is where the card leaves the Paused/Cancelled
+  // sections and returns to Open.
   await supabaseAdmin
     .from('subscription_cards')
     .update({
       status: 'active',
       archived_at: null,
       recalled_at: null,
+      paused_at: null,
+      cancelled_at: null,
       selected_at: null,
       selected_talent_user_id: null,
       subscription_activated_at: null,

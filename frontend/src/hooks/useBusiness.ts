@@ -125,6 +125,12 @@ export interface BusinessSubscriptionCardSummary {
   /** Set when SquadHub recalled an already-accepted card. The card stays in
    *  the Open section but renders a "Recalled" tag. */
   recalled_at: string | null;
+  /** Set when SquadHub paused an assigned subscription: the talent is pulled but
+   *  the card stays 'assigned'. The only signal that splits Paused from Active. */
+  paused_at: string | null;
+  /** Set when SquadHub cancelled the subscription (card closed, status archived).
+   *  Distinguishes a true cancel from a recall/plain-close in the Cancelled section. */
+  cancelled_at: string | null;
   category_ids: string[];
   /** Tiers this card covers. A multi-tier brief is collapsed server-side into
    *  one card spanning several tiers; single-tier cards have one entry. */
@@ -166,6 +172,12 @@ export interface BusinessSubscriptionCardDetail {
   }>;
   status: 'active' | 'assigned' | 'archived';
   recalled_at: string | null;
+  /** Set when SquadHub paused an assigned subscription: the talent is pulled but
+   *  the card stays 'assigned'. The only signal that splits Paused from Active. */
+  paused_at: string | null;
+  /** Set when SquadHub cancelled the subscription (card closed, status archived).
+   *  Distinguishes a true cancel from a recall/plain-close in the Cancelled section. */
+  cancelled_at: string | null;
   published_at: string | null;
   expires_at: string | null;
   card_type?: 'subscription' | 'assignment' | 'hiring';

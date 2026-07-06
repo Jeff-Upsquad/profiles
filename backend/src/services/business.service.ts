@@ -598,6 +598,8 @@ interface DashboardCardSummary {
   status: 'active' | 'assigned' | 'archived';
   published_at: string | null;
   recalled_at: string | null;
+  paused_at: string | null;
+  cancelled_at: string | null;
   card_type: 'subscription' | 'assignment' | 'hiring';
   category_ids: string[];
   counts: { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number };
@@ -646,6 +648,9 @@ function collapseByGroup(
           existing._minPrice == null ? c.customer_monthly_price : Math.min(existing._minPrice, c.customer_monthly_price);
       }
       existing._statuses.add(c.status);
+      // Group lifecycle: any paused/cancelled sibling marks the collapsed card.
+      if (!existing.paused_at && c.paused_at) existing.paused_at = c.paused_at;
+      if (!existing.cancelled_at && c.cancelled_at) existing.cancelled_at = c.cancelled_at;
       if (!existing.currency && c.currency) existing.currency = c.currency;
     }
   }
@@ -689,7 +694,7 @@ export async function listMySubscriptionCards(
   const { data: cards, error } = await supabaseAdmin
     .from('subscription_cards')
     .select(
-      'id, external_id, content, match_rules, status, published_at, expires_at, created_at, business_user_id, recalled_at, is_secondary, group_id, card_type',
+      'id, external_id, content, match_rules, status, published_at, expires_at, created_at, business_user_id, recalled_at, paused_at, cancelled_at, is_secondary, group_id, card_type',
     )
     .or(orFilter)
     // Split subscriptions from assignments — the portal shows each in its own
@@ -836,6 +841,8 @@ export async function listMySubscriptionCards(
       status: card.status as 'active' | 'assigned' | 'archived',
       published_at: card.published_at as string | null,
       recalled_at: (card.recalled_at as string | null | undefined) ?? null,
+      paused_at: (card.paused_at as string | null | undefined) ?? null,
+      cancelled_at: (card.cancelled_at as string | null | undefined) ?? null,
       card_type: (card.card_type as 'subscription' | 'assignment' | 'hiring') ?? 'subscription',
       category_ids: categoryIds,
       counts: counts.get(card.id as string)!,
@@ -850,7 +857,7 @@ export async function listMySubscriptionCards(
 export async function getMySubscriptionCard(businessUserId: string, cardId: string) {
   const { data: card, error } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, content, match_rules, status, published_at, expires_at, business_user_id, recalled_at, group_id, card_type')
+    .select('id, external_id, content, match_rules, status, published_at, expires_at, business_user_id, recalled_at, paused_at, cancelled_at, group_id, card_type')
     .eq('id', cardId)
     .maybeSingle();
 
@@ -937,6 +944,8 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
       : [],
     status: card.status as 'active' | 'archived',
     recalled_at: ((card as any).recalled_at as string | null) ?? null,
+    paused_at: ((card as any).paused_at as string | null) ?? null,
+    cancelled_at: ((card as any).cancelled_at as string | null) ?? null,
     published_at: card.published_at as string | null,
     expires_at: card.expires_at as string | null,
     // Product line + project timeline so the detail can render an Assignment
