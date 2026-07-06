@@ -1,13 +1,10 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useMySubscriptionCards, type BusinessSubscriptionCardSummary } from '@/hooks/useBusiness';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
-
-type Tab = 'open' | 'closed';
 
 interface StatTile {
   label: string;
@@ -72,12 +69,10 @@ function tintFor(seed: string): string {
 export default function BusinessDashboard() {
   const { user } = useAuth();
   const { data: cards, isLoading } = useMySubscriptionCards();
-  const [tab, setTab] = useState<Tab>('open');
 
   const allCards = cards ?? [];
   const open = allCards.filter((c) => classifyCard(c) !== 'closed');
   const closed = allCards.filter((c) => classifyCard(c) === 'closed');
-  const visible = tab === 'open' ? open : closed;
 
   const totals = allCards.reduce(
     (acc, c) => ({
@@ -204,41 +199,36 @@ export default function BusinessDashboard() {
           <div className="flex items-center justify-between border-b border-[#E7E7EA] px-6 py-5">
             <div>
               <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
-                Subscription Cards
+                Open Subscription Cards
               </h2>
               <p className="mt-0.5 text-sm text-[#737373]">
                 Cards published to your account by SquadHub
               </p>
             </div>
-          </div>
-
-          <div className="px-6 pt-4">
-            <Tabs
-              active={tab}
-              onChange={setTab}
-              openCount={open.length}
-              closedCount={closed.length}
-            />
+            {open.length > 0 && (
+              <span className="rounded-full bg-[#E7E7EA] px-2.5 py-1 text-xs font-semibold text-[#0a0a0a]">
+                {open.length}
+              </span>
+            )}
           </div>
 
           {isLoading ? (
-            <div className="space-y-3 px-6 pb-6">
+            <div className="space-y-3 px-6 py-4">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="h-20 animate-pulse rounded-xl bg-[#f0f0f0]" />
               ))}
             </div>
-          ) : visible.length === 0 ? (
-            <EmptyTabState tab={tab} hasNoCards={allCards.length === 0} />
+          ) : open.length === 0 ? (
+            <EmptyState hasNoCards={allCards.length === 0} />
           ) : (
             <ul className="divide-y divide-[#E7E7EA]">
-              {visible.map((card, i) => (
+              {open.map((card, i) => (
                 <SubscriptionCardRow
                   key={card.id}
                   card={card}
-                  muted={tab === 'closed'}
                   index={i}
                   tipSlot={
-                    i === 0 && tab === 'open' && user?.id ? (
+                    i === 0 && user?.id ? (
                       <FirstItemTip
                         storageKey={`squadhire:tip:dashboard-card:${user.id}`}
                         message="Tap any subscription card to view available candidates and start shortlisting."
@@ -285,77 +275,11 @@ export default function BusinessDashboard() {
   );
 }
 
-function Tabs({
-  active,
-  onChange,
-  openCount,
-  closedCount,
-}: {
-  active: Tab;
-  onChange: (tab: Tab) => void;
-  openCount: number;
-  closedCount: number;
-}) {
-  return (
-    <div className="-mx-6 border-b border-[#E7E7EA] px-6" role="tablist" aria-label="Subscription cards">
-      <div className="flex gap-1 overflow-x-auto">
-        <TabButton active={active === 'open'} onClick={() => onChange('open')} count={openCount}>
-          Open
-        </TabButton>
-        <TabButton active={active === 'closed'} onClick={() => onChange('closed')} count={closedCount}>
-          Closed
-        </TabButton>
-      </div>
-    </div>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  count,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  count: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={`relative -mb-px flex items-center gap-1.5 px-4 py-3 text-sm font-semibold transition-colors ${
-        active
-          ? 'border-b-2 border-[#0a0a0a] text-[#0a0a0a]'
-          : 'border-b-2 border-transparent text-[#737373] hover:text-[#0a0a0a]'
-      }`}
-    >
-      <span>{children}</span>
-      <span
-        className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-          active ? 'bg-[#FFFAC2] text-[#0a0a0a]' : 'bg-[#f0f0f0] text-[#737373]'
-        }`}
-      >
-        {count}
-      </span>
-    </button>
-  );
-}
-
-function EmptyTabState({ tab, hasNoCards }: { tab: Tab; hasNoCards: boolean }) {
-  const heading = hasNoCards
-    ? 'No subscription cards yet'
-    : tab === 'open'
-      ? 'No open cards'
-      : 'No closed cards yet';
+function EmptyState({ hasNoCards }: { hasNoCards: boolean }) {
+  const heading = hasNoCards ? 'No subscription cards yet' : 'No open cards';
   const description = hasNoCards
     ? "Cards will appear here once they're published to your account by SquadHub."
-    : tab === 'open'
-      ? 'All your active subscriptions will land here.'
-      : 'Finished hires and archived cards will land here.';
+    : 'Your open subscriptions will appear here.';
 
   return (
     <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
@@ -374,12 +298,10 @@ function EmptyTabState({ tab, hasNoCards }: { tab: Tab; hasNoCards: boolean }) {
 
 function SubscriptionCardRow({
   card,
-  muted,
   index,
   tipSlot,
 }: {
   card: BusinessSubscriptionCardSummary;
-  muted: boolean;
   index: number;
   tipSlot?: React.ReactNode;
 }) {
@@ -396,9 +318,7 @@ function SubscriptionCardRow({
     <li className={`relative stagger-${Math.min(index + 1, 6)}`}>
       <Link
         href={`/business/dashboard/cards/${card.id}`}
-        className={`group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#F5F5F6] ${
-          muted ? 'opacity-70' : ''
-        }`}
+        className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#F5F5F6]"
       >
         <div
           className={`${tint} flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl`}
