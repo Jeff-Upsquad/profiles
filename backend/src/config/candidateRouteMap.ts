@@ -51,6 +51,13 @@ export function matchCandidateRule(
   path: string,
 ): { rule: CandidateRule; captured?: string } | null {
   const subPath = path.replace(/^\/api\/admin/, '') || '/';
+  // `/leads/stage-labels` is a shared, category-agnostic label dictionary for
+  // the Leads boards — not a per-lead route. Exempt it from candidate scoping
+  // so it never falls through to the `/leads/:id` rule below, which would treat
+  // "stage-labels" as a lead id and 500 on the invalid-uuid lookup (silently
+  // collapsing scoped staff back to the built-in stage names). Any candidates
+  // viewer may read it; enforceModuleAccess already gated the 'view' grant.
+  if (subPath === '/leads/stage-labels') return null;
   for (const rule of CANDIDATE_RULES) {
     if (rule.methods && !rule.methods.includes(method.toUpperCase())) continue;
     const m = subPath.match(rule.test);
