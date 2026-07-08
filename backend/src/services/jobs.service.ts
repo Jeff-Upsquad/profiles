@@ -629,6 +629,36 @@ export async function getJobProfileViewForTalent(talentUserId: string, jobProfil
   return profile;
 }
 
+/**
+ * The viewer's own recipient row on this profile's newest card — powers the
+ * Accept / Decline action bar on the talent job-profile view. Null when the
+ * talent has no live recipient (e.g. the round was cancelled).
+ */
+export async function getViewerRecipientForProfile(
+  talentUserId: string,
+  jobProfileId: string,
+): Promise<{ id: string; status: string; card_id: string } | null> {
+  const { data: cards, error: cardsErr } = await supabaseAdmin
+    .from('job_cards')
+    .select('card_id')
+    .eq('job_profile_id', jobProfileId);
+  if (cardsErr) throw new AppError(500, cardsErr.message);
+  const cardIds = (cards ?? []).map((c: any) => c.card_id as string);
+  if (cardIds.length === 0) return null;
+
+  const { data: recipient, error: recErr } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id, status, card_id')
+    .in('card_id', cardIds)
+    .eq('talent_user_id', talentUserId)
+    .is('cancelled_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (recErr) throw new AppError(500, recErr.message);
+  return (recipient as any) ?? null;
+}
+
 // ─── Respond hooks (called from subscription.service.respond) ──────────────
 
 /**

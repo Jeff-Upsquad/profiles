@@ -1,7 +1,9 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useJobProfileView } from '@/hooks/useJobs';
+import { useJobProfileView, useRespondToJob } from '@/hooks/useJobs';
+import Button from '@/components/ui/Button';
 import BusinessBrandSection from './BusinessBrandSection';
 import JobQnASection from './JobQnASection';
 import { currencySymbol } from '@/components/jobs/shared';
@@ -33,6 +35,15 @@ function BulletList({ items }: { items: string[] }) {
 export default function JobProfileView({ jobProfileId }: { jobProfileId: string }) {
   const router = useRouter();
   const { data, isLoading, isError } = useJobProfileView(jobProfileId);
+  const respond = useRespondToJob();
+  // Page-level "Ask a question": scroll down to the Q&A section and open its
+  // ask modal (the section runs in controlled mode).
+  const qnaRef = useRef<HTMLDivElement>(null);
+  const [askOpen, setAskOpen] = useState(false);
+  const askQuestion = () => {
+    qnaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setAskOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -59,7 +70,7 @@ export default function JobProfileView({ jobProfileId }: { jobProfileId: string 
     );
   }
 
-  const { profile, questions } = data;
+  const { profile, questions, recipient } = data;
   const details = profile.details ?? {};
   const responsibilities = Array.isArray(details.responsibilities) ? details.responsibilities : [];
   const requirements = Array.isArray(details.requirements) ? details.requirements : [];
@@ -118,6 +129,46 @@ export default function JobProfileView({ jobProfileId }: { jobProfileId: string 
         <p className="mt-0.5 text-xs text-[#737373]">
           {[details.employment_type, details.work_mode, experience].filter(Boolean).join(' · ')}
         </p>
+
+        {/* Action bar — respond to the live opening / jump down to Q&A */}
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-b border-[#E7E7EA] pb-4">
+          {recipient?.status === 'pending' && (
+            <>
+              <Button
+                size="sm"
+                onClick={() => respond.mutate({ recipientId: recipient.id, action: 'accept' })}
+                disabled={respond.isPending}
+              >
+                {respond.isPending ? 'Saving…' : 'Accept'}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => respond.mutate({ recipientId: recipient.id, action: 'reject' })}
+                disabled={respond.isPending}
+                className="!border-[#FCA5A5] !text-[#B91C1C]"
+              >
+                Decline
+              </Button>
+            </>
+          )}
+          {recipient?.status === 'accepted' && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#D1FAE5] px-3 py-1 text-xs font-semibold text-[#065F46]">
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              Applied
+            </span>
+          )}
+          {recipient?.status === 'rejected' && (
+            <span className="inline-flex items-center rounded-full bg-[#F5F5F5] px-3 py-1 text-xs font-semibold text-[#737373]">
+              Declined
+            </span>
+          )}
+          <Button size="sm" variant="outline" onClick={askQuestion}>
+            Ask a question
+          </Button>
+        </div>
 
         <div className="mt-4 space-y-3">
           {profile.description && (
@@ -211,7 +262,15 @@ export default function JobProfileView({ jobProfileId }: { jobProfileId: string 
 
       <BusinessBrandSection business={profile.business_snapshot} brand={profile.brand_snapshot} />
 
-      <JobQnASection jobProfileId={profile.id} questions={questions} />
+      <div ref={qnaRef} className="scroll-mt-4">
+        <JobQnASection
+          jobProfileId={profile.id}
+          cardId={recipient?.card_id}
+          questions={questions}
+          askOpen={askOpen}
+          onAskOpenChange={setAskOpen}
+        />
+      </div>
     </div>
   );
 }

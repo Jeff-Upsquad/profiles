@@ -98,7 +98,10 @@ export async function jobProfileView(req: Request, res: Response, next: NextFunc
     const jobProfileId = req.params.jobProfileId as string;
     const profile = await jobsService.getJobProfileViewForTalent(req.user!.id, jobProfileId);
     const questions = await jobQuestionsService.listQuestionsForTalent(jobProfileId, req.user!.id);
-    res.json({ profile, questions });
+    // The viewer's own recipient — powers the Accept / Decline / Ask bar at
+    // the top of the profile view.
+    const recipient = await jobsService.getViewerRecipientForProfile(req.user!.id, jobProfileId);
+    res.json({ profile, questions, recipient });
   } catch (err) {
     next(err);
   }

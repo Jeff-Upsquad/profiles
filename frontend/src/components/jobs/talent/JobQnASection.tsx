@@ -14,12 +14,20 @@ export default function JobQnASection({
   jobProfileId,
   cardId,
   questions,
+  askOpen: askOpenProp,
+  onAskOpenChange,
 }: {
   jobProfileId: string;
   cardId?: string;
   questions: JobQuestionForTalent[];
+  /** Optional controlled mode — lets the page-level "Ask a question" button
+   *  open this section's modal (e.g. after scrolling down to it). */
+  askOpen?: boolean;
+  onAskOpenChange?: (open: boolean) => void;
 }) {
-  const [askOpen, setAskOpen] = useState(false);
+  const [askOpenInternal, setAskOpenInternal] = useState(false);
+  const askOpen = askOpenProp ?? askOpenInternal;
+  const setAskOpen = onAskOpenChange ?? setAskOpenInternal;
 
   return (
     <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
