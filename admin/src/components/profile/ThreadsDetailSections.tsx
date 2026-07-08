@@ -297,6 +297,16 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   // Rename "Tools" → "Other Tools" only when Accounting Software is also present
   const toolsLabel = accountingSoftware.length > 0 ? 'Other Tools' : 'Tools';
 
+  // Built-in Experience pseudo-field (always present on job profiles).
+  // Rendered first so the talent's total experience reads as the headline
+  // fact at the top, above categories / skills / tools / languages.
+  const experienceLabel = formatExperience(fieldData?._experience);
+  if (experienceLabel) {
+    const delay = sectionIndex * 0.04;
+    sections.push(<FieldRow key="_experience" label="Experience" value={experienceLabel} delay={delay} />);
+    sectionIndex++;
+  }
+
   if (categories.length > 0) {
     const delay = sectionIndex * 0.04;
     sections.push(
@@ -349,14 +359,6 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   if (languages && languages.length > 0) {
     const delay = sectionIndex * 0.04;
     sections.push(<LanguagesSection key="_languages" languages={languages} delay={delay} />);
-    sectionIndex++;
-  }
-
-  // Built-in Experience pseudo-field (always present on job profiles).
-  const experienceLabel = formatExperience(fieldData?._experience);
-  if (experienceLabel) {
-    const delay = sectionIndex * 0.04;
-    sections.push(<FieldRow key="_experience" label="Experience" value={experienceLabel} delay={delay} />);
     sectionIndex++;
   }
 
