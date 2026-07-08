@@ -263,6 +263,9 @@ export interface CardRecipientForBusiness {
   selected_at: string | null;
   passed_over_at: string | null;
   responded_at: string | null;
+  /** This talent's own tier card's activation. Set = Assigned; null = Selected
+   *  (pending admin approval). Per-recipient so grouped briefs read the right tier. */
+  subscription_activated_at: string | null;
 }
 
 export function useCardRecipients(cardId: string | undefined) {
