@@ -252,6 +252,24 @@ export function useRespondToJob() {
   });
 }
 
+/** Withdraw AFTER accepting — the respond endpoint is pending-only by design. */
+export function useWithdrawApplication() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { recipientId: string }) => {
+      const { data } = await api.post(`/talent/jobs/${vars.recipientId}/withdraw`);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['jobs'] });
+      toast.success('Application withdrawn');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Could not withdraw your application');
+    },
+  });
+}
+
 // ─── Job profile view + Q&A ──────────────────────────────────────────────────
 
 /** The viewer's own recipient on this profile's newest card (action bar). */

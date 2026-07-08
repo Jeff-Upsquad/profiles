@@ -1,10 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import { useRespondToJob, useTalentJobDetail } from '@/hooks/useJobs';
+import { useRespondToJob, useTalentJobDetail, useWithdrawApplication } from '@/hooks/useJobs';
 import { useMyInterviewInvites } from '@/hooks/useJobInterviews';
 import { useMyJobOffers } from '@/hooks/useJobOffers';
 import {
@@ -101,7 +102,16 @@ export default function JobCardDetail({ recipientId }: { recipientId: string }) 
   const router = useRouter();
   const { data, isLoading, isError } = useTalentJobDetail(recipientId);
   const respond = useRespondToJob();
+  const withdraw = useWithdrawApplication();
+  const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const candidateStage = data?.candidate?.funnel_stage ?? null;
+  // Withdraw is available after accepting, up until hired/placed.
+  const canWithdraw =
+    data?.recipient?.status === 'accepted' &&
+    candidateStage !== 'hired' &&
+    candidateStage !== 'placed' &&
+    candidateStage !== 'withdrawn' &&
+    candidateStage !== 'rejected';
   const inInterviewPhase =
     candidateStage === 'interview_invited' || candidateStage === 'interview' || candidateStage === 'on_hold';
   const inOfferPhase =
@@ -237,6 +247,24 @@ export default function JobCardDetail({ recipientId }: { recipientId: string }) 
                 Apply
               </Button>
             </div>
+          )}
+          {canWithdraw && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="!border-[#FCA5A5] !text-[#B91C1C]"
+              disabled={withdraw.isPending}
+              onClick={() => {
+                if (!confirmWithdraw) {
+                  setConfirmWithdraw(true);
+                  setTimeout(() => setConfirmWithdraw(false), 4000);
+                  return;
+                }
+                withdraw.mutate({ recipientId });
+              }}
+            >
+              {withdraw.isPending ? 'Withdrawing…' : confirmWithdraw ? 'Confirm withdraw?' : 'Withdraw application'}
+            </Button>
           )}
         </div>
       </div>

@@ -453,7 +453,8 @@ export async function listJobsForTalent(
 
   const items: TalentJobFeedItem[] = [];
 
-  const stages: JobFunnelStage[] = tab === 'rejected' ? ['rejected'] : TAB_STAGES[tab];
+  // Rejected also carries withdrawals — both are "no longer in the running".
+  const stages: JobFunnelStage[] = tab === 'rejected' ? ['rejected', 'withdrawn'] : TAB_STAGES[tab];
   const { data, error } = await supabaseAdmin
     .from('job_candidates')
     .select(
@@ -758,6 +759,85 @@ export async function onHiringCardDeclined(params: {
   } catch (err) {
     console.error('[jobs] onHiringCardDeclined threw', err);
   }
+}
+
+// ─── Talent: withdraw an accepted application ───────────────────────────────
+
+/**
+ * Withdraw after accepting. The generic respond() path is pending-only (its
+ * status guard doubles as double-response protection), so withdrawal is its
+ * own transition: candidate → 'withdrawn', recipient → 'rejected' (keeps the
+ * legacy feeds and the Rejected tab coherent), business notified, SquadHub
+ * mirror updated via the outbox. Blocked once hired/placed — that's an
+ * offboarding conversation, not a button.
+ */
+export async function withdrawApplication(talentUserId: string, recipientId: string) {
+  const { data: recipient, error: recErr } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id, status, card_id, subscription_cards!inner(card_type)')
+    .eq('id', recipientId)
+    .eq('talent_user_id', talentUserId)
+    .maybeSingle();
+  if (recErr) throw new AppError(500, recErr.message);
+  if (!recipient || (recipient as any).subscription_cards?.card_type !== 'hiring') {
+    throw new AppError(404, 'Application not found');
+  }
+  if (recipient.status !== 'accepted') {
+    throw new AppError(409, 'Only an accepted application can be withdrawn');
+  }
+
+  const { data: candidate, error: candErr } = await supabaseAdmin
+    .from('job_candidates')
+    .select(CANDIDATE_FIELDS)
+    .eq('recipient_id', recipientId)
+    .maybeSingle();
+  if (candErr) throw new AppError(500, candErr.message);
+  if (!candidate) throw new AppError(404, 'Application not found');
+  const fromStage = (candidate as any).funnel_stage as string;
+  if (fromStage === 'withdrawn') return candidate;
+  if (fromStage === 'hired' || fromStage === 'placed') {
+    throw new AppError(409, 'You have already been hired for this role — please contact the business directly');
+  }
+
+  const actor: JobsActor = { type: 'talent', id: talentUserId };
+  const updated = await setCandidateStage((candidate as any).id, 'withdrawn', actor, {
+    payload: { withdrawn_from: fromStage },
+  });
+
+  // Recipient → rejected so the pre-funnel feeds and Rejected tab stay coherent.
+  const { error: updErr } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .update({ status: 'rejected', responded_at: new Date().toISOString() })
+    .eq('id', recipientId);
+  if (updErr) throw new AppError(500, updErr.message);
+
+  const refs = await getCardRefs((candidate as any).card_id);
+  if (refs.businessUserId) {
+    const names = await getTalentNames([talentUserId]);
+    await createBusinessNotification({
+      businessUserId: refs.businessUserId,
+      type: 'job_candidate_withdrawn',
+      title: `${names.get(talentUserId) ?? 'A candidate'} withdrew their application for ${contentTitle(refs.content)}`,
+      ref: { card_id: (candidate as any).card_id, candidate_id: (candidate as any).id, route: 'jobs' },
+    });
+  }
+
+  if (shouldEmitOutbox(actor)) {
+    await emitJobsEvent(
+      'job_candidate_withdrawn',
+      {
+        external_id: refs.externalId,
+        job_profile_external_id: refs.jobProfileExternalId,
+        recipient_id: recipientId,
+        candidate_id: (candidate as any).id,
+        actor,
+        data: { talent_user_id: talentUserId, withdrawn_from: fromStage },
+      },
+      `job_candidate_withdrawn:${(candidate as any).id}`,
+    );
+  }
+
+  return updated;
 }
 
 // ─── Business: cards + candidates ──────────────────────────────────────────
