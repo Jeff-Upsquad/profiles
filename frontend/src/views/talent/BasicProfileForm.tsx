@@ -65,7 +65,12 @@ const JOB_TYPE_OPTIONS = [
   { label: 'Field Job', value: 'field' },
 ];
 
-const JOB_OPENING_TYPE_SUGGESTIONS = ['Full-time', 'Part-time', 'Internship', 'Contract'];
+// Job-opening matching reuses employment type + salary already captured in the
+// Availability step, so those aren't re-collected in the Job Openings block.
+const AVAILABILITY_JOB_TYPE_LABEL: Record<string, string> = {
+  full_time: 'Full-time',
+  part_time: 'Part-time',
+};
 
 const WORK_PREFERENCE_OPTIONS: { value: 'salary' | 'freelance' | 'partner_program'; label: string; description: string }[] = [
   {
@@ -151,9 +156,7 @@ export default function BasicProfileForm() {
   // Job-opening matching preferences (talent_job_preferences) — shown inside
   // the Job Preference section but saved via the jobs API, not basic-profile.
   const [jobOpeningDistricts, setJobOpeningDistricts] = useState<string[]>([]);
-  const [jobOpeningTypes, setJobOpeningTypes] = useState<string[]>([]);
   const [jobOpeningRelocation, setJobOpeningRelocation] = useState(false);
-  const [jobOpeningSalary, setJobOpeningSalary] = useState('');
   const [jobOpeningNotice, setJobOpeningNotice] = useState('');
 
   const { data: profile, isLoading } = useQuery<BasicProfile | null>({
@@ -182,11 +185,7 @@ export default function BasicProfileForm() {
   useEffect(() => {
     if (!jobPrefs) return;
     setJobOpeningDistricts(jobPrefs.preferred_districts ?? []);
-    setJobOpeningTypes(jobPrefs.preferred_job_types ?? []);
     setJobOpeningRelocation(jobPrefs.open_to_relocation ?? false);
-    setJobOpeningSalary(
-      jobPrefs.expected_salary_monthly != null ? String(jobPrefs.expected_salary_monthly) : '',
-    );
     setJobOpeningNotice(
       jobPrefs.notice_period_days != null ? String(jobPrefs.notice_period_days) : '',
     );
@@ -408,12 +407,18 @@ export default function BasicProfileForm() {
 
     if (activeSection === 5) {
       saveMutation.mutate(form);
+      // Job types + expected salary are derived from the Availability step above
+      // (not re-entered): employment type → "Full-time"/"Part-time", and the
+      // monthly salary prefers the full-time figure since openings are full-time.
+      const derivedJobTypes = (form.availability || [])
+        .map((v) => AVAILABILITY_JOB_TYPE_LABEL[v])
+        .filter(Boolean);
+      const derivedSalary = form.expected_salary_full_time ?? form.expected_salary_part_time ?? null;
       saveJobPrefsMutation.mutate({
         preferred_districts: jobOpeningDistricts,
-        preferred_job_types: jobOpeningTypes,
+        preferred_job_types: derivedJobTypes,
         open_to_relocation: jobOpeningRelocation,
-        expected_salary_monthly:
-          jobOpeningSalary.trim() === '' ? null : Math.max(0, Math.round(Number(jobOpeningSalary))),
+        expected_salary_monthly: derivedSalary,
         notice_period_days:
           jobOpeningNotice.trim() === '' ? null : Math.max(0, Math.round(Number(jobOpeningNotice))),
       });
@@ -947,7 +952,8 @@ export default function BasicProfileForm() {
                 <div className="border-t border-[#E7E7EA] pt-6">
                   <h3 className="mb-1 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Job Openings</h3>
                   <p className="mb-4 text-sm text-[#737373]">
-                    Used to match you with job openings from businesses hiring through UpSquad.
+                    Used to match you with job openings from businesses hiring through UpSquad. Your
+                    job type and expected salary come from the Availability step above.
                   </p>
                   <div className="space-y-4">
                     <TagInput
@@ -956,22 +962,7 @@ export default function BasicProfileForm() {
                       values={jobOpeningDistricts}
                       onChange={setJobOpeningDistricts}
                     />
-                    <TagInput
-                      label="Job types"
-                      placeholder="e.g. Full-time"
-                      values={jobOpeningTypes}
-                      onChange={setJobOpeningTypes}
-                      suggestions={JOB_OPENING_TYPE_SUGGESTIONS}
-                    />
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <Input
-                        label="Expected salary (monthly)"
-                        type="number"
-                        min={0}
-                        placeholder="e.g. 25000"
-                        value={jobOpeningSalary}
-                        onChange={(e) => setJobOpeningSalary(e.target.value)}
-                      />
+                    <div className="max-w-xs">
                       <Input
                         label="Notice period (days)"
                         type="number"
