@@ -14,6 +14,11 @@ import {
   profilesQuerySchema,
   filterOptionsQuerySchema,
 } from '../validators/talent-access.validators.js';
+import {
+  businessLocationIdParamSchema,
+  businessLocationSchema,
+  businessNotificationIdParamSchema,
+} from '../validators/jobs.validators.js';
 
 const router = Router();
 
@@ -98,5 +103,35 @@ router.get(
 
 // How it works videos (active only)
 router.get('/how-it-works/videos', businessController.getHowItWorksVideos);
+
+// Saved interview locations (jobs module) — reusable venues for the
+// physical-interview scheduler dropdown. Delete is a soft-deactivate so past
+// rounds' frozen snapshots keep rendering.
+router.get('/locations', businessController.listLocations);
+router.post(
+  '/locations',
+  validate({ body: businessLocationSchema }),
+  businessController.createLocation
+);
+router.put(
+  '/locations/:locationId',
+  validate({ params: businessLocationIdParamSchema, body: businessLocationSchema }),
+  businessController.updateLocation
+);
+router.delete(
+  '/locations/:locationId',
+  validate({ params: businessLocationIdParamSchema }),
+  businessController.deleteLocation
+);
+
+// Business in-app notifications (jobs module) — the business-portal bell.
+router.get('/notifications', businessController.listNotifications);
+router.get('/notifications/unread-count', businessController.notificationsUnreadCount);
+router.post(
+  '/notifications/:notificationId/read',
+  validate({ params: businessNotificationIdParamSchema }),
+  businessController.markNotificationRead
+);
+router.post('/notifications/mark-all-read', businessController.markAllNotificationsRead);
 
 export default router;

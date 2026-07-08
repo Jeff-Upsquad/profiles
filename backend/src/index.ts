@@ -18,9 +18,13 @@ import subscriptionRouter from './routes/subscription.routes.js';
 import webhookRouter from './routes/webhooks.routes.js';
 import integrationsRouter from './routes/integrations.routes.js';
 import pushRouter from './routes/push.routes.js';
+import jobsTalentRouter from './routes/jobs-talent.routes.js';
+import jobsBusinessRouter from './routes/jobs-business.routes.js';
 import * as pushController from './controllers/push.controller.js';
 import * as appVersionController from './controllers/app-version.controller.js';
 import { startCallbackSweeper } from './services/squadhub-callback.service.js';
+import { startJobsOutboxSweeper } from './services/jobs-outbox.service.js';
+import { startInterviewSweeper } from './services/jobs-sweepers.service.js';
 
 const app = express();
 
@@ -71,6 +75,10 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/upload', uploadRouter);
+// Jobs module — mounted before the parent routers so /jobs requests don't
+// pass through their middleware chains first.
+app.use('/api/talent/jobs', jobsTalentRouter);
+app.use('/api/business/jobs', jobsBusinessRouter);
 app.use('/api/talent', talentRouter);
 app.use('/api/public', publicRouter);
 app.use('/api/business', businessRouter);
@@ -120,6 +128,8 @@ if (process.env.NODE_ENV === 'production') {
 app.listen(env.PORT, () => {
   console.log(`[SquadHire] Server running on port ${env.PORT}`);
   startCallbackSweeper();
+  startJobsOutboxSweeper();
+  startInterviewSweeper();
 });
 
 export default app;

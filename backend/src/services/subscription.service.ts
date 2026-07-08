@@ -7,6 +7,8 @@ import { deliverCallback } from './squadhub-callback.service.js';
 import { notifyNewCard, notifySelected, notifyUnassigned } from './push.service.js';
 import { getTalentTiersByUserIds } from './talent-tier.service.js';
 import { notifyTalentSubscriptionCardReceived } from './talent-whatsapp.service.js';
+import { assertHiringContentValid, syncJobEntitiesForCard } from './jobs-ingest.service.js';
+import { onHiringCardAccepted, onHiringCardDeclined } from './jobs.service.js';
 import type {
   IngestSubscriptionCardInput,
   ListSubscriptionsQueryInput,
@@ -262,6 +264,13 @@ export interface IngestResult {
 }
 
 export async function ingestCard(input: IngestSubscriptionCardInput): Promise<IngestResult> {
+  // Hiring cards must carry content.job_profile.external_id (cross-repo
+  // contract) — reject the whole ingest BEFORE any write so a malformed
+  // publish never leaves a card without its job satellites.
+  if (input.card_type === 'hiring') {
+    assertHiringContentValid(input.content);
+  }
+
   // Resolve the lead to a Profiles business_users row by email or phone.
   // If neither matches, fire-and-forget a 7-day pending invitation so the
   // customer can sign in later (and a future ingest will then resolve them).
@@ -376,6 +385,16 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       await autoSubscribeBusinessToCategories(businessUserId, extractCategoryIds(input.match_rules));
     }
 
+    // Hiring cards: upsert the jobs-side satellites (job_profiles keyed by
+    // content.job_profile.external_id + the job_cards 1:1 row) so the funnel
+    // state anchors to entities that survive re-publishes.
+    if (input.card_type === 'hiring') {
+      await syncJobEntitiesForCard(existing.id, {
+        content: input.content ?? {},
+        business_user_id: businessUserId,
+      });
+    }
+
     // Recall: stamp cancelled_at on every still-active recipient row. Old
     // status (pending/accepted/rejected) is preserved as audit; the row stays
     // visible to the talent with a "Cancelled" tag.
@@ -410,7 +429,7 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     // /manual-assignments, never auto-fan-out, even on republish.
     let recipientCount = 0;
     if (nextStatus === 'active' && !skipAutoFanOut) {
-      const talentIds = await findMatchingTalents(input.match_rules ?? {});
+      const talentIds = await findMatchingTalents(input.match_rules ?? {}, { cardType: input.card_type });
       const matchedSet = new Set(talentIds);
 
       // Always load existing active recipients — the prune step needs them
@@ -522,12 +541,20 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     await autoSubscribeBusinessToCategories(businessUserId, extractCategoryIds(input.match_rules));
   }
 
+  // Hiring cards: create the jobs-side satellites (see the update branch).
+  if (input.card_type === 'hiring') {
+    await syncJobEntitiesForCard(inserted.id, {
+      content: input.content ?? {},
+      business_user_id: businessUserId,
+    });
+  }
+
   // Fan out: find matching talents and batch-insert recipient rows.
   // Manual ("soft publish") cards skip this — they only reach talents
   // via the explicit /manual-assignments hand-pick path.
   const talentIds = skipAutoFanOut
     ? []
-    : await findMatchingTalents(input.match_rules ?? {});
+    : await findMatchingTalents(input.match_rules ?? {}, { cardType: input.card_type });
 
   let recipientCount = 0;
   if (talentIds.length > 0) {
@@ -1165,8 +1192,9 @@ export async function listRecipientsByExternalId(externalId: string) {
  */
 export async function previewRecipientsByRules(
   matchRules: Record<string, unknown>,
+  cardType: 'subscription' | 'assignment' | 'hiring' = 'subscription',
 ): Promise<{ count: number; talents: Array<{ talent_user_id: string; talent_name: string }> }> {
-  const talentIds = await findMatchingTalents(matchRules as any);
+  const talentIds = await findMatchingTalents(matchRules as any, { cardType });
   if (talentIds.length === 0) return { count: 0, talents: [] };
 
   const { data: talents, error } = await supabaseAdmin
@@ -1225,7 +1253,7 @@ export async function respond(
     .eq('talent_user_id', talentUserId)
     .eq('status', 'pending')
     .is('cancelled_at', null)
-    .select('id, talent_user_id, subscription_cards!inner(external_id, business_user_id, match_rules)')
+    .select('id, talent_user_id, subscription_cards!inner(id, external_id, business_user_id, match_rules, card_type)')
     .maybeSingle();
 
   if (error) throw new AppError(500, error.message);
@@ -1246,11 +1274,35 @@ export async function respond(
   }
 
   const card = (updated as any).subscription_cards as {
+    id?: string;
     external_id?: string;
     business_user_id?: string | null;
     match_rules?: unknown;
+    card_type?: 'subscription' | 'assignment' | 'hiring';
   } | undefined;
   const externalId = card?.external_id;
+
+  // Hiring cards: an accept turns the talent into a job candidate ('applied',
+  // + event + outbox + business notification); a reject just pings the
+  // business. Fire-and-forget — funnel bookkeeping must never fail the
+  // user-facing response. The legacy accept/reject SquadHub callback below
+  // still fires unchanged.
+  if (card?.card_type === 'hiring' && card.id) {
+    const hookParams = {
+      cardId: card.id,
+      recipientId: updated.id as string,
+      talentUserId: updated.talent_user_id as string,
+    };
+    if (input.action === 'accept') {
+      onHiringCardAccepted(hookParams).catch((err) => {
+        console.error('[subscription] onHiringCardAccepted threw', err);
+      });
+    } else {
+      onHiringCardDeclined(hookParams).catch((err) => {
+        console.error('[subscription] onHiringCardDeclined threw', err);
+      });
+    }
+  }
 
   // On accept, surface the talent in the linked business's dashboard.
   // Fire-and-forget: a failure here must not block or fail the user response.
@@ -1962,11 +2014,12 @@ export async function fanOutBroadcast(
   cardId: string,
   matchRules: Record<string, unknown>,
   content: Record<string, unknown>,
+  cardType: 'subscription' | 'assignment' | 'hiring' = 'subscription',
 ): Promise<number> {
   const categoryIds = extractCategoryIds(matchRules);
   if (categoryIds.length === 0) return 0;
 
-  const talentIds = await findMatchingTalents(matchRules as any);
+  const talentIds = await findMatchingTalents(matchRules as any, { cardType });
   if (talentIds.length === 0) return 0;
 
   // Insert a pending row for each matched talent that doesn't already have an
@@ -2030,7 +2083,7 @@ export async function fanOutBroadcast(
 export async function reopenForNewTalents(cardId: string): Promise<{ matched: number }> {
   const { data: card } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, distribution, match_rules, content, selected_at, status')
+    .select('id, distribution, match_rules, content, selected_at, status, card_type')
     .eq('id', cardId)
     .maybeSingle();
   if (!card) throw new AppError(404, 'Card not found');
@@ -2048,6 +2101,7 @@ export async function reopenForNewTalents(cardId: string): Promise<{ matched: nu
       cardId,
       ((card as any).match_rules ?? {}) as Record<string, unknown>,
       ((card as any).content ?? {}) as Record<string, unknown>,
+      ((card as any).card_type as 'subscription' | 'assignment' | 'hiring') ?? 'subscription',
     );
   }
   return { matched };
@@ -2190,7 +2244,7 @@ export async function handleSelectionUndoWebhook(
 export async function freshBroadcast(externalCardId: string): Promise<{ matched: number }> {
   const { data: card } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, status, match_rules, content')
+    .select('id, status, match_rules, content, card_type')
     .eq('external_id', externalCardId)
     .maybeSingle();
   if (!card) return { matched: 0 };
@@ -2238,6 +2292,7 @@ export async function freshBroadcast(externalCardId: string): Promise<{ matched:
     cid,
     ((card as any).match_rules ?? {}) as Record<string, unknown>,
     ((card as any).content ?? {}) as Record<string, unknown>,
+    ((card as any).card_type as 'subscription' | 'assignment' | 'hiring') ?? 'subscription',
   );
   return { matched };
 }

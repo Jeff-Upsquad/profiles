@@ -28,7 +28,12 @@ interface AutomationLogEntry {
     | 'talent_card_whatsapp_failed'
     | 'talent_card_whatsapp_throttled'
     | 'talent_card_whatsapp_optout'
-    | 'talent_card_whatsapp_skipped';
+    | 'talent_card_whatsapp_skipped'
+    | 'talent_job_whatsapp_sent'
+    | 'talent_job_whatsapp_failed'
+    | 'talent_job_whatsapp_throttled'
+    | 'talent_job_whatsapp_optout'
+    | 'talent_job_whatsapp_skipped';
   talent_user_id: string;
   metadata?: Record<string, unknown>;
 }
@@ -281,6 +286,130 @@ export async function notifyTalentSubscriptionCardReceived(
       event_type: 'talent_card_whatsapp_failed',
       talent_user_id: talentUserId,
       metadata: { card_id: cardId, error: result.error },
+    });
+  }
+}
+
+// ─── Jobs module — generic CRM system event ─────────────────────────────────
+//
+// One entry point for the ~11 jobs system events (talent_job_card_received,
+// talent_job_interview_call, talent_job_offer_received, ...). The CRM receiver
+// is generic: unmapped/disabled events return {skipped:true}, so these are
+// safe to fire before the WhatsApp templates exist.
+//
+// Envelope matches the existing CRM contract exactly:
+//   { system_event, talent: {name, phone, email}, data, timestamp }
+//
+// Throttle policy: interview-lifecycle events pass {bypass:true} — those are
+// appointments, not marketing, so they skip the burst-dedup/engagement
+// throttle entirely. Everything else claims the same per-talent send slot the
+// subscription-card notify uses (2-min burst window, shared stamp on
+// talent_users.last_subscription_whatsapp_at).
+
+export async function fireJobsCrmEvent(
+  systemEvent: string,
+  talentUserId: string,
+  data: Record<string, unknown>,
+  opts: { bypass?: boolean } = {},
+): Promise<void> {
+  if (!env.SQUADHIRE_CRM_SYSTEM_EVENTS_URL) return;
+
+  const talent = await loadTalent(talentUserId);
+  if (!talent) return;
+
+  if (!talent.whatsapp_subscription_updates_enabled) {
+    await logAutomationEvent({
+      event_type: 'talent_job_whatsapp_optout',
+      talent_user_id: talentUserId,
+      metadata: { system_event: systemEvent },
+    });
+    return;
+  }
+
+  if (!talent.phone) {
+    await logAutomationEvent({
+      event_type: 'talent_job_whatsapp_skipped',
+      talent_user_id: talentUserId,
+      metadata: { system_event: systemEvent, reason: 'no_phone' },
+    });
+    return;
+  }
+
+  // Non-bypass events share the burst-dedup slot with the subscription-card
+  // notify: claim last_subscription_whatsapp_at with a conditional UPDATE so
+  // concurrent fan-outs collapse into one WhatsApp (see the claim in
+  // notifyTalentSubscriptionCardReceived for the full rationale). Bypass
+  // events (interview lifecycle) skip the claim — a confirm prompt must never
+  // be swallowed because a card notification fired a minute earlier.
+  let releaseClaim: (() => Promise<void>) | null = null;
+  if (!opts.bypass) {
+    const claimCutoffIso = new Date(Date.now() - BURST_DEDUP_WINDOW_MS).toISOString();
+    const claimNowIso = new Date().toISOString();
+    const { data: claimed, error: claimErr } = await supabaseAdmin
+      .from('talent_users')
+      .update({ last_subscription_whatsapp_at: claimNowIso })
+      .eq('id', talentUserId)
+      .or(`last_subscription_whatsapp_at.is.null,last_subscription_whatsapp_at.lt.${claimCutoffIso}`)
+      .select('id');
+    if (claimErr) {
+      console.error('[talent-whatsapp] jobs burst-dedup claim failed:', claimErr);
+      await logAutomationEvent({
+        event_type: 'talent_job_whatsapp_failed',
+        talent_user_id: talentUserId,
+        metadata: { system_event: systemEvent, error: 'claim_failed' },
+      });
+      return;
+    }
+    if (!claimed || claimed.length === 0) {
+      await logAutomationEvent({
+        event_type: 'talent_job_whatsapp_throttled',
+        talent_user_id: talentUserId,
+        metadata: { system_event: systemEvent, reason: 'burst_dedup' },
+      });
+      return;
+    }
+    releaseClaim = async () => {
+      await supabaseAdmin
+        .from('talent_users')
+        .update({ last_subscription_whatsapp_at: talent.last_subscription_whatsapp_at })
+        .eq('id', talentUserId);
+    };
+  }
+
+  const payload = {
+    system_event: systemEvent,
+    talent: {
+      name: talent.full_name ?? '',
+      phone: talent.phone,
+      email: null,
+    },
+    data,
+    timestamp: new Date().toISOString(),
+  };
+
+  const result = await postToCrm(payload);
+
+  if (result.ok && !result.skipped) {
+    await logAutomationEvent({
+      event_type: 'talent_job_whatsapp_sent',
+      talent_user_id: talentUserId,
+      metadata: { system_event: systemEvent, ...data },
+    });
+  } else if (result.ok && result.skipped) {
+    // CRM answered 200 but didn't dispatch (no template mapped yet). Release
+    // the claim so the next real notification isn't suppressed.
+    if (releaseClaim) await releaseClaim();
+    await logAutomationEvent({
+      event_type: 'talent_job_whatsapp_skipped',
+      talent_user_id: talentUserId,
+      metadata: { system_event: systemEvent, reason: result.reason ?? 'crm_skipped' },
+    });
+  } else {
+    if (releaseClaim) await releaseClaim();
+    await logAutomationEvent({
+      event_type: 'talent_job_whatsapp_failed',
+      talent_user_id: talentUserId,
+      metadata: { system_event: systemEvent, error: result.error },
     });
   }
 }

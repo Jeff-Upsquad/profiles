@@ -44,6 +44,19 @@ const envSchema = z.object({
   // The server-to-server calls reuse SQUADHUB_CALLBACK_SECRET for signing.
   SQUADHUB_API_URL: z.string().url().optional(),
 
+  // Jobs module: SquadHub's SINGLE inbound events endpoint (cross-repo
+  // contract) — every outbound job event (candidate applied, interview
+  // lifecycle, offers, hire, Q&A) posts one envelope here, signed with
+  // SQUADHUB_CALLBACK_SECRET. Optional — when unset, events queue up in
+  // squadhub_event_outbox and the sweeper delivers them once configured.
+  SQUADHUB_JOBS_EVENTS_URL: z.string().url().optional(),
+
+  // Jobs module: explicit override for the offer-letter template pull
+  // (templates are canonical on SquadHub). Optional — when unset we derive
+  // `${SQUADHUB_API_URL | callback origin}/integrations/squadhire/jobs/offer-template`,
+  // same fallback idiom as the SSO base URL.
+  SQUADHUB_OFFER_TEMPLATE_URL: z.string().url().optional(),
+
   // Identity stamped as the author of candidate writes (status changes, notes)
   // that originate from SquadHub's Candidates mini app via the signed
   // /api/integrations/squadhub/candidates/* surface. lead_notes.created_by is

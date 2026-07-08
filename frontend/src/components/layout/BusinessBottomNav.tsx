@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import BusinessNotificationsBell from '@/components/jobs/business/BusinessNotificationsBell';
 
 const NAV_ITEMS = [
   {
@@ -117,6 +118,10 @@ export default function BusinessBottomNav() {
               </Link>
             );
           })}
+          <BusinessNotificationsBell
+            variant="bottom"
+            active={isActive('/business/notifications')}
+          />
         </nav>
       </div>
     </>
