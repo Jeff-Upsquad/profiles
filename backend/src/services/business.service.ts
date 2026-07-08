@@ -857,7 +857,7 @@ export async function listMySubscriptionCards(
 export async function getMySubscriptionCard(businessUserId: string, cardId: string) {
   const { data: card, error } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, content, match_rules, status, published_at, expires_at, business_user_id, recalled_at, paused_at, cancelled_at, group_id, card_type')
+    .select('id, external_id, content, match_rules, status, published_at, expires_at, business_user_id, recalled_at, paused_at, cancelled_at, subscription_activated_at, group_id, card_type')
     .eq('id', cardId)
     .maybeSingle();
 
@@ -946,6 +946,9 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
     recalled_at: ((card as any).recalled_at as string | null) ?? null,
     paused_at: ((card as any).paused_at as string | null) ?? null,
     cancelled_at: ((card as any).cancelled_at as string | null) ?? null,
+    // Set by SquadHub admin approval (activation webhook). Splits the client's
+    // "Selected (pending admin approval)" view from "Assigned".
+    subscription_activated_at: ((card as any).subscription_activated_at as string | null) ?? null,
     published_at: card.published_at as string | null,
     expires_at: card.expires_at as string | null,
     // Product line + project timeline so the detail can render an Assignment

@@ -178,6 +178,9 @@ export interface BusinessSubscriptionCardDetail {
   /** Set when SquadHub cancelled the subscription (card closed, status archived).
    *  Distinguishes a true cancel from a recall/plain-close in the Cancelled section. */
   cancelled_at: string | null;
+  /** Set when a SquadHub admin approves/assigns the client's pick (activation
+   *  webhook). null = still Selected (pending admin approval); non-null = Assigned. */
+  subscription_activated_at: string | null;
   published_at: string | null;
   expires_at: string | null;
   card_type?: 'subscription' | 'assignment' | 'hiring';

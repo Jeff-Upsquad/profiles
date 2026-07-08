@@ -158,6 +158,10 @@ export default function SubscriptionCardReview({
   // Assignments are one-off projects — show the budget without the "/mo" suffix.
   const priceDisplay = isAssignment && price ? price.replace(/\/mo$/, '') : price;
   const timeline = card.assignment_details ?? null;
+  // Once a SquadHub admin approves the client's pick, the activation webhook
+  // stamps subscription_activated_at → the card is Assigned. Until then the
+  // pick sits in "Selected" (pending admin approval).
+  const isAssigned = !!card.subscription_activated_at;
 
   function handleReview(recipientId: string, action: 'shortlist' | 'reject' | 'unshortlist') {
     reviewMutation.mutate({ recipientId, action });
@@ -337,19 +341,39 @@ export default function SubscriptionCardReview({
         )}
       </div>
 
-      {/* Selected talent */}
+      {/* Selected / Assigned talent. Until a SquadHub admin approves the pick
+          (subscription_activated_at set) it shows as "Selected — pending
+          confirmation" (amber); once approved it becomes "Assigned" (the
+          confirmed emerald design). */}
       {selected.length > 0 && (
-        <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50/50 p-5 sm:p-6">
-          <h2 className="mb-3 flex items-center gap-2 font-[family-name:var(--font-jakarta)] text-sm font-semibold text-emerald-800">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Selected Talent
-          </h2>
-          {selected.map((r) => (
-            <RecipientRow key={r.recipient_id} recipient={r} variant="selected" />
-          ))}
-        </div>
+        isAssigned ? (
+          <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50/50 p-5 sm:p-6">
+            <h2 className="mb-3 flex items-center gap-2 font-[family-name:var(--font-jakarta)] text-sm font-semibold text-emerald-800">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Assigned Talent
+            </h2>
+            {selected.map((r) => (
+              <RecipientRow key={r.recipient_id} recipient={r} variant="assigned" />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border-2 border-amber-200 bg-amber-50/50 p-5 sm:p-6">
+            <h2 className="mb-1 flex items-center gap-2 font-[family-name:var(--font-jakarta)] text-sm font-semibold text-amber-800">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Selected — pending confirmation
+            </h2>
+            <p className="mb-3 text-xs text-amber-700">
+              We&rsquo;re finalising this assignment. You&rsquo;ll see it confirmed here shortly.
+            </p>
+            {selected.map((r) => (
+              <RecipientRow key={r.recipient_id} recipient={r} variant="selected" />
+            ))}
+          </div>
+        )
       )}
 
       {/* New talents for review */}
@@ -510,7 +534,7 @@ export default function SubscriptionCardReview({
               Only one talent can be selected per card.
             </p>
             <p className="mt-2 text-sm text-amber-700">
-              ⓘ If you don&rsquo;t activate the subscription within 24 hours, this talent will be released back to the pool.
+              ⓘ Your pick goes to the Squad team for confirmation. Once approved it&rsquo;ll show as Assigned and the subscription starts.
             </p>
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
@@ -634,16 +658,21 @@ function RecipientRow({
   variant,
 }: {
   recipient: CardRecipientForBusiness;
-  variant: 'selected';
+  variant: 'selected' | 'assigned';
 }) {
+  const isAssigned = variant === 'assigned';
   return (
     <div className="flex items-center gap-4">
       <RecipientLink recipient={r}>
         <RecipientAvatar recipient={r} />
         <RecipientInfo recipient={r} />
       </RecipientLink>
-      <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
-        Selected
+      <span
+        className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+          isAssigned ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+        }`}
+      >
+        {isAssigned ? 'Assigned' : 'Selected'}
       </span>
     </div>
   );
