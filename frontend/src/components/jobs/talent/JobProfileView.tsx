@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useJobProfileView, useRespondToJob, useWithdrawApplication } from '@/hooks/useJobs';
+import { useJobProfileView, useReapplyToJob, useRespondToJob, useWithdrawApplication } from '@/hooks/useJobs';
 import Button from '@/components/ui/Button';
 import BusinessBrandSection from './BusinessBrandSection';
 import JobQnASection from './JobQnASection';
@@ -37,6 +37,7 @@ export default function JobProfileView({ jobProfileId }: { jobProfileId: string 
   const { data, isLoading, isError } = useJobProfileView(jobProfileId);
   const respond = useRespondToJob();
   const withdraw = useWithdrawApplication();
+  const reapply = useReapplyToJob();
   // Two-tap confirm for withdraw (auto-resets after a beat).
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   // Page-level "Ask a question": scroll down to the Q&A section and open its
@@ -182,9 +183,22 @@ export default function JobProfileView({ jobProfileId }: { jobProfileId: string 
             </>
           )}
           {recipient?.status === 'rejected' && (
-            <span className="inline-flex items-center rounded-full bg-[#F5F5F5] px-3 py-1 text-xs font-semibold text-[#737373]">
-              Declined
-            </span>
+            <>
+              <span className="inline-flex items-center rounded-full bg-[#F5F5F5] px-3 py-1 text-xs font-semibold text-[#737373]">
+                {recipient.candidate_stage === 'withdrawn' ? 'Withdrawn' : 'Declined'}
+              </span>
+              {/* Re-apply while the card is live — talent-initiated exits only
+                  (a business rejection can't be self-reversed). */}
+              {recipient.card_live && recipient.candidate_stage !== 'rejected' && (
+                <Button
+                  size="sm"
+                  onClick={() => reapply.mutate({ recipientId: recipient.id })}
+                  disabled={reapply.isPending}
+                >
+                  {reapply.isPending ? 'Applying…' : 'Accept'}
+                </Button>
+              )}
+            </>
           )}
           <Button size="sm" variant="outline" onClick={askQuestion}>
             Ask a question

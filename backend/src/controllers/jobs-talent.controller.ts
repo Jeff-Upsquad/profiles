@@ -117,6 +117,16 @@ export async function withdrawApplication(req: Request, res: Response, next: Nex
   }
 }
 
+export async function reapplyToJob(req: Request, res: Response, next: NextFunction) {
+  try {
+    const recipientId = req.params.recipientId as string;
+    const result = await jobsService.reapplyToJob(req.user!.id, recipientId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function askQuestion(req: Request, res: Response, next: NextFunction) {
   try {
     const question = await jobQuestionsService.askQuestion(

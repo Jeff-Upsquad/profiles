@@ -286,6 +286,24 @@ export function useWithdrawApplication() {
   });
 }
 
+/** Re-apply after a talent-initiated decline/withdrawal, while the card is live. */
+export function useReapplyToJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { recipientId: string }) => {
+      const { data } = await api.post(`/talent/jobs/${vars.recipientId}/reapply`);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['jobs'] });
+      toast.success('Application sent!');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Could not re-apply');
+    },
+  });
+}
+
 // ─── Job profile view + Q&A ──────────────────────────────────────────────────
 
 /** The viewer's own recipient on this profile's newest card (action bar). */
@@ -293,6 +311,11 @@ export interface JobProfileViewerRecipient {
   id: string;
   status: 'pending' | 'accepted' | 'rejected' | string;
   card_id: string;
+  /** Whether the card is still live (re-apply is only offered while it is). */
+  card_live: boolean;
+  /** The viewer's funnel stage — distinguishes withdrawn (self) from
+   *  business-rejected (no self re-apply). Null before applying. */
+  candidate_stage: string | null;
 }
 
 export function useJobProfileView(jobProfileId: string | undefined) {
