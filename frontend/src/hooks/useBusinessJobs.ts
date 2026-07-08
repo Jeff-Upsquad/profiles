@@ -265,6 +265,18 @@ export function useJobCandidates(cardId: string | undefined, stage?: JobFunnelSt
   });
 }
 
+/** The candidate's full talent profile (access rule: they applied to your card). */
+export function useCandidateProfile(cardId: string | undefined, candidateId: string | undefined) {
+  return useQuery<any>({
+    queryKey: ['business-jobs', 'candidate-profile', cardId, candidateId],
+    queryFn: async () => {
+      const { data } = await api.get(`/business/jobs/${cardId}/candidates/${candidateId}/profile`);
+      return data;
+    },
+    enabled: !!cardId && !!candidateId,
+  });
+}
+
 export function useReviewCandidate(cardId: string) {
   const qc = useQueryClient();
   return useMutation({

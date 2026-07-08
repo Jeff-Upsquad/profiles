@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
+import { assembleProfileDetail } from './talent-access.service.js';
 import { emitJobsEvent } from './jobs-outbox.service.js';
 import { createBusinessNotification } from './business-notifications.service.js';
 import { notifyJobEvent } from './push.service.js';
@@ -992,6 +993,70 @@ export async function reapplyToJob(talentUserId: string, recipientId: string) {
   }
 
   return { candidate_id: candidateId };
+}
+
+/**
+ * The talent's full profile for a business reviewing their job application.
+ * Access rule: the candidate applied to YOUR card — no talent-access session
+ * or shared-profile grant needed. Resolves the profile matching the card's
+ * categories first, falling back to any active approved profile.
+ */
+export async function getCandidateProfileForBusiness(
+  businessUserId: string,
+  cardId: string,
+  candidateId: string,
+) {
+  await assertBusinessOwnsCard(businessUserId, cardId);
+
+  const { data: candidate, error: candErr } = await supabaseAdmin
+    .from('job_candidates')
+    .select('id, talent_user_id')
+    .eq('id', candidateId)
+    .eq('card_id', cardId)
+    .maybeSingle();
+  if (candErr) throw new AppError(500, candErr.message);
+  if (!candidate) throw new AppError(404, 'Candidate not found on this card');
+
+  // Prefer the profile in one of the card's target categories (the one that
+  // matched them); fall back to any active approved profile of theirs.
+  const { data: card } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('match_rules')
+    .eq('id', cardId)
+    .maybeSingle();
+  const categoryIds = Array.isArray((card as any)?.match_rules?.category_ids)
+    ? ((card as any).match_rules.category_ids as string[])
+    : [];
+
+  let profileId: string | null = null;
+  if (categoryIds.length > 0) {
+    const { data: inCategory } = await supabaseAdmin
+      .from('talent_profiles')
+      .select('id')
+      .eq('talent_user_id', candidate.talent_user_id)
+      .in('category_id', categoryIds)
+      .eq('status', 'approved')
+      .eq('is_active', true)
+      .is('deleted_at', null)
+      .limit(1)
+      .maybeSingle();
+    profileId = ((inCategory as any)?.id as string) ?? null;
+  }
+  if (!profileId) {
+    const { data: anyProfile } = await supabaseAdmin
+      .from('talent_profiles')
+      .select('id')
+      .eq('talent_user_id', candidate.talent_user_id)
+      .eq('status', 'approved')
+      .eq('is_active', true)
+      .is('deleted_at', null)
+      .limit(1)
+      .maybeSingle();
+    profileId = ((anyProfile as any)?.id as string) ?? null;
+  }
+  if (!profileId) throw new AppError(404, 'This candidate has no viewable profile');
+
+  return assembleProfileDetail(profileId);
 }
 
 // ─── Business: cards + candidates ──────────────────────────────────────────
