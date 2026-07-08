@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import { useRespondToJob, useTalentJobDetail, useWithdrawApplication } from '@/hooks/useJobs';
+import { useReapplyToJob, useRespondToJob, useTalentJobDetail, useWithdrawApplication } from '@/hooks/useJobs';
 import { useMyInterviewInvites } from '@/hooks/useJobInterviews';
 import { useMyJobOffers } from '@/hooks/useJobOffers';
 import {
@@ -103,6 +103,7 @@ export default function JobCardDetail({ recipientId }: { recipientId: string }) 
   const { data, isLoading, isError } = useTalentJobDetail(recipientId);
   const respond = useRespondToJob();
   const withdraw = useWithdrawApplication();
+  const reapply = useReapplyToJob();
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const candidateStage = data?.candidate?.funnel_stage ?? null;
   // Withdraw is available after accepting, up until hired/placed.
@@ -112,6 +113,15 @@ export default function JobCardDetail({ recipientId }: { recipientId: string }) 
     candidateStage !== 'placed' &&
     candidateStage !== 'withdrawn' &&
     candidateStage !== 'rejected';
+  // Re-apply after a talent-initiated exit while the card is live —
+  // a business rejection can't be self-reversed. status covers archival
+  // (ingest maps closed/cancelled/archived cards to a non-active status);
+  // the backend re-validates liveness authoritatively on reapply.
+  const cardLive = data?.card?.status === 'active';
+  const canReapply =
+    data?.recipient?.status === 'rejected' &&
+    (candidateStage === null || candidateStage === 'withdrawn') &&
+    cardLive;
   const inInterviewPhase =
     candidateStage === 'interview_invited' || candidateStage === 'interview' || candidateStage === 'on_hold';
   const inOfferPhase =
@@ -264,6 +274,15 @@ export default function JobCardDetail({ recipientId }: { recipientId: string }) 
               }}
             >
               {withdraw.isPending ? 'Withdrawing…' : confirmWithdraw ? 'Confirm withdraw?' : 'Withdraw application'}
+            </Button>
+          )}
+          {canReapply && (
+            <Button
+              size="sm"
+              onClick={() => reapply.mutate({ recipientId })}
+              disabled={reapply.isPending}
+            >
+              {reapply.isPending ? 'Applying…' : 'Apply again'}
             </Button>
           )}
         </div>

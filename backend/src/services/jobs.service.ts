@@ -665,18 +665,27 @@ export async function getJobProfileViewForTalent(talentUserId: string, jobProfil
 export async function getViewerRecipientForProfile(
   talentUserId: string,
   jobProfileId: string,
-): Promise<{ id: string; status: string; card_id: string } | null> {
+): Promise<{
+  id: string;
+  status: string;
+  card_id: string;
+  card_live: boolean;
+  candidate_stage: string | null;
+} | null> {
   const { data: cards, error: cardsErr } = await supabaseAdmin
     .from('job_cards')
-    .select('card_id')
+    .select('card_id, hiring_stage')
     .eq('job_profile_id', jobProfileId);
   if (cardsErr) throw new AppError(500, cardsErr.message);
   const cardIds = (cards ?? []).map((c: any) => c.card_id as string);
   if (cardIds.length === 0) return null;
+  const hiringStageByCard = new Map(
+    (cards ?? []).map((c: any) => [c.card_id as string, c.hiring_stage as string]),
+  );
 
   const { data: recipient, error: recErr } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('id, status, card_id')
+    .select('id, status, card_id, subscription_cards!inner(status, archived_at, cancelled_at)')
     .in('card_id', cardIds)
     .eq('talent_user_id', talentUserId)
     .is('cancelled_at', null)
@@ -684,7 +693,28 @@ export async function getViewerRecipientForProfile(
     .limit(1)
     .maybeSingle();
   if (recErr) throw new AppError(500, recErr.message);
-  return (recipient as any) ?? null;
+  if (!recipient) return null;
+
+  const sc = (recipient as any).subscription_cards;
+  const cardLive =
+    sc?.status === 'active' &&
+    !sc?.archived_at &&
+    !sc?.cancelled_at &&
+    hiringStageByCard.get(recipient.card_id as string) !== 'closed';
+
+  const { data: candidate } = await supabaseAdmin
+    .from('job_candidates')
+    .select('funnel_stage')
+    .eq('recipient_id', recipient.id)
+    .maybeSingle();
+
+  return {
+    id: recipient.id as string,
+    status: recipient.status as string,
+    card_id: recipient.card_id as string,
+    card_live: cardLive,
+    candidate_stage: ((candidate as any)?.funnel_stage as string) ?? null,
+  };
 }
 
 // ─── Respond hooks (called from subscription.service.respond) ──────────────
@@ -859,6 +889,109 @@ export async function withdrawApplication(talentUserId: string, recipientId: str
   }
 
   return updated;
+}
+
+/**
+ * Re-apply after a talent-initiated exit (declined pre-apply, or withdrawn),
+ * for as long as the card is still live. Business-rejected candidates cannot
+ * re-apply themselves — that door is the business's to reopen.
+ */
+export async function reapplyToJob(talentUserId: string, recipientId: string) {
+  const { data: recipient, error: recErr } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id, status, card_id, subscription_cards!inner(card_type, status, archived_at, cancelled_at)')
+    .eq('id', recipientId)
+    .eq('talent_user_id', talentUserId)
+    .maybeSingle();
+  if (recErr) throw new AppError(500, recErr.message);
+  const sc = (recipient as any)?.subscription_cards;
+  if (!recipient || sc?.card_type !== 'hiring') throw new AppError(404, 'Application not found');
+  if (recipient.status !== 'rejected') {
+    throw new AppError(409, 'Only a declined or withdrawn application can be re-accepted');
+  }
+  const cardLive = sc.status === 'active' && !sc.archived_at && !sc.cancelled_at;
+  if (!cardLive) throw new AppError(409, 'This opening is no longer live');
+  const { data: jobCard } = await supabaseAdmin
+    .from('job_cards')
+    .select('hiring_stage')
+    .eq('card_id', recipient.card_id)
+    .maybeSingle();
+  if ((jobCard as any)?.hiring_stage === 'closed') {
+    throw new AppError(409, 'This opening is no longer live');
+  }
+
+  const { data: candidate, error: candErr } = await supabaseAdmin
+    .from('job_candidates')
+    .select(CANDIDATE_FIELDS)
+    .eq('recipient_id', recipientId)
+    .maybeSingle();
+  if (candErr) throw new AppError(500, candErr.message);
+  if (candidate && (candidate as any).funnel_stage === 'rejected') {
+    throw new AppError(409, 'The business has closed your application for this opening');
+  }
+  if (candidate && (candidate as any).funnel_stage !== 'withdrawn') {
+    throw new AppError(409, 'Your application state changed — refresh and try again');
+  }
+
+  const actor: JobsActor = { type: 'talent', id: talentUserId };
+  const refs = await getCardRefs(recipient.card_id as string);
+
+  let candidateId: string;
+  if (candidate) {
+    const updated = await setCandidateStage((candidate as any).id, 'applied', actor, {
+      payload: { reapplied: true },
+    });
+    candidateId = (updated as any).id;
+  } else {
+    const { data: inserted, error: insErr } = await supabaseAdmin
+      .from('job_candidates')
+      .insert({
+        recipient_id: recipientId,
+        card_id: recipient.card_id,
+        job_profile_id: refs.jobProfileId,
+        talent_user_id: talentUserId,
+        funnel_stage: 'applied',
+      })
+      .select(CANDIDATE_FIELDS)
+      .single();
+    if (insErr || !inserted) throw new AppError(500, insErr?.message ?? 'Failed to re-apply');
+    candidateId = (inserted as any).id;
+  }
+
+  const { error: updErr } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .update({ status: 'accepted', responded_at: new Date().toISOString() })
+    .eq('id', recipientId);
+  if (updErr) throw new AppError(500, updErr.message);
+
+  if (refs.businessUserId) {
+    const names = await getTalentNames([talentUserId]);
+    await createBusinessNotification({
+      businessUserId: refs.businessUserId,
+      type: 'job_candidate_applied',
+      title: `${names.get(talentUserId) ?? 'A candidate'} re-applied to ${contentTitle(refs.content)}`,
+      ref: { card_id: recipient.card_id, candidate_id: candidateId, route: 'jobs' },
+    });
+  }
+
+  if (shouldEmitOutbox(actor)) {
+    await emitJobsEvent(
+      'job_candidate_applied',
+      {
+        external_id: refs.externalId,
+        job_profile_external_id: refs.jobProfileExternalId,
+        recipient_id: recipientId,
+        candidate_id: candidateId,
+        actor,
+        data: { talent_user_id: talentUserId, reapplied: true },
+      },
+      // Fresh key per re-apply — the first apply already used
+      // job_candidate_applied:<recipientId> and the outbox dedupes on it.
+      `job_candidate_reapplied:${recipientId}:${Date.now()}`,
+    );
+  }
+
+  return { candidate_id: candidateId };
 }
 
 // ─── Business: cards + candidates ──────────────────────────────────────────

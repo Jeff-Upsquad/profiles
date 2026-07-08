@@ -106,5 +106,11 @@ router.post(
   validate({ params: jobRecipientIdParamSchema }),
   jobsTalentController.withdrawApplication
 );
+// Re-apply after a talent-initiated exit, while the card is still live.
+router.post(
+  '/:recipientId/reapply',
+  validate({ params: jobRecipientIdParamSchema }),
+  jobsTalentController.reapplyToJob
+);
 
 export default router;
