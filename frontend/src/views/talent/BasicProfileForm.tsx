@@ -6,6 +6,8 @@ import { useUpload } from '@/hooks/useUpload';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
+import TagInput from '@/components/ui/TagInput';
+import { useJobPreferences, type JobPreferencesInput } from '@/hooks/useJobs';
 import PartnerProgramPreference from '@/components/forms/PartnerProgramPreference';
 import { type DayHours, type DayAvailableHours } from '@/lib/workHours';
 import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
@@ -62,6 +64,8 @@ const JOB_TYPE_OPTIONS = [
   { label: 'Hybrid Job (mix of office and remote)', value: 'hybrid' },
   { label: 'Field Job', value: 'field' },
 ];
+
+const JOB_OPENING_TYPE_SUGGESTIONS = ['Full-time', 'Part-time', 'Internship', 'Contract'];
 
 const WORK_PREFERENCE_OPTIONS: { value: 'salary' | 'freelance' | 'partner_program'; label: string; description: string }[] = [
   {
@@ -144,6 +148,13 @@ export default function BasicProfileForm() {
   const [experienceEntries, setExperienceEntries] = useState<ExperienceEntry[]>([]);
   const [currentSameAsOfficial, setCurrentSameAsOfficial] = useState(false);
   const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
+  // Job-opening matching preferences (talent_job_preferences) — shown inside
+  // the Job Preference section but saved via the jobs API, not basic-profile.
+  const [jobOpeningDistricts, setJobOpeningDistricts] = useState<string[]>([]);
+  const [jobOpeningTypes, setJobOpeningTypes] = useState<string[]>([]);
+  const [jobOpeningRelocation, setJobOpeningRelocation] = useState(false);
+  const [jobOpeningSalary, setJobOpeningSalary] = useState('');
+  const [jobOpeningNotice, setJobOpeningNotice] = useState('');
 
   const { data: profile, isLoading } = useQuery<BasicProfile | null>({
     queryKey: ['basicProfile'],
@@ -165,6 +176,21 @@ export default function BasicProfileForm() {
     if (talentUser?.languages_spoken) setLanguages(talentUser.languages_spoken);
     if (talentUser?.phone) setPhone(talentUser.phone);
   }, [talentUser]);
+
+  const { data: jobPrefs } = useJobPreferences();
+
+  useEffect(() => {
+    if (!jobPrefs) return;
+    setJobOpeningDistricts(jobPrefs.preferred_districts ?? []);
+    setJobOpeningTypes(jobPrefs.preferred_job_types ?? []);
+    setJobOpeningRelocation(jobPrefs.open_to_relocation ?? false);
+    setJobOpeningSalary(
+      jobPrefs.expected_salary_monthly != null ? String(jobPrefs.expected_salary_monthly) : '',
+    );
+    setJobOpeningNotice(
+      jobPrefs.notice_period_days != null ? String(jobPrefs.notice_period_days) : '',
+    );
+  }, [jobPrefs]);
 
   useEffect(() => {
     if (profile) {
@@ -247,6 +273,21 @@ export default function BasicProfileForm() {
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to save profile');
+    },
+  });
+
+  // Silent on success — the basic-profile save that runs alongside it already
+  // toasts "Profile saved successfully".
+  const saveJobPrefsMutation = useMutation({
+    mutationFn: async (data: JobPreferencesInput) => {
+      const { data: result } = await api.put('/talent/jobs/preferences', data);
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs', 'preferences'] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to save job opening preferences');
     },
   });
 
@@ -362,6 +403,20 @@ export default function BasicProfileForm() {
         (e) => e.company_name.trim() || e.designation.trim()
       );
       saveMutation.mutate({ experience: validEntries.length > 0 ? validEntries : null } as any);
+      return;
+    }
+
+    if (activeSection === 5) {
+      saveMutation.mutate(form);
+      saveJobPrefsMutation.mutate({
+        preferred_districts: jobOpeningDistricts,
+        preferred_job_types: jobOpeningTypes,
+        open_to_relocation: jobOpeningRelocation,
+        expected_salary_monthly:
+          jobOpeningSalary.trim() === '' ? null : Math.max(0, Math.round(Number(jobOpeningSalary))),
+        notice_period_days:
+          jobOpeningNotice.trim() === '' ? null : Math.max(0, Math.round(Number(jobOpeningNotice))),
+      });
       return;
     }
 
@@ -503,6 +558,17 @@ export default function BasicProfileForm() {
       if (next !== -1) setActiveSection(next);
     }
   }, [wantsSalary, wantsFreelance, wantsPartner, activeSection]);
+
+  // Deep link: /talent/basic-profile?section=<id> (e.g. "Edit" on the Job
+  // Openings page). Runs once the profile has loaded so the disabled flags
+  // reflect the saved work preferences before the bounce effect above judges.
+  useEffect(() => {
+    if (isLoading) return;
+    const target = new URLSearchParams(window.location.search).get('section');
+    if (!target) return;
+    const idx = sections.findIndex((s) => s.id === target);
+    if (idx !== -1) setActiveSection(idx);
+  }, [isLoading]);
 
   // Progress counts only mandatory (enabled, non-optional) sections, so 100%
   // means every required field is done. Optional sections never block it.
@@ -875,6 +941,69 @@ export default function BasicProfileForm() {
                         <span className="font-[family-name:var(--font-inter)] font-medium text-[#0a0a0a]">{opt.label}</span>
                       </label>
                     ))}
+                  </div>
+                </div>
+
+                <div className="border-t border-[#E7E7EA] pt-6">
+                  <h3 className="mb-1 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Job Openings</h3>
+                  <p className="mb-4 text-sm text-[#737373]">
+                    Used to match you with job openings from businesses hiring through UpSquad.
+                  </p>
+                  <div className="space-y-4">
+                    <TagInput
+                      label="Preferred districts"
+                      placeholder="Type a district and press Enter"
+                      values={jobOpeningDistricts}
+                      onChange={setJobOpeningDistricts}
+                    />
+                    <TagInput
+                      label="Job types"
+                      placeholder="e.g. Full-time"
+                      values={jobOpeningTypes}
+                      onChange={setJobOpeningTypes}
+                      suggestions={JOB_OPENING_TYPE_SUGGESTIONS}
+                    />
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <Input
+                        label="Expected salary (monthly)"
+                        type="number"
+                        min={0}
+                        placeholder="e.g. 25000"
+                        value={jobOpeningSalary}
+                        onChange={(e) => setJobOpeningSalary(e.target.value)}
+                      />
+                      <Input
+                        label="Notice period (days)"
+                        type="number"
+                        min={0}
+                        placeholder="e.g. 30"
+                        value={jobOpeningNotice}
+                        onChange={(e) => setJobOpeningNotice(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex items-start justify-between gap-4 rounded-xl border border-[#E7E7EA] px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[#0a0a0a]">Open to relocation</p>
+                        <p className="mt-0.5 text-xs text-[#737373]">
+                          Show me openings outside my preferred districts too.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={jobOpeningRelocation}
+                        onClick={() => setJobOpeningRelocation((v) => !v)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
+                          jobOpeningRelocation ? 'bg-emerald-500' : 'bg-[#D4D4D4]'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                            jobOpeningRelocation ? 'translate-x-5' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

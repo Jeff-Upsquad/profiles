@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import JobsOptInCard from './JobsOptInCard';
 import JobCardList from './JobCardList';
 import {
   useJobPreferences,
+  useOptOutOfJobs,
   useTalentJobs,
   type TalentJobsTab,
 } from '@/hooks/useJobs';
@@ -26,8 +28,8 @@ const TABS: { key: TalentJobsTab; label: string }[] = [
 
 export default function TalentJobsView() {
   const [tab, setTab] = useState<TalentJobsTab>('new');
-  const [editingPrefs, setEditingPrefs] = useState(false);
   const { data: prefs, isLoading: prefsLoading } = useJobPreferences();
+  const optOut = useOptOutOfJobs();
   const optedIn = prefs?.opted_in === true;
   const { data: jobs, isLoading, isError } = useTalentJobs(tab, { enabled: optedIn });
   const { data: newJobs } = useTalentJobs('new', { enabled: optedIn });
@@ -68,46 +70,49 @@ export default function TalentJobsView() {
       )}
 
       {/* Opt-in gate */}
-      {!prefsLoading && !optedIn && <JobsOptInCard mode="optin" preferences={prefs} />}
+      {!prefsLoading && !optedIn && <JobsOptInCard />}
 
       {!prefsLoading && optedIn && (
         <>
-          {/* Preferences summary / editor */}
-          {editingPrefs ? (
-            <JobsOptInCard mode="edit" preferences={prefs} onDone={() => setEditingPrefs(false)} />
-          ) : (
-            <div className="flex items-start justify-between gap-4 rounded-2xl border border-[#E7E7EA] bg-white px-5 py-4">
-              <div className="min-w-0">
-                <h3 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
-                  Job preferences
-                </h3>
-                <p className="mt-0.5 truncate text-xs text-[#737373]">
-                  {[
-                    (prefs?.preferred_districts?.length ?? 0) > 0
-                      ? prefs!.preferred_districts.join(', ')
-                      : 'Any district',
-                    (prefs?.preferred_job_types?.length ?? 0) > 0
-                      ? prefs!.preferred_job_types.join(', ')
-                      : null,
-                    prefs?.open_to_relocation ? 'Open to relocation' : null,
-                    prefs?.expected_salary_monthly != null
-                      ? `₹${prefs.expected_salary_monthly.toLocaleString()}/mo expected`
-                      : null,
-                    prefs?.notice_period_days != null ? `${prefs.notice_period_days}d notice` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </p>
-              </div>
+          {/* Preferences summary — edited in Basic Profile → Job Preference */}
+          <div className="flex items-start justify-between gap-4 rounded-2xl border border-[#E7E7EA] bg-white px-5 py-4">
+            <div className="min-w-0">
+              <h3 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
+                Job preferences
+              </h3>
+              <p className="mt-0.5 truncate text-xs text-[#737373]">
+                {[
+                  (prefs?.preferred_districts?.length ?? 0) > 0
+                    ? prefs!.preferred_districts.join(', ')
+                    : 'Any district',
+                  (prefs?.preferred_job_types?.length ?? 0) > 0
+                    ? prefs!.preferred_job_types.join(', ')
+                    : null,
+                  prefs?.open_to_relocation ? 'Open to relocation' : null,
+                  prefs?.expected_salary_monthly != null
+                    ? `₹${prefs.expected_salary_monthly.toLocaleString()}/mo expected`
+                    : null,
+                  prefs?.notice_period_days != null ? `${prefs.notice_period_days}d notice` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
               <button
                 type="button"
-                onClick={() => setEditingPrefs(true)}
-                className="shrink-0 rounded-lg border border-[#E7E7EA] px-3 py-1.5 text-xs font-semibold text-[#525252] transition-colors hover:bg-[#F5F5F6] hover:text-[#0a0a0a]"
+                disabled={optOut.isPending}
+                onClick={() => optOut.mutate()}
+                className="mt-1.5 text-xs font-semibold text-red-600 hover:underline disabled:opacity-50"
               >
-                Edit
+                {optOut.isPending ? 'Opting out…' : 'Opt out of job openings'}
               </button>
             </div>
-          )}
+            <Link
+              href="/talent/basic-profile?section=job_preference"
+              className="shrink-0 rounded-lg border border-[#E7E7EA] px-3 py-1.5 text-xs font-semibold text-[#525252] transition-colors hover:bg-[#F5F5F6] hover:text-[#0a0a0a]"
+            >
+              Edit
+            </Link>
+          </div>
 
           {/* Funnel tab strip — horizontal scroll on narrow screens */}
           <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
