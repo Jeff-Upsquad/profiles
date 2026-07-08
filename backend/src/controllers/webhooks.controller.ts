@@ -164,8 +164,14 @@ export async function previewCardRecipients(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { match_rules } = req.body as { match_rules: Record<string, unknown> };
-    const preview = await subscriptionService.previewRecipientsByRules(match_rules ?? {});
+    const { match_rules, card_type } = req.body as {
+      match_rules: Record<string, unknown>;
+      card_type?: 'subscription' | 'assignment' | 'hiring';
+    };
+    const preview = await subscriptionService.previewRecipientsByRules(
+      match_rules ?? {},
+      card_type ?? 'subscription',
+    );
     res.json({ data: preview.talents, count: preview.count });
   } catch (err) {
     next(err);

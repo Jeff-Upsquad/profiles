@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import * as businessService from '../services/business.service.js';
 import * as talentAccessService from '../services/talent-access.service.js';
 import * as howItWorksService from '../services/how-it-works.service.js';
+import * as jobsService from '../services/jobs.service.js';
+import * as businessNotificationsService from '../services/business-notifications.service.js';
 
 export async function getMe(req: Request, res: Response, next: NextFunction) {
   try {
@@ -305,6 +307,92 @@ export async function selectCardRecipient(req: Request, res: Response, next: Nex
       req.params.cardId as string,
       req.body.recipient_id,
     );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── Saved interview locations (jobs module) ────────────────────────────────
+
+export async function listLocations(req: Request, res: Response, next: NextFunction) {
+  try {
+    const locations = await jobsService.listBusinessLocations(req.user!.id);
+    res.json({ locations });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createLocation(req: Request, res: Response, next: NextFunction) {
+  try {
+    const location = await jobsService.createBusinessLocation(req.user!.id, req.body);
+    res.status(201).json({ location });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateLocation(req: Request, res: Response, next: NextFunction) {
+  try {
+    const location = await jobsService.updateBusinessLocation(
+      req.user!.id,
+      req.params.locationId as string,
+      req.body,
+    );
+    res.json({ location });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteLocation(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await jobsService.deleteBusinessLocation(
+      req.user!.id,
+      req.params.locationId as string,
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── Business in-app notifications (jobs module) ────────────────────────────
+
+export async function listNotifications(req: Request, res: Response, next: NextFunction) {
+  try {
+    const notifications = await businessNotificationsService.listForBusiness(req.user!.id);
+    res.json({ notifications });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function notificationsUnreadCount(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await businessNotificationsService.getUnreadCount(req.user!.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function markNotificationRead(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await businessNotificationsService.markRead(
+      req.user!.id,
+      req.params.notificationId as string,
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function markAllNotificationsRead(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await businessNotificationsService.markAllRead(req.user!.id);
     res.json(result);
   } catch (err) {
     next(err);

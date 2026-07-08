@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import BusinessNotificationsBell from '@/components/jobs/business/BusinessNotificationsBell';
 
 export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname() ?? '';
@@ -14,6 +15,7 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
   const assignmentsActive = pathname.startsWith('/business/assignments');
   const allProfilesActive = pathname.startsWith('/business/talent-access');
   const jobPostsActive = pathname.startsWith('/business/job-posts');
+  const notificationsActive = pathname.startsWith('/business/notifications');
   const howItWorksActive = pathname.startsWith('/business/how-it-works');
 
   const displayName =
@@ -130,6 +132,12 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
         >
           My Job Posts
         </SidebarLink>
+
+        <BusinessNotificationsBell
+          variant="sidebar"
+          active={notificationsActive}
+          onNavigate={onNavigate}
+        />
 
         <SidebarLink
           href="/business/how-it-works"

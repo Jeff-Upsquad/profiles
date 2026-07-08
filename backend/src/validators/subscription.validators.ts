@@ -143,6 +143,9 @@ export const externalIdParamSchema = z.object({
 // the shape can evolve without a Profiles migration.
 export const previewCardRecipientsSchema = z.object({
   match_rules: z.record(z.unknown()).default({}),
+  // Which product line's matcher steps to run — 'hiring' adds the jobs-only
+  // gates (opt-in, age, gender, districts). Defaults preserve old behaviour.
+  card_type: z.enum(['subscription', 'assignment', 'hiring']).default('subscription'),
 });
 
 export const cardIdRecipientIdParamSchema = z.object({

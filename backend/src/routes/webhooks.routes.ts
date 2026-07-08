@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as webhooksController from '../controllers/webhooks.controller.js';
 import * as squadcrmWebhookController from '../controllers/squadcrm-webhook.controller.js';
+import * as jobsWebhooksController from '../controllers/jobs-webhooks.controller.js';
 import {
   verifySquadhubSecret,
   verifySquadcrmSecret,
@@ -19,6 +20,18 @@ import {
   cardFreshBroadcastWebhookSchema,
   talentAcceptedWebhookSchema,
 } from '../validators/subscription.validators.js';
+import {
+  jobsCandidateReviewWebhookSchema,
+  jobsCloseWebhookSchema,
+  jobsHireWebhookSchema,
+  jobsInterviewActionsWebhookSchema,
+  jobsInterviewRoundsWebhookSchema,
+  jobsMarkJoinedWebhookSchema,
+  jobsOffersWebhookSchema,
+  jobsQuestionAnswerWebhookSchema,
+  jobsQuestionDeleteWebhookSchema,
+  jobsStageWebhookSchema,
+} from '../validators/jobs.validators.js';
 
 const router = Router();
 
@@ -117,6 +130,81 @@ router.post(
   verifySquadhubSecret,
   validate({ body: previewCardRecipientsSchema }),
   webhooksController.previewCardRecipients
+);
+
+// ─── Jobs module: SquadHub admin-mirror actions ─────────────────────────────
+// SquadHub admin actions arrive here and run the SAME service functions as
+// the business portal, with actor {type:'admin', source:'squadhub'} — the
+// source flag suppresses the echo outbox event (no double-apply loop).
+
+router.post(
+  '/squadhub/jobs/stage',
+  verifySquadhubSecret,
+  validate({ body: jobsStageWebhookSchema }),
+  jobsWebhooksController.handleStage
+);
+
+router.post(
+  '/squadhub/jobs/candidates/review',
+  verifySquadhubSecret,
+  validate({ body: jobsCandidateReviewWebhookSchema }),
+  jobsWebhooksController.handleCandidateReview
+);
+
+router.post(
+  '/squadhub/jobs/interview-rounds',
+  verifySquadhubSecret,
+  validate({ body: jobsInterviewRoundsWebhookSchema }),
+  jobsWebhooksController.handleInterviewRounds
+);
+
+router.post(
+  '/squadhub/jobs/interview-actions',
+  verifySquadhubSecret,
+  validate({ body: jobsInterviewActionsWebhookSchema }),
+  jobsWebhooksController.handleInterviewActions
+);
+
+router.post(
+  '/squadhub/jobs/offers',
+  verifySquadhubSecret,
+  validate({ body: jobsOffersWebhookSchema }),
+  jobsWebhooksController.handleOffers
+);
+
+router.post(
+  '/squadhub/jobs/questions/answer',
+  verifySquadhubSecret,
+  validate({ body: jobsQuestionAnswerWebhookSchema }),
+  jobsWebhooksController.handleQuestionAnswer
+);
+
+router.post(
+  '/squadhub/jobs/questions/delete',
+  verifySquadhubSecret,
+  validate({ body: jobsQuestionDeleteWebhookSchema }),
+  jobsWebhooksController.handleQuestionDelete
+);
+
+router.post(
+  '/squadhub/jobs/hire',
+  verifySquadhubSecret,
+  validate({ body: jobsHireWebhookSchema }),
+  jobsWebhooksController.handleHire
+);
+
+router.post(
+  '/squadhub/jobs/mark-joined',
+  verifySquadhubSecret,
+  validate({ body: jobsMarkJoinedWebhookSchema }),
+  jobsWebhooksController.handleMarkJoined
+);
+
+router.post(
+  '/squadhub/jobs/close',
+  verifySquadhubSecret,
+  validate({ body: jobsCloseWebhookSchema }),
+  jobsWebhooksController.handleClose
 );
 
 // SquadHire CRM (shcrm) reports a Kanban card move so we can mirror the new

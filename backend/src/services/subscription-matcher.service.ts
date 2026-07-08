@@ -18,6 +18,12 @@ export interface MatchRules {
   target_languages?: string[];
   target_country_names?: string[];
   target_regions?: Array<{ country_name?: string; region: string }>;
+  // Hiring-only axes (card_type='hiring') — evaluated only for job cards, so
+  // a subscription card that starts carrying them is a no-op here.
+  min_age?: number;
+  max_age?: number;
+  target_genders?: string[];
+  target_districts?: string[];
   [key: string]: unknown;
 }
 
@@ -29,9 +35,23 @@ const KNOWN_RULE_KEYS = new Set<string>([
   'target_country_ids',
   'target_country_names',
   'target_regions',
+  'min_age',
+  'max_age',
+  'target_genders',
+  'target_districts',
 ]);
 
-export async function findMatchingTalents(matchRules: MatchRules): Promise<string[]> {
+export interface FindMatchingTalentsOptions {
+  // Which product line the card belongs to. 'hiring' switches on the
+  // jobs-only steps (opt-in gate, age, gender, districts). Defaults to the
+  // legacy subscription behaviour so existing call sites are unchanged.
+  cardType?: 'subscription' | 'assignment' | 'hiring';
+}
+
+export async function findMatchingTalents(
+  matchRules: MatchRules,
+  opts: FindMatchingTalentsOptions = {},
+): Promise<string[]> {
   for (const key of Object.keys(matchRules)) {
     if (!KNOWN_RULE_KEYS.has(key)) {
       console.warn(`[subscription-matcher] ignoring unknown match rule "${key}"`);
@@ -200,6 +220,110 @@ export async function findMatchingTalents(matchRules: MatchRules): Promise<strin
 
     rows = rows.filter((r) => allowedUsers.has(r.talent_user_id));
     if (rows.length === 0) return [];
+  }
+
+  // Steps 5–7 (hiring cards only): jobs opt-in gate, age, gender, districts.
+  if (opts.cardType === 'hiring') {
+    // Step 5: opt-in gate — only talents who opted in to the Jobs section
+    // receive hiring cards, no matter how well they match otherwise. The
+    // preferences row also carries preferred_districts for step 7.
+    const talentUserIds = [...new Set(rows.map((r) => r.talent_user_id))];
+    const { data: prefRows, error: prefErr } = await supabaseAdmin
+      .from('talent_job_preferences')
+      .select('talent_user_id, preferred_districts')
+      .in('talent_user_id', talentUserIds)
+      .not('opted_in_at', 'is', null);
+    if (prefErr) {
+      console.error('[subscription-matcher] job preferences query failed', prefErr);
+      throw prefErr;
+    }
+
+    const prefsByUser = new Map<string, string[]>();
+    for (const p of prefRows ?? []) {
+      const districts = Array.isArray((p as any).preferred_districts)
+        ? ((p as any).preferred_districts as string[])
+        : [];
+      prefsByUser.set((p as any).talent_user_id as string, districts);
+    }
+    rows = rows.filter((r) => prefsByUser.has(r.talent_user_id));
+    if (rows.length === 0) return [];
+
+    // Step 6: age + gender from talent_users. Fail-closed on age: a talent
+    // with no age on file fails any bounded age rule — a job that requires
+    // 21–30 must not reach someone we can't verify.
+    const minAge = Number(matchRules.min_age) || 0;
+    const maxAge = Number(matchRules.max_age) || 0;
+    const genders = Array.isArray(matchRules.target_genders)
+      ? matchRules.target_genders.map((g) => String(g).toLowerCase()).filter(Boolean)
+      : [];
+    if (minAge > 0 || maxAge > 0 || genders.length > 0) {
+      const remainingIds = [...new Set(rows.map((r) => r.talent_user_id))];
+      const { data: userRows, error: userErr } = await supabaseAdmin
+        .from('talent_users')
+        .select('id, age, gender')
+        .in('id', remainingIds);
+      if (userErr) {
+        console.error('[subscription-matcher] age/gender query failed', userErr);
+        throw userErr;
+      }
+
+      const genderSet = new Set(genders);
+      const allowedUsers = new Set<string>();
+      for (const u of userRows ?? []) {
+        const age = typeof (u as any).age === 'number' ? ((u as any).age as number) : null;
+        if (minAge > 0 && (age === null || age < minAge)) continue;
+        if (maxAge > 0 && (age === null || age > maxAge)) continue;
+        if (genderSet.size > 0) {
+          const gender = String((u as any).gender ?? '').toLowerCase();
+          if (!genderSet.has(gender)) continue;
+        }
+        allowedUsers.add((u as any).id as string);
+      }
+      rows = rows.filter((r) => allowedUsers.has(r.talent_user_id));
+      if (rows.length === 0) return [];
+    }
+
+    // Step 7: district filter — the talent's preferred_districts (jobs
+    // preferences) overlap the targets OR their current_district matches.
+    const districts = Array.isArray(matchRules.target_districts)
+      ? matchRules.target_districts.filter((v): v is string => typeof v === 'string' && v.length > 0)
+      : [];
+    if (districts.length > 0) {
+      const wanted = new Set(districts.map((d) => d.toLowerCase()));
+      const remainingIds = [...new Set(rows.map((r) => r.talent_user_id))];
+
+      const preferredMatch = new Set<string>();
+      for (const uid of remainingIds) {
+        const preferred = prefsByUser.get(uid) ?? [];
+        if (preferred.some((d) => wanted.has(String(d).toLowerCase()))) {
+          preferredMatch.add(uid);
+        }
+      }
+
+      const needsCurrent = remainingIds.filter((uid) => !preferredMatch.has(uid));
+      const currentMatch = new Set<string>();
+      if (needsCurrent.length > 0) {
+        const { data: basicRows, error: basicErr } = await supabaseAdmin
+          .from('talent_profiles_basic')
+          .select('talent_user_id, current_district')
+          .in('talent_user_id', needsCurrent);
+        if (basicErr) {
+          console.error('[subscription-matcher] district query failed', basicErr);
+          throw basicErr;
+        }
+        for (const b of basicRows ?? []) {
+          const district = String((b as any).current_district ?? '').toLowerCase();
+          if (district && wanted.has(district)) {
+            currentMatch.add((b as any).talent_user_id as string);
+          }
+        }
+      }
+
+      rows = rows.filter(
+        (r) => preferredMatch.has(r.talent_user_id) || currentMatch.has(r.talent_user_id),
+      );
+      if (rows.length === 0) return [];
+    }
   }
 
   const unique = new Set<string>();

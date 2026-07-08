@@ -1,14 +1,30 @@
 import { getFirebaseApp } from '../config/firebase.js';
 import { supabaseAdmin } from '../config/supabase.js';
 
+// Jobs-module push types. Reuse the existing Android `subscription_offers`
+// channel (high-importance, heads-up + sound) — no app-side channel change.
+export type JobPushType =
+  | 'job_new_card'
+  | 'job_stage'
+  | 'job_interview'
+  | 'job_interview_confirm'
+  | 'job_interview_start'
+  | 'job_offer'
+  | 'job_hired';
+
 interface PushPayload {
-  type: 'new_card' | 'selected' | 'cancelled' | 'unassigned';
+  type: 'new_card' | 'selected' | 'cancelled' | 'unassigned' | JobPushType;
   title: string;
   body: string;
   card_id: string;
   route: string;
   [key: string]: string;
 }
+
+// notification_log.type is CHECK-constrained to the legacy card types
+// (00041); anything else would fail the insert on every push, so the log
+// write below is gated to these.
+const LOGGABLE_PUSH_TYPES = new Set(['new_card', 'selected', 'cancelled']);
 
 function buildCardBody(
   template: string,
@@ -87,6 +103,7 @@ async function sendToUsers(userIds: string[], payload: PushPayload): Promise<voi
   }
 
   // Log notifications (fire-and-forget, don't block on failure)
+  if (!LOGGABLE_PUSH_TYPES.has(payload.type)) return;
   const logRows = userIds.map((uid) => ({
     user_id: uid,
     type: payload.type,
@@ -137,5 +154,29 @@ export async function notifyUnassigned(
     body: buildCardBody("Your assignment for {brand_name}'s opportunity has been updated by the team", content),
     card_id: cardId,
     route: '/responded',
+  });
+}
+
+/**
+ * Generic jobs-module push. The notification matrix has too many distinct
+ * events for one function each — callers pass the type + copy and this keeps
+ * the FCM plumbing (channel, token cleanup, batching) in one place.
+ */
+export async function notifyJobEvent(
+  talentUserIds: string[],
+  input: {
+    type: JobPushType;
+    title: string;
+    body: string;
+    cardId: string;
+    route?: string;
+  },
+): Promise<void> {
+  await sendToUsers(talentUserIds, {
+    type: input.type,
+    title: input.title,
+    body: input.body,
+    card_id: input.cardId,
+    route: input.route ?? '/jobs',
   });
 }
