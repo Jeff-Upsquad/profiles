@@ -9,6 +9,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
+import { formatDate } from '@/lib/formatDate';
 
 interface BusinessUser {
   id: string;
@@ -118,11 +119,11 @@ export default function BusinessList() {
                   </td>
                   <td className="px-6 py-4 text-gray-500">
                     {user.access_expires_at
-                      ? new Date(user.access_expires_at).toLocaleDateString()
+                      ? formatDate(user.access_expires_at)
                       : 'No expiry'}
                   </td>
                   <td className="px-6 py-4 text-gray-500">
-                    {new Date(user.created_at).toLocaleDateString()}
+                    {formatDate(user.created_at)}
                   </td>
                   <td className="px-6 py-4">
                     {isExpired(user.access_expires_at) && (

@@ -10,6 +10,7 @@ import LeadsTabs from './LeadsTabs';
 import LeadSidePanel from './LeadSidePanel';
 import { groupItemsByBucket } from '@/lib/groupLeadsByBucket';
 import { formatIndianPhone } from '@/lib/phone';
+import { formatDate } from '@/lib/formatDate';
 import { useStageLabels } from '@/hooks/useStageLabels';
 
 interface Lead {
@@ -331,10 +332,7 @@ export default function LeadList() {
                           </Badge>
                         </div>
                         <div className="hidden w-24 text-right text-xs text-gray-400 md:block">
-                          {new Date(lead.created_at).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                          })}
+                          {formatDate(lead.created_at)}
                         </div>
                         <svg
                           className="h-4 w-4 flex-shrink-0 text-gray-300"

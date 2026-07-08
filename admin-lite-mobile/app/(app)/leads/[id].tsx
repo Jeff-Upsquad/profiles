@@ -18,6 +18,7 @@ import Button from '../../../src/components/ui/Button';
 import Picker from '../../../src/components/ui/Picker';
 import InterviewInvitationSection from '../../../src/components/leads/InterviewInvitationSection';
 import TalentOnboardingSection from '../../../src/components/leads/TalentOnboardingSection';
+import { formatDateTime } from '../../../src/lib/formatDate';
 import ArchiveLeadModal from '../../../src/components/leads/ArchiveLeadModal';
 import { formatIndianPhone, cleanPhoneForLink } from '../../../src/lib/phone';
 import { useStageLabels } from '../../../src/hooks/useStageLabels';
@@ -199,7 +200,7 @@ export default function LeadDetailScreen() {
         <View style={styles.kvRow}>
           <Text style={styles.kvKey}>Submitted</Text>
           <Text style={styles.kvValue}>
-            {new Date(lead.created_at).toLocaleString('en-IN')}
+            {formatDateTime(lead.created_at)}
           </Text>
         </View>
         {lead.utm_source ? (

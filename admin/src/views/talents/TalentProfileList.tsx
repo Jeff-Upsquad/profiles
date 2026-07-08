@@ -10,6 +10,7 @@ import TierBadge from '@/components/ui/TierBadge';
 import DropdownMenu from '@/components/ui/DropdownMenu';
 import Modal from '@/components/ui/Modal';
 import { resolveLocation, COUNTRIES, INDIA_STATE_LABELS, UNKNOWN_STATE, type Country } from '@/lib/location';
+import { formatDate } from '@/lib/formatDate';
 
 interface TalentProfile {
   id: string;
@@ -745,7 +746,7 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {new Date(profile.created_at).toLocaleDateString()}
+                      {formatDate(profile.created_at)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {isPending ? (

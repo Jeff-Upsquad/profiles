@@ -178,6 +178,9 @@ export interface BusinessSubscriptionCardDetail {
   /** Set when SquadHub cancelled the subscription (card closed, status archived).
    *  Distinguishes a true cancel from a recall/plain-close in the Cancelled section. */
   cancelled_at: string | null;
+  /** Set when a SquadHub admin approves/assigns the client's pick (activation
+   *  webhook). null = still Selected (pending admin approval); non-null = Assigned. */
+  subscription_activated_at: string | null;
   published_at: string | null;
   expires_at: string | null;
   card_type?: 'subscription' | 'assignment' | 'hiring';
@@ -260,6 +263,9 @@ export interface CardRecipientForBusiness {
   selected_at: string | null;
   passed_over_at: string | null;
   responded_at: string | null;
+  /** This talent's own tier card's activation. Set = Assigned; null = Selected
+   *  (pending admin approval). Per-recipient so grouped briefs read the right tier. */
+  subscription_activated_at: string | null;
 }
 
 export function useCardRecipients(cardId: string | undefined) {

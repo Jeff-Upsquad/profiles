@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { SkeletonCard } from '@/components/ui/Skeleton';
+import { formatDate } from '@/lib/formatDate';
 
 type MediaItem =
   | { type: 'image'; url: string; name?: string }
@@ -32,7 +33,7 @@ function relativeTime(date: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
-  return new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return formatDate(date);
 }
 
 function loomEmbedUrl(url: string): string {

@@ -11,6 +11,7 @@ import {
   type NotificationMediaItem,
 } from '@/hooks/useNotifications';
 import { useUpload } from '@/hooks/useUpload';
+import { formatDate } from '@/lib/formatDate';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
@@ -42,7 +43,7 @@ function relativeTime(date: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
-  return new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return formatDate(date);
 }
 
 function MediaThumb({ item }: { item: NotificationMediaItem }) {

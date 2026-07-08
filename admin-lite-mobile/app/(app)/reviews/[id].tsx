@@ -17,6 +17,7 @@ import Button from '../../../src/components/ui/Button';
 import RejectReasonModal from '../../../src/components/reviews/RejectReasonModal';
 import type { CategoryField, ReviewProfile } from '../../../src/types';
 import { valuesChanged } from '../../../src/lib/diff';
+import { formatDateTime } from '../../../src/lib/formatDate';
 
 function formatValue(field: CategoryField, value: any): string {
   if (value === undefined || value === null || value === '') return '—';
@@ -315,8 +316,8 @@ export default function ProfileReviewScreen() {
       ) : null}
 
       <Section title="Metadata">
-        <Row label="Created" value={new Date(profile.created_at).toLocaleString()} />
-        <Row label="Last updated" value={new Date(profile.updated_at).toLocaleString()} />
+        <Row label="Created" value={formatDateTime(profile.created_at)} />
+        <Row label="Last updated" value={formatDateTime(profile.updated_at)} />
       </Section>
 
       <RejectReasonModal

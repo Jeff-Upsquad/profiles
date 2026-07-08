@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useMySubscriptionCards, type BusinessSubscriptionCardSummary } from '@/hooks/useBusiness';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
+import { formatDate } from '@/lib/formatDate';
 
 interface StatTile {
   label: string;
@@ -30,7 +31,7 @@ function formatPublishedAt(iso: string | null): string {
   if (days <= 0) return 'today';
   if (days === 1) return 'yesterday';
   if (days < 7) return `${days}d ago`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatDate(date);
 }
 
 function classifyCard(card: BusinessSubscriptionCardSummary): 'open' | 'active' | 'paused' | 'cancelled' {

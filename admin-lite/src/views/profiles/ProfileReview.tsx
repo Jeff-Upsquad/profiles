@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
+import { formatDateTime } from '@/lib/formatDate';
 
 // Local mirror of `@shared/types/talent.coerceLeveledList` — admin-lite does
 // not depend on the shared workspace, so we keep the coercion here. Returns
@@ -619,11 +620,11 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
           </div>
           <div>
             <dt className="text-xs font-medium uppercase text-gray-500">Created</dt>
-            <dd className="mt-1 text-sm text-gray-900">{new Date(profile.created_at).toLocaleString()}</dd>
+            <dd className="mt-1 text-sm text-gray-900">{formatDateTime(profile.created_at)}</dd>
           </div>
           <div>
             <dt className="text-xs font-medium uppercase text-gray-500">Last Updated</dt>
-            <dd className="mt-1 text-sm text-gray-900">{new Date(profile.updated_at).toLocaleString()}</dd>
+            <dd className="mt-1 text-sm text-gray-900">{formatDateTime(profile.updated_at)}</dd>
           </div>
         </dl>
       </div>

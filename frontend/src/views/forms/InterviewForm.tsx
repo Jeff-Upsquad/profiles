@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import Button from '@/components/ui/Button';
+import { formatDate } from '@/lib/formatDate';
 
 interface Question {
   id: string;
@@ -163,11 +164,7 @@ export default function InterviewForm({ token }: { token: string }) {
             Please answer a few quick questions so we can move to the next step. This link is
             valid until{' '}
             <span className="font-medium text-neutral-700">
-              {new Date(data.expires_at).toLocaleDateString('en-IN', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-              })}
+              {formatDate(data.expires_at)}
             </span>
             .
           </p>

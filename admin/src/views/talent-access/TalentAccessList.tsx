@@ -14,16 +14,12 @@ import {
   type GrantStatusFilter,
 } from '@/hooks/useTalentAccess';
 import TalentAccessForm from './TalentAccessForm';
+import { formatDate as formatLongDate } from '@/lib/formatDate';
 
 const TABS: GrantStatusFilter[] = ['active', 'expired', 'revoked'];
 
 function formatDate(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  return iso ? formatLongDate(iso) : '—';
 }
 
 function statusVariant(

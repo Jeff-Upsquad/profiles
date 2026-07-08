@@ -11,6 +11,7 @@ import Button from '@/components/ui/Button';
 import DropdownMenu, { type DropdownMenuItem } from '@/components/ui/DropdownMenu';
 import TierBadge from '@/components/ui/TierBadge';
 import { cleanPhoneForLink, formatIndianPhone } from '@/lib/phone';
+import { formatDate as formatLongDate } from '@/lib/formatDate';
 import { useUserActions } from './useUserActions';
 import EditBasicDetailsDialog from './edit-dialogs/EditBasicDetailsDialog';
 import EditLanguagesDialog from './edit-dialogs/EditLanguagesDialog';
@@ -157,12 +158,7 @@ function isEmpty(v: unknown): boolean {
 }
 
 function formatDate(d?: string | null) {
-  if (!d) return null;
-  try {
-    return new Date(d).toLocaleDateString();
-  } catch {
-    return null;
-  }
+  return d ? formatLongDate(d) : null;
 }
 
 function formatCurrency(n?: number | null) {
@@ -726,7 +722,7 @@ export default function UserDetail({ userId }: { userId: string }) {
                     {!p.is_active && p.status !== 'inactive' && <Badge variant="gray">Inactive</Badge>}
                   </div>
                   <p className="text-xs text-gray-500">
-                    Created {new Date(p.created_at).toLocaleDateString()}
+                    Created {formatLongDate(p.created_at)}
                   </p>
                 </button>
               );
@@ -926,8 +922,8 @@ export default function UserDetail({ userId }: { userId: string }) {
                     {enrollments.map((e) => (
                       <tr key={e.course_id}>
                         <td className="px-4 py-4 text-sm font-medium text-gray-900">{e.course_title}</td>
-                        <td className="px-4 py-4 text-sm text-gray-500">{new Date(e.started_at).toLocaleDateString()}</td>
-                        <td className="px-4 py-4 text-sm text-gray-500">{e.expires_at ? new Date(e.expires_at).toLocaleDateString() : '-'}</td>
+                        <td className="px-4 py-4 text-sm text-gray-500">{formatLongDate(e.started_at)}</td>
+                        <td className="px-4 py-4 text-sm text-gray-500">{e.expires_at ? formatLongDate(e.expires_at) : '-'}</td>
                         <td className="px-4 py-4">
                           <Badge variant={e.expired ? 'red' : 'green'}>{e.expired ? 'Expired' : 'Active'}</Badge>
                         </td>

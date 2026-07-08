@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 import Card from '@/components/ui/Card';
+import { formatDateTime } from '@/lib/formatDate';
 
 interface AutomationConfig {
   auto_shortlist_on_approve: boolean;
@@ -503,7 +504,7 @@ function EventLog() {
                 {events.map((evt) => (
                   <tr key={evt.id} className="hover:bg-gray-50">
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
-                      {new Date(evt.created_at).toLocaleString()}
+                      {formatDateTime(evt.created_at)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">
                       <span

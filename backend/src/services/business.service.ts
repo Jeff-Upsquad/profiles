@@ -857,7 +857,7 @@ export async function listMySubscriptionCards(
 export async function getMySubscriptionCard(businessUserId: string, cardId: string) {
   const { data: card, error } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, content, match_rules, status, published_at, expires_at, business_user_id, recalled_at, paused_at, cancelled_at, group_id, card_type')
+    .select('id, external_id, content, match_rules, status, published_at, expires_at, business_user_id, recalled_at, paused_at, cancelled_at, subscription_activated_at, group_id, card_type')
     .eq('id', cardId)
     .maybeSingle();
 
@@ -946,6 +946,9 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
     recalled_at: ((card as any).recalled_at as string | null) ?? null,
     paused_at: ((card as any).paused_at as string | null) ?? null,
     cancelled_at: ((card as any).cancelled_at as string | null) ?? null,
+    // Set by SquadHub admin approval (activation webhook). Splits the client's
+    // "Selected (pending admin approval)" view from "Assigned".
+    subscription_activated_at: ((card as any).subscription_activated_at as string | null) ?? null,
     published_at: card.published_at as string | null,
     expires_at: card.expires_at as string | null,
     // Product line + project timeline so the detail can render an Assignment
@@ -1113,7 +1116,7 @@ async function resolveGroupCards(card: any): Promise<any[]> {
   if (!groupId) return [card];
   const { data: siblings } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, match_rules, content, status, selected_at, selected_talent_user_id, group_id, business_user_id')
+    .select('id, match_rules, content, status, selected_at, selected_talent_user_id, subscription_activated_at, group_id, business_user_id')
     .eq('group_id', groupId)
     .is('archived_at', null);
   return siblings && siblings.length > 0 ? siblings : [card];
@@ -1146,6 +1149,16 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
       price: typeof content.customer_monthly_price === 'number' ? content.customer_monthly_price : null,
       currency: (content.currency as string) ?? null,
     });
+  }
+
+  // Activation is per tier sibling — each tier card is independently assigned by
+  // a SquadHub admin. Keyed by card so a recipient can report whether THEIR tier
+  // card is activated (Assigned) vs still Selected (pending). Without this the
+  // client read one representative sibling's activation and mislabelled a talent
+  // assigned on a different tier as "pending".
+  const activatedByCard = new Map<string, string | null>();
+  for (const c of groupCards) {
+    activatedByCard.set(c.id as string, ((c as any).subscription_activated_at as string | null) ?? null);
   }
 
   const { data: recipients, error } = await supabaseAdmin
@@ -1252,6 +1265,10 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
         selected_at: r.selected_at ?? (isCardSelected ? sel.selectedAt : null),
         passed_over_at: r.passed_over_at ?? (sel.selectedTalent && !isCardSelected ? sel.selectedAt : null),
         responded_at: r.responded_at ?? null,
+        // This talent's OWN tier card's activation — set = Assigned, null =
+        // Selected (pending admin approval). Per-recipient so grouped briefs read
+        // the right tier's state.
+        subscription_activated_at: activatedByCard.get(r.card_id as string) ?? null,
       };
     });
 }

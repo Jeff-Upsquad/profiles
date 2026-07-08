@@ -10,6 +10,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
 import InterviewInvitationSection from '@/views/interview/InterviewInvitationSection';
+import { formatDateTime } from '@/lib/formatDate';
 
 interface Lead {
   id: string;
@@ -268,7 +269,7 @@ export default function LeadDetail({ id }: { id: string }) {
               </Badge>
             )}
             <span className="text-sm text-gray-500">
-              Submitted {new Date(lead.created_at).toLocaleString('en-IN')}
+              Submitted {formatDateTime(lead.created_at)}
             </span>
           </div>
         </div>

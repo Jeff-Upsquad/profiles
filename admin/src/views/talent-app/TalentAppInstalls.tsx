@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
+import { formatDate as formatLongDate } from '@/lib/formatDate';
 
 interface Install {
   user_id: string;
@@ -24,7 +25,7 @@ function timeAgo(iso: string): string {
   if (diff < DAY_MS) return `${Math.floor(diff / 3_600_000)}h ago`;
   const days = Math.floor(diff / DAY_MS);
   if (days < 30) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString();
+  return formatLongDate(iso);
 }
 
 export default function TalentAppInstalls() {
@@ -171,7 +172,7 @@ export default function TalentAppInstalls() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">
-                    {new Date(r.first_seen_at).toLocaleDateString()}
+                    {formatLongDate(r.first_seen_at)}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">{timeAgo(r.last_seen_at)}</td>
                 </tr>

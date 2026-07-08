@@ -9,6 +9,7 @@ import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
 import { groupItemsByBucket } from '@/lib/groupLeadsByBucket';
+import { formatDate } from '@/lib/formatDate';
 
 interface Invitation {
   id: string;
@@ -201,12 +202,10 @@ export default function InvitationList() {
                           {inv.company_name || '-'}
                         </td>
                         <td className="px-6 py-4 text-gray-500">
-                          {inv.expires_at
-                            ? new Date(inv.expires_at).toLocaleDateString()
-                            : '-'}
+                          {inv.expires_at ? formatDate(inv.expires_at) : '-'}
                         </td>
                         <td className="px-6 py-4 text-gray-500">
-                          {new Date(inv.created_at).toLocaleDateString()}
+                          {formatDate(inv.created_at)}
                         </td>
                         <td className="px-6 py-4">
                           {inv.status === 'pending' && (

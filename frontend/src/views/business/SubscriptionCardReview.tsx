@@ -12,6 +12,7 @@ import {
   type CardRecipientForBusiness,
 } from '@/hooks/useBusiness';
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
+import { formatDate as formatLongDate } from '@/lib/formatDate';
 
 const TINTS = ['tint-purple', 'tint-blue', 'tint-orange', 'tint-green', 'tint-pink', 'tint-amber'] as const;
 
@@ -33,13 +34,14 @@ function formatPrice(amount: number | null, currency: string | null): string | n
   return `${symbol}${amount.toLocaleString()}/mo`;
 }
 
-// Format an ISO date ("2026-07-15") as "15 Jul 2026" (day · English month · year).
+// Format an ISO date ("2026-07-15") as "15 July 2026". Parsed as local midnight
+// so the day doesn't shift by timezone.
 function fmtDate(s: string | null | undefined): string {
   const v = (s ?? '').trim();
   if (!v) return '';
   const d = new Date(`${v}T00:00:00`);
   if (Number.isNaN(d.getTime())) return v;
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatLongDate(d);
 }
 
 // Map a talent/plan tier to one of the three standard review buckets. Mixed
@@ -158,6 +160,12 @@ export default function SubscriptionCardReview({
   // Assignments are one-off projects — show the budget without the "/mo" suffix.
   const priceDisplay = isAssignment && price ? price.replace(/\/mo$/, '') : price;
   const timeline = card.assignment_details ?? null;
+  // Assignment is per tier sibling (grouped briefs assign each tier
+  // independently), so read activation per selected recipient — their own tier
+  // card's subscription_activated_at — not the fetched card's. Activated =
+  // Assigned; not yet = Selected (pending admin approval).
+  const selectedAssigned = selected.filter((r) => r.subscription_activated_at);
+  const selectedPending = selected.filter((r) => !r.subscription_activated_at);
 
   function handleReview(recipientId: string, action: 'shortlist' | 'reject' | 'unshortlist') {
     reviewMutation.mutate({ recipientId, action });
@@ -337,18 +345,42 @@ export default function SubscriptionCardReview({
         )}
       </div>
 
-      {/* Selected talent */}
-      {selected.length > 0 && (
+      {/* Assigned talent(s) — a SquadHub admin approved the pick (this talent's
+          tier card is activated). The confirmed emerald design. */}
+      {selectedAssigned.length > 0 && (
         <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50/50 p-5 sm:p-6">
           <h2 className="mb-3 flex items-center gap-2 font-[family-name:var(--font-jakarta)] text-sm font-semibold text-emerald-800">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Selected Talent
+            {selectedAssigned.length === 1 ? 'Assigned Talent' : 'Assigned Talents'}
           </h2>
-          {selected.map((r) => (
-            <RecipientRow key={r.recipient_id} recipient={r} variant="selected" />
-          ))}
+          <div className="space-y-3">
+            {selectedAssigned.map((r) => (
+              <RecipientRow key={r.recipient_id} recipient={r} variant="assigned" />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Selected — pending admin confirmation (this talent's tier card is not
+          activated yet). Amber, distinct from the confirmed Assigned design. */}
+      {selectedPending.length > 0 && (
+        <div className="rounded-2xl border-2 border-amber-200 bg-amber-50/50 p-5 sm:p-6">
+          <h2 className="mb-1 flex items-center gap-2 font-[family-name:var(--font-jakarta)] text-sm font-semibold text-amber-800">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Selected — pending confirmation
+          </h2>
+          <p className="mb-3 text-xs text-amber-700">
+            We&rsquo;re finalising this assignment. You&rsquo;ll see it confirmed here shortly.
+          </p>
+          <div className="space-y-3">
+            {selectedPending.map((r) => (
+              <RecipientRow key={r.recipient_id} recipient={r} variant="selected" />
+            ))}
+          </div>
         </div>
       )}
 
@@ -510,7 +542,7 @@ export default function SubscriptionCardReview({
               Only one talent can be selected per card.
             </p>
             <p className="mt-2 text-sm text-amber-700">
-              ⓘ If you don&rsquo;t activate the subscription within 24 hours, this talent will be released back to the pool.
+              ⓘ Your pick goes to the Squad team for confirmation. Once approved it&rsquo;ll show as Assigned and the subscription starts.
             </p>
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
@@ -634,16 +666,21 @@ function RecipientRow({
   variant,
 }: {
   recipient: CardRecipientForBusiness;
-  variant: 'selected';
+  variant: 'selected' | 'assigned';
 }) {
+  const isAssigned = variant === 'assigned';
   return (
     <div className="flex items-center gap-4">
       <RecipientLink recipient={r}>
         <RecipientAvatar recipient={r} />
         <RecipientInfo recipient={r} />
       </RecipientLink>
-      <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
-        Selected
+      <span
+        className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+          isAssigned ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+        }`}
+      >
+        {isAssigned ? 'Assigned' : 'Selected'}
       </span>
     </div>
   );

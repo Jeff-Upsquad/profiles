@@ -7,6 +7,7 @@ import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import toast from 'react-hot-toast';
 import AutoApprovalEditor from './AutoApprovalEditor';
+import { formatDate } from '@/lib/formatDate';
 
 interface PublicForm {
   id: string;
@@ -203,7 +204,7 @@ export default function FormManager() {
 
             {/* Meta */}
             <div className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-400">
-              Created {new Date(form.created_at).toLocaleDateString('en-IN')}
+              Created {formatDate(form.created_at)}
             </div>
           </div>
         ))}

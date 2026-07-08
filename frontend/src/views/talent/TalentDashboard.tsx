@@ -4,6 +4,7 @@ import { useMyProfiles } from '@/hooks/useProfiles';
 import { useMyOnboardingProgress, type OnboardingProgress } from '@/hooks/useOnboardingProgress';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
 import { SkeletonCard } from '@/components/ui/Skeleton';
+import { formatDate } from '@/lib/formatDate';
 
 type OnboardingStageKey = keyof OnboardingProgress;
 
@@ -336,7 +337,7 @@ export default function TalentDashboard() {
                         {profile.category?.name ?? 'Profile'}
                       </p>
                       <p className="mt-0.5 font-[family-name:var(--font-inter)] text-xs text-[#a3a3a3]">
-                        Created {new Date(profile.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        Created {formatDate(profile.created_at)}
                       </p>
                     </div>
                   </div>

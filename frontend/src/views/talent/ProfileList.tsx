@@ -10,6 +10,7 @@ import Button from '@/components/ui/Button';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
+import { formatDate } from '@/lib/formatDate';
 
 const TINTS = ['tint-purple', 'tint-blue', 'tint-orange', 'tint-green', 'tint-pink', 'tint-amber'] as const;
 
@@ -158,7 +159,7 @@ export default function ProfileList() {
                     </p>
                   ) : (
                     <p className="mt-1 font-[family-name:var(--font-inter)] text-xs text-[#a3a3a3]">
-                      Created {new Date(profile.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      Created {formatDate(profile.created_at)}
                     </p>
                   )}
 

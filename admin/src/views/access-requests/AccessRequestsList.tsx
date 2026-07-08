@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import { formatDate as formatLongDate } from '@/lib/formatDate';
 import GrantAccessModal, { type GrantTarget } from './GrantAccessModal';
 
 interface BusinessRequest {
@@ -40,12 +41,7 @@ interface PendingRequestsResponse {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  return iso ? formatLongDate(iso) : '—';
 }
 
 function formatRelative(iso: string): string {

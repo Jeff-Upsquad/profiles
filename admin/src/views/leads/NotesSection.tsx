@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
+import { formatDateTime } from '@/lib/formatDate';
 
 interface LeadNote {
   id: string;
@@ -15,13 +16,7 @@ interface LeadNote {
 }
 
 function formatTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  return formatDateTime(iso);
 }
 
 export default function NotesSection({ leadId }: { leadId: string }) {

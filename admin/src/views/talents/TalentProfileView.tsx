@@ -8,6 +8,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import TierBadge from '@/components/ui/TierBadge';
 import { cleanPhoneForLink } from '@/lib/phone';
+import { formatDate } from '@/lib/formatDate';
 import { coerceLeveledList, LEVEL_LABELS, type LeveledItem } from '../../../../shared/src/types/talent';
 
 type Tier = 'junior' | 'pro' | 'Top Talents' | 'custom';
@@ -534,7 +535,7 @@ export default function TalentProfileView({
                         )}
                       </div>
                       <div className="text-gray-600">
-                        Submitted {new Date(lead.created_at).toLocaleDateString()}
+                        Submitted {formatDate(lead.created_at)}
                       </div>
                       {(lead.utm_source || lead.utm_campaign) && (
                         <div className="text-gray-500">

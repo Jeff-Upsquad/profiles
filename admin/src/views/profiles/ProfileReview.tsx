@@ -9,6 +9,7 @@ import TierBadge from '@/components/ui/TierBadge';
 import Modal from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
 import { coerceLeveledList, LEVEL_LABELS, type LeveledItem } from '../../../../shared/src/types/talent';
+import { formatDate, formatDateTime } from '@/lib/formatDate';
 
 interface LinkedLead {
   id: string;
@@ -479,7 +480,7 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
                     )}
                   </div>
                   <div className="text-gray-600">
-                    Submitted {new Date(lead.created_at).toLocaleDateString()}
+                    Submitted {formatDate(lead.created_at)}
                   </div>
                   {(lead.utm_source || lead.utm_campaign) && (
                     <div className="text-gray-500">
@@ -700,11 +701,11 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
           </div>
           <div>
             <dt className="text-xs font-medium uppercase text-gray-500">Created</dt>
-            <dd className="mt-1 text-sm text-gray-900">{new Date(profile.created_at).toLocaleString()}</dd>
+            <dd className="mt-1 text-sm text-gray-900">{formatDateTime(profile.created_at)}</dd>
           </div>
           <div>
             <dt className="text-xs font-medium uppercase text-gray-500">Last Updated</dt>
-            <dd className="mt-1 text-sm text-gray-900">{new Date(profile.updated_at).toLocaleString()}</dd>
+            <dd className="mt-1 text-sm text-gray-900">{formatDateTime(profile.updated_at)}</dd>
           </div>
         </dl>
       </div>

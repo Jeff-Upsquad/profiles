@@ -7,6 +7,7 @@ import api from '@/services/api';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import { formatDateTime } from '@/lib/formatDate';
 
 export interface GrantTarget {
   kind: 'business' | 'course';
@@ -25,14 +26,7 @@ interface Props {
 }
 
 function formatDateLong(iso: string | null): string {
-  if (!iso) return 'Never set';
-  return new Date(iso).toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  return iso ? formatDateTime(iso) : 'Never set';
 }
 
 function describeRelative(iso: string | null): string {

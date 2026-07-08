@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import TierBadge from '@/components/ui/TierBadge';
 import toast from 'react-hot-toast';
+import { formatDate } from '@/lib/formatDate';
 
 interface ReviewProfile {
   id: string;
@@ -171,7 +172,7 @@ export default function ReviewQueue() {
                     {profile.categories?.name ?? 'N/A'}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">
-                    {new Date(profile.updated_at).toLocaleDateString()}
+                    {formatDate(profile.updated_at)}
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant="yellow">Pending</Badge>
