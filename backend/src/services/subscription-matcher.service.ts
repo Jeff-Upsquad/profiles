@@ -104,21 +104,27 @@ export async function findMatchingTalents(
 
   // Step 2: Tier filter — narrow by profile IDs.
   //
-  // Fail-closed: a card with no target_tiers means no tier intent, which
-  // historically caused the filter to be skipped and every category-matching
-  // talent to receive the card regardless of skill bracket. SquadHub now
-  // gates publish on a non-empty target_tiers, but we mirror the rule here
-  // as a safety net for legacy cards / direct webhook calls.
+  // Fail-closed for SUBSCRIPTION/ASSIGNMENT cards: a card with no
+  // target_tiers means no tier intent, which historically caused the filter
+  // to be skipped and every category-matching talent to receive the card
+  // regardless of skill bracket. SquadHub now gates publish on a non-empty
+  // target_tiers, but we mirror the rule here as a safety net for legacy
+  // cards / direct webhook calls.
+  //
+  // HIRING cards are exempt: their audience is already consent-gated (only
+  // talents opted in to the jobs section can match — the hiring steps
+  // below), and the jobs UI promises "empty tiers = any tier". When a job
+  // card DOES set tiers, the filter still applies.
   const tiers = Array.isArray(matchRules.target_tiers)
     ? matchRules.target_tiers.map((t) => String(t).toLowerCase()).filter(Boolean)
     : [];
-  if (tiers.length === 0) {
+  if (tiers.length === 0 && opts.cardType !== 'hiring') {
     console.warn(
       '[subscription-matcher] refusing to match — match_rules.target_tiers is missing or empty; card would otherwise broadcast to every category-matching talent',
     );
     return [];
   }
-  {
+  if (tiers.length > 0) {
     const profileIds = rows.map((r) => r.id);
     // Case-insensitive tier match. The stored tier (v_talent_profile_tier.tier)
     // is PascalCase 'Top Talents' for the top bracket but lowercase for
