@@ -367,6 +367,7 @@ export async function sendOffer(
     'job_offer_received',
     'You have an offer!',
     `${businessName} sent you an offer for ${offer.position_title}. Review and respond in the app.`,
+    `/talent/job-openings/offers/${offerId}`,
   ).catch(() => {});
   notifyJobEvent([offer.talent_user_id], {
     type: 'job_offer',
@@ -672,6 +673,7 @@ export async function acceptNegotiation(
     'job_offer_negotiation_accepted',
     'Negotiation accepted!',
     `${contentBusinessName(refs.content)} agreed to your requested figure for ${offer.position_title}. The offer is now accepted.`,
+    `/talent/job-openings/offers/${offerId}`,
   ).catch(() => {});
   notifyJobEvent([offer.talent_user_id], {
     type: 'job_offer',
@@ -722,6 +724,7 @@ export async function declineNegotiation(
     'job_offer_negotiation_declined',
     'Negotiation declined',
     `${contentBusinessName(refs.content)} declined the requested figure for ${offer.position_title}. The original offer still stands.`,
+    `/talent/job-openings/offers/${offerId}`,
   ).catch(() => {});
   notifyJobEvent([offer.talent_user_id], {
     type: 'job_offer',
@@ -789,6 +792,7 @@ export async function counterOffer(
     'job_offer_countered',
     'Final counteroffer received',
     `${businessName} made a final counteroffer for ${offer.position_title}. You can accept, decline, or ask a question.`,
+    `/talent/job-openings/offers/${offerId}`,
   ).catch(() => {});
   notifyJobEvent([offer.talent_user_id], {
     type: 'job_offer',
@@ -842,6 +846,7 @@ export async function withdrawOffer(offerId: string, actor: JobsActor): Promise<
       'job_offer_withdrawn',
       'Offer withdrawn',
       `The offer for ${offer.position_title} at ${contentBusinessName(refs.content)} was withdrawn.`,
+      `/talent/job-openings/offers/${offerId}`,
     ).catch(() => {});
     notifyJobEvent([offer.talent_user_id], {
       type: 'job_offer',
@@ -883,7 +888,8 @@ export async function answerOfferQuestion(
     [offer.talent_user_id],
     'job_offer_question_answered',
     'Your question was answered',
-    `Reply on the ${offer.position_title} offer: ${answer}`,
+    `Reply from ${contentBusinessName(refs.content)} on your ${offer.position_title} offer: ${answer}`,
+    `/talent/job-openings/offers/${offerId}`,
   ).catch(() => {});
   notifyJobEvent([offer.talent_user_id], {
     type: 'job_offer',
@@ -933,11 +939,22 @@ export async function expireOverdueOffers(): Promise<number> {
     const actor: JobsActor = { type: 'system' };
     await logOfferEvent({ offerId: o.id as string, actor, action: 'expired' });
 
+    // Card refs feed both the notification copy and the outbox emit — a refs
+    // failure must not silence the talent notification.
+    let refs: Awaited<ReturnType<typeof getCardRefs>> | null = null;
+    try {
+      refs = await getCardRefs(o.card_id as string);
+    } catch (err) {
+      console.error('[offers] expiry card refs failed', err);
+    }
+    const businessName = refs ? contentBusinessName(refs.content) : null;
+
     notifyTalentsInApp(
       [o.talent_user_id as string],
       'job_offer_expired',
       'Offer expired',
-      `The offer for ${o.position_title} expired.`,
+      `The offer for ${o.position_title}${businessName ? ` at ${businessName}` : ''} expired.`,
+      `/talent/job-openings/offers/${o.id}`,
     ).catch(() => {});
     notifyJobEvent([o.talent_user_id as string], {
       type: 'job_offer',
@@ -946,21 +963,22 @@ export async function expireOverdueOffers(): Promise<number> {
       cardId: o.card_id as string,
     }).catch((err) => console.error('[offers] expiry push threw', err));
 
-    try {
-      const refs = await getCardRefs(o.card_id as string);
-      await emitJobsEvent(
-        'job_offer_expired',
-        {
-          external_id: refs.externalId,
-          job_profile_external_id: refs.jobProfileExternalId,
-          candidate_id: o.candidate_id as string,
-          actor,
-          data: { offer_id: o.id },
-        },
-        `job_offer_expired:${o.id}`,
-      );
-    } catch (err) {
-      console.error('[offers] expiry outbox emit failed', err);
+    if (refs) {
+      try {
+        await emitJobsEvent(
+          'job_offer_expired',
+          {
+            external_id: refs.externalId,
+            job_profile_external_id: refs.jobProfileExternalId,
+            candidate_id: o.candidate_id as string,
+            actor,
+            data: { offer_id: o.id },
+          },
+          `job_offer_expired:${o.id}`,
+        );
+      } catch (err) {
+        console.error('[offers] expiry outbox emit failed', err);
+      }
     }
   }
 

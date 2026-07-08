@@ -83,13 +83,16 @@ export async function getTalentNames(talentUserIds: string[]): Promise<Map<strin
 /**
  * In-app talent notification: one `notifications` row (kind='system') fanned
  * to the given talents via notification_recipients — lands in the existing
- * /talent/notifications module. Never throws.
+ * /talent/notifications module. `linkUrl` is an in-app path (e.g.
+ * /talent/job-openings/<recipientId>) the notifications UI opens on click;
+ * null = not clickable. Never throws.
  */
 export async function notifyTalentsInApp(
   talentUserIds: string[],
   systemType: string,
   title: string,
   body?: string | null,
+  linkUrl?: string | null,
 ): Promise<void> {
   const ids = [...new Set(talentUserIds)].filter(Boolean);
   if (ids.length === 0) return;
@@ -101,6 +104,7 @@ export async function notifyTalentsInApp(
         system_type: systemType,
         title,
         body: body ?? null,
+        link_url: linkUrl ?? null,
       })
       .select('id')
       .single();
@@ -1335,7 +1339,13 @@ export async function reviewCandidate(
       body: `Congratulations! You were selected for ${title} at ${businessName}.`,
     },
   };
-  notifyTalentsInApp([candidate.talent_user_id], `job_${toStage}`, copy[input.action].title, copy[input.action].body).catch(() => {});
+  notifyTalentsInApp(
+    [candidate.talent_user_id],
+    `job_${toStage}`,
+    copy[input.action].title,
+    copy[input.action].body,
+    `/talent/job-openings/${candidate.recipient_id}`,
+  ).catch(() => {});
   notifyJobEvent([candidate.talent_user_id], {
     type: 'job_stage',
     title: copy[input.action].title,
@@ -1409,6 +1419,7 @@ export async function hireCandidate(
     'job_hired',
     "You're hired!",
     `Congratulations! ${businessName} hired you as ${title}. Joining date: ${input.joining_date}.`,
+    `/talent/job-openings/${candidate.recipient_id}`,
   ).catch(() => {});
   notifyJobEvent([candidate.talent_user_id], {
     type: 'job_hired',
@@ -1527,6 +1538,8 @@ export async function closeJobCard(
         'job_card_closed',
         'Position closed',
         `The ${title} position at ${businessName} has been closed and your offer was withdrawn.`,
+        // One shared row fans to many talents — per-offer links can't work here.
+        '/talent/job-openings',
       ).catch(() => {});
       notifyJobEvent(notifyIds, {
         type: 'job_offer',
@@ -1583,6 +1596,7 @@ export async function markJoined(cardId: string, candidateId: string, actor: Job
     'job_placed',
     'Welcome aboard!',
     `${businessName} marked you as joined for ${title}. All the best!`,
+    `/talent/job-openings/${candidate.recipient_id}`,
   ).catch(() => {});
   notifyJobEvent([candidate.talent_user_id], {
     type: 'job_stage',

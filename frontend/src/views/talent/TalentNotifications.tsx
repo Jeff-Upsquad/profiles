@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { SkeletonCard } from '@/components/ui/Skeleton';
@@ -13,10 +14,11 @@ interface Notification {
   id: string;                  // recipient row id
   notification_id: string;
   kind: 'broadcast' | 'system';
-  system_type: 'interest_request' | 'profile_approved' | 'profile_rejected' | null;
+  system_type: string | null;  // 'interest_request' | 'profile_approved' | 'profile_rejected' | 'job_*' | …
   title: string;
   body: string | null;
   media: MediaItem[];
+  link_url: string | null;     // in-app path the row opens on click; null = not clickable
   read: boolean;
   read_at: string | null;
   created_at: string;
@@ -71,6 +73,17 @@ function iconForNotification(n: Notification): { tint: string; node: React.React
       node: (
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
+      ),
+    };
+  }
+  if (n.kind === 'system' && n.system_type?.startsWith('job_')) {
+    return {
+      tint: 'tint-blue',
+      label: 'Job update',
+      node: (
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
       ),
     };
@@ -136,6 +149,7 @@ function NotificationMedia({ media }: { media: MediaItem[] }) {
 
 export default function TalentNotifications() {
   const qc = useQueryClient();
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>('unread');
 
   const { data, isLoading } = useQuery<Notification[]>({
@@ -171,6 +185,9 @@ export default function TalentNotifications() {
     onError: (_e, _id, ctx) => {
       if (ctx?.prev) qc.setQueryData(['talent-notifications'], ctx.prev);
     },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
+    },
   });
 
   const markAllRead = useMutation({
@@ -183,8 +200,16 @@ export default function TalentNotifications() {
           n.read ? n : { ...n, read: true, read_at: new Date().toISOString() },
         ),
       );
+      qc.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
     },
   });
+
+  // Clicking a linked notification marks it read, then opens the thing it's about.
+  const openNotification = (n: Notification) => {
+    if (!n.link_url) return;
+    if (!n.read) markRead.mutate(n.id);
+    router.push(n.link_url);
+  };
 
   const filtered = useMemo(() => {
     if (tab === 'unread') return notifications.filter((n) => !n.read);
@@ -284,10 +309,14 @@ export default function TalentNotifications() {
           {filtered.map((notif, i) => {
             const meta = iconForNotification(notif);
             const hasMedia = (notif.media?.length ?? 0) > 0;
+            const clickable = !!notif.link_url;
             return (
               <article
                 key={notif.id}
-                className={`group relative rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden stagger-${Math.min(i + 1, 6)}`}
+                onClick={clickable ? () => openNotification(notif) : undefined}
+                className={`group relative rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden stagger-${Math.min(i + 1, 6)}${
+                  clickable ? ' cursor-pointer transition-colors hover:border-[#a3a3a3] hover:bg-[#FAFAFA]' : ''
+                }`}
               >
                 <div className="flex items-start gap-3 px-5 py-4">
                   {!notif.read && (
@@ -319,7 +348,10 @@ export default function TalentNotifications() {
                       {!notif.read && (
                         <button
                           type="button"
-                          onClick={() => markRead.mutate(notif.id)}
+                          onClick={(e) => {
+                            e.stopPropagation(); // don't also navigate on linked rows
+                            markRead.mutate(notif.id);
+                          }}
                           className="text-xs font-medium text-[#525252] hover:text-[#0a0a0a] flex-shrink-0"
                         >
                           Mark read

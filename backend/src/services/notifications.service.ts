@@ -147,7 +147,7 @@ export async function listTalentNotifications(talentUserId: string) {
       read_at,
       created_at,
       notification:notifications (
-        id, kind, system_type, title, body, media
+        id, kind, system_type, title, body, media, link_url
       )
     `,
     )
@@ -164,6 +164,7 @@ export async function listTalentNotifications(talentUserId: string) {
     title: row.notification?.title ?? '',
     body: row.notification?.body ?? null,
     media: row.notification?.media ?? [],
+    link_url: row.notification?.link_url ?? null,
     read: !!row.read_at,
     read_at: row.read_at,
     created_at: row.created_at,
