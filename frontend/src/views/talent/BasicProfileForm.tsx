@@ -6,9 +6,8 @@ import { useUpload } from '@/hooks/useUpload';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
-import TagInput from '@/components/ui/TagInput';
-import MultiSelect from '@/components/ui/MultiSelect';
-import { useJobPreferences, type JobPreferencesInput } from '@/hooks/useJobs';
+import PreferredLocationsEditor from '@/components/jobs/talent/PreferredLocationsEditor';
+import { useJobPreferences, type JobPreferencesInput, type PreferredLocation } from '@/hooks/useJobs';
 import PartnerProgramPreference from '@/components/forms/PartnerProgramPreference';
 import { type DayHours, type DayAvailableHours } from '@/lib/workHours';
 import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
@@ -156,10 +155,7 @@ export default function BasicProfileForm() {
   const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
   // Job-opening matching preferences (talent_job_preferences) — shown inside
   // the Job Preference section but saved via the jobs API, not basic-profile.
-  const [jobOpeningCountries, setJobOpeningCountries] = useState<string[]>([]);
-  const [jobOpeningStates, setJobOpeningStates] = useState<string[]>([]);
-  const [jobOpeningDistricts, setJobOpeningDistricts] = useState<string[]>([]);
-  const [jobOpeningCities, setJobOpeningCities] = useState<string[]>([]);
+  const [jobOpeningLocations, setJobOpeningLocations] = useState<PreferredLocation[]>([]);
   const [jobOpeningRelocation, setJobOpeningRelocation] = useState(false);
   const [jobOpeningNotice, setJobOpeningNotice] = useState('');
 
@@ -188,10 +184,7 @@ export default function BasicProfileForm() {
 
   useEffect(() => {
     if (!jobPrefs) return;
-    setJobOpeningCountries(jobPrefs.preferred_countries ?? []);
-    setJobOpeningStates(jobPrefs.preferred_states ?? []);
-    setJobOpeningDistricts(jobPrefs.preferred_districts ?? []);
-    setJobOpeningCities(jobPrefs.preferred_cities ?? []);
+    setJobOpeningLocations(jobPrefs.preferred_locations ?? []);
     setJobOpeningRelocation(jobPrefs.open_to_relocation ?? false);
     setJobOpeningNotice(
       jobPrefs.notice_period_days != null ? String(jobPrefs.notice_period_days) : '',
@@ -422,10 +415,7 @@ export default function BasicProfileForm() {
         .filter(Boolean);
       const derivedSalary = form.expected_salary_full_time ?? form.expected_salary_part_time ?? null;
       saveJobPrefsMutation.mutate({
-        preferred_countries: jobOpeningCountries,
-        preferred_states: jobOpeningStates,
-        preferred_districts: jobOpeningDistricts,
-        preferred_cities: jobOpeningCities,
+        preferred_locations: jobOpeningLocations,
         preferred_job_types: derivedJobTypes,
         open_to_relocation: jobOpeningRelocation,
         expected_salary_monthly: derivedSalary,
@@ -441,28 +431,6 @@ export default function BasicProfileForm() {
     if (form.bank_account_number && form.bank_account_number !== confirmAccountNumber) { toast.error('Account numbers do not match'); return; }
 
     saveMutation.mutate(form);
-  };
-
-  // Job-opening location cascade — states unlock once India is picked;
-  // districts are driven by the chosen states (same source as the Address step).
-  const jobOpeningStateOptions = jobOpeningCountries.includes('India') ? INDIAN_STATES : [];
-  const jobOpeningDistrictOptions = Array.from(
-    new Set(jobOpeningStates.flatMap((s) => DISTRICTS_BY_STATE[s] ?? [])),
-  )
-    .sort()
-    .map((d) => ({ label: d, value: d }));
-
-  const handleJobOpeningCountries = (next: string[]) => {
-    setJobOpeningCountries(next);
-    if (!next.includes('India')) {
-      setJobOpeningStates([]);
-      setJobOpeningDistricts([]);
-    }
-  };
-  const handleJobOpeningStates = (next: string[]) => {
-    setJobOpeningStates(next);
-    const avail = new Set(next.flatMap((s) => DISTRICTS_BY_STATE[s] ?? []));
-    setJobOpeningDistricts((prev) => prev.filter((d) => avail.has(d)));
   };
 
   const wantsSalary = (form.employment_type || []).includes('salary');
@@ -991,42 +959,13 @@ export default function BasicProfileForm() {
                     <div>
                       <p className="mb-2.5 text-[13px] font-medium text-[#3F3F46]">Preferred locations</p>
                       <p className="mb-3 -mt-1.5 text-xs text-[#a3a3a3]">
-                        Where you&apos;d take a role. Add as many as you like — leave blank to match anywhere.
+                        Where you&apos;d take a role. Pick countries, then narrow each by state, district
+                        and city. Leave blank to match anywhere.
                       </p>
-                      <div className="space-y-4">
-                        <MultiSelect
-                          label="Countries"
-                          placeholder="Select countries"
-                          searchPlaceholder="Search countries"
-                          options={COUNTRIES}
-                          values={jobOpeningCountries}
-                          onChange={handleJobOpeningCountries}
-                        />
-                        <MultiSelect
-                          label="States"
-                          placeholder="Select states"
-                          searchPlaceholder="Search states"
-                          options={jobOpeningStateOptions}
-                          values={jobOpeningStates}
-                          onChange={handleJobOpeningStates}
-                          emptyHint="Select India in Countries to choose states."
-                        />
-                        <MultiSelect
-                          label="Districts"
-                          placeholder="Select districts"
-                          searchPlaceholder="Search districts"
-                          options={jobOpeningDistrictOptions}
-                          values={jobOpeningDistricts}
-                          onChange={setJobOpeningDistricts}
-                          emptyHint="Select a state above to choose districts."
-                        />
-                        <TagInput
-                          label="Cities"
-                          placeholder="Type a city and press Enter"
-                          values={jobOpeningCities}
-                          onChange={setJobOpeningCities}
-                        />
-                      </div>
+                      <PreferredLocationsEditor
+                        value={jobOpeningLocations}
+                        onChange={setJobOpeningLocations}
+                      />
                     </div>
                     <div className="max-w-xs">
                       <Input

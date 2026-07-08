@@ -284,7 +284,7 @@ export async function setCandidateStage(
 // ─── Talent: opt-in + preferences ──────────────────────────────────────────
 
 const PREF_FIELDS =
-  'talent_user_id, opted_in_at, opted_out_at, preferred_countries, preferred_states, preferred_districts, preferred_cities, preferred_job_types, open_to_relocation, expected_salary_monthly, notice_period_days';
+  'talent_user_id, opted_in_at, opted_out_at, preferred_locations, preferred_countries, preferred_states, preferred_districts, preferred_cities, preferred_job_types, open_to_relocation, expected_salary_monthly, notice_period_days';
 
 export async function getJobPreferences(talentUserId: string) {
   const { data, error } = await supabaseAdmin
@@ -298,6 +298,7 @@ export async function getJobPreferences(talentUserId: string) {
       opted_in: false,
       opted_in_at: null,
       opted_out_at: null,
+      preferred_locations: [] as unknown[],
       preferred_countries: [] as string[],
       preferred_states: [] as string[],
       preferred_districts: [] as string[],
@@ -337,12 +338,32 @@ export async function optOutOfJobs(talentUserId: string) {
   return getJobPreferences(talentUserId);
 }
 
+// Flatten the nested preferred-locations tree into the flat arrays the matcher
+// (preferred_districts) and summaries read. Deduped, order preserved.
+function deriveFlatLocations(locations: JobPreferencesInput['preferred_locations']) {
+  const tree = locations ?? [];
+  const uniq = (xs: string[]) => Array.from(new Set(xs.filter((x) => x && x.trim().length > 0)));
+  return {
+    preferred_countries: uniq(tree.map((c) => c.country)),
+    preferred_states: uniq(tree.flatMap((c) => (c.states ?? []).map((s) => s.state))),
+    preferred_districts: uniq(tree.flatMap((c) => (c.states ?? []).flatMap((s) => s.districts ?? []))),
+    preferred_cities: uniq(tree.flatMap((c) => (c.states ?? []).flatMap((s) => s.cities ?? []))),
+  };
+}
+
 function prefsPatch(prefs: JobPreferencesInput): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
-  if (prefs.preferred_countries !== undefined) patch.preferred_countries = prefs.preferred_countries;
-  if (prefs.preferred_states !== undefined) patch.preferred_states = prefs.preferred_states;
-  if (prefs.preferred_districts !== undefined) patch.preferred_districts = prefs.preferred_districts;
-  if (prefs.preferred_cities !== undefined) patch.preferred_cities = prefs.preferred_cities;
+  if (prefs.preferred_locations !== undefined) {
+    // Tree is the source of truth — persist it and derive the flat arrays,
+    // ignoring any flat arrays sent alongside it.
+    patch.preferred_locations = prefs.preferred_locations;
+    Object.assign(patch, deriveFlatLocations(prefs.preferred_locations));
+  } else {
+    if (prefs.preferred_countries !== undefined) patch.preferred_countries = prefs.preferred_countries;
+    if (prefs.preferred_states !== undefined) patch.preferred_states = prefs.preferred_states;
+    if (prefs.preferred_districts !== undefined) patch.preferred_districts = prefs.preferred_districts;
+    if (prefs.preferred_cities !== undefined) patch.preferred_cities = prefs.preferred_cities;
+  }
   if (prefs.preferred_job_types !== undefined) patch.preferred_job_types = prefs.preferred_job_types;
   if (prefs.open_to_relocation !== undefined) patch.open_to_relocation = prefs.open_to_relocation;
   if (prefs.expected_salary_monthly !== undefined) patch.expected_salary_monthly = prefs.expected_salary_monthly;

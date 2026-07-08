@@ -41,11 +41,26 @@ const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD');
 
 // ─── Talent side ───────────────────────────────────────────────────────────
 
+const preferredLocationStateSchema = z.object({
+  state: z.string().min(1).max(120),
+  districts: z.array(z.string().min(1).max(120)).max(100).default([]),
+  cities: z.array(z.string().min(1).max(120)).max(100).default([]),
+});
+
+const preferredLocationSchema = z.object({
+  country: z.string().min(1).max(120),
+  states: z.array(preferredLocationStateSchema).max(60).default([]),
+});
+
 export const jobPreferencesSchema = z.object({
+  // Nested tree (source of truth). The flat arrays below are derived from it
+  // in the service when preferred_locations is present; they remain accepted
+  // for backward compatibility.
+  preferred_locations: z.array(preferredLocationSchema).max(20).optional(),
   preferred_countries: z.array(z.string().min(1).max(120)).max(50).optional(),
   preferred_states: z.array(z.string().min(1).max(120)).max(50).optional(),
-  preferred_districts: z.array(z.string().min(1).max(120)).max(50).optional(),
-  preferred_cities: z.array(z.string().min(1).max(120)).max(50).optional(),
+  preferred_districts: z.array(z.string().min(1).max(120)).max(200).optional(),
+  preferred_cities: z.array(z.string().min(1).max(120)).max(200).optional(),
   preferred_job_types: z.array(z.string().min(1).max(120)).max(50).optional(),
   open_to_relocation: z.boolean().optional(),
   expected_salary_monthly: z.number().int().nonnegative().nullable().optional(),

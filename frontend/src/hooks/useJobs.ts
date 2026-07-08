@@ -36,10 +36,25 @@ export type JobFunnelStage =
   | 'placed'
   | 'withdrawn';
 
+// Nested preferred-locations tree: country → states → { districts, cities }.
+// India uses curated dropdowns; other countries are free-text. The flat
+// preferred_{countries,states,districts,cities} arrays are derived from this on
+// the backend (the matcher still filters on the flattened preferred_districts).
+export interface PreferredLocationState {
+  state: string;
+  districts: string[];
+  cities: string[];
+}
+export interface PreferredLocation {
+  country: string;
+  states: PreferredLocationState[];
+}
+
 export interface JobPreferences {
   opted_in: boolean;
   opted_in_at: string | null;
   opted_out_at: string | null;
+  preferred_locations: PreferredLocation[];
   preferred_countries: string[];
   preferred_states: string[];
   preferred_districts: string[];
@@ -51,6 +66,7 @@ export interface JobPreferences {
 }
 
 export interface JobPreferencesInput {
+  preferred_locations?: PreferredLocation[];
   preferred_countries?: string[];
   preferred_states?: string[];
   preferred_districts?: string[];
