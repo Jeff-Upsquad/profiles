@@ -1093,7 +1093,7 @@ export async function listRecipientsByExternalId(externalId: string) {
 
   const { data, error } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('id, talent_user_id, status, responded_at, cancelled_at, selected_at, passed_over_at, created_at')
+    .select('id, talent_user_id, status, responded_at, cancelled_at, selected_at, passed_over_at, business_review_status, created_at')
     .eq('card_id', card.id)
     .is('cancelled_at', null)
     .order('created_at', { ascending: false });
@@ -1145,6 +1145,12 @@ export async function listRecipientsByExternalId(externalId: string) {
     status: r.status,
     responded_at: r.responded_at,
     created_at: r.created_at,
+    // Business-review funnel state — SquadHub admin mirrors these into the
+    // Shortlisted / Selected / Assigned tabs on the Published-card recipients
+    // view. business_review_status is 'shortlisted' | 'rejected' | null.
+    business_review_status: r.business_review_status ?? null,
+    selected_at: r.selected_at ?? null,
+    passed_over_at: r.passed_over_at ?? null,
   }));
 }
 
