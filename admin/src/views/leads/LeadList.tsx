@@ -9,6 +9,7 @@ import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import LeadsTabs from './LeadsTabs';
 import LeadSidePanel from './LeadSidePanel';
+import CandidateActivityPanel from './CandidateActivityPanel';
 import LeadFilterPanel, { type FormDataFilterRule } from './LeadFilterPanel';
 import { groupItemsByBucket } from '@/lib/groupLeadsByBucket';
 import { formatIndianPhone } from '@/lib/phone';
@@ -158,6 +159,7 @@ export default function LeadList() {
   const deleted = searchParams.get('deleted') || '';
   const page = Number(searchParams.get('page') || '1');
   const selectedId = searchParams.get('selected');
+  const activityId = searchParams.get('activity');
   const formDataFilterParam = searchParams.get('form_data_filter') || '';
 
   const formDataRules = useMemo<FormDataFilterRule[]>(() => {
@@ -228,6 +230,11 @@ export default function LeadList() {
   const leads = data?.leads ?? [];
   const buckets = useMemo(() => groupItemsByBucket(leads), [leads]);
 
+  const activitySubject = useMemo(
+    () => (activityId ? leads.find((l) => l.id === activityId) ?? null : null),
+    [activityId, leads]
+  );
+
   const selectedIndex = useMemo(() => {
     if (!selectedId) return null;
     const idx = leads.findIndex((l) => l.id === selectedId);
@@ -236,6 +243,8 @@ export default function LeadList() {
 
   const openLead = (id: string) => updateQuery({ selected: id });
   const closeLead = () => updateQuery({ selected: null });
+  const openActivity = (id: string) => updateQuery({ activity: id });
+  const closeActivity = () => updateQuery({ activity: null });
   const navigate = (direction: -1 | 1) => {
     if (selectedIndex === null) return;
     const next = leads[selectedIndex + direction];
@@ -496,6 +505,24 @@ export default function LeadList() {
                         <div className="hidden w-24 text-right text-xs text-gray-400 md:block">
                           {formatDate(lead.created_at)}
                         </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openActivity(lead.id);
+                          }}
+                          title="View activity"
+                          aria-label="View activity"
+                          className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors ${
+                            lead.id === activityId
+                              ? 'bg-indigo-100 text-indigo-600'
+                              : 'text-gray-400 hover:bg-gray-100 hover:text-indigo-600'
+                          }`}
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
                         <svg
                           className="h-4 w-4 flex-shrink-0 text-gray-300"
                           fill="none"
@@ -555,6 +582,15 @@ export default function LeadList() {
         currentIndex={selectedIndex}
         totalCount={leads.length}
       />
+
+      {/* Activity timeline panel (stacks above the profile panel) */}
+      {activityId && (
+        <CandidateActivityPanel
+          leadId={activityId}
+          title={activitySubject?.name ?? null}
+          onClose={closeActivity}
+        />
+      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import DropdownMenu, { type DropdownMenuItem } from '@/components/ui/DropdownMenu';
+import CandidateActivityPanel from '@/views/leads/CandidateActivityPanel';
 import TierBadge from '@/components/ui/TierBadge';
 import { cleanPhoneForLink, formatIndianPhone } from '@/lib/phone';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
@@ -521,6 +522,7 @@ export default function UserDetail({ userId }: { userId: string }) {
     useUserActions();
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [activeSection, setActiveSection] = useState(0);
+  const [activityOpen, setActivityOpen] = useState(false);
 
   const { data, isLoading, error } = useQuery<UserDetailResponse>({
     queryKey: ['admin-user-detail', userId],
@@ -1058,6 +1060,16 @@ export default function UserDetail({ userId }: { userId: string }) {
                   View Candidate
                 </Link>
               )}
+              <button
+                type="button"
+                onClick={() => setActivityOpen(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:border-indigo-300 hover:text-indigo-700"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Activity
+              </button>
               <DropdownMenu
                 ariaLabel="More actions"
                 items={[
@@ -1201,6 +1213,15 @@ export default function UserDetail({ userId }: { userId: string }) {
           </div>
         </div>
       </div>
+
+      {/* ── Activity timeline ── */}
+      {activityOpen && (
+        <CandidateActivityPanel
+          talentUserId={user.id}
+          title={user.full_name}
+          onClose={() => setActivityOpen(false)}
+        />
+      )}
 
       {/* ── Edit dialogs ── */}
       <EditBasicDetailsDialog

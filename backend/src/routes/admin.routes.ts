@@ -381,6 +381,7 @@ router.get('/search', adminController.searchUsers);
 router.get('/users/talent', adminController.getTalentUsers);
 router.get('/users/business', adminController.getBusinessUsers);
 router.get('/users/:userId', adminController.getUserDetail);
+router.get('/users/:userId/activity', adminController.getUserActivity);
 router.put(
   '/users/:userId/basic-profile',
   validate({ body: updateBasicProfileSchema }),
@@ -467,6 +468,7 @@ router.patch(
   leadController.updateLeadProfileType
 );
 
+router.get('/leads/:id/activity', leadController.getLeadActivity);
 router.get('/leads/:id/notes', leadController.listLeadNotes);
 router.post(
   '/leads/:id/notes',

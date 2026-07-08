@@ -53,6 +53,30 @@ async function logEvent(event: {
   }
 }
 
+/**
+ * Record a manual pipeline stage change as a discrete, queryable event.
+ *
+ * `lead_submissions` only stores the *latest* `status_changed_at`, so without
+ * this the activity timeline could never show more than one stage move. Only
+ * manual admin moves are logged here — the automatic flows (auto-shortlist,
+ * signed-up, onboarding auto-advance) already emit their own specific events,
+ * so logging here too would double-count the same transition.
+ */
+export async function logLeadStatusChanged(
+  leadId: string,
+  from: string | null,
+  to: string,
+  adminUserId: string | null,
+) {
+  if (from === to) return;
+  await logEvent({
+    event_type: 'lead_status_changed',
+    lead_id: leadId,
+    triggered_by: adminUserId ? `admin:${adminUserId}` : 'system',
+    metadata: { from, to },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Config helpers
 // ---------------------------------------------------------------------------

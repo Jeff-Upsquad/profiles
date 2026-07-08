@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as leadService from '../services/lead.service.js';
 import * as storageService from '../services/storage.service.js';
+import { getCandidateActivity } from '../services/activity.service.js';
 
 // ---------------------------------------------------------------------------
 // Public
@@ -111,6 +112,15 @@ export async function getLead(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await leadService.getLeadSubmission(req.params.id as string);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getLeadActivity(req: Request, res: Response, next: NextFunction) {
+  try {
+    const activity = await getCandidateActivity({ leadId: req.params.id as string });
+    res.json({ activity });
   } catch (err) {
     next(err);
   }

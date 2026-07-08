@@ -433,6 +433,15 @@ export async function updateLeadStatus(
   adminUserId: string | null,
   options: { source?: 'admin' | 'crm_webhook' } = {}
 ) {
+  // Capture the prior stage before overwriting it, so a manual move can be
+  // logged as a discrete activity event (the row only keeps the latest).
+  const { data: prevRow } = await supabaseAdmin
+    .from('lead_submissions')
+    .select('status')
+    .eq('id', id)
+    .maybeSingle();
+  const prevStatus = (prevRow?.status as string | undefined) ?? null;
+
   const update: Record<string, unknown> = {
     status: input.status,
     status_changed_by: adminUserId,
@@ -486,6 +495,18 @@ export async function updateLeadStatus(
     await onLeadStatusChanged(id, input.status, adminUserId, { source: options.source });
   } catch (err) {
     console.error('[automation] onLeadStatusChanged failed:', err);
+  }
+
+  // Log manual admin stage changes for the activity timeline. Auto flows pass a
+  // null adminUserId and emit their own specific events, so they're excluded to
+  // avoid double-counting the same transition.
+  if (adminUserId && options.source !== 'crm_webhook' && prevStatus !== input.status) {
+    try {
+      const { logLeadStatusChanged } = await import('./automation.service.js');
+      await logLeadStatusChanged(id, prevStatus, input.status, adminUserId);
+    } catch (err) {
+      console.error('[automation] logLeadStatusChanged failed:', err);
+    }
   }
 
   return data;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
@@ -104,6 +105,16 @@ export default function LeadSidePanelContent({
   onClose?: () => void;
 }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const openActivity = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('activity', leadId);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
   const { data: lead, isLoading } = useQuery<LeadFull>({
     queryKey: ['admin-lead', leadId],
     queryFn: async () => {
@@ -196,7 +207,18 @@ export default function LeadSidePanelContent({
   return (
     <div className="space-y-5">
       {/* Identity header */}
-      <div className="rounded-xl border border-gray-200 bg-gradient-to-br from-indigo-50 to-white p-5">
+      <div className="relative rounded-xl border border-gray-200 bg-gradient-to-br from-indigo-50 to-white p-5">
+        <button
+          type="button"
+          onClick={openActivity}
+          title="View activity timeline"
+          className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white/80 px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm backdrop-blur transition-colors hover:border-indigo-300 hover:text-indigo-700"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Activity
+        </button>
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-indigo-600 text-lg font-semibold text-white">
             {lead.name
@@ -206,7 +228,7 @@ export default function LeadSidePanelContent({
               .join('')
               .toUpperCase()}
           </div>
-          <div className="flex-1">
+          <div className="flex-1 pr-24">
             <h2 className="text-xl font-semibold text-gray-900">{lead.name}</h2>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
               <Badge variant={lead.form_type === 'creative' ? 'indigo' : 'gray'}>

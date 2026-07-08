@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as adminService from '../services/admin.service.js';
 import * as inviteService from '../services/invite.service.js';
+import { getCandidateActivity } from '../services/activity.service.js';
 
 // ---------------------------------------------------------------------------
 // Dashboard
@@ -615,6 +616,15 @@ export async function getUserDetail(req: Request, res: Response, next: NextFunct
   try {
     const result = await adminService.getUserDetail(req.params.userId as string);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getUserActivity(req: Request, res: Response, next: NextFunction) {
+  try {
+    const activity = await getCandidateActivity({ talentUserId: req.params.userId as string });
+    res.json({ activity });
   } catch (err) {
     next(err);
   }
