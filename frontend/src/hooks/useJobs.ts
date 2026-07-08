@@ -40,7 +40,10 @@ export interface JobPreferences {
   opted_in: boolean;
   opted_in_at: string | null;
   opted_out_at: string | null;
+  preferred_countries: string[];
+  preferred_states: string[];
   preferred_districts: string[];
+  preferred_cities: string[];
   preferred_job_types: string[];
   open_to_relocation: boolean;
   expected_salary_monthly: number | null;
@@ -48,7 +51,10 @@ export interface JobPreferences {
 }
 
 export interface JobPreferencesInput {
+  preferred_countries?: string[];
+  preferred_states?: string[];
   preferred_districts?: string[];
+  preferred_cities?: string[];
   preferred_job_types?: string[];
   open_to_relocation?: boolean;
   expected_salary_monthly?: number | null;
