@@ -95,6 +95,8 @@ async function sweepDayBeforeReminders(now: number): Promise<void> {
         'job_interview_reminder',
         'Interview tomorrow',
         `Reminder: your ${round.mode} interview for ${title} at ${businessName} is within 24 hours.`,
+        // One shared row fans to many talents — per-invite links can't work here.
+        '/talent/job-openings',
       ).catch(() => {});
       notifyJobEvent(talentIds, {
         type: 'job_interview',
@@ -164,12 +166,15 @@ async function sweepConfirmWindows(now: number): Promise<void> {
 
       const content = await getCardContent(round.card_id as string);
       const title = contentTitle(content);
+      const businessName = contentBusinessName(content);
 
       notifyTalentsInApp(
         talentIds,
         'job_interview_confirm',
         'Confirm your availability now',
-        `Your interview window for ${title} opens in 10 minutes. Tap Confirm to join the queue — spots are first-come, first-served.`,
+        `Your interview window for ${title} at ${businessName} opens in 10 minutes. Tap Confirm to join the queue — spots are first-come, first-served.`,
+        // One shared row fans to many talents — per-invite links can't work here.
+        '/talent/job-openings',
       ).catch(() => {});
       notifyJobEvent(talentIds, {
         type: 'job_interview_confirm',

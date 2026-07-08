@@ -167,7 +167,8 @@ export async function answerQuestion(questionId: string, answer: string, actor: 
     [question.talent_user_id as string],
     'job_question_answered',
     'Your question was answered',
-    `Q: ${question.question}\nA: ${answer}`,
+    `Your question about ${profile.title} was answered.\nQ: ${question.question}\nA: ${answer}`,
+    `/talent/job-openings/profiles/${question.job_profile_id}`,
   ).catch(() => {});
   if (question.card_id) {
     notifyJobEvent([question.talent_user_id as string], {

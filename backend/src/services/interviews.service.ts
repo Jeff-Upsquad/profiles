@@ -275,6 +275,8 @@ export async function createRound(
     'job_interview_call',
     'Interview call',
     `${businessName} invited you to a ${input.mode} interview for ${title}. Please accept or decline.`,
+    // One shared row fans to many talents — per-invite links can't work here.
+    '/talent/job-openings',
   ).catch(() => {});
   notifyJobEvent(talentIds, {
     type: 'job_interview',
@@ -415,11 +417,14 @@ export async function cancelRound(roundId: string, actor: JobsActor) {
   if (talentIds.length > 0) {
     const refs = await getCardRefs(round.card_id);
     const title = contentTitle(refs.content);
+    const businessName = contentBusinessName(refs.content);
     notifyTalentsInApp(
       talentIds,
       'job_interview_cancelled',
       'Interview cancelled',
-      `The interview round for ${title} was cancelled. You'll be notified if it's rescheduled.`,
+      `The interview round for ${title} at ${businessName} was cancelled. You'll be notified if it's rescheduled.`,
+      // One shared row fans to many talents — per-invite links can't work here.
+      '/talent/job-openings',
     ).catch(() => {});
     notifyJobEvent(talentIds, {
       type: 'job_interview',
@@ -827,6 +832,7 @@ export async function startInterview(roundId: string, inviteId: string, actor: J
 
   const refs = await getCardRefs(round.card_id);
   const title = contentTitle(refs.content);
+  const businessName = contentBusinessName(refs.content);
   const linkOrLocation =
     round.mode === 'virtual'
       ? round.meeting_link ?? ''
@@ -837,8 +843,9 @@ export async function startInterview(roundId: string, inviteId: string, actor: J
     'job_interview_start',
     'Your interview is starting now',
     round.mode === 'virtual'
-      ? `Join your interview for ${title} now: ${round.meeting_link ?? 'link available in the app'}`
-      : `Your interview for ${title} is starting — please head in.`,
+      ? `Join your interview for ${title} at ${businessName} now: ${round.meeting_link ?? 'link available in the app'}`
+      : `Your interview for ${title} at ${businessName} is starting — please head in.`,
+    `/talent/job-openings/interviews/${inviteId}`,
   ).catch(() => {});
   notifyJobEvent([invite.talent_user_id], {
     type: 'job_interview_start',
@@ -912,11 +919,13 @@ export async function markAbsent(
     const promoted = await getInvite(promotedInviteId);
     const snapshot = await getQueueForTalent(promoted.talent_user_id, promotedInviteId);
     const title = contentTitle(refs.content);
+    const businessName = contentBusinessName(refs.content);
     notifyTalentsInApp(
       [promoted.talent_user_id],
       'job_waitlist_promoted',
       "You're in the queue!",
-      `A slot opened up — you're now in the interview queue for ${title}.`,
+      `A slot opened up — you're now in the interview queue for ${title} at ${businessName}.`,
+      `/talent/job-openings/interviews/${promotedInviteId}`,
     ).catch(() => {});
     notifyJobEvent([promoted.talent_user_id], {
       type: 'job_interview',
@@ -1003,7 +1012,13 @@ export async function setInterviewOutcome(
       body: `Your interview result for ${title} at ${businessName} is on hold — we'll keep you posted.`,
     },
   }[outcome];
-  notifyTalentsInApp([invite.talent_user_id], `job_interview_${outcome}`, copy.title, copy.body).catch(() => {});
+  notifyTalentsInApp(
+    [invite.talent_user_id],
+    `job_interview_${outcome}`,
+    copy.title,
+    copy.body,
+    `/talent/job-openings/interviews/${inviteId}`,
+  ).catch(() => {});
   notifyJobEvent([invite.talent_user_id], {
     type: 'job_stage',
     title: copy.title,
