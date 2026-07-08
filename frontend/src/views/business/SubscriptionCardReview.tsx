@@ -384,6 +384,62 @@ export default function SubscriptionCardReview({
             </div>
           )}
 
+          {/* Shortlisted — shown above the raw review pool so the customer's
+              curated picks (and the Select action) sit near the top, right
+              under any Selected talent, following the review funnel order. */}
+          <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div className="border-b border-[#E7E7EA] px-5 py-4 sm:px-6">
+              <div className="flex items-center justify-between">
+                <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
+                  Shortlisted
+                </h2>
+                <span className="text-xs text-[#a3a3a3]">{shortlistedView.length} total</span>
+              </div>
+            </div>
+
+            {shortlistedView.length === 0 ? (
+              <div className="px-6 py-10 text-center">
+                <p className="text-sm text-[#737373]">No shortlisted talents yet. Review talents below to add them here.</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-[#E7E7EA]">
+                {shortlistedView.map((r) => (
+                  <li key={r.recipient_id} className="px-5 py-3 sm:px-6">
+                    <div className="flex items-center gap-4">
+                      <RecipientLink recipient={r} inactive={(isClosed || hasSelection) && !r.selected_at}>
+                        <RecipientAvatar recipient={r} />
+                        <RecipientInfo recipient={r} />
+                      </RecipientLink>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
+                          onClick={() => handleReview(r.recipient_id, 'unshortlist')}
+                          className="rounded-lg border border-[#E7E7EA] px-3 py-1.5 text-xs font-semibold text-[#737373] transition-colors hover:bg-[#F5F5F6] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Unshortlist
+                        </button>
+                        <button
+                          type="button"
+                          disabled={selectMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
+                          onClick={() => handleSelect(r)}
+                          className="rounded-lg bg-[#0a0a0a] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Select
+                        </button>
+                      </div>
+                      {(hasSelection || isClosed) && !r.selected_at && (
+                        <span className="shrink-0 rounded-full bg-[#f0f0f0] px-2 py-0.5 text-[10px] font-medium text-[#737373]">
+                          Not selected
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="border-b border-[#E7E7EA] px-5 py-4 sm:px-6">
               <div className="flex items-center justify-between">
@@ -438,59 +494,6 @@ export default function SubscriptionCardReview({
             )}
           </div>
 
-          {/* Shortlisted */}
-          <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <div className="border-b border-[#E7E7EA] px-5 py-4 sm:px-6">
-              <div className="flex items-center justify-between">
-                <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
-                  Shortlisted
-                </h2>
-                <span className="text-xs text-[#a3a3a3]">{shortlistedView.length} total</span>
-              </div>
-            </div>
-
-            {shortlistedView.length === 0 ? (
-              <div className="px-6 py-10 text-center">
-                <p className="text-sm text-[#737373]">No shortlisted talents yet. Review talents above to add them here.</p>
-              </div>
-            ) : (
-              <ul className="divide-y divide-[#E7E7EA]">
-                {shortlistedView.map((r) => (
-                  <li key={r.recipient_id} className="px-5 py-3 sm:px-6">
-                    <div className="flex items-center gap-4">
-                      <RecipientLink recipient={r} inactive={(isClosed || hasSelection) && !r.selected_at}>
-                        <RecipientAvatar recipient={r} />
-                        <RecipientInfo recipient={r} />
-                      </RecipientLink>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <button
-                          type="button"
-                          disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
-                          onClick={() => handleReview(r.recipient_id, 'unshortlist')}
-                          className="rounded-lg border border-[#E7E7EA] px-3 py-1.5 text-xs font-semibold text-[#737373] transition-colors hover:bg-[#F5F5F6] disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Unshortlist
-                        </button>
-                        <button
-                          type="button"
-                          disabled={selectMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
-                          onClick={() => handleSelect(r)}
-                          className="rounded-lg bg-[#0a0a0a] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Select
-                        </button>
-                      </div>
-                      {(hasSelection || isClosed) && !r.selected_at && (
-                        <span className="shrink-0 rounded-full bg-[#f0f0f0] px-2 py-0.5 text-[10px] font-medium text-[#737373]">
-                          Not selected
-                        </span>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
         </>
       )}
 
