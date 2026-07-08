@@ -81,21 +81,27 @@ export default function TalentJobsView() {
                 Job preferences
               </h3>
               <p className="mt-0.5 truncate text-xs text-[#737373]">
-                {[
-                  (prefs?.preferred_districts?.length ?? 0) > 0
-                    ? prefs!.preferred_districts.join(', ')
-                    : 'Any district',
-                  (prefs?.preferred_job_types?.length ?? 0) > 0
-                    ? prefs!.preferred_job_types.join(', ')
-                    : null,
-                  prefs?.open_to_relocation ? 'Open to relocation' : null,
-                  prefs?.expected_salary_monthly != null
-                    ? `₹${prefs.expected_salary_monthly.toLocaleString()}/mo expected`
-                    : null,
-                  prefs?.notice_period_days != null ? `${prefs.notice_period_days}d notice` : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
+                {(() => {
+                  const locations = [
+                    ...(prefs?.preferred_cities ?? []),
+                    ...(prefs?.preferred_districts ?? []),
+                    ...(prefs?.preferred_states ?? []),
+                    ...(prefs?.preferred_countries ?? []),
+                  ];
+                  return [
+                    locations.length > 0 ? locations.join(', ') : 'Anywhere',
+                    (prefs?.preferred_job_types?.length ?? 0) > 0
+                      ? prefs!.preferred_job_types.join(', ')
+                      : null,
+                    prefs?.open_to_relocation ? 'Open to relocation' : null,
+                    prefs?.expected_salary_monthly != null
+                      ? `₹${prefs.expected_salary_monthly.toLocaleString()}/mo expected`
+                      : null,
+                    prefs?.notice_period_days != null ? `${prefs.notice_period_days}d notice` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ');
+                })()}
               </p>
               <button
                 type="button"

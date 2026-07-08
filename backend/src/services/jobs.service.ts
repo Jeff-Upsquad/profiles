@@ -284,7 +284,7 @@ export async function setCandidateStage(
 // ─── Talent: opt-in + preferences ──────────────────────────────────────────
 
 const PREF_FIELDS =
-  'talent_user_id, opted_in_at, opted_out_at, preferred_districts, preferred_job_types, open_to_relocation, expected_salary_monthly, notice_period_days';
+  'talent_user_id, opted_in_at, opted_out_at, preferred_countries, preferred_states, preferred_districts, preferred_cities, preferred_job_types, open_to_relocation, expected_salary_monthly, notice_period_days';
 
 export async function getJobPreferences(talentUserId: string) {
   const { data, error } = await supabaseAdmin
@@ -298,7 +298,10 @@ export async function getJobPreferences(talentUserId: string) {
       opted_in: false,
       opted_in_at: null,
       opted_out_at: null,
+      preferred_countries: [] as string[],
+      preferred_states: [] as string[],
       preferred_districts: [] as string[],
+      preferred_cities: [] as string[],
       preferred_job_types: [] as string[],
       open_to_relocation: false,
       expected_salary_monthly: null,
@@ -336,7 +339,10 @@ export async function optOutOfJobs(talentUserId: string) {
 
 function prefsPatch(prefs: JobPreferencesInput): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
+  if (prefs.preferred_countries !== undefined) patch.preferred_countries = prefs.preferred_countries;
+  if (prefs.preferred_states !== undefined) patch.preferred_states = prefs.preferred_states;
   if (prefs.preferred_districts !== undefined) patch.preferred_districts = prefs.preferred_districts;
+  if (prefs.preferred_cities !== undefined) patch.preferred_cities = prefs.preferred_cities;
   if (prefs.preferred_job_types !== undefined) patch.preferred_job_types = prefs.preferred_job_types;
   if (prefs.open_to_relocation !== undefined) patch.open_to_relocation = prefs.open_to_relocation;
   if (prefs.expected_salary_monthly !== undefined) patch.expected_salary_monthly = prefs.expected_salary_monthly;
