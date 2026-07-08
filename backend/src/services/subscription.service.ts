@@ -1536,7 +1536,7 @@ export async function manualAssignTalent(
 ): Promise<ManualAssignTalentResult> {
   const { data: card, error: cardErr } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, content, status, selected_talent_user_id, business_user_id, match_rules')
+    .select('id, content, status, selected_talent_user_id, business_user_id, match_rules, group_id')
     .eq('external_id', input.card_id)
     .maybeSingle();
   if (cardErr) throw new AppError(500, cardErr.message);
@@ -1658,6 +1658,9 @@ export async function manualAssignTalent(
       })
       .eq('id', (card as any).id);
     if (cardUpdErr) throw new AppError(500, cardUpdErr.message);
+
+    // One brief = one hire: the direct assign fills the whole multi-tier group.
+    await closeGroupSiblingCards((card as any).group_id ?? null, (card as any).id, assignedAt);
 
     // Surface the talent on the linked business's dashboard — the removal leg
     // of a swap withdraws the OUTGOING talent's share, and neither respond()
@@ -1829,6 +1832,120 @@ export async function removeAssignedTalent(
   };
 }
 
+// ─── Multi-tier group close / reopen ──────────────────────────────────────
+//
+// One brief = one hire. A multi-tier brief arrives as per-tier sibling cards
+// sharing a group_id (the business portal collapses them into one tabbed
+// card), but assigning a talent on ANY tier fills the brief — so the sibling
+// tier cards must close with it. Without this, talents on the other tiers
+// keep seeing (and can accept) a live Pending offer for a slot that is
+// already taken.
+//
+// Closing a sibling = status 'assigned' with NO selection stamps: pending
+// recipients drop to the talents' Expired tab, accepted ones get
+// passed_over_at (the "Closed" badge), and respond() starts rejecting stale
+// accepts. The selection-less state is also what reopenGroupSiblingCards
+// keys on, so a tier card that was genuinely assigned in its own right is
+// never force-reopened by an undo on a different tier.
+//
+// Both helpers log-and-continue on DB errors: they run AFTER the primary
+// card's assignment/undo has committed, and that outcome must not be
+// reported as failed because sibling bookkeeping lagged.
+
+async function closeGroupSiblingCards(
+  groupId: string | null,
+  assignedCardId: string,
+  closedAt: string,
+): Promise<void> {
+  if (!groupId) return;
+
+  const { data: siblings, error } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id')
+    .eq('group_id', groupId)
+    .neq('id', assignedCardId)
+    .eq('status', 'active');
+  if (error) {
+    console.error('[subscription] failed to load group siblings for close', error);
+    return;
+  }
+  const ids = (siblings ?? []).map((s: any) => s.id as string);
+  if (ids.length === 0) return;
+
+  const { error: cardErr } = await supabaseAdmin
+    .from('subscription_cards')
+    .update({ status: 'assigned' })
+    .in('id', ids)
+    .eq('status', 'active');
+  if (cardErr) {
+    console.error('[subscription] failed to close group sibling cards', cardErr);
+    return;
+  }
+
+  // Accepted-but-unselected talents on the sibling tiers were passed over by
+  // the cross-tier pick — stamp them so their Responded row reads "Closed"
+  // (mirrors the same-card pass-over in the selection paths). Live round
+  // only; cancelled rows are retired audit state.
+  const { error: recErr } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .update({ passed_over_at: closedAt })
+    .in('card_id', ids)
+    .eq('status', 'accepted')
+    .is('cancelled_at', null)
+    .is('selected_at', null)
+    .is('passed_over_at', null);
+  if (recErr) {
+    console.error('[subscription] failed to pass over sibling recipients', recErr);
+  }
+}
+
+async function reopenGroupSiblingCards(
+  groupId: string | null,
+  reopenedCardId: string,
+): Promise<void> {
+  if (!groupId) return;
+
+  // Only siblings that the group-close put into 'assigned' — recognizable by
+  // carrying no selection stamps of their own.
+  const { data: siblings, error } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id')
+    .eq('group_id', groupId)
+    .neq('id', reopenedCardId)
+    .eq('status', 'assigned')
+    .is('selected_at', null)
+    .is('selected_talent_user_id', null);
+  if (error) {
+    console.error('[subscription] failed to load group siblings for reopen', error);
+    return;
+  }
+  const ids = (siblings ?? []).map((s: any) => s.id as string);
+  if (ids.length === 0) return;
+
+  const { error: cardErr } = await supabaseAdmin
+    .from('subscription_cards')
+    .update({ status: 'active' })
+    .in('id', ids)
+    .eq('status', 'assigned');
+  if (cardErr) {
+    console.error('[subscription] failed to reopen group sibling cards', cardErr);
+    return;
+  }
+
+  // Clear the cross-tier pass-over stamps so accepted talents on the sibling
+  // tiers become selectable again (mirrors the same-card clear in the undo
+  // paths). Live round only.
+  const { error: recErr } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .update({ passed_over_at: null })
+    .in('card_id', ids)
+    .is('cancelled_at', null)
+    .not('passed_over_at', 'is', null);
+  if (recErr) {
+    console.error('[subscription] failed to clear sibling pass-over stamps', recErr);
+  }
+}
+
 // ─── Admin selection ─────────────────────────────────────────────────────
 
 export interface SelectRecipientResult {
@@ -1842,7 +1959,7 @@ export async function adminSelectRecipient(
 ): Promise<SelectRecipientResult> {
   const { data: card, error: cardErr } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, status, selected_at, content')
+    .select('id, external_id, status, selected_at, content, group_id')
     .eq('id', cardId)
     .maybeSingle();
   if (cardErr) throw new AppError(500, cardErr.message);
@@ -1904,6 +2021,9 @@ export async function adminSelectRecipient(
     .update({ status: 'assigned', selected_talent_user_id: talentUserId, selected_at: now })
     .eq('id', cardId);
 
+  // One brief = one hire: the pick fills the whole multi-tier group.
+  await closeGroupSiblingCards((card as any).group_id ?? null, cardId, now);
+
   notifySelected(cardId, talentUserId, (card as any).content ?? {}).catch((err) => {
     console.error('[subscription] notifySelected threw', err);
   });
@@ -1951,7 +2071,7 @@ export async function adminSelectRecipient(
 export async function adminUndoSelection(cardId: string): Promise<void> {
   const { data: card } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, selected_at, selected_talent_user_id, subscription_activated_at, content')
+    .select('id, external_id, selected_at, selected_talent_user_id, subscription_activated_at, content, group_id')
     .eq('id', cardId)
     .maybeSingle();
   if (!card) throw new AppError(404, 'Card not found');
@@ -1981,6 +2101,9 @@ export async function adminUndoSelection(cardId: string): Promise<void> {
       status: 'active',
     })
     .eq('id', cardId);
+
+  // Reopen the sibling tier cards the assignment had closed alongside this one.
+  await reopenGroupSiblingCards((card as any).group_id ?? null, cardId);
 
   const externalId = (card as any).external_id as string | undefined;
   if (externalId) {
@@ -2117,7 +2240,7 @@ export async function handleSelectionWebhook(
 ): Promise<void> {
   const { data: card } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, selected_at, content, status')
+    .select('id, selected_at, content, status, group_id')
     .eq('external_id', externalCardId)
     .maybeSingle();
   if (!card) return;
@@ -2173,6 +2296,12 @@ export async function handleSelectionWebhook(
     .from('subscription_cards')
     .update(cardPatch)
     .eq('id', cid);
+
+  // One brief = one hire: once SquadHub marks this tier card assigned, the
+  // sibling tier cards of the group close with it.
+  if (cardStatus === 'assigned') {
+    await closeGroupSiblingCards((card as any).group_id ?? null, cid, selectedAt);
+  }
 }
 
 // SquadHub admin clicked "Finalize" on a selected card. We just stamp
@@ -2200,7 +2329,7 @@ export async function handleSelectionUndoWebhook(
 ): Promise<void> {
   const { data: card } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, selected_talent_user_id, content')
+    .select('id, selected_talent_user_id, content, group_id')
     .eq('external_id', externalCardId)
     .maybeSingle();
   if (!card) return;
@@ -2224,6 +2353,9 @@ export async function handleSelectionUndoWebhook(
     .update({ selected_talent_user_id: null, selected_at: null, subscription_activated_at: null, status: 'active' })
     .eq('id', (card as any).id);
 
+  // Reopen the sibling tier cards the assignment had closed alongside this one.
+  await reopenGroupSiblingCards((card as any).group_id ?? null, (card as any).id as string);
+
   // Notify the previously selected/assigned talent that their client was removed
   // (covers SquadHub-initiated unassign + reopen, both of which fire this).
   if (previousTalentId) {
@@ -2244,7 +2376,7 @@ export async function handleSelectionUndoWebhook(
 export async function freshBroadcast(externalCardId: string): Promise<{ matched: number }> {
   const { data: card } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, status, match_rules, content, card_type')
+    .select('id, status, match_rules, content, card_type, group_id')
     .eq('external_id', externalCardId)
     .maybeSingle();
   if (!card) return { matched: 0 };
@@ -2287,6 +2419,11 @@ export async function freshBroadcast(externalCardId: string): Promise<{ matched:
       subscription_activated_at: null,
     })
     .eq('id', cid);
+
+  // A rebroadcast means the brief is live again — reopen sibling tier cards a
+  // prior assignment had closed. If SquadHub also fires freshBroadcast per
+  // sibling, those calls simply find nothing left to reopen.
+  await reopenGroupSiblingCards((card as any).group_id ?? null, cid);
 
   const matched = await fanOutBroadcast(
     cid,
