@@ -248,13 +248,26 @@ export function useRespondToJob() {
 
 // ─── Job profile view + Q&A ──────────────────────────────────────────────────
 
+/** The viewer's own recipient on this profile's newest card (action bar). */
+export interface JobProfileViewerRecipient {
+  id: string;
+  status: 'pending' | 'accepted' | 'rejected' | string;
+  card_id: string;
+}
+
 export function useJobProfileView(jobProfileId: string | undefined) {
-  return useQuery<{ profile: TalentJobProfile; questions: JobQuestionForTalent[] }>({
+  return useQuery<{
+    profile: TalentJobProfile;
+    questions: JobQuestionForTalent[];
+    recipient: JobProfileViewerRecipient | null;
+  }>({
     queryKey: ['jobs', 'profile', jobProfileId],
     queryFn: async () => {
-      const { data } = await api.get<{ profile: TalentJobProfile; questions: JobQuestionForTalent[] }>(
-        `/talent/jobs/profiles/${jobProfileId}`,
-      );
+      const { data } = await api.get<{
+        profile: TalentJobProfile;
+        questions: JobQuestionForTalent[];
+        recipient: JobProfileViewerRecipient | null;
+      }>(`/talent/jobs/profiles/${jobProfileId}`);
       return data;
     },
     enabled: !!jobProfileId,
