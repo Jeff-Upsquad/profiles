@@ -14,14 +14,10 @@ import StaffForm from './StaffForm';
 import GrantMatrix from './GrantMatrix';
 import SquadhubPicker, { type GrantResult } from './SquadhubPicker';
 import AccessApprovedDialog from './AccessApprovedDialog';
+import { formatDate as formatLongDate } from '@/lib/formatDate';
 
 function formatDate(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  return iso ? formatLongDate(iso) : '—';
 }
 
 export default function TeamAccessList() {

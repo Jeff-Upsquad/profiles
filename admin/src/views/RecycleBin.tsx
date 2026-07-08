@@ -5,6 +5,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import toast from 'react-hot-toast';
 import { useArchivedCourses, useRestoreCourse } from '@/hooks/useTraining';
+import { formatDate, formatDateTime } from '@/lib/formatDate';
 
 interface DeletedProfile {
   id: string;
@@ -132,7 +133,7 @@ export default function RecycleBin() {
                     {profile.categories?.name ?? 'N/A'}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">
-                    {profile.deleted_at ? new Date(profile.deleted_at).toLocaleString() : '-'}
+                    {profile.deleted_at ? formatDateTime(profile.deleted_at) : '-'}
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant="gray">{profile.status}</Badge>
@@ -211,7 +212,7 @@ export default function RecycleBin() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {course.deleted_at ? new Date(course.deleted_at).toLocaleString() : '-'}
+                      {course.deleted_at ? formatDateTime(course.deleted_at) : '-'}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Button
@@ -246,10 +247,10 @@ export default function RecycleBin() {
               <div className="rounded-lg border-2 border-indigo-200 bg-indigo-50 p-4">
                 <p className="text-xs font-semibold uppercase text-indigo-600">Archived Profile</p>
                 <p className="mt-1 text-sm text-gray-700">
-                  Created {new Date(conflict.archived.created_at).toLocaleDateString()}
+                  Created {formatDate(conflict.archived.created_at)}
                 </p>
                 <p className="text-sm text-gray-500">
-                  Deleted {conflict.archived.deleted_at ? new Date(conflict.archived.deleted_at).toLocaleDateString() : '-'}
+                  Deleted {conflict.archived.deleted_at ? formatDate(conflict.archived.deleted_at) : '-'}
                 </p>
                 <Button
                   size="sm"
@@ -270,7 +271,7 @@ export default function RecycleBin() {
               <div className="rounded-lg border-2 border-gray-200 bg-gray-50 p-4">
                 <p className="text-xs font-semibold uppercase text-gray-600">Current Profile</p>
                 <p className="mt-1 text-sm text-gray-700">
-                  Created {new Date(conflict.existing.created_at).toLocaleDateString()}
+                  Created {formatDate(conflict.existing.created_at)}
                 </p>
                 <p className="text-sm text-gray-500">
                   Status: {conflict.existing.status.replace('_', ' ')}

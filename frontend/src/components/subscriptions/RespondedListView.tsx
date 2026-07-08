@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Badge from '@/components/ui/Badge';
 import SubscriptionCardContent from './SubscriptionCardContent';
+import { formatDate } from '@/lib/formatDate';
 import type { SubscriptionCardItem } from '@/hooks/useSubscriptionCards';
 
 interface Props {
@@ -14,12 +15,6 @@ interface DateGroup {
   label: string;
   items: SubscriptionCardItem[];
 }
-
-const dayFormatter = new Intl.DateTimeFormat(undefined, {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-});
 
 const timeFormatter = new Intl.DateTimeFormat(undefined, {
   hour: 'numeric',
@@ -42,7 +37,7 @@ function dayLabel(iso: string | null): string {
   yesterday.setDate(today.getDate() - 1);
   if (d.toDateString() === today.toDateString()) return 'Today';
   if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return dayFormatter.format(d);
+  return formatDate(d);
 }
 
 function groupByDay(items: SubscriptionCardItem[]): DateGroup[] {

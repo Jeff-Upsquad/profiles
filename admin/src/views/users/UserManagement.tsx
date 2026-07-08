@@ -9,6 +9,7 @@ import Modal from '@/components/ui/Modal';
 import DropdownMenu, { type DropdownMenuItem } from '@/components/ui/DropdownMenu';
 import toast from 'react-hot-toast';
 import { useUserActions } from './useUserActions';
+import { formatDate } from '@/lib/formatDate';
 
 interface ResetTarget {
   id: string;
@@ -232,7 +233,7 @@ export default function UserManagement() {
                       <td className="px-4 py-3 text-sm text-gray-600">{user.phone ?? '-'}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{user.current_location ?? '-'}</td>
                       <td className="px-4 py-3 text-sm text-gray-500">
-                        {new Date(user.created_at).toLocaleDateString()}
+                        {formatDate(user.created_at)}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end">
@@ -322,7 +323,7 @@ export default function UserManagement() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-500">
-                        {new Date(user.created_at).toLocaleDateString()}
+                        {formatDate(user.created_at)}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end">

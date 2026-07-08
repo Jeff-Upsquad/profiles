@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
+import { formatDate } from '@/lib/formatDate';
 
 interface TalentUser {
   id: string;
@@ -89,7 +90,7 @@ export default function UserApprovals() {
                     {user.phone || '-'}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                    {new Date(user.created_at).toLocaleDateString()}
+                    {formatDate(user.created_at)}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">

@@ -12,6 +12,7 @@ import {
   type CardRecipientForBusiness,
 } from '@/hooks/useBusiness';
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
+import { formatDate as formatLongDate } from '@/lib/formatDate';
 
 const TINTS = ['tint-purple', 'tint-blue', 'tint-orange', 'tint-green', 'tint-pink', 'tint-amber'] as const;
 
@@ -33,13 +34,14 @@ function formatPrice(amount: number | null, currency: string | null): string | n
   return `${symbol}${amount.toLocaleString()}/mo`;
 }
 
-// Format an ISO date ("2026-07-15") as "15 Jul 2026" (day · English month · year).
+// Format an ISO date ("2026-07-15") as "15 July 2026". Parsed as local midnight
+// so the day doesn't shift by timezone.
 function fmtDate(s: string | null | undefined): string {
   const v = (s ?? '').trim();
   if (!v) return '';
   const d = new Date(`${v}T00:00:00`);
   if (Number.isNaN(d.getTime())) return v;
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatLongDate(d);
 }
 
 // Map a talent/plan tier to one of the three standard review buckets. Mixed

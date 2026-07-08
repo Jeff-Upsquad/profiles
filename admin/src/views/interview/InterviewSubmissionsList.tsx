@@ -9,6 +9,7 @@ import Input from '@/components/ui/Input';
 import LeadsTabs from '@/views/leads/LeadsTabs';
 import toast from 'react-hot-toast';
 import { formatIndianPhone } from '@/lib/phone';
+import { formatDate as formatLongDate } from '@/lib/formatDate';
 
 interface InvitationRow {
   id: string;
@@ -63,12 +64,7 @@ function rowStatus(row: InvitationRow): 'submitted' | 'pending' | 'expired' {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  return iso ? formatLongDate(iso) : '—';
 }
 
 export default function InterviewSubmissionsList() {

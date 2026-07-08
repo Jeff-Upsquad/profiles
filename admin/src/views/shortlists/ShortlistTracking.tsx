@@ -5,6 +5,7 @@ import { useShortlistTracking, type ShortlistEntry } from '@/hooks/useShortlists
 import { useCategories } from '@/hooks/useCategories';
 import Badge from '@/components/ui/Badge';
 import TierBadge from '@/components/ui/TierBadge';
+import { formatDate } from '@/lib/formatDate';
 
 export default function ShortlistTracking() {
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -209,7 +210,7 @@ function GroupRow({
                       <Badge variant="blue">{entry.category_name}</Badge>
                     </td>
                     <td className="py-2 text-right text-gray-500">
-                      {new Date(entry.shortlisted_at).toLocaleDateString()}
+                      {formatDate(entry.shortlisted_at)}
                     </td>
                   </tr>
                 ))}

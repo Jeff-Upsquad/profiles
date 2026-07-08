@@ -12,6 +12,7 @@ import OnboardingProgress from './OnboardingProgress';
 import InterviewInvitationSection from '@/views/interview/InterviewInvitationSection';
 import Link from 'next/link';
 import { formatIndianPhone, cleanPhoneForLink } from '@/lib/phone';
+import { formatDate } from '@/lib/formatDate';
 
 interface LeadFull {
   id: string;
@@ -224,11 +225,7 @@ export default function LeadSidePanelContent({
               )}
               <span className="text-gray-500">
                 Applied{' '}
-                {new Date(lead.created_at).toLocaleDateString('en-IN', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
-                })}
+                {formatDate(lead.created_at)}
               </span>
             </div>
             <div className="mt-3 flex flex-wrap gap-3 text-sm">
@@ -395,11 +392,7 @@ export default function LeadSidePanelContent({
           <div className="space-y-3">
             <p className="text-sm text-gray-600">
               This candidate is in the recycle bin (deleted{' '}
-              {new Date(lead.deleted_at).toLocaleDateString('en-IN', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-              })}
+              {formatDate(lead.deleted_at)}
               ).
             </p>
             <div className="flex flex-wrap gap-2">

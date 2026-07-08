@@ -6,6 +6,7 @@ import api from '@/services/api';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import SubscriptionCardContent from '@/components/subscriptions/SubscriptionCardContent';
+import { formatDate } from '@/lib/formatDate';
 
 interface CardData {
   id: string;
@@ -51,11 +52,7 @@ export default function CardPreviewPage(props: {
 
   const business = card.business_name || 'Unknown business';
   const published = card.published_at
-    ? new Date(card.published_at).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })
+    ? formatDate(card.published_at)
     : '';
 
   return (

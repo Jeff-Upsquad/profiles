@@ -5,6 +5,7 @@ import api from '../../services/api';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import ShareInviteModal from '../interview/ShareInviteModal';
+import { formatDate, formatDateTime } from '../../lib/formatDate';
 
 interface Invitation {
   id: string;
@@ -99,7 +100,7 @@ export default function InterviewInvitationSection({
           <View style={styles.statusRow}>
             <Badge color="green">Submitted</Badge>
             <Text style={styles.meta}>
-              {new Date(invitation.submitted_at).toLocaleString('en-IN')}
+              {formatDateTime(invitation.submitted_at)}
             </Text>
           </View>
           {Object.entries(invitation.responses ?? {}).map(([qid, answer]) => (
@@ -115,7 +116,7 @@ export default function InterviewInvitationSection({
         <View style={styles.statusRow}>
           <Badge color="red">Expired</Badge>
           <Text style={styles.meta}>
-            Expired {new Date(invitation.expires_at).toLocaleDateString('en-IN')}
+            Expired {formatDate(invitation.expires_at)}
           </Text>
         </View>
       ) : (
@@ -123,7 +124,7 @@ export default function InterviewInvitationSection({
           <View style={styles.statusRow}>
             <Badge color="yellow">Pending</Badge>
             <Text style={styles.meta}>
-              Expires {new Date(invitation.expires_at).toLocaleDateString('en-IN')}
+              Expires {formatDate(invitation.expires_at)}
             </Text>
           </View>
           <Button variant="secondary" size="sm" onPress={openShareExisting}>

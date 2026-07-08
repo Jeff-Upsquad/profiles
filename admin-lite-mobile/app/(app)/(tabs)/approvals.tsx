@@ -11,6 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../../src/services/api';
 import Button from '../../../src/components/ui/Button';
 import type { TalentUser } from '../../../src/types';
+import { formatDate } from '../../../src/lib/formatDate';
 
 export default function ApprovalsScreen() {
   const queryClient = useQueryClient();
@@ -96,7 +97,7 @@ export default function ApprovalsScreen() {
             <Text style={styles.name}>{item.full_name}</Text>
             <Text style={styles.meta}>{item.phone || '—'}</Text>
             <Text style={styles.meta}>
-              Signed up {new Date(item.created_at).toLocaleDateString('en-IN')}
+              Signed up {formatDate(item.created_at)}
             </Text>
           </View>
           <View style={styles.actions}>

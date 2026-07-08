@@ -8,6 +8,7 @@ import ProfileTypeTabs from './ProfileTypeTabs';
 import TalentOnboardingSection from './TalentOnboardingSection';
 import InterviewInvitationSection from '@/views/interview/InterviewInvitationSection';
 import { formatIndianPhone, cleanPhoneForLink } from '@/lib/phone';
+import { formatDate } from '@/lib/formatDate';
 
 interface LeadFull {
   id: string;
@@ -124,12 +125,7 @@ export default function LeadSidePanelContent({ leadId }: { leadId: string }) {
                 {lead.form_type}
               </Badge>
               <span className="text-gray-500">
-                Applied{' '}
-                {new Date(lead.created_at).toLocaleDateString('en-IN', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
-                })}
+                Applied {formatDate(lead.created_at)}
               </span>
             </div>
             <div className="mt-3 flex flex-wrap gap-3 text-sm">

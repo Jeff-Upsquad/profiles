@@ -15,6 +15,7 @@ import {
   DISTRICTS_BY_STATE,
 } from '@/constants/india-locations';
 import { COUNTRY_CODES } from '@/constants/country-codes';
+import { formatDate } from '@/lib/formatDate';
 import toast from 'react-hot-toast';
 
 const SUPPORT_PHONE_DIGITS = '919995266342';
@@ -319,9 +320,7 @@ export default function SignupTalent() {
                           {STATUS_LABELS[s.status] || s.status}
                         </p>
                         <p className="mt-1 text-xs text-gray-400">
-                          Submitted {new Date(s.submitted_at).toLocaleDateString('en-IN', {
-                            day: 'numeric', month: 'long', year: 'numeric',
-                          })}
+                          Submitted {formatDate(s.submitted_at)}
                         </p>
                       </div>
                     ))}

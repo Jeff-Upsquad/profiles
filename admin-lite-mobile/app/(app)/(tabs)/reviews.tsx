@@ -17,6 +17,7 @@ import Button from '../../../src/components/ui/Button';
 import Picker from '../../../src/components/ui/Picker';
 import Badge from '../../../src/components/ui/Badge';
 import type { Category, ReviewProfile } from '../../../src/types';
+import { formatDate } from '../../../src/lib/formatDate';
 
 export default function ReviewsScreen() {
   const router = useRouter();
@@ -148,7 +149,7 @@ export default function ReviewsScreen() {
                 </Text>
                 <Text style={styles.meta}>
                   {anyItem.categories?.name ?? 'Uncategorized'} • Submitted{' '}
-                  {new Date(item.updated_at).toLocaleDateString('en-IN')}
+                  {formatDate(item.updated_at)}
                 </Text>
                 <View style={{ marginTop: 6 }}>
                   <Badge color="yellow">Pending</Badge>

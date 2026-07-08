@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as formatLongDate } from '@/lib/formatDate';
 import type { SubscriptionCardContentShape } from '@/hooks/useSubscriptionCards';
 
 // ────────────────────────────────────────────────────────────
@@ -11,15 +12,15 @@ function asString(v: unknown): string {
   return typeof v === 'string' ? v : String(v);
 }
 
-// Format an ISO date string ("2026-07-15") as "15 Jul 2026" (day · English
-// month · year). Parsed as local midnight so the day doesn't shift by timezone.
-// Returns the raw value unchanged if it isn't a parseable date.
+// Format an ISO date string ("2026-07-15") as "15 July 2026". Parsed as local
+// midnight so the day doesn't shift by timezone. Returns the raw value
+// unchanged if it isn't a parseable date.
 function fmtDate(s: string): string {
   const v = s.trim();
   if (!v) return v;
   const d = new Date(`${v}T00:00:00`);
   if (Number.isNaN(d.getTime())) return v;
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatLongDate(d);
 }
 
 function asStringArray(v: unknown): string[] {

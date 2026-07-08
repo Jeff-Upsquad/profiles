@@ -7,6 +7,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import toast from 'react-hot-toast';
 import ShareInviteModal from './ShareInviteModal';
+import { formatDate, formatDateTime } from '@/lib/formatDate';
 
 interface Question {
   id: string;
@@ -125,7 +126,7 @@ export default function InterviewInvitationSection({
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <Badge variant="green">Submitted</Badge>
             <span className="text-gray-500">
-              {new Date(invitation.submitted_at!).toLocaleString('en-IN')}
+              {formatDateTime(invitation.submitted_at!)}
             </span>
           </div>
           <div className="rounded-lg border border-gray-200 bg-white">
@@ -166,7 +167,7 @@ export default function InterviewInvitationSection({
           <div className="flex items-center gap-2 text-sm">
             <Badge variant="red">Expired</Badge>
             <span className="text-gray-500">
-              Link expired {new Date(invitation.expires_at).toLocaleDateString('en-IN')}; candidate did not respond.
+              Link expired {formatDate(invitation.expires_at)}; candidate did not respond.
             </span>
           </div>
         </div>
@@ -178,8 +179,8 @@ export default function InterviewInvitationSection({
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <Badge variant="yellow">Pending</Badge>
           <span className="text-gray-500">
-            Sent {new Date(invitation.created_at).toLocaleDateString('en-IN')} • expires{' '}
-            {new Date(invitation.expires_at).toLocaleDateString('en-IN')}
+            Sent {formatDate(invitation.created_at)} • expires{' '}
+            {formatDate(invitation.expires_at)}
           </span>
         </div>
         <Button variant="secondary" size="sm" onClick={openShareExisting}>

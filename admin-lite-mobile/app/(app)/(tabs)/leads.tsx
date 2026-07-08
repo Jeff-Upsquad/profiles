@@ -18,6 +18,7 @@ import Badge from '../../../src/components/ui/Badge';
 import Picker from '../../../src/components/ui/Picker';
 import { groupItemsByBucket } from '../../../src/lib/groupLeadsByBucket';
 import { formatIndianPhone } from '../../../src/lib/phone';
+import { formatDate } from '../../../src/lib/formatDate';
 import { useStageLabels } from '../../../src/hooks/useStageLabels';
 import {
   FORM_TYPE_TABS,
@@ -201,10 +202,7 @@ function LeadRow({
           {labelFor(lead.form_type, lead.status, STAGE_LABELS[lead.status])}
         </Badge>
         <Text style={styles.date}>
-          {new Date(lead.created_at).toLocaleDateString('en-IN', {
-            day: 'numeric',
-            month: 'short',
-          })}
+          {formatDate(lead.created_at)}
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={16} color="#94A3B8" />

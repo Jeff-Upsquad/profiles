@@ -6,6 +6,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import api from '@/services/api';
 import Input from '@/components/ui/Input';
 import RecipientsPanel from './RecipientsPanel';
+import { formatDate } from '@/lib/formatDate';
 import AdminRequestsList from './AdminRequestsList';
 
 interface PublishedCard {
@@ -34,7 +35,7 @@ function formatPublishedAt(iso: string | null): string {
   if (days < 1) return 'today';
   if (days === 1) return 'yesterday';
   if (days < 7) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatDate(iso);
 }
 
 function cardTitle(card: PublishedCard): string {

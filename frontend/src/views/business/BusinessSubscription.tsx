@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useMySubscriptionCards, useMyAssignmentCards, type BusinessSubscriptionCardSummary } from '@/hooks/useBusiness';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
+import { formatDate } from '@/lib/formatDate';
 
 type Bucket = 'open' | 'active' | 'paused' | 'cancelled';
 
@@ -31,7 +32,7 @@ function formatPublishedAt(iso: string | null): string {
   if (days <= 0) return 'today';
   if (days === 1) return 'yesterday';
   if (days < 7) return `${days}d ago`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatDate(date);
 }
 
 // Fold the raw card status + lifecycle timestamps into one of four business-

@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import TierBadge from '@/components/ui/TierBadge';
+import { formatDate } from '@/lib/formatDate';
 
 type Recipient = {
   id: string;
@@ -39,7 +40,7 @@ function formatRelative(iso: string | null): string {
   if (h < 24) return `${h}h ago`;
   const d = Math.floor(h / 24);
   if (d < 7) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatDate(iso);
 }
 
 const STATUS_CHIP: Record<'pending' | 'accepted' | 'rejected', string> = {
