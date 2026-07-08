@@ -265,21 +265,33 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
                 />
               )}
             {selectedItem.file_type === 'pdf' && (
-              <div className="flex flex-col items-center gap-4 rounded-lg bg-white p-8">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="16" y1="13" x2="8" y2="13" />
-                  <line x1="16" y1="17" x2="8" y2="17" />
-                </svg>
-                <p className="text-sm font-medium text-gray-900">{selectedItem.file_name}</p>
+              <div className="flex flex-col items-center gap-2">
+                {/*
+                  Render the PDF inline via the browser's native viewer rather
+                  than only linking out. Portfolio PDFs are stored on R2 with
+                  Content-Type: application/pdf and no attachment disposition, so
+                  the iframe displays the document directly. The link below is a
+                  fallback for browsers that refuse to embed PDFs (e.g. some
+                  mobile browsers).
+                */}
+                <iframe
+                  key={selectedItem.id}
+                  src={`${selectedItem.file_url}#view=FitH`}
+                  title={selectedItem.file_name}
+                  className="h-[85vh] w-[90vw] max-w-[820px] rounded-lg bg-white"
+                />
                 <a
                   href={selectedItem.file_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-lg bg-[var(--threads-accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90 backdrop-blur transition-colors hover:bg-white/20"
                 >
-                  Open PDF
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
+                  Open in new tab
                 </a>
               </div>
             )}

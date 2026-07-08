@@ -3,8 +3,11 @@ import path from 'path';
 
 // CSP frame-src allowlist. YouTube is for portfolio link embeds (link-paste
 // feature). Loom and SquadClips (clips.squadhub.in) are for training program
-// lesson videos (admin-curated only, not user-supplied). Backend validators are
-// the actual security boundary; CSP is defense-in-depth against a stray iframe URL.
+// lesson videos (admin-curated only, not user-supplied). R2 (pub-*.r2.dev) is
+// for portfolio PDFs, which are embedded inline in the profile lightbox via an
+// <iframe> pointing at the uploaded file's R2 public URL — without this entry
+// frame-src blocks the inline PDF viewer. Backend validators are the actual
+// security boundary; CSP is defense-in-depth against a stray iframe URL.
 const FRAME_SRC_ALLOWLIST = [
   "'self'",
   'https://www.youtube.com',
@@ -12,6 +15,7 @@ const FRAME_SRC_ALLOWLIST = [
   'https://www.loom.com',
   'https://loom.com',
   'https://clips.squadhub.in',
+  'https://*.r2.dev',
 ].join(' ');
 
 const nextConfig: NextConfig = {
