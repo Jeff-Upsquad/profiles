@@ -100,5 +100,11 @@ router.patch(
   validate({ params: jobRecipientIdParamSchema, body: respondToJobSchema }),
   jobsTalentController.respond
 );
+// Withdraw AFTER accepting — respond() is pending-only by design.
+router.post(
+  '/:recipientId/withdraw',
+  validate({ params: jobRecipientIdParamSchema }),
+  jobsTalentController.withdrawApplication
+);
 
 export default router;

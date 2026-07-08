@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useJobProfileView, useRespondToJob } from '@/hooks/useJobs';
+import { useJobProfileView, useRespondToJob, useWithdrawApplication } from '@/hooks/useJobs';
 import Button from '@/components/ui/Button';
 import BusinessBrandSection from './BusinessBrandSection';
 import JobQnASection from './JobQnASection';
@@ -36,6 +36,9 @@ export default function JobProfileView({ jobProfileId }: { jobProfileId: string 
   const router = useRouter();
   const { data, isLoading, isError } = useJobProfileView(jobProfileId);
   const respond = useRespondToJob();
+  const withdraw = useWithdrawApplication();
+  // Two-tap confirm for withdraw (auto-resets after a beat).
+  const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   // Page-level "Ask a question": scroll down to the Q&A section and open its
   // ask modal (the section runs in controlled mode).
   const qnaRef = useRef<HTMLDivElement>(null);
@@ -153,12 +156,30 @@ export default function JobProfileView({ jobProfileId }: { jobProfileId: string 
             </>
           )}
           {recipient?.status === 'accepted' && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#D1FAE5] px-3 py-1 text-xs font-semibold text-[#065F46]">
-              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              Applied
-            </span>
+            <>
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#D1FAE5] px-3 py-1 text-xs font-semibold text-[#065F46]">
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Applied
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="!border-[#FCA5A5] !text-[#B91C1C]"
+                disabled={withdraw.isPending}
+                onClick={() => {
+                  if (!confirmWithdraw) {
+                    setConfirmWithdraw(true);
+                    setTimeout(() => setConfirmWithdraw(false), 4000);
+                    return;
+                  }
+                  withdraw.mutate({ recipientId: recipient.id });
+                }}
+              >
+                {withdraw.isPending ? 'Withdrawing…' : confirmWithdraw ? 'Confirm withdraw?' : 'Withdraw application'}
+              </Button>
+            </>
           )}
           {recipient?.status === 'rejected' && (
             <span className="inline-flex items-center rounded-full bg-[#F5F5F5] px-3 py-1 text-xs font-semibold text-[#737373]">
