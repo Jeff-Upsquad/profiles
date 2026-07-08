@@ -154,6 +154,12 @@ router.get(
   validate({ params: jobCardIdParamSchema, query: listCandidatesQuerySchema }),
   jobsBusinessController.listCandidates
 );
+// The candidate's full talent profile — access rule: they applied to YOUR card.
+router.get(
+  '/:cardId/candidates/:candidateId/profile',
+  validate({ params: jobCandidateParamSchema }),
+  jobsBusinessController.candidateProfile
+);
 router.post(
   '/:cardId/candidates/:candidateId/review',
   validate({ params: jobCandidateParamSchema, body: reviewCandidateSchema }),

@@ -57,6 +57,17 @@ export async function listCandidates(req: Request, res: Response, next: NextFunc
   }
 }
 
+export async function candidateProfile(req: Request, res: Response, next: NextFunction) {
+  try {
+    const cardId = req.params.cardId as string;
+    const candidateId = req.params.candidateId as string;
+    const result = await jobsService.getCandidateProfileForBusiness(req.user!.id, cardId, candidateId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function reviewCandidate(req: Request, res: Response, next: NextFunction) {
   try {
     const cardId = req.params.cardId as string;

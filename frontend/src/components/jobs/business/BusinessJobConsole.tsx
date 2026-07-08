@@ -289,6 +289,7 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
                   <CandidateRow
                     key={c.id}
                     candidate={c}
+                    profileHref={`/business/job-posts/${cardId}/candidates/${c.id}`}
                     actions={
                       !isClosed && (
                         <>
@@ -334,6 +335,7 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
                   <CandidateRow
                     key={c.id}
                     candidate={c}
+                    profileHref={`/business/job-posts/${cardId}/candidates/${c.id}`}
                     actions={
                       !isClosed && (
                         <>
@@ -395,6 +397,7 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
                   <CandidateRow
                     key={c.id}
                     candidate={c}
+                    profileHref={`/business/job-posts/${cardId}/candidates/${c.id}`}
                     subtitle={
                       c.funnel_stage === 'interview_invited'
                         ? 'Invited — waiting for their RSVP'
@@ -417,6 +420,7 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
                   <CandidateRow
                     key={c.id}
                     candidate={c}
+                    profileHref={`/business/job-posts/${cardId}/candidates/${c.id}`}
                     actions={
                       !isClosed && (
                         <>
@@ -549,6 +553,7 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
                   <CandidateRow
                     key={c.id}
                     candidate={c}
+                    profileHref={`/business/job-posts/${cardId}/candidates/${c.id}`}
                     subtitle={
                       c.funnel_stage === 'placed'
                         ? `Joined ${fmtDate(c.joined_at)}`
@@ -578,7 +583,7 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
         listShell(
           rejectedPool.length === 0
             ? emptyState('Nobody rejected yet.')
-            : divided(rejectedPool.map((c) => <CandidateRow key={c.id} candidate={c} />)),
+            : divided(rejectedPool.map((c) => <CandidateRow key={c.id} candidate={c} profileHref={`/business/job-posts/${cardId}/candidates/${c.id}`} />)),
         )}
 
       {/* ─── Q&A ─── */}

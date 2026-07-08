@@ -751,6 +751,19 @@ export async function listProfiles(session: AccessSession, query: ProfilesQuery)
 }
 
 export async function getProfile(session: AccessSession, profileId: string) {
+  const result = await assembleProfileDetail(profileId);
+  // Authorization: profile's category must be in the session
+  assertCategoryAuthorized(session, result.profile.category_id);
+  return result;
+}
+
+/**
+ * Full profile-detail assembly (profile + talent_user + category schema +
+ * portfolio + tier + ghost sources) WITHOUT authorization — every caller
+ * must enforce its own access rule first (talent-access category session,
+ * or the jobs "this candidate applied to your card" guard).
+ */
+export async function assembleProfileDetail(profileId: string) {
   // Fetch the profile + talent_user + category schema + portfolio in parallel
   const profileQ = supabaseAdmin
     .from('talent_profiles')
@@ -789,9 +802,6 @@ export async function getProfile(session: AccessSession, profileId: string) {
         .eq('talent_user_id', profile.talent_users.id)
         .maybeSingle()
     : null;
-
-  // Authorization: profile's category must be in the session
-  assertCategoryAuthorized(session, profile.category_id);
 
   // Fetch the category schema separately so we get the same shape the talent
   // profile detail UI expects (CategoryWithFields).
