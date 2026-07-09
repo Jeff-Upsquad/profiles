@@ -53,6 +53,8 @@ export const DEFAULT_STAGES: StageDef[] = [
 ];
 
 // The candidate stages for a given category. Mirrors the Leads board exactly.
+// `creative` and `sales` are talent-onboarding funnels sharing the rich stage
+// set; other form types (e.g. `accountant`) keep the generic default stages.
 export function stagesForFormType(formType?: string): StageDef[] {
-  return formType === 'creative' ? CREATIVE_STAGES : DEFAULT_STAGES;
+  return formType === 'creative' || formType === 'sales' ? CREATIVE_STAGES : DEFAULT_STAGES;
 }

@@ -989,8 +989,31 @@ export async function getLeadStageLabels(_req: Request, res: Response, next: Nex
 export async function updateCrmStatusMapping(req: Request, res: Response, next: NextFunction) {
   try {
     const adminId = req.user!.id;
-    await adminService.setAdminSetting('crm_status_mapping', req.body, adminId);
-    res.json({ mapping: req.body });
+    const body = req.body;
+
+    // Surface non-injective mappings (two internal statuses → one CRM stage).
+    // This is the defect class behind the creative `live`↔`onboard_completed`
+    // corruption: inbound reverse-lookup can't unambiguously translate such a
+    // stage. Non-blocking — returned as `warnings` and logged for visibility.
+    const warnings: string[] = [];
+    for (const [formType, p] of Object.entries<any>(body?.pipelines ?? {})) {
+      const seen: Record<string, string> = {};
+      for (const [key, val] of Object.entries<any>(p?.mappings ?? {})) {
+        if (!val) continue;
+        const prev = seen[val as string];
+        if (prev) {
+          warnings.push(`${formType}: "${prev}" and "${key}" both map to the same CRM stage`);
+        } else {
+          seen[val as string] = key;
+        }
+      }
+    }
+    if (warnings.length) {
+      console.warn('[crm-status-mapping] non-injective mapping saved:', warnings);
+    }
+
+    await adminService.setAdminSetting('crm_status_mapping', body, adminId);
+    res.json({ mapping: body, warnings });
   } catch (err) {
     next(err);
   }

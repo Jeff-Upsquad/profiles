@@ -103,12 +103,20 @@ export async function handleLeadStageChanged(
     // this lead's pipeline. Matching by stage id (when the CRM sends it) is
     // rename-proof; matching by the current stage name works after a refresh.
     let internalStatus: (typeof LEAD_STATUS_VALUES)[number] | undefined;
+    // Statuses this lead's pipeline may legitimately hold (creative has a fixed
+    // vocabulary; mixed pipelines like "sales" return null → no restriction).
+    let validForType: ReadonlySet<string> | null = null;
     try {
       const { getAdminSetting } = await import('../services/admin.service.js');
-      const { buildReverseLookup } = await import('../services/crm-stage-mapping.js');
+      const { buildReverseLookup, validStatusesForFormType } = await import(
+        '../services/crm-stage-mapping.js'
+      );
+      validForType = validStatusesForFormType(lead.form_type);
       const mapping = await getAdminSetting<any>('crm_status_mapping');
       const pipeline = lead.form_type ? mapping?.pipelines?.[lead.form_type] : undefined;
-      const { byId, byName } = buildReverseLookup(pipeline);
+      // Pass the valid set so a non-injective mapping resolves to this pipeline's
+      // own status instead of an arbitrary object-order winner.
+      const { byId, byName } = buildReverseLookup(pipeline, { prefer: validForType });
       const hit =
         (stage_id ? byId[stage_id] : undefined) ?? byName[normalizeStage(stage_name)];
       if (hit && (LEAD_STATUS_VALUES as readonly string[]).includes(hit)) {
@@ -127,6 +135,36 @@ export async function handleLeadStageChanged(
       // Stage isn't in the synced pipeline (e.g. a custom CRM column). Ack
       // with 200 so the CRM doesn't retry, but mark it as skipped.
       res.json({ ok: true, skipped: 'unmapped_stage', stage_name });
+      return;
+    }
+
+    // Safety net for the duplicate-stage-id defect: never let an inbound CRM
+    // stage move a lead to a status outside its pipeline's vocabulary. This is
+    // what once translated CRM "Live" → `onboard_completed` for creative leads,
+    // silently flipping live talents inactive. Ack 200 (no CRM retry) but skip.
+    if (validForType && !validForType.has(internalStatus)) {
+      console.warn(
+        `[crm-webhook] blocked cross-pipeline status "${internalStatus}" for ` +
+          `${lead.form_type} lead ${lead.id} (CRM stage "${stage_name}")`,
+      );
+      await supabaseAdmin
+        .from('automation_events')
+        .insert({
+          event_type: 'crm_status_sync_blocked',
+          lead_id: lead.id,
+          triggered_by: 'system',
+          metadata: {
+            form_type: lead.form_type,
+            stage_name,
+            stage_id: stage_id ?? null,
+            resolved: internalStatus,
+          },
+        })
+        .then(
+          () => {},
+          () => {},
+        );
+      res.json({ ok: true, skipped: 'cross_pipeline_status', resolved: internalStatus });
       return;
     }
 
