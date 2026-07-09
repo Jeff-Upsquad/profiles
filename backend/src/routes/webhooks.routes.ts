@@ -30,6 +30,7 @@ import {
   jobsOffersWebhookSchema,
   jobsQuestionAnswerWebhookSchema,
   jobsQuestionDeleteWebhookSchema,
+  jobsSnapshotWebhookSchema,
   jobsStageWebhookSchema,
 } from '../validators/jobs.validators.js';
 
@@ -136,6 +137,14 @@ router.post(
 // SquadHub admin actions arrive here and run the SAME service functions as
 // the business portal, with actor {type:'admin', source:'squadhub'} — the
 // source flag suppresses the echo outbox event (no double-apply loop).
+
+// Read-only: live candidate funnel for SquadHub's admin card view.
+router.post(
+  '/squadhub/jobs/snapshot',
+  verifySquadhubSecret,
+  validate({ body: jobsSnapshotWebhookSchema }),
+  jobsWebhooksController.handleFunnelSnapshot
+);
 
 router.post(
   '/squadhub/jobs/stage',

@@ -29,6 +29,21 @@ export async function handleStage(req: Request, res: Response, next: NextFunctio
   }
 }
 
+/**
+ * Live funnel snapshot for SquadHub's admin candidate view (read-only). Lets
+ * the admin render candidates straight from the canonical funnel instead of
+ * its event-fed mirror, so a missed outbox event can't hide an applicant.
+ */
+export async function handleFunnelSnapshot(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { external_id } = req.body as { external_id: string };
+    const snapshot = await jobsService.getCardFunnelSnapshotByExternalId(external_id);
+    res.json({ success: true, snapshot });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function handleCandidateReview(req: Request, res: Response, next: NextFunction) {
   try {
     const { external_id, candidate_id, action, reason } = req.body as {

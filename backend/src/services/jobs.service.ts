@@ -190,6 +190,93 @@ export async function getCardIdByExternalId(externalId: string): Promise<string>
   return (data as any).id as string;
 }
 
+// ─── Live funnel snapshot (SquadHub live-read) ──────────────────────────────
+// SquadHub's admin candidate view reads this LIVE instead of trusting its
+// local event-fed mirror, so a missed/late outbox event can no longer make a
+// candidate invisible on the admin card. Canonical vocab only (funnel_stage) —
+// SquadHub maps it to its own status + read-repairs its rollup counters.
+
+export interface JobFunnelSnapshotCandidate {
+  candidate_id: string; // job_candidates.id (= SquadHub external_candidate_id)
+  recipient_id: string;
+  talent_user_id: string;
+  talent_name: string | null;
+  talent_phone: string | null;
+  funnel_stage: JobFunnelStage;
+  stage_changed_at: string | null;
+  applied_at: string | null; // first seen as a candidate (created_at)
+  hired_at: string | null;
+  joined_at: string | null;
+  joining_date: string | null;
+  rejected_reason: string | null;
+}
+
+export interface JobFunnelSnapshot {
+  external_id: string;
+  card: {
+    hiring_stage: string;
+    screening_started_at: string | null;
+    closed_at: string | null;
+    openings: number;
+  };
+  candidates: JobFunnelSnapshotCandidate[];
+}
+
+export async function getCardFunnelSnapshotByExternalId(
+  externalId: string,
+): Promise<JobFunnelSnapshot> {
+  const cardId = await getCardIdByExternalId(externalId);
+  const refs = await getCardRefs(cardId);
+
+  const { data, error } = await supabaseAdmin
+    .from('job_candidates')
+    .select(CANDIDATE_FIELDS)
+    .eq('card_id', cardId)
+    .order('stage_changed_at', { ascending: false });
+  if (error) throw new AppError(500, error.message);
+  const rows = (data ?? []) as JobCandidateRow[];
+
+  const contactById = new Map<string, { full_name: string | null; phone: string | null }>();
+  const ids = [...new Set(rows.map((r) => r.talent_user_id))].filter(Boolean);
+  if (ids.length > 0) {
+    const { data: talents } = await supabaseAdmin
+      .from('talent_users')
+      .select('id, full_name, phone')
+      .in('id', ids);
+    for (const t of talents ?? []) {
+      const u = t as { id: string; full_name: string | null; phone: string | null };
+      contactById.set(u.id, { full_name: u.full_name ?? null, phone: u.phone ?? null });
+    }
+  }
+
+  return {
+    external_id: externalId,
+    card: {
+      hiring_stage: refs.hiringStage,
+      screening_started_at: refs.screeningStartedAt,
+      closed_at: refs.closedAt,
+      openings: refs.openings,
+    },
+    candidates: rows.map((r) => {
+      const c = contactById.get(r.talent_user_id);
+      return {
+        candidate_id: r.id,
+        recipient_id: r.recipient_id,
+        talent_user_id: r.talent_user_id,
+        talent_name: c?.full_name ?? null,
+        talent_phone: c?.phone ?? null,
+        funnel_stage: r.funnel_stage,
+        stage_changed_at: r.stage_changed_at ?? null,
+        applied_at: r.created_at ?? null,
+        hired_at: r.hired_at ?? null,
+        joined_at: r.joined_at ?? null,
+        joining_date: r.joining_date ?? null,
+        rejected_reason: r.rejected_reason ?? null,
+      };
+    }),
+  };
+}
+
 // ─── Candidate primitives ──────────────────────────────────────────────────
 
 export interface JobCandidateRow {

@@ -339,6 +339,12 @@ export const jobsCloseWebhookSchema = z.object({
   close_mode: z.enum(['filled', 'cancelled']).default('cancelled'),
 });
 
+// Read-only: SquadHub pulls the live candidate funnel for a card. The proxy
+// also sends source/actor — Zod strips those unknown keys by default.
+export const jobsSnapshotWebhookSchema = z.object({
+  external_id: externalId,
+});
+
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export type JobPreferencesInput = z.infer<typeof jobPreferencesSchema>;
