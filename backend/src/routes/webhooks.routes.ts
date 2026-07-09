@@ -146,6 +146,14 @@ router.post(
   jobsWebhooksController.handleFunnelSnapshot
 );
 
+// Read-only: live Q&A for SquadHub's admin moderation tab.
+router.post(
+  '/squadhub/jobs/questions/list',
+  verifySquadhubSecret,
+  validate({ body: jobsSnapshotWebhookSchema }),
+  jobsWebhooksController.handleQuestionsList
+);
+
 router.post(
   '/squadhub/jobs/stage',
   verifySquadhubSecret,

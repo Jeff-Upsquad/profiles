@@ -5,6 +5,7 @@ import { createBusinessNotification } from './business-notifications.service.js'
 import { notifyJobEvent } from './push.service.js';
 import {
   assertTalentCanViewJobProfile,
+  getCardIdByExternalId,
   getCardRefs,
   getTalentNames,
   notifyTalentsInApp,
@@ -143,6 +144,58 @@ export async function listQuestionsForBusiness(jobProfileId: string) {
   const rows = data ?? [];
   const names = await getTalentNames(rows.map((r: any) => r.talent_user_id as string));
   return rows.map((r: any) => ({ ...r, asker_name: names.get(r.talent_user_id) ?? null }));
+}
+
+export interface JobQuestionSnapshotItem {
+  question_id: string;
+  job_profile_id: string;
+  talent_user_id: string | null;
+  talent_name: string | null;
+  question: string;
+  answer: string | null;
+  answered_by_label: string | null;
+  answered_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+/**
+ * Live Q&A for SquadHub's admin moderation tab — reads the canonical (non-
+ * deleted) questions on the card's job profile so a missed job_question_asked
+ * event can't hide a question. Answered ⇒ published (contract §7).
+ */
+export async function getCardQuestionsForSquadhub(externalId: string): Promise<{
+  external_id: string;
+  job_profile_id: string;
+  questions: JobQuestionSnapshotItem[];
+}> {
+  const cardId = await getCardIdByExternalId(externalId);
+  const refs = await getCardRefs(cardId);
+  const { data, error } = await supabaseAdmin
+    .from('job_questions')
+    .select('id, job_profile_id, talent_user_id, question, answer, answered_by, answered_at, created_at, updated_at')
+    .eq('job_profile_id', refs.jobProfileId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false });
+  if (error) throw new AppError(500, error.message);
+  const rows = data ?? [];
+  const names = await getTalentNames(rows.map((r: any) => r.talent_user_id as string));
+  return {
+    external_id: externalId,
+    job_profile_id: refs.jobProfileId,
+    questions: rows.map((r: any) => ({
+      question_id: r.id,
+      job_profile_id: r.job_profile_id,
+      talent_user_id: r.talent_user_id ?? null,
+      talent_name: names.get(r.talent_user_id) ?? null,
+      question: r.question,
+      answer: r.answer ?? null,
+      answered_by_label: r.answered_by ?? null,
+      answered_at: r.answered_at ?? null,
+      created_at: r.created_at ?? null,
+      updated_at: r.updated_at ?? r.created_at ?? null,
+    })),
+  };
 }
 
 export async function answerQuestion(questionId: string, answer: string, actor: JobsActor) {
