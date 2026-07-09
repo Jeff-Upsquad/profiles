@@ -44,6 +44,17 @@ export async function handleFunnelSnapshot(req: Request, res: Response, next: Ne
   }
 }
 
+/** Live Q&A for SquadHub's admin moderation tab (read-only). */
+export async function handleQuestionsList(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { external_id } = req.body as { external_id: string };
+    const result = await jobQuestionsService.getCardQuestionsForSquadhub(external_id);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function handleCandidateReview(req: Request, res: Response, next: NextFunction) {
   try {
     const { external_id, candidate_id, action, reason } = req.body as {
