@@ -196,6 +196,44 @@ export async function getCardIdByExternalId(externalId: string): Promise<string>
 // candidate invisible on the admin card. Canonical vocab only (funnel_stage) —
 // SquadHub maps it to its own status + read-repairs its rollup counters.
 
+// Canonical interview row (invite ⋈ round) — SquadHub's jobCandidateShape maps
+// this into JobInterview (incl. the rsvp+queue_status → status derivation).
+export interface JobFunnelSnapshotInterview {
+  invite_id: string;
+  round_number: number | null;
+  round_label: string | null;
+  mode: string | null;
+  window_start: string | null;
+  minutes_per_interview: number | null;
+  meeting_link: string | null; // admin always sees it (reveal-on-start gates talent only)
+  started_at: string | null; // invite.started_at → meeting_link_revealed_at
+  location_id: string | null;
+  location_snapshot: Record<string, unknown> | null;
+  rsvp: string | null;
+  queue_status: string | null;
+  outcome: string | null;
+  round_status: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+// Canonical offer row — SquadHub maps status + derives revision/total_ctc.
+export interface JobFunnelSnapshotOffer {
+  offer_id: string;
+  squadhub_template_id: string | null;
+  delivery_mode: string | null;
+  position_title: string | null;
+  effective_date: string | null;
+  join_by_date: string | null;
+  expires_on: string | null;
+  compensation: Record<string, unknown> | null;
+  letter: Record<string, unknown> | null;
+  status: string;
+  is_final_counter: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
 export interface JobFunnelSnapshotCandidate {
   candidate_id: string; // job_candidates.id (= SquadHub external_candidate_id)
   recipient_id: string;
@@ -209,6 +247,8 @@ export interface JobFunnelSnapshotCandidate {
   joined_at: string | null;
   joining_date: string | null;
   rejected_reason: string | null;
+  interviews: JobFunnelSnapshotInterview[];
+  offers: JobFunnelSnapshotOffer[];
 }
 
 export interface JobFunnelSnapshot {
@@ -236,6 +276,8 @@ export async function getCardFunnelSnapshotByExternalId(
   if (error) throw new AppError(500, error.message);
   const rows = (data ?? []) as JobCandidateRow[];
 
+  const candidateIds = rows.map((r) => r.id);
+
   const contactById = new Map<string, { full_name: string | null; phone: string | null }>();
   const ids = [...new Set(rows.map((r) => r.talent_user_id))].filter(Boolean);
   if (ids.length > 0) {
@@ -246,6 +288,73 @@ export async function getCardFunnelSnapshotByExternalId(
     for (const t of talents ?? []) {
       const u = t as { id: string; full_name: string | null; phone: string | null };
       contactById.set(u.id, { full_name: u.full_name ?? null, phone: u.phone ?? null });
+    }
+  }
+
+  // Interviews (invite ⋈ round) + offers, grouped by Profiles candidate id.
+  const interviewsByCandidate = new Map<string, JobFunnelSnapshotInterview[]>();
+  const offersByCandidate = new Map<string, JobFunnelSnapshotOffer[]>();
+  if (candidateIds.length > 0) {
+    const [{ data: invites }, { data: offers }] = await Promise.all([
+      supabaseAdmin
+        .from('interview_invites')
+        .select(
+          'id, candidate_id, rsvp, queue_status, started_at, outcome, created_at, updated_at, ' +
+            'interview_rounds!inner(round_no, title, mode, window_start, minutes_per_interview, meeting_link, location_id, location_snapshot, status)',
+        )
+        .in('candidate_id', candidateIds)
+        .order('created_at', { ascending: true }),
+      supabaseAdmin
+        .from('job_offers')
+        .select(
+          'id, candidate_id, squadhub_template_id, delivery_mode, position_title, effective_date, join_by_date, expires_on, compensation, letter, status, is_final_counter, created_at, updated_at',
+        )
+        .in('candidate_id', candidateIds)
+        .order('created_at', { ascending: true }),
+    ]);
+
+    for (const iv of (invites ?? []) as any[]) {
+      const round = iv.interview_rounds ?? {};
+      const list = interviewsByCandidate.get(iv.candidate_id) ?? [];
+      list.push({
+        invite_id: iv.id,
+        round_number: round.round_no ?? null,
+        round_label: round.title ?? null,
+        mode: round.mode ?? null,
+        window_start: round.window_start ?? null,
+        minutes_per_interview: round.minutes_per_interview ?? null,
+        meeting_link: round.meeting_link ?? null,
+        started_at: iv.started_at ?? null,
+        location_id: round.location_id ?? null,
+        location_snapshot: (round.location_snapshot ?? null) as Record<string, unknown> | null,
+        rsvp: iv.rsvp ?? null,
+        queue_status: iv.queue_status ?? null,
+        outcome: iv.outcome ?? null,
+        round_status: round.status ?? null,
+        created_at: iv.created_at ?? null,
+        updated_at: iv.updated_at ?? null,
+      });
+      interviewsByCandidate.set(iv.candidate_id, list);
+    }
+
+    for (const o of (offers ?? []) as any[]) {
+      const list = offersByCandidate.get(o.candidate_id) ?? [];
+      list.push({
+        offer_id: o.id,
+        squadhub_template_id: o.squadhub_template_id ?? null,
+        delivery_mode: o.delivery_mode ?? null,
+        position_title: o.position_title ?? null,
+        effective_date: o.effective_date ?? null,
+        join_by_date: o.join_by_date ?? null,
+        expires_on: o.expires_on ?? null,
+        compensation: (o.compensation ?? null) as Record<string, unknown> | null,
+        letter: (o.letter ?? null) as Record<string, unknown> | null,
+        status: o.status,
+        is_final_counter: o.is_final_counter ?? null,
+        created_at: o.created_at ?? null,
+        updated_at: o.updated_at ?? null,
+      });
+      offersByCandidate.set(o.candidate_id, list);
     }
   }
 
@@ -272,6 +381,8 @@ export async function getCardFunnelSnapshotByExternalId(
         joined_at: r.joined_at ?? null,
         joining_date: r.joining_date ?? null,
         rejected_reason: r.rejected_reason ?? null,
+        interviews: interviewsByCandidate.get(r.id) ?? [],
+        offers: offersByCandidate.get(r.id) ?? [],
       };
     }),
   };
