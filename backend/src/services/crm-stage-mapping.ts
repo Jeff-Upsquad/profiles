@@ -56,7 +56,10 @@ export const CREATIVE_STATUSES: readonly string[] = [
 export function validStatusesForFormType(
   formType: string | null | undefined,
 ): ReadonlySet<string> | null {
-  return formType === 'creative' ? new Set(CREATIVE_STATUSES) : null;
+  // creative + sales are talent-onboarding funnels sharing this vocabulary.
+  return formType === 'creative' || formType === 'sales'
+    ? new Set(CREATIVE_STATUSES)
+    : null;
 }
 
 /**

@@ -333,7 +333,10 @@ const DEFAULT_STAGE_ORDER = [
 ];
 
 function orderedStagesForFormType(formType: string | null | undefined): string[] {
-  return formType === 'creative' ? CREATIVE_STAGE_ORDER : DEFAULT_STAGE_ORDER;
+  // creative + sales share the talent-funnel stage order (see leadStages.ts).
+  return formType === 'creative' || formType === 'sales'
+    ? CREATIVE_STAGE_ORDER
+    : DEFAULT_STAGE_ORDER;
 }
 
 // Onboarding-progress key → target pipeline stage, in ascending order.
