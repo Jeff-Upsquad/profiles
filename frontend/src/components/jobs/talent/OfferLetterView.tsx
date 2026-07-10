@@ -4,23 +4,11 @@ import { useRouter } from 'next/navigation';
 import Badge from '@/components/ui/Badge';
 import OfferResponseBar from './OfferResponseBar';
 import OfferThread from './OfferThread';
-import { useJobOffer, useMyJobOffers, type OfferCompensation, type OfferStatus } from '@/hooks/useJobOffers';
-import { currencySymbol, fmtDate } from '@/components/jobs/shared';
-import type { BadgeVariantName } from '@/components/jobs/shared';
+import { useJobOffer, useMyJobOffers, type OfferCompensation } from '@/hooks/useJobOffers';
+import { OFFER_STATUS_BADGE, currencySymbol, fmtDate } from '@/components/jobs/shared';
 
 // Full offer view for the talent: frozen letter sections, the compensation
 // table, response actions and the negotiation/question thread.
-
-const STATUS_BADGE: Record<OfferStatus, { label: string; variant: BadgeVariantName }> = {
-  draft: { label: 'Draft', variant: 'gray' },
-  sent: { label: 'Awaiting your response', variant: 'indigo' },
-  negotiating: { label: 'Negotiating', variant: 'yellow' },
-  countered: { label: 'Final counteroffer', variant: 'yellow' },
-  accepted: { label: 'Accepted', variant: 'green' },
-  declined: { label: 'Declined', variant: 'red' },
-  withdrawn: { label: 'Withdrawn', variant: 'gray' },
-  expired: { label: 'Expired', variant: 'gray' },
-};
 
 const CADENCE_LABELS: Record<string, string> = {
   per_month: 'Per month',
@@ -112,7 +100,7 @@ export default function OfferLetterView({ offerId }: { offerId: string }) {
 
   const { offer, events } = data;
   const listItem = (myOffers ?? []).find((o) => o.id === offer.id);
-  const badge = STATUS_BADGE[offer.status];
+  const badge = OFFER_STATUS_BADGE[offer.status];
   const sections = offer.letter?.sections ?? [];
   const signatory = offer.letter?.signatory ?? null;
 

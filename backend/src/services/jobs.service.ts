@@ -1591,15 +1591,23 @@ export async function reviewCandidate(
   const businessName = contentBusinessName(refs.content);
   const names = await getTalentNames([candidate.talent_user_id]);
   const talentName = names.get(candidate.talent_user_id) ?? '';
+  // A finalist (funnel_stage 'selected') who is declined gets a warmer,
+  // finalist-specific message rather than the generic rejection copy.
+  const wasFinalist = candidate.funnel_stage === 'selected';
   const copy: Record<ReviewCandidateInput['action'], { title: string; body: string }> = {
     shortlist: {
       title: "You've been shortlisted!",
       body: `You were shortlisted for ${title} at ${businessName}.`,
     },
-    reject: {
-      title: 'Application update',
-      body: `Your application for ${title} at ${businessName} was not taken forward.`,
-    },
+    reject: wasFinalist
+      ? {
+          title: 'Update on your application',
+          body: `Your profile has not been selected from the finalists for ${title} at ${businessName}. We wish you good luck for future openings.`,
+        }
+      : {
+          title: 'Application update',
+          body: `Your application for ${title} at ${businessName} was not taken forward.`,
+        },
     on_hold: {
       title: 'Application on hold',
       body: `Your application for ${title} at ${businessName} is on hold — we'll keep you posted.`,

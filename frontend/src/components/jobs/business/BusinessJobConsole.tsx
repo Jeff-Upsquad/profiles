@@ -154,7 +154,7 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
     { key: 'accepted', label: 'Accepted', count: accepted.length },
     { key: 'shortlisted', label: 'Shortlisted', count: shortlisted.length },
     { key: 'interviews', label: 'Interviews', count: inInterviews.length },
-    { key: 'selected', label: 'Selected', count: selectedPool.length },
+    { key: 'selected', label: 'Finalists', count: selectedPool.length },
     { key: 'offers', label: 'Offers', count: offersList.filter((o) => o.status !== 'withdrawn').length },
     { key: 'hired', label: 'Hired', count: hiredPool.length },
     { key: 'rejected', label: 'Rejected', count: rejectedPool.length },
@@ -414,7 +414,7 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
       {tab === 'selected' &&
         listShell(
           selectedPool.length === 0
-            ? emptyState('No selected candidates yet — record interview outcomes to fill this list.')
+            ? emptyState('No finalists yet — record interview outcomes to fill this list.')
             : divided(
                 selectedPool.map((c) => (
                   <CandidateRow
@@ -452,7 +452,7 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
                             onClick={() => review.mutate({ candidateId: c.id, action: 'reject' })}
                             className={actionBtn('danger')}
                           >
-                            Reject
+                            {c.funnel_stage === 'selected' ? 'Decline' : 'Reject'}
                           </button>
                         </>
                       )
