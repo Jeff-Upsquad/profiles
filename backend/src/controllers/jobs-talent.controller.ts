@@ -64,6 +64,15 @@ export async function unreadCount(req: Request, res: Response, next: NextFunctio
   }
 }
 
+export async function tabCounts(req: Request, res: Response, next: NextFunction) {
+  try {
+    const counts = await jobsService.getJobsTabCounts(req.user!.id);
+    res.json({ counts });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function detail(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await jobsService.getJobDetailForTalent(

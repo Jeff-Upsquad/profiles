@@ -626,6 +626,78 @@ export interface TalentJobFeedItem {
   } | null;
 }
 
+/**
+ * Per-tab counts for the talent Jobs funnel strip — the badge next to each tab.
+ * Mirrors listJobsForTalent's bucketing exactly (TAB_STAGES + the New/pending
+ * and Rejected/declined special cases) in a couple of queries, read-only (no
+ * viewed_at stamping). Every tab key is present, zero when empty.
+ */
+export async function getJobsTabCounts(
+  talentUserId: string,
+): Promise<Record<TalentJobsTab, number>> {
+  const counts: Record<TalentJobsTab, number> = {
+    new: 0, accepted: 0, shortlisted: 0, call_for_interview: 0, interview: 0,
+    selected: 0, rejected: 0, offer: 0, hired: 0, placed: 0,
+  };
+
+  const [pendingRes, candRes, declinedRes] = await Promise.all([
+    // New: pending recipients on active, non-archived hiring cards.
+    supabaseAdmin
+      .from('subscription_card_recipients')
+      .select('id, subscription_cards!inner(card_type, status, archived_at)')
+      .eq('talent_user_id', talentUserId)
+      .eq('status', 'pending')
+      .is('cancelled_at', null)
+      .eq('subscription_cards.card_type', 'hiring')
+      .eq('subscription_cards.status', 'active')
+      .is('subscription_cards.archived_at', null),
+    // Funnel tabs: candidate rows by stage on non-archived cards.
+    supabaseAdmin
+      .from('job_candidates')
+      .select('funnel_stage, subscription_cards!inner(id, archived_at)')
+      .eq('talent_user_id', talentUserId)
+      .is('subscription_cards.archived_at', null),
+    // Rejected also counts cards the talent declined (no candidate row).
+    supabaseAdmin
+      .from('subscription_card_recipients')
+      .select('subscription_cards!inner(id, card_type, archived_at)')
+      .eq('talent_user_id', talentUserId)
+      .eq('status', 'rejected')
+      .eq('subscription_cards.card_type', 'hiring')
+      .is('subscription_cards.archived_at', null),
+  ]);
+  if (pendingRes.error) throw new AppError(500, pendingRes.error.message);
+  if (candRes.error) throw new AppError(500, candRes.error.message);
+  if (declinedRes.error) throw new AppError(500, declinedRes.error.message);
+
+  counts.new = (pendingRes.data ?? []).length;
+
+  const stageCount: Record<string, number> = {};
+  const rejectedCardIds = new Set<string>();
+  for (const r of (candRes.data ?? []) as any[]) {
+    const stage = r.funnel_stage as string;
+    stageCount[stage] = (stageCount[stage] ?? 0) + 1;
+    if (stage === 'rejected' || stage === 'withdrawn') rejectedCardIds.add(r.subscription_cards?.id);
+  }
+  counts.accepted = (stageCount.applied ?? 0) + (stageCount.screening ?? 0);
+  counts.shortlisted = stageCount.shortlisted ?? 0;
+  counts.call_for_interview = stageCount.interview_invited ?? 0;
+  counts.interview = (stageCount.interview ?? 0) + (stageCount.on_hold ?? 0);
+  counts.selected = stageCount.selected ?? 0;
+  counts.offer = stageCount.offer ?? 0;
+  counts.hired = stageCount.hired ?? 0;
+  counts.placed = stageCount.placed ?? 0;
+
+  let rejected = (stageCount.rejected ?? 0) + (stageCount.withdrawn ?? 0);
+  for (const r of (declinedRes.data ?? []) as any[]) {
+    const cardId = r.subscription_cards?.id;
+    if (cardId && !rejectedCardIds.has(cardId)) rejected += 1;
+  }
+  counts.rejected = rejected;
+
+  return counts;
+}
+
 export async function listJobsForTalent(
   talentUserId: string,
   tab: TalentJobsTab,
