@@ -200,11 +200,14 @@ export async function getCardIdByExternalId(externalId: string): Promise<string>
 // this into JobInterview (incl. the rsvp+queue_status → status derivation).
 export interface JobFunnelSnapshotInterview {
   invite_id: string;
+  round_id: string | null; // Profiles interview_rounds.id — lets SquadHub admin target a round for edit/reschedule
   round_number: number | null;
   round_label: string | null;
   mode: string | null;
   window_start: string | null;
+  window_end: string | null;
   minutes_per_interview: number | null;
+  meeting_provider: string | null;
   meeting_link: string | null; // admin always sees it (reveal-on-start gates talent only)
   started_at: string | null; // invite.started_at → meeting_link_revealed_at
   location_id: string | null;
@@ -300,7 +303,7 @@ export async function getCardFunnelSnapshotByExternalId(
         .from('interview_invites')
         .select(
           'id, candidate_id, rsvp, queue_status, started_at, outcome, created_at, updated_at, ' +
-            'interview_rounds!inner(round_no, title, mode, window_start, minutes_per_interview, meeting_link, location_id, location_snapshot, status)',
+            'interview_rounds!inner(id, round_no, title, mode, window_start, window_end, minutes_per_interview, meeting_provider, meeting_link, location_id, location_snapshot, status)',
         )
         .in('candidate_id', candidateIds)
         .order('created_at', { ascending: true }),
@@ -318,11 +321,14 @@ export async function getCardFunnelSnapshotByExternalId(
       const list = interviewsByCandidate.get(iv.candidate_id) ?? [];
       list.push({
         invite_id: iv.id,
+        round_id: round.id ?? null,
         round_number: round.round_no ?? null,
         round_label: round.title ?? null,
         mode: round.mode ?? null,
         window_start: round.window_start ?? null,
+        window_end: round.window_end ?? null,
         minutes_per_interview: round.minutes_per_interview ?? null,
+        meeting_provider: round.meeting_provider ?? null,
         meeting_link: round.meeting_link ?? null,
         started_at: iv.started_at ?? null,
         location_id: round.location_id ?? null,
