@@ -464,6 +464,37 @@ export function useCancelInterviewRound() {
   });
 }
 
+export interface UpdateInterviewRoundPatch {
+  title?: string | null;
+  meeting_provider?: 'meet' | 'zoom' | 'teams' | 'other';
+  meeting_link?: string | null;
+  window_start?: string;
+  window_end?: string;
+  minutes_per_interview?: number;
+}
+
+/** Edit a SCHEDULED round — add/change the meeting link, or reschedule the
+ *  date/time window (a window change re-notifies invited candidates server-side).
+ *  Callers own the success toast so the copy fits (link saved vs rescheduled). */
+export function useUpdateInterviewRound() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { roundId: string; patch: UpdateInterviewRoundPatch }) => {
+      const { data } = await api.patch<{ round: InterviewRound }>(
+        `/business/jobs/interview-rounds/${vars.roundId}`,
+        vars.patch,
+      );
+      return data.round;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['business-jobs'] });
+    },
+    onError: (err: any) => {
+      toast.error(errMsg(err, 'Failed to update round'));
+    },
+  });
+}
+
 // ─── Interview-day console ───────────────────────────────────────────────────
 
 /** Live console — auto-refetches every 15s while open. */
