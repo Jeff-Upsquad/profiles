@@ -152,7 +152,9 @@ export function serializeRoundForTalent(round: RoundRow, invite: InviteRow) {
       confirm_opened_at: round.confirm_opened_at,
       meeting_provider: revealed ? round.meeting_provider : null,
       meeting_link: revealed ? round.meeting_link : null,
-      location: revealed ? round.location_snapshot : null,
+      // Physical venue is shown as soon as the candidate is invited so they can
+      // plan travel; only the virtual meeting link stays reveal-gated.
+      location: round.location_snapshot ?? null,
       link_locked: !revealed,
     },
   };
