@@ -15,12 +15,12 @@ import {
 import { useMyInterviewInvites } from '@/hooks/useJobInterviews';
 import { useMyJobOffers } from '@/hooks/useJobOffers';
 import BusinessBrandSection from './BusinessBrandSection';
+import InterviewInviteCard from './InterviewInviteCard';
 import JobProfileSections from './JobProfileSections';
 import JobQnASection from './JobQnASection';
 import {
   FUNNEL_STAGE_LABELS,
   fmtDate,
-  fmtDateTime,
   funnelStageBadgeVariant,
   jobBusinessName,
   jobLocationLabel,
@@ -186,6 +186,16 @@ export default function JobCardDetail({ recipientId }: { recipientId: string }) 
         Back to job openings
       </button>
 
+      {/* Interview call(s) — shown in full at the top so the talent can respond
+          inline without opening a separate page. */}
+      {cardInvites.length > 0 && (
+        <div className="space-y-4">
+          {cardInvites.map(({ invite, job }) => (
+            <InterviewInviteCard key={invite.id} inviteId={invite.id} job={job} />
+          ))}
+        </div>
+      )}
+
       {/* Header */}
       <div className="rounded-2xl border border-[#E7E7EA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
         <div className="flex items-start justify-between gap-3">
@@ -280,42 +290,6 @@ export default function JobCardDetail({ recipientId }: { recipientId: string }) 
           )}
         </div>
       </div>
-
-      {/* Interview invites for this opening */}
-      {cardInvites.length > 0 && (
-        <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="border-b border-[#E7E7EA] px-5 py-4">
-            <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
-              Interview calls
-            </h2>
-          </div>
-          <ul className="divide-y divide-[#E7E7EA]">
-            {cardInvites.map(({ invite, round }) => (
-              <li key={invite.id}>
-                <Link
-                  href={`/talent/job-openings/interviews/${invite.id}`}
-                  className="flex items-center justify-between gap-3 px-5 py-3 transition-colors hover:bg-[#F5F5F6]"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[#0a0a0a]">
-                      Round {round.round_no}
-                      {round.title ? ` · ${round.title}` : ''} ({round.mode})
-                    </p>
-                    <p className="mt-0.5 text-xs text-[#737373]">{fmtDateTime(round.window_start)}</p>
-                  </div>
-                  <Badge
-                    variant={
-                      invite.rsvp === 'accepted' ? 'green' : invite.rsvp === 'declined' ? 'red' : 'yellow'
-                    }
-                  >
-                    {invite.rsvp === 'invited' ? 'Respond' : invite.rsvp}
-                  </Badge>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       {/* Offers for this opening */}
       {cardOffers.length > 0 && (
