@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import SubscriptionCardContent from './SubscriptionCardContent';
+import AssignmentOfferActions from './AssignmentOfferActions';
 import {
   useRespondToSubscriptionCard,
   type SubscriptionCardItem,
@@ -85,7 +86,10 @@ export default function SubscriptionCardView({ item }: Props) {
       <div className="flex flex-1 flex-col gap-4 p-5">
         <SubscriptionCardContent content={item.card.content} />
 
-        {/* Action footer */}
+        {/* Action footer — assignment cards get the offer/counter negotiation UI. */}
+        {isAssignment && showActions && !isInactive ? (
+          <AssignmentOfferActions item={item} currency={(item.card.content.currency as string) || undefined} />
+        ) : (
         <div className="mt-auto flex items-center justify-end gap-2 border-t border-[#E7E7EA] pt-4">
           {showActions ? (
             isInactive ? (
@@ -139,6 +143,7 @@ export default function SubscriptionCardView({ item }: Props) {
             </div>
           )}
         </div>
+        )}
 
         {showInactiveMessage && (
           <p className="text-xs text-[#525252]">

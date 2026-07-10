@@ -12,6 +12,7 @@ import {
   type CardRecipientForBusiness,
 } from '@/hooks/useBusiness';
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
+import BusinessAssignmentOffers from '@/components/subscriptions/BusinessAssignmentOffers';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
 
 const TINTS = ['tint-purple', 'tint-blue', 'tint-orange', 'tint-green', 'tint-pink', 'tint-amber'] as const;
@@ -344,6 +345,12 @@ export default function SubscriptionCardReview({
           </Section>
         )}
       </div>
+
+      {/* Offers & negotiations (assignments) — talents submit/counter figures;
+          the business counters, or accepts (which selects that talent). */}
+      {isAssignment && (
+        <BusinessAssignmentOffers cardId={cardId} currency={card.currency} disabled={isClosed || hasSelection} />
+      )}
 
       {/* Assigned talent(s) — a SquadHub admin approved the pick (this talent's
           tier card is activated). The confirmed emerald design. */}

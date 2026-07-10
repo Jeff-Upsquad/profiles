@@ -24,6 +24,7 @@ import * as pushController from './controllers/push.controller.js';
 import * as appVersionController from './controllers/app-version.controller.js';
 import { startCallbackSweeper } from './services/squadhub-callback.service.js';
 import { startJobsOutboxSweeper } from './services/jobs-outbox.service.js';
+import { startCardEventsOutboxSweeper } from './services/card-events-outbox.service.js';
 import { startInterviewSweeper } from './services/jobs-sweepers.service.js';
 
 const app = express();
@@ -129,6 +130,7 @@ app.listen(env.PORT, () => {
   console.log(`[SquadHire] Server running on port ${env.PORT}`);
   startCallbackSweeper();
   startJobsOutboxSweeper();
+  startCardEventsOutboxSweeper();
   startInterviewSweeper();
 });
 

@@ -51,6 +51,14 @@ const envSchema = z.object({
   // squadhub_event_outbox and the sweeper delivers them once configured.
   SQUADHUB_JOBS_EVENTS_URL: z.string().url().optional(),
 
+  // Assignments module: SquadHub's inbound endpoint for assignment offer /
+  // counter-offer events (separate from the jobs events URL so a card event can
+  // never be delivered to the jobs endpoint). Posts one envelope per event,
+  // signed with SQUADHUB_CALLBACK_SECRET. Optional — when unset, events queue in
+  // card_event_outbox and the sweeper delivers them once configured. Points at
+  // `${SquadHub}/integrations/squadhire/cards/offer-events`.
+  SQUADHUB_CARD_EVENTS_URL: z.string().url().optional(),
+
   // Jobs module: explicit override for the offer-letter template pull
   // (templates are canonical on SquadHub). Optional — when unset we derive
   // `${SQUADHUB_API_URL | callback origin}/integrations/squadhire/jobs/offer-template`,

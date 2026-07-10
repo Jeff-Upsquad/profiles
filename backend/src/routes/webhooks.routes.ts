@@ -2,6 +2,11 @@ import { Router } from 'express';
 import * as webhooksController from '../controllers/webhooks.controller.js';
 import * as squadcrmWebhookController from '../controllers/squadcrm-webhook.controller.js';
 import * as jobsWebhooksController from '../controllers/jobs-webhooks.controller.js';
+import * as assignmentOffersController from '../controllers/assignment-offers.controller.js';
+import {
+  cardOffersSnapshotWebhookSchema,
+  adminOffersWebhookSchema,
+} from '../validators/assignment-offers.validators.js';
 import {
   verifySquadhubSecret,
   verifySquadcrmSecret,
@@ -131,6 +136,26 @@ router.post(
   verifySquadhubSecret,
   validate({ body: previewCardRecipientsSchema }),
   webhooksController.previewCardRecipients
+);
+
+// ─── Assignments module: SquadHub admin live-read + signed-proxy actions ────
+// The admin reads offers LIVE from here (no mirror) and drives business-side
+// transitions via a signed proxy (actor {type:'admin', source:'squadhub'}).
+
+// Read-only: live offers + negotiation threads for one assignment card.
+router.post(
+  '/squadhub/cards/offers-snapshot',
+  verifySquadhubSecret,
+  validate({ body: cardOffersSnapshotWebhookSchema }),
+  assignmentOffersController.handleOffersSnapshot,
+);
+
+// Admin counter / accept / decline on a talent's offer.
+router.post(
+  '/squadhub/cards/offers',
+  verifySquadhubSecret,
+  validate({ body: adminOffersWebhookSchema }),
+  assignmentOffersController.handleAdminOffers,
 );
 
 // ─── Jobs module: SquadHub admin-mirror actions ─────────────────────────────
