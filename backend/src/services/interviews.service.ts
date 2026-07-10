@@ -239,7 +239,9 @@ export async function createRound(
       capacity,
       meeting_provider: input.meeting_provider ?? null,
       meeting_link: input.meeting_link ?? null,
-      location_id: input.location_id ?? null,
+      // A snapshot-only round (SquadHub admin) carries no local location_id —
+      // its id belongs to the other project and would break the FK.
+      location_id: input.location_snapshot ? null : input.location_id ?? null,
       location_snapshot: locationSnapshot,
       created_by: actor.type === 'admin' ? 'admin' : 'business',
     })
