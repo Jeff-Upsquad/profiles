@@ -173,24 +173,32 @@ export async function createRound(
   // Physical rounds freeze the venue into location_snapshot at schedule time.
   let locationSnapshot: Record<string, unknown> | null = null;
   if (input.mode === 'physical') {
-    if (!input.location_id) {
-      throw new AppError(400, 'location_id is required for physical interviews');
+    if (input.location_snapshot) {
+      // SquadHub admin flow: the venue is already frozen ({label,address,city,
+      // region,google_maps_url}) since its business_locations aren't in this DB.
+      locationSnapshot = input.location_snapshot as Record<string, unknown>;
+    } else if (input.location_id) {
+      // Business-portal flow: resolve a local location and freeze it.
+      const { data: location, error: locErr } = await supabaseAdmin
+        .from('business_locations')
+        .select('id, business_user_id, label, address, maps_url')
+        .eq('id', input.location_id)
+        .maybeSingle();
+      if (locErr) throw new AppError(500, locErr.message);
+      if (!location) throw new AppError(404, 'Location not found');
+      if (refs.businessUserId && (location as any).business_user_id !== refs.businessUserId) {
+        throw new AppError(403, 'Location belongs to a different business');
+      }
+      locationSnapshot = {
+        label: (location as any).label,
+        address: (location as any).address,
+        // Store under google_maps_url so the talent + admin views (which read
+        // that key) render the map link consistently.
+        google_maps_url: (location as any).maps_url ?? null,
+      };
+    } else {
+      throw new AppError(400, 'A location is required for physical interviews');
     }
-    const { data: location, error: locErr } = await supabaseAdmin
-      .from('business_locations')
-      .select('id, business_user_id, label, address, maps_url')
-      .eq('id', input.location_id)
-      .maybeSingle();
-    if (locErr) throw new AppError(500, locErr.message);
-    if (!location) throw new AppError(404, 'Location not found');
-    if (refs.businessUserId && (location as any).business_user_id !== refs.businessUserId) {
-      throw new AppError(403, 'Location belongs to a different business');
-    }
-    locationSnapshot = {
-      label: (location as any).label,
-      address: (location as any).address,
-      maps_url: (location as any).maps_url ?? null,
-    };
   }
 
   // Validate candidates: all must belong to this card.

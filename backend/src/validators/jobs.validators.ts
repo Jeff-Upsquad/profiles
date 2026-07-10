@@ -141,6 +141,18 @@ const interviewRoundFields = {
   meeting_provider: z.enum(['meet', 'zoom', 'teams', 'other']).optional(),
   meeting_link: z.string().max(2000).optional(),
   location_id: z.string().uuid().optional(),
+  // Frozen venue for physical rounds scheduled from SquadHub admin — its
+  // business_locations live in the other project, so it sends the snapshot
+  // instead of an id we can't resolve here.
+  location_snapshot: z
+    .object({
+      label: z.string().nullable().optional(),
+      address: z.string().nullable().optional(),
+      city: z.string().nullable().optional(),
+      region: z.string().nullable().optional(),
+      google_maps_url: z.string().nullable().optional(),
+    })
+    .optional(),
   round_no: z.number().int().positive().optional(),
 };
 
