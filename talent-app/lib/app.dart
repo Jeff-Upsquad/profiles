@@ -4,9 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'config/router.dart';
 import 'core/constants.dart';
+import 'core/deep_links.dart';
 import 'core/theme.dart';
 import 'features/update/update_gate.dart';
 import 'providers/providers.dart';
+import 'providers/jobs_providers.dart';
+import 'providers/talent_providers.dart';
 import 'services/notification_service.dart';
 import 'services/update_controller.dart';
 
@@ -86,14 +89,12 @@ class _TalentAppState extends ConsumerState<TalentApp> {
     // ourselves, then refresh the lists.
     FirebaseMessaging.onMessage.listen((message) {
       showLocalNotification(message);
-      ref.invalidate(subscriptionListProvider);
-      ref.invalidate(unreadCountProvider);
+      _refreshFeeds();
     });
 
     // A tap that resumes the app from background (FCM notification-type path).
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      ref.invalidate(subscriptionListProvider);
-      ref.invalidate(unreadCountProvider);
+      _refreshFeeds();
       final route = message.data['route']?.toString();
       if (route != null && route.isNotEmpty) _handleRoute(route);
     });
@@ -101,8 +102,7 @@ class _TalentAppState extends ConsumerState<TalentApp> {
     // Cold-start via a tapped FCM notification (app was terminated).
     final initialMessage = await messaging.getInitialMessage();
     if (initialMessage != null) {
-      ref.invalidate(subscriptionListProvider);
-      ref.invalidate(unreadCountProvider);
+      _refreshFeeds();
       final route = initialMessage.data['route']?.toString();
       if (route != null && route.isNotEmpty) _handleRoute(route);
     }
@@ -112,16 +112,38 @@ class _TalentAppState extends ConsumerState<TalentApp> {
     if (launchRoute != null) _handleRoute(launchRoute);
   }
 
-  /// Navigate to a notification's route, or defer it until the session is
-  /// authenticated (cold start). The auth listener calls [_flushPendingRoute].
+  /// Refresh every unread badge + feed after a push arrives.
+  void _refreshFeeds() {
+    ref.invalidate(subscriptionListProvider);
+    ref.invalidate(unreadCountProvider);
+    ref.invalidate(jobsUnreadCountProvider);
+    ref.invalidate(jobsFeedProvider);
+    ref.invalidate(jobsCountsProvider);
+    ref.invalidate(interviewInvitesProvider);
+    ref.invalidate(offersListProvider);
+    ref.invalidate(notificationsProvider);
+    ref.invalidate(unreadNotificationsProvider);
+  }
+
+  /// Navigate to a notification's target (a web link_url or an app route), or
+  /// defer it until the session is authenticated (cold start). The auth
+  /// listener calls [_flushPendingRoute].
   void _handleRoute(String route) {
-    if (route != '/pending' && route != '/responded') return;
+    final mapped = mapNotificationRoute(route);
+    if (mapped == null) return;
     final authed = ref.read(authProvider).status == AuthStatus.authenticated;
-    if (authed) {
-      _pendingRoute = null;
-      if (mounted) ref.read(routerProvider).go(route);
-    } else {
+    if (!authed) {
       _pendingRoute = route;
+      return;
+    }
+    _pendingRoute = null;
+    if (!mounted) return;
+    final router = ref.read(routerProvider);
+    const tabs = {'/home', '/jobs', '/offers', '/notifications', '/more'};
+    if (tabs.contains(mapped)) {
+      router.go(mapped);
+    } else {
+      router.push(mapped);
     }
   }
 

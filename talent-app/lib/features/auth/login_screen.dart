@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants.dart';
+import '../../core/launchers.dart';
 import '../../core/theme.dart';
 import '../../providers/providers.dart';
 
@@ -147,7 +148,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       : const Text('Sign In'),
                 ),
               ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 16),
+              Center(
+                child: TextButton(
+                  onPressed: () => openWhatsApp(
+                    phone: supportPhoneDigits,
+                    message: "Hi, I'd like to join SquadHire as talent.",
+                  ),
+                  child: const Text('New to SquadHire? Get in touch'),
+                ),
+              ),
+              const SizedBox(height: 32),
             ],
           ),
         ),

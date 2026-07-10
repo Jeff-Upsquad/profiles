@@ -138,6 +138,19 @@ class AuthNotifier extends Notifier<AuthState> {
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 
+  /// Re-fetch the authenticated user (e.g. after editing name in Settings) so
+  /// the shell/dashboard reflect the change without a re-login.
+  Future<void> refreshUser() async {
+    try {
+      final user = await ref.read(authServiceProvider).getMe();
+      if (user.role == 'talent') {
+        state = AuthState(status: AuthStatus.authenticated, user: user);
+      }
+    } catch (_) {
+      // Keep the current session on a transient failure.
+    }
+  }
+
   void clearError() {
     state = state.copyWith(error: null);
   }
