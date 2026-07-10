@@ -79,7 +79,12 @@ export default function OfferResponseBar({ offer }: { offer: JobOffer }) {
         </div>
       )}
 
-      <NegotiateModal offerId={offer.id} open={negotiateOpen} onClose={() => setNegotiateOpen(false)} />
+      <NegotiateModal
+        offerId={offer.id}
+        compensation={offer.compensation}
+        open={negotiateOpen}
+        onClose={() => setNegotiateOpen(false)}
+      />
     </div>
   );
 }

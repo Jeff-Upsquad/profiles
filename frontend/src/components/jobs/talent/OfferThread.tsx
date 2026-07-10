@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Button from '@/components/ui/Button';
 import Textarea from '@/components/ui/Textarea';
 import { useAskOfferQuestion, type OfferEvent } from '@/hooks/useJobOffers';
-import { fmtDateTime } from '@/components/jobs/shared';
+import { compensationSummary, fmtDateTime } from '@/components/jobs/shared';
 
 // Chronological offer thread (offer_events) + the ask-a-question box.
 
@@ -37,11 +37,8 @@ function formatAmount(amount: unknown): string | null {
   if (amount == null) return null;
   if (typeof amount === 'number') return amount.toLocaleString();
   if (typeof amount === 'object') {
-    try {
-      return JSON.stringify(amount);
-    } catch {
-      return null;
-    }
+    // Per-component ask/counter ({currency, training, probation, confirmed}).
+    return compensationSummary(amount);
   }
   return String(amount);
 }
@@ -94,9 +91,7 @@ export default function OfferThread({
                   <span className="shrink-0 text-[11px] text-[#a3a3a3]">{fmtDateTime(e.created_at)}</span>
                 </div>
                 {amount && (
-                  <p className="mt-1 text-xs text-[#525252]">
-                    Figure: <span className="font-semibold">{amount}</span>
-                  </p>
+                  <p className="mt-1 text-xs font-medium text-[#525252]">{amount}</p>
                 )}
                 {e.note && (
                   <p className="mt-1 whitespace-pre-line rounded-lg bg-[#F5F5F6] px-3 py-2 text-xs text-[#525252]">

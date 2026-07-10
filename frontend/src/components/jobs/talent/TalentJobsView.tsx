@@ -20,7 +20,7 @@ const TABS: { key: TalentJobsTab; label: string }[] = [
   { key: 'shortlisted', label: 'Shortlisted' },
   { key: 'call_for_interview', label: 'Call for Interview' },
   { key: 'interview', label: 'Interviews' },
-  { key: 'selected', label: 'Selected' },
+  { key: 'selected', label: 'Finalist' },
   { key: 'rejected', label: 'Rejected' },
   { key: 'offer', label: 'Offer' },
   { key: 'hired', label: 'Hired' },

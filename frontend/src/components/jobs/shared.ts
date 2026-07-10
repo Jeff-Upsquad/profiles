@@ -2,6 +2,8 @@
 // The content shapes mirror SquadHub's hiring-card payload builder
 // (squadhireJobWebhook.ts) — self-contained job/business/brand snapshots.
 
+import type { OfferStatus } from '@/hooks/useJobOffers';
+
 export interface JobLocationSnapshot {
   label?: string | null;
   address?: string | null;
@@ -175,7 +177,7 @@ export const FUNNEL_STAGE_LABELS: Record<string, string> = {
   interview_invited: 'Call for interview',
   interview: 'Interview',
   on_hold: 'On hold',
-  selected: 'Selected',
+  selected: 'Finalist',
   rejected: 'Rejected',
   offer: 'Offer',
   hired: 'Hired',
@@ -185,6 +187,19 @@ export const FUNNEL_STAGE_LABELS: Record<string, string> = {
 };
 
 export type BadgeVariantName = 'green' | 'yellow' | 'red' | 'gray' | 'indigo' | 'blue';
+
+/** Friendly label + badge variant per offer status. Single source shared by the
+ *  full offer letter view and the prominent offer card on the job detail. */
+export const OFFER_STATUS_BADGE: Record<OfferStatus, { label: string; variant: BadgeVariantName }> = {
+  draft: { label: 'Draft', variant: 'gray' },
+  sent: { label: 'Awaiting your response', variant: 'indigo' },
+  negotiating: { label: 'Negotiating', variant: 'yellow' },
+  countered: { label: 'Final counteroffer', variant: 'yellow' },
+  accepted: { label: 'Accepted', variant: 'green' },
+  declined: { label: 'Declined', variant: 'red' },
+  withdrawn: { label: 'Withdrawn', variant: 'gray' },
+  expired: { label: 'Expired', variant: 'gray' },
+};
 
 export function funnelStageBadgeVariant(stage: string | null | undefined): BadgeVariantName {
   switch (stage) {
@@ -206,4 +221,71 @@ export function funnelStageBadgeVariant(stage: string | null | undefined): Badge
     default:
       return 'blue';
   }
+}
+
+// ─── Compensation helpers ───────────────────────────────────────────────────
+// The offer package (and a talent's per-component counter) is a JSONB object
+// {currency, training:{amount,cadence}, probation:{...}, confirmed:{...}}.
+// These render it consistently across the offer letter, the negotiate modal,
+// and both offer-activity threads (talent + business).
+
+export const COMP_ROW_LABELS: Record<string, string> = {
+  training: 'Training period',
+  probation: 'Probation period',
+  confirmed: 'After probation',
+};
+
+/** The three compensation components, in the order they should be shown. */
+export const COMP_COMPONENT_KEYS = ['training', 'probation', 'confirmed'] as const;
+
+const CADENCE_SHORT: Record<string, string> = {
+  per_month: '/mo',
+  per_annum: '/yr',
+  monthly: '/mo',
+  annual: '/yr',
+};
+
+export interface CompensationRow {
+  key: string;
+  label: string;
+  amount: number;
+  cadence: string;
+}
+
+/** Extract the populated {training,probation,confirmed} rows from a compensation
+ *  object (an offer package or a per-component negotiate ask). */
+export function compensationRows(comp: unknown): CompensationRow[] {
+  if (!comp || typeof comp !== 'object') return [];
+  const obj = comp as Record<string, unknown>;
+  const out: CompensationRow[] = [];
+  for (const key of COMP_COMPONENT_KEYS) {
+    const slot = obj[key];
+    if (!slot || typeof slot !== 'object') continue;
+    const amount = (slot as Record<string, unknown>).amount;
+    if (amount == null || !Number.isFinite(Number(amount))) continue;
+    const cadence = (slot as Record<string, unknown>).cadence;
+    out.push({
+      key,
+      label: COMP_ROW_LABELS[key] ?? key,
+      amount: Number(amount),
+      cadence: typeof cadence === 'string' ? cadence : 'per_month',
+    });
+  }
+  return out;
+}
+
+/** A one-line, per-component summary of a compensation object — e.g.
+ *  "Training ₹20,000/mo · Probation ₹25,000/mo · After probation ₹30,000/mo".
+ *  Returns null when the object has no populated components. */
+export function compensationSummary(comp: unknown): string | null {
+  const rows = compensationRows(comp);
+  if (rows.length === 0) return null;
+  const currency =
+    comp && typeof comp === 'object' && typeof (comp as Record<string, unknown>).currency === 'string'
+      ? ((comp as Record<string, unknown>).currency as string)
+      : 'INR';
+  const sym = currencySymbol(currency);
+  return rows
+    .map((r) => `${r.label} ${sym}${r.amount.toLocaleString()}${CADENCE_SHORT[r.cadence] ?? ''}`)
+    .join(' · ');
 }

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -16,6 +15,7 @@ import { useMyInterviewInvites } from '@/hooks/useJobInterviews';
 import { useMyJobOffers } from '@/hooks/useJobOffers';
 import BusinessBrandSection from './BusinessBrandSection';
 import InterviewInviteCard from './InterviewInviteCard';
+import OfferHighlightCard from './OfferHighlightCard';
 import JobProfileSections from './JobProfileSections';
 import JobQnASection from './JobQnASection';
 import {
@@ -186,6 +186,16 @@ export default function JobCardDetail({ recipientId }: { recipientId: string }) 
         Back to job openings
       </button>
 
+      {/* Offer(s) — the most important thing in this phase, surfaced first as a
+          prominent, clearly-clickable card that opens the full offer letter. */}
+      {cardOffers.length > 0 && (
+        <div className="space-y-4">
+          {cardOffers.map((offer) => (
+            <OfferHighlightCard key={offer.id} offer={offer} />
+          ))}
+        </div>
+      )}
+
       {/* Interview call(s) — shown in full at the top so the talent can respond
           inline without opening a separate page. */}
       {cardInvites.length > 0 && (
@@ -290,45 +300,6 @@ export default function JobCardDetail({ recipientId }: { recipientId: string }) 
           )}
         </div>
       </div>
-
-      {/* Offers for this opening */}
-      {cardOffers.length > 0 && (
-        <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="border-b border-[#E7E7EA] px-5 py-4">
-            <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
-              Offers
-            </h2>
-          </div>
-          <ul className="divide-y divide-[#E7E7EA]">
-            {cardOffers.map((offer) => (
-              <li key={offer.id}>
-                <Link
-                  href={`/talent/job-openings/offers/${offer.id}`}
-                  className="flex items-center justify-between gap-3 px-5 py-3 transition-colors hover:bg-[#F5F5F6]"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[#0a0a0a]">{offer.position_title}</p>
-                    <p className="mt-0.5 text-xs text-[#737373]">
-                      {offer.sent_at ? `Sent ${fmtDate(offer.sent_at)}` : 'Pending'}
-                    </p>
-                  </div>
-                  <Badge
-                    variant={
-                      offer.status === 'accepted'
-                        ? 'green'
-                        : ['declined', 'withdrawn', 'expired'].includes(offer.status)
-                          ? 'red'
-                          : 'indigo'
-                    }
-                  >
-                    {offer.status}
-                  </Badge>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       {/* Stage timeline */}
       {data.candidate && (

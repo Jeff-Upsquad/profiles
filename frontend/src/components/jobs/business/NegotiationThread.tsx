@@ -6,6 +6,8 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
 import OfferThread from '@/components/jobs/talent/OfferThread';
+import { compensationSummary } from '@/components/jobs/shared';
+import type { OfferCompensation } from '@/hooks/useJobOffers';
 import {
   useAcceptNegotiation,
   useAnswerOfferQuestion,
@@ -42,10 +44,26 @@ export default function NegotiationThread({
   const [answer, setAnswer] = useState('');
 
   const negotiating = offer.status === 'negotiating';
-  const askedFigure = (() => {
-    const ev = [...(events ?? [])].reverse().find((e) => e.action === 'negotiation_requested');
-    if (!ev || ev.amount == null) return null;
-    return typeof ev.amount === 'number' ? ev.amount.toLocaleString() : JSON.stringify(ev.amount);
+  const askedEvent = [...(events ?? [])].reverse().find((e) => e.action === 'negotiation_requested');
+  const askedFigure =
+    askedEvent && askedEvent.amount != null
+      ? typeof askedEvent.amount === 'number'
+        ? askedEvent.amount.toLocaleString()
+        : compensationSummary(askedEvent.amount)
+      : null;
+  // The asked package, merged over the current offer so untouched components keep
+  // their offered value — passed to acceptNegotiation so "accept their figure"
+  // actually applies what the candidate asked for (per-component or single).
+  const askedCompensation: OfferCompensation | null = (() => {
+    if (!askedEvent || askedEvent.amount == null) return null;
+    const base = (offer.compensation ?? {}) as OfferCompensation;
+    if (typeof askedEvent.amount === 'number') {
+      return { ...base, confirmed: { amount: askedEvent.amount, cadence: 'per_month' } };
+    }
+    if (typeof askedEvent.amount === 'object') {
+      return { ...base, ...(askedEvent.amount as Record<string, unknown>) } as OfferCompensation;
+    }
+    return null;
   })();
   const hasOpenQuestion = (() => {
     const list = events ?? [];
@@ -101,7 +119,12 @@ export default function NegotiationThread({
               <Button
                 size="sm"
                 loading={acceptNegotiation.isPending}
-                onClick={() => acceptNegotiation.mutate({ offerId: offer.id })}
+                onClick={() =>
+                  acceptNegotiation.mutate({
+                    offerId: offer.id,
+                    ...(askedCompensation ? { compensation: askedCompensation } : {}),
+                  })
+                }
               >
                 Accept their figure
               </Button>
