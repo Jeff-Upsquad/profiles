@@ -139,7 +139,9 @@ const interviewRoundFields = {
   window_end: isoDateTime,
   minutes_per_interview: z.number().int().positive(),
   meeting_provider: z.enum(['meet', 'zoom', 'teams', 'other']).optional(),
-  meeting_link: z.string().max(2000).optional(),
+  // Nullable so an edit can CLEAR the link (business day console / admin
+  // "remove link"); updateRound writes null through to the column.
+  meeting_link: z.string().max(2000).nullable().optional(),
   location_id: z.string().uuid().optional(),
   // Frozen venue for physical rounds scheduled from SquadHub admin — its
   // business_locations live in the other project, so it sends the snapshot
