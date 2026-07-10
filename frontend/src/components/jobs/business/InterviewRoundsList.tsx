@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import RescheduleRoundModal from './RescheduleRoundModal';
 import { useCancelInterviewRound, type InterviewRoundWithCounts } from '@/hooks/useBusinessJobs';
 import { fmtDateTime, fmtTime, type BadgeVariantName } from '@/components/jobs/shared';
 
@@ -17,6 +19,7 @@ const STATUS_BADGE: Record<string, { label: string; variant: BadgeVariantName }>
 
 export function RoundCard({ cardId, round }: { cardId: string; round: InterviewRoundWithCounts }) {
   const cancelRound = useCancelInterviewRound();
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const badge = STATUS_BADGE[round.status] ?? { label: round.status, variant: 'gray' as const };
   const counts = round.invite_counts ?? {};
   const accepted = counts.rsvp_accepted ?? 0;
@@ -48,18 +51,23 @@ export function RoundCard({ cardId, round }: { cardId: string; round: InterviewR
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {round.status === 'scheduled' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              loading={cancelRound.isPending}
-              onClick={() => {
-                if (window.confirm('Cancel this interview round? Invited candidates will be notified.')) {
-                  cancelRound.mutate(round.id);
-                }
-              }}
-            >
-              Cancel
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={() => setRescheduleOpen(true)}>
+                Reschedule
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                loading={cancelRound.isPending}
+                onClick={() => {
+                  if (window.confirm('Cancel this interview round? Invited candidates will be notified.')) {
+                    cancelRound.mutate(round.id);
+                  }
+                }}
+              >
+                Cancel
+              </Button>
+            </>
           )}
           {round.status !== 'cancelled' && (
             <Link
@@ -74,6 +82,11 @@ export function RoundCard({ cardId, round }: { cardId: string; round: InterviewR
           )}
         </div>
       </div>
+      <RescheduleRoundModal
+        round={round}
+        open={rescheduleOpen}
+        onClose={() => setRescheduleOpen(false)}
+      />
     </div>
   );
 }

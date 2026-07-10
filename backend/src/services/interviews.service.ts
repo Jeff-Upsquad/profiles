@@ -391,6 +391,58 @@ export async function updateRound(
     .single();
   if (error || !updated) throw new AppError(500, error?.message ?? 'Failed to update round');
 
+  // A reschedule (date/time-window change) re-notifies everyone still in the
+  // round so nobody is left on the old slot. A link-only or title-only edit
+  // needs no candidate notification.
+  const windowChanged = !!(input.window_start || input.window_end || input.minutes_per_interview);
+  if (windowChanged) {
+    const { data: invites } = await supabaseAdmin
+      .from('interview_invites')
+      .select('talent_user_id, rsvp')
+      .eq('round_id', roundId)
+      .in('rsvp', ['invited', 'accepted']);
+    const talentIds = (invites ?? []).map((i: any) => i.talent_user_id as string);
+    if (talentIds.length > 0) {
+      const refs = await getCardRefs(round.card_id);
+      const title = contentTitle(refs.content);
+      const businessName = contentBusinessName(refs.content);
+      const when = new Date(windowStart);
+      const whenLabel = when.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+      notifyTalentsInApp(
+        talentIds,
+        'job_interview_rescheduled',
+        'Interview rescheduled',
+        `Your interview for ${title} at ${businessName} was moved to ${whenLabel}. Please review the new time.`,
+        // One shared row fans to many talents — per-invite links can't work here.
+        '/talent/job-openings',
+      ).catch(() => {});
+      notifyJobEvent(talentIds, {
+        type: 'job_interview',
+        title: 'Interview rescheduled',
+        body: `Your interview for ${title} at ${businessName} was moved to ${whenLabel}.`,
+        cardId: round.card_id,
+      }).catch((err) => console.error('[interviews] reschedule push threw', err));
+      // WhatsApp — interview-lifecycle events bypass the engagement throttle.
+      // Reuse the interview-call event so no new CRM template is required.
+      for (const tid of talentIds) {
+        fireJobsCrmEvent(
+          'talent_job_interview_call',
+          tid,
+          {
+            talent_name: '',
+            job_title: title,
+            business_name: businessName,
+            interview_date: when.toISOString().slice(0, 10),
+            window_start_time: windowStart,
+            mode: (input.mode ?? round.mode) as string,
+            location_label: '',
+          },
+          { bypass: true },
+        ).catch((err) => console.error('[interviews] reschedule WA threw', err));
+      }
+    }
+  }
+
   if (shouldEmitOutbox(actor)) {
     const refs = await getCardRefs(round.card_id);
     await emitJobsEvent('job_interview_round_updated', {

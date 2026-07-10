@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
@@ -14,6 +15,7 @@ import {
   useMarkAbsent,
   useMarkShowedUp,
   useStartInterview,
+  useUpdateInterviewRound,
   type DayConsoleInvite,
 } from '@/hooks/useBusinessJobs';
 import { fmtDateTime, fmtTime } from '@/components/jobs/shared';
@@ -39,7 +41,23 @@ export default function InterviewDayConsole({
   const startInterview = useStartInterview(roundId);
   const markAbsent = useMarkAbsent(roundId);
   const outcome = useInterviewOutcome(roundId);
+  const updateRound = useUpdateInterviewRound();
   const [startConfirm, setStartConfirm] = useState<DayConsoleInvite | null>(null);
+  const [editingLink, setEditingLink] = useState(false);
+  const [linkDraft, setLinkDraft] = useState('');
+
+  const saveLink = () => {
+    const link = linkDraft.trim();
+    updateRound.mutate(
+      { roundId, patch: { meeting_link: link || null } },
+      {
+        onSuccess: () => {
+          setEditingLink(false);
+          toast.success(link ? 'Meeting link saved' : 'Meeting link removed');
+        },
+      },
+    );
+  };
 
   if (isLoading) {
     return (
@@ -129,17 +147,63 @@ export default function InterviewDayConsole({
           </div>
           <div className="shrink-0 text-right">
             {round.mode === 'virtual' ? (
-              round.meeting_link ? (
-                <a
-                  href={round.meeting_link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#E7E7EA] px-3 py-1.5 text-xs font-semibold text-[#0a0a0a] hover:bg-[#F5F5F6]"
-                >
-                  Open meeting link
-                </a>
+              editingLink ? (
+                <div className="flex items-center justify-end gap-1.5">
+                  <input
+                    type="url"
+                    autoFocus
+                    value={linkDraft}
+                    onChange={(e) => setLinkDraft(e.target.value)}
+                    placeholder="https://meet.google.com/…"
+                    className="w-56 rounded-lg border border-[#E7E7EA] px-2.5 py-1.5 text-xs text-[#0a0a0a] focus:border-[#0a0a0a] focus:outline-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveLink();
+                      if (e.key === 'Escape') setEditingLink(false);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={updateRound.isPending}
+                    onClick={saveLink}
+                    className={smallBtn('bg-[#0a0a0a] text-white hover:bg-[#1a1a1a] disabled:opacity-40')}
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingLink(false)}
+                    className={smallBtn('border border-[#E7E7EA] text-[#737373] hover:bg-[#F5F5F6]')}
+                  >
+                    Cancel
+                  </button>
+                </div>
               ) : (
-                <span className="text-xs text-[#a3a3a3]">No meeting link set</span>
+                <div className="flex items-center justify-end gap-2">
+                  {round.meeting_link ? (
+                    <a
+                      href={round.meeting_link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#E7E7EA] px-3 py-1.5 text-xs font-semibold text-[#0a0a0a] hover:bg-[#F5F5F6]"
+                    >
+                      Open meeting link
+                    </a>
+                  ) : (
+                    <span className="text-xs text-[#a3a3a3]">No meeting link set</span>
+                  )}
+                  {round.status === 'scheduled' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLinkDraft(round.meeting_link ?? '');
+                        setEditingLink(true);
+                      }}
+                      className={smallBtn('border border-[#E7E7EA] text-[#0a0a0a] hover:bg-[#F5F5F6]')}
+                    >
+                      {round.meeting_link ? 'Edit link' : 'Add link'}
+                    </button>
+                  )}
+                </div>
               )
             ) : (
               <div className="max-w-[16rem] text-xs text-[#525252]">
