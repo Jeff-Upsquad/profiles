@@ -5,9 +5,18 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import { useReapplyToJob, useRespondToJob, useTalentJobDetail, useWithdrawApplication } from '@/hooks/useJobs';
+import {
+  useJobProfileView,
+  useReapplyToJob,
+  useRespondToJob,
+  useTalentJobDetail,
+  useWithdrawApplication,
+} from '@/hooks/useJobs';
 import { useMyInterviewInvites } from '@/hooks/useJobInterviews';
 import { useMyJobOffers } from '@/hooks/useJobOffers';
+import BusinessBrandSection from './BusinessBrandSection';
+import JobProfileSections from './JobProfileSections';
+import JobQnASection from './JobQnASection';
 import {
   FUNNEL_STAGE_LABELS,
   fmtDate,
@@ -128,6 +137,10 @@ export default function JobCardDetail({ recipientId }: { recipientId: string }) 
     candidateStage === 'offer' || candidateStage === 'hired' || candidateStage === 'placed';
   const { data: invites } = useMyInterviewInvites({ enabled: inInterviewPhase });
   const { data: offers } = useMyJobOffers({ enabled: inOfferPhase });
+  // Full job + business profile, shown inline (recipient-gated server-side).
+  const { data: profileData, isLoading: profileLoading } = useJobProfileView(
+    data?.job_profile_id ?? undefined,
+  );
 
   if (isLoading) {
     return (
@@ -216,27 +229,7 @@ export default function JobCardDetail({ recipientId }: { recipientId: string }) 
           {content.package_notes && <DetailRow label="Package notes">{content.package_notes}</DetailRow>}
         </dl>
 
-        {typeof content.description === 'string' && content.description && (
-          <p className="mt-3 whitespace-pre-line border-t border-[#E7E7EA] pt-3 text-sm text-[#525252]">
-            {content.description}
-          </p>
-        )}
-
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#E7E7EA] pt-4">
-          {data.job_profile_id ? (
-            <Link
-              href={`/talent/job-openings/profiles/${data.job_profile_id}`}
-              className="inline-flex items-center gap-1 text-sm font-semibold text-[#0a0a0a] underline-offset-2 hover:underline"
-            >
-              View full job &amp; business profile
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            </Link>
-          ) : (
-            <span />
-          )}
-
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-3 border-t border-[#E7E7EA] pt-4">
           {isPending && (
             <div className="flex items-center gap-2">
               <Button
@@ -377,6 +370,30 @@ export default function JobCardDetail({ recipientId }: { recipientId: string }) 
           )}
         </div>
       )}
+
+      {/* Full job + business profile — the complete opening details, inline. */}
+      {data.job_profile_id &&
+        (profileLoading ? (
+          <div className="h-64 animate-pulse rounded-2xl bg-[#f0f0f0]" />
+        ) : profileData ? (
+          <>
+            <div className="rounded-2xl border border-[#E7E7EA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
+              <h2 className="mb-3 font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
+                Job details
+              </h2>
+              <JobProfileSections profile={profileData.profile} />
+            </div>
+            <BusinessBrandSection
+              business={profileData.profile.business_snapshot}
+              brand={profileData.profile.brand_snapshot}
+            />
+            <JobQnASection
+              jobProfileId={profileData.profile.id}
+              cardId={data.card.id}
+              questions={profileData.questions}
+            />
+          </>
+        ) : null)}
     </div>
   );
 }
