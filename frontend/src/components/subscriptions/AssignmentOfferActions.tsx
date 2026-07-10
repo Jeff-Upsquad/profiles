@@ -1,0 +1,290 @@
+'use client';
+
+import { useState } from 'react';
+import Modal from '@/components/ui/Modal';
+import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
+import Textarea from '@/components/ui/Textarea';
+import Badge from '@/components/ui/Badge';
+import { fmtDateTime } from '@/components/jobs/shared';
+import {
+  useAssignmentOffer,
+  useSubmitAssignmentOffer,
+  useRespondAssignmentOffer,
+  formatOfferAmount,
+  type OfferAmount,
+  type AssignmentOfferEvent,
+} from '@/hooks/useAssignmentOffers';
+import { useRespondToSubscriptionCard, type SubscriptionCardItem } from '@/hooks/useSubscriptionCards';
+
+const OPEN = ['pending_business', 'pending_talent', 'accepted'];
+
+const ACTION_LABELS: Record<string, string> = {
+  submitted: 'submitted an offer',
+  countered: 'sent a counter-offer',
+  accepted: 'accepted the offer',
+  declined: 'declined the offer',
+  withdrawn: 'withdrew the offer',
+  expired: 'offer expired',
+  question_asked: 'asked a question',
+  question_answered: 'answered a question',
+};
+
+export default function AssignmentOfferActions({
+  item,
+  currency,
+}: {
+  item: SubscriptionCardItem;
+  currency?: string;
+}) {
+  const recipientId = item.id;
+  const content = item.card.content as Record<string, unknown>;
+  const ad = (content.assignment_details ?? {}) as Record<string, unknown>;
+  const pricingMode = ad.pricing_mode === 'unpriced' ? 'unpriced' : 'priced';
+
+  const { data } = useAssignmentOffer(recipientId);
+  const offer = data?.offer ?? null;
+  const events = data?.events ?? [];
+  const openOffer = offer && OPEN.includes(offer.status) ? offer : null;
+
+  const respondCard = useRespondToSubscriptionCard();
+  const submitOffer = useSubmitAssignmentOffer(recipientId);
+  const respondOffer = useRespondAssignmentOffer(recipientId);
+
+  const [modal, setModal] = useState<null | 'submit' | 'counter'>(null);
+  const [showThread, setShowThread] = useState(false);
+
+  const busy = respondCard.isPending || submitOffer.isPending || respondOffer.isPending;
+
+  const doSubmit = (amount: OfferAmount, note?: string) =>
+    submitOffer.mutate({ amount, ...(note ? { note } : {}) }, { onSuccess: () => setModal(null) });
+
+  return (
+    <div className="mt-auto border-t border-[#E7E7EA] pt-4">
+      {/* Current negotiation figure */}
+      {openOffer && (
+        <div className="mb-3 rounded-xl bg-[#F5F5F6] px-3.5 py-2.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#737373]">
+            {openOffer.status === 'pending_talent'
+              ? 'Business counter'
+              : openOffer.status === 'accepted'
+                ? 'Agreed'
+                : 'Your offer'}
+          </p>
+          <p className="mt-0.5 text-sm font-semibold text-[#0a0a0a]">
+            {formatOfferAmount(openOffer.current_amount) ?? '—'}
+          </p>
+          {openOffer.status === 'pending_business' && (
+            <p className="mt-0.5 text-xs text-[#737373]">Waiting for the business to respond.</p>
+          )}
+        </div>
+      )}
+
+      {/* Action row */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {offer && !OPEN.includes(offer.status) && (
+          <span className="mr-auto text-xs text-[#737373]">
+            {offer.status === 'declined'
+              ? 'Previous offer declined — you can try again.'
+              : offer.status === 'withdrawn'
+                ? 'Offer withdrawn.'
+                : 'Previous offer closed.'}
+          </span>
+        )}
+
+        {events.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowThread((s) => !s)}
+            className="mr-auto text-xs font-semibold text-[#525252] underline underline-offset-2 hover:text-[#0a0a0a]"
+          >
+            {showThread ? 'Hide' : 'View'} activity ({events.length})
+          </button>
+        )}
+
+        {openOffer?.status === 'accepted' ? (
+          <Badge variant="green">Accepted</Badge>
+        ) : openOffer?.status === 'pending_business' ? (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              loading={respondOffer.isPending && respondOffer.variables?.action === 'withdraw'}
+              onClick={() => respondOffer.mutate({ action: 'withdraw' })}
+            >
+              Withdraw
+            </Button>
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => setModal('counter')}>
+              Revise offer
+            </Button>
+          </>
+        ) : openOffer?.status === 'pending_talent' ? (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              loading={respondOffer.isPending && respondOffer.variables?.action === 'decline'}
+              onClick={() => respondOffer.mutate({ action: 'decline' })}
+            >
+              Decline
+            </Button>
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => setModal('counter')}>
+              Counter
+            </Button>
+            <Button
+              size="sm"
+              disabled={busy}
+              loading={respondOffer.isPending && respondOffer.variables?.action === 'accept'}
+              onClick={() => respondOffer.mutate({ action: 'accept' })}
+            >
+              Accept
+            </Button>
+          </>
+        ) : (
+          // No open offer — the initial state.
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              loading={respondCard.isPending && respondCard.variables?.action === 'reject'}
+              onClick={() => respondCard.mutate({ recipientId, action: 'reject' })}
+            >
+              Decline
+            </Button>
+            {pricingMode === 'priced' ? (
+              <>
+                <Button size="sm" variant="outline" disabled={busy} onClick={() => setModal('counter')}>
+                  Counter-offer
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  loading={respondCard.isPending && respondCard.variables?.action === 'accept'}
+                  onClick={() => respondCard.mutate({ recipientId, action: 'accept' })}
+                >
+                  Accept
+                </Button>
+              </>
+            ) : (
+              <Button size="sm" disabled={busy} onClick={() => setModal('submit')}>
+                Submit an offer
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+
+      {(respondCard.isError || submitOffer.isError || respondOffer.isError) && (
+        <p className="mt-2 text-xs text-red-600">Could not save. Please try again.</p>
+      )}
+
+      {/* Activity thread */}
+      {showThread && events.length > 0 && (
+        <ul className="mt-3 divide-y divide-[#E7E7EA] rounded-xl border border-[#E7E7EA]">
+          {events.map((e: AssignmentOfferEvent) => {
+            const amt = formatOfferAmount(e.amount);
+            const who = e.actor_type === 'talent' ? 'You' : e.actor_type === 'business' ? 'Business' : e.actor_type === 'admin' ? 'UpSquad' : 'System';
+            return (
+              <li key={e.id} className="px-3.5 py-2.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="text-xs text-[#0a0a0a]">
+                    <span className="font-semibold">{who}</span>{' '}
+                    <span className="text-[#525252]">{ACTION_LABELS[e.action] ?? e.action.replace(/_/g, ' ')}</span>
+                  </p>
+                  <span className="shrink-0 text-[10px] text-[#a3a3a3]">{fmtDateTime(e.created_at)}</span>
+                </div>
+                {amt && (
+                  <p className="mt-0.5 text-[11px] text-[#525252]">
+                    Figure: <span className="font-semibold">{amt}</span>
+                  </p>
+                )}
+                {e.note && (
+                  <p className="mt-1 whitespace-pre-line rounded-lg bg-[#F5F5F6] px-2.5 py-1.5 text-[11px] text-[#525252]">{e.note}</p>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <OfferAmountModal
+        open={modal !== null}
+        title={modal === 'submit' ? 'Submit your offer' : 'Send a counter-offer'}
+        submitLabel={modal === 'submit' ? 'Submit offer' : 'Send counter'}
+        currency={currency}
+        pending={submitOffer.isPending}
+        onClose={() => setModal(null)}
+        onSubmit={doSubmit}
+      />
+    </div>
+  );
+}
+
+function OfferAmountModal({
+  open,
+  title,
+  submitLabel,
+  currency,
+  pending,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean;
+  title: string;
+  submitLabel: string;
+  currency?: string;
+  pending: boolean;
+  onClose: () => void;
+  onSubmit: (amount: OfferAmount, note?: string) => void;
+}) {
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+  const parsed = Number(amount);
+  const valid = amount.trim() !== '' && Number.isFinite(parsed) && parsed > 0;
+
+  const submit = () => {
+    if (!valid) return;
+    onSubmit({ amount: Math.round(parsed), currency: currency || 'INR', period: 'project' }, note.trim() || undefined);
+    setAmount('');
+    setNote('');
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title={title}>
+      <p className="mb-3 text-sm text-[#525252]">
+        Enter the total project figure you&apos;re proposing. The business can accept it, counter, or decline —
+        you can keep negotiating until you agree.
+      </p>
+      <div className="space-y-3">
+        <Input
+          label={`Your figure (${currency || 'INR'})`}
+          type="number"
+          min={1}
+          placeholder="e.g. 50000"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          required
+        />
+        <Textarea
+          label="Note (optional)"
+          rows={3}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Any context for your figure…"
+          maxLength={2000}
+        />
+      </div>
+      <div className="mt-4 flex items-center justify-end gap-2">
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button size="sm" loading={pending} disabled={!valid} onClick={submit}>
+          {submitLabel}
+        </Button>
+      </div>
+    </Modal>
+  );
+}

@@ -13,7 +13,7 @@ export type JobPushType =
   | 'job_hired';
 
 interface PushPayload {
-  type: 'new_card' | 'selected' | 'cancelled' | 'unassigned' | JobPushType;
+  type: 'new_card' | 'selected' | 'cancelled' | 'unassigned' | 'assignment_offer' | JobPushType;
   title: string;
   body: string;
   card_id: string;
@@ -178,5 +178,19 @@ export async function notifyJobEvent(
     body: input.body,
     card_id: input.cardId,
     route: input.route ?? '/jobs',
+  });
+}
+
+/** Push for an assignment offer/counter event — lands on the shared offers channel. */
+export async function notifyAssignmentEvent(
+  talentUserIds: string[],
+  input: { title: string; body: string; cardId: string },
+): Promise<void> {
+  await sendToUsers(talentUserIds, {
+    type: 'assignment_offer',
+    title: input.title,
+    body: input.body,
+    card_id: input.cardId,
+    route: '/talent/assignments',
   });
 }

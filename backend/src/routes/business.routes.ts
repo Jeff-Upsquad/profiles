@@ -1,8 +1,15 @@
 import { Router } from 'express';
 import * as businessController from '../controllers/business.controller.js';
+import * as assignmentOffers from '../controllers/assignment-offers.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
+import {
+  businessCounterSchema,
+  businessOfferActionSchema,
+  cardIdOfferIdParamSchema,
+  cardIdParamSchema,
+} from '../validators/assignment-offers.validators.js';
 import {
   updateBusinessUserSchema,
   discoverQuerySchema,
@@ -85,6 +92,30 @@ router.post(
   '/my-subscription-cards/:cardId/select',
   validate({ body: selectCardRecipientSchema }),
   businessController.selectCardRecipient,
+);
+
+// ─── Assignment offers / counter-offers (card_type='assignment') ───────────
+// The business reviews talents' offers and negotiates: counter, or accept
+// (accept = select that talent), or decline. Unlimited rounds.
+router.get(
+  '/my-assignment-cards/:cardId/offers',
+  validate({ params: cardIdParamSchema }),
+  assignmentOffers.businessListOffers,
+);
+router.post(
+  '/my-assignment-cards/:cardId/offers/:offerId/counter',
+  validate({ params: cardIdOfferIdParamSchema, body: businessCounterSchema }),
+  assignmentOffers.businessCounter,
+);
+router.post(
+  '/my-assignment-cards/:cardId/offers/:offerId/accept',
+  validate({ params: cardIdOfferIdParamSchema, body: businessOfferActionSchema }),
+  assignmentOffers.businessAccept,
+);
+router.post(
+  '/my-assignment-cards/:cardId/offers/:offerId/decline',
+  validate({ params: cardIdOfferIdParamSchema, body: businessOfferActionSchema }),
+  assignmentOffers.businessDecline,
 );
 
 // Talent Access browsing (bridged via business user email)
