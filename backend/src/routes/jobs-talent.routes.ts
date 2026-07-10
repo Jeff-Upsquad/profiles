@@ -38,6 +38,7 @@ router.put(
 // ─── Feed ──────────────────────────────────────────────────────────────────
 router.get('/', validate({ query: listJobsQuerySchema }), jobsTalentController.list);
 router.get('/unread-count', jobsTalentController.unreadCount);
+router.get('/counts', jobsTalentController.tabCounts);
 
 // ─── Job profile view (recipient-gated) + Q&A ─────────────────────────────
 router.get(

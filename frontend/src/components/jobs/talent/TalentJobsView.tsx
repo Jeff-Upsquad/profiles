@@ -8,6 +8,7 @@ import {
   useJobPreferences,
   useOptOutOfJobs,
   useTalentJobs,
+  useTalentJobsCounts,
   type TalentJobsTab,
 } from '@/hooks/useJobs';
 
@@ -18,7 +19,7 @@ const TABS: { key: TalentJobsTab; label: string }[] = [
   { key: 'accepted', label: 'Accepted' },
   { key: 'shortlisted', label: 'Shortlisted' },
   { key: 'call_for_interview', label: 'Call for Interview' },
-  { key: 'interview', label: 'Interview' },
+  { key: 'interview', label: 'Interviews' },
   { key: 'selected', label: 'Selected' },
   { key: 'rejected', label: 'Rejected' },
   { key: 'offer', label: 'Offer' },
@@ -32,9 +33,9 @@ export default function TalentJobsView() {
   const optOut = useOptOutOfJobs();
   const optedIn = prefs?.opted_in === true;
   const { data: jobs, isLoading, isError } = useTalentJobs(tab, { enabled: optedIn });
-  const { data: newJobs } = useTalentJobs('new', { enabled: optedIn });
+  const { data: counts } = useTalentJobsCounts({ enabled: optedIn });
 
-  const newCount = (newJobs ?? []).length;
+  const newCount = counts?.new ?? 0;
 
   return (
     <div className="space-y-6">
@@ -125,7 +126,7 @@ export default function TalentJobsView() {
             <div className="inline-flex items-center gap-1 rounded-xl border border-[#E7E7EA] bg-[#F5F5F6] p-1.5">
               {TABS.map((t) => {
                 const isActive = tab === t.key;
-                const count = t.key === 'new' ? newCount : null;
+                const count = counts?.[t.key] ?? 0;
                 return (
                   <button
                     key={t.key}
@@ -137,7 +138,7 @@ export default function TalentJobsView() {
                     }`}
                   >
                     {t.label}
-                    {count !== null && count > 0 && (
+                    {count > 0 && (
                       <span
                         className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${
                           isActive ? 'bg-[#FFFAC2] text-[#0a0a0a]' : 'bg-[#E7E7EA] text-[#525252]'

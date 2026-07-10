@@ -238,6 +238,21 @@ export function useUnreadJobsCount(opts: { enabled?: boolean } = {}) {
   });
 }
 
+export type TalentJobsTabCounts = Record<TalentJobsTab, number>;
+
+export function useTalentJobsCounts(opts: { enabled?: boolean } = {}) {
+  return useQuery<TalentJobsTabCounts>({
+    queryKey: ['jobs', 'tab-counts'],
+    queryFn: async () => {
+      const { data } = await api.get<{ counts: TalentJobsTabCounts }>('/talent/jobs/counts');
+      return data.counts;
+    },
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    enabled: opts.enabled ?? true,
+  });
+}
+
 export function useTalentJobDetail(recipientId: string | undefined) {
   return useQuery<TalentJobDetail>({
     queryKey: ['jobs', 'detail', recipientId],
