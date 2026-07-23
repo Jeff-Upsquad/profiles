@@ -4,71 +4,12 @@ import { useRouter } from 'next/navigation';
 import Badge from '@/components/ui/Badge';
 import OfferResponseBar from './OfferResponseBar';
 import OfferThread from './OfferThread';
-import { useJobOffer, useMyJobOffers, type OfferCompensation } from '@/hooks/useJobOffers';
-import { OFFER_STATUS_BADGE, currencySymbol, fmtDate } from '@/components/jobs/shared';
+import OfferLetterBody from './OfferBodyView';
+import { useJobOffer, useMyJobOffers } from '@/hooks/useJobOffers';
+import { OFFER_STATUS_BADGE, fmtDate } from '@/components/jobs/shared';
 
-// Full offer view for the talent: frozen letter sections, the compensation
-// table, response actions and the negotiation/question thread.
-
-const CADENCE_LABELS: Record<string, string> = {
-  per_month: 'Per month',
-  per_annum: 'Per annum',
-  monthly: 'Per month',
-  annual: 'Per annum',
-};
-
-const COMP_ROW_LABELS: Record<string, string> = {
-  training: 'Training period',
-  probation: 'Probation period',
-  confirmed: 'After probation',
-};
-
-export function CompensationTableView({ compensation }: { compensation: OfferCompensation }) {
-  const currency = typeof compensation.currency === 'string' ? compensation.currency : 'INR';
-  const rows = ['training', 'probation', 'confirmed']
-    .map((key) => ({ key, slot: compensation[key] }))
-    .filter(
-      (r): r is { key: string; slot: { amount?: number | null; cadence?: string | null } } =>
-        r.slot != null && typeof r.slot === 'object' && (r.slot as any).amount != null,
-    );
-  if (rows.length === 0) return null;
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-[#E7E7EA] text-left">
-            <th className="py-2 pr-4 text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3]">
-              Component
-            </th>
-            <th className="py-2 pr-4 text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3]">
-              Amount
-            </th>
-            <th className="py-2 text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3]">
-              Cadence
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[#E7E7EA]">
-          {rows.map(({ key, slot }) => (
-            <tr key={key}>
-              <td className="py-2.5 pr-4 font-medium text-[#0a0a0a]">
-                {COMP_ROW_LABELS[key] ?? key}
-              </td>
-              <td className="py-2.5 pr-4 text-[#0a0a0a]">
-                {currencySymbol(currency)}
-                {Number(slot.amount).toLocaleString()}
-              </td>
-              <td className="py-2.5 text-[#525252]">
-                {slot.cadence ? (CADENCE_LABELS[slot.cadence] ?? slot.cadence) : 'Per month'}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+// Full offer view for the talent: header, the shared offer body (compensation +
+// letter, whether simple or templated), response actions and the thread.
 
 export default function OfferLetterView({ offerId }: { offerId: string }) {
   const router = useRouter();
@@ -101,8 +42,6 @@ export default function OfferLetterView({ offerId }: { offerId: string }) {
   const { offer, events } = data;
   const listItem = (myOffers ?? []).find((o) => o.id === offer.id);
   const badge = OFFER_STATUS_BADGE[offer.status];
-  const sections = offer.letter?.sections ?? [];
-  const signatory = offer.letter?.signatory ?? null;
 
   return (
     <div className="space-y-4">
@@ -167,47 +106,7 @@ export default function OfferLetterView({ offerId }: { offerId: string }) {
         )}
       </div>
 
-      {/* Compensation */}
-      <div className="rounded-2xl border border-[#E7E7EA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <h2 className="mb-3 font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
-          Compensation
-        </h2>
-        <CompensationTableView compensation={offer.compensation ?? {}} />
-      </div>
-
-      {/* Letter sections (frozen at send) */}
-      {sections.length > 0 && (
-        <div className="rounded-2xl border border-[#E7E7EA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-6">
-          <div className="space-y-5">
-            {sections.map((s) => (
-              <section key={s.key}>
-                {s.title && (
-                  <h3 className="mb-1.5 font-[family-name:var(--font-jakarta)] text-[13px] font-semibold text-[#0a0a0a]">
-                    {s.title}
-                  </h3>
-                )}
-                <div
-                  className="prose-sm text-sm leading-relaxed text-[#525252] [&_li]:ml-4 [&_li]:list-disc [&_p]:mb-2 [&_strong]:text-[#0a0a0a]"
-                  dangerouslySetInnerHTML={{ __html: s.body_html ?? '' }}
-                />
-              </section>
-            ))}
-          </div>
-          {signatory && (signatory.name || signatory.title) && (
-            <p className="mt-6 border-t border-[#E7E7EA] pt-4 text-sm text-[#525252]">
-              Warm regards,
-              <br />
-              <strong className="text-[#0a0a0a]">{signatory.name}</strong>
-              {signatory.title ? (
-                <>
-                  <br />
-                  {signatory.title}
-                </>
-              ) : null}
-            </p>
-          )}
-        </div>
-      )}
+      <OfferLetterBody compensation={offer.compensation} letter={offer.letter} />
 
       <OfferResponseBar offer={offer} />
 

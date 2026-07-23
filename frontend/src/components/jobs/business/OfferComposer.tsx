@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import toast from 'react-hot-toast';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
@@ -19,6 +19,7 @@ import {
   type OfferTemplateSection,
 } from '@/hooks/useBusinessJobs';
 import type { OfferCompensation, OfferLetter } from '@/hooks/useJobOffers';
+import { useUpload } from '@/hooks/useUpload';
 import { currencySymbol } from '@/components/jobs/shared';
 
 // Offer composer. The letter TEMPLATE is canonical on SquadHub — pulled here
@@ -178,6 +179,7 @@ export default function OfferComposer({
   const updateOffer = useUpdateOffer(cardId);
   const sendOffer = useSendOffer(cardId);
   const markSentManually = useMarkOfferSentManually(cardId);
+  const { uploadFile, uploading: pdfUploading } = useUpload();
 
   const template = templatePull?.data?.template ?? null;
   const mergeContext = templatePull?.data?.merge_context ?? null;
@@ -202,6 +204,32 @@ export default function OfferComposer({
   const [openSection, setOpenSection] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [working, setWorking] = useState(false);
+
+  // Offer mode: 'template' = the pulled letter sections; 'simple' = the package
+  // + a free-text description + an optional attached PDF of the real letter.
+  const [mode, setMode] = useState<'simple' | 'template'>('template');
+  const [description, setDescription] = useState('');
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfName, setPdfName] = useState<string | null>(null);
+
+  const handlePdf = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      toast.error('Please attach a PDF file');
+      e.target.value = '';
+      return;
+    }
+    try {
+      const url = await uploadFile(file, 'job-offers');
+      setPdfUrl(url);
+      setPdfName(file.name);
+    } catch {
+      toast.error('Failed to upload the PDF');
+    } finally {
+      e.target.value = '';
+    }
+  };
 
   // Seed the form once the template arrives (or from the draft being edited).
   useEffect(() => {
@@ -273,9 +301,18 @@ export default function OfferComposer({
     [positionTitle, effectiveDate, joinByDate, expiresOn, mergeContext, signatoryName, signatoryTitle],
   );
 
-  const buildLetterFor = (candidateName: string | null): OfferLetter => {
+  const buildLetter = (candidateName: string | null): OfferLetter => {
+    if (mode === 'simple') {
+      return {
+        kind: 'simple',
+        description: description.trim() || null,
+        pdf_url: pdfUrl || null,
+        merge_values: { compensation: buildCompensation() },
+      };
+    }
     const values = { ...baseMergeValues, candidate_name: candidateName ?? '' };
     return {
+      kind: 'template',
       sections: sections.map((s) => ({
         key: s.key,
         title: renderMergeFields(s.title ?? '', values),
@@ -311,7 +348,7 @@ export default function OfferComposer({
         if (action === 'send') {
           await sendOffer.mutateAsync({
             offerId: editOffer.id,
-            letter: buildLetterFor(editOffer.talent_name),
+            letter: buildLetter(editOffer.talent_name),
           });
           toast.success('Offer sent');
         } else if (action === 'manual') {
@@ -339,7 +376,7 @@ export default function OfferComposer({
         for (const offer of result.created) {
           await sendOffer.mutateAsync({
             offerId: offer.id,
-            letter: buildLetterFor(offer.talent_name ?? nameById.get(offer.candidate_id) ?? null),
+            letter: buildLetter(offer.talent_name ?? nameById.get(offer.candidate_id) ?? null),
           });
         }
         if (result.created.length > 0) {
@@ -374,6 +411,40 @@ export default function OfferComposer({
             will carry the package details only.
           </p>
         )}
+
+        {/* Offer type */}
+        <div>
+          <p className="mb-1.5 text-[13px] font-medium text-[#3F3F46]">Offer type</p>
+          <div className="flex gap-1 rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-1">
+            <button
+              type="button"
+              onClick={() => setMode('simple')}
+              className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+                mode === 'simple'
+                  ? 'bg-white text-[#0a0a0a] shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
+                  : 'text-[#737373] hover:text-[#0a0a0a]'
+              }`}
+            >
+              Simple offer
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('template')}
+              className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+                mode === 'template'
+                  ? 'bg-white text-[#0a0a0a] shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
+                  : 'text-[#737373] hover:text-[#0a0a0a]'
+              }`}
+            >
+              Detailed template
+            </button>
+          </div>
+          <p className="mt-1 text-[11px] text-[#a3a3a3]">
+            {mode === 'simple'
+              ? 'Package + a short description, with an optional PDF of the real letter.'
+              : 'The full templated offer letter with editable sections.'}
+          </p>
+        </div>
 
         {/* Targeting */}
         {!editOffer && (
@@ -464,8 +535,57 @@ export default function OfferComposer({
           />
         </div>
 
+        {/* Simple mode: description + optional PDF of the real letter */}
+        {mode === 'simple' && (
+          <>
+            <Textarea
+              label="Description"
+              rows={5}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Role summary, joining details, terms — anything the candidate should see with the offer."
+              maxLength={8000}
+            />
+            <div>
+              <p className="mb-1.5 text-[13px] font-medium text-[#3F3F46]">
+                Offer letter PDF <span className="font-normal text-[#a3a3a3]">— optional</span>
+              </p>
+              {pdfUrl ? (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E7E7EA] px-3.5 py-2.5">
+                  <a
+                    href={pdfUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex min-w-0 items-center gap-2 text-sm font-medium text-[#0a0a0a]"
+                  >
+                    <svg className="h-4 w-4 shrink-0 text-[#DC2626]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="truncate">{pdfName ?? 'Attached PDF'}</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPdfUrl(null);
+                      setPdfName(null);
+                    }}
+                    className="shrink-0 text-xs font-semibold text-[#DC2626] hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[#D4D4D4] px-3.5 py-3 text-sm font-medium text-[#525252] transition-colors hover:border-[#0a0a0a] hover:text-[#0a0a0a]">
+                  <input type="file" accept="application/pdf" onChange={handlePdf} className="hidden" />
+                  {pdfUploading ? 'Uploading…' : 'Attach a PDF'}
+                </label>
+              )}
+            </div>
+          </>
+        )}
+
         {/* Letter sections — pulled from the SquadHub template, editable per offer */}
-        {sections.length > 0 && (
+        {mode === 'template' && sections.length > 0 && (
           <div>
             <p className="mb-1.5 text-[13px] font-medium text-[#3F3F46]">
               Letter sections{' '}
@@ -522,13 +642,15 @@ export default function OfferComposer({
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Input label="Signatory name" value={signatoryName} onChange={(e) => setSignatoryName(e.target.value)} />
-          <Input label="Signatory title" value={signatoryTitle} onChange={(e) => setSignatoryTitle(e.target.value)} />
-        </div>
+        {mode === 'template' && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Input label="Signatory name" value={signatoryName} onChange={(e) => setSignatoryName(e.target.value)} />
+            <Input label="Signatory title" value={signatoryTitle} onChange={(e) => setSignatoryTitle(e.target.value)} />
+          </div>
+        )}
 
         {/* Preview */}
-        {sections.length > 0 && (
+        {mode === 'template' && sections.length > 0 && (
           <div>
             <button
               type="button"

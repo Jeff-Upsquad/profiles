@@ -12,6 +12,7 @@ import InterviewSchedulerModal from './InterviewSchedulerModal';
 import InterviewRoundsList from './InterviewRoundsList';
 import OfferComposer from './OfferComposer';
 import NegotiationThread from './NegotiationThread';
+import OfferDetailModal from './OfferDetailModal';
 import HireDialog from './HireDialog';
 import QnAManagerTab from './QnAManagerTab';
 import {
@@ -23,6 +24,7 @@ import {
   useJobCandidates,
   useMarkJoined,
   useReviewCandidate,
+  useWithdrawOffer,
   type BusinessOffer,
   type JobCandidateForBusiness,
 } from '@/hooks/useBusinessJobs';
@@ -85,6 +87,7 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
   const review = useReviewCandidate(cardId);
   const markJoined = useMarkJoined(cardId);
   const closeCard = useCloseJobCard(cardId);
+  const withdrawOffer = useWithdrawOffer(cardId);
 
   const [tab, setTab] = useState<ConsoleTab>('accepted');
   const [schedulerOpen, setSchedulerOpen] = useState(false);
@@ -93,6 +96,7 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
   const [composerPreselect, setComposerPreselect] = useState<string[]>([]);
   const [editingOffer, setEditingOffer] = useState<BusinessOffer | null>(null);
   const [threadOffer, setThreadOffer] = useState<BusinessOffer | null>(null);
+  const [detailOffer, setDetailOffer] = useState<BusinessOffer | null>(null);
   const [hireTarget, setHireTarget] = useState<{ candidateId: string; name: string | null } | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
 
@@ -529,11 +533,38 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
                               Hire
                             </button>
                           )}
+                          <button type="button" onClick={() => setDetailOffer(o)} className={actionBtn('muted')}>
+                            View
+                          </button>
                           {!['negotiating'].includes(o.status) && (
                             <button type="button" onClick={() => setThreadOffer(o)} className={actionBtn('muted')}>
                               Thread
                             </button>
                           )}
+                          {['sent', 'negotiating', 'countered'].includes(o.status) && !isClosed && (
+                            <button
+                              type="button"
+                              disabled={withdrawOffer.isPending}
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    'Recall this offer? The candidate will be notified it was withdrawn.',
+                                  )
+                                ) {
+                                  withdrawOffer.mutate(o.id);
+                                }
+                              }}
+                              className={actionBtn('danger')}
+                            >
+                              Recall
+                            </button>
+                          )}
+                          <Link
+                            href={`/business/job-posts/${cardId}/candidates/${o.candidate_id}`}
+                            className={actionBtn('muted')}
+                          >
+                            View profile
+                          </Link>
                         </div>
                       </div>
                     );
@@ -633,6 +664,11 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
           onClose={() => setThreadOffer(null)}
         />
       )}
+      <OfferDetailModal
+        offer={detailOffer}
+        open={!!detailOffer}
+        onClose={() => setDetailOffer(null)}
+      />
       {hireTarget && (
         <HireDialog
           cardId={cardId}

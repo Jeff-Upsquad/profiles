@@ -37,11 +37,19 @@ export interface OfferLetterSection {
   body_html?: string;
 }
 
-/** Frozen at send: {sections[], merge_values{}, signatory{}}. */
+/**
+ * Frozen at send. Two shapes by `kind`:
+ *  - 'template' (default): {kind, sections[], merge_values{}, signatory{}}
+ *  - 'simple':   {kind:'simple', description, pdf_url} — a plain package +
+ *    free-text description, with an optional attached PDF of the real letter.
+ */
 export interface OfferLetter {
+  kind?: 'simple' | 'template';
   sections?: OfferLetterSection[];
   merge_values?: Record<string, unknown>;
   signatory?: { name?: string | null; title?: string | null } | null;
+  description?: string | null;
+  pdf_url?: string | null;
   [key: string]: unknown;
 }
 
