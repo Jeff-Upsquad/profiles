@@ -5,8 +5,12 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import toast from 'react-hot-toast';
 import { AuthShell } from './LoginTalent';
+import { COUNTRY_CODES } from '@/constants/country-codes';
 
 type Identifier = 'email' | 'phone';
+
+const detectCountryCode = (p: string) =>
+  COUNTRY_CODES.find((cc) => p.startsWith(cc.code))?.code ?? '+91';
 
 function SignupBusinessInner() {
   const params = useSearchParams();
@@ -15,11 +19,21 @@ function SignupBusinessInner() {
   const prefillEmail = params.get('email') ?? '';
   const prefillPhone = params.get('phone') ?? '';
 
+  // Default to phone; only start on email when an email was prefilled and no phone.
   const [identifier, setIdentifier] = useState<Identifier>(
-    prefillPhone && !prefillEmail ? 'phone' : 'email',
+    prefillEmail && !prefillPhone ? 'email' : 'phone',
+  );
+  const [countryCode, setCountryCode] = useState(() =>
+    prefillPhone ? detectCountryCode(prefillPhone) : '+91',
   );
   const [email, setEmail] = useState(prefillEmail);
-  const [phone, setPhone] = useState(prefillPhone);
+  // Phone is stored with its country code, e.g. "+919876543210".
+  const [phone, setPhone] = useState(() => {
+    if (!prefillPhone) return '+91';
+    return prefillPhone.startsWith('+')
+      ? prefillPhone
+      : '+91' + prefillPhone.replace(/\D/g, '');
+  });
   const [name, setName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [password, setPassword] = useState('');
@@ -87,14 +101,39 @@ function SignupBusinessInner() {
               className="input-v5"
             />
           ) : (
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+91 98765 43210"
-              required
-              className="input-v5"
-            />
+            <div className="flex items-stretch gap-2">
+              <select
+                value={countryCode}
+                onChange={(e) => {
+                  const newCode = e.target.value;
+                  const digits = phone.replace(countryCode, '');
+                  setCountryCode(newCode);
+                  setPhone(newCode + digits);
+                }}
+                aria-label="Country code"
+                className="input-v5"
+                style={{ width: 'auto', flex: '0 0 auto' }}
+              >
+                {COUNTRY_CODES.map((cc) => (
+                  <option key={cc.code} value={cc.code}>
+                    {cc.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="tel"
+                inputMode="numeric"
+                maxLength={15}
+                value={phone.replace(countryCode, '')}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 15);
+                  setPhone(countryCode + digits);
+                }}
+                placeholder="98765 43210"
+                required
+                className="input-v5 flex-1"
+              />
+            </div>
           )}
         </div>
 
