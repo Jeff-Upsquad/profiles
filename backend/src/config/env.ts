@@ -78,6 +78,12 @@ const envSchema = z.object({
   // here. Optional — when unset, /webhooks/squadcrm/lead-stage returns 503.
   SQUADCRM_INBOUND_SECRET: z.string().min(32).optional(),
 
+  // Original Squad CRM (crm.squadhub.in) → Profiles inbound: shared secret for
+  // POST /integrations/squadcrm/business/provision, called when a deal enters
+  // the "Give SQUADHire Access" stage. Distinct from SQUADCRM_INBOUND_SECRET so
+  // the two CRMs don't share a secret. Optional — unset → provision route 503s.
+  SQUADCRM_PROVISION_SECRET: z.string().min(32).optional(),
+
   // Profiles → SquadHire CRM: outbound URL for system-event notifications
   // (e.g. talent_subscription_card_received → CRM picks the WhatsApp template
   // and sends via Meta). Optional — when unset, the talent-WhatsApp pipeline

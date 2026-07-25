@@ -575,6 +575,57 @@ export async function getExpiryForEmail(emailRaw: string): Promise<string | null
 }
 
 // ============================================================
+// Business-user talent access (all business users, all active categories)
+// ============================================================
+// Every business user gets talent-profile access to every active category, with
+// no per-user grant row. This is resolved by business_user (not email), so it
+// also works for phone-only business users that have no email on record.
+
+async function activeCategories(): Promise<CategoryRow[]> {
+  const { data, error } = await supabaseAdmin
+    .from('categories')
+    .select('id, name, slug')
+    .eq('is_active', true);
+  if (error) throw new AppError(500, error.message);
+  return (data ?? []).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+interface BusinessUserLite {
+  id: string;
+  contact_email?: string | null;
+  access_expires_at?: string | null;
+}
+
+export async function getSessionForBusinessUser(
+  businessUser: BusinessUserLite,
+): Promise<AccessSession | null> {
+  const cats = await activeCategories();
+  if (cats.length === 0) return null;
+  return {
+    // Synthetic identifiers — business talent access is not backed by a grant row.
+    grantId: `business:${businessUser.id}`,
+    email: businessUser.contact_email ?? `business:${businessUser.id}`,
+    categoryIds: cats.map((c) => c.id),
+  };
+}
+
+// Status payload for the business "All profiles" screen: expiry tracks the
+// business user's own access window, categories are all active categories.
+export async function getBusinessTalentInfo(businessUser: BusinessUserLite): Promise<{
+  email: string | null;
+  expires_at: string | null;
+  categories: CategoryRow[];
+} | null> {
+  const categories = await activeCategories();
+  if (categories.length === 0) return null;
+  return {
+    email: businessUser.contact_email ?? null,
+    expires_at: businessUser.access_expires_at ?? null,
+    categories,
+  };
+}
+
+// ============================================================
 // Public: profile browse + detail
 // ============================================================
 

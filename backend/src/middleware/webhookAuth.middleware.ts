@@ -36,6 +36,36 @@ export function verifySquadhubSecret(
 }
 
 /**
+ * Verifies X-SquadCRM-Signature against SQUADCRM_PROVISION_SECRET. The original
+ * Squad CRM (crm.squadhub.in) calls POST /integrations/squadcrm/business/provision
+ * when a deal enters its "Give SQUADHire Access" stage. A dedicated secret keeps
+ * this distinct from the shcrm lead-stage secret below.
+ */
+export function verifySquadcrmProvisionSecret(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): void {
+  const expected = env.SQUADCRM_PROVISION_SECRET;
+  if (!expected) {
+    return next(new AppError(503, 'SquadCRM provision secret not configured'));
+  }
+
+  const provided = req.header(SQUADCRM_HEADER) ?? req.header('X-SquadCRM-Signature');
+  if (typeof provided !== 'string' || provided.length === 0) {
+    return next(new AppError(401, 'Missing webhook signature'));
+  }
+
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    return next(new AppError(401, 'Invalid webhook signature'));
+  }
+
+  next();
+}
+
+/**
  * Verifies X-SquadCRM-Signature against SQUADCRM_INBOUND_SECRET. The SquadHire
  * CRM (shcrm) calls /webhooks/squadcrm/lead-stage when a card is moved between
  * pipeline stages so we can mirror the change onto lead_submissions.status.

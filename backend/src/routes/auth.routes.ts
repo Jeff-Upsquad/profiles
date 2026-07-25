@@ -10,7 +10,12 @@ import {
   changePasswordSchema,
   checkCandidateStatusSchema,
 } from '../validators/auth.validators.js';
-import { businessLoginSchema, requestAccessSchema } from '../validators/invite.validators.js';
+import {
+  businessLoginSchema,
+  businessSignupSchema,
+  businessChangePasswordSchema,
+  requestAccessSchema,
+} from '../validators/invite.validators.js';
 
 const router = Router();
 
@@ -32,11 +37,29 @@ router.post(
   authController.login
 );
 
-// Passwordless business login (email or phone)
+// Business login (email or phone; password required for accounts on the
+// password track, ignored for grandfathered passwordless accounts).
 router.post(
   '/business-login',
   validate({ body: businessLoginSchema }),
   authController.businessLogin
+);
+
+// First-time business signup / activation: set name + business name + password
+// on an already-provisioned/invited account, then log in.
+router.post(
+  '/business/signup',
+  validate({ body: businessSignupSchema }),
+  authController.businessSignup
+);
+
+// Authenticated business password change (also used for the forced change after
+// an admin reset).
+router.post(
+  '/business/change-password',
+  authenticate,
+  validate({ body: businessChangePasswordSchema }),
+  authController.businessChangePassword
 );
 
 // Request access renewal (public, no auth required)

@@ -347,6 +347,12 @@ router.patch(
   adminController.extendBusinessAccess
 );
 
+// Reset a business user's password → returns a one-time temporary password.
+router.post(
+  '/business/:businessId/reset-password',
+  adminController.resetBusinessPassword
+);
+
 // ---------------------------------------------------------------------------
 // Access Requests (unified queue: business portal + course reopen)
 // ---------------------------------------------------------------------------

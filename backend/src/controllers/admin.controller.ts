@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as adminService from '../services/admin.service.js';
 import * as inviteService from '../services/invite.service.js';
+import * as businessAuthService from '../services/business-auth.service.js';
 import { getCandidateActivity } from '../services/activity.service.js';
 
 // ---------------------------------------------------------------------------
@@ -615,6 +616,20 @@ export async function extendBusinessAccess(req: Request, res: Response, next: Ne
 export async function getUserDetail(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await adminService.getUserDetail(req.params.userId as string);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Admin-triggered password reset for a business user. Returns a one-time
+// temporary password for the admin to relay (e.g. over WhatsApp); the user is
+// forced to change it on next login.
+export async function resetBusinessPassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await businessAuthService.adminResetBusinessPassword(
+      req.params.businessId as string,
+    );
     res.json(result);
   } catch (err) {
     next(err);

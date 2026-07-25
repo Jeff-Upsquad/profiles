@@ -196,25 +196,20 @@ export async function getShortlistedProfilesForCard(req: Request, res: Response,
 
 async function resolveAccessSession(req: Request) {
   const business = await businessService.getBusinessUser(req.user!.id);
-  const email = business.contact_email;
-  if (!email) return null;
-  return talentAccessService.getSessionForEmail(email);
+  // Every business user has talent access to all active categories, resolved by
+  // business user (not email) so phone-only accounts work too.
+  return talentAccessService.getSessionForBusinessUser(business);
 }
 
 export async function getTalentAccessStatus(req: Request, res: Response, next: NextFunction) {
   try {
     const business = await businessService.getBusinessUser(req.user!.id);
-    const email = business.contact_email;
-    if (!email) {
+    const info = await talentAccessService.getBusinessTalentInfo(business);
+    if (!info) {
+      // Only reachable if there are no active categories at all.
       res.json({ has_access: false });
       return;
     }
-    const session = await talentAccessService.getSessionForEmail(email);
-    if (!session) {
-      res.json({ has_access: false });
-      return;
-    }
-    const info = await talentAccessService.getSessionInfo(session);
     res.json({ has_access: true, ...info });
   } catch (err) {
     next(err);

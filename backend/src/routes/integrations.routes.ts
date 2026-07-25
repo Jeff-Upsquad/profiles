@@ -4,6 +4,7 @@ import * as candidatesController from '../controllers/integrations-candidates.co
 import {
   verifySquadhubSecret,
   verifySquadcrmSecret,
+  verifySquadcrmProvisionSecret,
 } from '../middleware/webhookAuth.middleware.js';
 
 /**
@@ -111,6 +112,14 @@ router.post(
   '/squadcrm/talents/lookup-by-phone',
   verifySquadcrmSecret,
   integrationsController.lookupTalentByPhone,
+);
+
+// Original Squad CRM → provision a business user when a deal enters the
+// "Give SQUADHire Access" stage. Gated by its own SQUADCRM_PROVISION_SECRET.
+router.post(
+  '/squadcrm/business/provision',
+  verifySquadcrmProvisionSecret,
+  integrationsController.provisionBusinessUser,
 );
 
 export default router;

@@ -59,7 +59,8 @@ interface BusinessUser {
   id: string;
   company_name: string;
   contact_person_name: string;
-  contact_email: string;
+  contact_email: string | null;
+  contact_phone?: string | null;
   access_expires_at?: string;
   is_active: boolean;
 }
@@ -71,6 +72,7 @@ export default function BusinessDetail({ businessId }: { businessId: string }) {
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [sharingCategory, setSharingCategory] = useState<string>('');
   const [selectedProfiles, setSelectedProfiles] = useState<Set<string>>(new Set());
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
 
   // Fetch business user info
   const { data: businessUser } = useQuery<BusinessUser>({
@@ -172,6 +174,20 @@ export default function BusinessDetail({ businessId }: { businessId: string }) {
     },
   });
 
+  const resetPassword = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post(`/admin/business/${businessId}/reset-password`, {});
+      return data as { temporary_password: string };
+    },
+    onSuccess: (data) => {
+      setTempPassword(data.temporary_password);
+      toast.success('Password reset — share the temporary password with the user.');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to reset password');
+    },
+  });
+
   function toggleCategory(categoryId: string) {
     setSelectedCategories((prev) => {
       const next = new Set(prev);
@@ -198,29 +214,62 @@ export default function BusinessDetail({ businessId }: { businessId: string }) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.push('/business')}
-          className="text-gray-400 hover:text-gray-600"
-        >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {businessUser?.company_name ?? 'Business User'}
-          </h1>
-          <p className="text-sm text-gray-500">
-            {businessUser?.contact_email}
-            {businessUser?.access_expires_at && (
-              <span className="ml-2">
-                — Expires {formatDate(businessUser.access_expires_at)}
-              </span>
-            )}
-          </p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push('/business')}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {businessUser?.company_name ?? 'Business User'}
+            </h1>
+            <p className="text-sm text-gray-500">
+              {businessUser?.contact_email || businessUser?.contact_phone}
+              {businessUser?.access_expires_at && (
+                <span className="ml-2">
+                  — Expires {formatDate(businessUser.access_expires_at)}
+                </span>
+              )}
+            </p>
+          </div>
         </div>
+        <Button
+          onClick={() => {
+            if (
+              window.confirm(
+                "Reset this business user's password? They'll receive a temporary password and must set a new one on next login.",
+              )
+            ) {
+              resetPassword.mutate();
+            }
+          }}
+          loading={resetPassword.isPending}
+        >
+          Reset password
+        </Button>
       </div>
+
+      {tempPassword && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
+          <p className="text-sm font-medium text-amber-900">Temporary password</p>
+          <p className="mt-1 font-mono text-lg tracking-wide text-amber-900">{tempPassword}</p>
+          <p className="mt-1 text-xs text-amber-700">
+            Share this with the user over WhatsApp. They&apos;ll be asked to set a new
+            password when they log in. This won&apos;t be shown again.
+          </p>
+          <button
+            onClick={() => setTempPassword(null)}
+            className="mt-2 text-xs text-amber-800 underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-lg bg-gray-100 p-1">

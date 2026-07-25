@@ -93,16 +93,18 @@ export default function InvitationList() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const payload: any = {
-      email: formEmail,
-      role: formRole,
-    };
+    const email = formEmail.trim();
+    const phone = formPhone.trim();
+    if (formRole === 'business' && !email && !phone) {
+      toast.error('Enter an email or a phone number');
+      return;
+    }
+    const payload: any = { role: formRole };
+    if (email) payload.email = email;
     if (formRole === 'business') {
       payload.company_name = formCompanyName;
       payload.contact_person_name = formContactPerson;
-      if (formPhone.trim()) {
-        payload.phone = formPhone.trim();
-      }
+      if (phone) payload.phone = phone;
       if (formExpiresAt) {
         payload.expires_at = new Date(formExpiresAt).toISOString();
       }
@@ -235,12 +237,12 @@ export default function InvitationList() {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Email"
+            label={formRole === 'business' ? 'Email (optional if phone is given)' : 'Email'}
             type="email"
             value={formEmail}
             onChange={(e) => setFormEmail(e.target.value)}
             placeholder="user@example.com"
-            required
+            required={formRole === 'talent' || !formPhone.trim()}
           />
 
           <div>

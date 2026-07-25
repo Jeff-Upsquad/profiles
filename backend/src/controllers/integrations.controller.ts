@@ -2,8 +2,42 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import * as integrationsService from '../services/integrations.service.js';
 import * as talentAccessService from '../services/talent-access.service.js';
+import * as businessProvisionService from '../services/business-provision.service.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
+
+const provisionBusinessSchema = z
+  .object({
+    email: z.string().email().optional(),
+    phone: z.string().trim().min(3).optional(),
+    company_name: z.string().max(300).optional(),
+    contact_person_name: z.string().max(200).optional(),
+    expires_at: z.string().datetime(),
+  })
+  .refine((v) => !!v.email || !!v.phone, {
+    message: 'Email or phone is required',
+    path: ['email'],
+  });
+
+// Squad CRM → provision (or refresh) a business user when a deal enters the
+// "Give SQUADHire Access" stage. Idempotent; sends no notification.
+export async function provisionBusinessUser(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = provisionBusinessSchema.parse(req.body);
+    const result = await businessProvisionService.provisionBusinessUser(body);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
+      return;
+    }
+    next(err);
+  }
+}
 
 export async function getCategories(
   _req: Request,
