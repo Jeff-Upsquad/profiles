@@ -85,7 +85,7 @@ export default function LoginChooseRolePage() {
                   I'm a Business
                 </div>
                 <div className="mt-0.5 font-ui text-xs text-cu-500">
-                  Passwordless login with your invited credentials
+                  Sign in with your email or phone and password
                 </div>
               </div>
               <svg className="h-5 w-5 text-cu-400 transition-transform group-hover:translate-x-0.5 group-hover:text-cu-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">

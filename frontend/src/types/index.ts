@@ -8,6 +8,7 @@ export interface User {
   company_name?: string;
   approval_status?: ApprovalStatus;
   must_reset_password?: boolean;
+  must_change_password?: boolean;
   auto_approve_signups?: boolean;
   onboarding_completed?: boolean;
   is_active?: boolean;

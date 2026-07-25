@@ -16,6 +16,34 @@ export async function businessLogin(req: Request, res: Response, next: NextFunct
     const result = await businessAuthService.businessLogin({
       email: req.body.email,
       phone: req.body.phone,
+      password: req.body.password,
+    });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function businessSignup(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await businessAuthService.businessSignup({
+      email: req.body.email,
+      phone: req.body.phone,
+      name: req.body.name,
+      company_name: req.body.company_name,
+      password: req.body.password,
+    });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function businessChangePassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await businessAuthService.changeBusinessPassword(req.user!.id, {
+      current_password: req.body.current_password,
+      new_password: req.body.new_password,
     });
     res.json(result);
   } catch (err) {

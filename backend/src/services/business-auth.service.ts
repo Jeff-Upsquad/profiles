@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { markInvitationAccepted } from './invite.service.js';
+import { hashPassword, comparePassword, generateTempPassword } from '../lib/password.js';
 
 const SESSION_DURATION_HOURS = 24;
 
@@ -27,7 +28,64 @@ async function findBusinessUser(
   return data;
 }
 
-export async function businessLogin(identifier: { email?: string; phone?: string }) {
+// Mint a business JWT + revocable session row and return the standard login
+// payload. Shared by password login, first-time signup/activation, and the
+// legacy passwordless path so the token/session shape never drifts.
+async function issueBusinessSession(
+  businessUser: any,
+  extra: { must_change_password?: boolean } = {},
+) {
+  const sessionExpiry = new Date(Date.now() + SESSION_DURATION_HOURS * 60 * 60 * 1000);
+  const token = jwt.sign(
+    {
+      sub: businessUser.id,
+      email: businessUser.contact_email,
+      role: 'business',
+    },
+    env.JWT_SECRET,
+    { expiresIn: `${SESSION_DURATION_HOURS}h` }
+  );
+
+  const { error: sessionError } = await supabaseAdmin
+    .from('business_sessions')
+    .insert({
+      business_user_id: businessUser.id,
+      token,
+      expires_at: sessionExpiry.toISOString(),
+    });
+  if (sessionError) throw new AppError(500, 'Failed to create session');
+
+  // Mark linked invitation as accepted on first login / activation.
+  if (businessUser.invitation_id) {
+    try {
+      await markInvitationAccepted(businessUser.invitation_id);
+    } catch {
+      // Non-fatal: don't block login if invitation update fails
+    }
+  }
+
+  return {
+    access_token: token,
+    must_change_password: extra.must_change_password ?? false,
+    user: {
+      id: businessUser.id,
+      email: businessUser.contact_email,
+      role: 'business' as const,
+      company_name: businessUser.company_name,
+      contact_person_name: businessUser.contact_person_name,
+      access_expires_at: businessUser.access_expires_at,
+    },
+  };
+}
+
+// Login result is discriminated: `needs_signup` means a provisioned/invited
+// account exists on the password track but hasn't set a password yet, so the
+// client should route the user to first-time signup rather than show an error.
+export async function businessLogin(identifier: {
+  email?: string;
+  phone?: string;
+  password?: string;
+}) {
   if (!identifier.email && !identifier.phone) {
     throw new AppError(400, 'Email or phone is required');
   }
@@ -47,49 +105,138 @@ export async function businessLogin(identifier: { email?: string; phone?: string
     throw new AppError(403, 'Your access has expired. Please contact the administrator.');
   }
 
-  // Generate JWT
-  const sessionExpiry = new Date(Date.now() + SESSION_DURATION_HOURS * 60 * 60 * 1000);
-  const token = jwt.sign(
-    {
-      sub: businessUser.id,
-      email: businessUser.contact_email,
-      role: 'business',
-    },
-    env.JWT_SECRET,
-    { expiresIn: `${SESSION_DURATION_HOURS}h` }
-  );
+  // Legacy users (grandfathered by migration 00111, password_required = false)
+  // keep logging in with just their identifier — any password field is ignored.
+  if (businessUser.password_required === false) {
+    return { status: 'ok' as const, ...(await issueBusinessSession(businessUser)) };
+  }
 
-  // Store session
-  const { error: sessionError } = await supabaseAdmin
-    .from('business_sessions')
-    .insert({
-      business_user_id: businessUser.id,
-      token,
-      expires_at: sessionExpiry.toISOString(),
-    });
+  // Password track. No hash yet → account provisioned/invited but not activated.
+  if (!businessUser.password_hash) {
+    return { status: 'needs_signup' as const };
+  }
 
-  if (sessionError) throw new AppError(500, 'Failed to create session');
-
-  // Mark linked invitation as accepted on first login
-  if (businessUser.invitation_id) {
-    try {
-      await markInvitationAccepted(businessUser.invitation_id);
-    } catch {
-      // Non-fatal: don't block login if invitation update fails
-    }
+  const ok = await comparePassword(identifier.password ?? '', businessUser.password_hash);
+  if (!ok) {
+    throw new AppError(401, 'Incorrect password. Please try again.');
   }
 
   return {
-    access_token: token,
-    user: {
-      id: businessUser.id,
-      email: businessUser.contact_email,
-      role: 'business' as const,
-      company_name: businessUser.company_name,
-      contact_person_name: businessUser.contact_person_name,
-      access_expires_at: businessUser.access_expires_at,
-    },
+    status: 'ok' as const,
+    ...(await issueBusinessSession(businessUser, {
+      must_change_password: businessUser.must_change_password === true,
+    })),
   };
+}
+
+// First-time signup = activate an already-provisioned/invited account by setting
+// its password (and confirming name + business name). There is no open
+// registration: the identifier must already resolve to a business_users row.
+export async function businessSignup(input: {
+  email?: string;
+  phone?: string;
+  name: string;
+  company_name: string;
+  password: string;
+}) {
+  if (!input.email && !input.phone) {
+    throw new AppError(400, 'Email or phone is required');
+  }
+
+  const user = await findBusinessUser({ email: input.email, phone: input.phone });
+  if (!user) {
+    throw new AppError(404, 'No access found for this account. Please contact the administrator.');
+  }
+  if (!user.is_active) {
+    throw new AppError(403, 'Your account is inactive. Please contact the administrator.');
+  }
+  if (user.access_expires_at && new Date(user.access_expires_at) < new Date()) {
+    throw new AppError(403, 'Your access has expired. Please contact the administrator.');
+  }
+  if (user.password_required === false) {
+    throw new AppError(400, 'This account already has access. Please log in.');
+  }
+  if (user.password_hash) {
+    throw new AppError(409, 'This account is already set up. Please log in with your password.');
+  }
+
+  const password_hash = await hashPassword(input.password);
+  const { data: updated, error } = await supabaseAdmin
+    .from('business_users')
+    .update({
+      password_hash,
+      password_set_at: new Date().toISOString(),
+      must_change_password: false,
+      contact_person_name: input.name,
+      company_name: input.company_name,
+    })
+    .eq('id', user.id)
+    .select('*')
+    .single();
+  if (error || !updated) throw new AppError(500, 'Failed to complete signup');
+
+  return { status: 'ok' as const, ...(await issueBusinessSession(updated)) };
+}
+
+// Authenticated self-service change. Also clears the forced-change flag set by
+// an admin reset, so this doubles as the "change your temporary password" step.
+export async function changeBusinessPassword(
+  userId: string,
+  input: { current_password: string; new_password: string },
+) {
+  const { data: user, error: fErr } = await supabaseAdmin
+    .from('business_users')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+  if (fErr) throw new AppError(500, fErr.message);
+  if (!user) throw new AppError(404, 'Account not found');
+
+  const ok = await comparePassword(input.current_password, user.password_hash);
+  if (!ok) throw new AppError(401, 'Current password is incorrect');
+
+  const password_hash = await hashPassword(input.new_password);
+  const { error } = await supabaseAdmin
+    .from('business_users')
+    .update({
+      password_hash,
+      password_set_at: new Date().toISOString(),
+      must_change_password: false,
+      password_required: true,
+    })
+    .eq('id', userId);
+  if (error) throw new AppError(500, error.message);
+
+  return { success: true };
+}
+
+// Admin-triggered reset: sets a temporary password and forces a change on next
+// login. Returns the temp password ONCE so the admin can relay it over WhatsApp.
+// Existing sessions are dropped so a stale token can't bypass the forced change.
+export async function adminResetBusinessPassword(userId: string) {
+  const { data: user, error: fErr } = await supabaseAdmin
+    .from('business_users')
+    .select('id')
+    .eq('id', userId)
+    .maybeSingle();
+  if (fErr) throw new AppError(500, fErr.message);
+  if (!user) throw new AppError(404, 'Business user not found');
+
+  const temporary_password = generateTempPassword();
+  const password_hash = await hashPassword(temporary_password);
+  const { error } = await supabaseAdmin
+    .from('business_users')
+    .update({
+      password_hash,
+      must_change_password: true,
+      password_required: true,
+    })
+    .eq('id', userId);
+  if (error) throw new AppError(500, error.message);
+
+  await supabaseAdmin.from('business_sessions').delete().eq('business_user_id', userId);
+
+  return { temporary_password };
 }
 
 export async function validateBusinessToken(token: string) {

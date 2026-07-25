@@ -3,7 +3,7 @@ import { AppError } from '../middleware/errorHandler.middleware.js';
 import crypto from 'crypto';
 
 export async function createInvitation(input: {
-  email: string;
+  email?: string;
   role: 'talent' | 'business';
   expires_at?: string;
   company_name?: string;
@@ -13,16 +13,28 @@ export async function createInvitation(input: {
 }) {
   const { email, role, expires_at, company_name, contact_person_name, phone, adminId } = input;
 
-  // Check for existing pending invitation
-  const { data: existing } = await supabaseAdmin
-    .from('invitations')
-    .select('id')
-    .eq('email', email.toLowerCase())
-    .eq('status', 'pending')
-    .maybeSingle();
+  const normalizedEmail = email ? email.toLowerCase() : null;
 
-  if (existing) {
-    throw new AppError(409, 'A pending invitation already exists for this email');
+  if (!normalizedEmail && !phone) {
+    throw new AppError(400, 'Email or phone is required');
+  }
+  // Talent onboarding is email-based; a business invite may be phone-only.
+  if (role === 'talent' && !normalizedEmail) {
+    throw new AppError(400, 'Email is required for talent invitations');
+  }
+
+  // Check for existing pending invitation by email (only when an email is given)
+  if (normalizedEmail) {
+    const { data: existing } = await supabaseAdmin
+      .from('invitations')
+      .select('id')
+      .eq('email', normalizedEmail)
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (existing) {
+      throw new AppError(409, 'A pending invitation already exists for this email');
+    }
   }
 
   const trimmedPhone = role === 'business' && phone ? phone.trim() : null;
@@ -44,7 +56,7 @@ export async function createInvitation(input: {
   const { data: invitation, error } = await supabaseAdmin
     .from('invitations')
     .insert({
-      email: email.toLowerCase(),
+      email: normalizedEmail,
       role,
       status: 'pending',
       expires_at: role === 'business' ? expires_at || null : null,
@@ -67,7 +79,7 @@ export async function createInvitation(input: {
         id: businessId,
         company_name: company_name || 'Unnamed Company',
         contact_person_name: contact_person_name || '',
-        contact_email: email.toLowerCase(),
+        contact_email: normalizedEmail,
         contact_phone: trimmedPhone,
         access_expires_at: expires_at || null,
         invitation_id: invitation.id,
