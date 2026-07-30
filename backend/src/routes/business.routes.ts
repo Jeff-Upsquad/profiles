@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as businessController from '../controllers/business.controller.js';
 import * as assignmentOffers from '../controllers/assignment-offers.controller.js';
+import * as connectBriefController from '../controllers/connect-brief.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -26,6 +27,7 @@ import {
   businessLocationSchema,
   businessNotificationIdParamSchema,
 } from '../validators/jobs.validators.js';
+import { connectBriefSchema } from '../validators/connect-brief.validators.js';
 
 const router = Router();
 
@@ -164,5 +166,14 @@ router.post(
   businessController.markNotificationRead
 );
 router.post('/notifications/mark-all-read', businessController.markAllNotificationsRead);
+
+// Connect brief — self-serve "Request talent" form. Forwards to squadhub-web's
+// public lead pipeline; contact details default to the signed-in account.
+router.get('/connect-brief/countries', connectBriefController.getCountries);
+router.post(
+  '/connect-brief',
+  validate({ body: connectBriefSchema }),
+  connectBriefController.submitBrief
+);
 
 export default router;
