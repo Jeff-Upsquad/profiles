@@ -7,7 +7,7 @@ import { useMySubscriptionCards, useMyAssignmentCards, type BusinessSubscription
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
 import { formatDate } from '@/lib/formatDate';
-import ConnectBriefModal from '@/components/business/ConnectBriefModal';
+import ConnectBriefDrawer from '@/components/business/connect-brief/ConnectBriefDrawer';
 
 type Bucket = 'open' | 'active' | 'paused' | 'cancelled';
 
@@ -146,7 +146,7 @@ export default function BusinessSubscription({
         </div>
       </section>
 
-      <ConnectBriefModal
+      <ConnectBriefDrawer
         open={briefOpen}
         onClose={() => setBriefOpen(false)}
         product={variant}
