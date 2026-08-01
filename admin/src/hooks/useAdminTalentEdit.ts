@@ -88,6 +88,11 @@ export interface UpdateBasicProfilePayload {
   job_type?: ('remote' | 'office' | 'hybrid' | 'field')[] | null;
   employment_type?: ('salary' | 'freelance' | 'partner_program')[] | null;
   virtual_office_hours?: { day: string; from: string; to: string }[] | null;
+  // Partner Program: per-day committed hours ({day, hours}); office windows
+  // reuse virtual_office_hours above.
+  daily_available_hours?: { day: string; hours: number }[] | null;
+  // Freelance Preference checkbox — "Available to take freelance work".
+  freelance_available?: boolean | null;
   education_courses?: {
     from_year: number;
     from_month: number;

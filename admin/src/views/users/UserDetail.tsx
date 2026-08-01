@@ -21,6 +21,7 @@ import EditJobPreferenceDialog from './edit-dialogs/EditJobPreferenceDialog';
 import EditEducationDialog from './edit-dialogs/EditEducationDialog';
 import EditExperienceDialog from './edit-dialogs/EditExperienceDialog';
 import EditFreelanceDialog from './edit-dialogs/EditFreelanceDialog';
+import EditPartnerProgramDialog from './edit-dialogs/EditPartnerProgramDialog';
 import EditIdProofsDialog from './edit-dialogs/EditIdProofsDialog';
 import EditProfilePictureDialog from './edit-dialogs/EditProfilePictureDialog';
 import EditBankAccountDialog from './edit-dialogs/EditBankAccountDialog';
@@ -34,6 +35,7 @@ type EditTarget =
   | 'experience'
   | 'jobPref'
   | 'freelance'
+  | 'partner'
   | 'idProof'
   | 'profilePic'
   | 'bank'
@@ -92,6 +94,8 @@ interface BasicProfile {
   job_type?: string[] | null;
   employment_type?: string[] | null;
   virtual_office_hours?: { day: string; from: string; to: string }[] | null;
+  daily_available_hours?: { day: string; hours: number }[] | null;
+  freelance_available?: boolean | null;
   education_courses?: EducationEntry[] | null;
   experience?: ExperienceEntry[] | null;
   expected_salary_monthly?: number | null;
@@ -220,6 +224,31 @@ function formatVirtualHours(
   );
 }
 
+const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const DAY_FULL: Record<string, string> = {
+  mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday',
+  fri: 'Friday', sat: 'Saturday', sun: 'Sunday',
+};
+
+function formatDailyHours(
+  entries?: { day: string; hours: number }[] | null
+): ReactNode {
+  const filled = (entries ?? []).filter((d) => d.hours > 0);
+  if (filled.length === 0) return null;
+  const sorted = [...filled].sort(
+    (a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day)
+  );
+  return (
+    <ul className="space-y-0.5">
+      {sorted.map((d, i) => (
+        <li key={i} className="text-sm text-gray-900">
+          <span className="font-medium">{DAY_FULL[d.day] ?? TITLE_CASE(d.day)}</span>: {d.hours} hrs
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function formatEducation(entries?: EducationEntry[] | null): ReactNode {
   if (!entries || entries.length === 0) return null;
   return (
@@ -328,7 +357,8 @@ const ICON = {
   education: 'M12 14l9-5-9-5-9 5 9 5zm0 0v6m6.16-9.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479',
   experience: 'M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16',
   jobPref: 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
-  freelance: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+  freelance: 'M13 10V3L4 14h7v7l9-11h-7z',
+  partner: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
   idProof: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
   profilePic: 'M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9zm12 4a3 3 0 11-6 0 3 3 0 016 0z',
   bank: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
@@ -604,6 +634,7 @@ export default function UserDetail({ userId }: { userId: string }) {
 
   const wantsSalary = (basic?.employment_type ?? []).includes('salary');
   const wantsFreelance = (basic?.employment_type ?? []).includes('freelance');
+  const wantsPartner = (basic?.employment_type ?? []).includes('partner_program');
   const name = splitName(user.full_name);
 
   const basicDetails: FieldRow[] = [
@@ -815,24 +846,53 @@ export default function UserDetail({ userId }: { userId: string }) {
     {
       key: 'freelance',
       name: 'Freelance Preference',
-      description: 'Virtual office hours and availability',
+      description: 'Availability for freelance projects',
       tint: 'tint-pink',
       iconPath: ICON.freelance,
       disabled: !wantsFreelance,
       trailing: selectedBadge(wantsFreelance),
-      complete: wantsFreelance && (basic?.virtual_office_hours?.some((h) => h.from && h.to) ?? false),
+      complete: wantsFreelance && !!basic?.freelance_available,
       onEdit: () => setEditTarget('freelance'),
-      content: <FieldGrid rows={[{ label: 'Virtual Office Hours', value: formatVirtualHours(basic?.virtual_office_hours) }]} />,
+      content: (
+        <FieldGrid
+          rows={[
+            {
+              label: 'Available for Freelance Work',
+              value: (
+                <Badge variant={basic?.freelance_available ? 'green' : 'gray'}>
+                  {basic?.freelance_available ? 'Available' : 'Not available'}
+                </Badge>
+              ),
+            },
+          ]}
+        />
+      ),
     },
     {
-      key: 'idProof',
-      name: 'ID Proofs',
-      description: 'Aadhaar and PAN card details',
-      tint: 'tint-amber',
-      iconPath: ICON.idProof,
-      complete: !!(basic?.aadhaar_number || basic?.pan_number),
-      onEdit: () => setEditTarget('idProof'),
-      content: <FieldGrid rows={idProofs} />,
+      key: 'partner',
+      name: 'Partner Program Preference',
+      description: 'Virtual office hours and daily availability',
+      tint: 'tint-green',
+      iconPath: ICON.partner,
+      disabled: !wantsPartner,
+      trailing: selectedBadge(wantsPartner),
+      complete:
+        wantsPartner &&
+        (basic?.virtual_office_hours?.some((h) => h.from && h.to) ?? false) &&
+        (basic?.daily_available_hours?.some((d) => d.hours > 0) ?? false),
+      onEdit: () => setEditTarget('partner'),
+      content: (
+        <div className="space-y-5">
+          <div>
+            <h3 className="mb-3 font-jakarta text-base font-semibold text-[#0a0a0a]">Virtual Office Hours</h3>
+            <FieldGrid rows={[{ label: 'Office Hours', value: formatVirtualHours(basic?.virtual_office_hours) }]} />
+          </div>
+          <div className="border-t border-[#E7E7EA] pt-5">
+            <h3 className="mb-3 font-jakarta text-base font-semibold text-[#0a0a0a]">Daily Available Hours</h3>
+            <FieldGrid rows={[{ label: 'Committed Hours', value: formatDailyHours(basic?.daily_available_hours) }]} />
+          </div>
+        </div>
+      ),
     },
     {
       key: 'profilePic',
@@ -852,6 +912,16 @@ export default function UserDetail({ userId }: { userId: string }) {
       ) : (
         <div className="text-sm">{PLACEHOLDER}</div>
       ),
+    },
+    {
+      key: 'idProof',
+      name: 'ID Proofs',
+      description: 'Aadhaar and PAN card details',
+      tint: 'tint-amber',
+      iconPath: ICON.idProof,
+      complete: !!(basic?.aadhaar_number || basic?.pan_number),
+      onEdit: () => setEditTarget('idProof'),
+      content: <FieldGrid rows={idProofs} />,
     },
     {
       key: 'bank',
@@ -1289,7 +1359,14 @@ export default function UserDetail({ userId }: { userId: string }) {
         open={editTarget === 'freelance'}
         onClose={() => setEditTarget(null)}
         userId={user.id}
-        hours={basic?.virtual_office_hours as any}
+        available={basic?.freelance_available ?? false}
+      />
+      <EditPartnerProgramDialog
+        open={editTarget === 'partner'}
+        onClose={() => setEditTarget(null)}
+        userId={user.id}
+        officeHours={basic?.virtual_office_hours ?? null}
+        dailyAvailable={basic?.daily_available_hours ?? null}
       />
       <EditIdProofsDialog
         open={editTarget === 'idProof'}
