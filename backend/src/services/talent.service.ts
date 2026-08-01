@@ -24,10 +24,35 @@ export async function getTalentUser(userId: string) {
   return data;
 }
 
+/**
+ * Completed years between a YYYY-MM-DD date of birth and today — age in whole
+ * years only, never rounded up by months. Returns null for an unparseable date.
+ */
+export function ageFromDob(dob: string): number | null {
+  const b = new Date(`${dob}T00:00:00Z`);
+  if (Number.isNaN(b.getTime())) return null;
+  const now = new Date();
+  let age = now.getUTCFullYear() - b.getUTCFullYear();
+  const m = now.getUTCMonth() - b.getUTCMonth();
+  if (m < 0 || (m === 0 && now.getUTCDate() < b.getUTCDate())) age--;
+  return age;
+}
+
 export async function updateTalentUser(userId: string, input: UpdateTalentUserInput) {
+  const patch: Record<string, unknown> = { ...input };
+
+  // Date of birth is the source of truth for age. When a valid DOB is provided,
+  // derive age (completed years) and persist it too, so every site that reads
+  // talent_users.age keeps working unchanged. A null/absent DOB never wipes an
+  // existing age (e.g. ages backfilled from the application form).
+  if (typeof input.date_of_birth === 'string' && input.date_of_birth) {
+    const derived = ageFromDob(input.date_of_birth);
+    if (derived !== null) patch.age = derived;
+  }
+
   const { data, error } = await supabaseAdmin
     .from('talent_users')
-    .update(input)
+    .update(patch)
     .eq('id', userId)
     .select('*')
     .single();

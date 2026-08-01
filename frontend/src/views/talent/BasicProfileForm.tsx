@@ -15,6 +15,19 @@ import EducationPicker, { type EducationEntry } from '@/components/forms/Educati
 import ExperiencePicker, { type ExperienceEntry } from '@/components/forms/ExperiencePicker';
 import toast from 'react-hot-toast';
 import { COUNTRIES, INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-locations';
+import { GENDER_OPTIONS } from '@/constants/lead-form-options';
+
+/** Age in completed years (years only, never months) from a YYYY-MM-DD date. */
+function ageFromDob(dob: string): number | null {
+  if (!dob) return null;
+  const b = new Date(`${dob}T00:00:00`);
+  if (Number.isNaN(b.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - b.getFullYear();
+  const m = now.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--;
+  return age;
+}
 
 interface BasicProfile {
   permanent_address?: string;
@@ -148,6 +161,8 @@ export default function BasicProfileForm() {
   const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [gender, setGender] = useState('');
   const [languages, setLanguages] = useState<LanguageEntry[]>([]);
   const [educationCourses, setEducationCourses] = useState<EducationEntry[]>([]);
   const [experienceEntries, setExperienceEntries] = useState<ExperienceEntry[]>([]);
@@ -167,7 +182,12 @@ export default function BasicProfileForm() {
     },
   });
 
-  const { data: talentUser } = useQuery<{ phone?: string; languages_spoken?: LanguageEntry[] } | null>({
+  const { data: talentUser } = useQuery<{
+    phone?: string;
+    languages_spoken?: LanguageEntry[];
+    date_of_birth?: string | null;
+    gender?: string | null;
+  } | null>({
     queryKey: ['talentMe'],
     queryFn: async () => {
       const { data } = await api.get('/talent/me');
@@ -178,6 +198,8 @@ export default function BasicProfileForm() {
   useEffect(() => {
     if (talentUser?.languages_spoken) setLanguages(talentUser.languages_spoken);
     if (talentUser?.phone) setPhone(talentUser.phone);
+    if (talentUser?.date_of_birth) setDateOfBirth(talentUser.date_of_birth);
+    if (talentUser?.gender) setGender(talentUser.gender);
   }, [talentUser]);
 
   const { data: jobPrefs } = useJobPreferences();
@@ -291,7 +313,12 @@ export default function BasicProfileForm() {
   });
 
   const saveUserMutation = useMutation({
-    mutationFn: async (data: { full_name?: string; languages_spoken?: LanguageEntry[] }) => {
+    mutationFn: async (data: {
+      full_name?: string;
+      languages_spoken?: LanguageEntry[];
+      date_of_birth?: string | null;
+      gender?: string;
+    }) => {
       const { data: result } = await api.put('/talent/me', data);
       return result;
     },
@@ -360,7 +387,17 @@ export default function BasicProfileForm() {
     if (activeSection === 0) {
       if (!firstName.trim()) { toast.error('First name is required'); return; }
       const fullName = [firstName.trim(), middleName.trim(), lastName.trim()].filter(Boolean).join(' ');
-      saveUserMutation.mutate({ full_name: fullName });
+      const userPatch: { full_name: string; date_of_birth?: string; gender?: string } = { full_name: fullName };
+      if (dateOfBirth) {
+        const yrs = ageFromDob(dateOfBirth);
+        if (yrs === null || yrs < 16 || yrs > 100) {
+          toast.error('Enter a valid date of birth (age must be between 16 and 100)');
+          return;
+        }
+        userPatch.date_of_birth = dateOfBirth;
+      }
+      if (gender) userPatch.gender = gender;
+      saveUserMutation.mutate(userPatch);
       if (form.employment_type) saveMutation.mutate({ employment_type: form.employment_type });
       return;
     }
@@ -728,6 +765,27 @@ export default function BasicProfileForm() {
                   <div className="mt-4 grid gap-4 sm:grid-cols-2">
                     <Input label="Email" value={user?.email || ''} disabled helperText="Email cannot be changed" />
                     <Input label="Phone Number" value={phone} disabled helperText="Phone number cannot be changed" />
+                  </div>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <Input
+                      label="Date of Birth"
+                      type="date"
+                      value={dateOfBirth}
+                      max={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      helperText={
+                        dateOfBirth && ageFromDob(dateOfBirth) !== null
+                          ? `Age: ${ageFromDob(dateOfBirth)} years`
+                          : 'We calculate your age from this'
+                      }
+                    />
+                    <Select
+                      label="Gender"
+                      placeholder="Select"
+                      options={GENDER_OPTIONS}
+                      value={gender}
+                      onChange={(e) => setGender(e.target.value)}
+                    />
                   </div>
                 </div>
 

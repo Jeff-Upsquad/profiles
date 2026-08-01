@@ -14,6 +14,13 @@ export const updateTalentUserSchema = z.object({
   full_name: z.string().min(1).max(200).optional(),
   phone: z.string().optional(),
   age: z.number().int().min(16).max(100).optional(),
+  // Date of birth is the source of truth for age (see updateTalentUser, which
+  // derives age from it). ISO calendar date, or null to leave unset.
+  date_of_birth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date of birth must be YYYY-MM-DD')
+    .nullable()
+    .optional(),
   gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
   native_place: z.string().max(200).optional(),
   current_location: z.string().max(200).optional(),
