@@ -70,10 +70,10 @@ function SignupBusinessInner() {
         </div>
 
         <h1 className="font-display text-[1.625rem] font-bold text-cu-900">
-          Set up your account
+          Create your account
         </h1>
         <p className="mt-1 font-ui text-sm text-cu-500">
-          Create a password to finish activating your SquadHire access
+          Sign up to start discovering talent on SquadHire
         </p>
       </div>
 

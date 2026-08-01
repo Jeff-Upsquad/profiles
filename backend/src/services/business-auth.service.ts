@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
@@ -95,8 +96,8 @@ export async function businessLogin(identifier: {
     throw new AppError(
       401,
       identifier.email
-        ? 'No account found for this email. Please contact the administrator.'
-        : 'No account found for this phone number. Please contact the administrator.'
+        ? 'No account found for this email. Sign up to create one.'
+        : 'No account found for this phone number. Sign up to create one.'
     );
   }
 
@@ -129,9 +130,13 @@ export async function businessLogin(identifier: {
   };
 }
 
-// First-time signup = activate an already-provisioned/invited account by setting
-// its password (and confirming name + business name). There is no open
-// registration: the identifier must already resolve to a business_users row.
+// Open self-serve signup. Anyone can create a business account from the signup
+// page — no invitation required. Two paths:
+//   * No existing row for the identifier → create a brand-new account.
+//   * An already-provisioned/invited row exists → activate it (set password,
+//     confirm name + business name).
+// Either way the resulting account never expires (access_expires_at stays / is
+// cleared to null), so a signed-up account is kept forever.
 export async function businessSignup(input: {
   email?: string;
   phone?: string;
@@ -143,15 +148,37 @@ export async function businessSignup(input: {
     throw new AppError(400, 'Email or phone is required');
   }
 
+  const password_hash = await hashPassword(input.password);
   const user = await findBusinessUser({ email: input.email, phone: input.phone });
+
+  // ── New account: open registration ────────────────────────────────────────
   if (!user) {
-    throw new AppError(404, 'No access found for this account. Please contact the administrator.');
+    const { data: created, error } = await supabaseAdmin
+      .from('business_users')
+      .insert({
+        id: crypto.randomUUID(),
+        company_name: input.company_name,
+        contact_person_name: input.name,
+        contact_email: input.email ? input.email.toLowerCase() : null,
+        contact_phone: input.phone ? input.phone.trim() : null,
+        password_hash,
+        password_set_at: new Date().toISOString(),
+        password_required: true,
+        must_change_password: false,
+        is_active: true,
+        verified: false,
+        access_expires_at: null,
+      })
+      .select('*')
+      .single();
+    if (error || !created) throw new AppError(500, 'Failed to create account');
+
+    return { status: 'ok' as const, ...(await issueBusinessSession(created)) };
   }
+
+  // ── Existing account: activation of a provisioned/invited row ──────────────
   if (!user.is_active) {
     throw new AppError(403, 'Your account is inactive. Please contact the administrator.');
-  }
-  if (user.access_expires_at && new Date(user.access_expires_at) < new Date()) {
-    throw new AppError(403, 'Your access has expired. Please contact the administrator.');
   }
   if (user.password_required === false) {
     throw new AppError(400, 'This account already has access. Please log in.');
@@ -160,7 +187,6 @@ export async function businessSignup(input: {
     throw new AppError(409, 'This account is already set up. Please log in with your password.');
   }
 
-  const password_hash = await hashPassword(input.password);
   const { data: updated, error } = await supabaseAdmin
     .from('business_users')
     .update({
@@ -169,6 +195,8 @@ export async function businessSignup(input: {
       must_change_password: false,
       contact_person_name: input.name,
       company_name: input.company_name,
+      // Completing signup clears any admin-set expiry — the account is forever.
+      access_expires_at: null,
     })
     .eq('id', user.id)
     .select('*')

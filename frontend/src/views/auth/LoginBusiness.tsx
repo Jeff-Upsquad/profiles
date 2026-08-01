@@ -205,6 +205,13 @@ export default function LoginBusiness() {
           )}
         </button>
 
+        <p className="font-ui text-center text-xs text-cu-500">
+          New to SquadHire?{' '}
+          <a href="/signup/business" className="font-medium text-cu-900 underline underline-offset-4">
+            Create an account
+          </a>
+        </p>
+
       </form>
 
       {accessExpired && (
