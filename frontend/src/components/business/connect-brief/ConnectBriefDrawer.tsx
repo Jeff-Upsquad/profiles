@@ -82,7 +82,7 @@ export default function ConnectBriefDrawer({
       <div
         role="dialog"
         aria-modal="true"
-        className={`absolute inset-y-0 right-0 flex w-full max-w-2xl flex-col bg-white shadow-2xl transition-transform duration-300 ease-out ${open ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`absolute inset-y-0 right-0 flex w-full max-w-3xl flex-col bg-white shadow-2xl transition-transform duration-300 ease-out ${open ? 'translate-x-0' : 'translate-x-full'}`}
       >
         {/* Top bar */}
         <div className="flex items-center justify-between gap-3 border-b border-[#E7E7EA] px-4 py-3">
