@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useMySubscriptionCards, useMyAssignmentCards, type BusinessSubscriptionCardSummary } from '@/hooks/useBusiness';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
+import { ActionHintTip } from '@/components/ui/ActionHintTip';
 import { formatDate } from '@/lib/formatDate';
 import ConnectBriefDrawer from '@/components/business/connect-brief/ConnectBriefDrawer';
 
@@ -145,6 +146,14 @@ export default function BusinessSubscription({
           </div>
         </div>
       </section>
+
+      {/* First-run hint pointing new businesses at the Request button above. */}
+      {user?.id && (
+        <ActionHintTip
+          storageKey={`squadhire:tip:request-${noun}:${user.id}`}
+          message={`New here? Use the “Request ${isAssignment ? 'an assignment' : 'a subscription'}” button above to submit ${isAssignment ? 'an assignment' : 'a subscription'} request — tell us what you need and we’ll start matching talent.`}
+        />
+      )}
 
       <ConnectBriefDrawer
         open={briefOpen}
