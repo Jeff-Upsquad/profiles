@@ -87,6 +87,15 @@ export async function signupTalent(input: SignupTalentInput) {
     console.error('Lead linking failed (non-fatal):', e);
   }
 
+  // Best-effort: the signup form doesn't ask for age/gender, but the /apply
+  // lead forms do. Now that the originating lead is linked, pull those into the
+  // talent profile so admins/businesses see them without re-asking the talent.
+  try {
+    await backfillDemographicsFromLeads(userId);
+  } catch (e) {
+    console.error('Demographics backfill from leads failed (non-fatal):', e);
+  }
+
   try {
     const { onCandidateSignedUp } = await import('./automation.service.js');
     await onCandidateSignedUp(userId, email, profileData.phone ?? null);
@@ -95,6 +104,51 @@ export async function signupTalent(input: SignupTalentInput) {
   }
 
   return { message: 'Account created successfully. Please sign in to continue.' };
+}
+
+const VALID_GENDERS = new Set(['male', 'female', 'other', 'prefer_not_to_say']);
+
+/**
+ * Fill talent_users.age / gender from the talent's linked lead submissions.
+ * Only ever fills blanks — never overwrites a value the talent already has —
+ * and picks the most recent linked lead that carries each field. Mirrors the
+ * 00112 one-time backfill so freshly signed-up accounts get the same treatment.
+ */
+async function backfillDemographicsFromLeads(userId: string): Promise<void> {
+  const { data: cur } = await supabaseAdmin
+    .from('talent_users')
+    .select('age, gender')
+    .eq('id', userId)
+    .single();
+  if (!cur) return;
+  if (cur.age != null && cur.gender) return; // nothing to fill
+
+  const { data: leads } = await supabaseAdmin
+    .from('lead_submissions')
+    .select('form_data, created_at')
+    .eq('linked_talent_user_id', userId)
+    .order('created_at', { ascending: false });
+
+  let age: number | null = null;
+  let gender: string | null = null;
+  for (const l of leads ?? []) {
+    const fd = ((l as any).form_data ?? {}) as Record<string, unknown>;
+    if (age == null && fd.age != null && fd.age !== '') {
+      const n = Number(fd.age);
+      if (Number.isFinite(n) && n >= 16 && n <= 100) age = Math.trunc(n);
+    }
+    if (!gender && typeof fd.gender === 'string' && VALID_GENDERS.has(fd.gender)) {
+      gender = fd.gender;
+    }
+    if (age != null && gender) break;
+  }
+
+  const patch: Record<string, unknown> = {};
+  if (cur.age == null && age != null) patch.age = age;
+  if (!cur.gender && gender) patch.gender = gender;
+  if (Object.keys(patch).length === 0) return;
+
+  await supabaseAdmin.from('talent_users').update(patch).eq('id', userId);
 }
 
 export async function checkCandidateStatus(input: { email?: string; phone?: string }) {
