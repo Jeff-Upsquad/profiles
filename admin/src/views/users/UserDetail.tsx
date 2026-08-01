@@ -13,6 +13,7 @@ import CandidateActivityPanel from '@/views/leads/CandidateActivityPanel';
 import TierBadge from '@/components/ui/TierBadge';
 import { cleanPhoneForLink, formatIndianPhone } from '@/lib/phone';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
+import { ALL_DAYS, monthlyOccurrences, fmt, format12 } from '@/lib/workHours';
 import { useUserActions } from './useUserActions';
 import EditBasicDetailsDialog from './edit-dialogs/EditBasicDetailsDialog';
 import EditLanguagesDialog from './edit-dialogs/EditLanguagesDialog';
@@ -145,7 +146,7 @@ const statusVariant: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
   pending: 'yellow',
 };
 
-const PLACEHOLDER = <span className="italic text-gray-400">Not provided</span>;
+const PLACEHOLDER = <span className="italic text-[#a3a3a3]">Not provided</span>;
 
 const MONTHS_SHORT = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -197,30 +198,14 @@ function formatLanguages(
       {langs.map((l, i) => (
         <span
           key={i}
-          className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700"
+          className="inline-flex items-center gap-1 rounded-full border border-[#E7E7EA] bg-[#F5F5F6] px-2.5 py-0.5 text-xs font-medium text-[#0a0a0a]"
         >
           {l.language}
-          <span className="text-indigo-400">·</span>
-          <span className="text-indigo-600">{TITLE_CASE(l.proficiency)}</span>
+          <span className="text-[#a3a3a3]">·</span>
+          <span className="text-[#737373]">{TITLE_CASE(l.proficiency)}</span>
         </span>
       ))}
     </div>
-  );
-}
-
-function formatVirtualHours(
-  hours?: { day: string; from: string; to: string }[] | null
-): ReactNode {
-  const filled = (hours ?? []).filter((h) => h.from && h.to);
-  if (filled.length === 0) return null;
-  return (
-    <ul className="space-y-0.5">
-      {filled.map((h, i) => (
-        <li key={i} className="text-sm text-gray-900">
-          <span className="font-medium">{TITLE_CASE(h.day)}</span>: {h.from} – {h.to}
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -229,6 +214,29 @@ const DAY_FULL: Record<string, string> = {
   mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday',
   fri: 'Friday', sat: 'Saturday', sun: 'Sunday',
 };
+
+function formatVirtualHours(
+  hours?: { day: string; from: string; to: string }[] | null
+): ReactNode {
+  const filled = (hours ?? []).filter((h) => h.from && h.to);
+  if (filled.length === 0) return null;
+  const sorted = [...filled].sort(
+    (a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day)
+  );
+  return (
+    <ul className="space-y-1.5">
+      {sorted.map((h, i) => (
+        <li
+          key={i}
+          className="flex items-center justify-between rounded-lg border border-[#E7E7EA] bg-[#F5F5F6] px-3.5 py-2.5 text-sm"
+        >
+          <span className="font-medium text-[#0a0a0a]">{DAY_FULL[h.day] ?? TITLE_CASE(h.day)}</span>
+          <span className="text-[#525252]">{format12(h.from)} – {format12(h.to)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function formatDailyHours(
   entries?: { day: string; hours: number }[] | null
@@ -239,10 +247,14 @@ function formatDailyHours(
     (a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day)
   );
   return (
-    <ul className="space-y-0.5">
+    <ul className="space-y-1.5">
       {sorted.map((d, i) => (
-        <li key={i} className="text-sm text-gray-900">
-          <span className="font-medium">{DAY_FULL[d.day] ?? TITLE_CASE(d.day)}</span>: {d.hours} hrs
+        <li
+          key={i}
+          className="flex items-center justify-between rounded-lg border border-[#E7E7EA] bg-[#F5F5F6] px-3.5 py-2.5 text-sm"
+        >
+          <span className="font-medium text-[#0a0a0a]">{DAY_FULL[d.day] ?? TITLE_CASE(d.day)}</span>
+          <span className="text-[#525252]">{d.hours} hrs</span>
         </li>
       ))}
     </ul>
@@ -254,14 +266,14 @@ function formatEducation(entries?: EducationEntry[] | null): ReactNode {
   return (
     <ul className="space-y-3">
       {entries.map((e, i) => (
-        <li key={i} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-          <div className="text-sm font-semibold text-gray-900">
-            {e.course_name || <span className="italic text-gray-400">Untitled course</span>}
+        <li key={i} className="rounded-xl border border-[#E7E7EA] bg-[#F5F5F6] p-4">
+          <div className="text-sm font-semibold text-[#0a0a0a]">
+            {e.course_name || <span className="italic text-[#a3a3a3]">Untitled course</span>}
           </div>
           {e.institution && (
-            <div className="mt-0.5 text-sm text-gray-700">{e.institution}</div>
+            <div className="mt-0.5 text-sm text-[#525252]">{e.institution}</div>
           )}
-          <div className="mt-1 text-xs text-gray-500">
+          <div className="mt-1.5 text-xs text-[#737373]">
             {formatMonthYear(e.from_month, e.from_year)} – {formatMonthYear(e.to_month, e.to_year)}
           </div>
         </li>
@@ -275,14 +287,14 @@ function formatExperience(entries?: ExperienceEntry[] | null): ReactNode {
   return (
     <ul className="space-y-3">
       {entries.map((e, i) => (
-        <li key={i} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-          <div className="text-sm font-semibold text-gray-900">
-            {e.designation || <span className="italic text-gray-400">Untitled role</span>}
+        <li key={i} className="rounded-xl border border-[#E7E7EA] bg-[#F5F5F6] p-4">
+          <div className="text-sm font-semibold text-[#0a0a0a]">
+            {e.designation || <span className="italic text-[#a3a3a3]">Untitled role</span>}
           </div>
           {e.company_name && (
-            <div className="mt-0.5 text-sm text-gray-700">{e.company_name}</div>
+            <div className="mt-0.5 text-sm text-[#525252]">{e.company_name}</div>
           )}
-          <div className="mt-1 text-xs text-gray-500">
+          <div className="mt-1.5 text-xs text-[#737373]">
             {formatMonthYear(e.from_month, e.from_year)} – {formatMonthYear(e.to_month, e.to_year)}
           </div>
         </li>
@@ -298,7 +310,7 @@ function FileLink({ url, label = 'View file' }: { url?: string | null; label?: s
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-indigo-600 hover:underline"
+      className="font-medium text-[#0a0a0a] underline decoration-[#d4d4d4] underline-offset-2 transition-colors hover:decoration-[#0a0a0a]"
     >
       {label}
     </a>
@@ -312,7 +324,7 @@ function Tags({ items }: { items?: string[] | null }) {
       {items.map((it) => (
         <span
           key={it}
-          className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700"
+          className="rounded-full border border-[#0a0a0a] bg-[#FFFAC2] px-2.5 py-0.5 text-xs font-medium text-[#0a0a0a]"
         >
           {TITLE_CASE(it)}
         </span>
@@ -331,15 +343,68 @@ function FieldGrid({ rows }: { rows: FieldRow[] }) {
     <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
       {rows.map(({ label, value }) => (
         <div key={label}>
-          <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
+          <dt className="text-[12px] font-medium text-[#737373]">
             {label}
           </dt>
-          <dd className="mt-1 text-sm text-gray-900 break-words">
+          <dd className="mt-1 text-sm text-[#0a0a0a] break-words">
             {isEmpty(value as unknown) ? PLACEHOLDER : (value as ReactNode)}
           </dd>
         </div>
       ))}
     </dl>
+  );
+}
+
+// Read-only Partner Program view — mirrors the talent PartnerProgramPreference
+// (office-hours windows + per-day committed hours + weekly/monthly totals).
+function PartnerProgramView({
+  officeHours,
+  daily,
+}: {
+  officeHours?: { day: string; from: string; to: string }[] | null;
+  daily?: { day: string; hours: number }[] | null;
+}) {
+  const dailyMap = new Map((daily ?? []).map((d) => [d.day, d.hours]));
+  const weekly = ALL_DAYS.reduce((s, d) => s + (dailyMap.get(d.id) ?? 0), 0);
+  const now = new Date();
+  const monthly = +ALL_DAYS.reduce(
+    (s, d) => s + (dailyMap.get(d.id) ?? 0) * monthlyOccurrences(d.id, now),
+    0,
+  ).toFixed(1);
+  const officeNode = formatVirtualHours(officeHours);
+  const dailyNode = formatDailyHours(daily);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="mb-3 font-jakarta text-base font-semibold text-[#0a0a0a]">Virtual Office Hours</h3>
+        {officeNode ?? <p className="text-sm italic text-[#a3a3a3]">Not provided</p>}
+      </div>
+      <div className="border-t border-[#E7E7EA] pt-5">
+        <h3 className="mb-3 font-jakarta text-base font-semibold text-[#0a0a0a]">Daily Available Hours</h3>
+        {dailyNode ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 rounded-xl border border-[#E7E7EA] bg-[#F5F5F6] px-4 py-3">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-[#0a0a0a]">Total per week</p>
+                <p className="mt-0.5 text-xl font-bold text-[#0a0a0a]">
+                  {fmt(weekly)} <span className="text-sm font-medium">hrs</span>
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-[#0a0a0a]">Total per month</p>
+                <p className="mt-0.5 text-xl font-bold text-[#0a0a0a]">
+                  {fmt(monthly)} <span className="text-sm font-medium">hrs</span>
+                </p>
+              </div>
+            </div>
+            {dailyNode}
+          </div>
+        ) : (
+          <p className="text-sm italic text-[#a3a3a3]">Not provided</p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -854,18 +919,29 @@ export default function UserDetail({ userId }: { userId: string }) {
       complete: wantsFreelance && !!basic?.freelance_available,
       onEdit: () => setEditTarget('freelance'),
       content: (
-        <FieldGrid
-          rows={[
-            {
-              label: 'Available for Freelance Work',
-              value: (
-                <Badge variant={basic?.freelance_available ? 'green' : 'gray'}>
-                  {basic?.freelance_available ? 'Available' : 'Not available'}
-                </Badge>
-              ),
-            },
-          ]}
-        />
+        <div
+          className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${
+            basic?.freelance_available ? 'border-[#0a0a0a] bg-[#FFFAC2]' : 'border-[#E7E7EA] bg-white'
+          }`}
+        >
+          <span
+            className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full ${
+              basic?.freelance_available ? 'bg-[#0a0a0a] text-white' : 'border border-[#d4d4d4] text-transparent'
+            }`}
+          >
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </span>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[14px] font-medium text-[#0a0a0a]">Available to take freelance work</span>
+            <span className="text-[13px] leading-snug text-[#525252]">
+              {basic?.freelance_available
+                ? 'This talent can pick up one-off freelance projects.'
+                : 'Not currently available for freelance work.'}
+            </span>
+          </div>
+        </div>
       ),
     },
     {
@@ -882,16 +958,10 @@ export default function UserDetail({ userId }: { userId: string }) {
         (basic?.daily_available_hours?.some((d) => d.hours > 0) ?? false),
       onEdit: () => setEditTarget('partner'),
       content: (
-        <div className="space-y-5">
-          <div>
-            <h3 className="mb-3 font-jakarta text-base font-semibold text-[#0a0a0a]">Virtual Office Hours</h3>
-            <FieldGrid rows={[{ label: 'Office Hours', value: formatVirtualHours(basic?.virtual_office_hours) }]} />
-          </div>
-          <div className="border-t border-[#E7E7EA] pt-5">
-            <h3 className="mb-3 font-jakarta text-base font-semibold text-[#0a0a0a]">Daily Available Hours</h3>
-            <FieldGrid rows={[{ label: 'Committed Hours', value: formatDailyHours(basic?.daily_available_hours) }]} />
-          </div>
-        </div>
+        <PartnerProgramView
+          officeHours={basic?.virtual_office_hours}
+          daily={basic?.daily_available_hours}
+        />
       ),
     },
     {
@@ -904,8 +974,8 @@ export default function UserDetail({ userId }: { userId: string }) {
       onEdit: () => setEditTarget('profilePic'),
       content: photoUrl ? (
         <div className="flex items-center gap-4">
-          <img src={photoUrl} alt="Profile" className="h-24 w-24 rounded-xl object-cover ring-1 ring-gray-200" />
-          <a href={photoUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-600 hover:underline">
+          <img src={photoUrl} alt="Profile" className="h-24 w-24 rounded-xl object-cover ring-1 ring-[#E7E7EA]" />
+          <a href={photoUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-[#0a0a0a] underline decoration-[#d4d4d4] underline-offset-2 transition-colors hover:decoration-[#0a0a0a]">
             View original
           </a>
         </div>
