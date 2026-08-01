@@ -9,6 +9,7 @@ import { getTalentTiersByUserIds } from './talent-tier.service.js';
 import { notifyTalentSubscriptionCardReceived } from './talent-whatsapp.service.js';
 import { assertHiringContentValid, syncJobEntitiesForCard } from './jobs-ingest.service.js';
 import { onHiringCardAccepted, onHiringCardDeclined } from './jobs.service.js';
+import { phoneMatchSuffix } from '../lib/phone.js';
 import type {
   IngestSubscriptionCardInput,
   ListSubscriptionsQueryInput,
@@ -58,16 +59,20 @@ async function resolveBusinessUserIdFromEmailOrPhone(
 
   const phoneNormalized = normalizePhone(phone);
   if (phoneNormalized.length >= 6) {
+    // Trailing-digit match so a business row stored with a country code
+    // ("+91…") is still linked when the card only carries the national number.
+    const suffix = phoneMatchSuffix(phoneNormalized);
     const { data, error } = await supabaseAdmin
       .from('business_users')
       .select('id')
-      .eq('contact_phone_normalized', phoneNormalized)
+      .like('contact_phone_normalized', `%${suffix}`)
       .eq('is_active', true)
-      .maybeSingle();
+      .order('created_at', { ascending: false })
+      .limit(1);
     if (error) {
       console.error('[subscription] business_user phone lookup failed', { phone: phoneNormalized, error: error.message });
-    } else if (data) {
-      return data.id as string;
+    } else if (data && data.length) {
+      return data[0].id as string;
     }
   }
 
