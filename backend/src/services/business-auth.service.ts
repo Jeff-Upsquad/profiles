@@ -5,6 +5,7 @@ import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { markInvitationAccepted } from './invite.service.js';
 import { hashPassword, comparePassword, generateTempPassword } from '../lib/password.js';
+import { phoneMatchSuffix } from '../lib/phone.js';
 
 const SESSION_DURATION_HOURS = 24;
 
@@ -12,21 +13,40 @@ async function findBusinessUser(
   identifier: { email?: string; phone?: string },
   opts: { requireActive?: boolean } = {}
 ) {
-  let qb = supabaseAdmin.from('business_users').select('*');
   if (identifier.email) {
-    qb = qb.eq('contact_email', identifier.email.toLowerCase());
-  } else if (identifier.phone) {
-    const normalized = identifier.phone.replace(/\D/g, '');
-    if (!normalized) return null;
-    qb = qb.eq('contact_phone_normalized', normalized);
-  } else {
-    return null;
+    let qb = supabaseAdmin
+      .from('business_users')
+      .select('*')
+      .eq('contact_email', identifier.email.toLowerCase());
+    if (opts.requireActive) qb = qb.eq('is_active', true);
+    const { data, error } = await qb.maybeSingle();
+    if (error) throw new AppError(500, error.message);
+    return data;
   }
-  if (opts.requireActive) qb = qb.eq('is_active', true);
 
-  const { data, error } = await qb.maybeSingle();
-  if (error) throw new AppError(500, error.message);
-  return data;
+  if (identifier.phone) {
+    // Match on the trailing 10 digits so a number stored with a country code
+    // (signup stores "+91…") is still found when the login form sends only the
+    // national number — otherwise login and signup deadlock: login reports "no
+    // account" while signup reports "already set up" for the same phone.
+    const suffix = phoneMatchSuffix(identifier.phone);
+    if (!suffix) return null;
+    let qb = supabaseAdmin
+      .from('business_users')
+      .select('*')
+      .like('contact_phone_normalized', `%${suffix}`);
+    if (opts.requireActive) qb = qb.eq('is_active', true);
+    const { data, error } = await qb.order('created_at', { ascending: false });
+    if (error) throw new AppError(500, error.message);
+    const rows = data ?? [];
+    if (rows.length <= 1) return rows[0] ?? null;
+    // Legacy data can hold two rows sharing these last 10 digits (one stored
+    // with a country code, one without). Prefer an activated account so the
+    // user can actually log in; otherwise take the most recent.
+    return rows.find((r) => r.password_hash) ?? rows[0];
+  }
+
+  return null;
 }
 
 // Mint a business JWT + revocable session row and return the standard login

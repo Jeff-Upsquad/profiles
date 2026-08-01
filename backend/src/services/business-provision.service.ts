@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
+import { phoneMatchSuffix } from '../lib/phone.js';
 
 export interface ProvisionBusinessInput {
   email?: string | null;
@@ -95,14 +96,18 @@ async function findExisting(email: string | null, phone: string | null) {
     if (data) return data;
   }
   if (phone) {
-    const normalized = phone.replace(/\D/g, '');
-    if (normalized) {
+    // Trailing-10-digit match so a self-signed-up row stored with a country
+    // code ("+91…") is found here too — otherwise provisioning would create a
+    // duplicate for a phone that already has an account.
+    const suffix = phoneMatchSuffix(phone);
+    if (suffix) {
       const { data } = await supabaseAdmin
         .from('business_users')
         .select('*')
-        .eq('contact_phone_normalized', normalized)
-        .maybeSingle();
-      if (data) return data;
+        .like('contact_phone_normalized', `%${suffix}`)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (data && data.length) return data[0];
     }
   }
   return null;

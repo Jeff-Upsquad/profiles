@@ -7,6 +7,7 @@ import api from '@/services/api';
 import toast from 'react-hot-toast';
 import { businessWhatsappDeepLink, BUSINESS_SUPPORT_PHONE_DISPLAY } from '@/lib/whatsapp';
 import { AuthShell } from './LoginTalent';
+import { COUNTRY_CODES } from '@/constants/country-codes';
 
 type Identifier = 'email' | 'phone';
 
@@ -15,7 +16,10 @@ export default function LoginBusiness() {
   const { businessLogin } = useAuth();
   const [identifier, setIdentifier] = useState<Identifier>('email');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('+91');
+  // Phone is stored with its country code, e.g. "+919876543210" — matching the
+  // signup form so the value round-trips cleanly to first-time signup.
+  const [phone, setPhone] = useState('+91');
   const [password, setPassword] = useState('');
   const [showForgot, setShowForgot] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -128,15 +132,42 @@ export default function LoginBusiness() {
               className="input-v5"
             />
           ) : (
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => { setPhone(e.target.value); resetExpiredState(); }}
-              placeholder="+91 98765 43210"
-              required
-              autoFocus
-              className="input-v5"
-            />
+            <div className="flex items-stretch gap-2">
+              <select
+                value={countryCode}
+                onChange={(e) => {
+                  const newCode = e.target.value;
+                  const digits = phone.replace(countryCode, '');
+                  setCountryCode(newCode);
+                  setPhone(newCode + digits);
+                  resetExpiredState();
+                }}
+                aria-label="Country code"
+                className="input-v5"
+                style={{ width: 'auto', flex: '0 0 auto' }}
+              >
+                {COUNTRY_CODES.map((cc) => (
+                  <option key={cc.code} value={cc.code}>
+                    {cc.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="tel"
+                inputMode="numeric"
+                maxLength={15}
+                value={phone.replace(countryCode, '')}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 15);
+                  setPhone(countryCode + digits);
+                  resetExpiredState();
+                }}
+                placeholder="98765 43210"
+                required
+                autoFocus
+                className="input-v5 flex-1"
+              />
+            </div>
           )}
         </div>
 
