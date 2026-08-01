@@ -581,7 +581,7 @@ export default function DesignerBriefForm({
 
   return (
     <div className="connect-bg min-h-full px-4 py-6 sm:py-8">
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto max-w-[44rem]">
         <header className="mb-6 sm:mb-8 text-center">
           <h1 className="text-[24px] sm:text-[28px] font-semibold tracking-tight text-[#222]">
             Tell us about your brand
@@ -912,9 +912,9 @@ export default function DesignerBriefForm({
                             <thead>
                               <tr className="bg-[#F4F1E8] text-[11px] font-semibold uppercase tracking-wide text-[#7A7568]">
                                 <th className="px-2 py-2 sm:px-3">Plan</th>
-                                <th className="px-2 py-2 text-right sm:px-3">Day</th>
-                                <th className="px-2 py-2 text-right sm:px-3">Week</th>
-                                <th className="px-2 py-2 text-right sm:px-3">Month</th>
+                                <th className="px-2 py-2 text-right text-[#0a0a0a] sm:px-3">Per day</th>
+                                <th className="px-2 py-2 text-right sm:px-3">Weekly max</th>
+                                <th className="px-2 py-2 text-right sm:px-3">Monthly max</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -940,14 +940,26 @@ export default function DesignerBriefForm({
                                         {p.name}
                                       </span>
                                     </td>
-                                    <td className="px-2 py-2.5 text-right text-[#3A3A3A] sm:px-3">{p.dailyHours} hr{p.dailyHours > 1 ? 's' : ''}</td>
-                                    <td className="px-2 py-2.5 text-right text-[#3A3A3A] sm:px-3">{p.weeklyHours} hrs</td>
-                                    <td className="px-2 py-2.5 text-right text-[#3A3A3A] sm:px-3">{p.monthlyHours} hrs</td>
+                                    <td className="px-2 py-2.5 text-right sm:px-3">
+                                      <span className="text-[15px] font-bold leading-none text-[#0a0a0a]">{p.dailyHours}</span>
+                                      <span className="text-[11px] font-semibold text-[#0a0a0a]"> hr{p.dailyHours > 1 ? 's' : ''}</span>
+                                      <span className="mt-0.5 block text-[10px] font-medium uppercase tracking-wide text-[#9C9486]">per day</span>
+                                    </td>
+                                    <td className="px-2 py-2.5 text-right text-xs text-[#7A7568] sm:px-3">{p.weeklyHours} hrs</td>
+                                    <td className="px-2 py-2.5 text-right text-xs text-[#7A7568] sm:px-3">{p.monthlyHours} hrs</td>
                                   </tr>
                                 );
                               })}
                             </tbody>
                           </table>
+                        </div>
+                        <div className="mt-2.5 flex items-start gap-2 rounded-lg border border-[#E8E5DD] bg-[#FBFAF6] px-3 py-2.5">
+                          <svg className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[#9C9486]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <p className="text-[11px] leading-relaxed text-[#7A7568]">
+                            <span className="font-semibold text-[#0a0a0a]">Daily hours come first.</span> The weekly and monthly figures are maximum caps, not a saved-up balance. If a day passes with no work assigned, those hours lapse and still count against your weekly and monthly limits — unused time doesn&apos;t roll over.
+                          </p>
                         </div>
                       </div>
 
@@ -1147,26 +1159,40 @@ function PlanCompareModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm sm:p-6"
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border-2 border-[#0a0a0a] bg-white shadow-[6px_6px_0_0_rgba(10,10,10,0.18)]"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Compare plans — ${roleTitle}`}
+        className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border-2 border-[#0a0a0a] bg-white shadow-[8px_8px_0_0_rgba(10,10,10,0.22)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[#E8E5DD] px-5 py-3.5">
-          <div>
-            <h3 className="text-base font-bold text-[#0a0a0a]">Compare plans</h3>
-            <p className="text-xs text-[#7A7568]">{roleTitle} · pick the weekly availability that fits</p>
+        {/* Window chrome — reads as a distinct floating window */}
+        <div className="flex items-center gap-3 border-b-2 border-[#0a0a0a] bg-[#F4F1E8] px-4 py-2.5">
+          <div className="flex flex-shrink-0 items-center gap-1.5">
+            <span className="h-3 w-3 rounded-full border border-[#0a0a0a] bg-[#FF5F57]" />
+            <span className="h-3 w-3 rounded-full border border-[#0a0a0a] bg-[#FEBC2E]" />
+            <span className="h-3 w-3 rounded-full border border-[#0a0a0a] bg-[#28C840]" />
           </div>
+          <h3 className="min-w-0 flex-1 truncate text-center text-sm font-bold text-[#0a0a0a]">
+            Compare plans — {roleTitle}
+          </h3>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-2xl leading-none text-[#5C5C5C] transition hover:bg-[#F4F1E8] hover:text-[#0a0a0a]"
+            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border-2 border-[#0a0a0a] bg-white text-lg leading-none text-[#0a0a0a] shadow-[1px_1px_0_0_#0a0a0a] transition hover:bg-[#FCF487] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
           >
             ×
           </button>
+        </div>
+        {/* Subtitle + allocation reminder */}
+        <div className="border-b border-[#E8E5DD] bg-white px-5 py-2.5">
+          <p className="text-[11px] leading-relaxed text-[#7A7568]">
+            <span className="font-semibold text-[#0a0a0a]">Pick the weekly availability that fits.</span> Daily hours are your allocation; weekly and monthly figures are maximum caps — unused daily time doesn&apos;t roll over.
+          </p>
         </div>
 
         <div className="overflow-auto">
