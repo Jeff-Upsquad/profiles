@@ -35,51 +35,158 @@ function normalizePhone(phone: string | undefined): string {
   return phone.replace(/[^0-9]/g, '');
 }
 
+type BusinessUserHit = {
+  id: string;
+  contact_email: string | null;
+  password_hash: string | null;
+  password_required: boolean | null;
+  created_at: string;
+};
+
+/** Signed-up / legacy-access accounts beat auto-invite shells with no password. */
+function isActivatedBusinessUser(u: BusinessUserHit): boolean {
+  return !!u.password_hash || u.password_required === false;
+}
+
 /**
- * Resolve a business_users row by email first, then by normalized phone.
- * Either is enough — used by the card ingest path.
+ * When email and phone resolve to different rows (common after an email-only
+ * auto-invite creates a ghost while the customer already signed up by phone),
+ * prefer the activated account; otherwise the older row.
+ */
+function pickPreferredBusinessUser(
+  a: BusinessUserHit | null,
+  b: BusinessUserHit | null,
+): BusinessUserHit | null {
+  if (a && b && a.id !== b.id) {
+    const aAct = isActivatedBusinessUser(a);
+    const bAct = isActivatedBusinessUser(b);
+    if (aAct !== bAct) return aAct ? a : b;
+    return a.created_at <= b.created_at ? a : b;
+  }
+  return a ?? b;
+}
+
+async function findBusinessUserByEmail(email: string): Promise<BusinessUserHit | null> {
+  const { data, error } = await supabaseAdmin
+    .from('business_users')
+    .select('id, contact_email, password_hash, password_required, created_at')
+    .ilike('contact_email', email)
+    .eq('is_active', true)
+    .maybeSingle();
+  if (error) {
+    console.error('[subscription] business_user email lookup failed', { email, error: error.message });
+    return null;
+  }
+  return (data as BusinessUserHit | null) ?? null;
+}
+
+async function findBusinessUserByPhone(phone: string): Promise<BusinessUserHit | null> {
+  const phoneNormalized = normalizePhone(phone);
+  if (phoneNormalized.length < 6) return null;
+  // Trailing-digit match so a business row stored with a country code
+  // ("+91…") is still linked when the card only carries the national number.
+  const suffix = phoneMatchSuffix(phoneNormalized);
+  if (!suffix) return null;
+  const { data, error } = await supabaseAdmin
+    .from('business_users')
+    .select('id, contact_email, password_hash, password_required, created_at')
+    .like('contact_phone_normalized', `%${suffix}`)
+    .eq('is_active', true)
+    .order('created_at', { ascending: true })
+    .limit(5);
+  if (error) {
+    console.error('[subscription] business_user phone lookup failed', {
+      phone: phoneNormalized,
+      error: error.message,
+    });
+    return null;
+  }
+  const rows = (data as BusinessUserHit[] | null) ?? [];
+  if (rows.length === 0) return null;
+  // Prefer an activated row when several share the same trailing digits.
+  return rows.find(isActivatedBusinessUser) ?? rows[0];
+}
+
+/**
+ * Attach SquadHub's customer email onto a phone-matched account that signed up
+ * without one, so later email-only publishes resolve to the same row instead of
+ * spawning an invite ghost.
+ */
+async function backfillBusinessEmailIfMissing(
+  userId: string,
+  email: string,
+): Promise<void> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return;
+
+  const { data: current, error: readErr } = await supabaseAdmin
+    .from('business_users')
+    .select('contact_email')
+    .eq('id', userId)
+    .maybeSingle();
+  if (readErr || !current) return;
+  if ((current.contact_email as string | null)?.trim()) return;
+
+  // Free the email on any other active row that only holds it as an invite shell
+  // (no password) so the unique-ish lookup lands on the real account.
+  const { data: holders } = await supabaseAdmin
+    .from('business_users')
+    .select('id, password_hash, password_required')
+    .ilike('contact_email', normalized)
+    .eq('is_active', true)
+    .neq('id', userId);
+  for (const holder of holders ?? []) {
+    const shell =
+      !holder.password_hash && holder.password_required !== false;
+    if (!shell) continue;
+    await supabaseAdmin
+      .from('business_users')
+      .update({ contact_email: null, is_active: false })
+      .eq('id', holder.id);
+  }
+
+  const { error } = await supabaseAdmin
+    .from('business_users')
+    .update({ contact_email: normalized })
+    .eq('id', userId)
+    .is('contact_email', null);
+  if (error) {
+    console.error('[subscription] failed to backfill business_email', {
+      userId,
+      email: normalized,
+      error: error.message,
+    });
+  }
+}
+
+/**
+ * Resolve a business_users row by email and/or phone. When both match different
+ * rows, prefer an activated account over an auto-invite shell — used by the
+ * card ingest path.
  */
 async function resolveBusinessUserIdFromEmailOrPhone(
   email: string | undefined,
   phone: string | undefined,
 ): Promise<string | null> {
-  if (email) {
-    const { data, error } = await supabaseAdmin
-      .from('business_users')
-      .select('id')
-      .ilike('contact_email', email)
-      .eq('is_active', true)
-      .maybeSingle();
-    if (error) {
-      console.error('[subscription] business_user email lookup failed', { email, error: error.message });
-    } else if (data) {
-      return data.id as string;
+  const byEmail = email ? await findBusinessUserByEmail(email) : null;
+  const byPhone = phone ? await findBusinessUserByPhone(phone) : null;
+  const picked = pickPreferredBusinessUser(byEmail, byPhone);
+
+  if (!picked) {
+    if (email || phone) {
+      console.warn('[subscription] no business_user matched email or phone', { email, phone });
     }
+    return null;
   }
 
-  const phoneNormalized = normalizePhone(phone);
-  if (phoneNormalized.length >= 6) {
-    // Trailing-digit match so a business row stored with a country code
-    // ("+91…") is still linked when the card only carries the national number.
-    const suffix = phoneMatchSuffix(phoneNormalized);
-    const { data, error } = await supabaseAdmin
-      .from('business_users')
-      .select('id')
-      .like('contact_phone_normalized', `%${suffix}`)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(1);
-    if (error) {
-      console.error('[subscription] business_user phone lookup failed', { phone: phoneNormalized, error: error.message });
-    } else if (data && data.length) {
-      return data[0].id as string;
-    }
+  if (email && !(picked.contact_email || '').trim()) {
+    // Fire-and-forget — card link must not wait on the backfill write.
+    backfillBusinessEmailIfMissing(picked.id, email).catch((err) => {
+      console.error('[subscription] business_email backfill threw', err);
+    });
   }
 
-  if (email || phone) {
-    console.warn('[subscription] no business_user matched email or phone', { email, phone });
-  }
-  return null;
+  return picked.id;
 }
 
 /**
@@ -87,18 +194,34 @@ async function resolveBusinessUserIdFromEmailOrPhone(
  * or phone, drop a 7-day pending invitation so the customer can sign in
  * once they accept it. Idempotent: a pending invitation for the same email
  * (or phone) is left alone.
+ *
+ * Returns the business_users.id when a new (or already-pending) row can be
+ * used as the card owner, so the first publish is not left with a null
+ * business_user_id.
  */
 async function createBusinessInvitationIfNew(input: {
   email?: string;
   phone?: string;
   contactName?: string;
   company?: string;
-}): Promise<void> {
+}): Promise<string | null> {
   const email = input.email?.trim().toLowerCase() || null;
   const phone = input.phone?.trim() || null;
-  if (!email && !phone) return;
+  if (!email && !phone) return null;
 
   const phoneNormalized = normalizePhone(phone || undefined);
+
+  // Phone-matched account already exists (e.g. self-serve signup with no
+  // email) — attach the SquadHub email and reuse it instead of a ghost invite.
+  if (phone) {
+    const byPhone = await findBusinessUserByPhone(phone);
+    if (byPhone) {
+      if (email) {
+        await backfillBusinessEmailIfMissing(byPhone.id, email);
+      }
+      return byPhone.id;
+    }
+  }
 
   // Skip if a pending invitation already exists for this email or phone.
   // The schema has unique partial indexes on both, so a duplicate insert
@@ -110,7 +233,14 @@ async function createBusinessInvitationIfNew(input: {
       .eq('status', 'pending')
       .ilike('email', email)
       .maybeSingle();
-    if (data) return;
+    if (data) {
+      const { data: existingUser } = await supabaseAdmin
+        .from('business_users')
+        .select('id')
+        .eq('invitation_id', data.id)
+        .maybeSingle();
+      return (existingUser?.id as string | undefined) ?? null;
+    }
   }
   if (!email && phoneNormalized && phoneNormalized.length >= 6) {
     const { data } = await supabaseAdmin
@@ -119,11 +249,19 @@ async function createBusinessInvitationIfNew(input: {
       .eq('status', 'pending')
       .eq('phone_normalized', phoneNormalized)
       .maybeSingle();
-    if (data) return;
+    if (data) {
+      const { data: existingUser } = await supabaseAdmin
+        .from('business_users')
+        .select('id')
+        .eq('invitation_id', data.id)
+        .maybeSingle();
+      return (existingUser?.id as string | undefined) ?? null;
+    }
   }
 
   // 7-day expiry from now.
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const newUserId = crypto.randomUUID();
 
   // 1. Create the invitations row.
   const { data: invitation, error: invErr } = await supabaseAdmin
@@ -144,7 +282,7 @@ async function createBusinessInvitationIfNew(input: {
     console.error('[subscription] failed to create business invitation', {
       email, phone, error: invErr?.message,
     });
-    return;
+    return null;
   }
 
   // 2. Create the business_users row immediately so the customer can sign in
@@ -154,7 +292,7 @@ async function createBusinessInvitationIfNew(input: {
   const { error: bizErr } = await supabaseAdmin
     .from('business_users')
     .insert({
-      id: crypto.randomUUID(),
+      id: newUserId,
       company_name: input.company || 'Unnamed Company',
       contact_person_name: input.contactName || '',
       contact_email: (email ?? '').toLowerCase(),
@@ -171,9 +309,14 @@ async function createBusinessInvitationIfNew(input: {
     console.error('[subscription] failed to create business_user; invitation rolled back', {
       email, phone, error: bizErr.message,
     });
-    return;
+    return null;
   }
-  console.info('[subscription] auto-created business_user + 7-day invitation', { email, phone });
+  console.info('[subscription] auto-created business_user + 7-day invitation', {
+    email,
+    phone,
+    businessUserId: newUserId,
+  });
+  return newUserId;
 }
 
 async function autoSubscribeBusinessToCategories(
@@ -277,21 +420,24 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
   }
 
   // Resolve the lead to a Profiles business_users row by email or phone.
-  // If neither matches, fire-and-forget a 7-day pending invitation so the
-  // customer can sign in later (and a future ingest will then resolve them).
-  const businessUserId = await resolveBusinessUserIdFromEmailOrPhone(
+  // If neither matches, create a 7-day pending invitation + business_users
+  // row and attach that id immediately so the first publish is visible once
+  // they activate (and so we don't leave business_user_id null).
+  let businessUserId = await resolveBusinessUserIdFromEmailOrPhone(
     input.business_email,
     input.business_phone,
   );
   if (!businessUserId) {
-    createBusinessInvitationIfNew({
-      email: input.business_email,
-      phone: input.business_phone,
-      contactName: input.business_contact_name,
-      company: input.business_company,
-    }).catch((err) => {
+    try {
+      businessUserId = await createBusinessInvitationIfNew({
+        email: input.business_email,
+        phone: input.business_phone,
+        contactName: input.business_contact_name,
+        company: input.business_company,
+      });
+    } catch (err) {
       console.error('[subscription] business invitation create threw', err);
-    });
+    }
   }
 
   // Manual ("soft publish") cards must NOT auto-fan-out. The business owner
