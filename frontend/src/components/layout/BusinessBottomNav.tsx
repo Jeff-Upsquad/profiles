@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
 import BusinessNotificationsBell from '@/components/jobs/business/BusinessNotificationsBell';
 
 const NAV_ITEMS = [
@@ -53,7 +52,6 @@ const NAV_ITEMS = [
 
 export default function BusinessBottomNav() {
   const pathname = usePathname() ?? '';
-  const { user, logout } = useAuth();
 
   const isActive = (href: string, matchPrefixes?: string[]) => {
     if (matchPrefixes?.length) {
@@ -64,37 +62,11 @@ export default function BusinessBottomNav() {
     return pathname === href || pathname.startsWith(href + '/');
   };
 
-  const displayName =
-    (user?.role === 'business' && user?.contact_person_name) || user?.full_name || user?.email || '';
-  const displayEmail = (user?.role === 'business' && user?.contact_email) || user?.email || '';
-  const displayPhone = user?.role === 'business' ? user?.contact_phone : undefined;
-
   return (
     <>
-      {/* Spacer so content isn't hidden behind the fixed bar (mobile only).
-          The user strip + nav row total ~104px on mobile. */}
-      <div className="h-[104px] md:hidden" />
-      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-zinc-200 bg-white md:hidden">
-        {/* User strip — replaces the navbar's user info on mobile so logout
-            stays reachable. */}
-        {user && (
-          <div className="flex items-center justify-between gap-3 border-b border-zinc-100 px-4 py-2">
-            <div className="min-w-0">
-              {displayName && (
-                <p className="truncate text-xs font-semibold text-zinc-900">{displayName}</p>
-              )}
-              <p className="truncate text-[10px] text-zinc-500">
-                {[displayEmail, displayPhone].filter(Boolean).join(' · ')}
-              </p>
-            </div>
-            <button
-              onClick={() => logout()}
-              className="shrink-0 rounded-md border border-zinc-200 px-2.5 py-1 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50"
-            >
-              Logout
-            </button>
-          </div>
-        )}
+      {/* Spacer for the fixed icon row only (user strip moved to top profile menu). */}
+      <div className="h-[64px] md:hidden" />
+      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
         <nav className="mx-auto flex max-w-lg items-center justify-around py-2">
           {NAV_ITEMS.map((item) => {
             const active = isActive(item.href, item.matchPrefixes);
@@ -102,7 +74,7 @@ export default function BusinessBottomNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                className={`flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
                   active
                     ? 'text-[#0a0a0a]'
                     : 'text-zinc-500 hover:text-zinc-900'
