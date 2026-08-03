@@ -70,8 +70,8 @@ export default function SubscriptionCardReview({
   // Assignments reuse this review view but live under their own route, so the
   // back-nav + labels read "assignments" instead of "subscription".
   const isAssignment = variant === 'assignment';
-  const backHref = isAssignment ? '/business/assignments' : '/business/subscription';
-  const backLabel = isAssignment ? 'Back to assignments' : 'Back to subscriptions';
+  const backHref = '/business/hire';
+  const backLabel = 'Back to Find talent';
   const { user } = useAuth();
   const { data: card, isLoading: cardLoading, error: cardError } = useMySubscriptionCard(cardId);
   const { data: recipients, isLoading: recipientsLoading } = useCardRecipients(cardId);

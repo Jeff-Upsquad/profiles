@@ -1,10 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import BusinessSubscription from '@/views/business/BusinessSubscription';
-
-// Freelance Assignment cards for the business — same view as subscriptions,
-// driven by the assignment variant (separate list endpoint + copy). Card
-// detail / talent review reuse the shared /business/subscription/[cardId] route.
+/** List view folded into unified Find talent hub. Detail routes stay. */
 export default function BusinessAssignmentsPage() {
-  return <BusinessSubscription variant="assignment" />;
+  redirect('/business/hire');
 }
