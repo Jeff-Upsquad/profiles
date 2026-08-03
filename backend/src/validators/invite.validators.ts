@@ -35,18 +35,13 @@ export const businessLoginSchema = z
     path: ['email'],
   });
 
-export const businessSignupSchema = z
-  .object({
-    email: z.string().email('Valid email is required').optional(),
-    phone: phoneSchema.optional(),
-    name: z.string().trim().min(1, 'Your name is required').max(200),
-    company_name: z.string().trim().min(1, 'Business name is required').max(300),
-    password: z.string().min(8, 'Password must be at least 8 characters').max(200),
-  })
-  .refine((v) => !!v.email || !!v.phone, {
-    message: 'Email or phone is required',
-    path: ['email'],
-  });
+export const businessSignupSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  phone: phoneSchema,
+  name: z.string().trim().min(1, 'Your name is required').max(200),
+  company_name: z.string().trim().min(1, 'Business name is required').max(300),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(200),
+});
 
 export const businessChangePasswordSchema = z.object({
   current_password: z.string().min(1, 'Current password is required'),

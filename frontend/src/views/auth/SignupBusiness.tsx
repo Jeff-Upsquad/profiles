@@ -7,8 +7,6 @@ import toast from 'react-hot-toast';
 import { AuthShell } from './LoginTalent';
 import { COUNTRY_CODES } from '@/constants/country-codes';
 
-type Identifier = 'email' | 'phone';
-
 const detectCountryCode = (p: string) =>
   COUNTRY_CODES.find((cc) => p.startsWith(cc.code))?.code ?? '+91';
 
@@ -19,10 +17,6 @@ function SignupBusinessInner() {
   const prefillEmail = params.get('email') ?? '';
   const prefillPhone = params.get('phone') ?? '';
 
-  // Default to phone; only start on email when an email was prefilled and no phone.
-  const [identifier, setIdentifier] = useState<Identifier>(
-    prefillEmail && !prefillPhone ? 'email' : 'phone',
-  );
   const [countryCode, setCountryCode] = useState(() =>
     prefillPhone ? detectCountryCode(prefillPhone) : '+91',
   );
@@ -41,6 +35,15 @@ function SignupBusinessInner() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (!email.trim()) {
+      toast.error('Email is required');
+      return;
+    }
+    if (phoneDigits.length < 7) {
+      toast.error('Phone number is required');
+      return;
+    }
     if (password.length < 8) {
       toast.error('Password must be at least 8 characters');
       return;
@@ -48,7 +51,8 @@ function SignupBusinessInner() {
     setLoading(true);
     try {
       await businessSignup({
-        ...(identifier === 'email' ? { email } : { phone }),
+        email: email.trim(),
+        phone,
         name,
         company_name: companyName,
         password,
@@ -79,62 +83,56 @@ function SignupBusinessInner() {
 
       <form onSubmit={handleSubmit} className="stagger-2 mt-7 space-y-4">
         <div>
-          <div className="flex items-center justify-between">
-            <label className="font-ui mb-1.5 block text-[13px] font-medium text-cu-700">
-              {identifier === 'email' ? 'Email address' : 'Phone number'}
-            </label>
-            <button
-              type="button"
-              onClick={() => setIdentifier(identifier === 'email' ? 'phone' : 'email')}
-              className="font-ui inline-flex items-center gap-1 text-xs font-medium text-cu-900 underline underline-offset-4 hover:opacity-70"
-            >
-              {identifier === 'email' ? 'Use Phone' : 'Use Email'}
-            </button>
-          </div>
-          {identifier === 'email' ? (
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
-              required
+          <label className="font-ui mb-1.5 block text-[13px] font-medium text-cu-700">
+            Email address
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@company.com"
+            required
+            className="input-v5"
+          />
+        </div>
+
+        <div>
+          <label className="font-ui mb-1.5 block text-[13px] font-medium text-cu-700">
+            Phone number
+          </label>
+          <div className="flex items-stretch gap-2">
+            <select
+              value={countryCode}
+              onChange={(e) => {
+                const newCode = e.target.value;
+                const digits = phone.replace(countryCode, '');
+                setCountryCode(newCode);
+                setPhone(newCode + digits);
+              }}
+              aria-label="Country code"
               className="input-v5"
+              style={{ width: 'auto', flex: '0 0 auto' }}
+            >
+              {COUNTRY_CODES.map((cc) => (
+                <option key={cc.code} value={cc.code}>
+                  {cc.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={15}
+              value={phone.replace(countryCode, '')}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, '').slice(0, 15);
+                setPhone(countryCode + digits);
+              }}
+              placeholder="98765 43210"
+              required
+              className="input-v5 flex-1"
             />
-          ) : (
-            <div className="flex items-stretch gap-2">
-              <select
-                value={countryCode}
-                onChange={(e) => {
-                  const newCode = e.target.value;
-                  const digits = phone.replace(countryCode, '');
-                  setCountryCode(newCode);
-                  setPhone(newCode + digits);
-                }}
-                aria-label="Country code"
-                className="input-v5"
-                style={{ width: 'auto', flex: '0 0 auto' }}
-              >
-                {COUNTRY_CODES.map((cc) => (
-                  <option key={cc.code} value={cc.code}>
-                    {cc.label}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="tel"
-                inputMode="numeric"
-                maxLength={15}
-                value={phone.replace(countryCode, '')}
-                onChange={(e) => {
-                  const digits = e.target.value.replace(/\D/g, '').slice(0, 15);
-                  setPhone(countryCode + digits);
-                }}
-                placeholder="98765 43210"
-                required
-                className="input-v5 flex-1"
-              />
-            </div>
-          )}
+          </div>
         </div>
 
         <div>

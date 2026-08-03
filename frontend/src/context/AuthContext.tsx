@@ -14,8 +14,8 @@ const CHANGE_PASSWORD_PATH = '/change-password';
 const BUSINESS_CHANGE_PASSWORD_PATH = '/change-password/business';
 
 interface BusinessSignupData {
-  email?: string;
-  phone?: string;
+  email: string;
+  phone: string;
   name: string;
   company_name: string;
   password: string;

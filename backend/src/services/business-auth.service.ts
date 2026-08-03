@@ -151,25 +151,38 @@ export async function businessLogin(identifier: {
 }
 
 // Open self-serve signup. Anyone can create a business account from the signup
-// page — no invitation required. Two paths:
-//   * No existing row for the identifier → create a brand-new account.
+// page — no invitation required. Both email and phone are required. Two paths:
+//   * No existing row for email or phone → create a brand-new account.
 //   * An already-provisioned/invited row exists → activate it (set password,
-//     confirm name + business name).
+//     confirm name + business name, fill any missing contact fields).
 // Either way the resulting account never expires (access_expires_at stays / is
 // cleared to null), so a signed-up account is kept forever.
 export async function businessSignup(input: {
-  email?: string;
-  phone?: string;
+  email: string;
+  phone: string;
   name: string;
   company_name: string;
   password: string;
 }) {
-  if (!input.email && !input.phone) {
-    throw new AppError(400, 'Email or phone is required');
+  if (!input.email?.trim() || !input.phone?.trim()) {
+    throw new AppError(400, 'Email and phone are required');
   }
 
+  const email = input.email.trim().toLowerCase();
+  const phone = input.phone.trim();
   const password_hash = await hashPassword(input.password);
-  const user = await findBusinessUser({ email: input.email, phone: input.phone });
+
+  // Resolve by email first, then phone, so an invite that only stored one
+  // contact method still activates instead of creating a duplicate.
+  const byEmail = await findBusinessUser({ email });
+  const byPhone = await findBusinessUser({ phone });
+  if (byEmail && byPhone && byEmail.id !== byPhone.id) {
+    throw new AppError(
+      409,
+      'This email and phone number belong to different accounts. Please contact support.',
+    );
+  }
+  const user = byEmail ?? byPhone;
 
   // ── New account: open registration ────────────────────────────────────────
   if (!user) {
@@ -179,8 +192,8 @@ export async function businessSignup(input: {
         id: crypto.randomUUID(),
         company_name: input.company_name,
         contact_person_name: input.name,
-        contact_email: input.email ? input.email.toLowerCase() : null,
-        contact_phone: input.phone ? input.phone.trim() : null,
+        contact_email: email,
+        contact_phone: phone,
         password_hash,
         password_set_at: new Date().toISOString(),
         password_required: true,
@@ -215,6 +228,8 @@ export async function businessSignup(input: {
       must_change_password: false,
       contact_person_name: input.name,
       company_name: input.company_name,
+      contact_email: email,
+      contact_phone: phone,
       // Completing signup clears any admin-set expiry — the account is forever.
       access_expires_at: null,
     })
