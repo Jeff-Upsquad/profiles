@@ -556,8 +556,8 @@ export default function BusinessHireHub({
           document.body,
         )}
 
-      {/* ── What do you need? — desktop only (mobile uses Create sheet) ── */}
-      <section className="hidden md:block">
+      {/* ── What do you need? — product explainers + create CTAs ── */}
+      <section>
         <div className="mb-3 flex items-end justify-between gap-3">
           <div>
             <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
@@ -683,8 +683,8 @@ export default function BusinessHireHub({
         </div>
       </section>
 
-      {/* ── Quick compare — desktop only; collapsed by default when cards exist ── */}
-      <section className="hidden overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:block">
+      {/* ── Quick compare — collapsed by default when user already has cards ── */}
+      <section className="overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <button
           type="button"
           onClick={() => setCompareOpen((v) => !v)}
