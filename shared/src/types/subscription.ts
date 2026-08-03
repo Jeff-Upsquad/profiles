@@ -31,8 +31,14 @@ export interface SubscriptionCardContent {
   >;
   working_days?: string[];
   brand_name?: string;
+  /** About-the-client: nature of business (not location). */
   business_nature?: string;
+  /** About-the-client: location of business (kept separate from business_nature). */
+  customer_location?: string;
+  /** About-the-client: short note about the business. */
   notes?: string;
+  /** Client-brief requirement; also mirrored into deliverables_label by SquadHub. */
+  requirement_note?: string;
   target_country_names?: string[];
   target_languages?: string[];
   // Plan-card fields (forwarded from SquadHub's selected plan):
@@ -40,6 +46,7 @@ export interface SubscriptionCardContent {
   subscription_name?: string;
   hours_label?: string;
   capacity_label?: string;
+  /** Prefer this for Deliverables; SquadHub sets it from requirement_note. */
   deliverables_label?: string;
   monthly_price?: number;
   currency?: string;

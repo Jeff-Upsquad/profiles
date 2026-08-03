@@ -33,7 +33,9 @@ export interface SubscriptionCardContentShape {
   working_days?: string[];
   brand_name?: string;
   business_nature?: string;
+  customer_location?: string;
   notes?: string;
+  requirement_note?: string;
   target_country_names?: string[];
   target_languages?: string[];
   // Plan-card fields (SquadHub should forward these from the selected plan):
@@ -41,7 +43,7 @@ export interface SubscriptionCardContentShape {
   subscription_name?: string;        // "Designer"
   hours_label?: string;              // "4-5 hours/day"
   capacity_label?: string;           // "50% Capacity"
-  deliverables_label?: string;       // "e.g. 20 posters per month"
+  deliverables_label?: string;       // requirement note or "e.g. 20 posters per month"
   monthly_price?: number;            // 20000
   currency?: string;                 // "INR"
   price_label?: string;              // pre-formatted "₹20,000/month" (optional; overrides monthly_price+currency)

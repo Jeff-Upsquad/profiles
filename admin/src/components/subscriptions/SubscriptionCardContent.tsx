@@ -1,12 +1,15 @@
 'use client';
 
+import { useState } from 'react';
+
 /**
  * Renders a subscription card in a plan-tile layout. Priority order:
  *   1. Title + plan name + POPULAR ribbon (if is_popular)
  *   2. HOURS — hours_label + capacity_label (big, primary)
- *   3. DELIVERABLES — deliverables_label + custom_deliverables list
+ *   3. DELIVERABLES — deliverables_label (+ requirement_note fallback) + list
  *   4. PAYMENT — price_label or formatted monthly_price/currency (green accent)
- *   5. Secondary details (Working Days, Client Brief, Countries, Languages)
+ *   5. Secondary details (Working Days, Client Brief, About the client toggle,
+ *      Countries, Languages)
  *
  * Everything is optional; sections only render when data is present. The
  * renderer is a safe whitelist — unknown keys are silently ignored, no
@@ -236,6 +239,8 @@ interface Props {
 }
 
 export default function SubscriptionCardContent({ content }: Props) {
+  const [aboutOpen, setAboutOpen] = useState(false);
+
   const title = asString(content.title).trim();
   const imageUrl = asString(content.imageUrl).trim();
   const description = asString(content.description).trim();
@@ -247,7 +252,9 @@ export default function SubscriptionCardContent({ content }: Props) {
   const hoursLabel = asString(content.hours_label).trim();
   const capacityLabel = asString(content.capacity_label).trim();
 
-  const deliverablesLabel = asString(content.deliverables_label).trim();
+  const deliverablesLabel =
+    asString(content.deliverables_label).trim() ||
+    asString(content.requirement_note).trim();
   const deliverables = normalizeDeliverables(content.custom_deliverables);
 
   const priceLabelRaw = asString(content.price_label).trim();
@@ -257,11 +264,13 @@ export default function SubscriptionCardContent({ content }: Props) {
   const workingDays = asStringArray(content.working_days);
   const brandName = asString(content.brand_name).trim();
   const businessNature = asString(content.business_nature).trim();
+  const customerLocation = asString(content.customer_location).trim();
   const notes = asString(content.notes).trim();
   const countries = asStringArray(content.target_country_names);
   const languages = asStringArray(content.target_languages);
 
-  const hasClientBrief = brandName || businessNature || notes;
+  const hasClientBrief = Boolean(brandName || subscriptionName || planName);
+  const hasAboutClient = Boolean(businessNature || customerLocation || notes);
   const hasStructured =
     hoursLabel ||
     capacityLabel ||
@@ -270,6 +279,7 @@ export default function SubscriptionCardContent({ content }: Props) {
     priceFormatted ||
     workingDays.length > 0 ||
     hasClientBrief ||
+    hasAboutClient ||
     countries.length > 0 ||
     languages.length > 0;
   const showDescription = description && !hasStructured;
@@ -390,6 +400,7 @@ export default function SubscriptionCardContent({ content }: Props) {
 
       {(workingDays.length > 0 ||
         hasClientBrief ||
+        hasAboutClient ||
         countries.length > 0 ||
         languages.length > 0) && (
         <div className="space-y-3 border-t border-gray-100 pt-3">
@@ -414,16 +425,61 @@ export default function SubscriptionCardContent({ content }: Props) {
                     <span className="font-medium">{brandName}</span>
                   </p>
                 )}
-                {businessNature && (
+                {subscriptionName && (
                   <p>
-                    <span className="text-neutral-500">Nature of business:</span>{' '}
-                    {businessNature}
+                    <span className="text-neutral-500">Role:</span>{' '}
+                    {subscriptionName}
                   </p>
                 )}
-                {notes && (
-                  <p className="whitespace-pre-line text-neutral-600">{notes}</p>
+                {planName && (
+                  <p>
+                    <span className="text-neutral-500">Plan:</span>{' '}
+                    {planName}
+                  </p>
                 )}
               </div>
+            </div>
+          )}
+
+          {hasAboutClient && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setAboutOpen((v) => !v)}
+                aria-expanded={aboutOpen}
+                className="flex w-full items-center justify-between gap-2 text-left"
+              >
+                <SectionLabel icon={IconBriefcase}>About the client</SectionLabel>
+                <svg
+                  aria-hidden="true"
+                  className={`h-3.5 w-3.5 shrink-0 text-neutral-400 transition-transform ${aboutOpen ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {aboutOpen && (
+                <div className="mt-1 space-y-0.5 text-sm text-neutral-700">
+                  {businessNature && (
+                    <p>
+                      <span className="text-neutral-500">Nature of business:</span>{' '}
+                      {businessNature}
+                    </p>
+                  )}
+                  {customerLocation && (
+                    <p>
+                      <span className="text-neutral-500">Location of business:</span>{' '}
+                      {customerLocation}
+                    </p>
+                  )}
+                  {notes && (
+                    <p className="whitespace-pre-line text-neutral-600">{notes}</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

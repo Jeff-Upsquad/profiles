@@ -53,9 +53,17 @@ class SubscriptionCard {
   String? get planName => content['plan_name'] as String?;
   String? get subscriptionName => content['subscription_name'] as String?;
   String? get businessNature => content['business_nature'] as String?;
+  String? get customerLocation => content['customer_location'] as String?;
   String? get hoursLabel => content['hours_label'] as String?;
   String? get capacityLabel => content['capacity_label'] as String?;
-  String? get deliverablesLabel => content['deliverables_label'] as String?;
+  /// Prefer deliverables_label (SquadHub maps requirement_note here).
+  String? get deliverablesLabel {
+    final label = content['deliverables_label'] as String?;
+    if (label != null && label.trim().isNotEmpty) return label;
+    final req = content['requirement_note'] as String?;
+    if (req != null && req.trim().isNotEmpty) return req;
+    return label;
+  }
   String? get priceLabel => content['price_label'] as String?;
   String? get notes => content['notes'] as String?;
   String? get ctaLabel => content['cta_label'] as String?;

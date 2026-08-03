@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
 import type { SubscriptionCardContentShape } from '@/hooks/useSubscriptionCards';
 
@@ -207,6 +208,8 @@ interface Props {
 }
 
 export default function SubscriptionCardContent({ content }: Props) {
+  const [aboutOpen, setAboutOpen] = useState(false);
+
   const title = asString(content.title).trim();
   const imageUrl = asString(content.imageUrl).trim();
   const description = asString(content.description).trim();
@@ -218,7 +221,11 @@ export default function SubscriptionCardContent({ content }: Props) {
   const hoursLabel = asString(content.hours_label).trim();
   const capacityLabel = asString(content.capacity_label).trim();
 
-  const deliverablesLabel = asString(content.deliverables_label).trim();
+  // Prefer deliverables_label (SquadHub maps requirement_note here). Fall back
+  // to requirement_note if a consumer sent it only under that key.
+  const deliverablesLabel =
+    asString(content.deliverables_label).trim() ||
+    asString(content.requirement_note).trim();
   const deliverables = normalizeDeliverables(content.custom_deliverables);
 
   const priceLabelRaw = asString(content.price_label).trim();
@@ -242,15 +249,20 @@ export default function SubscriptionCardContent({ content }: Props) {
   const weekendDays = workingDaysSorted.filter(isWeekend);
   const brandName = asString(content.brand_name).trim();
   const businessNature = asString(content.business_nature).trim();
+  const customerLocation = asString(content.customer_location).trim();
   const notes = asString(content.notes).trim();
   const countries = asStringArray(content.target_country_names);
   const languages = asStringArray(content.target_languages);
 
-  const hasClientBrief = brandName || businessNature || notes;
+  // Client brief = engagement identity only (brand / role / plan).
+  // About the client = company context under a toggle (nature, location, notes).
+  // Do not repeat requirement here — it lives only under Deliverables.
+  const hasClientBrief = Boolean(brandName || subscriptionName || planName);
+  const hasAboutClient = Boolean(businessNature || customerLocation || notes);
   const hasStructured =
     hoursLabel || capacityLabel || deliverablesLabel ||
     deliverables.length > 0 || priceFormatted ||
-    workingDaysSorted.length > 0 || hasClientBrief ||
+    workingDaysSorted.length > 0 || hasClientBrief || hasAboutClient ||
     countries.length > 0 || languages.length > 0;
   const showDescription = description && !hasStructured;
 
@@ -394,7 +406,7 @@ export default function SubscriptionCardContent({ content }: Props) {
       )}
 
       {/* Secondary details */}
-      {(workingDaysSorted.length > 0 || hasClientBrief || countries.length > 0 || languages.length > 0) && (
+      {(workingDaysSorted.length > 0 || hasClientBrief || hasAboutClient || countries.length > 0 || languages.length > 0) && (
         <div className="space-y-3 border-t border-[#E7E7EA] pt-3">
           {workingDaysSorted.length > 0 && (
             <div>
@@ -420,6 +432,7 @@ export default function SubscriptionCardContent({ content }: Props) {
             </div>
           )}
 
+          {/* Client brief = engagement identity only. Requirement lives in Deliverables. */}
           {hasClientBrief && (
             <div>
               <SectionLabel icon={IconBriefcase}>Client Brief</SectionLabel>
@@ -430,16 +443,62 @@ export default function SubscriptionCardContent({ content }: Props) {
                     <span className="font-medium text-[#0a0a0a]">{brandName}</span>
                   </p>
                 )}
-                {businessNature && (
+                {subscriptionName && (
                   <p>
-                    <span className="text-[#737373]">Nature of business:</span>{' '}
-                    <span className="text-[#0a0a0a]">{businessNature}</span>
+                    <span className="text-[#737373]">Role:</span>{' '}
+                    <span className="text-[#0a0a0a]">{subscriptionName}</span>
                   </p>
                 )}
-                {notes && (
-                  <p className="whitespace-pre-line text-[#525252] mt-1">{notes}</p>
+                {planName && (
+                  <p>
+                    <span className="text-[#737373]">Plan:</span>{' '}
+                    <span className="text-[#0a0a0a]">{planName}</span>
+                  </p>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* About the client — same section style as Client Brief; body collapses. */}
+          {hasAboutClient && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setAboutOpen((v) => !v)}
+                aria-expanded={aboutOpen}
+                className="flex w-full items-center justify-between gap-2 text-left"
+              >
+                <SectionLabel icon={IconBriefcase}>About the client</SectionLabel>
+                <svg
+                  aria-hidden="true"
+                  className={`h-3.5 w-3.5 shrink-0 text-[#a3a3a3] transition-transform ${aboutOpen ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {aboutOpen && (
+                <div className="mt-1 space-y-0.5 text-sm">
+                  {businessNature && (
+                    <p>
+                      <span className="text-[#737373]">Nature of business:</span>{' '}
+                      <span className="text-[#0a0a0a]">{businessNature}</span>
+                    </p>
+                  )}
+                  {customerLocation && (
+                    <p>
+                      <span className="text-[#737373]">Location of business:</span>{' '}
+                      <span className="text-[#0a0a0a]">{customerLocation}</span>
+                    </p>
+                  )}
+                  {notes && (
+                    <p className="mt-1 whitespace-pre-line text-[#525252]">{notes}</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

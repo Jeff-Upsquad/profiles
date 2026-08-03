@@ -82,15 +82,27 @@ class SubscriptionDetailContent extends StatelessWidget {
   }
 
   String get _brandName => (card.brandName ?? '').trim();
+  String get _subscriptionName => (card.subscriptionName ?? '').trim();
+  String get _planName => (card.planName ?? '').trim();
   String get _businessNature => (card.businessNature ?? '').trim();
+  String get _customerLocation => (card.customerLocation ?? '').trim();
   String get _notes => (card.notes ?? '').trim();
   List<String> get _countries =>
       (card.targetCountryNames ?? []).map((e) => e.toString().trim()).where((s) => s.isNotEmpty).toList();
   List<String> get _languages =>
       (card.targetLanguages ?? []).map((e) => e.toString().trim()).where((s) => s.isNotEmpty).toList();
 
+  // Client brief = engagement identity only (brand / role / plan).
+  // About the client = company context under a toggle (nature, location, notes).
+  // Requirement is only under Deliverables — never repeated here.
   bool get _hasClientBrief =>
-      _brandName.isNotEmpty || _businessNature.isNotEmpty || _notes.isNotEmpty;
+      _brandName.isNotEmpty ||
+      _subscriptionName.isNotEmpty ||
+      _planName.isNotEmpty;
+  bool get _hasAboutClient =>
+      _businessNature.isNotEmpty ||
+      _customerLocation.isNotEmpty ||
+      _notes.isNotEmpty;
 
   bool get _hasStructured =>
       _hoursLabel.isNotEmpty ||
@@ -100,6 +112,7 @@ class SubscriptionDetailContent extends StatelessWidget {
       _priceFormatted != null ||
       _workingDaysSorted.isNotEmpty ||
       _hasClientBrief ||
+      _hasAboutClient ||
       _countries.isNotEmpty ||
       _languages.isNotEmpty;
 
@@ -171,6 +184,7 @@ class SubscriptionDetailContent extends StatelessWidget {
     // Secondary details
     if (_workingDaysSorted.isNotEmpty ||
         _hasClientBrief ||
+        _hasAboutClient ||
         _countries.isNotEmpty ||
         _languages.isNotEmpty) {
       children.add(_secondaryDetails(context));
@@ -474,21 +488,21 @@ class SubscriptionDetailContent extends StatelessWidget {
             const SizedBox(height: 16),
           ],
           if (_hasClientBrief) ...[
-            _SectionLabel(icon: Icons.business_outlined, label: 'Client Brief'),
+            _SectionLabel(icon: Icons.description_outlined, label: 'Client Brief'),
             const SizedBox(height: 6),
             if (_brandName.isNotEmpty)
               _briefLine('Brand', _brandName, valueBold: true),
-            if (_businessNature.isNotEmpty)
-              _briefLine('Nature of business', _businessNature),
-            if (_notes.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  _notes,
-                  style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 14, height: 1.4),
-                ),
-              ),
+            if (_subscriptionName.isNotEmpty)
+              _briefLine('Role', _subscriptionName),
+            if (_planName.isNotEmpty) _briefLine('Plan', _planName),
+            const SizedBox(height: 16),
+          ],
+          if (_hasAboutClient) ...[
+            _AboutClientToggle(
+              businessNature: _businessNature,
+              customerLocation: _customerLocation,
+              notes: _notes,
+            ),
             const SizedBox(height: 16),
           ],
           if (_countries.isNotEmpty) ...[
@@ -624,4 +638,98 @@ class _Deliverable {
   final String label;
   final String? description;
   _Deliverable(this.label, [this.description]);
+}
+
+/// Collapsible "About the client" — same visual language as Client Brief
+/// (section label + Brand: value rows). Body toggles; no extra card chrome.
+class _AboutClientToggle extends StatefulWidget {
+  final String businessNature;
+  final String customerLocation;
+  final String notes;
+
+  const _AboutClientToggle({
+    required this.businessNature,
+    required this.customerLocation,
+    required this.notes,
+  });
+
+  @override
+  State<_AboutClientToggle> createState() => _AboutClientToggleState();
+}
+
+class _AboutClientToggleState extends State<_AboutClientToggle> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _open = !_open),
+          borderRadius: BorderRadius.circular(4),
+          child: Row(
+            children: [
+              const Expanded(
+                child: _SectionLabel(
+                  icon: Icons.business_outlined,
+                  label: 'About the client',
+                ),
+              ),
+              AnimatedRotation(
+                turns: _open ? 0.5 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: const Icon(
+                  Icons.keyboard_arrow_down,
+                  size: 18,
+                  color: AppColors.textTertiary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_open) ...[
+          const SizedBox(height: 6),
+          if (widget.businessNature.isNotEmpty)
+            _briefLine('Nature of business', widget.businessNature),
+          if (widget.customerLocation.isNotEmpty)
+            _briefLine('Location of business', widget.customerLocation),
+          if (widget.notes.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                widget.notes,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+
+  Widget _briefLine(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: RichText(
+        text: TextSpan(
+          text: '$label: ',
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+          children: [
+            TextSpan(
+              text: value,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
