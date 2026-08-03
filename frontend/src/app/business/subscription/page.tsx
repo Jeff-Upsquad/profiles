@@ -1,7 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import BusinessSubscription from '@/views/business/BusinessSubscription';
-
+/** List view folded into unified Find talent hub. Detail routes stay. */
 export default function BusinessSubscriptionPage() {
-  return <BusinessSubscription />;
+  redirect('/business/hire');
 }

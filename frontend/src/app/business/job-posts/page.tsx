@@ -1,8 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import BusinessJobsList from '@/components/jobs/business/BusinessJobsList';
-
-// Business Job Posts — hiring cards with their full candidate funnel.
+/** List view folded into unified Find talent hub. Detail / console routes stay. */
 export default function JobPostsPage() {
-  return <BusinessJobsList />;
+  redirect('/business/hire');
 }

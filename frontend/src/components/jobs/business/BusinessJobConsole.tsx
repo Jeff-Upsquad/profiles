@@ -134,10 +134,10 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
       <div className="rounded-2xl border border-[#E7E7EA] bg-white p-10 text-center">
         <p className="text-sm font-medium text-[#0a0a0a]">Job post not found.</p>
         <button
-          onClick={() => router.push('/business/job-posts')}
+          onClick={() => router.push('/business/hire')}
           className="mt-3 text-xs font-medium text-[#0a0a0a] hover:underline"
         >
-          Back to job posts
+          Back to Find talent
         </button>
       </div>
     );
@@ -205,13 +205,13 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
   return (
     <div className="space-y-4">
       <Link
-        href="/business/job-posts"
+        href="/business/hire"
         className="inline-flex items-center gap-1 text-sm font-medium text-[#737373] transition-colors hover:text-[#0a0a0a]"
       >
         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
-        Back to job posts
+        Back to Find talent
       </Link>
 
       {/* Header */}

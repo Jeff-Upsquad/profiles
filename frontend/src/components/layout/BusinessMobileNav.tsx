@@ -12,7 +12,11 @@ export default function BusinessMobileNav() {
 
   const dashboardActive =
     pathname === '/business/dashboard' || pathname.startsWith('/business/dashboard/');
-  const subscriptionActive = pathname.startsWith('/business/subscription');
+  const hireActive =
+    pathname.startsWith('/business/hire') ||
+    pathname.startsWith('/business/subscription') ||
+    pathname.startsWith('/business/assignments') ||
+    pathname.startsWith('/business/job-posts');
   const allProfilesActive = pathname.startsWith('/business/talent-access');
   const howItWorksActive = pathname.startsWith('/business/how-it-works');
 
@@ -22,8 +26,8 @@ export default function BusinessMobileNav() {
         <Pill href="/business/dashboard" active={dashboardActive}>
           Dashboard
         </Pill>
-        <Pill href="/business/subscription" active={subscriptionActive}>
-          My subscription
+        <Pill href="/business/hire" active={hireActive}>
+          Find talent
         </Pill>
         <Pill href="/business/talent-access" active={allProfilesActive}>
           All profiles
