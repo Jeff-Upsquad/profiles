@@ -355,7 +355,12 @@ export default function BusinessHireHub({
   const [briefProduct, setBriefProduct] = useState<'subscription' | 'assignment'>('subscription');
   const [jobNoticeOpen, setJobNoticeOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  /** Desktop: anchored under Create. Mobile: bottom sheet (isSheet). */
+  const [menuPos, setMenuPos] = useState<{
+    top: number;
+    left: number;
+    isSheet: boolean;
+  } | null>(null);
   // Open by default only when they have nothing yet (education). Collapse when cards exist.
   const [compareOpen, setCompareOpen] = useState(() => !hasCards);
   const [compareSeeded, setCompareSeeded] = useState(false);
@@ -379,25 +384,35 @@ export default function BusinessHireHub({
     }
   }, [preview, activity, isLoading, hasCards, compareSeeded]);
 
-  // Position the Create menu in a portal so it isn't clipped by .hero-container
-  // (overflow: hidden on the glow card).
+  const placeCreateMenu = () => {
+    const el = createBtnRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const isSheet = window.innerWidth < 640;
+    if (isSheet) {
+      setMenuPos({ top: 0, left: 0, isSheet: true });
+      return;
+    }
+    const menuW = 288;
+    const pad = 12;
+    // Prefer left-align under the button; clamp so it never clips off-screen.
+    let left = r.left;
+    if (left + menuW > window.innerWidth - pad) {
+      left = window.innerWidth - menuW - pad;
+    }
+    if (left < pad) left = pad;
+    setMenuPos({ top: r.bottom + 8, left, isSheet: false });
+  };
+
+  // Reposition Create menu on resize/scroll (portal; hero overflow can't clip it).
   useEffect(() => {
     if (!createMenuOpen) return;
-    const place = () => {
-      const el = createBtnRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      setMenuPos({
-        top: r.bottom + 8,
-        right: window.innerWidth - r.right,
-      });
-    };
-    place();
-    window.addEventListener('resize', place);
-    window.addEventListener('scroll', place, true);
+    placeCreateMenu();
+    window.addEventListener('resize', placeCreateMenu);
+    window.addEventListener('scroll', placeCreateMenu, true);
     return () => {
-      window.removeEventListener('resize', place);
-      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', placeCreateMenu);
+      window.removeEventListener('scroll', placeCreateMenu, true);
     };
   }, [createMenuOpen]);
 
@@ -421,24 +436,27 @@ export default function BusinessHireHub({
   };
 
   return (
-    <div className="space-y-6">
-      {/* ── Hero (compact — ~2/3 of previous height) ── */}
-      <section className="hero-container hero-glow-orange relative rounded-2xl border border-[#E7E7EA] bg-white px-5 py-3.5 sm:px-6 sm:py-4">
+    <div className="space-y-5 sm:space-y-6">
+      {/* ── Hero: title + Create on one row (fixes mobile stack misalignment) ── */}
+      <section className="hero-container hero-glow-orange relative rounded-2xl border border-[#E7E7EA] bg-white px-4 py-3.5 sm:px-6 sm:py-4">
         <div className="hero-glow-blur" />
-        <div className="hero-content flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
+        <div className="hero-content flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
             <div className="mb-1.5 stagger-1">
-              <span className="eyebrow-rainbow">
-                {isLoading
-                  ? 'Loading…'
-                  : `${counts.subscription} sub · ${counts.assignment} assignment · ${counts.job} job`}
+              <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[#E7E7EA] bg-[#FAFAFA] px-2.5 py-1 text-[11px] font-semibold text-[#525252]">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#0a0a0a]" />
+                <span className="truncate">
+                  {isLoading
+                    ? 'Loading…'
+                    : `${counts.subscription} sub · ${counts.assignment} assignment · ${counts.job} job`}
+                </span>
               </span>
             </div>
             <h1 className="font-[family-name:var(--font-jakarta)] text-[22px] sm:text-[24px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
               Find <span className="text-rainbow">talent</span>.
             </h1>
-            <p className="mt-0.5 max-w-xl font-[family-name:var(--font-jakarta)] text-[13px] leading-snug text-[#525252] stagger-3">
-              One place for subscriptions, assignments, and job posts — pick the model that fits.
+            <p className="mt-1 max-w-xl font-[family-name:var(--font-jakarta)] text-[13px] leading-snug text-[#525252] stagger-3">
+              Subscriptions, assignments, and job posts in one place.
             </p>
             {preview && (
               <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-[#FFFAC2] px-2 py-0.5 text-[10px] font-semibold text-[#0a0a0a] stagger-3">
@@ -447,24 +465,17 @@ export default function BusinessHireHub({
             )}
           </div>
 
-          <div className="relative z-20 stagger-3">
+          <div className="relative z-20 shrink-0 pt-0.5 stagger-3">
             <button
               ref={createBtnRef}
               type="button"
               aria-haspopup="menu"
               aria-expanded={createMenuOpen}
               onClick={() => {
-                const el = createBtnRef.current;
-                if (el) {
-                  const r = el.getBoundingClientRect();
-                  setMenuPos({
-                    top: r.bottom + 8,
-                    right: window.innerWidth - r.right,
-                  });
-                }
+                if (!createMenuOpen) placeCreateMenu();
                 setCreateMenuOpen((v) => !v);
               }}
-              className="inline-flex items-center gap-2 rounded-[10px] bg-[#0a0a0a] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.08)] transition-all duration-200 hover:bg-[#0a0a0a]/85 active:scale-[0.98]"
+              className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#0a0a0a] px-3 py-2 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.08)] transition-all duration-200 hover:bg-[#0a0a0a]/85 active:scale-[0.98] sm:gap-2 sm:px-4 sm:py-2.5"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -478,40 +489,68 @@ export default function BusinessHireHub({
         </div>
       </section>
 
-      {/* Create menu — portaled so hero overflow:hidden cannot clip it */}
+      {/* Create menu — mobile bottom sheet; desktop anchored dropdown */}
       {portalReady &&
         createMenuOpen &&
         menuPos &&
         createPortal(
           <>
-            <div className="fixed inset-0 z-[60]" onClick={() => setCreateMenuOpen(false)} />
+            <div
+              className={`fixed inset-0 z-[60] bg-black/40 ${menuPos.isSheet ? '' : 'bg-transparent'}`}
+              onClick={() => setCreateMenuOpen(false)}
+            />
             <div
               role="menu"
-              className="fixed z-[70] w-72 overflow-hidden rounded-xl border border-[#E7E7EA] bg-white py-1 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.2)]"
-              style={{ top: menuPos.top, right: menuPos.right }}
+              className={
+                menuPos.isSheet
+                  ? 'fixed inset-x-0 bottom-0 z-[70] max-h-[70vh] overflow-y-auto rounded-t-2xl border border-[#E7E7EA] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_40px_-12px_rgba(0,0,0,0.25)]'
+                  : 'fixed z-[70] w-72 overflow-hidden rounded-xl border border-[#E7E7EA] bg-white py-1 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.2)]'
+              }
+              style={
+                menuPos.isSheet
+                  ? undefined
+                  : { top: menuPos.top, left: menuPos.left }
+              }
             >
-              {PRODUCTS.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => openCreate(p.id)}
-                  className="flex w-full items-start gap-3 px-3.5 py-3 text-left transition-colors hover:bg-[#F5F5F6]"
-                >
-                  <span
-                    className={`${p.accent} mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg`}
-                    style={{ color: 'var(--tint-icon)' }}
+              {menuPos.isSheet && (
+                <div className="flex items-center justify-between border-b border-[#E7E7EA] px-4 py-3">
+                  <p className="text-sm font-semibold text-[#0a0a0a]">Create</p>
+                  <button
+                    type="button"
+                    aria-label="Close"
+                    onClick={() => setCreateMenuOpen(false)}
+                    className="rounded-lg p-1.5 text-[#a3a3a3] hover:bg-[#F5F5F6] hover:text-[#0a0a0a]"
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d={p.iconPath} />
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
-                  </span>
-                  <span>
-                    <span className="block text-sm font-semibold text-[#0a0a0a]">{p.label}</span>
-                    <span className="mt-0.5 block text-xs text-[#737373]">{p.tagline}</span>
-                  </span>
-                </button>
-              ))}
+                  </button>
+                </div>
+              )}
+              <div className={menuPos.isSheet ? 'py-1' : ''}>
+                {PRODUCTS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => openCreate(p.id)}
+                    className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[#F5F5F6] sm:px-3.5 sm:py-3"
+                  >
+                    <span
+                      className={`${p.accent} mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-8 sm:w-8 sm:rounded-lg`}
+                      style={{ color: 'var(--tint-icon)' }}
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d={p.iconPath} />
+                      </svg>
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-[#0a0a0a]">{p.label}</span>
+                      <span className="mt-0.5 block text-xs text-[#737373]">{p.tagline}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           </>,
           document.body,
