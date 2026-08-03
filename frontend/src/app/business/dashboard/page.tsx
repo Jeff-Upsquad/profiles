@@ -1,7 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import BusinessDashboard from '@/views/business/BusinessDashboard';
-
+/** Dashboard merged into Find talent hub. Nested profile routes still live under /business/dashboard/... */
 export default function DashboardPage() {
-  return <BusinessDashboard />;
+  redirect('/business/hire');
 }

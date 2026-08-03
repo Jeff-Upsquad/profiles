@@ -33,7 +33,7 @@ export default function ChangePasswordBusiness() {
       });
       toast.success('Password updated');
       await refetchUser();
-      router.push('/business/dashboard');
+      router.push('/business/hire');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Could not update password');
     } finally {
@@ -42,7 +42,7 @@ export default function ChangePasswordBusiness() {
   };
 
   return (
-    <AuthShell switchHref="/business/dashboard" switchLabel="Dashboard" accent="business">
+    <AuthShell switchHref="/business/hire" switchLabel="Find talent" accent="business">
       <div className="stagger-1">
         <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-[var(--cu-radius)] bg-brand-pink border-2 border-cu-900 shadow-brutal-sm">
           <svg className="h-5 w-5 text-cu-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
