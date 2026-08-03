@@ -331,3 +331,31 @@ export async function deleteSquadhubGrant(
     next(err);
   }
 }
+
+const lookupBusinessUserSchema = z.object({
+  email: z.string().email().optional(),
+  phone: z.string().trim().min(3).optional(),
+}).refine((v) => !!v.email || !!v.phone, {
+  message: 'Email or phone is required',
+  path: ['email'],
+});
+
+// SquadHub client Connections panel — resolve a business_users row by email
+// and/or phone so admins can deep-link into the SquadHire business detail.
+export async function lookupBusinessUser(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = lookupBusinessUserSchema.parse(req.body);
+    const result = await integrationsService.lookupBusinessUser(body);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
+      return;
+    }
+    next(err);
+  }
+}

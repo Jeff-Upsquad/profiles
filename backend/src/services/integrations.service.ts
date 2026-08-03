@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
+import { phoneMatchSuffix } from '../lib/phone.js';
 
 /**
  * Read-only data exposed to SquadHub via signed integration endpoints.
@@ -534,5 +535,122 @@ async function resolveCandidateByLast10(
     name: (match.name as string | null) ?? '',
     profile_status: (match.status as string | null) ?? 'new',
     admin_url: adminUrl,
+  };
+}
+
+// ── Business-user lookup (for SquadHub client Connections deep-link) ──
+
+
+export interface BusinessUserLookupResult {
+  business_user_id: string;
+  company_name: string;
+  contact_person_name: string;
+  contact_email: string | null;
+  contact_phone: string | null;
+  matched_by: 'email' | 'phone';
+  /** Absolute URL into the business detail page; null when admin URL unset. */
+  admin_url: string | null;
+}
+
+type BusinessUserRow = {
+  id: string;
+  company_name: string | null;
+  contact_person_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  password_hash: string | null;
+  password_required: boolean | null;
+  created_at: string;
+};
+
+function isActivatedBusinessUser(u: BusinessUserRow): boolean {
+  return !!u.password_hash || u.password_required === false;
+}
+
+function pickPreferredBusinessUser(
+  a: BusinessUserRow | null,
+  b: BusinessUserRow | null,
+): { row: BusinessUserRow; matched_by: 'email' | 'phone' } | null {
+  if (a && b && a.id !== b.id) {
+    const aAct = isActivatedBusinessUser(a);
+    const bAct = isActivatedBusinessUser(b);
+    if (aAct !== bAct) {
+      return aAct
+        ? { row: a, matched_by: 'email' }
+        : { row: b, matched_by: 'phone' };
+    }
+    // Prefer the older row (more likely the original account).
+    return a.created_at <= b.created_at
+      ? { row: a, matched_by: 'email' }
+      : { row: b, matched_by: 'phone' };
+  }
+  if (a) return { row: a, matched_by: 'email' };
+  if (b) return { row: b, matched_by: 'phone' };
+  return null;
+}
+
+function buildBusinessAdminUrl(businessUserId: string): string | null {
+  const adminBase = (env.SQUADHIRE_ADMIN_URL || '').replace(/\/$/, '');
+  if (!adminBase) return null;
+  // Full admin app hosts business detail at /business/:id (not /staff).
+  return `${adminBase}/business/${businessUserId}`;
+}
+
+/**
+ * Resolve a SquadHire business_users row by email and/or phone for SquadHub's
+ * client Connections panel. Email is tried first; phone uses trailing-digit
+ * match so country-code variants still hit. When email and phone resolve to
+ * different rows, prefer an activated account over an invite shell.
+ */
+export async function lookupBusinessUser(input: {
+  email?: string | null;
+  phone?: string | null;
+}): Promise<BusinessUserLookupResult | null> {
+  const email = (input.email || '').trim().toLowerCase();
+  const phone = (input.phone || '').trim();
+
+  let byEmail: BusinessUserRow | null = null;
+  if (email && email.includes('@')) {
+    const { data, error } = await supabaseAdmin
+      .from('business_users')
+      .select(
+        'id, company_name, contact_person_name, contact_email, contact_phone, password_hash, password_required, created_at',
+      )
+      .ilike('contact_email', email)
+      .order('created_at', { ascending: true })
+      .limit(5);
+    if (error) throw new AppError(500, error.message);
+    const rows = (data as BusinessUserRow[] | null) ?? [];
+    byEmail = rows.find(isActivatedBusinessUser) ?? rows[0] ?? null;
+  }
+
+  let byPhone: BusinessUserRow | null = null;
+  const suffix = phoneMatchSuffix(phone);
+  if (suffix && suffix.length >= 7) {
+    const { data, error } = await supabaseAdmin
+      .from('business_users')
+      .select(
+        'id, company_name, contact_person_name, contact_email, contact_phone, password_hash, password_required, created_at',
+      )
+      .like('contact_phone_normalized', `%${suffix}`)
+      .order('created_at', { ascending: true })
+      .limit(5);
+    if (error) throw new AppError(500, error.message);
+    const rows = (data as BusinessUserRow[] | null) ?? [];
+    byPhone = rows.find(isActivatedBusinessUser) ?? rows[0] ?? null;
+  }
+
+  const picked = pickPreferredBusinessUser(byEmail, byPhone);
+  if (!picked) return null;
+
+  const row = picked.row;
+  return {
+    business_user_id: row.id,
+    company_name: row.company_name ?? '',
+    contact_person_name: row.contact_person_name ?? '',
+    contact_email: row.contact_email,
+    contact_phone: row.contact_phone,
+    matched_by: picked.matched_by,
+    admin_url: buildBusinessAdminUrl(row.id),
   };
 }

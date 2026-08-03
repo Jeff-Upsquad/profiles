@@ -46,6 +46,14 @@ router.post(
   integrationsController.lookupUsersByEmail,
 );
 
+// Resolve a business_users row by email/phone for SquadHub's client Connections
+// deep-link ("Open in SquadHire").
+router.post(
+  '/squadhub/business/lookup',
+  verifySquadhubSecret,
+  integrationsController.lookupBusinessUser,
+);
+
 // Batch talent availability (self-declared virtual office hours → weekly hours),
 // keyed by talent_user_id. Powers the "available hours" column in SquadHub's
 // Subscription Assignments per-user view.
