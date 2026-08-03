@@ -426,7 +426,8 @@ export default function BusinessHireHub({
 
   const openCreate = (product: HireProduct) => {
     setCreateMenuOpen(false);
-    setSelectedProduct(product);
+    // Don't set selectedProduct here — that flag only controls the Learn more
+    // expand state. Opening Create was leaving the matching card permanently open.
     if (product === 'job') {
       setJobNoticeOpen(true);
       return;
