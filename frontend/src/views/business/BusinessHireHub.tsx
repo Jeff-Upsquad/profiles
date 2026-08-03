@@ -79,7 +79,7 @@ const PRODUCTS: {
       'We match and shortlist talent for you to review',
       'Once you pick, day-to-day work runs in Squad Hub (projects, tasks, and communication)',
     ],
-    cta: 'Request a subscription',
+    cta: 'Create a subscription',
     accent: 'tint-orange',
     iconPath:
       'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
@@ -103,7 +103,7 @@ const PRODUCTS: {
       'We match freelancers who fit the scope',
       'You shortlist, select, and get the work delivered',
     ],
-    cta: 'Request an assignment',
+    cta: 'Create an assignment',
     accent: 'tint-blue',
     iconPath:
       'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
@@ -127,7 +127,7 @@ const PRODUCTS: {
       'Candidates apply and move through your funnel',
       'Schedule interviews, send offers, and hire',
     ],
-    cta: 'Request a job post',
+    cta: 'Create a job post',
     accent: 'tint-purple',
     iconPath:
       'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
@@ -933,7 +933,7 @@ function JobRequestModal({ onClose }: { onClose: () => void }) {
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-[#a3a3a3]">Job post</p>
             <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
-              {submitted ? 'Request received' : 'Request a job post'}
+              {submitted ? 'Submitted' : 'Create a job post'}
             </h3>
           </div>
           <button
@@ -972,7 +972,7 @@ function JobRequestModal({ onClose }: { onClose: () => void }) {
           >
             <p className="text-sm leading-relaxed text-[#525252]">
               Job posts use a full hiring funnel (screening → interviews → offers). Share a few details and
-              we&apos;ll get the role live. A full self-serve form is next — this is a lightweight request for the UI pass.
+              we&apos;ll get the role live. A full self-serve form is next — this is a lightweight create flow for now.
             </p>
             <label className="block">
               <span className="mb-1.5 block text-xs font-semibold text-[#0a0a0a]">Role title</span>
@@ -1006,7 +1006,7 @@ function JobRequestModal({ onClose }: { onClose: () => void }) {
                 type="submit"
                 className="flex-1 rounded-[10px] bg-[#0a0a0a] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0a0a0a]/85"
               >
-                Submit request
+                Create
               </button>
             </div>
           </form>

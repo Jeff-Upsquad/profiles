@@ -68,7 +68,7 @@ export default function ConnectBriefDrawer({
 
   if (!mounted) return null;
 
-  const noun = product === 'assignment' ? 'an assignment' : 'a subscription';
+  const createLabel = product === 'assignment' ? 'Create an assignment' : 'Create a subscription';
 
   return createPortal(
     <div className={`fixed inset-0 z-50 ${open ? '' : 'pointer-events-none'}`} aria-hidden={!open}>
@@ -99,7 +99,7 @@ export default function ConnectBriefDrawer({
             </button>
           ) : (
             <span className="px-1 text-sm font-semibold text-[#0a0a0a]">
-              Request {noun}
+              {createLabel}
             </span>
           )}
           <button
@@ -119,7 +119,7 @@ export default function ConnectBriefDrawer({
           {!open ? null : !category ? (
             <div className="px-5 py-6">
               <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
-                What would you like to request?
+                What would you like to create?
               </h2>
               <p className="mt-1 text-sm text-[#737373]">
                 Pick a category to start your {product} brief. You can add more categories over time.
