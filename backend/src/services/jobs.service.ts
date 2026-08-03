@@ -1353,17 +1353,20 @@ export async function assertBusinessOwnsCard(
   const refs = await getCardRefs(cardId);
   if (refs.businessUserId === businessUserId) return refs;
 
-  // Email fallback: card not yet linked to a business_users row.
-  if (!refs.businessUserId) {
-    const [{ data: businessUser }, { data: card }] = await Promise.all([
-      supabaseAdmin.from('business_users').select('contact_email').eq('id', businessUserId).maybeSingle(),
-      supabaseAdmin.from('subscription_cards').select('business_email').eq('id', cardId).maybeSingle(),
-    ]);
-    const contactEmail = (businessUser as any)?.contact_email as string | null | undefined;
-    const cardEmail = (card as any)?.business_email as string | null | undefined;
-    if (contactEmail && cardEmail && contactEmail.toLowerCase() === cardEmail.toLowerCase()) {
-      return refs;
-    }
+  // Email fallback: card not yet linked, or stamped to a stale invite shell
+  // while this user owns the same customer email (duplicate-account split).
+  const [{ data: businessUser }, { data: card }] = await Promise.all([
+    supabaseAdmin.from('business_users').select('contact_email').eq('id', businessUserId).maybeSingle(),
+    supabaseAdmin.from('subscription_cards').select('business_email').eq('id', cardId).maybeSingle(),
+  ]);
+  const contactEmail = ((businessUser as any)?.contact_email as string | null | undefined)
+    ?.trim()
+    .toLowerCase();
+  const cardEmail = ((card as any)?.business_email as string | null | undefined)
+    ?.trim()
+    .toLowerCase();
+  if (contactEmail && cardEmail && contactEmail === cardEmail) {
+    return refs;
   }
   throw new AppError(403, 'This job card does not belong to your business');
 }
@@ -1377,12 +1380,12 @@ export async function listJobCardsForBusiness(businessUserId: string) {
   const contactEmail = ((businessUser as any)?.contact_email as string | null | undefined) ?? null;
 
   const orFilter = contactEmail
-    ? `business_user_id.eq.${businessUserId},and(business_user_id.is.null,business_email.ilike.${contactEmail})`
+    ? `business_user_id.eq.${businessUserId},business_email.ilike.${contactEmail}`
     : `business_user_id.eq.${businessUserId}`;
 
   const { data: cards, error } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, external_id, content, status, published_at, expires_at, created_at')
+    .select('id, external_id, content, status, published_at, expires_at, created_at, business_user_id')
     .or(orFilter)
     .eq('card_type', 'hiring')
     .is('archived_at', null)
@@ -1391,6 +1394,23 @@ export async function listJobCardsForBusiness(businessUserId: string) {
 
   const list = cards ?? [];
   if (list.length === 0) return [];
+
+  // Re-point email-matched cards onto this login (null or stale invite shell).
+  const reattachIds = list
+    .filter((c: any) => c.business_user_id !== businessUserId)
+    .map((c: any) => c.id as string);
+  if (reattachIds.length > 0) {
+    void supabaseAdmin
+      .from('subscription_cards')
+      .update({ business_user_id: businessUserId })
+      .in('id', reattachIds)
+      .then(({ error: backfillErr }) => {
+        if (backfillErr) {
+          console.error('[jobs] failed to reattach business_user_id', backfillErr);
+        }
+      });
+  }
+
   const cardIds = list.map((c: any) => c.id as string);
 
   const [{ data: jobCards }, { data: candidateRows }, { data: recipientRows }] = await Promise.all([

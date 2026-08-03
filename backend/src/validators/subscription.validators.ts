@@ -32,6 +32,11 @@ export const ingestSubscriptionCardSchema = z.object({
   business_phone: z.string().min(6).max(40).optional(),
   business_contact_name: z.string().min(1).max(200).optional(),
   business_company: z.string().min(1).max(200).optional(),
+  // Canonical business_users.id from SquadHub's cross-app identity link.
+  // When present and the row is active, ingest attaches the card to this id
+  // instead of re-soft-matching email/phone (which can pick the wrong half of
+  // an email-invite vs phone-login split). Optional for older Hub deploys.
+  business_user_id: z.string().uuid().optional(),
   // SquadHub's distribution mode. `broadcast` (default) = fan out to every
   // matching talent at ingest. `manual` ("soft publish") = card is delivered
   // for the business's own dashboard but talents only see it via a separate

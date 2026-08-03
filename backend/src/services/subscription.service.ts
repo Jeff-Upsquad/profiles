@@ -419,14 +419,41 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     assertHiringContentValid(input.content);
   }
 
-  // Resolve the lead to a Profiles business_users row by email or phone.
-  // If neither matches, create a 7-day pending invitation + business_users
-  // row and attach that id immediately so the first publish is visible once
-  // they activate (and so we don't leave business_user_id null).
-  let businessUserId = await resolveBusinessUserIdFromEmailOrPhone(
-    input.business_email,
-    input.business_phone,
-  );
+  // Resolve the lead to a Profiles business_users row.
+  // 1. Prefer SquadHub's canonical identity link (business_user_id) when the
+  //    row still exists and is active — avoids email-invite vs phone-login
+  //    splits hiding the card on the business portal.
+  // 2. Else soft-match email/phone (activated preferred over invite shell).
+  // 3. Else create a 7-day pending invitation + business_users row so the
+  //    first publish is visible once they activate (never leave null when
+  //    contact details exist).
+  let businessUserId: string | null = null;
+  if (input.business_user_id) {
+    const { data: explicit, error: explicitErr } = await supabaseAdmin
+      .from('business_users')
+      .select('id')
+      .eq('id', input.business_user_id)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (explicitErr) {
+      console.error('[subscription] business_user_id lookup failed', {
+        business_user_id: input.business_user_id,
+        error: explicitErr.message,
+      });
+    } else if (explicit?.id) {
+      businessUserId = explicit.id as string;
+    } else {
+      console.warn('[subscription] business_user_id not found or inactive; falling back to email/phone', {
+        business_user_id: input.business_user_id,
+      });
+    }
+  }
+  if (!businessUserId) {
+    businessUserId = await resolveBusinessUserIdFromEmailOrPhone(
+      input.business_email,
+      input.business_phone,
+    );
+  }
   if (!businessUserId) {
     try {
       businessUserId = await createBusinessInvitationIfNew({
@@ -438,6 +465,13 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     } catch (err) {
       console.error('[subscription] business invitation create threw', err);
     }
+  }
+  // When Hub handed us a canonical id (or soft-match) that has no email yet
+  // and the payload carries one, backfill so later email-only reads work.
+  if (businessUserId && input.business_email) {
+    void backfillBusinessEmailIfMissing(businessUserId, input.business_email).catch((err) => {
+      console.error('[subscription] business_email backfill after identity resolve threw', err);
+    });
   }
 
   // Manual ("soft publish") cards must NOT auto-fan-out. The business owner
