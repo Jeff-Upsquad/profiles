@@ -24,7 +24,6 @@ export default function HireHubPreviewPage() {
             </div>
           </div>
           <nav className="flex flex-1 flex-col gap-0.5 p-3">
-            <PreviewNavItem label="Dashboard" muted />
             <PreviewNavItem label="Find talent" active />
             <PreviewNavItem label="All profiles" muted />
             <PreviewNavItem label="How it works" muted />

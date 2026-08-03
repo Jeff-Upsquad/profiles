@@ -9,12 +9,10 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
   const pathname = usePathname() ?? '';
   const { user, logout } = useAuth();
 
-  const dashboardActive =
-    pathname === '/business/dashboard' || pathname.startsWith('/business/dashboard/');
-  // Unified Hire hub replaces separate Subscription / Assignments / Job Posts nav items.
-  // Keep legacy paths highlighted so deep links still feel "in section".
+  // Find talent is the business home (dashboard merged in). Highlight legacy list routes too.
   const hireActive =
     pathname.startsWith('/business/hire') ||
+    pathname === '/business/dashboard' ||
     pathname.startsWith('/business/subscription') ||
     pathname.startsWith('/business/assignments') ||
     pathname.startsWith('/business/job-posts');
@@ -31,7 +29,7 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
     <div className="flex h-full w-72 flex-col border-r border-gray-200 bg-white md:w-56">
       {/* Brand */}
       <Link
-        href="/business/dashboard"
+        href="/business/hire"
         onClick={onNavigate}
         className="flex items-center gap-2.5 border-b border-gray-100 px-4 py-4"
       >
@@ -47,24 +45,6 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
       </Link>
 
       <nav className="flex flex-1 flex-col overflow-y-auto p-3">
-        <SidebarLink
-          href="/business/dashboard"
-          active={dashboardActive}
-          onNavigate={onNavigate}
-          icon={
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-              />
-            </svg>
-          }
-        >
-          Dashboard
-        </SidebarLink>
-
         <SidebarLink
           href="/business/hire"
           active={hireActive}

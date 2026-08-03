@@ -48,7 +48,7 @@ export default function BusinessTopBar() {
   return (
     <header className="sticky top-0 z-40 -mx-4 mb-4 border-b border-[#E7E7EA] bg-white/95 px-4 py-2.5 backdrop-blur-sm md:hidden">
       <div className="flex items-center justify-between gap-3">
-        <Link href="/business/dashboard" className="flex min-w-0 items-center gap-2">
+        <Link href="/business/hire" className="flex min-w-0 items-center gap-2">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0a0a0a] text-[11px] font-bold text-white">
             SH
           </div>

@@ -12,7 +12,7 @@ export default function Navbar() {
   // Anonymous visitors still get the landing page.
   const logoHref =
     user?.role === 'business'
-      ? '/business/dashboard'
+      ? '/business/hire'
       : user?.role === 'talent'
         ? '/talent/dashboard'
         : user?.role === 'admin'

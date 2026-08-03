@@ -23,7 +23,7 @@ export default function CategoryProfilesPage(props: { params: Promise<Params> })
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const mq = window.matchMedia('(min-width: 768px)');
-    if (mq.matches) router.replace('/business/dashboard');
+    if (mq.matches) router.replace('/business/hire');
   }, [router]);
 
   return (
@@ -31,7 +31,7 @@ export default function CategoryProfilesPage(props: { params: Promise<Params> })
       {/* Header with back button */}
       <div className="mb-5 flex items-center gap-3">
         <button
-          onClick={() => router.push('/business/dashboard')}
+          onClick={() => router.push('/business/hire')}
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
           aria-label="Back to categories"
         >

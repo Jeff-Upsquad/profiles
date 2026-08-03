@@ -4,16 +4,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 /**
- * Top horizontal pill nav for business pages — Dashboard, My subscription,
- * All profiles. Sticky just under the navbar so it's always reachable.
+ * Optional top pill nav for business pages (legacy). Dashboard merged into Find talent.
  */
 export default function BusinessMobileNav() {
   const pathname = usePathname() ?? '';
 
-  const dashboardActive =
-    pathname === '/business/dashboard' || pathname.startsWith('/business/dashboard/');
   const hireActive =
     pathname.startsWith('/business/hire') ||
+    pathname === '/business/dashboard' ||
     pathname.startsWith('/business/subscription') ||
     pathname.startsWith('/business/assignments') ||
     pathname.startsWith('/business/job-posts');
@@ -23,9 +21,6 @@ export default function BusinessMobileNav() {
   return (
     <div className="sticky top-0 z-30 -mx-4 mb-4 border-b border-gray-200 bg-white shadow-sm md:hidden">
       <div className="flex gap-2 overflow-x-auto px-4 py-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-        <Pill href="/business/dashboard" active={dashboardActive}>
-          Dashboard
-        </Pill>
         <Pill href="/business/hire" active={hireActive}>
           Find talent
         </Pill>

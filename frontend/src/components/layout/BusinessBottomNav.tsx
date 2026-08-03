@@ -6,20 +6,12 @@ import BusinessNotificationsBell from '@/components/jobs/business/BusinessNotifi
 
 const NAV_ITEMS = [
   {
-    href: '/business/dashboard',
-    label: 'Dashboard',
-    icon: (
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-      </svg>
-    ),
-  },
-  {
     href: '/business/hire',
-    label: 'Find',
-    // Match legacy deep links under the unified Find talent hub.
+    label: 'Find talent',
+    // Home + legacy list routes (dashboard home redirects here).
     matchPrefixes: [
       '/business/hire',
+      '/business/dashboard',
       '/business/subscription',
       '/business/assignments',
       '/business/job-posts',

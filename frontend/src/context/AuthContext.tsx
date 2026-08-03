@@ -128,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       storeAuth(data.access_token || data.token, data.user, null);
       router.push(
-        data.must_change_password ? BUSINESS_CHANGE_PASSWORD_PATH : '/business/dashboard',
+        data.must_change_password ? BUSINESS_CHANGE_PASSWORD_PATH : '/business/hire',
       );
       return { needsSignup: false };
     },
@@ -139,7 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (payload: BusinessSignupData) => {
       const { data } = await api.post('/auth/business/signup', payload);
       storeAuth(data.access_token || data.token, data.user, null);
-      router.push('/business/dashboard');
+      router.push('/business/hire');
     },
     [storeAuth, router]
   );
