@@ -13,17 +13,21 @@ type Identifier = 'email' | 'phone';
 
 export default function LoginBusiness() {
   const router = useRouter();
-  const { businessLogin, user } = useAuth();
+  const { businessLogin, user, token } = useAuth();
 
-  // Already signed in (e.g. a mobile swipe-back landed here from the app) —
-  // bounce back into the portal instead of showing a login form.
+  // Already signed in (e.g. a mobile swipe-back landed here from the app).
+  // `token` is read synchronously from localStorage on mount, so it's set
+  // before `user` finishes loading — bounce back into the portal immediately
+  // instead of flashing (or getting stuck on) the login form. Once `user`
+  // resolves we route to the exact portal for their role.
   useEffect(() => {
-    if (user?.role === 'business') {
+    if (!token) return;
+    if (!user || user.role === 'business') {
       router.replace('/business/hire');
-    } else if (user) {
+    } else {
       router.replace('/dashboard');
     }
-  }, [user, router]);
+  }, [token, user, router]);
 
   const [identifier, setIdentifier] = useState<Identifier>('email');
   const [email, setEmail] = useState('');
@@ -83,6 +87,11 @@ export default function LoginBusiness() {
       setRequestLoading(false);
     }
   };
+
+  // A token is present — a still-signed-in user reached this page (e.g. mobile
+  // swipe-back). Render nothing while the effect above redirects, so the login
+  // form never flashes.
+  if (token) return null;
 
   return (
     <AuthShell switchHref="/login/talent" switchLabel="Talent Login" accent="business">

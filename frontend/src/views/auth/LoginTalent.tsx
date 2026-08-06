@@ -8,17 +8,20 @@ import toast from 'react-hot-toast';
 
 export default function LoginTalent() {
   const router = useRouter();
-  const { login, user } = useAuth();
+  const { login, user, token } = useAuth();
 
-  // Already signed in (e.g. a mobile swipe-back landed here from the app) —
-  // bounce back into the app instead of showing a login form.
+  // Already signed in (e.g. a mobile swipe-back landed here from the app).
+  // `token` is read synchronously from localStorage on mount, so it's set
+  // before `user` finishes loading — bounce back into the app immediately
+  // instead of flashing (or getting stuck on) the login form.
   useEffect(() => {
-    if (user?.role === 'talent') {
+    if (!token) return;
+    if (!user || user.role === 'talent') {
       router.replace('/talent/dashboard');
-    } else if (user) {
+    } else {
       router.replace('/dashboard');
     }
-  }, [user, router]);
+  }, [token, user, router]);
 
   const [step, setStep] = useState<'email' | 'password'>('email');
   const [email, setEmail] = useState('');
@@ -42,6 +45,10 @@ export default function LoginTalent() {
       setLoading(false);
     }
   };
+
+  // A token is present — a still-signed-in user reached this page (e.g. mobile
+  // swipe-back). Render nothing while the effect above redirects.
+  if (token) return null;
 
   return (
     <AuthShell
