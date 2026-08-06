@@ -91,6 +91,10 @@ router.post(
   businessController.reviewCardRecipient,
 );
 router.post(
+  '/my-subscription-cards/:cardId/recipients/seen',
+  businessController.markCardAcceptancesSeen,
+);
+router.post(
   '/my-subscription-cards/:cardId/select',
   validate({ body: selectCardRecipientSchema }),
   businessController.selectCardRecipient,

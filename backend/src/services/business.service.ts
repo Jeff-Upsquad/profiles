@@ -602,7 +602,7 @@ interface DashboardCardSummary {
   cancelled_at: string | null;
   card_type: 'subscription' | 'assignment' | 'hiring';
   category_ids: string[];
-  counts: { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number };
+  counts: { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number; new_accepted: number };
 }
 
 // Collapse the per-tier sibling cards of one multi-tier brief (same group_id)
@@ -751,7 +751,7 @@ export async function listMySubscriptionCards(
   // Pull recipient counts in one shot — includes business review status.
   const { data: recipientRows } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('card_id, talent_user_id, status, business_review_status, selected_at, cancelled_at')
+    .select('card_id, talent_user_id, status, business_review_status, selected_at, cancelled_at, business_seen_at')
     .in('card_id', cardIds);
 
   // Narrow eligibility lookups to talents the business has accepted (and not
@@ -807,8 +807,8 @@ export async function listMySubscriptionCards(
     return cardCats.some((c) => profCats.has(c));
   }
 
-  const counts = new Map<string, { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number }>();
-  for (const id of cardIds) counts.set(id, { accepted: 0, pending: 0, rejected: 0, shortlisted: 0, for_review: 0, selected: 0 });
+  const counts = new Map<string, { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number; new_accepted: number }>();
+  for (const id of cardIds) counts.set(id, { accepted: 0, pending: 0, rejected: 0, shortlisted: 0, for_review: 0, selected: 0, new_accepted: 0 });
   for (const r of recipientRows ?? []) {
     const bucket = counts.get((r as any).card_id);
     if (!bucket) continue;
@@ -821,7 +821,12 @@ export async function listMySubscriptionCards(
       if ((r as any).selected_at) bucket.selected++;
       const reviewStatus = (r as any).business_review_status as string | null;
       if (reviewStatus === 'shortlisted') bucket.shortlisted++;
-      else if (!reviewStatus && !(r as any).selected_at) bucket.for_review++;
+      else if (!reviewStatus && !(r as any).selected_at) {
+        bucket.for_review++;
+        // Newly-accepted talents the business hasn't opened yet — drives the
+        // unread badge on the card list and the "New" markers on the review page.
+        if (!(r as any).business_seen_at) bucket.new_accepted++;
+      }
     }
   }
 
@@ -1198,7 +1203,7 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
 
   const { data: recipients, error } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('id, card_id, talent_user_id, status, responded_at, selected_at, passed_over_at, business_review_status, business_reviewed_at')
+    .select('id, card_id, talent_user_id, status, responded_at, selected_at, passed_over_at, business_review_status, business_reviewed_at, business_seen_at')
     .in('card_id', cardIds)
     .eq('status', 'accepted')
     .is('cancelled_at', null)
@@ -1300,6 +1305,9 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
         selected_at: r.selected_at ?? (isCardSelected ? sel.selectedAt : null),
         passed_over_at: r.passed_over_at ?? (sel.selectedTalent && !isCardSelected ? sel.selectedAt : null),
         responded_at: r.responded_at ?? null,
+        // Null = the business hasn't opened this card since the talent accepted;
+        // drives the "New" marker in the review pool. Cleared by markCardAcceptancesSeen.
+        business_seen_at: r.business_seen_at ?? null,
         // This talent's OWN tier card's activation — set = Assigned, null =
         // Selected (pending admin approval). Per-recipient so grouped briefs read
         // the right tier's state.
@@ -1353,6 +1361,29 @@ export async function reviewCardRecipient(
     .eq('id', recipientId);
 
   if (updErr) throw new AppError(500, updErr.message);
+}
+
+// Mark every still-unseen acceptance on this brief (all tier siblings) as seen
+// by the business. Called when the business opens the card's review page, so the
+// unread badge / "New" markers clear on the next load. Scoped by card ownership.
+export async function markCardAcceptancesSeen(
+  businessUserId: string,
+  cardId: string,
+): Promise<{ marked: number }> {
+  const card = await verifyCardOwnership(businessUserId, cardId);
+  const groupCards = await resolveGroupCards(card);
+  const groupCardIds = groupCards.map((c: any) => c.id as string);
+
+  const { data, error } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .update({ business_seen_at: new Date().toISOString() })
+    .in('card_id', groupCardIds)
+    .eq('status', 'accepted')
+    .is('business_seen_at', null)
+    .select('id');
+
+  if (error) throw new AppError(500, error.message);
+  return { marked: (data ?? []).length };
 }
 
 export async function businessSelectRecipient(

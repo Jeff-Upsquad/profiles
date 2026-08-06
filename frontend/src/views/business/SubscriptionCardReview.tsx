@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -9,6 +9,7 @@ import {
   useCardRecipients,
   useReviewCardRecipient,
   useSelectCardRecipient,
+  useMarkCardAcceptancesSeen,
   type CardRecipientForBusiness,
 } from '@/hooks/useBusiness';
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
@@ -77,7 +78,26 @@ export default function SubscriptionCardReview({
   const { data: recipients, isLoading: recipientsLoading } = useCardRecipients(cardId);
   const reviewMutation = useReviewCardRecipient(cardId);
   const selectMutation = useSelectCardRecipient(cardId);
+  const markSeenMutation = useMarkCardAcceptancesSeen(cardId);
   const [confirmSelect, setConfirmSelect] = useState<CardRecipientForBusiness | null>(null);
+
+  // Recipients whose acceptance was still unseen when this page first loaded.
+  // Captured once so the "New" markers persist for the visit even after we mark
+  // them seen on the server; they clear on the next load.
+  const newSnapshotRef = useRef<Set<string> | null>(null);
+  const markedSeenRef = useRef(false);
+  useEffect(() => {
+    if (recipientsLoading || markedSeenRef.current || !recipients) return;
+    markedSeenRef.current = true;
+    const unseen = recipients.filter(
+      (r) => !r.business_seen_at && !r.business_review_status && !r.selected_at,
+    );
+    newSnapshotRef.current = new Set(unseen.map((r) => r.recipient_id));
+    if (unseen.length > 0) markSeenMutation.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipientsLoading, recipients]);
+  const isNewAcceptance = (r: CardRecipientForBusiness) =>
+    newSnapshotRef.current?.has(r.recipient_id) ?? false;
   // Active tier sub-tab ('all' or a normalized tier). Only shown for multi-tier
   // briefs, where the review sections split into All · Top talents · Pro · Junior.
   const [activeTier, setActiveTier] = useState<string>('all');
@@ -120,8 +140,12 @@ export default function SubscriptionCardReview({
   // Tier sub-tab filtering applied to both review sections.
   const tierMatches = (r: CardRecipientForBusiness) =>
     activeTier === 'all' || normalizeTier(r.tier) === activeTier;
-  const forReviewView = forReview.filter(tierMatches);
+  // Newly-accepted (unseen at load) talents float to the top of the review pool.
+  const forReviewView = forReview
+    .filter(tierMatches)
+    .sort((a, b) => (isNewAcceptance(b) ? 1 : 0) - (isNewAcceptance(a) ? 1 : 0));
   const shortlistedView = shortlisted.filter(tierMatches);
+  const newAcceptedCount = forReview.filter(isNewAcceptance).length;
   const tierCount = (key: string) => {
     const pool = [...forReview, ...shortlisted];
     return key === 'all' ? pool.length : pool.filter((r) => normalizeTier(r.tier) === key).length;
@@ -482,11 +506,21 @@ export default function SubscriptionCardReview({
           <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="border-b border-[#E7E7EA] px-5 py-4 sm:px-6">
               <div className="flex items-center justify-between">
-                <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
-                  New talents for review
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
+                    New talents for review
+                  </h2>
+                  {newAcceptedCount > 0 && (
+                    <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                      {newAcceptedCount} new
+                    </span>
+                  )}
+                </div>
                 <span className="text-xs text-[#a3a3a3]">{forReviewView.length} total</span>
               </div>
+              <p className="mt-0.5 text-xs text-[#a3a3a3]">
+                Talents who accepted your card. Newly accepted are flagged and listed first.
+              </p>
             </div>
 
             {forReviewView.length === 0 ? (
@@ -496,11 +530,14 @@ export default function SubscriptionCardReview({
             ) : (
               <ul className="divide-y divide-[#E7E7EA]">
                 {forReviewView.map((r, i) => (
-                  <li key={r.recipient_id} className="relative px-5 py-3 sm:px-6">
+                  <li
+                    key={r.recipient_id}
+                    className={`relative px-5 py-3 sm:px-6 ${isNewAcceptance(r) ? 'bg-red-50/40' : ''}`}
+                  >
                     <div className="flex items-center gap-4">
                       <RecipientLink recipient={r} inactive={(isClosed || hasSelection) && !r.selected_at}>
                         <RecipientAvatar recipient={r} />
-                        <RecipientInfo recipient={r} />
+                        <RecipientInfo recipient={r} isNew={isNewAcceptance(r)} />
                       </RecipientLink>
                       <div className="flex shrink-0 items-center gap-2">
                         <button
@@ -597,13 +634,18 @@ function RecipientAvatar({ recipient: r }: { recipient: CardRecipientForBusiness
   );
 }
 
-function RecipientInfo({ recipient: r }: { recipient: CardRecipientForBusiness }) {
+function RecipientInfo({ recipient: r, isNew = false }: { recipient: CardRecipientForBusiness; isNew?: boolean }) {
   return (
     <div className="min-w-0 flex-1">
       <div className="flex items-center gap-2">
         <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
           {r.talent_name || 'Unknown talent'}
         </p>
+        {isNew && (
+          <span className="shrink-0 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+            New
+          </span>
+        )}
         {r.tier && (
           <span className="shrink-0 rounded-full bg-[#F1F1F3] px-2 py-0.5 text-[10px] font-semibold text-[#0a0a0a]">
             {r.tier_custom || r.tier}
