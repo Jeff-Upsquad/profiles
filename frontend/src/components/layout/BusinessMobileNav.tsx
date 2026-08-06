@@ -15,6 +15,7 @@ export default function BusinessMobileNav() {
     pathname.startsWith('/business/subscription') ||
     pathname.startsWith('/business/assignments') ||
     pathname.startsWith('/business/job-posts');
+  const cardsActive = pathname.startsWith('/business/cards');
   const allProfilesActive = pathname.startsWith('/business/talent-access');
   const howItWorksActive = pathname.startsWith('/business/how-it-works');
 
@@ -23,6 +24,9 @@ export default function BusinessMobileNav() {
       <div className="flex gap-2 overflow-x-auto px-4 py-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <Pill href="/business/hire" active={hireActive}>
           Find talent
+        </Pill>
+        <Pill href="/business/cards" active={cardsActive}>
+          My Cards
         </Pill>
         <Pill href="/business/talent-access" active={allProfilesActive}>
           All profiles

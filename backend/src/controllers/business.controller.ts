@@ -295,6 +295,18 @@ export async function reviewCardRecipient(req: Request, res: Response, next: Nex
   }
 }
 
+export async function markCardAcceptancesSeen(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await businessService.markCardAcceptancesSeen(
+      req.user!.id,
+      req.params.cardId as string,
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function selectCardRecipient(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await businessService.businessSelectRecipient(

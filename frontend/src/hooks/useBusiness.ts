@@ -141,7 +141,7 @@ export interface BusinessSubscriptionCardSummary {
   /** Product line — 'assignment' = freelance project. The portal lists
    *  subscriptions and assignments in separate sections. */
   card_type?: 'subscription' | 'assignment' | 'hiring';
-  counts: { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number };
+  counts: { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number; new_accepted: number };
 }
 
 export interface BusinessSubscriptionCardDetail {
@@ -263,6 +263,9 @@ export interface CardRecipientForBusiness {
   selected_at: string | null;
   passed_over_at: string | null;
   responded_at: string | null;
+  /** Null = the business hasn't opened this card since the talent accepted.
+   *  Drives the "New" marker on the review pool. */
+  business_seen_at: string | null;
   /** This talent's own tier card's activation. Set = Assigned; null = Selected
    *  (pending admin approval). Per-recipient so grouped briefs read the right tier. */
   subscription_activated_at: string | null;
@@ -308,6 +311,23 @@ export function useSelectCardRecipient(cardId: string) {
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to select talent');
+    },
+  });
+}
+
+// Mark all of a card's unseen acceptances as seen (called when the business
+// opens the review page). Clears the unread badge on the card list. Deliberately
+// does NOT invalidate ['card-recipients'] so the "New" markers stay visible for
+// the current visit — they clear on the next load.
+export function useMarkCardAcceptancesSeen(cardId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await api.post(`/business/my-subscription-cards/${cardId}/recipients/seen`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-subscription-cards'] });
+      queryClient.invalidateQueries({ queryKey: ['my-assignment-cards'] });
     },
   });
 }

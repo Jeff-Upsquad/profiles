@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import BusinessNotificationsBell from '@/components/jobs/business/BusinessNotificationsBell';
 
 /**
  * Mobile-only top bar: brand left, profile avatar right.
@@ -10,6 +12,7 @@ import { useAuth } from '@/context/AuthContext';
  */
 export default function BusinessTopBar() {
   const { user, logout } = useAuth();
+  const pathname = usePathname() ?? '';
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -60,7 +63,13 @@ export default function BusinessTopBar() {
           </div>
         </Link>
 
-        <div className="relative">
+        <div className="flex items-center gap-1">
+          <BusinessNotificationsBell
+            variant="topbar"
+            active={pathname.startsWith('/business/notifications')}
+          />
+
+          <div className="relative">
           <button
             ref={btnRef}
             type="button"
@@ -118,6 +127,7 @@ export default function BusinessTopBar() {
               </button>
             </div>
           )}
+          </div>
         </div>
       </div>
     </header>

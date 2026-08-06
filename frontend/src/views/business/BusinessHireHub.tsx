@@ -2,40 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import Link from 'next/link';
 import ConnectBriefDrawer from '@/components/business/connect-brief/ConnectBriefDrawer';
+import BusinessCardsList from '@/components/business/cards/BusinessCardsList';
 import {
-  useMySubscriptionCards,
-  useMyAssignmentCards,
-  type BusinessSubscriptionCardSummary,
-} from '@/hooks/useBusiness';
-import { useBusinessJobCards, type BusinessJobCardSummary } from '@/hooks/useBusinessJobs';
-import { jobTitle, packageLabel } from '@/components/jobs/shared';
-import { SkeletonCard } from '@/components/ui/Skeleton';
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-export type HireProduct = 'subscription' | 'assignment' | 'job';
-
-type ActivityStatus =
-  | 'open'
-  | 'active'
-  | 'paused'
-  | 'cancelled'
-  | 'sourcing'
-  | 'interviewing'
-  | 'filled'
-  | 'closed';
-
-export interface HireActivityItem {
-  id: string;
-  product: HireProduct;
-  title: string;
-  subtitle: string;
-  status: ActivityStatus;
-  meta: string;
-  href?: string;
-}
+  useHireActivity,
+  type HireActivityItem,
+  type HireProduct,
+} from '@/components/business/cards/hireActivity';
 
 // ─── Product copy ────────────────────────────────────────────────────────────
 
@@ -134,187 +107,6 @@ const PRODUCTS: {
   },
 ];
 
-// Sample activity for the UI prototype so the list isn't empty before APIs are wired.
-export const MOCK_ACTIVITY: HireActivityItem[] = [
-  {
-    id: 'mock-sub-1',
-    product: 'subscription',
-    title: 'Acme Studio · Design retainer',
-    subtitle: 'Plus plan · Pro tier',
-    status: 'active',
-    meta: '2 candidates shortlisted · Active since Mar 2026',
-  },
-  {
-    id: 'mock-asg-1',
-    product: 'assignment',
-    title: 'Launch kit — Q3 campaign',
-    subtitle: 'Designer / Editor · Budget ₹45,000',
-    status: 'open',
-    meta: '4 talents ready for review',
-  },
-  {
-    id: 'mock-job-1',
-    product: 'job',
-    title: 'Senior Accountant',
-    subtitle: 'Full-time · Bangalore / Hybrid',
-    status: 'interviewing',
-    meta: '12 applied · 3 in interviews',
-  },
-  {
-    id: 'mock-sub-2',
-    product: 'subscription',
-    title: 'Northwind · Bookkeeping',
-    subtitle: 'Basic plan · Junior tier',
-    status: 'open',
-    meta: 'Waiting for talent matches',
-  },
-  {
-    id: 'mock-job-2',
-    product: 'job',
-    title: 'Growth Marketer',
-    subtitle: 'Full-time · Remote',
-    status: 'sourcing',
-    meta: 'Job live · 5 pending invites',
-  },
-];
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-type FilterKey = 'all' | HireProduct;
-
-function classifySubCard(card: BusinessSubscriptionCardSummary): ActivityStatus {
-  if (card.status === 'archived' || card.cancelled_at || card.recalled_at) return 'cancelled';
-  if (card.paused_at) return 'paused';
-  if (card.status === 'assigned') return 'active';
-  return 'open';
-}
-
-function subCardTitle(card: BusinessSubscriptionCardSummary): string {
-  const left = card.brand_name || 'Untitled';
-  const right = card.subscription_name;
-  return right ? `${left} · ${right}` : left;
-}
-
-function subCardSubtitle(card: BusinessSubscriptionCardSummary): string {
-  const { plan_name, plan_tier } = card;
-  const tiers = card.tiers ?? [];
-  if (card.is_group && tiers.length > 0) {
-    return plan_name ? `${plan_name} · ${tiers.join(' · ')}` : tiers.join(' · ');
-  }
-  if (plan_name && plan_tier) return `${plan_name} · ${plan_tier}`;
-  if (plan_name) return plan_name;
-  if (plan_tier) return `${plan_tier} tier`;
-  return card.card_type === 'assignment' ? 'Assignment' : 'Subscription';
-}
-
-function subCardMeta(card: BusinessSubscriptionCardSummary): string {
-  const c = card.counts ?? {
-    accepted: 0,
-    pending: 0,
-    rejected: 0,
-    shortlisted: 0,
-    for_review: 0,
-    selected: 0,
-  };
-  const parts: string[] = [];
-  if (c.for_review) parts.push(`${c.for_review} for review`);
-  if (c.shortlisted) parts.push(`${c.shortlisted} shortlisted`);
-  if (c.selected) parts.push(`${c.selected} selected`);
-  if (c.pending) parts.push(`${c.pending} pending`);
-  if (c.accepted) parts.push(`${c.accepted} accepted`);
-  return parts.join(' · ') || 'No candidates yet';
-}
-
-function mapSubCards(
-  cards: BusinessSubscriptionCardSummary[],
-  product: 'subscription' | 'assignment',
-): HireActivityItem[] {
-  const base = product === 'assignment' ? '/business/assignments' : '/business/subscription';
-  return cards.map((card) => ({
-    id: `${product}-${card.id}`,
-    product,
-    title: subCardTitle(card),
-    subtitle: subCardSubtitle(card),
-    status: classifySubCard(card),
-    meta: subCardMeta(card),
-    href: `${base}/${card.id}`,
-  }));
-}
-
-function jobActivityStatus(card: BusinessJobCardSummary): ActivityStatus {
-  const jc = card.job_card;
-  if (jc?.closed_at) {
-    return jc.close_mode === 'filled' ? 'filled' : 'closed';
-  }
-  switch (jc?.hiring_stage) {
-    case 'interviewing':
-    case 'offering':
-      return 'interviewing';
-    case 'screening':
-    case 'sourcing':
-    default:
-      return 'sourcing';
-  }
-}
-
-function jobFunnelMeta(card: BusinessJobCardSummary): string {
-  const c = card.funnel_counts ?? {};
-  const applied = (c.applied ?? 0) + (c.screening ?? 0);
-  const parts: string[] = [];
-  if (card.pending_recipients > 0) parts.push(`${card.pending_recipients} pending`);
-  if (applied > 0) parts.push(`${applied} applied`);
-  if (c.shortlisted) parts.push(`${c.shortlisted} shortlisted`);
-  const interviews = (c.interview_invited ?? 0) + (c.interview ?? 0);
-  if (interviews > 0) parts.push(`${interviews} in interviews`);
-  if (c.selected) parts.push(`${c.selected} selected`);
-  if (c.offer) parts.push(`${c.offer} offered`);
-  const hired = (c.hired ?? 0) + (c.placed ?? 0);
-  if (hired > 0) parts.push(`${hired} hired`);
-  return parts.join(' · ') || 'No candidates yet';
-}
-
-function mapJobCards(cards: BusinessJobCardSummary[]): HireActivityItem[] {
-  return cards.map((card) => {
-    const title = jobTitle(card.content);
-    const pkg = packageLabel(card.content);
-    const employment = card.content?.job_profile?.employment_type;
-    const workMode = card.content?.job_profile?.work_mode;
-    const subtitleParts = [employment, workMode, pkg].filter(Boolean);
-    return {
-      id: `job-${card.id}`,
-      product: 'job' as const,
-      title,
-      subtitle: subtitleParts.length ? subtitleParts.join(' · ') : 'Job post',
-      status: jobActivityStatus(card),
-      meta: jobFunnelMeta(card),
-      href: `/business/job-posts/${card.id}`,
-    };
-  });
-}
-
-const STATUS_STYLES: Record<ActivityStatus, { label: string; className: string }> = {
-  open: { label: 'Open', className: 'bg-[#EFF6FF] text-[#1D4ED8]' },
-  active: { label: 'Active', className: 'bg-[#ECFDF5] text-[#047857]' },
-  paused: { label: 'Paused', className: 'bg-[#FFF7ED] text-[#C2410C]' },
-  cancelled: { label: 'Cancelled', className: 'bg-[#F5F5F6] text-[#737373]' },
-  sourcing: { label: 'Sourcing', className: 'bg-[#EFF6FF] text-[#1D4ED8]' },
-  interviewing: { label: 'Interviewing', className: 'bg-[#EEF2FF] text-[#4338CA]' },
-  filled: { label: 'Filled', className: 'bg-[#ECFDF5] text-[#047857]' },
-  closed: { label: 'Closed', className: 'bg-[#F5F5F6] text-[#737373]' },
-};
-
-const PRODUCT_BADGE: Record<HireProduct, string> = {
-  subscription: 'Subscription',
-  assignment: 'Assignment',
-  job: 'Job post',
-};
-
-const PRODUCT_TINT: Record<HireProduct, string> = {
-  subscription: 'tint-orange',
-  assignment: 'tint-blue',
-  job: 'tint-purple',
-};
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function BusinessHireHub({
@@ -326,30 +118,14 @@ export default function BusinessHireHub({
   /** Public preview mode — mock data, no auth, soft links. */
   preview?: boolean;
 }) {
-  // Live data when not preview and no explicit activity override.
-  const live = !preview && activity === undefined;
-  const subQuery = useMySubscriptionCards(live);
-  const asgQuery = useMyAssignmentCards(live);
-  const jobQuery = useBusinessJobCards(live);
-
-  const items = useMemo(() => {
-    if (activity) return activity;
-    if (preview) return MOCK_ACTIVITY;
-    return [
-      ...mapSubCards(subQuery.data ?? [], 'subscription'),
-      ...mapSubCards(asgQuery.data ?? [], 'assignment'),
-      ...mapJobCards(jobQuery.data ?? []),
-    ];
-  }, [activity, preview, subQuery.data, asgQuery.data, jobQuery.data]);
-
-  const isLoading =
-    live && (subQuery.isLoading || asgQuery.isLoading || jobQuery.isLoading);
-  const isError =
-    live && (subQuery.isError || asgQuery.isError || jobQuery.isError);
+  // Aggregated subscriptions + assignments + job posts (live, mock, or override).
+  const { items, isLoading, isError } = useHireActivity({ preview, activity });
 
   // Any existing sub / assignment / job → fold Quick compare into a closed dropdown.
   const hasCards = items.length > 0;
-  const [filter, setFilter] = useState<FilterKey>('all');
+  // When the business has an active (assigned) engagement, surface the activity
+  // list above the discovery/product sections (Change 1).
+  const hasActiveCards = useMemo(() => items.some((i) => i.status === 'active'), [items]);
   const [selectedProduct, setSelectedProduct] = useState<HireProduct | null>(null);
   const [briefOpen, setBriefOpen] = useState(false);
   const [briefProduct, setBriefProduct] = useState<'subscription' | 'assignment'>('subscription');
@@ -422,7 +198,16 @@ export default function BusinessHireHub({
     return c;
   }, [items]);
 
-  const visible = filter === 'all' ? items : items.filter((i) => i.product === filter);
+  // Rendered once — either above the discovery sections (active cards) or below
+  // them (default). Only one branch mounts, so its internal filter state is safe.
+  const cardsList = (
+    <BusinessCardsList
+      items={items}
+      isLoading={isLoading}
+      isError={isError}
+      preview={preview}
+    />
+  );
 
   const openCreate = (product: HireProduct) => {
     setCreateMenuOpen(false);
@@ -556,6 +341,9 @@ export default function BusinessHireHub({
           </>,
           document.body,
         )}
+
+      {/* ── Your activity — surfaced on top when there are active engagements ── */}
+      {hasActiveCards && cardsList}
 
       {/* ── What do you need? — product explainers + create CTAs ── */}
       <section>
@@ -752,128 +540,8 @@ export default function BusinessHireHub({
         )}
       </section>
 
-      {/* ── Activity list ── */}
-      <section className="overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <div className="flex flex-col gap-3 border-b border-[#E7E7EA] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div>
-            <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
-              Your activity
-            </h2>
-            <p className="mt-0.5 text-sm text-[#737373]">
-              All subscriptions, assignments, and job posts in one list.
-            </p>
-          </div>
-        </div>
-
-        <div className="border-b border-[#E7E7EA] px-5 sm:px-6" role="tablist" aria-label="Filter by type">
-          <div className="-mb-px flex gap-1 overflow-x-auto">
-            {(
-              [
-                { key: 'all' as const, label: 'All' },
-                { key: 'subscription' as const, label: 'Subscriptions' },
-                { key: 'assignment' as const, label: 'Assignments' },
-                { key: 'job' as const, label: 'Job posts' },
-              ] as const
-            ).map((tab) => {
-              const active = filter === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setFilter(tab.key)}
-                  className={`relative shrink-0 px-3 py-3 text-sm font-semibold transition-colors ${
-                    active ? 'text-[#0a0a0a]' : 'text-[#737373] hover:text-[#0a0a0a]'
-                  }`}
-                >
-                  {tab.label}
-                  <span className={`ml-1.5 text-xs font-medium ${active ? 'text-[#525252]' : 'text-[#a3a3a3]'}`}>
-                    {counts[tab.key]}
-                  </span>
-                  {active && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-[#0a0a0a]" />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="space-y-3 px-5 py-5 sm:px-6">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
-        ) : isError ? (
-          <div className="px-5 py-10 sm:px-6">
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-              <p className="text-sm font-semibold text-red-900">Could not load your activity.</p>
-              <p className="mt-0.5 text-sm text-red-700">Refresh the page to try again.</p>
-            </div>
-          </div>
-        ) : visible.length === 0 ? (
-          <div className="px-6 py-14 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F5F5F6]">
-              <svg className="h-5 w-5 text-[#a3a3a3]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-            </div>
-            <p className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
-              Nothing here yet
-            </p>
-            <p className="mx-auto mt-1 max-w-sm text-sm text-[#737373]">
-              Create a subscription, assignment, or job post above and it will show up in this list.
-            </p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-[#E7E7EA]">
-            {visible.map((item) => {
-              const status = STATUS_STYLES[item.status];
-              const body = (
-                <div className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-[#F5F5F6] sm:px-6">
-                  <div
-                    className={`${PRODUCT_TINT[item.product]} flex h-11 w-11 shrink-0 items-center justify-center rounded-xl`}
-                    style={{ color: 'var(--tint-icon)' }}
-                  >
-                    <ProductIcon product={item.product} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
-                        {item.title}
-                      </p>
-                      <span className="shrink-0 rounded-full bg-[#F5F5F6] px-2 py-0.5 text-[10px] font-semibold text-[#525252]">
-                        {PRODUCT_BADGE[item.product]}
-                      </span>
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.className}`}>
-                        {status.label}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 truncate text-xs text-[#737373]">{item.subtitle}</p>
-                    <p className="mt-0.5 truncate text-xs text-[#a3a3a3]">{item.meta}</p>
-                  </div>
-                  <svg className="h-4 w-4 shrink-0 text-[#D4D4D8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              );
-
-              if (item.href && !preview) {
-                return (
-                  <li key={item.id}>
-                    <Link href={item.href}>{body}</Link>
-                  </li>
-                );
-              }
-              return (
-                <li key={item.id} className={preview ? 'cursor-default' : undefined}>
-                  {body}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+      {/* ── Your activity — default position, below the discovery sections ── */}
+      {!hasActiveCards && cardsList}
 
       {/* Existing brief forms for subscription & assignment */}
       <ConnectBriefDrawer
@@ -904,20 +572,6 @@ function CompareRow({ label, values }: { label: string; values: [string, string,
         </td>
       ))}
     </tr>
-  );
-}
-
-function ProductIcon({ product }: { product: HireProduct }) {
-  const path =
-    product === 'subscription'
-      ? 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'
-      : product === 'assignment'
-        ? 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'
-        : 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z';
-  return (
-    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-      <path strokeLinecap="round" strokeLinejoin="round" d={path} />
-    </svg>
   );
 }
 

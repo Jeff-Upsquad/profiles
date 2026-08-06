@@ -21,11 +21,31 @@ export default function BusinessNotificationsBell({
   active,
   onNavigate,
 }: {
-  variant: 'sidebar' | 'bottom';
+  variant: 'sidebar' | 'bottom' | 'topbar';
   active: boolean;
   onNavigate?: () => void;
 }) {
   const { data: unread = 0 } = useBusinessNotificationsUnreadCount();
+
+  if (variant === 'topbar') {
+    // Icon-only bell for the mobile top bar, sitting left of the profile avatar.
+    return (
+      <Link
+        href="/business/notifications"
+        aria-label={unread > 0 ? `Alerts (${unread} unread)` : 'Alerts'}
+        className={`relative flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
+          active ? 'bg-[#F5F5F6] text-[#0a0a0a]' : 'text-[#525252] hover:bg-[#F5F5F6] hover:text-[#0a0a0a]'
+        }`}
+      >
+        {BELL_ICON}
+        {unread > 0 && (
+          <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white">
+            {unread > 99 ? '99+' : unread}
+          </span>
+        )}
+      </Link>
+    );
+  }
 
   if (variant === 'bottom') {
     return (

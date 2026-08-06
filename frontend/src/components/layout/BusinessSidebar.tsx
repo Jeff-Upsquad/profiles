@@ -16,6 +16,7 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
     pathname.startsWith('/business/subscription') ||
     pathname.startsWith('/business/assignments') ||
     pathname.startsWith('/business/job-posts');
+  const cardsActive = pathname.startsWith('/business/cards');
   const allProfilesActive = pathname.startsWith('/business/talent-access');
   const notificationsActive = pathname.startsWith('/business/notifications');
   const howItWorksActive = pathname.startsWith('/business/how-it-works');
@@ -61,6 +62,24 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
           }
         >
           Find talent
+        </SidebarLink>
+
+        <SidebarLink
+          href="/business/cards"
+          active={cardsActive}
+          onNavigate={onNavigate}
+          icon={
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+              />
+            </svg>
+          }
+        >
+          My Cards
         </SidebarLink>
 
         <SidebarLink
