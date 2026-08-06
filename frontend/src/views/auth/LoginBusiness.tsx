@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
@@ -13,7 +13,18 @@ type Identifier = 'email' | 'phone';
 
 export default function LoginBusiness() {
   const router = useRouter();
-  const { businessLogin } = useAuth();
+  const { businessLogin, user } = useAuth();
+
+  // Already signed in (e.g. a mobile swipe-back landed here from the app) —
+  // bounce back into the portal instead of showing a login form.
+  useEffect(() => {
+    if (user?.role === 'business') {
+      router.replace('/business/hire');
+    } else if (user) {
+      router.replace('/dashboard');
+    }
+  }, [user, router]);
+
   const [identifier, setIdentifier] = useState<Identifier>('email');
   const [email, setEmail] = useState('');
   const [countryCode, setCountryCode] = useState('+91');

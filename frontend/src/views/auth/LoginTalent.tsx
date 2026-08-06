@@ -1,12 +1,25 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import toast from 'react-hot-toast';
 
 export default function LoginTalent() {
-  const { login } = useAuth();
+  const router = useRouter();
+  const { login, user } = useAuth();
+
+  // Already signed in (e.g. a mobile swipe-back landed here from the app) —
+  // bounce back into the app instead of showing a login form.
+  useEffect(() => {
+    if (user?.role === 'talent') {
+      router.replace('/talent/dashboard');
+    } else if (user) {
+      router.replace('/dashboard');
+    }
+  }, [user, router]);
+
   const [step, setStep] = useState<'email' | 'password'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

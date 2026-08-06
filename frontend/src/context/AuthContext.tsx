@@ -113,7 +113,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       const { data } = await api.post('/auth/login', { email, password });
       storeAuth(data.access_token || data.token, data.user, data.refresh_token);
-      router.push('/dashboard');
+      // replace (not push) so the login page doesn't linger in history — a
+      // mobile swipe-back would otherwise land the user back on it.
+      router.replace('/dashboard');
     },
     [storeAuth, router]
   );
@@ -127,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { needsSignup: true };
       }
       storeAuth(data.access_token || data.token, data.user, null);
-      router.push(
+      router.replace(
         data.must_change_password ? BUSINESS_CHANGE_PASSWORD_PATH : '/business/hire',
       );
       return { needsSignup: false };
@@ -139,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (payload: BusinessSignupData) => {
       const { data } = await api.post('/auth/business/signup', payload);
       storeAuth(data.access_token || data.token, data.user, null);
-      router.push('/business/hire');
+      router.replace('/business/hire');
     },
     [storeAuth, router]
   );
@@ -149,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data } = await api.post('/auth/signup/talent', signupData);
       storeAuth(data.access_token || data.token, data.user, data.refresh_token);
       if (!options?.skipRedirect) {
-        router.push('/talent/basic-profile');
+        router.replace('/talent/basic-profile');
       }
     },
     [storeAuth, router]
