@@ -33,6 +33,12 @@ interface AuthContextType {
   }) => Promise<{ needsSignup: boolean }>;
   businessSignup: (data: BusinessSignupData) => Promise<void>;
   signupTalent: (data: TalentSignupData, options?: { skipRedirect?: boolean }) => Promise<void>;
+  applyResetSession: (data: {
+    access_token?: string;
+    token?: string;
+    refresh_token?: string | null;
+    user: User;
+  }) => void;
   logout: (redirectTo?: string) => void;
   refetchUser: () => Promise<void>;
 }
@@ -146,6 +152,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [storeAuth, router]
   );
 
+  // Finalize the self-serve WhatsApp password-reset: the wizard has already
+  // collected the temp password AND the new password (set via the authenticated
+  // change-password endpoints), so by the time this runs the forced-change flag
+  // is cleared. Store the session and drop the user straight into their portal —
+  // no detour through a separate "set a new password" page.
+  const applyResetSession = useCallback(
+    (data: {
+      access_token?: string;
+      token?: string;
+      refresh_token?: string | null;
+      user: User;
+    }) => {
+      storeAuth(data.access_token || data.token || '', data.user, data.refresh_token ?? null);
+      router.replace(data.user?.role === 'business' ? '/business/hire' : '/talent/dashboard');
+    },
+    [storeAuth, router]
+  );
+
   const signupTalent = useCallback(
     async (signupData: TalentSignupData, options?: { skipRedirect?: boolean }) => {
       const { data } = await api.post('/auth/signup/talent', signupData);
@@ -181,6 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         businessLogin,
         businessSignup,
         signupTalent,
+        applyResetSession,
         logout,
         refetchUser,
       }}

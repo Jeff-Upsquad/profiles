@@ -50,6 +50,20 @@ export const changePasswordSchema = z.object({
   new_password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
+// Self-serve WhatsApp password reset (phone → temp password).
+export const passwordResetLookupSchema = z.object({
+  phone: z.string().min(6, 'Enter your registered WhatsApp number'),
+});
+
+export const passwordResetSendSchema = z.object({
+  reset_ticket: z.string().min(1, 'Reset session is required'),
+});
+
+export const passwordResetVerifySchema = z.object({
+  reset_ticket: z.string().min(1, 'Reset session is required'),
+  temp_password: z.string().min(1, 'Temporary password is required'),
+});
+
 export type SignupTalentInput = z.infer<typeof signupTalentSchema>;
 export type SignupBusinessInput = z.infer<typeof signupBusinessSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

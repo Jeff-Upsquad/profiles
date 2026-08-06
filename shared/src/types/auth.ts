@@ -54,5 +54,34 @@ export interface AuthUser {
   role: UserRole;
 }
 
+// ─── Self-serve password reset (phone → WhatsApp temp password) ──────────────
+
+export interface PasswordResetLookupPayload {
+  phone: string;
+}
+
+export interface PasswordResetLookupResponse {
+  found: boolean;
+  // Only present when found. `masked_name` is the masked contact/full name;
+  // `masked_business` is the masked company name (business accounts only).
+  role?: 'talent' | 'business';
+  masked_name?: string;
+  masked_business?: string | null;
+  // Opaque signed ticket that authorizes the send/verify steps for this account.
+  reset_ticket?: string;
+}
+
+export interface PasswordResetSendResponse {
+  sent: boolean;
+  // Whether the CRM actually dispatched the WhatsApp (false when no approved
+  // template is mapped yet — the reset still works, delivery is just pending).
+  delivered: boolean;
+}
+
+export interface PasswordResetVerifyPayload {
+  reset_ticket: string;
+  temp_password: string;
+}
+
 export type Gender = 'male' | 'female' | 'other' | 'prefer_not_to_say';
 export type CompanySize = '1-10' | '11-50' | '51-200' | '201-500' | '500+';

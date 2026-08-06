@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/auth.service.js';
 import * as businessAuthService from '../services/business-auth.service.js';
+import * as passwordResetService from '../services/password-reset.service.js';
 
 export async function signupTalent(req: Request, res: Response, next: NextFunction) {
   try {
@@ -122,6 +123,38 @@ export async function forgotPassword(req: Request, res: Response, next: NextFunc
 export async function resetPassword(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await authService.resetPassword(req.body.access_token, req.body.new_password);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── Self-serve WhatsApp password reset ──────────────────────────────────────
+
+export async function passwordResetLookup(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await passwordResetService.lookupAccountByPhone(req.body.phone);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function passwordResetSend(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await passwordResetService.sendTempPassword(req.body.reset_ticket);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function passwordResetVerify(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await passwordResetService.verifyTempPassword(
+      req.body.reset_ticket,
+      req.body.temp_password,
+    );
     res.json(result);
   } catch (err) {
     next(err);

@@ -9,7 +9,7 @@ import { phoneMatchSuffix } from '../lib/phone.js';
 
 const SESSION_DURATION_HOURS = 24;
 
-async function findBusinessUser(
+export async function findBusinessUser(
   identifier: { email?: string; phone?: string },
   opts: { requireActive?: boolean } = {}
 ) {
@@ -276,7 +276,11 @@ export async function changeBusinessPassword(
 // Admin-triggered reset: sets a temporary password and forces a change on next
 // login. Returns the temp password ONCE so the admin can relay it over WhatsApp.
 // Existing sessions are dropped so a stale token can't bypass the forced change.
-export async function adminResetBusinessPassword(userId: string) {
+//
+// `tempPassword` lets a caller inject the value to set (e.g. the self-serve
+// reset flow, which uses a two-word password it also sends over WhatsApp). When
+// omitted, a random one is generated for the admin-relay path.
+export async function adminResetBusinessPassword(userId: string, tempPassword?: string) {
   const { data: user, error: fErr } = await supabaseAdmin
     .from('business_users')
     .select('id')
@@ -285,7 +289,7 @@ export async function adminResetBusinessPassword(userId: string) {
   if (fErr) throw new AppError(500, fErr.message);
   if (!user) throw new AppError(404, 'Business user not found');
 
-  const temporary_password = generateTempPassword();
+  const temporary_password = tempPassword ?? generateTempPassword();
   const password_hash = await hashPassword(temporary_password);
   const { error } = await supabaseAdmin
     .from('business_users')

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import * as authController from '../controllers/auth.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -9,6 +10,9 @@ import {
   resetPasswordSchema,
   changePasswordSchema,
   checkCandidateStatusSchema,
+  passwordResetLookupSchema,
+  passwordResetSendSchema,
+  passwordResetVerifySchema,
 } from '../validators/auth.validators.js';
 import {
   businessLoginSchema,
@@ -85,6 +89,58 @@ router.post(
   '/reset-password',
   validate({ body: resetPasswordSchema }),
   authController.resetPassword
+);
+
+// ─── Self-serve WhatsApp password reset ──────────────────────────────────────
+// Public, unauthenticated. Rate-limited to blunt enumeration (lookup/verify by
+// IP) and to stop a number being spammed with WhatsApp temp passwords (send by
+// phone). The temp password itself is never returned — only delivered over
+// WhatsApp — and each step is gated by a short-lived signed reset_ticket.
+
+const resetLookupLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 10,
+  message: { message: 'Too many attempts. Please try again in a minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const resetSendLimiter = rateLimit({
+  windowMs: 10 * 60_000,
+  max: 4,
+  keyGenerator: (req) => String(req.body?.reset_ticket ?? req.ip),
+  message: { message: 'Too many temporary passwords requested. Please wait before trying again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const resetVerifyLimiter = rateLimit({
+  windowMs: 10 * 60_000,
+  max: 8,
+  message: { message: 'Too many attempts. Please start the reset again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post(
+  '/password-reset/lookup',
+  resetLookupLimiter,
+  validate({ body: passwordResetLookupSchema }),
+  authController.passwordResetLookup
+);
+
+router.post(
+  '/password-reset/send',
+  resetSendLimiter,
+  validate({ body: passwordResetSendSchema }),
+  authController.passwordResetSend
+);
+
+router.post(
+  '/password-reset/verify',
+  resetVerifyLimiter,
+  validate({ body: passwordResetVerifySchema }),
+  authController.passwordResetVerify
 );
 
 router.post(
