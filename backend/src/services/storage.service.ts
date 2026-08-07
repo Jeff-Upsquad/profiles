@@ -21,12 +21,20 @@ const ALLOWED_CONTENT_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'video/mp4',
   'video/quicktime',
-  // Voice notes recorded in the business connect-brief form (MediaRecorder
-  // outputs webm/mp4/ogg depending on the browser).
+  // Voice notes in the business connect-brief form. MediaRecorder emits
+  // webm/mp4/ogg; the OS-recorder/file-picker fallback can also yield
+  // aac/m4a/3gpp/wav, so accept the common audio types.
   'audio/webm',
   'audio/mp4',
   'audio/mpeg',
+  'audio/mp3',
   'audio/ogg',
+  'audio/aac',
+  'audio/x-m4a',
+  'audio/m4a',
+  'audio/3gpp',
+  'audio/wav',
+  'audio/x-wav',
 ]);
 
 // ---------------------------------------------------------------------------
