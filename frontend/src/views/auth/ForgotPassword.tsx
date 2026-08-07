@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type ClipboardEvent, type FormEvent } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
@@ -155,6 +155,25 @@ export default function ForgotPassword() {
     setWord2('');
   };
 
+  // Pasting the whole "word-word" temp password (e.g. from the WhatsApp "Copy
+  // code" button) should fill both boxes, not dump everything into one. Split on
+  // any non-letter separator; a single pasted word fills just the target box.
+  const handleWordPaste = (target: 1 | 2) => (e: ClipboardEvent<HTMLInputElement>) => {
+    const words = e.clipboardData.getData('text').toLowerCase().match(/[a-z]+/g);
+    if (!words || words.length === 0) return;
+    e.preventDefault();
+    if (words.length >= 2) {
+      setWord1(words[0].slice(0, 6));
+      setWord2(words[1].slice(0, 6));
+      word2Ref.current?.focus();
+    } else if (target === 1) {
+      setWord1(words[0].slice(0, 6));
+      word2Ref.current?.focus();
+    } else {
+      setWord2(words[0].slice(0, 6));
+    }
+  };
+
   return (
     <AuthShell switchHref="/login/talent" switchLabel="Back to login" accent="talent">
       <div className="stagger-1">
@@ -285,6 +304,7 @@ export default function ForgotPassword() {
                   setWord1(v);
                   if (v.length >= 4) word2Ref.current?.focus();
                 }}
+                onPaste={handleWordPaste(1)}
                 placeholder="word"
                 autoCapitalize="none"
                 autoCorrect="off"
@@ -300,6 +320,7 @@ export default function ForgotPassword() {
                 onChange={(e) =>
                   setWord2(e.target.value.replace(/[^a-zA-Z]/g, '').toLowerCase().slice(0, 6))
                 }
+                onPaste={handleWordPaste(2)}
                 placeholder="word"
                 autoCapitalize="none"
                 autoCorrect="off"
