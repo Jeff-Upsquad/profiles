@@ -255,6 +255,7 @@ export default function SubscriptionCardContent({ content }: Props) {
   const deliverablesLabel =
     asString(content.deliverables_label).trim() ||
     asString(content.requirement_note).trim();
+  const requirementVoiceUrl = asString(content.requirement_voice_url).trim();
   const deliverables = normalizeDeliverables(content.custom_deliverables);
 
   const priceLabelRaw = asString(content.price_label).trim();
@@ -327,7 +328,7 @@ export default function SubscriptionCardContent({ content }: Props) {
 
       {(() => {
         const hasHours = Boolean(hoursLabel || capacityLabel);
-        const hasDeliverables = Boolean(deliverablesLabel || deliverables.length > 0);
+        const hasDeliverables = Boolean(deliverablesLabel || deliverables.length > 0 || requirementVoiceUrl);
         if (!hasHours && !hasDeliverables) return null;
 
         return (
@@ -362,6 +363,13 @@ export default function SubscriptionCardContent({ content }: Props) {
                   <>
                     {deliverablesLabel && (
                       <p className="mt-1 text-sm font-medium text-blue-700">{deliverablesLabel}</p>
+                    )}
+                    {requirementVoiceUrl && (
+                      <div className="mt-2">
+                        <p className="mb-1 text-[11px] font-medium text-blue-700/70">Voice note from the client</p>
+                        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                        <audio controls preload="none" src={requirementVoiceUrl} className="h-9 w-full" />
+                      </div>
                     )}
                     {deliverables.length > 0 && (
                       <ul className="mt-1 space-y-1">

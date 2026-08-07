@@ -39,6 +39,8 @@ export interface SubscriptionCardContent {
   notes?: string;
   /** Client-brief requirement; also mirrored into deliverables_label by SquadHub. */
   requirement_note?: string;
+  /** Public R2 URL of the client's recorded requirement voice note (optional). */
+  requirement_voice_url?: string;
   target_country_names?: string[];
   target_languages?: string[];
   // Plan-card fields (forwarded from SquadHub's selected plan):

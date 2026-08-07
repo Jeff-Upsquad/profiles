@@ -226,6 +226,8 @@ export default function SubscriptionCardContent({ content }: Props) {
   const deliverablesLabel =
     asString(content.deliverables_label).trim() ||
     asString(content.requirement_note).trim();
+  // Client's recorded requirement voice note (public R2 URL), if any.
+  const requirementVoiceUrl = asString(content.requirement_voice_url).trim();
   const deliverables = normalizeDeliverables(content.custom_deliverables);
 
   const priceLabelRaw = asString(content.price_label).trim();
@@ -312,7 +314,7 @@ export default function SubscriptionCardContent({ content }: Props) {
       {/* Work commitment — Hours + Deliverables (grouped, ClickUp pastel-tint blue) */}
       {(() => {
         const hasHours = Boolean(hoursLabel || capacityLabel);
-        const hasDeliverables = Boolean(deliverablesLabel || deliverables.length > 0);
+        const hasDeliverables = Boolean(deliverablesLabel || deliverables.length > 0 || requirementVoiceUrl);
         if (!hasHours && !hasDeliverables) return null;
 
         return (
@@ -355,6 +357,20 @@ export default function SubscriptionCardContent({ content }: Props) {
                       <p className="mt-1 font-[family-name:var(--font-inter)] text-sm font-medium" style={{ color: 'var(--tint-text)' }}>
                         {deliverablesLabel}
                       </p>
+                    )}
+                    {requirementVoiceUrl && (
+                      <div className="mt-2">
+                        <p className="mb-1 flex items-center gap-1.5 text-[11px] font-medium opacity-70">
+                          <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m0 0h-3.75m3.75 0h3.75M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                            </svg>
+                          </span>
+                          Voice note from the client
+                        </p>
+                        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                        <audio controls preload="none" src={requirementVoiceUrl} className="h-9 w-full" />
+                      </div>
                     )}
                     {deliverables.length > 0 && (
                       <ul className="mt-1 space-y-1">
