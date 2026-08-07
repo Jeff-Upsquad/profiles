@@ -174,6 +174,7 @@ router.post('/notifications/mark-all-read', businessController.markAllNotificati
 // Connect brief — self-serve "Request talent" form. Forwards to squadhub-web's
 // public lead pipeline; contact details default to the signed-in account.
 router.get('/connect-brief/countries', connectBriefController.getCountries);
+router.post('/connect-brief/voice-upload-url', connectBriefController.getVoiceUploadUrl);
 router.post(
   '/connect-brief',
   validate({ body: connectBriefSchema }),

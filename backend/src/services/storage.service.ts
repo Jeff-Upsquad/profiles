@@ -21,6 +21,12 @@ const ALLOWED_CONTENT_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'video/mp4',
   'video/quicktime',
+  // Voice notes recorded in the business connect-brief form (MediaRecorder
+  // outputs webm/mp4/ogg depending on the browser).
+  'audio/webm',
+  'audio/mp4',
+  'audio/mpeg',
+  'audio/ogg',
 ]);
 
 // ---------------------------------------------------------------------------

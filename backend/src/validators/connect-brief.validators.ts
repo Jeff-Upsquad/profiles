@@ -43,10 +43,14 @@ export const connectBriefSchema = z
     email: z.string().trim().email().max(200).optional(),
     phone: z.string().trim().min(4).max(30).optional(),
     business_location: z.string().trim().max(500).optional().or(z.literal('')),
-    country_id: z.string().uuid(),
+    // Location is opt-in — the business can leave country empty ("Anywhere").
+    country_id: z.string().uuid().optional(),
     state_regions: z.array(z.string().trim().min(1).max(100)).max(60).default([]),
     languages: z.array(z.string().trim().min(1).max(60)).min(1).max(20),
     working_days: z.array(z.string().trim().min(1).max(20)).max(7).default([]),
+    // Optional requirement voice note (public R2 URL from the voice-upload
+    // endpoint). Forwarded to squadhub as requirement_voice_url.
+    requirement_voice_url: z.string().trim().url().max(1000).optional().or(z.literal('')),
     role_requirements: z.record(SERVICE_TYPE, roleRequirementSchema).optional(),
     card_type: z.enum(['subscription', 'assignment']).default('subscription'),
   })
