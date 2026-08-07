@@ -64,6 +64,12 @@ class SubscriptionCard {
     if (req != null && req.trim().isNotEmpty) return req;
     return label;
   }
+  /// Public R2 URL of the client's recorded requirement voice note (optional).
+  String? get requirementVoiceUrl {
+    final v = content['requirement_voice_url'] as String?;
+    if (v != null && v.trim().isNotEmpty) return v.trim();
+    return null;
+  }
   String? get priceLabel => content['price_label'] as String?;
   String? get notes => content['notes'] as String?;
   String? get ctaLabel => content['cta_label'] as String?;

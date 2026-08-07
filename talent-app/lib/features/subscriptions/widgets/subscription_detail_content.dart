@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
 import '../../../core/tints.dart';
+import '../../../core/launchers.dart';
 import '../../../core/subscription_utils.dart';
 import '../../../models/subscription_card.dart';
 
@@ -24,6 +25,7 @@ class SubscriptionDetailContent extends StatelessWidget {
   String get _hoursLabel => (card.hoursLabel ?? '').trim();
   String get _capacityLabel => (card.capacityLabel ?? '').trim();
   String get _deliverablesLabel => (card.deliverablesLabel ?? '').trim();
+  String? get _voiceUrl => card.requirementVoiceUrl;
 
   List<_Deliverable> get _deliverables {
     final raw = card.customDeliverables;
@@ -109,6 +111,7 @@ class SubscriptionDetailContent extends StatelessWidget {
       _capacityLabel.isNotEmpty ||
       _deliverablesLabel.isNotEmpty ||
       _deliverables.isNotEmpty ||
+      _voiceUrl != null ||
       _priceFormatted != null ||
       _workingDaysSorted.isNotEmpty ||
       _hasClientBrief ||
@@ -169,7 +172,8 @@ class SubscriptionDetailContent extends StatelessWidget {
 
     // Work commitment
     final hasHours = _hoursLabel.isNotEmpty || _capacityLabel.isNotEmpty;
-    final hasDeliverables = _deliverablesLabel.isNotEmpty || _deliverables.isNotEmpty;
+    final hasDeliverables =
+        _deliverablesLabel.isNotEmpty || _deliverables.isNotEmpty || _voiceUrl != null;
     if (hasHours || hasDeliverables) {
       children.add(_workCommitment(context, hasHours, hasDeliverables));
       children.add(const SizedBox(height: 16));
@@ -340,6 +344,12 @@ class SubscriptionDetailContent extends StatelessWidget {
                               .toList(),
                         ),
                       ),
+                    if (_voiceUrl != null)
+                      Padding(
+                        padding: EdgeInsets.only(
+                            top: (_deliverablesLabel.isNotEmpty || _deliverables.isNotEmpty) ? 10 : 0),
+                        child: _voiceNoteTile(),
+                      ),
                   ],
                 )
               : Text('No specific deliverables',
@@ -349,6 +359,48 @@ class SubscriptionDetailContent extends StatelessWidget {
                       fontWeight: FontWeight.w500)),
         ),
       ],
+    );
+  }
+
+  // "Voice note from the client" — tapping opens the R2 audio URL in the
+  // device's default player/browser (no in-app audio dependency needed).
+  Widget _voiceNoteTile() {
+    return Material(
+      color: kWorkTint.fg.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => openExternalUrl(_voiceUrl),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(color: kWorkTint.fg, shape: BoxShape.circle),
+                child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Play voice note',
+                        style: TextStyle(
+                            color: kWorkTint.fg, fontSize: 14, fontWeight: FontWeight.w700)),
+                    Text('Recorded by the client',
+                        style: TextStyle(
+                            color: kWorkTint.fg.withValues(alpha: 0.7), fontSize: 11)),
+                  ],
+                ),
+              ),
+              Icon(Icons.open_in_new_rounded,
+                  color: kWorkTint.fg.withValues(alpha: 0.6), size: 16),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
