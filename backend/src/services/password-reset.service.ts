@@ -248,11 +248,11 @@ export async function sendTempPassword(ticketToken: string): Promise<PasswordRes
     event = 'talent_password_reset';
   }
 
-  // Dev aid: surface the temp password in logs while the WhatsApp template is
-  // still pending Meta approval, so the flow can be exercised end-to-end. Never
-  // logs in production.
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`[password-reset] (dev) temp password for ${ticket.role} ${ticket.sub}: ${tempPassword}`);
+  // The temp password is a live credential — never log it by default. For local
+  // debugging while WhatsApp delivery is being wired up, opt in explicitly with
+  // PASSWORD_RESET_DEBUG=1 (must NOT be set in production).
+  if (process.env.PASSWORD_RESET_DEBUG === '1') {
+    console.log(`[password-reset] temp password for ${ticket.role} ${ticket.sub}: ${tempPassword}`);
   }
 
   const delivered = phone
