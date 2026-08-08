@@ -82,7 +82,15 @@ const envSchema = z.object({
   // POST /integrations/squadcrm/business/provision, called when a deal enters
   // the "Give SQUADHire Access" stage. Distinct from SQUADCRM_INBOUND_SECRET so
   // the two CRMs don't share a secret. Optional — unset → provision route 503s.
+  // Same secret is sent as X-SquadCRM-Signature on the reverse email-backfill
+  // call to Squad CRM after business signup.
   SQUADCRM_PROVISION_SECRET: z.string().min(32).optional(),
+
+  // Original Squad CRM API origin (no trailing slash), e.g.
+  // https://crm-api.squadhub.in. Used after business signup to backfill the
+  // real email onto phone-only CRM contacts / Hub submissions. Optional —
+  // when unset, signup still succeeds and only local Profiles rows update.
+  SQUADCRM_API_URL: z.string().url().optional(),
 
   // Profiles → SquadHire CRM: outbound URL for system-event notifications
   // (e.g. talent_subscription_card_received → CRM picks the WhatsApp template
