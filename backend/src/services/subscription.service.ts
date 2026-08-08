@@ -11,6 +11,7 @@ import { assertHiringContentValid, syncJobEntitiesForCard } from './jobs-ingest.
 import { onHiringCardAccepted, onHiringCardDeclined } from './jobs.service.js';
 import { phoneMatchSuffix } from '../lib/phone.js';
 import type {
+  IngestPendingBriefInput,
   IngestSubscriptionCardInput,
   ListSubscriptionsQueryInput,
   ManualAssignTalentInput,
@@ -411,22 +412,19 @@ export interface IngestResult {
   recipient_count: number;
 }
 
-export async function ingestCard(input: IngestSubscriptionCardInput): Promise<IngestResult> {
-  // Hiring cards must carry content.job_profile.external_id (cross-repo
-  // contract) — reject the whole ingest BEFORE any write so a malformed
-  // publish never leaves a card without its job satellites.
-  if (input.card_type === 'hiring') {
-    assertHiringContentValid(input.content);
-  }
-
-  // Resolve the lead to a Profiles business_users row.
-  // 1. Prefer SquadHub's canonical identity link (business_user_id) when the
-  //    row still exists and is active — avoids email-invite vs phone-login
-  //    splits hiding the card on the business portal.
-  // 2. Else soft-match email/phone (activated preferred over invite shell).
-  // 3. Else create a 7-day pending invitation + business_users row so the
-  //    first publish is visible once they activate (never leave null when
-  //    contact details exist).
+/**
+ * Resolve a lead to a Profiles business_users row for card ingest.
+ * 1. Prefer explicit business_user_id when the row exists and is active.
+ * 2. Else soft-match email/phone (activated preferred over invite shell).
+ * 3. Else create a 7-day pending invitation + business_users row.
+ */
+async function resolveBusinessUserForCardIngest(input: {
+  business_user_id?: string;
+  business_email?: string;
+  business_phone?: string;
+  business_contact_name?: string;
+  business_company?: string;
+}): Promise<string | null> {
   let businessUserId: string | null = null;
   if (input.business_user_id) {
     const { data: explicit, error: explicitErr } = await supabaseAdmin
@@ -466,13 +464,133 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       console.error('[subscription] business invitation create threw', err);
     }
   }
-  // When Hub handed us a canonical id (or soft-match) that has no email yet
-  // and the payload carries one, backfill so later email-only reads work.
   if (businessUserId && input.business_email) {
     void backfillBusinessEmailIfMissing(businessUserId, input.business_email).catch((err) => {
       console.error('[subscription] business_email backfill after identity resolve threw', err);
     });
   }
+  return businessUserId;
+}
+
+/** Ensure list/detail fields resolve even when CRM sends `title` for assignments. */
+function normalizePendingBriefContent(
+  content: Record<string, unknown>,
+): Record<string, unknown> {
+  const out = { ...content };
+  if (
+    (typeof out.subscription_name !== 'string' || !out.subscription_name) &&
+    typeof out.title === 'string' &&
+    out.title
+  ) {
+    out.subscription_name = out.title;
+  }
+  return out;
+}
+
+/**
+ * Squad CRM pending brief — business-visible, no talent fan-out.
+ * Upserts by external_id with status='submitted'. If the card is already
+ * active/assigned, leave lifecycle fields alone (content + owner may refresh).
+ */
+export async function ingestPendingBrief(
+  input: IngestPendingBriefInput,
+): Promise<IngestResult> {
+  const businessUserId = await resolveBusinessUserForCardIngest({
+    business_user_id: input.business_user_id,
+    business_email: input.business_email,
+    business_phone: input.business_phone,
+    business_contact_name: input.business_contact_name,
+    business_company: input.business_company,
+  });
+
+  const content = normalizePendingBriefContent(input.content ?? {});
+
+  const { data: existing } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id, status')
+    .eq('external_id', input.external_id)
+    .maybeSingle();
+
+  if (existing?.id) {
+    const previousStatus = (existing as { status?: string }).status as
+      | 'active'
+      | 'assigned'
+      | 'archived'
+      | 'submitted'
+      | undefined;
+    const protectLive = previousStatus === 'active' || previousStatus === 'assigned';
+
+    const updatePatch: Record<string, unknown> = {
+      content,
+      business_user_id: businessUserId,
+      business_email: input.business_email ?? null,
+      card_type: input.card_type,
+    };
+    // Never downgrade a live card back to submitted — refresh content/owner only.
+    if (!protectLive) {
+      updatePatch.status = 'submitted';
+      updatePatch.published_at = null;
+      updatePatch.distribution = 'manual';
+      updatePatch.match_rules = {};
+    }
+
+    const { error } = await supabaseAdmin
+      .from('subscription_cards')
+      .update(updatePatch)
+      .eq('id', existing.id);
+    if (error) throw new AppError(500, error.message);
+
+    return {
+      id: existing.id,
+      external_id: input.external_id,
+      inserted: false,
+      recipient_count: 0,
+    };
+  }
+
+  const { data: inserted, error: insErr } = await supabaseAdmin
+    .from('subscription_cards')
+    .insert({
+      external_id: input.external_id,
+      content,
+      match_rules: {},
+      status: 'submitted',
+      published_at: null,
+      distribution: 'manual',
+      business_user_id: businessUserId,
+      business_email: input.business_email ?? null,
+      card_type: input.card_type,
+      is_secondary: false,
+    })
+    .select('id')
+    .single();
+  if (insErr || !inserted) {
+    throw new AppError(500, insErr?.message ?? 'Failed to insert pending brief');
+  }
+
+  return {
+    id: inserted.id,
+    external_id: input.external_id,
+    inserted: true,
+    recipient_count: 0,
+  };
+}
+
+export async function ingestCard(input: IngestSubscriptionCardInput): Promise<IngestResult> {
+  // Hiring cards must carry content.job_profile.external_id (cross-repo
+  // contract) — reject the whole ingest BEFORE any write so a malformed
+  // publish never leaves a card without its job satellites.
+  if (input.card_type === 'hiring') {
+    assertHiringContentValid(input.content);
+  }
+
+  const businessUserId = await resolveBusinessUserForCardIngest({
+    business_user_id: input.business_user_id,
+    business_email: input.business_email,
+    business_phone: input.business_phone,
+    business_contact_name: input.business_contact_name,
+    business_company: input.business_company,
+  });
 
   // Manual ("soft publish") cards must NOT auto-fan-out. The business owner
   // sees them via business_email → business_user_id resolution; talents see
@@ -535,10 +653,20 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     .maybeSingle();
 
   if (existing?.id) {
-    const previousStatus = (existing as any).status as 'active' | 'assigned' | 'archived';
+    // Include 'submitted' so CRM pending-brief rows upgrade cleanly when Hub
+    // publishes (submitted → active runs the same fan-out path as a new
+    // active card / archived republish).
+    const previousStatus = (existing as any).status as
+      | 'active'
+      | 'assigned'
+      | 'archived'
+      | 'submitted';
     const nextStatus = input.status ?? previousStatus;
     const isRecall = (previousStatus === 'active' || previousStatus === 'assigned') && nextStatus === 'archived';
     const isRepublish = previousStatus === 'archived' && nextStatus === 'active';
+    // First real publish of a CRM pending brief — same fan-out gate as insert.
+    const isFirstPublishFromSubmitted =
+      previousStatus === 'submitted' && nextStatus === 'active';
 
     const updatePatch: Record<string, unknown> = {
       content: row.content,
@@ -594,8 +722,9 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       }
     }
 
-    // Republish (archived → active) or plain edit while active: re-run the
-    // matcher and reconcile recipients against the new match set.
+    // Republish (archived → active), first publish of a CRM pending brief
+    // (submitted → active), or plain edit while active: re-run the matcher
+    // and reconcile recipients against the new match set.
     //   - INSERT new matches that don't already have an active row.
     //   - PRUNE (cancel) PENDING recipients that no longer match. match_rules
     //     can tighten between publishes (e.g. SquadHub adds target_tiers on
@@ -612,6 +741,7 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
     //
     // Manual cards are exempt: they only ever surface to talents through
     // /manual-assignments, never auto-fan-out, even on republish.
+    // submitted → active is treated like a first publish (empty recipient set).
     let recipientCount = 0;
     if (nextStatus === 'active' && !skipAutoFanOut) {
       const talentIds = await findMatchingTalents(input.match_rules ?? {}, { cardType: input.card_type });
@@ -700,9 +830,10 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       }
     }
 
-    if (isRepublish) {
-      console.info('[subscription] republished card', {
+    if (isRepublish || isFirstPublishFromSubmitted) {
+      console.info('[subscription] published card', {
         external_id: input.external_id,
+        from_status: previousStatus,
         new_recipients: recipientCount,
       });
     }
@@ -737,9 +868,14 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
   // Fan out: find matching talents and batch-insert recipient rows.
   // Manual ("soft publish") cards skip this — they only reach talents
   // via the explicit /manual-assignments hand-pick path.
-  const talentIds = skipAutoFanOut
-    ? []
-    : await findMatchingTalents(input.match_rules ?? {}, { cardType: input.card_type });
+  // Archived (and assigned) first inserts also skip: a recall/close of a
+  // never-synced SquadHub card used to CREATE the mirror here and fan-out /
+  // WhatsApp matches. Match the update-path gate (nextStatus === 'active').
+  const insertStatus = input.status ?? 'active';
+  const talentIds =
+    skipAutoFanOut || insertStatus !== 'active'
+      ? []
+      : await findMatchingTalents(input.match_rules ?? {}, { cardType: input.card_type });
 
   let recipientCount = 0;
   if (talentIds.length > 0) {

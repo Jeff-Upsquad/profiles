@@ -120,7 +120,7 @@ export interface BusinessSubscriptionCardSummary {
   plan_tier: string | null;
   customer_monthly_price: number | null;
   currency: string | null;
-  status: 'active' | 'assigned' | 'archived';
+  status: 'active' | 'assigned' | 'archived' | 'submitted';
   published_at: string | null;
   /** Set when SquadHub recalled an already-accepted card. The card stays in
    *  the Open section but renders a "Recalled" tag. */
@@ -170,7 +170,7 @@ export interface BusinessSubscriptionCardDetail {
     per_week?: number;
     per_month?: number;
   }>;
-  status: 'active' | 'assigned' | 'archived';
+  status: 'active' | 'assigned' | 'archived' | 'submitted';
   recalled_at: string | null;
   /** Set when SquadHub paused an assigned subscription: the talent is pulled but
    *  the card stays 'assigned'. The only signal that splits Paused from Active. */

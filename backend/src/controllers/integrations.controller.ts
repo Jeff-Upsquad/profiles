@@ -3,6 +3,8 @@ import { z } from 'zod';
 import * as integrationsService from '../services/integrations.service.js';
 import * as talentAccessService from '../services/talent-access.service.js';
 import * as businessProvisionService from '../services/business-provision.service.js';
+import * as subscriptionService from '../services/subscription.service.js';
+import { ingestPendingBriefSchema } from '../validators/subscription.validators.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 
@@ -29,6 +31,27 @@ export async function provisionBusinessUser(
   try {
     const body = provisionBusinessSchema.parse(req.body);
     const result = await businessProvisionService.provisionBusinessUser(body);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
+      return;
+    }
+    next(err);
+  }
+}
+
+// Squad CRM → ingest a pending brief so the business portal shows the card
+// as "Submitted / Awaiting team review" before SquadHub publishes it.
+// No talent fan-out. Same provision secret as /business/provision.
+export async function ingestPendingBrief(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = ingestPendingBriefSchema.parse(req.body);
+    const result = await subscriptionService.ingestPendingBrief(body);
     res.json({ success: true, ...result });
   } catch (err) {
     if (err instanceof z.ZodError) {

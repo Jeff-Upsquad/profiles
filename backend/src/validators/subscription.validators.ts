@@ -220,7 +220,24 @@ export type CardSelectionWebhookInput = z.infer<typeof cardSelectionWebhookSchem
 export type CardSelectionUndoWebhookInput = z.infer<typeof cardSelectionUndoWebhookSchema>;
 export type CardActivationWebhookInput = z.infer<typeof cardActivationWebhookSchema>;
 
+/**
+ * Squad CRM → pending brief. Creates a business-visible card with
+ * status='submitted' and no talent fan-out. Later SquadHub publish upgrades
+ * the same external_id via ingestCard.
+ */
+export const ingestPendingBriefSchema = z.object({
+  external_id: z.string().min(1).max(200),
+  content: z.record(z.unknown()).default({}),
+  card_type: z.enum(['subscription', 'assignment']),
+  business_email: z.string().email().toLowerCase().optional(),
+  business_phone: z.string().min(6).max(40).optional(),
+  business_contact_name: z.string().min(1).max(200).optional(),
+  business_company: z.string().min(1).max(200).optional(),
+  business_user_id: z.string().uuid().optional(),
+});
+
 export type IngestSubscriptionCardInput = z.infer<typeof ingestSubscriptionCardSchema>;
+export type IngestPendingBriefInput = z.infer<typeof ingestPendingBriefSchema>;
 export type ListSubscriptionsQueryInput = z.infer<typeof listSubscriptionsQuerySchema>;
 export type RespondToSubscriptionInput = z.infer<typeof respondToSubscriptionSchema>;
 export type RemoveTalentFromCardInput = z.infer<typeof removeTalentFromCardSchema>;

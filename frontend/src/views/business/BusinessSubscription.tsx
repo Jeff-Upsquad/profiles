@@ -318,18 +318,21 @@ function CardRow({
   const shortlisted = card.counts.shortlisted;
   const selectedCount = card.counts.selected ?? 0;
 
-  // Status pill next to the title. Open rows carry no pill; a recalled card in
-  // the Cancelled bucket keeps its distinct amber "Recalled" tag.
+  // Status pill next to the title. Open rows carry no pill unless the card is
+  // still a CRM pending brief (status='submitted'); a recalled card in the
+  // Cancelled bucket keeps its distinct amber "Recalled" tag.
   const tag =
-    bucket === 'active'
-      ? { label: 'Assigned', cls: 'bg-[#E7E7EA] text-[#0a0a0a]' }
-      : bucket === 'paused'
-        ? { label: 'Paused', cls: 'bg-amber-100 text-amber-800' }
-        : bucket === 'cancelled'
-          ? card.recalled_at && !card.cancelled_at
-            ? { label: 'Recalled', cls: 'bg-amber-100 text-amber-800' }
-            : { label: 'Cancelled', cls: 'bg-[#F4F4F5] text-[#71717A]' }
-          : null;
+    card.status === 'submitted'
+      ? { label: 'Submitted', cls: 'bg-[#FFFBEB] text-[#B45309]' }
+      : bucket === 'active'
+        ? { label: 'Assigned', cls: 'bg-[#E7E7EA] text-[#0a0a0a]' }
+        : bucket === 'paused'
+          ? { label: 'Paused', cls: 'bg-amber-100 text-amber-800' }
+          : bucket === 'cancelled'
+            ? card.recalled_at && !card.cancelled_at
+              ? { label: 'Recalled', cls: 'bg-amber-100 text-amber-800' }
+              : { label: 'Cancelled', cls: 'bg-[#F4F4F5] text-[#71717A]' }
+            : null;
 
   // Lead meta: Active rows headline the selected-talent count; everything else
   // leads with the plan/tier subtitle.

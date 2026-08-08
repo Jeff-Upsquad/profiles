@@ -595,7 +595,7 @@ interface DashboardCardSummary {
   plan_tier: string | null;
   customer_monthly_price: number | null;
   currency: string | null;
-  status: 'active' | 'assigned' | 'archived';
+  status: 'active' | 'assigned' | 'archived' | 'submitted';
   published_at: string | null;
   recalled_at: string | null;
   paused_at: string | null;
@@ -658,7 +658,13 @@ function collapseByGroup(
   return out.map((e) => {
     if (!e.is_group) return e;
     const { _tierSet, _catSet, _minPrice, _statuses, ...rest } = e;
-    const status = _statuses.has('active') ? 'active' : _statuses.has('assigned') ? 'assigned' : 'archived';
+    const status = _statuses.has('active')
+      ? 'active'
+      : _statuses.has('assigned')
+        ? 'assigned'
+        : _statuses.has('submitted')
+          ? 'submitted'
+          : 'archived';
     return {
       ...rest,
       tiers: Array.from(_tierSet as Set<string>).sort((a, b) => tierRankOf(a) - tierRankOf(b)),
@@ -711,7 +717,9 @@ export async function listMySubscriptionCards(
     // should still appear in Closed, whereas an archived card must not
     // surface anywhere on the business dashboard.
     .is('archived_at', null)
-    .order('published_at', { ascending: false });
+    // Prefer created_at so CRM pending briefs (published_at NULL) still sort
+    // with live cards instead of falling to the end of a published_at order.
+    .order('created_at', { ascending: false });
 
   if (error) throw new AppError(500, error.message);
   const list = cards ?? [];
@@ -838,13 +846,14 @@ export async function listMySubscriptionCards(
       external_id: card.external_id as string,
       group_id: (card.group_id as string | null) ?? null,
       brand_name: (content.brand_name as string) ?? null,
-      subscription_name: (content.subscription_name as string) ?? null,
+      subscription_name:
+        (content.subscription_name as string) ?? (content.title as string) ?? null,
       plan_name: (content.plan_name as string) ?? null,
       plan_tier: (content.plan_tier as string) ?? null,
       customer_monthly_price:
         typeof content.customer_monthly_price === 'number' ? content.customer_monthly_price : null,
       currency: (content.currency as string) ?? null,
-      status: card.status as 'active' | 'assigned' | 'archived',
+      status: card.status as 'active' | 'assigned' | 'archived' | 'submitted',
       published_at: card.published_at as string | null,
       recalled_at: (card.recalled_at as string | null | undefined) ?? null,
       paused_at: (card.paused_at as string | null | undefined) ?? null,
@@ -919,7 +928,8 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
     id: card.id as string,
     external_id: card.external_id as string,
     brand_name: (content.brand_name as string) ?? null,
-    subscription_name: (content.subscription_name as string) ?? null,
+    subscription_name:
+      (content.subscription_name as string) ?? (content.title as string) ?? null,
     plan_name: (content.plan_name as string) ?? null,
     plan_tier: (content.plan_tier as string) ?? null,
     customer_company: (content.customer_company as string) ?? null,
@@ -947,7 +957,7 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
           per_month?: number;
         }>)
       : [],
-    status: card.status as 'active' | 'archived',
+    status: card.status as 'active' | 'assigned' | 'archived' | 'submitted',
     recalled_at: ((card as any).recalled_at as string | null) ?? null,
     paused_at: ((card as any).paused_at as string | null) ?? null,
     cancelled_at: ((card as any).cancelled_at as string | null) ?? null,
