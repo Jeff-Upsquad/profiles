@@ -737,9 +737,14 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
   // Fan out: find matching talents and batch-insert recipient rows.
   // Manual ("soft publish") cards skip this — they only reach talents
   // via the explicit /manual-assignments hand-pick path.
-  const talentIds = skipAutoFanOut
-    ? []
-    : await findMatchingTalents(input.match_rules ?? {}, { cardType: input.card_type });
+  // Archived (and assigned) first inserts also skip: a recall/close of a
+  // never-synced SquadHub card used to CREATE the mirror here and fan-out /
+  // WhatsApp matches. Match the update-path gate (nextStatus === 'active').
+  const insertStatus = input.status ?? 'active';
+  const talentIds =
+    skipAutoFanOut || insertStatus !== 'active'
+      ? []
+      : await findMatchingTalents(input.match_rules ?? {}, { cardType: input.card_type });
 
   let recipientCount = 0;
   if (talentIds.length > 0) {
