@@ -10,7 +10,12 @@ import type { ConnectBriefInput } from '../validators/connect-brief.validators.j
 // directly, then sends the returned fileUrl back as requirement_voice_url.
 export async function getVoiceUploadUrl(req: Request, res: Response, next: NextFunction) {
   try {
-    const contentType = String((req.body?.content_type ?? '')).trim();
+    // MediaRecorder emits parameterised MIMEs (`audio/webm;codecs=opus`).
+    // Strip params so the base type is what R2 signs the presigned PUT against.
+    const contentType = String((req.body?.content_type ?? ''))
+      .trim()
+      .split(';')[0]
+      .trim();
     if (!/^audio\/[a-z0-9.+-]+$/i.test(contentType)) {
       throw new AppError(400, 'content_type must be an audio MIME type');
     }

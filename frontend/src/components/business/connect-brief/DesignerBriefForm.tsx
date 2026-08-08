@@ -541,9 +541,19 @@ export default function DesignerBriefForm({
     setSubmitting(true);
     try {
       // Upload the voice note first (if any) so its URL rides with the brief.
+      // A failed upload must not be swallowed — silently dropping it means the
+      // note is lost with nobody the wiser.
       let requirementVoiceUrl = '';
       if (audioBlobRef.current) {
-        try { requirementVoiceUrl = await uploadVoiceNote(audioBlobRef.current); } catch { /* non-fatal */ }
+        try {
+          requirementVoiceUrl = await uploadVoiceNote(audioBlobRef.current);
+        } catch (e) {
+          console.error('voice note upload failed', e);
+          setError(
+            'Your voice note couldn’t be uploaded. Please check your connection and try again — or remove the voice note to submit with just the typed note.',
+          );
+          return;
+        }
       }
       const res = await api.post('/business/connect-brief', {
           service_types: serviceTypes,
@@ -1309,7 +1319,10 @@ function PlanCompareModal({
 
 // Upload a recorded voice note to R2 via the Profiles presigned-URL endpoint.
 async function uploadVoiceNote(blob: Blob): Promise<string> {
-  const contentType = blob.type || 'audio/webm';
+  // MediaRecorder blobs carry a parameterised MIME like `audio/webm;codecs=opus`.
+  // Strip parameters so the base type is used for both the presign request and
+  // the PUT header (R2 signs against the exact Content-Type).
+  const contentType = (blob.type || 'audio/webm').split(';')[0].trim() || 'audio/webm';
   const ext = contentType.includes('mp4') ? 'mp4' : contentType.includes('ogg') ? 'ogg' : 'webm';
   const { data } = await api.post('/business/connect-brief/voice-upload-url', {
     filename: `voice-note.${ext}`,
