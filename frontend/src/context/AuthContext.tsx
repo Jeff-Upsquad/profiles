@@ -45,6 +45,19 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Post-auth redirect that crosses from an auth page (the min-h-screen AuthShell
+// login/signup views) into the app shell (the h-screen DashboardLayout). A soft
+// `router.replace` can, on mobile, leave the outgoing auth segment mounted ABOVE
+// the freshly-mounted app segment — both full-height siblings in one scroll — so
+// the user sees the login form by scrolling up past the app. A full document
+// replace tears the old tree down for good, and using `replace` (not `assign`)
+// keeps the login page out of history so a swipe-back can't return to it.
+function enterApp(path: string) {
+  if (typeof window !== 'undefined') {
+    window.location.replace(path);
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() => {
@@ -119,11 +132,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       const { data } = await api.post('/auth/login', { email, password });
       storeAuth(data.access_token || data.token, data.user, data.refresh_token);
-      // replace (not push) so the login page doesn't linger in history — a
-      // mobile swipe-back would otherwise land the user back on it.
-      router.replace('/dashboard');
+      // Hard document replace (not a soft router.replace) so the outgoing login
+      // segment is fully torn down and can't linger above the app on mobile, and
+      // so the login page stays out of history (no swipe-back to it).
+      enterApp('/dashboard');
     },
-    [storeAuth, router]
+    [storeAuth]
   );
 
   const businessLogin = useCallback(
@@ -135,21 +149,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { needsSignup: true };
       }
       storeAuth(data.access_token || data.token, data.user, null);
-      router.replace(
+      enterApp(
         data.must_change_password ? BUSINESS_CHANGE_PASSWORD_PATH : '/business/hire',
       );
       return { needsSignup: false };
     },
-    [storeAuth, router]
+    [storeAuth]
   );
 
   const businessSignup = useCallback(
     async (payload: BusinessSignupData) => {
       const { data } = await api.post('/auth/business/signup', payload);
       storeAuth(data.access_token || data.token, data.user, null);
-      router.replace('/business/hire');
+      enterApp('/business/hire');
     },
-    [storeAuth, router]
+    [storeAuth]
   );
 
   // Finalize the self-serve WhatsApp password-reset: the wizard has already
@@ -165,9 +179,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: User;
     }) => {
       storeAuth(data.access_token || data.token || '', data.user, data.refresh_token ?? null);
-      router.replace(data.user?.role === 'business' ? '/business/hire' : '/talent/dashboard');
+      enterApp(data.user?.role === 'business' ? '/business/hire' : '/talent/dashboard');
     },
-    [storeAuth, router]
+    [storeAuth]
   );
 
   const signupTalent = useCallback(
