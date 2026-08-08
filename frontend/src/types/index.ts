@@ -6,6 +6,9 @@ export interface User {
   role: 'talent' | 'business' | 'admin';
   full_name?: string;
   company_name?: string;
+  industry?: string;
+  business_note?: string;
+  business_location?: string;
   approval_status?: ApprovalStatus;
   must_reset_password?: boolean;
   must_change_password?: boolean;

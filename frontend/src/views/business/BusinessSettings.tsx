@@ -6,16 +6,19 @@ import api from '@/services/api';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
+import Textarea from '@/components/ui/Textarea';
 import toast from 'react-hot-toast';
 
 export default function BusinessSettings() {
-  const { user } = useAuth();
+  const { user, refetchUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     company_name: '',
     company_website: '',
     industry: '',
     company_size: '',
+    business_note: '',
+    business_location: '',
     contact_person_name: '',
     contact_email: '',
     contact_phone: '',
@@ -31,6 +34,8 @@ export default function BusinessSettings() {
           company_website: info.company_website ?? '',
           industry: info.industry ?? '',
           company_size: info.company_size ?? '',
+          business_note: info.business_note ?? '',
+          business_location: info.business_location ?? '',
           contact_person_name: info.contact_person_name ?? '',
           contact_email: info.contact_email ?? '',
           contact_phone: info.contact_phone ?? '',
@@ -47,6 +52,7 @@ export default function BusinessSettings() {
     setLoading(true);
     try {
       await api.put('/business/me', form);
+      await refetchUser();
       toast.success('Settings updated');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to update settings');
@@ -95,19 +101,19 @@ export default function BusinessSettings() {
                 Company
               </h2>
               <p className="mt-0.5 text-sm text-[#737373]">
-                Public details that show up in talent communications.
+                Public details that show up in talent communications and requirement forms.
               </p>
             </div>
           </div>
 
           <div className="space-y-4">
             <Input
-              label="Company Name"
+              label="Company / Brand Name"
               value={form.company_name}
               onChange={(e) => setForm((p) => ({ ...p, company_name: e.target.value }))}
               required
             />
-            <Input label="Email" value={user?.email ?? ''} disabled />
+            <Input label="Login Email" value={user?.email ?? ''} disabled />
             <div className="grid gap-4 sm:grid-cols-2">
               <Input
                 label="Company Website"
@@ -116,11 +122,25 @@ export default function BusinessSettings() {
                 placeholder="https://example.com"
               />
               <Input
-                label="Industry"
+                label="Nature of Business"
                 value={form.industry}
                 onChange={(e) => setForm((p) => ({ ...p, industry: e.target.value }))}
+                placeholder="e.g. Retail, SaaS, Education"
               />
             </div>
+            <Textarea
+              label="Short Note About the Business"
+              value={form.business_note}
+              onChange={(e) => setForm((p) => ({ ...p, business_note: e.target.value }))}
+              placeholder="What you do, who you serve, what makes you different."
+              rows={3}
+            />
+            <Input
+              label="Location of Business"
+              value={form.business_location}
+              onChange={(e) => setForm((p) => ({ ...p, business_location: e.target.value }))}
+              placeholder="City, area"
+            />
             <Select
               label="Company Size"
               value={form.company_size}
@@ -157,7 +177,7 @@ export default function BusinessSettings() {
                 Contact Person
               </h2>
               <p className="mt-0.5 text-sm text-[#737373]">
-                Whoever talents should reach out to.
+                Whoever talents should reach out to. Email and phone here also fill requirement forms.
               </p>
             </div>
           </div>

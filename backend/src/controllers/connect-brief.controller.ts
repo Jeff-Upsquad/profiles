@@ -46,19 +46,26 @@ export async function submitBrief(req: Request, res: Response, next: NextFunctio
     const body = req.body as ConnectBriefInput;
     const account = await businessService.getBusinessUser(req.user!.id).catch(() => null);
 
+    // Contact email/phone always come from the account — the form shows them
+    // read-only and they are only editable in account details.
     const contact_name = body.contact_name?.trim() || account?.contact_person_name?.trim() || '';
-    const email = body.email?.trim() || account?.contact_email?.trim() || req.user!.email || '';
-    const phone = body.phone?.trim() || account?.contact_phone?.trim() || '';
+    const email = account?.contact_email?.trim() || req.user!.email || '';
+    const phone = account?.contact_phone?.trim() || '';
 
     if (!contact_name) throw new AppError(400, 'A contact name is required.');
     if (!email) throw new AppError(400, 'A contact email is required.');
     if (!phone) throw new AppError(400, 'A contact phone number is required.');
 
+    const brandName = body.brand_name.trim();
+    const businessNature = body.business_nature.trim();
+    const businessNote = body.business_note.trim();
+    const location = body.business_location?.trim() || '';
+
     const payload: Record<string, unknown> = {
       service_types: body.service_types,
-      brand_name: body.brand_name.trim(),
-      business_nature: body.business_nature.trim(),
-      business_note: body.business_note.trim(),
+      brand_name: brandName,
+      business_nature: businessNature,
+      business_note: businessNote,
       contact_name,
       email,
       phone,
@@ -70,7 +77,6 @@ export async function submitBrief(req: Request, res: Response, next: NextFunctio
       card_type: body.card_type,
     };
     if (body.country_id) payload.country_id = body.country_id;
-    const location = body.business_location?.trim();
     if (location) payload.business_location = location;
     if (body.requirement_voice_url) payload.requirement_voice_url = body.requirement_voice_url;
     if (body.role_requirements && Object.keys(body.role_requirements).length > 0) {
@@ -78,6 +84,20 @@ export async function submitBrief(req: Request, res: Response, next: NextFunctio
     }
 
     const result = await squadhubLeads.submitLandingBrief(payload);
+
+    // Persist brand fields onto the business account so later briefs prefill.
+    // Non-fatal — the lead already landed upstream.
+    try {
+      await businessService.updateBusinessUser(req.user!.id, {
+        company_name: brandName,
+        industry: businessNature,
+        business_note: businessNote,
+        business_location: location,
+      });
+    } catch {
+      /* ignore profile sync failures */
+    }
+
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);

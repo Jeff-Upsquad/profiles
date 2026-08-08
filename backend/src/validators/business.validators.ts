@@ -10,6 +10,9 @@ export const updateBusinessUserSchema = z.object({
   contact_person_name: z.string().min(1).max(200).optional(),
   contact_email: z.string().email().optional().or(z.literal('')),
   contact_phone: z.string().max(30).optional(),
+  // Persisted from the requirement brief form so later briefs can prefill.
+  business_note: z.string().max(2000).optional().or(z.literal('')),
+  business_location: z.string().max(500).optional().or(z.literal('')),
 });
 
 export const discoverQuerySchema = z.object({

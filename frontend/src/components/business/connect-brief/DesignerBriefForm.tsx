@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 
@@ -323,25 +324,35 @@ export default function DesignerBriefForm({
         if (d.roleRequirements) setRoleRequirements(d.roleRequirements);
         if (d.pricingMode) setPricingMode(d.pricingMode);
         if (d.step === 1 || d.step === 2) setStep(d.step);
-        prefilledRef.current = true; // a saved draft supersedes account pre-fill
+        prefilledRef.current = true; // a saved draft supersedes account brand pre-fill
       }
     } catch { /* ignore malformed draft */ }
     setAutosaveArmed(true);
   }, [draftKey]);
 
-  // Pre-fill contact + brand from the signed-in account when there's no draft.
-  // Runs when the account resolves (it may be null on the first render).
+  // Email + phone are locked to the account — always overwrite draft values.
   useEffect(() => {
-    if (prefilledRef.current || !user) return;
-    prefilledRef.current = true;
+    if (!user) return;
     const phone = splitPhone(user.contact_phone);
     setForm((prev) => ({
       ...prev,
-      email: prev.email || user.contact_email || user.email || '',
+      email: user.contact_email || user.email || '',
+      country_code: phone.code,
+      phone: phone.number,
+    }));
+  }, [user]);
+
+  // Pre-fill contact name + brand fields from the account when there's no draft.
+  useEffect(() => {
+    if (prefilledRef.current || !user) return;
+    prefilledRef.current = true;
+    setForm((prev) => ({
+      ...prev,
       contact_name: prev.contact_name || user.contact_person_name || user.full_name || '',
       brand_name: prev.brand_name || user.company_name || '',
-      country_code: prev.phone ? prev.country_code : phone.code,
-      phone: prev.phone || phone.number,
+      business_nature: prev.business_nature || user.industry || '',
+      business_note: prev.business_note || user.business_note || '',
+      business_location: prev.business_location || user.business_location || '',
     }));
   }, [user]);
 
@@ -447,6 +458,12 @@ export default function DesignerBriefForm({
       return;
     }
     setError('');
+
+    if (!form.email.trim() || !form.phone.trim()) {
+      setError('Add your email and phone in account details before submitting.');
+      if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+      return;
+    }
 
     // Requirement is mandatory — a voice note OR a typed note (either is fine).
     if (!audioBlobRef.current && !requirementNote.trim()) {
@@ -700,47 +717,34 @@ export default function DesignerBriefForm({
             {/* ── GROUP 1: Business details ─────────────────────────────── */}
             <GroupHeader index={1} title="Business details" subtitle="Who you are and how we reach you." />
 
-            {/* Section: Contact (first so we can autofill on email/phone) */}
+            {/* Section: Contact — email/phone locked to account details */}
             <Section
               eyebrow="Customer"
               title="Your contact"
               hint="How we'll reach you to confirm and schedule the kickoff call."
             >
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Email" required>
-                  <input
-                    type="email"
-                    required
-                    value={form.email}
-                    onChange={(e) => update('email', e.target.value)}
-                    placeholder="you@company.com"
-                    className="connect-input"
-                  />
-                </Field>
-                <Field label="Phone" required hint="Ideally a WhatsApp number">
-                  <div className="connect-phone">
-                    <select
-                      value={form.country_code}
-                      onChange={(e) => update('country_code', e.target.value)}
-                      className="connect-phone-cc"
-                      aria-label="Country code"
-                    >
-                      {COUNTRY_CODES.map((c) => (
-                        <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
-                      ))}
-                    </select>
-                    <span className="connect-phone-divider" />
-                    <input
-                      type="tel"
-                      required
-                      inputMode="tel"
-                      value={form.phone}
-                      onChange={(e) => update('phone', e.target.value)}
-                      placeholder="Phone number"
-                      className="connect-phone-input"
-                    />
+              <div className="space-y-4">
+                <div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="connect-readonly">
+                      <span className="connect-readonly-label">Email</span>
+                      <span className="connect-readonly-value">{form.email || '—'}</span>
+                    </div>
+                    <div className="connect-readonly">
+                      <span className="connect-readonly-label">Phone</span>
+                      <span className="connect-readonly-value">
+                        {form.phone ? `${form.country_code} ${form.phone}`.trim() : '—'}
+                      </span>
+                    </div>
                   </div>
-                </Field>
+                  <p className="mt-2 text-xs text-[#9C9486]">
+                    Edit email or phone in{' '}
+                    <Link href="/business/settings" className="underline underline-offset-2 hover:text-[#0a0a0a]">
+                      account details
+                    </Link>
+                    .
+                  </p>
+                </div>
                 <Field label="Contact Person Name" required>
                   <input
                     type="text"
@@ -1680,6 +1684,28 @@ const globalStyles = `
   box-shadow: 0 0 0 3px rgba(58, 58, 58, 0.08);
 }
 .connect-input::placeholder { color: #9C9486; }
+.connect-readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: 10px;
+  border: 1px solid #E7E3D8;
+  padding: 8px 12px;
+  background: #F3F1EA;
+}
+.connect-readonly-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #9C9486;
+}
+.connect-readonly-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #3A3A3A;
+  word-break: break-all;
+}
 .connect-phone {
   display: flex;
   align-items: stretch;
