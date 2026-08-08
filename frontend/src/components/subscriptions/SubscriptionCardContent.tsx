@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
 import type { SubscriptionCardContentShape } from '@/hooks/useSubscriptionCards';
 
@@ -208,8 +207,6 @@ interface Props {
 }
 
 export default function SubscriptionCardContent({ content }: Props) {
-  const [aboutOpen, setAboutOpen] = useState(false);
-
   const title = asString(content.title).trim();
   const imageUrl = asString(content.imageUrl).trim();
   const description = asString(content.description).trim();
@@ -311,11 +308,12 @@ export default function SubscriptionCardContent({ content }: Props) {
         </p>
       )}
 
-      {/* Work commitment — Hours + Deliverables (grouped, ClickUp pastel-tint blue) */}
+      {/* Work commitment — Hours + Deliverables + Voice note (grouped) */}
       {(() => {
         const hasHours = Boolean(hoursLabel || capacityLabel);
-        const hasDeliverables = Boolean(deliverablesLabel || deliverables.length > 0 || requirementVoiceUrl);
-        if (!hasHours && !hasDeliverables) return null;
+        const hasDeliverables = Boolean(deliverablesLabel || deliverables.length > 0);
+        const hasVoice = Boolean(requirementVoiceUrl);
+        if (!hasHours && !hasDeliverables && !hasVoice) return null;
 
         return (
           <div>
@@ -345,7 +343,9 @@ export default function SubscriptionCardContent({ content }: Props) {
               </div>
               )}
 
-              {/* Deliverables sub-card */}
+              {/* Deliverables sub-card — subscriptions always show it (placeholder
+                  when empty); assignments only when there's real content. */}
+              {(!isAssignment || hasDeliverables) && (
               <div className="tint-blue rounded-xl p-3" style={{ color: 'var(--tint-icon)' }}>
                 <p className="flex items-center gap-1.5 font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-wider opacity-70">
                   <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">{IconClipboard}</span>
@@ -357,20 +357,6 @@ export default function SubscriptionCardContent({ content }: Props) {
                       <p className="mt-1 font-[family-name:var(--font-inter)] text-sm font-medium" style={{ color: 'var(--tint-text)' }}>
                         {deliverablesLabel}
                       </p>
-                    )}
-                    {requirementVoiceUrl && (
-                      <div className="mt-2">
-                        <p className="mb-1 flex items-center gap-1.5 text-[11px] font-medium opacity-70">
-                          <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m0 0h-3.75m3.75 0h3.75M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
-                            </svg>
-                          </span>
-                          Voice note from the client
-                        </p>
-                        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                        <audio controls preload="none" src={requirementVoiceUrl} className="h-9 w-full" />
-                      </div>
                     )}
                     {deliverables.length > 0 && (
                       <ul className="mt-1 space-y-1">
@@ -394,6 +380,27 @@ export default function SubscriptionCardContent({ content }: Props) {
                   <p className="mt-1 text-sm font-medium opacity-70">No specific deliverables</p>
                 )}
               </div>
+              )}
+
+              {/* Voice note from the client — its own prominent block so it's
+                  unmistakably playable. Shows for subscriptions and assignments. */}
+              {hasVoice && (
+                <div className="tint-amber rounded-xl p-3" style={{ color: 'var(--tint-icon)' }}>
+                  <p className="flex items-center gap-1.5 font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-wider opacity-70">
+                    <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m0 0h-3.75m3.75 0h3.75M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                      </svg>
+                    </span>
+                    Voice note from the client
+                  </p>
+                  {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                  <audio controls preload="none" src={requirementVoiceUrl} className="mt-2 h-10 w-full" />
+                  <p className="mt-1.5 font-[family-name:var(--font-inter)] text-[11px] opacity-70">
+                    The client recorded the requirement in their own words — tap play to listen.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -475,46 +482,28 @@ export default function SubscriptionCardContent({ content }: Props) {
             </div>
           )}
 
-          {/* About the client — same section style as Client Brief; body collapses. */}
+          {/* About the client — always visible so nothing hides behind a toggle.
+              Rendered as a distinct card to give the company context real weight. */}
           {hasAboutClient && (
             <div>
-              <button
-                type="button"
-                onClick={() => setAboutOpen((v) => !v)}
-                aria-expanded={aboutOpen}
-                className="flex w-full items-center justify-between gap-2 text-left"
-              >
-                <SectionLabel icon={IconBriefcase}>About the client</SectionLabel>
-                <svg
-                  aria-hidden="true"
-                  className={`h-3.5 w-3.5 shrink-0 text-[#a3a3a3] transition-transform ${aboutOpen ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {aboutOpen && (
-                <div className="mt-1 space-y-0.5 text-sm">
-                  {businessNature && (
-                    <p>
-                      <span className="text-[#737373]">Nature of business:</span>{' '}
-                      <span className="text-[#0a0a0a]">{businessNature}</span>
-                    </p>
-                  )}
-                  {customerLocation && (
-                    <p>
-                      <span className="text-[#737373]">Location of business:</span>{' '}
-                      <span className="text-[#0a0a0a]">{customerLocation}</span>
-                    </p>
-                  )}
-                  {notes && (
-                    <p className="mt-1 whitespace-pre-line text-[#525252]">{notes}</p>
-                  )}
-                </div>
-              )}
+              <SectionLabel icon={IconBriefcase}>About the client</SectionLabel>
+              <div className="mt-1.5 space-y-1.5 rounded-xl bg-[#FAFAFA] p-3 text-sm ring-1 ring-inset ring-[#EDEDED]">
+                {businessNature && (
+                  <p>
+                    <span className="text-[#737373]">Nature of business:</span>{' '}
+                    <span className="font-medium text-[#0a0a0a]">{businessNature}</span>
+                  </p>
+                )}
+                {customerLocation && (
+                  <p>
+                    <span className="text-[#737373]">Location of business:</span>{' '}
+                    <span className="font-medium text-[#0a0a0a]">{customerLocation}</span>
+                  </p>
+                )}
+                {notes && (
+                  <p className="whitespace-pre-line leading-relaxed text-[#525252]">{notes}</p>
+                )}
+              </div>
             </div>
           )}
 
