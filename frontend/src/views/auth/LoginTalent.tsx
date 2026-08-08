@@ -2,12 +2,10 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import toast from 'react-hot-toast';
 
 export default function LoginTalent() {
-  const router = useRouter();
   const { login, user, token } = useAuth();
 
   // Already signed in (e.g. a mobile swipe-back landed here from the app).
@@ -16,12 +14,13 @@ export default function LoginTalent() {
   // instead of flashing (or getting stuck on) the login form.
   useEffect(() => {
     if (!token) return;
-    if (!user || user.role === 'talent') {
-      router.replace('/talent/dashboard');
-    } else {
-      router.replace('/dashboard');
-    }
-  }, [token, user, router]);
+    // Hard document replace so this login segment is fully torn down. A soft
+    // router.replace here can leave the login view mounted above the app on
+    // mobile, so the user sees it by scrolling up past the dashboard.
+    window.location.replace(
+      !user || user.role === 'talent' ? '/talent/dashboard' : '/dashboard',
+    );
+  }, [token, user]);
 
   const [step, setStep] = useState<'email' | 'password'>('email');
   const [email, setEmail] = useState('');

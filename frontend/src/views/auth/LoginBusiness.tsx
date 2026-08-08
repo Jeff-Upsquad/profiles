@@ -22,12 +22,13 @@ export default function LoginBusiness() {
   // resolves we route to the exact portal for their role.
   useEffect(() => {
     if (!token) return;
-    if (!user || user.role === 'business') {
-      router.replace('/business/hire');
-    } else {
-      router.replace('/dashboard');
-    }
-  }, [token, user, router]);
+    // Hard document replace so this login segment is fully torn down. A soft
+    // router.replace here can leave the login view mounted above the app on
+    // mobile, so the user sees it by scrolling up past the portal.
+    window.location.replace(
+      !user || user.role === 'business' ? '/business/hire' : '/dashboard',
+    );
+  }, [token, user]);
 
   const [identifier, setIdentifier] = useState<Identifier>('email');
   const [email, setEmail] = useState('');
