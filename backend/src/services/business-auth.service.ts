@@ -99,6 +99,62 @@ async function issueBusinessSession(
   };
 }
 
+/**
+ * After signup/activation with a real email: stamp that email onto any phone-
+ * only submitted cards owned by this business user, and ask Squad CRM to
+ * backfill CRM contact persons + Hub submissions/cards matched by phone.
+ * Best-effort — never throws into the signup path.
+ */
+async function afterBusinessSignupEmailLinked(input: {
+  businessUserId: string;
+  email: string;
+  phone: string;
+}): Promise<void> {
+  const email = input.email.trim().toLowerCase();
+  if (!email) return;
+
+  try {
+    const { error } = await supabaseAdmin
+      .from('subscription_cards')
+      .update({ business_email: email })
+      .eq('business_user_id', input.businessUserId)
+      .is('business_email', null);
+    if (error) {
+      console.error('[business-auth] failed to stamp card business_email', error.message);
+    }
+  } catch (err) {
+    console.error('[business-auth] card business_email stamp threw', err);
+  }
+
+  const apiUrl = (env.SQUADCRM_API_URL || '').replace(/\/$/, '');
+  const secret = env.SQUADCRM_PROVISION_SECRET || '';
+  if (!apiUrl || !secret) {
+    if (!apiUrl) {
+      console.warn('[business-auth] SQUADCRM_API_URL unset — skipping CRM email backfill');
+    }
+    return;
+  }
+
+  try {
+    const res = await fetch(`${apiUrl}/integrations/squadhire/email-backfill`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-SquadCRM-Signature': secret,
+      },
+      body: JSON.stringify({ phone: input.phone, email }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.error(
+        `[business-auth] CRM email-backfill failed ${res.status}: ${text.slice(0, 300)}`,
+      );
+    }
+  } catch (err) {
+    console.error('[business-auth] CRM email-backfill request failed', err);
+  }
+}
+
 // Login result is discriminated: `needs_signup` means a provisioned/invited
 // account exists on the password track but hasn't set a password yet, so the
 // client should route the user to first-time signup rather than show an error.
@@ -206,6 +262,12 @@ export async function businessSignup(input: {
       .single();
     if (error || !created) throw new AppError(500, 'Failed to create account');
 
+    void afterBusinessSignupEmailLinked({
+      businessUserId: created.id as string,
+      email,
+      phone,
+    });
+
     return { status: 'ok' as const, ...(await issueBusinessSession(created)) };
   }
 
@@ -237,6 +299,12 @@ export async function businessSignup(input: {
     .select('*')
     .single();
   if (error || !updated) throw new AppError(500, 'Failed to complete signup');
+
+  void afterBusinessSignupEmailLinked({
+    businessUserId: updated.id as string,
+    email,
+    phone,
+  });
 
   return { status: 'ok' as const, ...(await issueBusinessSession(updated)) };
 }
