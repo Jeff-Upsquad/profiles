@@ -22,6 +22,7 @@ export type ActivityStatus =
   | 'active'
   | 'paused'
   | 'cancelled'
+  | 'submitted'
   | 'sourcing'
   | 'interviewing'
   | 'filled'
@@ -45,6 +46,7 @@ export type FilterKey = 'all' | HireProduct;
 // ─── Mappers ─────────────────────────────────────────────────────────────────
 
 function classifySubCard(card: BusinessSubscriptionCardSummary): ActivityStatus {
+  if (card.status === 'submitted') return 'submitted';
   if (card.status === 'archived' || card.cancelled_at || card.recalled_at) return 'cancelled';
   if (card.paused_at) return 'paused';
   if (card.status === 'assigned') return 'active';
@@ -99,7 +101,7 @@ export function mapSubCards(
     title: subCardTitle(card),
     subtitle: subCardSubtitle(card),
     status: classifySubCard(card),
-    meta: subCardMeta(card),
+    meta: card.status === 'submitted' ? 'Awaiting team review' : subCardMeta(card),
     href: `${base}/${card.id}`,
     unreadCount: card.counts?.new_accepted ?? 0,
   }));
@@ -163,6 +165,7 @@ export const STATUS_STYLES: Record<ActivityStatus, { label: string; className: s
   active: { label: 'Active', className: 'bg-[#ECFDF5] text-[#047857]' },
   paused: { label: 'Paused', className: 'bg-[#FFF7ED] text-[#C2410C]' },
   cancelled: { label: 'Cancelled', className: 'bg-[#F5F5F6] text-[#737373]' },
+  submitted: { label: 'Submitted', className: 'bg-[#FFFBEB] text-[#B45309]' },
   sourcing: { label: 'Sourcing', className: 'bg-[#EFF6FF] text-[#1D4ED8]' },
   interviewing: { label: 'Interviewing', className: 'bg-[#EEF2FF] text-[#4338CA]' },
   filled: { label: 'Filled', className: 'bg-[#ECFDF5] text-[#047857]' },

@@ -24,6 +24,12 @@ import {
  * calls these directly — no SquadHub detour.
  *
  *   /squadcrm/talents/lookup-by-phone     — talent admin deep-link by phone
+ *
+ * Provision + pending-brief use verifySquadcrmProvisionSecret (original Squad
+ * CRM at crm.squadhub.in):
+ *
+ *   /squadcrm/business/provision          — give SQUADHire access
+ *   /squadcrm/pending-brief               — business-visible submitted card
  */
 
 const router = Router();
@@ -128,6 +134,14 @@ router.post(
   '/squadcrm/business/provision',
   verifySquadcrmProvisionSecret,
   integrationsController.provisionBusinessUser,
+);
+
+// Original Squad CRM → pending brief (business-visible, no talent fan-out).
+// Same provision secret as /business/provision.
+router.post(
+  '/squadcrm/pending-brief',
+  verifySquadcrmProvisionSecret,
+  integrationsController.ingestPendingBrief,
 );
 
 export default router;

@@ -117,6 +117,7 @@ export default function SubscriptionCardReview({
   }, [card?.target_tiers]);
 
   const isClosed = card?.status === 'archived' || !!card?.recalled_at;
+  const isSubmitted = card?.status === 'submitted';
 
   // Passed-over talents stay in the lists (greyed out + disabled buttons) so
   // the customer can still click through to view a profile after a selection
@@ -232,6 +233,11 @@ export default function SubscriptionCardReview({
             )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {isSubmitted && (
+              <span className="rounded-full bg-[#FFFBEB] px-3 py-1 text-xs font-semibold text-[#B45309]">
+                Submitted
+              </span>
+            )}
             {isClosed && (
               <span className="rounded-full bg-[#f0f0f0] px-3 py-1 text-xs font-semibold text-[#737373]">
                 {card.recalled_at ? 'Recalled' : 'Closed'}
@@ -370,10 +376,16 @@ export default function SubscriptionCardReview({
         )}
       </div>
 
+      {isSubmitted && (
+        <div className="rounded-2xl border border-amber-200 bg-[#FFFBEB] px-4 py-3 text-sm text-[#B45309]">
+          Awaiting team review — this brief has been submitted and will appear with candidates once published.
+        </div>
+      )}
+
       {/* Offers & negotiations (assignments) — talents submit/counter figures;
           the business counters, or accepts (which selects that talent). */}
       {isAssignment && (
-        <BusinessAssignmentOffers cardId={cardId} currency={card.currency} disabled={isClosed || hasSelection} />
+        <BusinessAssignmentOffers cardId={cardId} currency={card.currency} disabled={isClosed || isSubmitted || hasSelection} />
       )}
 
       {/* Assigned talent(s) — a SquadHub admin approved the pick (this talent's
