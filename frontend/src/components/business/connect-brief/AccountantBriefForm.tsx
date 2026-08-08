@@ -268,19 +268,20 @@ export default function AccountantBriefForm({
       .catch(() => {/* non-fatal — admin can fix country on review */});
   }, []);
 
-  const { user } = useAuth();
+  const { user, refetchUser } = useAuth();
   // Draft key is scoped per account + product + category so subscription and
   // assignment (and future categories) each keep their own auto-saved draft.
   const draftKey = `connectBriefDraft:v1:${user?.id ?? 'anon'}:${product}:accountant`;
-  const prefilledRef = useRef(false);
+  const [draftReady, setDraftReady] = useState(false);
   const [autosaveArmed, setAutosaveArmed] = useState(false);
   const clearDraft = () => {
     try { window.localStorage.removeItem(draftKey); } catch { /* ignore */ }
   };
 
-  // Restore a saved draft (if any) once, then arm auto-save on the next render
-  // so the empty initial state can't clobber the draft we just restored.
+  // Restore a saved draft (if any) once, then mark ready so account fields can
+  // fill any gaps the draft left empty.
   useEffect(() => {
+    setDraftReady(false);
     try {
       const raw = window.localStorage.getItem(draftKey);
       if (raw) {
@@ -290,37 +291,35 @@ export default function AccountantBriefForm({
         if (d.subscription) setSubscription(d.subscription);
         if (d.pricingMode) setPricingMode(d.pricingMode);
         if (d.step === 1 || d.step === 2) setStep(d.step);
-        prefilledRef.current = true; // a saved draft supersedes account brand pre-fill
       }
     } catch { /* ignore malformed draft */ }
+    setDraftReady(true);
     setAutosaveArmed(true);
   }, [draftKey]);
 
-  // Email + phone are locked to the account — always overwrite draft values.
+  // Account-backed fields: locked contact always wins; brand/nature/note/location
+  // (and unlocked contact) fill only when the current form value is empty so a
+  // typed draft is preserved but first-time / empty drafts get account defaults.
   useEffect(() => {
-    if (!user) return;
+    if (!draftReady || !user) return;
+    const accountEmail = (user.contact_email || user.email || '').trim();
     const phone = splitPhone(user.contact_phone);
     setForm((prev) => ({
       ...prev,
-      email: user.contact_email || user.email || '',
-      country_code: phone.code,
-      phone: phone.number,
-    }));
-  }, [user]);
-
-  // Pre-fill contact name + brand fields from the account when there's no draft.
-  useEffect(() => {
-    if (prefilledRef.current || !user) return;
-    prefilledRef.current = true;
-    setForm((prev) => ({
-      ...prev,
+      ...(accountEmail ? { email: accountEmail } : {}),
+      ...(user.contact_phone
+        ? { country_code: phone.code, phone: phone.number }
+        : {}),
       contact_name: prev.contact_name || user.contact_person_name || user.full_name || '',
       brand_name: prev.brand_name || user.company_name || '',
       business_nature: prev.business_nature || user.industry || '',
       business_note: prev.business_note || user.business_note || '',
       business_location: prev.business_location || user.business_location || '',
     }));
-  }, [user]);
+  }, [draftReady, user]);
+
+  const emailLocked = Boolean((user?.contact_email || user?.email || '').trim());
+  const phoneLocked = Boolean((user?.contact_phone || '').trim());
 
   // Auto-save every change once armed.
   useEffect(() => {
@@ -421,7 +420,7 @@ export default function AccountantBriefForm({
     setError('');
 
     if (!form.email.trim() || !form.phone.trim()) {
-      setError('Add your email and phone in account details before submitting.');
+      setError('Please enter your email and phone number.');
       if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
       return;
     }
@@ -530,6 +529,7 @@ export default function AccountantBriefForm({
       }
       setSubmitted(true);
       clearDraft();
+      try { await refetchUser(); } catch { /* non-fatal — next page load will pick up */ }
       if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
     } catch (err) {
       const apiErr = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
@@ -668,33 +668,80 @@ export default function AccountantBriefForm({
             {/* ── GROUP 1: Business details ─────────────────────────────── */}
             <GroupHeader index={1} title="Business details" subtitle="Who you are and how we reach you." />
 
-            {/* Section: Contact — email/phone locked to account details */}
+            {/* Section: Contact — locked when on account; editable when missing */}
             <Section
               eyebrow="Customer"
               title="Your contact"
               hint="How we'll reach you to confirm and schedule the kickoff call."
             >
               <div className="space-y-4">
-                <div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="connect-readonly">
-                      <span className="connect-readonly-label">Email</span>
-                      <span className="connect-readonly-value">{form.email || '—'}</span>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {emailLocked ? (
+                    <div>
+                      <div className="connect-readonly">
+                        <span className="connect-readonly-label">Email</span>
+                        <span className="connect-readonly-value">{form.email || '—'}</span>
+                      </div>
+                      <p className="mt-1.5 text-xs text-[#9C9486]">
+                        Edit in{' '}
+                        <Link href="/business/settings" className="underline underline-offset-2 hover:text-[#0a0a0a]">
+                          account details
+                        </Link>
+                      </p>
                     </div>
-                    <div className="connect-readonly">
-                      <span className="connect-readonly-label">Phone</span>
-                      <span className="connect-readonly-value">
-                        {form.phone ? `${form.country_code} ${form.phone}`.trim() : '—'}
-                      </span>
+                  ) : (
+                    <Field label="Email" required>
+                      <input
+                        type="email"
+                        required
+                        value={form.email}
+                        onChange={(e) => update('email', e.target.value)}
+                        placeholder="you@company.com"
+                        className="connect-input"
+                      />
+                    </Field>
+                  )}
+                  {phoneLocked ? (
+                    <div>
+                      <div className="connect-readonly">
+                        <span className="connect-readonly-label">Phone</span>
+                        <span className="connect-readonly-value">
+                          {form.phone ? `${form.country_code} ${form.phone}`.trim() : '—'}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-xs text-[#9C9486]">
+                        Edit in{' '}
+                        <Link href="/business/settings" className="underline underline-offset-2 hover:text-[#0a0a0a]">
+                          account details
+                        </Link>
+                      </p>
                     </div>
-                  </div>
-                  <p className="mt-2 text-xs text-[#9C9486]">
-                    Edit email or phone in{' '}
-                    <Link href="/business/settings" className="underline underline-offset-2 hover:text-[#0a0a0a]">
-                      account details
-                    </Link>
-                    .
-                  </p>
+                  ) : (
+                    <Field label="Phone" required hint="Ideally a WhatsApp number">
+                      <div className="connect-phone">
+                        <select
+                          value={form.country_code}
+                          onChange={(e) => update('country_code', e.target.value)}
+                          className="connect-phone-cc"
+                          aria-label="Country code"
+                        >
+                          {COUNTRY_CODES.map((c) => (
+                            <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+                          ))}
+                        </select>
+                        <span className="connect-phone-divider" />
+                        <input
+                          type="tel"
+                          required
+                          inputMode="tel"
+                          value={form.phone}
+                          onChange={(e) => update('phone', e.target.value)}
+                          placeholder="Phone number"
+                          className="connect-phone-input"
+                        />
+                      </div>
+                    </Field>
+                  )}
                 </div>
                 <Field label="Contact Person Name" required>
                   <input

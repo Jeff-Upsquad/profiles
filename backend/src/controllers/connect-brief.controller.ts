@@ -46,11 +46,14 @@ export async function submitBrief(req: Request, res: Response, next: NextFunctio
     const body = req.body as ConnectBriefInput;
     const account = await businessService.getBusinessUser(req.user!.id).catch(() => null);
 
-    // Contact email/phone always come from the account — the form shows them
-    // read-only and they are only editable in account details.
+    // Prefer account contact details; allow form values when the account is missing them.
     const contact_name = body.contact_name?.trim() || account?.contact_person_name?.trim() || '';
-    const email = account?.contact_email?.trim() || req.user!.email || '';
-    const phone = account?.contact_phone?.trim() || '';
+    const email =
+      account?.contact_email?.trim() ||
+      body.email?.trim() ||
+      req.user!.email ||
+      '';
+    const phone = account?.contact_phone?.trim() || body.phone?.trim() || '';
 
     if (!contact_name) throw new AppError(400, 'A contact name is required.');
     if (!email) throw new AppError(400, 'A contact email is required.');
@@ -85,15 +88,25 @@ export async function submitBrief(req: Request, res: Response, next: NextFunctio
 
     const result = await squadhubLeads.submitLandingBrief(payload);
 
-    // Persist brand fields onto the business account so later briefs prefill.
-    // Non-fatal — the lead already landed upstream.
+    // Persist brand (+ any newly provided contact) onto the business account
+    // so later briefs / settings prefill. Non-fatal — the lead already landed.
     try {
-      await businessService.updateBusinessUser(req.user!.id, {
+      const profileUpdate: {
+        company_name: string;
+        industry: string;
+        business_note: string;
+        business_location: string;
+        contact_email?: string;
+        contact_phone?: string;
+      } = {
         company_name: brandName,
         industry: businessNature,
         business_note: businessNote,
         business_location: location,
-      });
+      };
+      if (!account?.contact_email?.trim() && email) profileUpdate.contact_email = email;
+      if (!account?.contact_phone?.trim() && phone) profileUpdate.contact_phone = phone;
+      await businessService.updateBusinessUser(req.user!.id, profileUpdate);
     } catch {
       /* ignore profile sync failures */
     }

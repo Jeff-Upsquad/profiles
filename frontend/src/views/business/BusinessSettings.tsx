@@ -9,6 +9,32 @@ import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
 import toast from 'react-hot-toast';
 
+const COUNTRY_CODES = [
+  { code: '+91', flag: '🇮🇳' },
+  { code: '+1', flag: '🇺🇸' },
+  { code: '+44', flag: '🇬🇧' },
+  { code: '+971', flag: '🇦🇪' },
+  { code: '+65', flag: '🇸🇬' },
+  { code: '+61', flag: '🇦🇺' },
+  { code: '+49', flag: '🇩🇪' },
+  { code: '+33', flag: '🇫🇷' },
+  { code: '+81', flag: '🇯🇵' },
+  { code: '+86', flag: '🇨🇳' },
+];
+
+function splitPhone(stored: string | null | undefined): { code: string; number: string } {
+  const fallback = { code: '+91', number: '' };
+  if (!stored) return fallback;
+  const trimmed = stored.trim();
+  const sorted = [...COUNTRY_CODES].sort((a, b) => b.code.length - a.code.length);
+  for (const c of sorted) {
+    if (trimmed.startsWith(c.code)) {
+      return { code: c.code, number: trimmed.slice(c.code.length).trim() };
+    }
+  }
+  return { code: fallback.code, number: trimmed };
+}
+
 export default function BusinessSettings() {
   const { user, refetchUser } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -21,7 +47,8 @@ export default function BusinessSettings() {
     business_location: '',
     contact_person_name: '',
     contact_email: '',
-    contact_phone: '',
+    country_code: '+91',
+    phone: '',
   });
 
   useEffect(() => {
@@ -29,6 +56,7 @@ export default function BusinessSettings() {
       try {
         const { data } = await api.get('/business/me');
         const info = data.business ?? data;
+        const phone = splitPhone(info.contact_phone);
         setForm({
           company_name: info.company_name ?? '',
           company_website: info.company_website ?? '',
@@ -38,7 +66,8 @@ export default function BusinessSettings() {
           business_location: info.business_location ?? '',
           contact_person_name: info.contact_person_name ?? '',
           contact_email: info.contact_email ?? '',
-          contact_phone: info.contact_phone ?? '',
+          country_code: phone.code,
+          phone: phone.number,
         });
       } catch {
         // ignore
@@ -51,7 +80,20 @@ export default function BusinessSettings() {
     e.preventDefault();
     setLoading(true);
     try {
-      await api.put('/business/me', form);
+      const contact_phone = form.phone.trim()
+        ? `${form.country_code} ${form.phone.trim()}`.trim()
+        : '';
+      await api.put('/business/me', {
+        company_name: form.company_name,
+        company_website: form.company_website,
+        industry: form.industry,
+        company_size: form.company_size || undefined,
+        business_note: form.business_note,
+        business_location: form.business_location,
+        contact_person_name: form.contact_person_name,
+        contact_email: form.contact_email,
+        contact_phone,
+      });
       await refetchUser();
       toast.success('Settings updated');
     } catch (err: any) {
@@ -108,7 +150,7 @@ export default function BusinessSettings() {
 
           <div className="space-y-4">
             <Input
-              label="Company / Brand Name"
+              label="Brand Name"
               value={form.company_name}
               onChange={(e) => setForm((p) => ({ ...p, company_name: e.target.value }))}
               required
@@ -196,11 +238,34 @@ export default function BusinessSettings() {
                 value={form.contact_email}
                 onChange={(e) => setForm((p) => ({ ...p, contact_email: e.target.value }))}
               />
-              <Input
-                label="Contact Phone"
-                value={form.contact_phone}
-                onChange={(e) => setForm((p) => ({ ...p, contact_phone: e.target.value }))}
-              />
+              <div className="w-full">
+                <label className="mb-1.5 block text-[13px] font-medium text-[#3F3F46]">
+                  Contact Phone
+                </label>
+                <div className="flex overflow-hidden rounded-lg border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus-within:border-[#0a0a0a] focus-within:ring-2 focus-within:ring-[#0a0a0a]/12">
+                  <select
+                    value={form.country_code}
+                    onChange={(e) => setForm((p) => ({ ...p, country_code: e.target.value }))}
+                    className="shrink-0 border-0 bg-transparent py-2.5 pl-3 pr-1 text-sm text-[#0a0a0a] focus:outline-none"
+                    aria-label="Country code"
+                  >
+                    {COUNTRY_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.code}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="my-2 w-px self-stretch bg-[#E7E7EA]" />
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    value={form.phone}
+                    onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                    placeholder="Phone number"
+                    className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm text-[#0a0a0a] placeholder:text-[#a3a3a3] focus:outline-none"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </section>
