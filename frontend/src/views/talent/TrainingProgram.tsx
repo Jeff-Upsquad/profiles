@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
   useMyTraining,
@@ -21,11 +21,10 @@ import {
   type TrainingChapter,
   type TrainingLesson,
   type TrainingCourse,
+  type TrainingSopSummary,
 } from '@/hooks/useTraining';
 import CourseStartPopup from './CourseStartPopup';
 import SopReader from '@/components/training/SopReader';
-import type { TrainingSopSummary } from '@/hooks/useTraining';
-import { useSearchParams } from 'next/navigation';
 
 // Both supported providers (Loom and SquadClips / clips.squadhub.in) expose a
 // chrome-free player at the same token under `/embed/` instead of `/share/`.
@@ -664,6 +663,19 @@ export default function TrainingProgram() {
   return <FullTrainingProgram />;
 }
 
+type CatalogStatus = 'not_started' | 'in_progress' | 'completed';
+
+function courseStatus(course: TrainingCourse): CatalogStatus {
+  if (course.total_count > 0 && course.completed_count >= course.total_count) return 'completed';
+  if (course.completed_count > 0 || course.started_at) return 'in_progress';
+  return 'not_started';
+}
+
+function courseProgressPct(course: TrainingCourse): number {
+  if (course.total_count <= 0) return 0;
+  return Math.min(100, Math.round((100 * course.completed_count) / course.total_count));
+}
+
 function FullTrainingProgram() {
   const searchParams = useSearchParams();
   const { data, isLoading } = useMyTraining();
@@ -671,19 +683,82 @@ function FullTrainingProgram() {
   const legacyChapters = data?.chapters ?? [];
   const sops = data?.sops ?? [];
   const activeCountdowns = getActiveCountdowns(courses);
-  const [openSopId, setOpenSopId] = useState<string | null>(null);
 
-  // Deep link: /talent/training?resource=sop:<id> or course:<id>
+  const [query, setQuery] = useState('');
+  const [openSopId, setOpenSopId] = useState<string | null>(null);
+  const [viewingCourseId, setViewingCourseId] = useState<string | null>(null);
+  const [viewingLegacy, setViewingLegacy] = useState(false);
+
+  // Deep link: /talent/training?resource=sop:<id> | course:<id>
   useEffect(() => {
     const resource = searchParams.get('resource');
     if (!resource) return;
     if (resource.startsWith('sop:')) {
       setOpenSopId(resource.slice(4));
+      setViewingCourseId(null);
+      setViewingLegacy(false);
+    } else if (resource.startsWith('course:')) {
+      setViewingCourseId(resource.slice(7));
+      setOpenSopId(null);
+      setViewingLegacy(false);
     }
   }, [searchParams]);
 
-  // Compute totals across all courses + legacy chapters + SOPs (each SOP = 1 unit)
-  const totals = (() => {
+  const q = query.trim().toLowerCase();
+
+  const filteredCourses = useMemo(
+    () =>
+      courses.filter(
+        (c) =>
+          !q ||
+          c.title.toLowerCase().includes(q) ||
+          (c.description ?? '').toLowerCase().includes(q) ||
+          (c.categories ?? []).some((cat) => cat.name.toLowerCase().includes(q)),
+      ),
+    [courses, q],
+  );
+
+  const filteredSops = useMemo(
+    () =>
+      sops.filter(
+        (s) =>
+          !q ||
+          s.title.toLowerCase().includes(q) ||
+          (s.summary ?? '').toLowerCase().includes(q),
+      ),
+    [sops, q],
+  );
+
+  const filteredLegacy = useMemo(
+    () =>
+      legacyChapters.filter(
+        (ch) =>
+          !q ||
+          ch.title.toLowerCase().includes(q) ||
+          (ch.description ?? '').toLowerCase().includes(q),
+      ),
+    [legacyChapters, q],
+  );
+
+  const stats = useMemo(() => {
+    let inProgress = 0;
+    let assigned = 0;
+    let completed = 0;
+    for (const c of courses) {
+      const st = courseStatus(c);
+      if (st === 'completed') completed += 1;
+      else if (st === 'in_progress') inProgress += 1;
+      else assigned += 1;
+    }
+    for (const s of sops) {
+      if (s.completed) completed += 1;
+      else if (s.assignment_status === 'in_progress') inProgress += 1;
+      else assigned += 1;
+    }
+    return { inProgress, assigned, completed };
+  }, [courses, sops]);
+
+  const lessonTotals = useMemo(() => {
     let completed = 0;
     let total = 0;
     for (const course of courses) {
@@ -699,169 +774,440 @@ function FullTrainingProgram() {
       if (sop.completed) completed += 1;
     }
     return { completed, total };
-  })();
-  const overallPct = totals.total > 0 ? Math.round((totals.completed / totals.total) * 100) : 0;
+  }, [courses, legacyChapters, sops]);
+
+  const overallPct =
+    lessonTotals.total > 0
+      ? Math.round((lessonTotals.completed / lessonTotals.total) * 100)
+      : 0;
 
   const isEmpty = courses.length === 0 && legacyChapters.length === 0 && sops.length === 0;
+  const viewingCourse = courses.find((c) => c.id === viewingCourseId) ?? null;
+
+  // Drill into a course — keep full chapter/lesson player
+  if (viewingCourse) {
+    return (
+      <div className="space-y-5">
+        <button
+          type="button"
+          onClick={() => setViewingCourseId(null)}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#525252] hover:text-[#0a0a0a]"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Training
+        </button>
+        {activeCountdowns.some((c) => c.id === viewingCourse.id) && (
+          <CountdownChips courses={activeCountdowns.filter((c) => c.id === viewingCourse.id)} />
+        )}
+        <CourseSection
+          course={viewingCourse}
+          enforceSequential={viewingCourse.is_onboarding}
+          defaultOpenFirst
+        />
+      </div>
+    );
+  }
+
+  // Legacy chapters drill-in
+  if (viewingLegacy) {
+    return (
+      <div className="space-y-5">
+        <button
+          type="button"
+          onClick={() => setViewingLegacy(false)}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#525252] hover:text-[#0a0a0a]"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Training
+        </button>
+        <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">
+          Other chapters
+        </h2>
+        <div className="space-y-4">
+          {legacyChapters.map((chapter) => (
+            <ChapterAccordion key={chapter.id} chapter={chapter} language="en" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-6 sm:px-7 sm:py-7">
-        <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="mb-2.5 stagger-1">
-              <span className="eyebrow-rainbow">
-                {totals.completed} of {totals.total} lessons complete
-              </span>
-            </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
-              <span className="text-rainbow">Training</span> Program.
+    <div className="mx-auto w-full max-w-3xl space-y-0">
+      {/* Resources-style hero */}
+      <header className="border-b border-[#E7E7EA] pb-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[32px] sm:text-[36px] font-semibold tracking-[-0.02em] leading-tight text-[#0a0a0a]">
+              Training
             </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
-              Short videos to help you build a stronger profile and win more work.
+            <p className="mt-1 text-[13px] text-[#737373]">
+              Courses, systems and procedures shared with you.
             </p>
           </div>
-          {totals.total > 0 && (
-            <div className="relative flex h-16 w-16 items-center justify-center stagger-4">
+          {lessonTotals.total > 0 && (
+            <div className="relative flex h-14 w-14 flex-shrink-0 items-center justify-center">
               <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r="42" fill="none" stroke="#E7E7EA" strokeWidth="9" />
                 <circle
-                  cx="50" cy="50" r="42" fill="none"
-                  stroke="url(#train-grad)"
-                  strokeWidth="9" strokeLinecap="round"
+                  cx="50"
+                  cy="50"
+                  r="42"
+                  fill="none"
+                  stroke="url(#train-catalog-grad)"
+                  strokeWidth="9"
+                  strokeLinecap="round"
                   strokeDasharray={`${(overallPct / 100) * 264} 264`}
                   className="transition-all duration-700"
                 />
                 <defs>
-                  <linearGradient id="train-grad" x1="0" y1="0" x2="1" y2="1">
+                  <linearGradient id="train-catalog-grad" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0%" stopColor="#FFF27A" />
                     <stop offset="50%" stopColor="#0A0A0A" />
                     <stop offset="100%" stopColor="#737373" />
                   </linearGradient>
                 </defs>
               </svg>
-              <span className="font-[family-name:var(--font-jakarta)] text-base font-semibold tracking-[-0.02em] text-[#0a0a0a]">
+              <span className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
                 {overallPct}%
               </span>
             </div>
           )}
         </div>
-      </section>
 
-      {activeCountdowns.length > 0 && (
-        <CountdownChips courses={activeCountdowns} />
+        {/* Search */}
+        <div className="relative mt-5">
+          <svg
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a3a3a3]"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            viewBox="0 0 24 24"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="M21 21l-4.3-4.3" />
+          </svg>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search courses, systems and procedures…"
+            className="w-full rounded-[10px] border border-[#E7E7EA] bg-white py-[10px] pl-10 pr-3 text-[13.5px] text-[#0a0a0a] placeholder:text-[#a3a3a3] focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/10"
+          />
+        </div>
+
+        {/* Stat strip */}
+        {!isEmpty && !q && (
+          <div className="mt-5 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-[#E7E7EA] bg-[#E7E7EA]">
+            <CatalogStat label="In progress" value={stats.inProgress} />
+            <CatalogStat label="Assigned" value={stats.assigned} />
+            <CatalogStat label="Completed" value={stats.completed} accent="emerald" />
+          </div>
+        )}
+      </header>
+
+      {activeCountdowns.length > 0 && !q && (
+        <div className="pt-5">
+          <CountdownChips courses={activeCountdowns} />
+        </div>
       )}
 
       {isLoading ? (
-        <div className="space-y-4">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-32 bg-[#f0f0f0] rounded-2xl animate-pulse" />
+        <div className="space-y-3 pt-8">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-20 animate-pulse rounded-xl bg-[#f0f0f0]" />
           ))}
         </div>
       ) : isEmpty ? (
-        <div className="relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-6 py-16 text-center">
-          <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
-          <div className="relative">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFFAC2]">
-              <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
-              No training content yet
-            </h3>
-            <p className="mt-1 text-sm text-[#737373]">Check back soon for new chapters and lessons.</p>
+        <div className="pt-12 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFFAC2] text-xl">
+            📚
           </div>
+          <p className="text-[13px] text-[#737373]">
+            Courses, systems and procedures shared with you will appear here.
+          </p>
+        </div>
+      ) : q &&
+        filteredCourses.length === 0 &&
+        filteredSops.length === 0 &&
+        filteredLegacy.length === 0 ? (
+        <div className="pt-12 text-center text-[13px] text-[#737373]">
+          <div className="mb-1 text-2xl">🔍</div>
+          No matches for “{query.trim()}”. Try another term.
         </div>
       ) : (
-        <div className="space-y-8">
-          {courses.length > 0 && (
-            <section className="space-y-4">
-              <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">
-                Courses
-              </h2>
-              {courses.map((course) => (
-                <CourseSection
-                  key={course.id}
-                  course={course}
-                  enforceSequential={course.is_onboarding}
-                />
+        <div className="pb-8">
+          {/* Active courses first */}
+          {filteredCourses.filter((c) => courseStatus(c) !== 'completed').length > 0 && (
+            <CatalogSection title="Courses">
+              {filteredCourses
+                .filter((c) => courseStatus(c) !== 'completed')
+                .map((course) => (
+                  <CatalogCourseCard
+                    key={course.id}
+                    course={course}
+                    onOpen={() => setViewingCourseId(course.id)}
+                  />
+                ))}
+            </CatalogSection>
+          )}
+
+          {/* Systems and Procedures — always visible as a section when not searching empty */}
+          <CatalogSection
+            title="Systems and Procedures"
+            empty={
+              filteredSops.length === 0
+                ? q
+                  ? null
+                  : sops.length === 0
+                    ? 'Guides and procedures shared with you will show up here.'
+                    : null
+                : null
+            }
+          >
+            {filteredSops
+              .filter((s) => !s.completed)
+              .map((sop) => (
+                <CatalogSopCard key={sop.id} sop={sop} onOpen={() => setOpenSopId(sop.id)} />
               ))}
-            </section>
+          </CatalogSection>
+
+          {/* Legacy chapters as a catalog card */}
+          {filteredLegacy.length > 0 && (
+            <CatalogSection title="Other chapters">
+              <button
+                type="button"
+                onClick={() => setViewingLegacy(true)}
+                className="group flex w-full items-center gap-3 rounded-xl border border-[#E7E7EA] bg-white p-3 text-left transition hover:border-[#a3a3a3] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.08)] sm:col-span-2"
+              >
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[#F5F5F6] text-xl">
+                  📑
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13.5px] font-semibold text-[#0a0a0a]">
+                    {filteredLegacy.length} standalone chapter
+                    {filteredLegacy.length === 1 ? '' : 's'}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[11.5px] text-[#737373]">
+                    {filteredLegacy.map((c) => c.title).join(' · ')}
+                  </span>
+                </span>
+                <svg
+                  className="h-4 w-4 shrink-0 text-[#a3a3a3] transition group-hover:text-[#0a0a0a]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </CatalogSection>
           )}
-          {legacyChapters.length > 0 && (
-            <section className="space-y-4">
-              {courses.length > 0 && (
-                <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">
-                  Other chapters
-                </h2>
-              )}
-              <div className="space-y-4">
-                {legacyChapters.map((chapter, i) => (
-                  <div key={chapter.id} className={`stagger-${Math.min(i + 1, 6)}`}>
-                    <ChapterAccordion chapter={chapter} language="en" />
-                  </div>
+
+          {/* Completed */}
+          {(filteredCourses.some((c) => courseStatus(c) === 'completed') ||
+            filteredSops.some((s) => s.completed)) && (
+            <CatalogSection title="Completed">
+              {filteredCourses
+                .filter((c) => courseStatus(c) === 'completed')
+                .map((course) => (
+                  <CatalogCourseCard
+                    key={course.id}
+                    course={course}
+                    onOpen={() => setViewingCourseId(course.id)}
+                  />
                 ))}
-              </div>
-            </section>
-          )}
-          {sops.length > 0 && (
-            <section className="space-y-4">
-              <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">
-                Systems and Procedures
-              </h2>
-              <div className="space-y-3">
-                {sops.map((sop) => (
-                  <SopCard key={sop.id} sop={sop} onOpen={() => setOpenSopId(sop.id)} />
+              {filteredSops
+                .filter((s) => s.completed)
+                .map((sop) => (
+                  <CatalogSopCard key={sop.id} sop={sop} onOpen={() => setOpenSopId(sop.id)} />
                 ))}
-              </div>
-            </section>
+            </CatalogSection>
           )}
+
+          {!q &&
+            stats.inProgress === 0 &&
+            stats.assigned === 0 &&
+            stats.completed > 0 && (
+              <p className="mt-10 text-center text-[13px] text-[#737373]">
+                🎉 You&apos;re all caught up. Search above to revisit anything shared with you.
+              </p>
+            )}
         </div>
       )}
 
-      {openSopId && (
-        <SopReader sopId={openSopId} onClose={() => setOpenSopId(null)} />
-      )}
+      {openSopId && <SopReader sopId={openSopId} onClose={() => setOpenSopId(null)} />}
     </div>
   );
 }
 
-function SopCard({ sop, onOpen }: { sop: TrainingSopSummary; onOpen: () => void }) {
+function CatalogStat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number;
+  accent?: 'emerald';
+}) {
+  return (
+    <div className="bg-white px-4 py-3">
+      <div
+        className={`font-[family-name:var(--font-jakarta)] text-[26px] leading-none font-semibold ${
+          accent === 'emerald' ? 'text-emerald-600' : 'text-[#0a0a0a]'
+        }`}
+      >
+        {value}
+      </div>
+      <div className="mt-1 text-[11px] uppercase tracking-wider text-[#a3a3a3]">{label}</div>
+    </div>
+  );
+}
+
+function CatalogSection({
+  title,
+  children,
+  empty,
+}: {
+  title: string;
+  children?: ReactNode;
+  empty?: string | null;
+}) {
+  const hasKids = Array.isArray(children)
+    ? (children as ReactNode[]).filter(Boolean).length > 0
+    : !!children;
+  if (!hasKids && !empty) return null;
+  return (
+    <section className="mt-7">
+      <h2 className="mb-3 text-[12px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
+        {title}
+      </h2>
+      {hasKids ? (
+        <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+      ) : empty ? (
+        <p className="rounded-xl border border-dashed border-[#E7E7EA] bg-white px-4 py-6 text-center text-[12.5px] text-[#a3a3a3]">
+          {empty}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function CatalogCourseCard({
+  course,
+  onOpen,
+}: {
+  course: TrainingCourse;
+  onOpen: () => void;
+}) {
+  const status = courseStatus(course);
+  const pct = courseProgressPct(course);
+  const catLabel = course.categories?.[0]?.name;
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full items-center gap-4 rounded-2xl border border-[#E7E7EA] bg-white px-5 py-4 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)]"
+      className="group flex items-center gap-3 rounded-xl border border-[#E7E7EA] bg-white p-3 text-left transition hover:border-[#a3a3a3] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.08)]"
     >
-      <div
-        className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-lg ${
-          sop.completed ? 'bg-emerald-50 text-emerald-600' : 'bg-[#FFFAC2]'
+      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[#FFFAC2] text-xl">
+        {status === 'completed' ? '✓' : course.is_onboarding ? '🚀' : '📚'}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="flex flex-wrap items-center gap-1.5">
+          <span className="rounded-full bg-[#F5F5F6] px-1.5 py-px text-[9px] font-medium uppercase tracking-wider text-[#737373]">
+            {course.is_onboarding ? 'Onboarding' : 'Course'}
+          </span>
+          {catLabel && (
+            <span className="truncate text-[10px] text-[#a3a3a3]">{catLabel}</span>
+          )}
+          {status === 'in_progress' && (
+            <span className="rounded-full bg-amber-50 px-1.5 py-px text-[9px] font-medium text-amber-700">
+              In progress
+            </span>
+          )}
+          {status === 'completed' && (
+            <span className="rounded-full bg-emerald-50 px-1.5 py-px text-[9px] font-medium text-emerald-700">
+              Done
+            </span>
+          )}
+        </span>
+        <span className="truncate text-[13.5px] font-semibold leading-tight text-[#0a0a0a]">
+          {course.title}
+        </span>
+        <span className="flex items-center gap-2 pt-0.5">
+          <span className="h-1 flex-1 overflow-hidden rounded-full bg-[#E7E7EA]">
+            <span
+              className={`block h-full rounded-full transition-all ${
+                status === 'completed'
+                  ? 'bg-emerald-500'
+                  : 'bg-gradient-to-r from-[#FFF27A] via-[#0A0A0A] to-[#737373]'
+              }`}
+              style={{ width: `${pct}%` }}
+            />
+          </span>
+          <span className="shrink-0 text-[10px] tabular-nums text-[#a3a3a3]">
+            {status === 'completed' ? '✓' : `${course.completed_count}/${course.total_count}`}
+          </span>
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function CatalogSopCard({
+  sop,
+  onOpen,
+}: {
+  sop: TrainingSopSummary;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="group flex items-center gap-3 rounded-xl border border-[#E7E7EA] bg-white p-3 text-left transition hover:border-[#a3a3a3] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.08)]"
+    >
+      <span
+        className={`grid h-12 w-12 shrink-0 place-items-center rounded-lg text-xl ${
+          sop.completed ? 'bg-emerald-50' : 'bg-[#F5F5F6]'
         }`}
       >
-        {sop.completed ? (
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        ) : (
-          sop.icon || '📋'
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <h3 className="font-[family-name:var(--font-jakarta)] truncate font-semibold text-[#0a0a0a]">
+        {sop.completed ? '✓' : sop.icon || '📄'}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="flex flex-wrap items-center gap-1.5">
+          <span className="rounded-full bg-[#F5F5F6] px-1.5 py-px text-[9px] font-medium uppercase tracking-wider text-[#737373]">
+            Guide
+          </span>
+          {sop.completed ? (
+            <span className="rounded-full bg-emerald-50 px-1.5 py-px text-[9px] font-medium text-emerald-700">
+              Done
+            </span>
+          ) : sop.assignment_status === 'in_progress' ? (
+            <span className="rounded-full bg-amber-50 px-1.5 py-px text-[9px] font-medium text-amber-700">
+              In progress
+            </span>
+          ) : (
+            <span className="rounded-full bg-indigo-50 px-1.5 py-px text-[9px] font-medium text-indigo-700">
+              Assigned
+            </span>
+          )}
+        </span>
+        <span className="truncate text-[13.5px] font-semibold leading-tight text-[#0a0a0a]">
           {sop.title}
-        </h3>
-        {sop.summary && (
-          <p className="mt-0.5 truncate text-sm text-[#737373]">{sop.summary}</p>
+        </span>
+        {sop.summary ? (
+          <span className="truncate text-[11.5px] leading-tight text-[#737373]">{sop.summary}</span>
+        ) : (
+          <span className="text-[11.5px] text-[#a3a3a3]">Open to review & mark complete</span>
         )}
-        <p className="mt-1 text-xs font-medium text-[#525252]">
-          {sop.completed ? 'Completed' : sop.assignment_status === 'in_progress' ? 'In progress' : 'Assigned'}
-        </p>
-      </div>
-      <svg className="h-5 w-5 flex-shrink-0 text-[#a3a3a3]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-      </svg>
+      </span>
     </button>
   );
 }
