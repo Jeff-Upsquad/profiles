@@ -78,10 +78,14 @@ export async function getSharedProfiles(businessUserId: string, categoryId: stri
 }
 
 /**
- * Returns true if the talent has accepted any subscription card belonging
- * to this business in the given category. Used as a fallback authorization
- * path for `getSharedProfile` when the row in `business_shared_profiles`
- * is missing — e.g. cards that linked to the business after acceptance.
+ * Returns true if the talent is visible to this business for a card in the
+ * given category. Used as a fallback for `getSharedProfile` when the row in
+ * `business_shared_profiles` is missing.
+ *
+ * Visible when the talent has either:
+ *  - accepted a subscription/assignment card owned by this business, OR
+ *  - submitted a bid / offer on such a card (status may still be pending)
+ * and the card targets the requested category.
  */
 async function isProfileVisibleViaSubscriptionCard(
   businessUserId: string,
@@ -97,28 +101,58 @@ async function isProfileVisibleViaSubscriptionCard(
   if (!profile) return false;
   const talentUserId = (profile as any).talent_user_id as string;
 
-  // 1. List card_ids this talent has accepted (uncancelled).
+  const { data: businessUser } = await supabaseAdmin
+    .from('business_users')
+    .select('contact_email')
+    .eq('id', businessUserId)
+    .maybeSingle();
+  const contactEmail = ((businessUser as any)?.contact_email as string | null | undefined)
+    ?.trim()
+    .toLowerCase() ?? null;
+
+  // Uncancelled recipient rows for this talent (accepted OR still pending after a bid).
   const { data: recipients } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('card_id')
+    .select('id, card_id, status')
     .eq('talent_user_id', talentUserId)
-    .eq('status', 'accepted')
     .is('cancelled_at', null);
 
-  const cardIds = (recipients ?? []).map((r: any) => r.card_id as string);
+  const acceptedCardIds = new Set(
+    (recipients ?? [])
+      .filter((r: any) => r.status === 'accepted')
+      .map((r: any) => r.card_id as string),
+  );
+
+  // Cards where this talent has any bid/offer (including open pending_business).
+  // Bidding does not mark the recipient accepted, so without this the business
+  // gets "Failed to load profile" from the Bidding section.
+  const offerCardIds = new Set<string>();
+  const { data: offers } = await supabaseAdmin
+    .from('assignment_offers')
+    .select('card_id')
+    .eq('talent_user_id', talentUserId);
+  for (const o of offers ?? []) offerCardIds.add((o as any).card_id as string);
+
+  const cardIds = [...new Set([...acceptedCardIds, ...offerCardIds])];
   if (cardIds.length === 0) return false;
 
-  // 2. Filter those cards down to ones that belong to this business AND
-  // include the requested category in match_rules.
   const { data: cards } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, business_user_id, match_rules')
-    .in('id', cardIds)
-    .eq('business_user_id', businessUserId);
+    .select('id, business_user_id, business_email, match_rules')
+    .in('id', cardIds);
 
   for (const card of cards ?? []) {
+    const ownerId = (card as any).business_user_id as string | null;
+    const cardEmail = ((card as any).business_email as string | null | undefined)
+      ?.trim()
+      .toLowerCase() ?? null;
+    const owns =
+      ownerId === businessUserId ||
+      (!!contactEmail && !!cardEmail && contactEmail === cardEmail);
+    if (!owns) continue;
     const ids = pickCategoryIds((card as any).match_rules);
-    if (ids.includes(categoryId)) return true;
+    // Empty category list = no gate; otherwise profile category must be targeted.
+    if (ids.length === 0 || ids.includes(categoryId)) return true;
   }
   return false;
 }
