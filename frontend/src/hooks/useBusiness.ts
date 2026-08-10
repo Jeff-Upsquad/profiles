@@ -141,7 +141,17 @@ export interface BusinessSubscriptionCardSummary {
   /** Product line — 'assignment' = freelance project. The portal lists
    *  subscriptions and assignments in separate sections. */
   card_type?: 'subscription' | 'assignment' | 'hiring';
-  counts: { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number; new_accepted: number };
+  counts: {
+    accepted: number;
+    pending: number;
+    rejected: number;
+    shortlisted: number;
+    for_review: number;
+    selected: number;
+    new_accepted: number;
+    /** Open talent bids awaiting business action. */
+    pending_bids?: number;
+  };
 }
 
 export interface BusinessSubscriptionCardDetail {

@@ -24,6 +24,11 @@ export interface BusinessAssignmentOffer {
   updated_at: string;
   talent_name: string;
   events: AssignmentOfferEvent[];
+  profile_id?: string | null;
+  category_id?: string | null;
+  profile_photo_url?: string | null;
+  list_price?: number | null;
+  list_currency?: string | null;
 }
 
 function offersBase(cardId: string) {

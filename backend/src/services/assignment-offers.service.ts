@@ -799,10 +799,46 @@ export async function businessDecline(
 export interface AssignmentOfferWithThread extends AssignmentOfferRow {
   talent_name: string;
   events: unknown[];
+  /** Profile link targets for the business portal (null when no approved profile). */
+  profile_id: string | null;
+  category_id: string | null;
+  profile_photo_url: string | null;
+  /** Standing list price on the card when the offer was listed (for "vs original"). */
+  list_price: number | null;
+  list_currency: string | null;
 }
 
 /** All offers on a card + their threads (business console / admin live view). */
 export async function listOffersForCard(cardId: string): Promise<AssignmentOfferWithThread[]> {
+  const refs = await getAssignmentCardRefs(cardId).catch(() => null);
+  const listPrice =
+    typeof refs?.content?.customer_monthly_price === 'number'
+      ? (refs.content.customer_monthly_price as number)
+      : typeof refs?.content?.monthly_price === 'number'
+        ? (refs.content.monthly_price as number)
+        : typeof refs?.content?.proposed_price === 'number'
+          ? (refs.content.proposed_price as number)
+          : null;
+  const listCurrency =
+    typeof refs?.content?.currency === 'string' ? (refs.content.currency as string) : 'INR';
+
+  // Categories on the card — used to pick a matching approved profile for the
+  // "open profile" link from the Bidding section.
+  const matchRules = await (async () => {
+    const { data } = await supabaseAdmin
+      .from('subscription_cards')
+      .select('match_rules')
+      .eq('id', cardId)
+      .maybeSingle();
+    return (data as any)?.match_rules ?? null;
+  })();
+  const categoryIds: string[] = (() => {
+    if (!matchRules || typeof matchRules !== 'object') return [];
+    const raw = (matchRules as Record<string, unknown>).category_ids;
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((v): v is string => typeof v === 'string' && v.length > 0);
+  })();
+
   const { data, error } = await supabaseAdmin
     .from('assignment_offers')
     .select(OFFER_FIELDS)
@@ -812,20 +848,76 @@ export async function listOffersForCard(cardId: string): Promise<AssignmentOffer
   const offers = (data ?? []) as unknown as AssignmentOfferRow[];
   if (offers.length === 0) return [];
 
-  const names = await getTalentNames(offers.map((o) => o.talent_user_id));
+  const talentIds = offers.map((o) => o.talent_user_id);
+  const names = await getTalentNames(talentIds);
+
+  const photoByTalent = new Map<string, string | null>();
+  const { data: talentRows } = await supabaseAdmin
+    .from('talent_users')
+    .select('id, profile_photo_url')
+    .in('id', talentIds);
+  for (const t of talentRows ?? []) {
+    photoByTalent.set((t as any).id, ((t as any).profile_photo_url as string | null) ?? null);
+  }
+
+  // Best matching approved profile per talent (for profile deep-link).
+  const profileByTalent = new Map<string, { profile_id: string; category_id: string }>();
+  if (talentIds.length > 0) {
+    let q = supabaseAdmin
+      .from('talent_profiles')
+      .select('id, talent_user_id, category_id')
+      .in('talent_user_id', talentIds)
+      .eq('status', 'approved')
+      .eq('is_active', true)
+      .is('deleted_at', null);
+    if (categoryIds.length > 0) q = q.in('category_id', categoryIds);
+    const { data: profiles } = await q;
+    for (const p of profiles ?? []) {
+      const tid = (p as any).talent_user_id as string;
+      if (!profileByTalent.has(tid)) {
+        profileByTalent.set(tid, {
+          profile_id: (p as any).id as string,
+          category_id: (p as any).category_id as string,
+        });
+      }
+    }
+  }
+
   const withThreads: AssignmentOfferWithThread[] = [];
   for (const o of offers) {
     const events = await listOfferEvents(o.id);
-    withThreads.push({ ...o, talent_name: names.get(o.talent_user_id) ?? 'Unknown talent', events });
+    const prof = profileByTalent.get(o.talent_user_id);
+    withThreads.push({
+      ...o,
+      talent_name: names.get(o.talent_user_id) ?? 'Unknown talent',
+      events,
+      profile_id: prof?.profile_id ?? null,
+      category_id: prof?.category_id ?? null,
+      profile_photo_url: photoByTalent.get(o.talent_user_id) ?? null,
+      list_price: listPrice,
+      list_currency: listCurrency,
+    });
   }
   return withThreads;
 }
 
 export async function getOfferWithThread(offerId: string): Promise<AssignmentOfferWithThread> {
   const offer = await getOffer(offerId);
+  const list = await listOffersForCard(offer.card_id);
+  const found = list.find((o) => o.id === offerId);
+  if (found) return found;
   const names = await getTalentNames([offer.talent_user_id]);
   const events = await listOfferEvents(offerId);
-  return { ...offer, talent_name: names.get(offer.talent_user_id) ?? 'Unknown talent', events };
+  return {
+    ...offer,
+    talent_name: names.get(offer.talent_user_id) ?? 'Unknown talent',
+    events,
+    profile_id: null,
+    category_id: null,
+    profile_photo_url: null,
+    list_price: null,
+    list_currency: null,
+  };
 }
 
 // ─── Business-portal auth wrappers (ownership-checked) ─────────────────────

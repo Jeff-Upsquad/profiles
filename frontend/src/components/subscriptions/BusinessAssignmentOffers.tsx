@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import { fmtDateTime } from '@/components/jobs/shared';
 import { formatOfferAmount, type OfferAmount, type AssignmentOfferEvent } from '@/hooks/useAssignmentOffers';
@@ -34,6 +35,13 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
   expired: { label: 'Expired', cls: 'bg-[#f0f0f0] text-[#737373]' },
 };
 
+function formatListPrice(amount: number | null | undefined, currency?: string | null, period?: string): string | null {
+  if (amount == null || !Number.isFinite(amount)) return null;
+  const cur = !currency || currency === 'INR' ? '₹' : `${currency} `;
+  const suffix = period === 'project' ? '' : '/mo';
+  return `${cur}${amount.toLocaleString()}${suffix}`;
+}
+
 /**
  * Bidding section for business card review (subscription + assignment).
  * Accept locks the figure and shortlists; Select is a separate action.
@@ -45,7 +53,6 @@ export default function BusinessAssignmentOffers({
   disabled = false,
   listPrice,
   onSelect,
-  /** When set, shows a "Send an Offer" entry for this recipient (e.g. from shortlist row). */
   sendOfferRecipientId,
   sendOfferTalentName,
 }: {
@@ -113,34 +120,80 @@ export default function BusinessAssignmentOffers({
             const meta = STATUS_META[o.status] ?? { label: o.status, cls: 'bg-[#f0f0f0] text-[#737373]' };
             const canAct = o.status === 'pending_business' && !disabled;
             const canSelect = o.status === 'accepted' && !disabled && !!onSelect;
+            const original =
+              formatListPrice(o.list_price ?? listPrice, o.list_currency ?? currency, period) ?? null;
+            const bid = formatOfferAmount(o.current_amount);
+            const profileHref =
+              o.profile_id && o.category_id
+                ? `/business/dashboard/${o.category_id}/${o.profile_id}?cardId=${encodeURIComponent(cardId)}&recipientId=${encodeURIComponent(o.recipient_id)}`
+                : null;
+
+            const nameBlock = (
+              <div className="flex min-w-0 items-center gap-3">
+                {o.profile_photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={o.profile_photo_url}
+                    alt=""
+                    className="h-10 w-10 shrink-0 rounded-xl object-cover"
+                  />
+                ) : (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F1F1F3] text-xs font-semibold text-[#525252]">
+                    {(o.talent_name || 'T')
+                      .split(/\s+/)
+                      .slice(0, 2)
+                      .map((p) => p[0]?.toUpperCase() ?? '')
+                      .join('') || 'T'}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
+                      {o.talent_name}
+                    </p>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.cls}`}>
+                      {meta.label}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-sm text-[#0a0a0a]">
+                    <span className="text-[#737373]">
+                      {o.status === 'pending_business'
+                        ? 'Talent bid'
+                        : o.status === 'pending_talent'
+                          ? 'You offered'
+                          : 'Latest'}
+                      :
+                    </span>{' '}
+                    <span className="font-semibold">{bid ?? '—'}</span>
+                    {original && (
+                      <span className="ml-1.5 text-xs text-[#a3a3a3]">
+                        (original {original})
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            );
+
             return (
               <li key={o.id} className="px-5 py-4 sm:px-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
-                        {o.talent_name}
-                      </p>
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.cls}`}>
-                        {meta.label}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm text-[#0a0a0a]">
-                      <span className="text-[#737373]">
-                        {o.status === 'pending_business'
-                          ? 'Talent bid'
-                          : o.status === 'pending_talent'
-                            ? 'You offered'
-                            : 'Latest'}
-                        :
-                      </span>{' '}
-                      <span className="font-semibold">{formatOfferAmount(o.current_amount) ?? '—'}</span>
-                    </p>
+                  <div className="min-w-0 flex-1">
+                    {profileHref ? (
+                      <Link
+                        href={profileHref}
+                        className="block rounded-lg transition-opacity hover:opacity-75"
+                      >
+                        {nameBlock}
+                      </Link>
+                    ) : (
+                      nameBlock
+                    )}
                     {o.events.length > 0 && (
                       <button
                         type="button"
                         onClick={() => setOpenThread((t) => (t === o.id ? null : o.id))}
-                        className="mt-1 text-xs font-semibold text-[#525252] underline underline-offset-2 hover:text-[#0a0a0a]"
+                        className="mt-2 text-xs font-semibold text-[#525252] underline underline-offset-2 hover:text-[#0a0a0a]"
                       >
                         {openThread === o.id ? 'Hide' : 'View'} activity ({o.events.length})
                       </button>

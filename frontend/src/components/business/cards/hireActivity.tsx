@@ -80,8 +80,10 @@ function subCardMeta(card: BusinessSubscriptionCardSummary): string {
     for_review: 0,
     selected: 0,
     new_accepted: 0,
+    pending_bids: 0,
   };
   const parts: string[] = [];
+  if (c.pending_bids) parts.push(`${c.pending_bids} bid${c.pending_bids === 1 ? '' : 's'}`);
   if (c.for_review) parts.push(`${c.for_review} for review`);
   if (c.shortlisted) parts.push(`${c.shortlisted} shortlisted`);
   if (c.selected) parts.push(`${c.selected} selected`);
@@ -103,7 +105,8 @@ export function mapSubCards(
     status: classifySubCard(card),
     meta: card.status === 'submitted' ? 'Awaiting team review' : subCardMeta(card),
     href: `${base}/${card.id}`,
-    unreadCount: card.counts?.new_accepted ?? 0,
+    // Badge on new acceptances AND open talent bids awaiting business action.
+    unreadCount: (card.counts?.new_accepted ?? 0) + (card.counts?.pending_bids ?? 0),
   }));
 }
 

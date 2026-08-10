@@ -602,7 +602,17 @@ interface DashboardCardSummary {
   cancelled_at: string | null;
   card_type: 'subscription' | 'assignment' | 'hiring';
   category_ids: string[];
-  counts: { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number; new_accepted: number };
+  counts: {
+    accepted: number;
+    pending: number;
+    rejected: number;
+    shortlisted: number;
+    for_review: number;
+    selected: number;
+    new_accepted: number;
+    /** Open talent bids awaiting business action (pending_business). */
+    pending_bids: number;
+  };
 }
 
 // Collapse the per-tier sibling cards of one multi-tier brief (same group_id)
@@ -815,8 +825,31 @@ export async function listMySubscriptionCards(
     return cardCats.some((c) => profCats.has(c));
   }
 
-  const counts = new Map<string, { accepted: number; pending: number; rejected: number; shortlisted: number; for_review: number; selected: number; new_accepted: number }>();
-  for (const id of cardIds) counts.set(id, { accepted: 0, pending: 0, rejected: 0, shortlisted: 0, for_review: 0, selected: 0, new_accepted: 0 });
+  const counts = new Map<
+    string,
+    {
+      accepted: number;
+      pending: number;
+      rejected: number;
+      shortlisted: number;
+      for_review: number;
+      selected: number;
+      new_accepted: number;
+      pending_bids: number;
+    }
+  >();
+  for (const id of cardIds) {
+    counts.set(id, {
+      accepted: 0,
+      pending: 0,
+      rejected: 0,
+      shortlisted: 0,
+      for_review: 0,
+      selected: 0,
+      new_accepted: 0,
+      pending_bids: 0,
+    });
+  }
   for (const r of recipientRows ?? []) {
     const bucket = counts.get((r as any).card_id);
     if (!bucket) continue;
@@ -836,6 +869,17 @@ export async function listMySubscriptionCards(
         if (!(r as any).business_seen_at) bucket.new_accepted++;
       }
     }
+  }
+
+  // Talent bids awaiting business response — badge the card list.
+  const { data: bidRows } = await supabaseAdmin
+    .from('assignment_offers')
+    .select('card_id')
+    .in('card_id', cardIds)
+    .eq('status', 'pending_business');
+  for (const o of bidRows ?? []) {
+    const bucket = counts.get((o as any).card_id as string);
+    if (bucket) bucket.pending_bids++;
   }
 
   const perCard: DashboardCardSummary[] = list.map((card: any) => {

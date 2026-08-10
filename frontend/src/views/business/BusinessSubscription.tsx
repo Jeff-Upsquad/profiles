@@ -317,6 +317,8 @@ function CardRow({
   const forReview = card.counts.for_review ?? 0;
   const shortlisted = card.counts.shortlisted;
   const selectedCount = card.counts.selected ?? 0;
+  const pendingBids = card.counts.pending_bids ?? 0;
+  const unreadBadge = (card.counts.new_accepted ?? 0) + pendingBids;
 
   // Status pill next to the title. Open rows carry no pill unless the card is
   // still a CRM pending brief (status='submitted'); a recalled card in the
@@ -361,6 +363,20 @@ function CardRow({
             <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
               {cardTitle(card)}
             </p>
+            {unreadBadge > 0 && bucket === 'open' && (
+              <span
+                className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white"
+                title={
+                  pendingBids > 0 && (card.counts.new_accepted ?? 0) > 0
+                    ? `${pendingBids} new bid${pendingBids === 1 ? '' : 's'}, ${card.counts.new_accepted} new acceptance${(card.counts.new_accepted ?? 0) === 1 ? '' : 's'}`
+                    : pendingBids > 0
+                      ? `${pendingBids} new bid${pendingBids === 1 ? '' : 's'}`
+                      : `${card.counts.new_accepted} new`
+                }
+              >
+                {unreadBadge}
+              </span>
+            )}
             {tag && (
               <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${tag.cls}`}>
                 {tag.label}
@@ -384,6 +400,12 @@ function CardRow({
 
         {bucket === 'open' && (
           <div className="hidden sm:flex flex-shrink-0 items-center gap-2 text-[11px]">
+            {pendingBids > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#FFFAC2] px-2 py-0.5 font-medium text-[#0a0a0a]">
+                <span>{pendingBids}</span>
+                <span className="text-[#737373]">bid{pendingBids === 1 ? '' : 's'}</span>
+              </span>
+            )}
             {forReview > 0 && (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
                 <span>{forReview}</span>
