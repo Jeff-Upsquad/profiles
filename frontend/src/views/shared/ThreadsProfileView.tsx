@@ -39,6 +39,7 @@ interface ThreadsProfileViewProps {
   interestLoading?: boolean;
   onSendOffer?: () => void;
   sendOfferLoading?: boolean;
+  cardEngagement?: import('@/components/profile/ThreadsProfileHeader').CardEngagementDisplay | null;
   editProfileHref?: string;
   isLoading: boolean;
   error?: string;
@@ -74,6 +75,7 @@ export default function ThreadsProfileView({
   interestLoading,
   onSendOffer,
   sendOfferLoading,
+  cardEngagement,
   editProfileHref,
   isLoading,
   error,
@@ -182,6 +184,7 @@ export default function ThreadsProfileView({
           interestLoading={interestLoading}
           onSendOffer={onSendOffer}
           sendOfferLoading={sendOfferLoading}
+          cardEngagement={cardEngagement}
           editProfileHref={editProfileHref}
         />
 

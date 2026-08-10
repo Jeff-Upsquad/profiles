@@ -17,6 +17,20 @@ interface TalentUser {
   city?: string | null;
 }
 
+export interface CardEngagementDisplay {
+  card_id: string;
+  card_type?: string | null;
+  brand_name?: string | null;
+  list_price?: number | null;
+  currency?: string | null;
+  period?: 'per_month' | 'project' | string | null;
+  kind: 'bid' | 'accepted_list' | 'business_offer' | 'agreed' | 'none' | string;
+  amount?: number | null;
+  offer_status?: string | null;
+  recipient_status?: string | null;
+  label?: string | null;
+}
+
 interface ThreadsProfileHeaderProps {
   profile: Profile;
   talentUser: TalentUser;
@@ -31,7 +45,20 @@ interface ThreadsProfileHeaderProps {
   /** When opened from a card review, enables "Send an Offer". */
   onSendOffer?: () => void;
   sendOfferLoading?: boolean;
+  /** Price/bid for the specific card this profile was opened from. */
+  cardEngagement?: CardEngagementDisplay | null;
   editProfileHref?: string;
+}
+
+function formatEngagementAmount(
+  amount: number | null | undefined,
+  currency?: string | null,
+  period?: string | null,
+): string | null {
+  if (amount == null || !Number.isFinite(amount)) return null;
+  const cur = !currency || currency === 'INR' ? '₹' : `${currency} `;
+  const suffix = period === 'project' ? '' : '/mo';
+  return `${cur}${amount.toLocaleString()}${suffix}`;
 }
 
 function extractBio(fields: CategoryField[], fieldData: Record<string, any>): string | null {
@@ -65,6 +92,7 @@ export default function ThreadsProfileHeader({
   interestLoading,
   onSendOffer,
   sendOfferLoading,
+  cardEngagement,
   editProfileHref,
 }: ThreadsProfileHeaderProps) {
   const fields = (category?.fields ?? []).filter((f) => f.is_active).sort((a, b) => a.sort_order - b.sort_order);
@@ -172,6 +200,55 @@ export default function ThreadsProfileHeader({
         >
           {website.replace(/^https?:\/\//, '')}
         </a>
+      )}
+
+      {/* Card-scoped price: bid / accepted list price for the card this profile was opened from */}
+      {mode === 'business' && cardEngagement && cardEngagement.kind !== 'none' && (
+        <div className="mt-4 rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] px-3.5 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
+            {cardEngagement.card_type === 'assignment' ? 'This assignment' : 'This subscription'}
+            {cardEngagement.brand_name ? ` · ${cardEngagement.brand_name}` : ''}
+          </p>
+          <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className="font-[family-name:var(--font-jakarta)] text-[18px] font-semibold text-[#0a0a0a]">
+              {formatEngagementAmount(
+                cardEngagement.amount,
+                cardEngagement.currency,
+                cardEngagement.period,
+              ) ?? '—'}
+            </span>
+            <span className="text-xs font-medium text-[#525252]">
+              {cardEngagement.kind === 'bid'
+                ? 'Talent bid'
+                : cardEngagement.kind === 'accepted_list'
+                  ? 'Accepted list price'
+                  : cardEngagement.kind === 'agreed'
+                    ? 'Agreed price'
+                    : cardEngagement.kind === 'business_offer'
+                      ? 'Your offer'
+                      : cardEngagement.label || 'Price'}
+            </span>
+          </div>
+          {cardEngagement.list_price != null &&
+            cardEngagement.amount != null &&
+            cardEngagement.list_price !== cardEngagement.amount && (
+              <p className="mt-1 text-[12px] text-[#737373]">
+                Original card price{' '}
+                <span className="font-semibold text-[#0a0a0a]">
+                  {formatEngagementAmount(
+                    cardEngagement.list_price,
+                    cardEngagement.currency,
+                    cardEngagement.period,
+                  )}
+                </span>
+              </p>
+            )}
+          {cardEngagement.kind === 'accepted_list' && cardEngagement.list_price != null && (
+            <p className="mt-1 text-[12px] text-[#737373]">
+              Talent accepted the card at the set price (no bid).
+            </p>
+          )}
+        </div>
       )}
 
       {/* Action buttons */}

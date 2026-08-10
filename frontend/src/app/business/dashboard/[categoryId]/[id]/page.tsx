@@ -108,6 +108,8 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
     );
   }
 
+  const cardEngagement = (profile as any)?.card_engagement ?? null;
+
   return (
     <>
       <ThreadsProfileView
@@ -124,6 +126,7 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
         interestLoading={sendInterest.isPending}
         onSendOffer={canSendOffer ? () => setOfferOpen(true) : undefined}
         sendOfferLoading={sendOffer.isPending}
+        cardEngagement={cardEngagement}
         isLoading={profileLoading}
         error={profileError ? 'Failed to load profile' : undefined}
         onBack={() =>

@@ -200,6 +200,138 @@ async function isProfileVisibleViaSubscriptionCard(
   return false;
 }
 
+/**
+ * Price / bid context for THIS card only (talent may have other cards with the
+ * same business). Used when the business opens the profile from a card review
+ * or Bidding row.
+ */
+export interface CardEngagementContext {
+  card_id: string;
+  card_type: 'subscription' | 'assignment' | 'hiring' | string;
+  brand_name: string | null;
+  /** Standing list / original price on the card. */
+  list_price: number | null;
+  currency: string | null;
+  period: 'per_month' | 'project';
+  /**
+   * - bid: talent submitted/countered a figure
+   * - accepted_list: talent accepted the card's original price (no bid row)
+   * - business_offer: business opened/countered; talent may still respond
+   * - agreed: offer terminal accepted at current_amount
+   * - none: no price relationship yet
+   */
+  kind: 'bid' | 'accepted_list' | 'business_offer' | 'agreed' | 'none';
+  amount: number | null;
+  offer_status: string | null;
+  recipient_status: string | null;
+  label: string;
+}
+
+async function resolveCardEngagement(
+  cardId: string,
+  talentUserId: string,
+): Promise<CardEngagementContext | null> {
+  const { data: card } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id, card_type, content')
+    .eq('id', cardId)
+    .maybeSingle();
+  if (!card) return null;
+
+  const content = ((card as any).content ?? {}) as Record<string, unknown>;
+  const cardType = ((card as any).card_type as string) || 'subscription';
+  const isAssignment = cardType === 'assignment';
+  const period: 'per_month' | 'project' = isAssignment ? 'project' : 'per_month';
+  const listPrice =
+    typeof content.customer_monthly_price === 'number'
+      ? content.customer_monthly_price
+      : typeof content.monthly_price === 'number'
+        ? content.monthly_price
+        : typeof content.proposed_price === 'number'
+          ? content.proposed_price
+          : null;
+  const currency =
+    typeof content.currency === 'string' && content.currency
+      ? content.currency
+      : 'INR';
+  const brandName =
+    (typeof content.brand_name === 'string' && content.brand_name) ||
+    (typeof content.title === 'string' && content.title) ||
+    null;
+
+  const { data: recipient } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id, status')
+    .eq('card_id', cardId)
+    .eq('talent_user_id', talentUserId)
+    .is('cancelled_at', null)
+    .maybeSingle();
+  const recipientStatus = ((recipient as any)?.status as string | null) ?? null;
+
+  // Latest offer for this talent on THIS card (open or terminal).
+  const { data: offer } = await supabaseAdmin
+    .from('assignment_offers')
+    .select('id, status, current_amount, opened_by, last_actor_side, updated_at')
+    .eq('card_id', cardId)
+    .eq('talent_user_id', talentUserId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const offerAmountRaw = (offer as any)?.current_amount;
+  const offerAmount =
+    offerAmountRaw && typeof offerAmountRaw === 'object' && typeof offerAmountRaw.amount === 'number'
+      ? (offerAmountRaw.amount as number)
+      : null;
+  const offerStatus = ((offer as any)?.status as string | null) ?? null;
+  const openedBy = ((offer as any)?.opened_by as string | null) ?? null;
+  const lastActor = ((offer as any)?.last_actor_side as string | null) ?? null;
+
+  let kind: CardEngagementContext['kind'] = 'none';
+  let amount: number | null = null;
+  let label = 'No price on this card yet';
+
+  if (offer && offerAmount != null) {
+    amount = offerAmount;
+    if (offerStatus === 'accepted') {
+      kind = 'agreed';
+      label = 'Agreed price for this card';
+    } else if (offerStatus === 'pending_business' || (openedBy === 'talent' && lastActor === 'talent')) {
+      kind = 'bid';
+      label = 'Talent bid for this card';
+    } else if (offerStatus === 'pending_talent' || openedBy === 'business' || openedBy === 'admin') {
+      kind = 'business_offer';
+      label = 'Your offer for this card';
+    } else {
+      kind = 'bid';
+      label = 'Latest figure for this card';
+    }
+  } else if (recipientStatus === 'accepted' && listPrice != null) {
+    // Accepted the list price without opening a bid negotiation.
+    kind = 'accepted_list';
+    amount = listPrice;
+    label = 'Accepted list price for this card';
+  } else if (recipientStatus === 'accepted') {
+    kind = 'accepted_list';
+    amount = listPrice;
+    label = 'Accepted this card';
+  }
+
+  return {
+    card_id: cardId,
+    card_type: cardType,
+    brand_name: brandName,
+    list_price: listPrice,
+    currency,
+    period,
+    kind,
+    amount,
+    offer_status: offerStatus,
+    recipient_status: recipientStatus,
+    label,
+  };
+}
+
 export async function getSharedProfile(
   businessUserId: string,
   categoryId: string,
@@ -243,6 +375,9 @@ export async function getSharedProfile(
 
     const p = fallback as any;
     const tiers = await getTalentTiersByUserIds([p.talent_user_id]);
+    const card_engagement = cardId
+      ? await resolveCardEngagement(cardId, p.talent_user_id as string)
+      : null;
     return {
       id: p.id,
       user_id: p.talent_user_id,
@@ -256,6 +391,7 @@ export async function getSharedProfile(
       is_ghost: p.is_ghost === true,
       tier: tiers[p.talent_user_id]?.tier ?? null,
       tier_custom: tiers[p.talent_user_id]?.tier_custom ?? null,
+      card_engagement,
     };
   }
 
@@ -265,6 +401,9 @@ export async function getSharedProfile(
   if (!p) throw new AppError(404, 'Profile not found');
 
   const tiers = await getTalentTiersByUserIds([p.talent_user_id]);
+  const card_engagement = cardId
+    ? await resolveCardEngagement(cardId, p.talent_user_id as string)
+    : null;
   const baseProfile = {
     id: p.id,
     user_id: p.talent_user_id,
@@ -278,6 +417,7 @@ export async function getSharedProfile(
     is_ghost: p.is_ghost === true,
     tier: tiers[p.talent_user_id]?.tier ?? null,
     tier_custom: tiers[p.talent_user_id]?.tier_custom ?? null,
+    card_engagement,
   };
 
   if (baseProfile.is_ghost) {
