@@ -1262,6 +1262,33 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
 
   const acceptedRows = rows.filter((r: any) => profileMap.has(r.talent_user_id));
 
+  // Latest open/accepted offer per recipient — bid or agreed price for UI chips.
+  const recipientIds = acceptedRows.map((r: any) => r.id as string);
+  const offerByRecipient = new Map<string, {
+    offer_id: string;
+    offer_status: string;
+    offer_amount: unknown;
+    last_actor_side: string | null;
+  }>();
+  if (recipientIds.length > 0) {
+    const { data: offerRows } = await supabaseAdmin
+      .from('assignment_offers')
+      .select('id, recipient_id, status, current_amount, last_actor_side, updated_at')
+      .in('recipient_id', recipientIds)
+      .in('status', ['pending_business', 'pending_talent', 'accepted'])
+      .order('updated_at', { ascending: false });
+    for (const o of offerRows ?? []) {
+      const rid = (o as any).recipient_id as string;
+      if (offerByRecipient.has(rid)) continue; // first = latest (ordered desc)
+      offerByRecipient.set(rid, {
+        offer_id: (o as any).id as string,
+        offer_status: (o as any).status as string,
+        offer_amount: (o as any).current_amount,
+        last_actor_side: ((o as any).last_actor_side as string | null) ?? null,
+      });
+    }
+  }
+
   // Selection is resolved per tier card (each tier card can be independently
   // assigned). Mirrors the original single-card logic, applied per card:
   //  1. card.selected_talent_user_id is set → use it
@@ -1307,9 +1334,22 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
         tier: tiers[r.talent_user_id]?.tier ?? null,
         tier_custom: tiers[r.talent_user_id]?.tier_custom ?? null,
         // Proposed price for this talent = the customer monthly price of the
-        // tier card they were matched into.
+        // tier card they were matched into. Prefer live bid/offer amount when set.
         proposed_price: price.price,
         currency: price.currency,
+        ...(offerByRecipient.get(r.id as string)
+          ? {
+              offer_id: offerByRecipient.get(r.id as string)!.offer_id,
+              offer_status: offerByRecipient.get(r.id as string)!.offer_status,
+              offer_amount: offerByRecipient.get(r.id as string)!.offer_amount,
+              last_actor_side: offerByRecipient.get(r.id as string)!.last_actor_side,
+            }
+          : {
+              offer_id: null as string | null,
+              offer_status: null as string | null,
+              offer_amount: null as unknown,
+              last_actor_side: null as string | null,
+            }),
         business_review_status: r.business_review_status ?? null,
         business_reviewed_at: r.business_reviewed_at ?? null,
         selected_at: r.selected_at ?? (isCardSelected ? sel.selectedAt : null),

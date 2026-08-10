@@ -26,13 +26,16 @@ export interface BusinessAssignmentOffer {
   events: AssignmentOfferEvent[];
 }
 
+function offersBase(cardId: string) {
+  // Canonical path works for subscription + assignment cards.
+  return `/business/my-subscription-cards/${cardId}/offers`;
+}
+
 export function useBusinessAssignmentOffers(cardId: string, enabled = true) {
   return useQuery({
     queryKey: ['business-assignment-offers', cardId],
     queryFn: async () => {
-      const { data } = await api.get<{ offers: BusinessAssignmentOffer[] }>(
-        `/business/my-assignment-cards/${cardId}/offers`,
-      );
+      const { data } = await api.get<{ offers: BusinessAssignmentOffer[] }>(offersBase(cardId));
       return data.offers ?? [];
     },
     enabled,
@@ -43,7 +46,7 @@ function useInvalidate(cardId: string) {
   const qc = useQueryClient();
   return () => {
     qc.invalidateQueries({ queryKey: ['business-assignment-offers', cardId] });
-    // Accept selects the talent — refresh recipients + the card lists too.
+    // Accept shortlists — refresh recipients + the card lists too.
     qc.invalidateQueries({ queryKey: ['card-recipients', cardId] });
     qc.invalidateQueries({ queryKey: ['my-assignment-cards'] });
     qc.invalidateQueries({ queryKey: ['my-subscription-cards'] });
@@ -55,7 +58,7 @@ export function useBusinessCounterOffer(cardId: string) {
   return useMutation({
     mutationFn: async (vars: { offerId: string; amount: OfferAmount; note?: string }) => {
       const { data } = await api.post<{ offer: BusinessAssignmentOffer }>(
-        `/business/my-assignment-cards/${cardId}/offers/${vars.offerId}/counter`,
+        `${offersBase(cardId)}/${vars.offerId}/counter`,
         { amount: vars.amount, ...(vars.note ? { note: vars.note } : {}) },
       );
       return data.offer;
@@ -69,7 +72,7 @@ export function useBusinessAcceptOffer(cardId: string) {
   return useMutation({
     mutationFn: async (vars: { offerId: string; note?: string }) => {
       const { data } = await api.post<{ offer: BusinessAssignmentOffer }>(
-        `/business/my-assignment-cards/${cardId}/offers/${vars.offerId}/accept`,
+        `${offersBase(cardId)}/${vars.offerId}/accept`,
         { ...(vars.note ? { note: vars.note } : {}) },
       );
       return data.offer;
@@ -83,8 +86,27 @@ export function useBusinessDeclineOffer(cardId: string) {
   return useMutation({
     mutationFn: async (vars: { offerId: string; note?: string }) => {
       const { data } = await api.post<{ offer: BusinessAssignmentOffer }>(
-        `/business/my-assignment-cards/${cardId}/offers/${vars.offerId}/decline`,
+        `${offersBase(cardId)}/${vars.offerId}/decline`,
         { ...(vars.note ? { note: vars.note } : {}) },
+      );
+      return data.offer;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** Business "Send an Offer" from a talent profile / review row. Auto-shortlists. */
+export function useBusinessSendOffer(cardId: string) {
+  const invalidate = useInvalidate(cardId);
+  return useMutation({
+    mutationFn: async (vars: { recipientId: string; amount: OfferAmount; note?: string }) => {
+      const { data } = await api.post<{ offer: BusinessAssignmentOffer }>(
+        `${offersBase(cardId)}/send`,
+        {
+          recipient_id: vars.recipientId,
+          amount: vars.amount,
+          ...(vars.note ? { note: vars.note } : {}),
+        },
       );
       return data.offer;
     },

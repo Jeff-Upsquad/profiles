@@ -30,4 +30,32 @@ class SubscriptionService {
       data: {'action': action},
     );
   }
+
+  /// Bid / counter on a subscription or assignment card (₹500 steps).
+  Future<void> submitOffer(
+    String recipientId, {
+    required int amount,
+    String currency = 'INR',
+    String period = 'per_month',
+    String? note,
+  }) async {
+    await _client.dio.post(
+      '/talent/subscriptions/$recipientId/offer',
+      data: {
+        'amount': {
+          'amount': amount,
+          'currency': currency,
+          'period': period,
+        },
+        if (note != null && note.isNotEmpty) 'note': note,
+      },
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> listOffers() async {
+    final response = await _client.dio.get('/talent/subscriptions/offers');
+    final data = response.data as Map<String, dynamic>;
+    final items = data['offers'] as List<dynamic>? ?? [];
+    return items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
 }

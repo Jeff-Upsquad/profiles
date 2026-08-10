@@ -11,32 +11,34 @@ import { createBusinessNotification } from './business-notifications.service.js'
 import { emitCardEvent } from './card-events-outbox.service.js';
 import { notifyAssignmentEvent } from './push.service.js';
 import { fireJobsCrmEvent } from './talent-whatsapp.service.js';
-import { adminSelectRecipient } from './subscription.service.js';
 
 /**
- * Assignment offer / counter-offer engine (00110).
+ * Card offer / bid / counter-offer engine (00110 + generalization).
  *
- * Recipient-scoped negotiation on assignment cards (card_type='assignment'),
- * UNLIMITED-round — the offer bounces between the two turn states until someone
- * accepts / declines. Modeled on the jobs offers.service.ts state machine but
- * (a) keyed on subscription_card_recipients (not job_candidates), (b) talent-
- * opened, and (c) with no one-shot final-counter latch.
+ * Recipient-scoped negotiation on subscription + assignment cards. Table name
+ * remains `assignment_offers` (history); the engine now covers both product
+ * lines. UNLIMITED-round — the offer bounces between turn states until someone
+ * accepts / declines.
  *
- *   (talent submit / counter)   -> pending_business
- *   (business / admin counter)  -> pending_talent
- *   (either side accept)        -> accepted   [terminal -> recipient selected]
- *   (decline / withdraw / expire) -> declined | withdrawn | expired [terminal]
+ *   (talent bid / submit / counter) -> pending_business
+ *   (business send / counter)       -> pending_talent
+ *   (either side accept)            -> accepted  [terminal; Select is SEPARATE]
+ *   (decline / withdraw / expire)   -> declined | withdrawn | expired
  *
- * PRICED cards: the standing card price is accepted/declined via the existing
- * subscription respond() — only a COUNTER opens a row here.
- * UNPRICED cards: the talent's SUBMIT opens the row.
+ * PRICED cards: Accept/Decline of the list price uses subscription respond();
+ * a Bid / Counter opens a row here.
+ * UNPRICED assignment: talent Submit opens the row.
+ * BUSINESS "Send an Offer": opens with opened_by='business', auto-shortlists.
  *
- * An accepted offer marks the recipient 'accepted' (feeding the existing
- * select -> admin-finalize spine); a BUSINESS accept additionally selects that
- * talent ("accept and select"). One live offer per recipient (unique index).
- * Profiles is canonical; SquadHub reads it live + drives business-side
- * transitions via signed proxy (actor.source='squadhub' suppresses the echo).
+ * Accept ≠ Select: an accepted offer marks the recipient accepted + shortlisted
+ * so the business can press Select (existing select → admin-finalize spine).
+ * One live offer per recipient (unique index). Profiles is canonical; SquadHub
+ * reads live + drives business-side transitions via signed proxy.
  */
+
+/** Bid / offer amounts must land on this step (INR). */
+export const OFFER_AMOUNT_STEP = 500;
+const OFFERABLE_CARD_TYPES = new Set(['subscription', 'assignment']);
 
 export type AssignmentOfferStatus =
   | 'pending_business'
@@ -72,10 +74,10 @@ const PENDING_STATUSES: AssignmentOfferStatus[] = ['pending_business', 'pending_
 
 // ─── Small helpers ─────────────────────────────────────────────────────────
 
-function assignmentTitle(content: Record<string, unknown>): string {
+function cardOfferTitle(content: Record<string, unknown>, cardType: string): string {
   if (typeof content.title === 'string' && content.title.trim()) return content.title.trim();
   if (typeof content.brand_name === 'string' && content.brand_name.trim()) return content.brand_name.trim();
-  return 'the assignment';
+  return cardType === 'assignment' ? 'the assignment' : 'the subscription';
 }
 
 function actorSide(actor: JobsActor): 'talent' | 'business' | 'admin' {
@@ -84,12 +86,42 @@ function actorSide(actor: JobsActor): 'talent' | 'business' | 'admin' {
   return 'business';
 }
 
+function talentDeepLink(cardType: string): string {
+  return cardType === 'assignment' ? '/talent/assignments' : '/talent/subscriptions';
+}
+
+/**
+ * Normalize + validate a negotiated figure. Amounts must be positive integers
+ * in multiples of OFFER_AMOUNT_STEP (₹500).
+ */
+export function normalizeOfferAmount(
+  amount: Record<string, unknown>,
+  defaults?: { currency?: string; period?: string },
+): Record<string, unknown> {
+  const raw = amount?.amount;
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(n) || n <= 0) {
+    throw new AppError(400, 'Offer amount must be a positive number');
+  }
+  const rounded = Math.round(n);
+  if (rounded % OFFER_AMOUNT_STEP !== 0) {
+    throw new AppError(400, `Offer amount must be in multiples of ₹${OFFER_AMOUNT_STEP}`);
+  }
+  return {
+    ...amount,
+    amount: rounded,
+    currency: (typeof amount.currency === 'string' && amount.currency) || defaults?.currency || 'INR',
+    period: (typeof amount.period === 'string' && amount.period) || defaults?.period || 'per_month',
+  };
+}
+
 interface AssignmentCardRefs {
   cardId: string;
   externalId: string | null;
   businessUserId: string | null;
   content: Record<string, unknown>;
   pricingMode: 'priced' | 'unpriced';
+  cardType: 'subscription' | 'assignment';
 }
 
 async function getAssignmentCardRefs(cardId: string): Promise<AssignmentCardRefs> {
@@ -99,20 +131,36 @@ async function getAssignmentCardRefs(cardId: string): Promise<AssignmentCardRefs
     .eq('id', cardId)
     .maybeSingle();
   if (error) throw new AppError(500, error.message);
-  if (!data || (data as any).card_type !== 'assignment') {
-    throw new AppError(404, 'Assignment card not found');
+  const cardType = (data as any)?.card_type as string | undefined;
+  if (!data || !cardType || !OFFERABLE_CARD_TYPES.has(cardType)) {
+    throw new AppError(404, 'Card not found');
   }
   // On Profiles the assignment details ride inside content JSONB (SquadHub sends
   // content.assignment_details) — there is NO assignment_details column here.
   const content = ((data as any).content ?? {}) as Record<string, unknown>;
   const ad = (content.assignment_details ?? {}) as Record<string, unknown>;
+  // Subscriptions are always priced (list monthly price). Assignments may be unpriced.
+  const pricingMode: 'priced' | 'unpriced' =
+    cardType === 'assignment' && ad.pricing_mode === 'unpriced' ? 'unpriced' : 'priced';
   return {
     cardId,
     externalId: ((data as any).external_id as string | null) ?? null,
     businessUserId: ((data as any).business_user_id as string | null) ?? null,
     content,
-    pricingMode: ad.pricing_mode === 'unpriced' ? 'unpriced' : 'priced',
+    pricingMode,
+    cardType: cardType as 'subscription' | 'assignment',
   };
+}
+
+/** Stamp business_review_status=shortlisted (idempotent). */
+async function shortlistRecipient(recipientId: string): Promise<void> {
+  const now = new Date().toISOString();
+  await supabaseAdmin
+    .from('subscription_card_recipients')
+    .update({ business_review_status: 'shortlisted', business_reviewed_at: now })
+    .eq('id', recipientId)
+    .is('cancelled_at', null)
+    .or('business_review_status.is.null,business_review_status.eq.rejected');
 }
 
 async function logEvent(input: {
@@ -188,7 +236,7 @@ interface TalentRecipientCtx {
   recipientStatus: string;
 }
 
-/** Load + validate a recipient row owned by the talent on a LIVE assignment card. */
+/** Load + validate a recipient row owned by the talent on a LIVE offerable card. */
 async function loadTalentRecipient(
   talentUserId: string,
   recipientId: string,
@@ -200,10 +248,12 @@ async function loadTalentRecipient(
     .eq('talent_user_id', talentUserId)
     .maybeSingle();
   if (error) throw new AppError(500, error.message);
-  if (!data) throw new AppError(404, 'Assignment not found');
+  if (!data) throw new AppError(404, 'Offer not found');
   const card = (data as any).subscription_cards as { status?: string; card_type?: string } | undefined;
-  if (card?.card_type !== 'assignment') throw new AppError(400, 'Not an assignment card');
-  if (card?.status !== 'active') throw new AppError(409, 'This assignment is no longer available');
+  if (!card?.card_type || !OFFERABLE_CARD_TYPES.has(card.card_type)) {
+    throw new AppError(400, 'Offers are not available on this card type');
+  }
+  if (card?.status !== 'active') throw new AppError(409, 'This card is no longer available');
   if ((data as any).cancelled_at) throw new AppError(409, 'This offer has been cancelled');
   const refs = await getAssignmentCardRefs((data as any).card_id as string);
   return {
@@ -265,16 +315,17 @@ async function expireOtherOpenOffers(cardId: string, keepOfferId: string): Promi
 }
 
 /**
- * Terminal-accept handler. Flips the recipient to 'accepted' (feeding the
- * existing select spine) + notifies. A BUSINESS/ADMIN accept additionally
- * selects the talent (fills the card) — the "accept and select" flow.
+ * Terminal-accept handler. Flips the recipient to 'accepted' + shortlists
+ * (feeding the existing Select spine). Does NOT select — business presses
+ * Select separately. `selectNow` is ignored (kept for call-site compatibility).
  */
 async function onOfferAccepted(
   offer: AssignmentOfferRow,
   refs: AssignmentCardRefs,
   actor: JobsActor,
-  selectNow: boolean,
+  _selectNow?: boolean,
 ): Promise<void> {
+  const title = cardOfferTitle(refs.content, refs.cardType);
   // Mark the recipient accepted at the agreed figure (only if still pending —
   // never clobber an already-terminal recipient row).
   await supabaseAdmin
@@ -284,32 +335,41 @@ async function onOfferAccepted(
     .eq('status', 'pending')
     .is('cancelled_at', null);
 
+  // Auto-shortlist so Select is available without an extra shortlist click.
+  await shortlistRecipient(offer.recipient_id);
+
+  const deepLink = talentDeepLink(refs.cardType);
   notifyTalentsInApp(
     [offer.talent_user_id],
     'assignment_offer_accepted',
     'Offer accepted',
-    `Your offer for ${assignmentTitle(refs.content)} was accepted.`,
-    '/talent/assignments',
+    `Your offer for ${title} was accepted.`,
+    deepLink,
   ).catch(() => {});
   notifyAssignmentEvent([offer.talent_user_id], {
     title: 'Offer accepted 🎉',
-    body: `Your offer for ${assignmentTitle(refs.content)} was accepted.`,
+    body: `Your offer for ${title} was accepted.`,
     cardId: offer.card_id,
   }).catch((err) => console.error('[assignment-offers] accept push threw', err));
   fireJobsCrmEvent('talent_assignment_offer_accepted', offer.talent_user_id, {
-    position_title: assignmentTitle(refs.content),
+    position_title: title,
     business_name: contentBusinessName(refs.content),
   }).catch((err) => console.error('[assignment-offers] accept WA threw', err));
 
-  // When the TALENT accepted the business's counter, ping the business.
+  // When the TALENT accepted the business's offer/counter, ping the business.
   if (actor.type === 'talent' && refs.businessUserId) {
     const names = await getTalentNames([offer.talent_user_id]);
     await createBusinessNotification({
       businessUserId: refs.businessUserId,
       type: 'assignment_offer_accepted',
-      title: `${names.get(offer.talent_user_id) ?? 'A talent'} accepted your counter-offer for ${assignmentTitle(refs.content)}`,
+      title: `${names.get(offer.talent_user_id) ?? 'A talent'} accepted your offer for ${title}`,
       body: null,
-      ref: { card_id: offer.card_id, offer_id: offer.id, recipient_id: offer.recipient_id, route: 'assignments' },
+      ref: {
+        card_id: offer.card_id,
+        offer_id: offer.id,
+        recipient_id: offer.recipient_id,
+        route: refs.cardType === 'assignment' ? 'assignments' : 'subscription',
+      },
     });
   }
 
@@ -326,17 +386,6 @@ async function onOfferAccepted(
       `assignment_offer_accepted:${offer.id}`,
     );
   }
-
-  if (selectNow) {
-    try {
-      await adminSelectRecipient(offer.card_id, offer.recipient_id);
-      await expireOtherOpenOffers(offer.card_id, offer.id);
-    } catch (err) {
-      // Card already filled / selection guard — leave the offer accepted; the
-      // admin can finalize manually. The accept itself must never fail here.
-      console.error('[assignment-offers] select-on-accept failed', err);
-    }
-  }
 }
 
 async function notifyBusinessOfTalentTerminal(
@@ -344,6 +393,7 @@ async function notifyBusinessOfTalentTerminal(
   refs: AssignmentCardRefs,
   kind: 'declined' | 'withdrawn',
 ): Promise<void> {
+  const title = cardOfferTitle(refs.content, refs.cardType);
   if (refs.businessUserId) {
     const names = await getTalentNames([offer.talent_user_id]);
     const talentName = names.get(offer.talent_user_id) ?? 'A talent';
@@ -352,10 +402,15 @@ async function notifyBusinessOfTalentTerminal(
       type: `assignment_offer_${kind}`,
       title:
         kind === 'declined'
-          ? `${talentName} declined your counter-offer for ${assignmentTitle(refs.content)}`
-          : `${talentName} withdrew their offer for ${assignmentTitle(refs.content)}`,
+          ? `${talentName} declined your offer for ${title}`
+          : `${talentName} withdrew their bid for ${title}`,
       body: null,
-      ref: { card_id: offer.card_id, offer_id: offer.id, recipient_id: offer.recipient_id, route: 'assignments' },
+      ref: {
+        card_id: offer.card_id,
+        offer_id: offer.id,
+        recipient_id: offer.recipient_id,
+        route: refs.cardType === 'assignment' ? 'assignments' : 'subscription',
+      },
     });
   }
   await emitCardEvent(
@@ -386,6 +441,9 @@ export async function talentSubmitOrCounter(
   const { ctx, refs } = await loadTalentRecipient(talentUserId, recipientId);
   const actor: JobsActor = { type: 'talent', id: talentUserId };
   const existing = await getOpenOfferForRecipient(recipientId);
+  const periodDefault = refs.cardType === 'assignment' ? 'project' : 'per_month';
+  const amount = normalizeOfferAmount(input.amount, { period: periodDefault });
+  const title = cardOfferTitle(refs.content, refs.cardType);
 
   let offer: AssignmentOfferRow;
   let action: 'submitted' | 'countered';
@@ -399,7 +457,7 @@ export async function talentSubmitOrCounter(
         talent_user_id: talentUserId,
         business_user_id: refs.businessUserId,
         pricing_mode: refs.pricingMode,
-        current_amount: input.amount,
+        current_amount: amount,
         current_terms: input.terms ?? null,
         status: 'pending_business',
         opened_by: 'talent',
@@ -409,7 +467,7 @@ export async function talentSubmitOrCounter(
       .maybeSingle();
     if (error) {
       if ((error as any).code === '23505') {
-        throw new AppError(409, 'You already have an open offer on this assignment');
+        throw new AppError(409, 'You already have an open bid on this card');
       }
       throw new AppError(500, error.message);
     }
@@ -419,13 +477,13 @@ export async function talentSubmitOrCounter(
     throw new AppError(409, 'This offer has already been accepted');
   } else {
     offer = await transition(existing, 'pending_business', actor, {
-      amount: input.amount,
+      amount,
       terms: input.terms ?? existing.current_terms,
     });
     action = 'countered';
   }
 
-  await logEvent({ offerId: offer.id, actor, action, amount: input.amount, note: input.note ?? null });
+  await logEvent({ offerId: offer.id, actor, action, amount, note: input.note ?? null });
 
   if (refs.businessUserId) {
     const names = await getTalentNames([talentUserId]);
@@ -435,10 +493,15 @@ export async function talentSubmitOrCounter(
       type: action === 'submitted' ? 'assignment_offer_submitted' : 'assignment_offer_countered',
       title:
         action === 'submitted'
-          ? `${talentName} submitted an offer for ${assignmentTitle(refs.content)}`
-          : `${talentName} sent a counter-offer for ${assignmentTitle(refs.content)}`,
+          ? `${talentName} submitted a bid for ${title}`
+          : `${talentName} updated their bid for ${title}`,
       body: input.note ?? null,
-      ref: { card_id: ctx.cardId, offer_id: offer.id, recipient_id: recipientId, route: 'assignments' },
+      ref: {
+        card_id: ctx.cardId,
+        offer_id: offer.id,
+        recipient_id: recipientId,
+        route: refs.cardType === 'assignment' ? 'assignments' : 'subscription',
+      },
     });
   }
 
@@ -447,7 +510,7 @@ export async function talentSubmitOrCounter(
     recipient_id: recipientId,
     offer_id: offer.id,
     actor,
-    data: { amount: input.amount, terms: input.terms ?? null, note: input.note ?? null },
+    data: { amount, terms: input.terms ?? null, note: input.note ?? null },
   });
 
   return offer;
@@ -510,27 +573,31 @@ export async function businessCounter(
   const offer = await getOffer(offerId);
   if (offer.status !== 'pending_business') throw new AppError(409, 'It is not your turn to counter this offer');
   const refs = await getAssignmentCardRefs(offer.card_id);
+  const periodDefault = refs.cardType === 'assignment' ? 'project' : 'per_month';
+  const amount = normalizeOfferAmount(input.amount, { period: periodDefault });
+  const title = cardOfferTitle(refs.content, refs.cardType);
 
   const updated = await transition(offer, 'pending_talent', actor, {
-    amount: input.amount,
+    amount,
     terms: input.terms ?? offer.current_terms,
   });
-  await logEvent({ offerId, actor, action: 'countered', amount: input.amount, note: input.note ?? null });
+  await logEvent({ offerId, actor, action: 'countered', amount, note: input.note ?? null });
 
+  const deepLink = talentDeepLink(refs.cardType);
   notifyTalentsInApp(
     [offer.talent_user_id],
     'assignment_offer_countered',
     'Counter-offer received',
-    `${contentBusinessName(refs.content)} sent a counter-offer for ${assignmentTitle(refs.content)}.`,
-    '/talent/assignments',
+    `${contentBusinessName(refs.content)} sent a counter-offer for ${title}.`,
+    deepLink,
   ).catch(() => {});
   notifyAssignmentEvent([offer.talent_user_id], {
     title: 'Counter-offer received',
-    body: `${contentBusinessName(refs.content)} countered your offer for ${assignmentTitle(refs.content)}.`,
+    body: `${contentBusinessName(refs.content)} countered your bid for ${title}.`,
     cardId: offer.card_id,
   }).catch((err) => console.error('[assignment-offers] counter push threw', err));
   fireJobsCrmEvent('talent_assignment_offer_countered', offer.talent_user_id, {
-    position_title: assignmentTitle(refs.content),
+    position_title: title,
     business_name: contentBusinessName(refs.content),
   }).catch((err) => console.error('[assignment-offers] counter WA threw', err));
 
@@ -540,14 +607,136 @@ export async function businessCounter(
       recipient_id: offer.recipient_id,
       offer_id: offerId,
       actor,
-      data: { amount: input.amount, terms: input.terms ?? null },
+      data: { amount, terms: input.terms ?? null },
     });
   }
 
   return updated;
 }
 
-/** Business/admin accepts the talent's current figure — accept + select. */
+/**
+ * Business (or admin on their behalf) opens a new offer TO a talent, or counters
+ * an existing talent bid. Auto-shortlists the recipient on send.
+ */
+export async function businessSendOffer(
+  cardId: string,
+  recipientId: string,
+  input: { amount: Record<string, unknown>; terms?: Record<string, unknown>; note?: string },
+  actor: JobsActor,
+): Promise<AssignmentOfferRow> {
+  const refs = await getAssignmentCardRefs(cardId);
+  const periodDefault = refs.cardType === 'assignment' ? 'project' : 'per_month';
+  const amount = normalizeOfferAmount(input.amount, { period: periodDefault });
+  const title = cardOfferTitle(refs.content, refs.cardType);
+
+  const { data: recipient, error: recErr } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id, card_id, talent_user_id, status, cancelled_at')
+    .eq('id', recipientId)
+    .eq('card_id', cardId)
+    .maybeSingle();
+  if (recErr) throw new AppError(500, recErr.message);
+  if (!recipient) throw new AppError(404, 'Recipient not found');
+  if ((recipient as any).cancelled_at) throw new AppError(409, 'Recipient has been cancelled');
+  if ((recipient as any).status === 'rejected') {
+    throw new AppError(409, 'This talent declined the card');
+  }
+
+  const talentUserId = (recipient as any).talent_user_id as string;
+  const existing = await getOpenOfferForRecipient(recipientId);
+
+  // If talent already has a live bid awaiting business, treat this as a counter.
+  if (existing && existing.status === 'pending_business') {
+    return businessCounter(existing.id, { amount, terms: input.terms, note: input.note }, actor);
+  }
+  if (existing && existing.status === 'pending_talent') {
+    // Revise our standing offer (still talent's turn after).
+    const updated = await transition(existing, 'pending_talent', actor, {
+      amount,
+      terms: input.terms ?? existing.current_terms,
+    });
+    await logEvent({ offerId: existing.id, actor, action: 'countered', amount, note: input.note ?? null });
+    await shortlistRecipient(recipientId);
+    await notifyTalentOfBusinessOffer(updated, refs, title, amount, input.note);
+    return updated;
+  }
+  if (existing && existing.status === 'accepted') {
+    throw new AppError(409, 'An accepted offer already exists for this talent');
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('assignment_offers')
+    .insert({
+      card_id: cardId,
+      recipient_id: recipientId,
+      talent_user_id: talentUserId,
+      business_user_id: refs.businessUserId,
+      pricing_mode: refs.pricingMode,
+      current_amount: amount,
+      current_terms: input.terms ?? null,
+      status: 'pending_talent',
+      opened_by: actor.type === 'admin' ? 'admin' : 'business',
+      last_actor_side: actorSide(actor),
+    })
+    .select(OFFER_FIELDS)
+    .maybeSingle();
+  if (error) {
+    if ((error as any).code === '23505') {
+      throw new AppError(409, 'An open offer already exists for this talent');
+    }
+    throw new AppError(500, error.message);
+  }
+  const offer = data as unknown as AssignmentOfferRow;
+  await logEvent({ offerId: offer.id, actor, action: 'submitted', amount, note: input.note ?? null });
+
+  // Auto-shortlist when the business opens negotiation.
+  await shortlistRecipient(recipientId);
+
+  await notifyTalentOfBusinessOffer(offer, refs, title, amount, input.note);
+
+  if (shouldEmitOutbox(actor)) {
+    await emitCardEvent('assignment_offer_sent_by_business', {
+      external_id: refs.externalId,
+      recipient_id: recipientId,
+      offer_id: offer.id,
+      actor,
+      data: { amount, terms: input.terms ?? null, note: input.note ?? null },
+    });
+  }
+
+  return offer;
+}
+
+async function notifyTalentOfBusinessOffer(
+  offer: AssignmentOfferRow,
+  refs: AssignmentCardRefs,
+  title: string,
+  amount: Record<string, unknown>,
+  note?: string,
+): Promise<void> {
+  const deepLink = talentDeepLink(refs.cardType);
+  const biz = contentBusinessName(refs.content);
+  notifyTalentsInApp(
+    [offer.talent_user_id],
+    'assignment_offer_received',
+    'Offer received',
+    `${biz} sent you an offer for ${title}.`,
+    deepLink,
+  ).catch(() => {});
+  notifyAssignmentEvent([offer.talent_user_id], {
+    title: 'Offer received',
+    body: `${biz} sent you an offer for ${title}.`,
+    cardId: offer.card_id,
+  }).catch((err) => console.error('[assignment-offers] send push threw', err));
+  fireJobsCrmEvent('talent_assignment_offer_received', offer.talent_user_id, {
+    position_title: title,
+    business_name: biz,
+    amount,
+    note: note ?? null,
+  }).catch((err) => console.error('[assignment-offers] send WA threw', err));
+}
+
+/** Business/admin accepts the talent's current figure — shortlists; Select is separate. */
 export async function businessAccept(
   offerId: string,
   input: { note?: string },
@@ -559,7 +748,7 @@ export async function businessAccept(
 
   const updated = await transition(offer, 'accepted', actor, { responded: true });
   await logEvent({ offerId, actor, action: 'accepted', amount: offer.current_amount, note: input.note ?? null });
-  await onOfferAccepted(updated, refs, actor, true);
+  await onOfferAccepted(updated, refs, actor, false);
   return updated;
 }
 
@@ -575,20 +764,22 @@ export async function businessDecline(
   const updated = await transition(offer, 'declined', actor, { responded: true });
   await logEvent({ offerId, actor, action: 'declined', note: input.note ?? null });
 
+  const title = cardOfferTitle(refs.content, refs.cardType);
+  const deepLink = talentDeepLink(refs.cardType);
   notifyTalentsInApp(
     [offer.talent_user_id],
     'assignment_offer_declined',
     'Offer declined',
-    `${contentBusinessName(refs.content)} declined your offer for ${assignmentTitle(refs.content)}.`,
-    '/talent/assignments',
+    `${contentBusinessName(refs.content)} declined your bid for ${title}.`,
+    deepLink,
   ).catch(() => {});
   notifyAssignmentEvent([offer.talent_user_id], {
     title: 'Offer declined',
-    body: `${contentBusinessName(refs.content)} declined your offer for ${assignmentTitle(refs.content)}.`,
+    body: `${contentBusinessName(refs.content)} declined your bid for ${title}.`,
     cardId: offer.card_id,
   }).catch((err) => console.error('[assignment-offers] decline push threw', err));
   fireJobsCrmEvent('talent_assignment_offer_declined', offer.talent_user_id, {
-    position_title: assignmentTitle(refs.content),
+    position_title: title,
     business_name: contentBusinessName(refs.content),
   }).catch((err) => console.error('[assignment-offers] decline WA threw', err));
 
@@ -651,7 +842,8 @@ async function assertBusinessOwnsCard(businessUserId: string, cardId: string): P
     .eq('id', cardId)
     .maybeSingle();
   if (error) throw new AppError(500, error.message);
-  if (!card || (card as any).card_type !== 'assignment') throw new AppError(404, 'Assignment card not found');
+  const cardType = (card as any)?.card_type as string | undefined;
+  if (!card || !cardType || !OFFERABLE_CARD_TYPES.has(cardType)) throw new AppError(404, 'Card not found');
   const ownerId = (card as any).business_user_id as string | null;
   if (ownerId === businessUserId) return;
   if (ownerId == null) {
@@ -664,7 +856,7 @@ async function assertBusinessOwnsCard(businessUserId: string, cardId: string): P
     const cardEmail = (card as any).business_email as string | null;
     if (email && cardEmail && email.toLowerCase() === cardEmail.toLowerCase()) return;
   }
-  throw new AppError(404, 'Assignment card not found');
+  throw new AppError(404, 'Card not found');
 }
 
 async function assertBusinessOwnsOffer(businessUserId: string, cardId: string, offerId: string): Promise<void> {
@@ -708,6 +900,61 @@ export async function businessDeclineOffer(
   return businessDecline(offerId, input, { type: 'business', id: businessUserId });
 }
 
+export async function businessSendOfferForCard(
+  businessUserId: string,
+  cardId: string,
+  recipientId: string,
+  input: { amount: Record<string, unknown>; terms?: Record<string, unknown>; note?: string },
+) {
+  await assertBusinessOwnsCard(businessUserId, cardId);
+  return businessSendOffer(cardId, recipientId, input, { type: 'business', id: businessUserId });
+}
+
+// ─── Talent inbox: all bids / offers across cards ──────────────────────────
+
+export interface TalentOfferListItem extends AssignmentOfferRow {
+  card_type: string | null;
+  brand_name: string | null;
+  card_title: string | null;
+  events: unknown[];
+}
+
+/** Talent Bidding tab — open + recent terminal offers for this talent. */
+export async function listOffersForTalent(talentUserId: string): Promise<TalentOfferListItem[]> {
+  const { data, error } = await supabaseAdmin
+    .from('assignment_offers')
+    .select(OFFER_FIELDS)
+    .eq('talent_user_id', talentUserId)
+    .order('updated_at', { ascending: false })
+    .limit(100);
+  if (error) throw new AppError(500, error.message);
+  const offers = (data ?? []) as unknown as AssignmentOfferRow[];
+  if (offers.length === 0) return [];
+
+  const cardIds = [...new Set(offers.map((o) => o.card_id))];
+  const { data: cards } = await supabaseAdmin
+    .from('subscription_cards')
+    .select('id, card_type, content')
+    .in('id', cardIds);
+  const cardById = new Map<string, any>();
+  for (const c of cards ?? []) cardById.set((c as any).id, c);
+
+  const out: TalentOfferListItem[] = [];
+  for (const o of offers) {
+    const card = cardById.get(o.card_id);
+    const content = (card?.content ?? {}) as Record<string, unknown>;
+    const events = await listOfferEvents(o.id);
+    out.push({
+      ...o,
+      card_type: (card?.card_type as string) ?? null,
+      brand_name: (typeof content.brand_name === 'string' ? content.brand_name : null),
+      card_title: cardOfferTitle(content, (card?.card_type as string) || 'subscription'),
+      events,
+    });
+  }
+  return out;
+}
+
 // ─── SquadHub admin: live-read snapshot + signed-proxy actions ──────────────
 // The SquadHub admin reads offers LIVE (never a mirror) and drives the same
 // business-side transitions via a signed proxy, with actor.source='squadhub'
@@ -721,22 +968,57 @@ export async function getCardOffersSnapshotByExternalId(externalId: string) {
     .eq('external_id', externalId)
     .maybeSingle();
   if (error) throw new AppError(500, error.message);
-  if (!card || (card as any).card_type !== 'assignment') {
-    throw new AppError(404, 'Assignment card not found');
+  const cardType = (card as any)?.card_type as string | undefined;
+  if (!card || !cardType || !OFFERABLE_CARD_TYPES.has(cardType)) {
+    throw new AppError(404, 'Card not found');
   }
   const offers = await listOffersForCard((card as any).id as string);
   return { external_id: externalId, card_id: (card as any).id as string, offers };
 }
 
 export async function adminOfferAction(input: {
-  op: 'counter' | 'accept' | 'decline';
-  offer_id: string;
+  op: 'counter' | 'accept' | 'decline' | 'send';
+  offer_id?: string;
+  recipient_id?: string;
+  external_id?: string;
   amount?: Record<string, unknown>;
   terms?: Record<string, unknown>;
   note?: string;
   actor?: { id?: string | null } | null;
 }): Promise<AssignmentOfferRow> {
   const actor: JobsActor = { type: 'admin', id: input.actor?.id ?? null, source: 'squadhub' };
+  if (input.op === 'send') {
+    if (!input.recipient_id) throw new AppError(400, 'recipient_id is required to send an offer');
+    if (!input.amount) throw new AppError(400, 'A figure is required to send an offer');
+    // Resolve card from external_id (SquadHub card id) when provided.
+    let cardId: string | null = null;
+    if (input.external_id) {
+      const snap = await getCardOffersSnapshotByExternalId(input.external_id).catch(() => null);
+      // Prefer lookup by external_id → internal id
+      const { data: card } = await supabaseAdmin
+        .from('subscription_cards')
+        .select('id')
+        .eq('external_id', input.external_id)
+        .maybeSingle();
+      cardId = (card as any)?.id ?? snap?.card_id ?? null;
+    }
+    if (!cardId) {
+      // Fall back: recipient row carries card_id
+      const { data: rec } = await supabaseAdmin
+        .from('subscription_card_recipients')
+        .select('card_id')
+        .eq('id', input.recipient_id)
+        .maybeSingle();
+      cardId = (rec as any)?.card_id ?? null;
+    }
+    if (!cardId) throw new AppError(404, 'Card not found for send');
+    return businessSendOffer(cardId, input.recipient_id, {
+      amount: input.amount,
+      terms: input.terms,
+      note: input.note,
+    }, actor);
+  }
+  if (!input.offer_id) throw new AppError(400, 'offer_id is required');
   if (input.op === 'counter') {
     if (!input.amount) throw new AppError(400, 'A figure is required to counter');
     return businessCounter(input.offer_id, { amount: input.amount, terms: input.terms, note: input.note }, actor);

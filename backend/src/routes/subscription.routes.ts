@@ -31,6 +31,9 @@ router.get('/unread-count', subscriptionController.unreadCount);
 // monthly earnings and hour commitments over the Assigned bucket.
 router.get('/my-clients', subscriptionController.myClients);
 
+// Bidding tab — all open + recent bids / offers across subscription + assignment.
+router.get('/offers', assignmentOffers.talentListOffers);
+
 router.patch(
   '/:recipientId/respond',
   validate({
@@ -40,20 +43,20 @@ router.patch(
   subscriptionController.respond
 );
 
-// ─── Assignment offers / counter-offers (card_type='assignment') ───────────
+// ─── Card offers / bids (subscription + assignment) ────────────────────────
 // The talent's live offer + negotiation thread for one recipient.
 router.get(
   '/:recipientId/offer',
   validate({ params: recipientIdParamSchema }),
   assignmentOffers.talentGetOffer
 );
-// Submit (unpriced) or counter (priced / ongoing) a figure.
+// Bid / submit (unpriced) / counter (priced or ongoing) a figure.
 router.post(
   '/:recipientId/offer',
   validate({ params: recipientIdParamSchema, body: submitOfferSchema }),
   assignmentOffers.talentSubmitOffer
 );
-// Accept / decline the business's counter, or withdraw an own submission.
+// Accept / decline the business's offer, or withdraw an own bid.
 router.post(
   '/:recipientId/offer/respond',
   validate({ params: recipientIdParamSchema, body: talentOfferRespondSchema }),

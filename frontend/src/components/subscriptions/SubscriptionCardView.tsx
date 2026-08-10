@@ -2,14 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import SubscriptionCardContent from './SubscriptionCardContent';
 import AssignmentOfferActions from './AssignmentOfferActions';
-import {
-  useRespondToSubscriptionCard,
-  type SubscriptionCardItem,
-} from '@/hooks/useSubscriptionCards';
+import { type SubscriptionCardItem } from '@/hooks/useSubscriptionCards';
 import { useAuth } from '@/context/AuthContext';
 
 interface Props {
@@ -24,17 +20,12 @@ function tintFor(seed: string): string {
 }
 
 export default function SubscriptionCardView({ item }: Props) {
-  const respond = useRespondToSubscriptionCard();
   const { user } = useAuth();
   const [showInactiveMessage, setShowInactiveMessage] = useState(false);
   const isPending = item.status === 'pending';
   const isCancelled = item.cancelled_at != null;
   const showActions = isPending && !isCancelled;
   const isInactive = user?.role === 'talent' && user?.is_active === false;
-  const ctaLabel =
-    typeof item.card.content.ctaLabel === 'string' && item.card.content.ctaLabel.trim().length > 0
-      ? item.card.content.ctaLabel.trim()
-      : 'Accept';
 
   const brandName = (item.card.content.brand_name as string)?.trim() || (item.card.content.title as string)?.trim() || 'Subscription';
   const tint = tintFor(brandName);
@@ -45,10 +36,6 @@ export default function SubscriptionCardView({ item }: Props) {
     item.card.card_type || (item.card.content.card_type as string) || 'subscription';
   const isAssignment = cardType === 'assignment';
   const typeLabel = isAssignment ? 'Assignment' : 'Subscription';
-
-  const handle = (action: 'accept' | 'reject') => {
-    respond.mutate({ recipientId: item.id, action });
-  };
 
   return (
     <article className={`group relative flex flex-col overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 ${isCancelled ? 'opacity-70' : ''}`}>
@@ -86,55 +73,24 @@ export default function SubscriptionCardView({ item }: Props) {
       <div className="flex flex-1 flex-col gap-4 p-5">
         <SubscriptionCardContent content={item.card.content} />
 
-        {/* Action footer — assignment cards get the offer/counter negotiation UI. */}
-        {isAssignment && showActions && !isInactive ? (
-          <AssignmentOfferActions item={item} currency={(item.card.content.currency as string) || undefined} />
+        {/* Action footer — Decline / Bid / Accept (subscription) or full offer UI (assignment).
+            Once a bid/offer is open, AssignmentOfferActions owns the respond row. */}
+        {showActions && !isInactive ? (
+          <AssignmentOfferActions
+            item={item}
+            currency={(item.card.content.currency as string) || undefined}
+            bidLabel={!isAssignment}
+          />
         ) : (
         <div className="mt-auto flex items-center justify-end gap-2 border-t border-[#E7E7EA] pt-4">
-          {showActions ? (
-            isInactive ? (
-              <button
-                type="button"
-                onClick={() => setShowInactiveMessage(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#E7E7EA] bg-[#f5f5f5] px-3.5 py-2 text-sm font-semibold text-[#737373] transition-colors hover:bg-[#ebebeb]"
-              >
-                Profile Inactive
-              </button>
-            ) : (
-              <>
-                <Button
-                  variant="ghost" size="sm"
-                  onClick={() => handle('reject')}
-                  loading={respond.isPending && respond.variables?.action === 'reject'}
-                  disabled={respond.isPending}
-                >
-                  Decline
-                </Button>
-                <button
-                  type="button"
-                  onClick={() => handle('accept')}
-                  disabled={respond.isPending}
-                  className="btn-iridescent disabled:opacity-50 text-sm py-2 px-3.5"
-                >
-                  {respond.isPending && respond.variables?.action === 'accept' ? (
-                    <>
-                      <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Accepting…
-                    </>
-                  ) : (
-                    <>
-                      {ctaLabel}
-                      <svg className="arrow-icon h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                      </svg>
-                    </>
-                  )}
-                </button>
-              </>
-            )
+          {showActions && isInactive ? (
+            <button
+              type="button"
+              onClick={() => setShowInactiveMessage(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#E7E7EA] bg-[#f5f5f5] px-3.5 py-2 text-sm font-semibold text-[#737373] transition-colors hover:bg-[#ebebeb]"
+            >
+              Profile Inactive
+            </button>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
               {item.status === 'accepted' && <Badge variant="green">Accepted</Badge>}
@@ -155,14 +111,6 @@ export default function SubscriptionCardView({ item }: Props) {
           </p>
         )}
 
-        {respond.isError && (
-          <p className="flex items-center gap-1.5 text-xs text-red-600">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M4.93 19h14.14a2 2 0 001.74-3L13.74 5a2 2 0 00-3.48 0L3.19 16a2 2 0 001.74 3z" />
-            </svg>
-            Could not save your response. Please try again.
-          </p>
-        )}
       </div>
     </article>
   );

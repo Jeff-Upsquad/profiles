@@ -5,9 +5,16 @@ import { z } from 'zod';
  * period are optional hints. `.passthrough()` keeps any extra keys SquadHub /
  * the UI attach (the service stores it verbatim in current_amount JSONB).
  */
+const OFFER_AMOUNT_STEP = 500;
+
 export const offerAmountSchema = z
   .object({
-    amount: z.number().nonnegative(),
+    amount: z
+      .number()
+      .positive()
+      .refine((n) => Math.round(n) === n && n % OFFER_AMOUNT_STEP === 0, {
+        message: `Offer amount must be a positive multiple of ₹${OFFER_AMOUNT_STEP}`,
+      }),
     currency: z.string().trim().max(10).optional(),
     period: z.enum(['project', 'per_month', 'per_week', 'per_day', 'per_hour']).optional(),
   })
@@ -55,11 +62,20 @@ export const cardOffersSnapshotWebhookSchema = z.object({
   source: z.string().optional(),
 });
 
+// Business send a new offer to a talent (or revise / counter via service).
+export const businessSendOfferSchema = z.object({
+  recipient_id: z.string().uuid(),
+  amount: offerAmountSchema,
+  terms: z.record(z.unknown()).optional(),
+  note: z.string().trim().max(2000).optional(),
+});
+
 // SquadHub admin drives a business-side transition (signed proxy).
 export const adminOffersWebhookSchema = z.object({
   external_id: z.string().min(1).max(200).optional(),
-  op: z.enum(['counter', 'accept', 'decline']),
-  offer_id: z.string().uuid(),
+  op: z.enum(['counter', 'accept', 'decline', 'send']),
+  offer_id: z.string().uuid().optional(),
+  recipient_id: z.string().uuid().optional(),
   amount: offerAmountSchema.optional(),
   terms: z.record(z.unknown()).optional(),
   note: z.string().trim().max(2000).optional(),

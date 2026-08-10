@@ -382,11 +382,44 @@ export default function SubscriptionCardReview({
         </div>
       )}
 
-      {/* Offers & negotiations (assignments) — talents submit/counter figures;
-          the business counters, or accepts (which selects that talent). */}
-      {isAssignment && (
-        <BusinessAssignmentOffers cardId={cardId} currency={card.currency} disabled={isClosed || isSubmitted || hasSelection} />
-      )}
+      {/* Bidding — talent bids + business offers (subscription + assignment).
+          Accept locks the figure; Select is a separate action below. */}
+      <BusinessAssignmentOffers
+        cardId={cardId}
+        currency={card.currency}
+        period={isAssignment ? 'project' : 'per_month'}
+        listPrice={card.customer_monthly_price}
+        disabled={isClosed || isSubmitted || hasSelection}
+        onSelect={(recipientId, talentName) => {
+          const r = (recipients ?? []).find((x) => x.recipient_id === recipientId);
+          if (r) handleSelect(r);
+          else {
+            // Talent may only appear via offer (not yet accepted at list price).
+            setConfirmSelect({
+              recipient_id: recipientId,
+              talent_user_id: '',
+              card_id: cardId,
+              talent_name: talentName,
+              profile_photo_url: null,
+              current_location: null,
+              languages_spoken: null,
+              profile_id: null,
+              category: null,
+              tier: null,
+              tier_custom: null,
+              proposed_price: null,
+              currency: card.currency,
+              business_review_status: 'shortlisted',
+              business_reviewed_at: null,
+              selected_at: null,
+              passed_over_at: null,
+              responded_at: null,
+              business_seen_at: null,
+              subscription_activated_at: null,
+            });
+          }
+        }}
+      />
 
       {/* Assigned talent(s) — a SquadHub admin approved the pick (this talent's
           tier card is activated). The confirmed emerald design. */}
@@ -646,7 +679,23 @@ function RecipientAvatar({ recipient: r }: { recipient: CardRecipientForBusiness
   );
 }
 
+function formatOfferChip(amount: CardRecipientForBusiness['offer_amount'], fallbackCurrency: string | null): string | null {
+  if (!amount || typeof amount.amount !== 'number') return null;
+  const cur = amount.currency === 'INR' || !amount.currency ? '₹' : `${amount.currency} `;
+  const period =
+    amount.period === 'project'
+      ? ''
+      : amount.period === 'per_month' || !amount.period
+        ? '/mo'
+        : ` ${amount.period.replace(/_/g, ' ')}`;
+  return `${cur}${amount.amount.toLocaleString()}${period}`;
+}
+
 function RecipientInfo({ recipient: r, isNew = false }: { recipient: CardRecipientForBusiness; isNew?: boolean }) {
+  const offerChip = formatOfferChip(r.offer_amount, r.currency ?? null);
+  const priceChip =
+    offerChip ??
+    (r.proposed_price != null ? formatPrice(r.proposed_price, r.currency ?? null) : null);
   return (
     <div className="min-w-0 flex-1">
       <div className="flex items-center gap-2">
@@ -663,12 +712,12 @@ function RecipientInfo({ recipient: r, isNew = false }: { recipient: CardRecipie
             {r.tier_custom || r.tier}
           </span>
         )}
-        {r.proposed_price != null && (
+        {priceChip && (
           <span
             className="shrink-0 rounded-full bg-[#FFFAC2] px-2 py-0.5 text-[10px] font-semibold text-[#0a0a0a]"
-            title="Proposed monthly price for this tier"
+            title={offerChip ? 'Bid / agreed offer' : 'Proposed monthly price for this tier'}
           >
-            {formatPrice(r.proposed_price, r.currency ?? null)}
+            {priceChip}
           </span>
         )}
       </div>
@@ -690,9 +739,10 @@ function RecipientLink({ recipient: r, children, inactive = false }: { recipient
     );
   }
   if (r.profile_id && r.category?.id) {
+    const cardQ = r.card_id ? `?cardId=${encodeURIComponent(r.card_id)}&recipientId=${encodeURIComponent(r.recipient_id)}` : '';
     return (
       <Link
-        href={`/business/dashboard/${r.category.id}/${r.profile_id}`}
+        href={`/business/dashboard/${r.category.id}/${r.profile_id}${cardQ}`}
         className="flex min-w-0 flex-1 items-center gap-4 transition-opacity hover:opacity-70"
       >
         {children}

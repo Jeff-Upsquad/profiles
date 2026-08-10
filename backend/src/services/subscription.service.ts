@@ -2322,6 +2322,22 @@ export async function adminSelectRecipient(
     .update({ selected_at: now })
     .eq('id', recipientId);
 
+  // Lock any open bid for this recipient as accepted at the standing figure
+  // (Select is the finalize step after Accept ≠ Select negotiation).
+  await supabaseAdmin
+    .from('assignment_offers')
+    .update({ status: 'accepted', responded_at: now, last_actor_side: 'business' })
+    .eq('recipient_id', recipientId)
+    .in('status', ['pending_business', 'pending_talent']);
+
+  // Expire other talents' open negotiations on this card.
+  await supabaseAdmin
+    .from('assignment_offers')
+    .update({ status: 'expired', responded_at: now })
+    .eq('card_id', cardId)
+    .neq('recipient_id', recipientId)
+    .in('status', ['pending_business', 'pending_talent']);
+
   // Pass over others
   await supabaseAdmin
     .from('subscription_card_recipients')

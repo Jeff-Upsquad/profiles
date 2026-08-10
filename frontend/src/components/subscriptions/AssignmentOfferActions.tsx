@@ -1,10 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Textarea from '@/components/ui/Textarea';
 import Badge from '@/components/ui/Badge';
 import { fmtDateTime } from '@/components/jobs/shared';
 import {
@@ -16,6 +13,7 @@ import {
   type AssignmentOfferEvent,
 } from '@/hooks/useAssignmentOffers';
 import { useRespondToSubscriptionCard, type SubscriptionCardItem } from '@/hooks/useSubscriptionCards';
+import OfferAmountStepperModal, { snapOfferAmount } from './OfferAmountStepper';
 
 const OPEN = ['pending_business', 'pending_talent', 'accepted'];
 
@@ -33,14 +31,31 @@ const ACTION_LABELS: Record<string, string> = {
 export default function AssignmentOfferActions({
   item,
   currency,
+  /** When true, priced path labels the middle action "Bid" (subscriptions). */
+  bidLabel = false,
 }: {
   item: SubscriptionCardItem;
   currency?: string;
+  bidLabel?: boolean;
 }) {
   const recipientId = item.id;
   const content = item.card.content as Record<string, unknown>;
   const ad = (content.assignment_details ?? {}) as Record<string, unknown>;
-  const pricingMode = ad.pricing_mode === 'unpriced' ? 'unpriced' : 'priced';
+  const cardType =
+    item.card.card_type || (content.card_type as string) || 'subscription';
+  const isAssignment = cardType === 'assignment';
+  const pricingMode = isAssignment && ad.pricing_mode === 'unpriced' ? 'unpriced' : 'priced';
+  const period = isAssignment ? 'project' : 'per_month';
+
+  // List / standing price for the stepper baseline.
+  const listPrice =
+    typeof content.monthly_price === 'number'
+      ? content.monthly_price
+      : typeof content.customer_monthly_price === 'number'
+        ? content.customer_monthly_price
+        : typeof content.proposed_price === 'number'
+          ? content.proposed_price
+          : 0;
 
   const { data } = useAssignmentOffer(recipientId);
   const offer = data?.offer ?? null;
@@ -56,8 +71,15 @@ export default function AssignmentOfferActions({
 
   const busy = respondCard.isPending || submitOffer.isPending || respondOffer.isPending;
 
+  const standingAmount =
+    (typeof openOffer?.current_amount?.amount === 'number' ? openOffer.current_amount.amount : null) ??
+    listPrice;
+
   const doSubmit = (amount: OfferAmount, note?: string) =>
     submitOffer.mutate({ amount, ...(note ? { note } : {}) }, { onSuccess: () => setModal(null) });
+
+  const bidOrCounterLabel = bidLabel ? 'Bid' : 'Counter-offer';
+  const reviseLabel = bidLabel ? 'Revise bid' : 'Revise offer';
 
   return (
     <div className="mt-auto border-t border-[#E7E7EA] pt-4">
@@ -66,10 +88,12 @@ export default function AssignmentOfferActions({
         <div className="mb-3 rounded-xl bg-[#F5F5F6] px-3.5 py-2.5">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-[#737373]">
             {openOffer.status === 'pending_talent'
-              ? 'Business counter'
+              ? 'Business offer'
               : openOffer.status === 'accepted'
                 ? 'Agreed'
-                : 'Your offer'}
+                : bidLabel
+                  ? 'Your bid'
+                  : 'Your offer'}
           </p>
           <p className="mt-0.5 text-sm font-semibold text-[#0a0a0a]">
             {formatOfferAmount(openOffer.current_amount) ?? '—'}
@@ -116,7 +140,7 @@ export default function AssignmentOfferActions({
               Withdraw
             </Button>
             <Button size="sm" variant="outline" disabled={busy} onClick={() => setModal('counter')}>
-              Revise offer
+              {reviseLabel}
             </Button>
           </>
         ) : openOffer?.status === 'pending_talent' ? (
@@ -131,7 +155,7 @@ export default function AssignmentOfferActions({
               Decline
             </Button>
             <Button size="sm" variant="outline" disabled={busy} onClick={() => setModal('counter')}>
-              Counter
+              {bidLabel ? 'Counter' : 'Counter'}
             </Button>
             <Button
               size="sm"
@@ -157,7 +181,7 @@ export default function AssignmentOfferActions({
             {pricingMode === 'priced' ? (
               <>
                 <Button size="sm" variant="outline" disabled={busy} onClick={() => setModal('counter')}>
-                  Counter-offer
+                  {bidOrCounterLabel}
                 </Button>
                 <Button
                   size="sm"
@@ -210,81 +234,30 @@ export default function AssignmentOfferActions({
         </ul>
       )}
 
-      <OfferAmountModal
+      <OfferAmountStepperModal
         open={modal !== null}
-        title={modal === 'submit' ? 'Submit your offer' : 'Send a counter-offer'}
-        submitLabel={modal === 'submit' ? 'Submit offer' : 'Send counter'}
+        title={
+          modal === 'submit'
+            ? 'Submit your offer'
+            : bidLabel
+              ? 'Place your bid'
+              : 'Send a counter-offer'
+        }
+        submitLabel={
+          modal === 'submit' ? 'Submit offer' : bidLabel ? 'Submit bid' : 'Send counter'
+        }
         currency={currency}
+        period={period}
+        initialAmount={snapOfferAmount(standingAmount || 500)}
         pending={submitOffer.isPending}
         onClose={() => setModal(null)}
         onSubmit={doSubmit}
+        hint={
+          bidLabel
+            ? 'Increase or decrease the set price in steps of ₹500, then submit your bid.'
+            : undefined
+        }
       />
     </div>
-  );
-}
-
-function OfferAmountModal({
-  open,
-  title,
-  submitLabel,
-  currency,
-  pending,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean;
-  title: string;
-  submitLabel: string;
-  currency?: string;
-  pending: boolean;
-  onClose: () => void;
-  onSubmit: (amount: OfferAmount, note?: string) => void;
-}) {
-  const [amount, setAmount] = useState('');
-  const [note, setNote] = useState('');
-  const parsed = Number(amount);
-  const valid = amount.trim() !== '' && Number.isFinite(parsed) && parsed > 0;
-
-  const submit = () => {
-    if (!valid) return;
-    onSubmit({ amount: Math.round(parsed), currency: currency || 'INR', period: 'project' }, note.trim() || undefined);
-    setAmount('');
-    setNote('');
-  };
-
-  return (
-    <Modal open={open} onClose={onClose} title={title}>
-      <p className="mb-3 text-sm text-[#525252]">
-        Enter the total project figure you&apos;re proposing. The business can accept it, counter, or decline —
-        you can keep negotiating until you agree.
-      </p>
-      <div className="space-y-3">
-        <Input
-          label={`Your figure (${currency || 'INR'})`}
-          type="number"
-          min={1}
-          placeholder="e.g. 50000"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          required
-        />
-        <Textarea
-          label="Note (optional)"
-          rows={3}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Any context for your figure…"
-          maxLength={2000}
-        />
-      </div>
-      <div className="mt-4 flex items-center justify-end gap-2">
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button size="sm" loading={pending} disabled={!valid} onClick={submit}>
-          {submitLabel}
-        </Button>
-      </div>
-    </Modal>
   );
 }

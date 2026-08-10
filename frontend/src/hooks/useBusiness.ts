@@ -258,6 +258,11 @@ export interface CardRecipientForBusiness {
   /** Proposed monthly price of this talent's tier card — shown to the business. */
   proposed_price?: number | null;
   currency?: string | null;
+  /** Live bid / offer (when present). Prefer over proposed_price for display. */
+  offer_id?: string | null;
+  offer_status?: string | null;
+  offer_amount?: { amount?: number; currency?: string; period?: string } | null;
+  last_actor_side?: string | null;
   business_review_status: 'shortlisted' | 'rejected' | null;
   business_reviewed_at: string | null;
   selected_at: string | null;

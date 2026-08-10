@@ -51,6 +51,114 @@ class _SubscriptionDetailScreenState
     }
   }
 
+  static const int _offerStep = 500;
+
+  Future<void> _openBidSheet() async {
+    final card = recipient.card;
+    final base = (card?.monthlyPrice?.toInt() ?? _offerStep);
+    final snapped = base <= 0
+        ? _offerStep
+        : ((base / _offerStep).round() * _offerStep).clamp(_offerStep, 1 << 30);
+    var amount = snapped;
+    final isAssignment = card?.isAssignment ?? false;
+    final period = isAssignment ? 'project' : 'per_month';
+
+    final submitted = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModal) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                16,
+                20,
+                16 + MediaQuery.of(ctx).viewInsets.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    isAssignment ? 'Counter-offer' : 'Place your bid',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Adjust in steps of ₹$_offerStep',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton.outlined(
+                        onPressed: amount <= _offerStep
+                            ? null
+                            : () => setModal(() => amount -= _offerStep),
+                        icon: const Icon(Icons.remove),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Text(
+                          '₹${amount.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      IconButton.outlined(
+                        onPressed: () => setModal(() => amount += _offerStep),
+                        icon: const Icon(Icons.add),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(ctx).pop(amount),
+                      child: Text(isAssignment ? 'Submit offer' : 'Submit bid'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (submitted == null || !mounted) return;
+    setState(() => _loading = true);
+    try {
+      await ref.read(subscriptionServiceProvider).submitOffer(
+            recipient.id,
+            amount: submitted,
+            currency: card?.currency ?? 'INR',
+            period: period,
+          );
+      ref.invalidate(subscriptionListProvider);
+      if (!mounted) return;
+      _snack('Bid submitted', AppColors.success);
+      context.pop();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _snack(_errorMessage(e), AppColors.danger);
+    }
+  }
+
   String _errorMessage(Object e) {
     try {
       // Surface a backend-provided message (e.g. "Already responded", "cancelled").
@@ -233,7 +341,16 @@ class _SubscriptionDetailScreenState
               child: const Text('Decline'),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton(
+              onPressed: _loading ? null : _openBidSheet,
+              child: Text(
+                (recipient.card?.isAssignment ?? false) ? 'Counter' : 'Bid',
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           Expanded(
             flex: 2,
             child: ElevatedButton(

@@ -70,6 +70,7 @@ export function useSubmitAssignmentOffer(recipientId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['assignment-offer', recipientId] });
       qc.invalidateQueries({ queryKey: ['subscriptions'] });
+      qc.invalidateQueries({ queryKey: ['talent-card-offers'] });
     },
   });
 }
@@ -87,7 +88,27 @@ export function useRespondAssignmentOffer(recipientId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['assignment-offer', recipientId] });
       qc.invalidateQueries({ queryKey: ['subscriptions'] });
+      qc.invalidateQueries({ queryKey: ['talent-card-offers'] });
     },
+  });
+}
+
+export interface TalentCardOffer extends AssignmentOffer {
+  card_type: string | null;
+  brand_name: string | null;
+  card_title: string | null;
+  events: AssignmentOfferEvent[];
+}
+
+/** Talent Bidding tab — all bids / offers across cards. */
+export function useTalentCardOffers(enabled = true) {
+  return useQuery({
+    queryKey: ['talent-card-offers'],
+    queryFn: async () => {
+      const { data } = await api.get<{ offers: TalentCardOffer[] }>('/talent/subscriptions/offers');
+      return data.offers ?? [];
+    },
+    enabled,
   });
 }
 

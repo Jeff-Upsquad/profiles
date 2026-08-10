@@ -91,6 +91,32 @@ export async function businessDecline(req: Request, res: Response, next: NextFun
   }
 }
 
+export async function businessSend(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.user) throw new AppError(401, 'Authentication required');
+    const offer = await offers.businessSendOfferForCard(
+      req.user.id,
+      req.params.cardId as string,
+      req.body.recipient_id as string,
+      req.body,
+    );
+    res.json({ offer });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Talent Bidding tab — all bids / offers for the signed-in talent. */
+export async function talentListOffers(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.user) throw new AppError(401, 'Authentication required');
+    const list = await offers.listOffersForTalent(req.user.id);
+    res.json({ offers: list });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ─── SquadHub webhooks (verifySquadhubSecret, no req.user) ──────────────────
 
 /** Read-only: the live offers snapshot for one card, for SquadHub's admin view. */

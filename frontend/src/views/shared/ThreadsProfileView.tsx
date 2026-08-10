@@ -37,6 +37,8 @@ interface ThreadsProfileViewProps {
   isShortlisted?: boolean;
   onSendInterest?: (message: string) => void;
   interestLoading?: boolean;
+  onSendOffer?: () => void;
+  sendOfferLoading?: boolean;
   editProfileHref?: string;
   isLoading: boolean;
   error?: string;
@@ -70,6 +72,8 @@ export default function ThreadsProfileView({
   isShortlisted,
   onSendInterest,
   interestLoading,
+  onSendOffer,
+  sendOfferLoading,
   editProfileHref,
   isLoading,
   error,
@@ -176,6 +180,8 @@ export default function ThreadsProfileView({
           isShortlisted={isShortlisted}
           onSendInterest={() => setInterestModalOpen(true)}
           interestLoading={interestLoading}
+          onSendOffer={onSendOffer}
+          sendOfferLoading={sendOfferLoading}
           editProfileHref={editProfileHref}
         />
 
