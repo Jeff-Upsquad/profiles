@@ -77,6 +77,24 @@ export async function getSharedProfiles(businessUserId: string, categoryId: stri
   }));
 }
 
+async function businessOwnsCardRowForAccess(
+  businessUserId: string,
+  card: { business_user_id?: string | null; business_email?: string | null },
+): Promise<boolean> {
+  if (card.business_user_id === businessUserId) return true;
+  const cardEmail = (card.business_email || '').trim().toLowerCase();
+  if (!cardEmail) return false;
+  const { data: businessUser } = await supabaseAdmin
+    .from('business_users')
+    .select('contact_email')
+    .eq('id', businessUserId)
+    .maybeSingle();
+  const contactEmail = ((businessUser as any)?.contact_email as string | null | undefined)
+    ?.trim()
+    .toLowerCase();
+  return !!(contactEmail && contactEmail === cardEmail);
+}
+
 /**
  * Returns true if the talent is visible to this business for a card in the
  * given category. Used as a fallback for `getSharedProfile` when the row in
@@ -85,30 +103,64 @@ export async function getSharedProfiles(businessUserId: string, categoryId: stri
  * Visible when the talent has either:
  *  - accepted a subscription/assignment card owned by this business, OR
  *  - submitted a bid / offer on such a card (status may still be pending)
- * and the card targets the requested category.
+ *
+ * When `cardId` is provided (deep-link from Bidding), that specific card is
+ * checked first so category/match_rules mismatches don't block the open.
  */
 async function isProfileVisibleViaSubscriptionCard(
   businessUserId: string,
   categoryId: string,
   profileId: string,
+  cardId?: string | null,
 ): Promise<boolean> {
-  const { data: profile } = await supabaseAdmin
-    .from('talent_profiles')
-    .select('talent_user_id')
-    .eq('id', profileId)
-    .eq('category_id', categoryId)
-    .maybeSingle();
-  if (!profile) return false;
-  const talentUserId = (profile as any).talent_user_id as string;
+  // Prefer the exact profile+category pair; if missing, still try by profile id
+  // alone (Bidding links always send the profile's own category_id).
+  let talentUserId: string | null = null;
+  {
+    const { data: profile } = await supabaseAdmin
+      .from('talent_profiles')
+      .select('talent_user_id, category_id')
+      .eq('id', profileId)
+      .maybeSingle();
+    if (!profile) return false;
+    if ((profile as any).category_id !== categoryId) {
+      // Allow if the profile exists but category path differs slightly — still
+      // require the URL category to match for the load query below.
+    }
+    talentUserId = (profile as any).talent_user_id as string;
+  }
+  if (!talentUserId) return false;
 
-  const { data: businessUser } = await supabaseAdmin
-    .from('business_users')
-    .select('contact_email')
-    .eq('id', businessUserId)
-    .maybeSingle();
-  const contactEmail = ((businessUser as any)?.contact_email as string | null | undefined)
-    ?.trim()
-    .toLowerCase() ?? null;
+  // Fast path: explicit card from Bidding deep-link.
+  if (cardId) {
+    const { data: card } = await supabaseAdmin
+      .from('subscription_cards')
+      .select('id, business_user_id, business_email')
+      .eq('id', cardId)
+      .maybeSingle();
+    if (card && (await businessOwnsCardRowForAccess(businessUserId, card as any))) {
+      const { data: recipient } = await supabaseAdmin
+        .from('subscription_card_recipients')
+        .select('id, status')
+        .eq('card_id', cardId)
+        .eq('talent_user_id', talentUserId)
+        .is('cancelled_at', null)
+        .maybeSingle();
+      if (recipient && (recipient as any).status === 'accepted') return true;
+
+      const { data: offer } = await supabaseAdmin
+        .from('assignment_offers')
+        .select('id')
+        .eq('card_id', cardId)
+        .eq('talent_user_id', talentUserId)
+        .limit(1)
+        .maybeSingle();
+      if (offer) return true;
+
+      // Any uncancelled recipient on this card (matched talent, even pre-accept).
+      if (recipient) return true;
+    }
+  }
 
   // Uncancelled recipient rows for this talent (accepted OR still pending after a bid).
   const { data: recipients } = await supabaseAdmin
@@ -124,8 +176,6 @@ async function isProfileVisibleViaSubscriptionCard(
   );
 
   // Cards where this talent has any bid/offer (including open pending_business).
-  // Bidding does not mark the recipient accepted, so without this the business
-  // gets "Failed to load profile" from the Bidding section.
   const offerCardIds = new Set<string>();
   const { data: offers } = await supabaseAdmin
     .from('assignment_offers')
@@ -142,14 +192,7 @@ async function isProfileVisibleViaSubscriptionCard(
     .in('id', cardIds);
 
   for (const card of cards ?? []) {
-    const ownerId = (card as any).business_user_id as string | null;
-    const cardEmail = ((card as any).business_email as string | null | undefined)
-      ?.trim()
-      .toLowerCase() ?? null;
-    const owns =
-      ownerId === businessUserId ||
-      (!!contactEmail && !!cardEmail && contactEmail === cardEmail);
-    if (!owns) continue;
+    if (!(await businessOwnsCardRowForAccess(businessUserId, card as any))) continue;
     const ids = pickCategoryIds((card as any).match_rules);
     // Empty category list = no gate; otherwise profile category must be targeted.
     if (ids.length === 0 || ids.includes(categoryId)) return true;
@@ -157,7 +200,12 @@ async function isProfileVisibleViaSubscriptionCard(
   return false;
 }
 
-export async function getSharedProfile(businessUserId: string, categoryId: string, profileId: string) {
+export async function getSharedProfile(
+  businessUserId: string,
+  categoryId: string,
+  profileId: string,
+  cardId?: string | null,
+) {
   const { data, error } = await supabaseAdmin
     .from('business_shared_profiles')
     .select('talent_profile_id, talent_profiles!inner(*, talent_users!inner(full_name, current_location, languages_spoken, profile_photo_url, phone, age, gender), categories(id, name, slug))')
@@ -168,22 +216,30 @@ export async function getSharedProfile(businessUserId: string, categoryId: strin
     .eq('talent_profiles.talent_users.is_active', true)
     .maybeSingle();
 
-  // Fallback: business may have access via an accepted subscription card
-  // recipient row that never wrote into business_shared_profiles.
+  // Fallback: business may have access via card acceptance / open bid.
   if (!data) {
-    const allowed = await isProfileVisibleViaSubscriptionCard(businessUserId, categoryId, profileId);
+    const allowed = await isProfileVisibleViaSubscriptionCard(
+      businessUserId,
+      categoryId,
+      profileId,
+      cardId,
+    );
     if (!allowed) throw new AppError(404, 'Shared profile not found');
 
+    // Load profile without the is_active join filters that can false-negative
+    // when nested filters misbehave; still require non-deleted + active profile.
     const { data: fallback, error: fbErr } = await supabaseAdmin
       .from('talent_profiles')
-      .select('*, talent_users!inner(full_name, current_location, languages_spoken, profile_photo_url, phone, age, gender), categories(id, name, slug)')
+      .select('*, talent_users(full_name, current_location, languages_spoken, profile_photo_url, phone, age, gender, is_active), categories(id, name, slug)')
       .eq('id', profileId)
       .eq('category_id', categoryId)
-      .eq('is_active', true)
-      .eq('talent_users.is_active', true)
       .is('deleted_at', null)
       .maybeSingle();
     if (fbErr || !fallback) throw new AppError(404, 'Profile not found');
+    if ((fallback as any).is_active === false) throw new AppError(404, 'Profile not found');
+    if ((fallback as any).talent_users?.is_active === false) {
+      throw new AppError(404, 'Profile not found');
+    }
 
     const p = fallback as any;
     const tiers = await getTalentTiersByUserIds([p.talent_user_id]);
@@ -282,7 +338,12 @@ export async function getSharedProfile(businessUserId: string, categoryId: strin
   return baseProfile;
 }
 
-export async function getPortfolioForProfile(businessUserId: string, categoryId: string, profileId: string) {
+export async function getPortfolioForProfile(
+  businessUserId: string,
+  categoryId: string,
+  profileId: string,
+  cardId?: string | null,
+) {
   // Verify the profile is shared with this business user
   const { data: shared } = await supabaseAdmin
     .from('business_shared_profiles')
@@ -293,8 +354,13 @@ export async function getPortfolioForProfile(businessUserId: string, categoryId:
     .maybeSingle();
 
   if (!shared) {
-    // Fallback: subscription card recipient acceptance grants access
-    const allowed = await isProfileVisibleViaSubscriptionCard(businessUserId, categoryId, profileId);
+    // Fallback: acceptance or open bid on the business's card
+    const allowed = await isProfileVisibleViaSubscriptionCard(
+      businessUserId,
+      categoryId,
+      profileId,
+      cardId,
+    );
     if (!allowed) throw new AppError(404, 'Profile not shared with you');
   }
 

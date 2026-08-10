@@ -28,8 +28,12 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
   const cardId = searchParams.get('cardId');
   const recipientId = searchParams.get('recipientId');
 
-  const { data: profile, isLoading: profileLoading, error: profileError } = useSharedProfile(params.categoryId, params.id);
-  const { data: portfolioItems } = useBusinessPortfolio(params.categoryId, params.id);
+  const { data: profile, isLoading: profileLoading, error: profileError } = useSharedProfile(
+    params.categoryId,
+    params.id,
+    cardId,
+  );
+  const { data: portfolioItems } = useBusinessPortfolio(params.categoryId, params.id, cardId);
 
   const categorySlug = (profile as any)?.category?.slug;
   const { data: categoryWithFields } = useCategoryWithFields(categorySlug);

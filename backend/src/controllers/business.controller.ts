@@ -121,10 +121,17 @@ export async function getSharedProfiles(req: Request, res: Response, next: NextF
 
 export async function getSharedProfile(req: Request, res: Response, next: NextFunction) {
   try {
+    const cardId =
+      typeof req.query.cardId === 'string'
+        ? req.query.cardId
+        : typeof req.query.card_id === 'string'
+          ? req.query.card_id
+          : null;
     const profile = await businessService.getSharedProfile(
       req.user!.id,
       req.params.categoryId as string,
-      req.params.profileId as string
+      req.params.profileId as string,
+      cardId,
     );
     res.json({ profile });
   } catch (err) {
@@ -134,10 +141,17 @@ export async function getSharedProfile(req: Request, res: Response, next: NextFu
 
 export async function getSharedProfilePortfolio(req: Request, res: Response, next: NextFunction) {
   try {
+    const cardId =
+      typeof req.query.cardId === 'string'
+        ? req.query.cardId
+        : typeof req.query.card_id === 'string'
+          ? req.query.card_id
+          : null;
     const items = await businessService.getPortfolioForProfile(
       req.user!.id,
       req.params.categoryId as string,
-      req.params.profileId as string
+      req.params.profileId as string,
+      cardId,
     );
     res.json({ items });
   } catch (err) {

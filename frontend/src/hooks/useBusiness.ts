@@ -84,22 +84,36 @@ export function useSharedProfiles(categoryId: string | undefined) {
   });
 }
 
-export function useSharedProfile(categoryId: string | undefined, profileId: string | undefined) {
+export function useSharedProfile(
+  categoryId: string | undefined,
+  profileId: string | undefined,
+  cardId?: string | null,
+) {
   return useQuery<Profile>({
-    queryKey: ['shared-profile', categoryId, profileId],
+    queryKey: ['shared-profile', categoryId, profileId, cardId ?? null],
     queryFn: async () => {
-      const { data } = await api.get(`/business/my-categories/${categoryId}/profiles/${profileId}`);
+      const qs = cardId ? `?cardId=${encodeURIComponent(cardId)}` : '';
+      const { data } = await api.get(
+        `/business/my-categories/${categoryId}/profiles/${profileId}${qs}`,
+      );
       return data.profile ?? data;
     },
     enabled: !!categoryId && !!profileId,
   });
 }
 
-export function useBusinessPortfolio(categoryId: string | undefined, profileId: string | undefined) {
+export function useBusinessPortfolio(
+  categoryId: string | undefined,
+  profileId: string | undefined,
+  cardId?: string | null,
+) {
   return useQuery<any[]>({
-    queryKey: ['business-portfolio', categoryId, profileId],
+    queryKey: ['business-portfolio', categoryId, profileId, cardId ?? null],
     queryFn: async () => {
-      const { data } = await api.get(`/business/my-categories/${categoryId}/profiles/${profileId}/portfolio`);
+      const qs = cardId ? `?cardId=${encodeURIComponent(cardId)}` : '';
+      const { data } = await api.get(
+        `/business/my-categories/${categoryId}/profiles/${profileId}/portfolio${qs}`,
+      );
       return data.items ?? data;
     },
     enabled: !!categoryId && !!profileId,
