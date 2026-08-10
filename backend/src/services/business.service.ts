@@ -1512,6 +1512,36 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
     activatedByCard.set(c.id as string, ((c as any).subscription_activated_at as string | null) ?? null);
   }
 
+  // Heal: first-bid talents must show under For Review. Older bids (or a
+  // failed accept-on-bid) can leave the recipient still pending — flip them
+  // to accepted when they have any open/accepted offer on this card.
+  {
+    const { data: offerRecipients } = await supabaseAdmin
+      .from('assignment_offers')
+      .select('recipient_id')
+      .in('card_id', cardIds)
+      .in('status', ['pending_business', 'pending_talent', 'accepted']);
+    const healIds = [
+      ...new Set(
+        (offerRecipients ?? [])
+          .map((o: any) => o.recipient_id as string)
+          .filter(Boolean),
+      ),
+    ];
+    if (healIds.length > 0) {
+      await supabaseAdmin
+        .from('subscription_card_recipients')
+        .update({
+          status: 'accepted',
+          responded_at: new Date().toISOString(),
+        })
+        .in('id', healIds)
+        .eq('status', 'pending')
+        .is('cancelled_at', null);
+    }
+  }
+
+  // Accepted recipients (includes first-bid interest after heal).
   const { data: recipients, error } = await supabaseAdmin
     .from('subscription_card_recipients')
     .select('id, card_id, talent_user_id, status, responded_at, selected_at, passed_over_at, business_review_status, business_reviewed_at, business_seen_at')
@@ -1521,7 +1551,35 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
     .order('responded_at', { ascending: false });
 
   if (error) throw new AppError(500, error.message);
-  const rows = recipients ?? [];
+  let rows = recipients ?? [];
+
+  // Fallback: any recipient with a bid still not in the accepted set.
+  {
+    const { data: bidOfferRows } = await supabaseAdmin
+      .from('assignment_offers')
+      .select('recipient_id')
+      .in('card_id', cardIds)
+      .in('status', ['pending_business', 'pending_talent', 'accepted']);
+    const missing = [
+      ...new Set(
+        (bidOfferRows ?? [])
+          .map((o: any) => o.recipient_id as string)
+          .filter((id: string) => id && !rows.some((x: any) => x.id === id)),
+      ),
+    ];
+    if (missing.length > 0) {
+      const { data: extra } = await supabaseAdmin
+        .from('subscription_card_recipients')
+        .select(
+          'id, card_id, talent_user_id, status, responded_at, selected_at, passed_over_at, business_review_status, business_reviewed_at, business_seen_at',
+        )
+        .in('id', missing)
+        .neq('status', 'rejected')
+        .is('cancelled_at', null);
+      if (extra?.length) rows = [...rows, ...extra];
+    }
+  }
+
   if (rows.length === 0) return [];
 
   const talentIds = Array.from(new Set(rows.map((r: any) => r.talent_user_id as string)));
@@ -1539,18 +1597,21 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
   for (const t of talents ?? []) talentMap.set((t as any).id, t);
 
   // Find the best matching active+approved profile per talent in the
-  // card's categories. Recipients whose profile no longer qualifies are
-  // dropped entirely.
+  // card's categories. If match_rules has no categories, load any approved
+  // profile so first-bid talents still surface for review.
   const profileMap = new Map<string, any>();
-  if (categoryIds.length > 0 && talentMap.size > 0) {
-    const { data: profiles } = await supabaseAdmin
+  if (talentMap.size > 0) {
+    let pq = supabaseAdmin
       .from('talent_profiles')
       .select('id, talent_user_id, category_id, categories!inner(id, name, slug)')
       .in('talent_user_id', Array.from(talentMap.keys()))
-      .in('category_id', categoryIds)
       .eq('status', 'approved')
       .eq('is_active', true)
       .is('deleted_at', null);
+    if (categoryIds.length > 0) {
+      pq = pq.in('category_id', categoryIds);
+    }
+    const { data: profiles } = await pq;
 
     for (const p of profiles ?? []) {
       const uid = (p as any).talent_user_id as string;
@@ -1558,10 +1619,15 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
     }
   }
 
-  const visibleTalentIds = Array.from(profileMap.keys());
-  const tiers = await getTalentTiersByUserIds(visibleTalentIds);
+  // Prefer profile-eligible rows; if a first-bid talent has no matching
+  // category profile, still include them (profile_id null) so the business
+  // can see the bid.
+  const acceptedRows = rows.filter(
+    (r: any) => talentMap.has(r.talent_user_id),
+  );
 
-  const acceptedRows = rows.filter((r: any) => profileMap.has(r.talent_user_id));
+  const visibleTalentIds = acceptedRows.map((r: any) => r.talent_user_id as string);
+  const tiers = await getTalentTiersByUserIds(visibleTalentIds);
 
   // Latest open/accepted offer per recipient — bid or agreed price for UI chips.
   const recipientIds = acceptedRows.map((r: any) => r.id as string);
@@ -1622,6 +1688,15 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
       const sel = selectionByCard.get(r.card_id as string) ?? { selectedTalent: null, selectedAt: null };
       const isCardSelected = sel.selectedTalent && r.talent_user_id === sel.selectedTalent;
       const price = priceByCard.get(r.card_id as string) ?? { price: null, currency: null };
+      const offer = offerByRecipient.get(r.id as string);
+      const bidAmount =
+        offer?.offer_amount &&
+        typeof offer.offer_amount === 'object' &&
+        typeof (offer.offer_amount as any).amount === 'number'
+          ? ((offer.offer_amount as any).amount as number)
+          : null;
+      // Prefer bid/agreed figure as the chip price for first-bid talents.
+      const displayPrice = bidAmount != null ? bidAmount : price.price;
       return {
         recipient_id: r.id as string,
         talent_user_id: r.talent_user_id as string,
@@ -1634,16 +1709,15 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
         category: profile?.categories ?? null,
         tier: tiers[r.talent_user_id]?.tier ?? null,
         tier_custom: tiers[r.talent_user_id]?.tier_custom ?? null,
-        // Proposed price for this talent = the customer monthly price of the
-        // tier card they were matched into. Prefer live bid/offer amount when set.
-        proposed_price: price.price,
+        // Bid amount wins over list price when the talent submitted a first bid.
+        proposed_price: displayPrice,
         currency: price.currency,
-        ...(offerByRecipient.get(r.id as string)
+        ...(offer
           ? {
-              offer_id: offerByRecipient.get(r.id as string)!.offer_id,
-              offer_status: offerByRecipient.get(r.id as string)!.offer_status,
-              offer_amount: offerByRecipient.get(r.id as string)!.offer_amount,
-              last_actor_side: offerByRecipient.get(r.id as string)!.last_actor_side,
+              offer_id: offer.offer_id,
+              offer_status: offer.offer_status,
+              offer_amount: offer.offer_amount,
+              last_actor_side: offer.last_actor_side,
             }
           : {
               offer_id: null as string | null,
