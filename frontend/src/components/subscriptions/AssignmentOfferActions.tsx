@@ -61,6 +61,8 @@ export default function AssignmentOfferActions({
   const offer = data?.offer ?? null;
   const events = data?.events ?? [];
   const openOffer = offer && OPEN.includes(offer.status) ? offer : null;
+  const bidsLeft = data?.talent_bids_remaining ?? 3;
+  const canBid = bidsLeft > 0;
 
   const respondCard = useRespondToSubscriptionCard();
   const submitOffer = useSubmitAssignmentOffer(recipientId);
@@ -101,7 +103,13 @@ export default function AssignmentOfferActions({
           {openOffer.status === 'pending_business' && (
             <p className="mt-0.5 text-xs text-[#737373]">Waiting for the business to respond.</p>
           )}
+          <p className="mt-1 text-[11px] text-[#a3a3a3]">
+            Bids left on this card: {bidsLeft}/3
+          </p>
         </div>
+      )}
+      {!openOffer && (
+        <p className="mb-2 text-[11px] text-[#a3a3a3]">Bids left on this card: {bidsLeft}/3</p>
       )}
 
       {/* Action row */}
@@ -139,8 +147,14 @@ export default function AssignmentOfferActions({
             >
               Withdraw
             </Button>
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => setModal('counter')}>
-              {reviseLabel}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy || !canBid}
+              title={!canBid ? 'No bids remaining on this card' : undefined}
+              onClick={() => setModal('counter')}
+            >
+              {reviseLabel}{canBid ? ` (${bidsLeft} left)` : ''}
             </Button>
           </>
         ) : openOffer?.status === 'pending_talent' ? (
@@ -154,8 +168,14 @@ export default function AssignmentOfferActions({
             >
               Decline
             </Button>
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => setModal('counter')}>
-              {bidLabel ? 'Counter' : 'Counter'}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy || !canBid}
+              title={!canBid ? 'No bids remaining — you can still accept or decline' : undefined}
+              onClick={() => setModal('counter')}
+            >
+              Counter{canBid ? ` (${bidsLeft} left)` : ''}
             </Button>
             <Button
               size="sm"
@@ -180,8 +200,14 @@ export default function AssignmentOfferActions({
             </Button>
             {pricingMode === 'priced' ? (
               <>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => setModal('counter')}>
-                  {bidOrCounterLabel}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy || !canBid}
+                  title={!canBid ? 'No bids remaining on this card' : undefined}
+                  onClick={() => setModal('counter')}
+                >
+                  {bidOrCounterLabel}{canBid ? ` (${bidsLeft} left)` : ''}
                 </Button>
                 <Button
                   size="sm"
@@ -193,8 +219,8 @@ export default function AssignmentOfferActions({
                 </Button>
               </>
             ) : (
-              <Button size="sm" disabled={busy} onClick={() => setModal('submit')}>
-                Submit an offer
+              <Button size="sm" disabled={busy || !canBid} onClick={() => setModal('submit')}>
+                Submit an offer{canBid ? ` (${bidsLeft} left)` : ''}
               </Button>
             )}
           </>

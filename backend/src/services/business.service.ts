@@ -1111,15 +1111,32 @@ export async function listMySubscriptionCards(
     }
   }
 
-  // Talent bids awaiting business response — badge the card list.
+  // Active negotiations (business has already engaged) awaiting business response.
+  // First talent-only bids stay in for-review and do NOT bump this badge.
   const { data: bidRows } = await supabaseAdmin
     .from('assignment_offers')
-    .select('card_id')
+    .select('id, card_id, talent_user_id, opened_by, status')
     .in('card_id', cardIds)
     .eq('status', 'pending_business');
   for (const o of bidRows ?? []) {
-    const bucket = counts.get((o as any).card_id as string);
-    if (bucket) bucket.pending_bids++;
+    const openedBy = (o as any).opened_by as string;
+    // Count only if negotiation already started (business/admin opened or moved).
+    if (openedBy === 'business' || openedBy === 'admin') {
+      const bucket = counts.get((o as any).card_id as string);
+      if (bucket) bucket.pending_bids++;
+      continue;
+    }
+    // Talent-opened: check if business has ever moved on this talent+card.
+    const { count } = await supabaseAdmin
+      .from('assignment_offer_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('offer_id', (o as any).id)
+      .in('actor_type', ['business', 'admin'])
+      .in('action', ['submitted', 'countered']);
+    if ((count ?? 0) > 0) {
+      const bucket = counts.get((o as any).card_id as string);
+      if (bucket) bucket.pending_bids++;
+    }
   }
 
   const perCard: DashboardCardSummary[] = list.map((card: any) => {

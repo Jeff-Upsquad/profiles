@@ -564,7 +564,7 @@ export default function SubscriptionCardReview({
                 <span className="text-xs text-[#a3a3a3]">{forReviewView.length} total</span>
               </div>
               <p className="mt-0.5 text-xs text-[#a3a3a3]">
-                Talents who accepted your card. Newly accepted are flagged and listed first.
+                Talents who accepted your card or submitted a first bid (shown as their price). Newly accepted are listed first. Send an offer to move a talent into Bidding.
               </p>
             </div>
 

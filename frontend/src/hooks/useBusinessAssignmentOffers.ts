@@ -29,6 +29,12 @@ export interface BusinessAssignmentOffer {
   profile_photo_url?: string | null;
   list_price?: number | null;
   list_currency?: string | null;
+  talent_bids_used?: number;
+  business_offers_used?: number;
+  talent_bids_remaining?: number;
+  business_offers_remaining?: number;
+  /** False for first talent-only bids (those stay under For Review). */
+  negotiation_started?: boolean;
 }
 
 function offersBase(cardId: string) {

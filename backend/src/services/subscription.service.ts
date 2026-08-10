@@ -351,7 +351,7 @@ async function autoSubscribeBusinessToCategories(
  * Idempotent via UNIQUE(business_user_id, talent_profile_id). Never throws —
  * dashboard writes shouldn't fail the user-facing accept call.
  */
-async function writeAcceptedTalentToDashboard(
+export async function writeAcceptedTalentToDashboard(
   businessUserId: string,
   talentUserId: string,
   matchRules: unknown

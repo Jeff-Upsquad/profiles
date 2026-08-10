@@ -11,33 +11,28 @@ import { createBusinessNotification } from './business-notifications.service.js'
 import { emitCardEvent } from './card-events-outbox.service.js';
 import { notifyAssignmentEvent } from './push.service.js';
 import { fireJobsCrmEvent } from './talent-whatsapp.service.js';
+import { deliverCallback } from './squadhub-callback.service.js';
+import { writeAcceptedTalentToDashboard } from './subscription.service.js';
 
 /**
  * Card offer / bid / counter-offer engine (00110 + generalization).
  *
- * Recipient-scoped negotiation on subscription + assignment cards. Table name
- * remains `assignment_offers` (history); the engine now covers both product
- * lines. UNLIMITED-round — the offer bounces between turn states until someone
- * accepts / declines.
+ * Product rules (2026-08):
+ *  - Talent's FIRST bid marks the recipient accepted and surfaces them under
+ *    "New talents for review" with the bid price — NOT under Bidding yet.
+ *  - Bidding section only after the business has sent an offer/counter.
+ *  - Each side has MAX 3 priced moves (bid / counter / send) per card.
  *
  *   (talent bid / submit / counter) -> pending_business
  *   (business send / counter)       -> pending_talent
  *   (either side accept)            -> accepted  [terminal; Select is SEPARATE]
- *   (decline / withdraw / expire)   -> declined | withdrawn | expired
- *
- * PRICED cards: Accept/Decline of the list price uses subscription respond();
- * a Bid / Counter opens a row here.
- * UNPRICED assignment: talent Submit opens the row.
- * BUSINESS "Send an Offer": opens with opened_by='business', auto-shortlists.
- *
- * Accept ≠ Select: an accepted offer marks the recipient accepted + shortlisted
- * so the business can press Select (existing select → admin-finalize spine).
- * One live offer per recipient (unique index). Profiles is canonical; SquadHub
- * reads live + drives business-side transitions via signed proxy.
  */
 
 /** Bid / offer amounts must land on this step (INR). */
 export const OFFER_AMOUNT_STEP = 500;
+/** Max priced moves per side on a given card (talent ↔ business). */
+export const MAX_TALENT_BIDS = 3;
+export const MAX_BUSINESS_OFFERS = 3;
 const OFFERABLE_CARD_TYPES = new Set(['subscription', 'assignment']);
 
 export type AssignmentOfferStatus =
@@ -88,6 +83,94 @@ function actorSide(actor: JobsActor): 'talent' | 'business' | 'admin' {
 
 function talentDeepLink(cardType: string): string {
   return cardType === 'assignment' ? '/talent/assignments' : '/talent/subscriptions';
+}
+
+/** Count priced moves (submit/counter) for each side across all offers on this card+talent. */
+async function countMovesForCardTalent(
+  cardId: string,
+  talentUserId: string,
+): Promise<{ talentMoves: number; businessMoves: number }> {
+  const { data: offers } = await supabaseAdmin
+    .from('assignment_offers')
+    .select('id')
+    .eq('card_id', cardId)
+    .eq('talent_user_id', talentUserId);
+  const offerIds = (offers ?? []).map((o: any) => o.id as string);
+  if (offerIds.length === 0) return { talentMoves: 0, businessMoves: 0 };
+
+  const { data: events } = await supabaseAdmin
+    .from('assignment_offer_events')
+    .select('actor_type, action')
+    .in('offer_id', offerIds)
+    .in('action', ['submitted', 'countered']);
+
+  let talentMoves = 0;
+  let businessMoves = 0;
+  for (const e of events ?? []) {
+    const action = (e as any).action as string;
+    if (action !== 'submitted' && action !== 'countered') continue;
+    const t = (e as any).actor_type as string;
+    if (t === 'talent') talentMoves++;
+    else if (t === 'business' || t === 'admin') businessMoves++;
+  }
+  return { talentMoves, businessMoves };
+}
+
+/**
+ * First talent bid = interest at that price → mark accepted so they appear in
+ * "New talents for review" (with bid amount). Mirrors respond(accept) side effects.
+ */
+async function markRecipientAcceptedOnFirstBid(
+  recipientId: string,
+  talentUserId: string,
+  cardId: string,
+  externalId: string | null,
+  businessUserId: string | null,
+): Promise<void> {
+  const respondedAt = new Date().toISOString();
+  const { data: updated } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .update({ status: 'accepted', responded_at: respondedAt })
+    .eq('id', recipientId)
+    .eq('talent_user_id', talentUserId)
+    .eq('status', 'pending')
+    .is('cancelled_at', null)
+    .select('id')
+    .maybeSingle();
+  if (!updated) return; // already accepted/rejected
+
+  if (externalId) {
+    const { data: talent } = await supabaseAdmin
+      .from('talent_users')
+      .select('full_name')
+      .eq('id', talentUserId)
+      .maybeSingle();
+    deliverCallback({
+      external_id: externalId,
+      recipient_id: recipientId,
+      talent_user_id: talentUserId,
+      talent_name: talent?.full_name ?? undefined,
+      action: 'accept',
+      responded_at: respondedAt,
+    }).catch((err) => console.error('[assignment-offers] deliverCallback on first bid threw', err));
+  }
+
+  if (businessUserId) {
+    try {
+      const { data: card } = await supabaseAdmin
+        .from('subscription_cards')
+        .select('match_rules')
+        .eq('id', cardId)
+        .maybeSingle();
+      await writeAcceptedTalentToDashboard(
+        businessUserId,
+        talentUserId,
+        (card as any)?.match_rules,
+      );
+    } catch (err) {
+      console.error('[assignment-offers] dashboard share on first bid threw', err);
+    }
+  }
 }
 
 /**
@@ -445,8 +528,26 @@ export async function talentSubmitOrCounter(
   const amount = normalizeOfferAmount(input.amount, { period: periodDefault });
   const title = cardOfferTitle(refs.content, refs.cardType);
 
+  const { talentMoves, businessMoves } = await countMovesForCardTalent(ctx.cardId, talentUserId);
+  if (talentMoves >= MAX_TALENT_BIDS) {
+    throw new AppError(
+      409,
+      `You have used all ${MAX_TALENT_BIDS} bids on this card. You can still accept or decline a business offer.`,
+    );
+  }
+
+  // After business has engaged, talent may only move on their turn (pending_talent)
+  // or revise their own pending bid (pending_business). First bid is always allowed.
+  if (existing?.status === 'accepted') {
+    throw new AppError(409, 'This offer has already been accepted');
+  }
+  if (existing && businessMoves > 0 && existing.status !== 'pending_talent' && existing.status !== 'pending_business') {
+    throw new AppError(409, 'This negotiation is closed');
+  }
+
   let offer: AssignmentOfferRow;
   let action: 'submitted' | 'countered';
+  const isFirstBid = !existing;
 
   if (!existing) {
     const { data, error } = await supabaseAdmin
@@ -473,14 +574,27 @@ export async function talentSubmitOrCounter(
     }
     offer = data as unknown as AssignmentOfferRow;
     action = 'submitted';
-  } else if (existing.status === 'accepted') {
-    throw new AppError(409, 'This offer has already been accepted');
+
+    // First bid → accepted interest at bid price → shows under For Review, not Bidding.
+    await markRecipientAcceptedOnFirstBid(
+      recipientId,
+      talentUserId,
+      ctx.cardId,
+      refs.externalId,
+      refs.businessUserId,
+    );
   } else {
+    // Counters / revises only when negotiation allows it.
+    if (businessMoves > 0 && existing.status === 'pending_business') {
+      // Revising own bid while waiting for business — allowed if bids remain.
+    } else if (businessMoves > 0 && existing.status !== 'pending_talent') {
+      throw new AppError(409, 'It is not your turn to bid');
+    }
     offer = await transition(existing, 'pending_business', actor, {
       amount,
       terms: input.terms ?? existing.current_terms,
     });
-    action = 'countered';
+    action = isFirstBid ? 'submitted' : 'countered';
   }
 
   await logEvent({ offerId: offer.id, actor, action, amount, note: input.note ?? null });
@@ -488,14 +602,15 @@ export async function talentSubmitOrCounter(
   if (refs.businessUserId) {
     const names = await getTalentNames([talentUserId]);
     const talentName = names.get(talentUserId) ?? 'A talent';
+    const remaining = MAX_TALENT_BIDS - (talentMoves + 1);
     await createBusinessNotification({
       businessUserId: refs.businessUserId,
       type: action === 'submitted' ? 'assignment_offer_submitted' : 'assignment_offer_countered',
       title:
         action === 'submitted'
-          ? `${talentName} submitted a bid for ${title}`
-          : `${talentName} updated their bid for ${title}`,
-      body: input.note ?? null,
+          ? `${talentName} bid ${typeof amount.amount === 'number' ? `₹${amount.amount.toLocaleString()}` : ''} on ${title}`
+          : `${talentName} sent a counter-bid on ${title}`,
+      body: input.note ?? (remaining >= 0 ? `${remaining} talent bid(s) remaining` : null),
       ref: {
         card_id: ctx.cardId,
         offer_id: offer.id,
@@ -556,11 +671,22 @@ export async function talentRespondToOffer(
 
 /** Talent's live offer + thread for one recipient (null when none yet). */
 export async function getOfferForTalentRecipient(talentUserId: string, recipientId: string) {
-  await loadTalentRecipient(talentUserId, recipientId);
+  const { ctx } = await loadTalentRecipient(talentUserId, recipientId);
   const offer = (await getOpenOfferForRecipient(recipientId)) ?? (await getLatestOfferForRecipient(recipientId));
-  if (!offer) return { offer: null, events: [] as unknown[] };
+  const { talentMoves, businessMoves } = await countMovesForCardTalent(ctx.cardId, talentUserId);
+  const limits = {
+    max_talent_bids: MAX_TALENT_BIDS,
+    max_business_offers: MAX_BUSINESS_OFFERS,
+    talent_bids_used: talentMoves,
+    business_offers_used: businessMoves,
+    talent_bids_remaining: Math.max(0, MAX_TALENT_BIDS - talentMoves),
+    business_offers_remaining: Math.max(0, MAX_BUSINESS_OFFERS - businessMoves),
+    /** True once the business has made at least one priced move — Bidding section. */
+    negotiation_started: businessMoves > 0,
+  };
+  if (!offer) return { offer: null, events: [] as unknown[], ...limits };
   const events = await listOfferEvents(offer.id);
-  return { offer, events };
+  return { offer, events, ...limits };
 }
 
 // ─── Business / admin actions ──────────────────────────────────────────────
@@ -577,18 +703,27 @@ export async function businessCounter(
   const amount = normalizeOfferAmount(input.amount, { period: periodDefault });
   const title = cardOfferTitle(refs.content, refs.cardType);
 
+  const { businessMoves } = await countMovesForCardTalent(offer.card_id, offer.talent_user_id);
+  if (businessMoves >= MAX_BUSINESS_OFFERS) {
+    throw new AppError(
+      409,
+      `You have used all ${MAX_BUSINESS_OFFERS} offers on this card. You can still accept or decline the talent's bid.`,
+    );
+  }
+
   const updated = await transition(offer, 'pending_talent', actor, {
     amount,
     terms: input.terms ?? offer.current_terms,
   });
   await logEvent({ offerId, actor, action: 'countered', amount, note: input.note ?? null });
 
+  const remaining = MAX_BUSINESS_OFFERS - (businessMoves + 1);
   const deepLink = talentDeepLink(refs.cardType);
   notifyTalentsInApp(
     [offer.talent_user_id],
     'assignment_offer_countered',
     'Counter-offer received',
-    `${contentBusinessName(refs.content)} sent a counter-offer for ${title}.`,
+    `${contentBusinessName(refs.content)} sent a counter-offer for ${title}. ${remaining} offer(s) left from them.`,
     deepLink,
   ).catch(() => {});
   notifyAssignmentEvent([offer.talent_user_id], {
@@ -645,12 +780,20 @@ export async function businessSendOffer(
   const talentUserId = (recipient as any).talent_user_id as string;
   const existing = await getOpenOfferForRecipient(recipientId);
 
+  const { businessMoves } = await countMovesForCardTalent(cardId, talentUserId);
+  if (businessMoves >= MAX_BUSINESS_OFFERS) {
+    throw new AppError(
+      409,
+      `You have used all ${MAX_BUSINESS_OFFERS} offers on this card. You can still accept or decline the talent's bid.`,
+    );
+  }
+
   // If talent already has a live bid awaiting business, treat this as a counter.
   if (existing && existing.status === 'pending_business') {
     return businessCounter(existing.id, { amount, terms: input.terms, note: input.note }, actor);
   }
   if (existing && existing.status === 'pending_talent') {
-    // Revise our standing offer (still talent's turn after).
+    // Revise our standing offer (still talent's turn after) — still counts as a move.
     const updated = await transition(existing, 'pending_talent', actor, {
       amount,
       terms: input.terms ?? existing.current_terms,
@@ -806,6 +949,15 @@ export interface AssignmentOfferWithThread extends AssignmentOfferRow {
   /** Standing list price on the card when the offer was listed (for "vs original"). */
   list_price: number | null;
   list_currency: string | null;
+  talent_bids_used: number;
+  business_offers_used: number;
+  talent_bids_remaining: number;
+  business_offers_remaining: number;
+  /**
+   * True once the business has made ≥1 priced move. First talent-only bids
+   * stay under For Review until this is true; then they appear under Bidding.
+   */
+  negotiation_started: boolean;
 }
 
 /** All offers on a card + their threads (business console / admin live view). */
@@ -887,6 +1039,7 @@ export async function listOffersForCard(cardId: string): Promise<AssignmentOffer
   for (const o of offers) {
     const events = await listOfferEvents(o.id);
     const prof = profileByTalent.get(o.talent_user_id);
+    const { talentMoves, businessMoves } = await countMovesForCardTalent(cardId, o.talent_user_id);
     withThreads.push({
       ...o,
       talent_name: names.get(o.talent_user_id) ?? 'Unknown talent',
@@ -896,6 +1049,11 @@ export async function listOffersForCard(cardId: string): Promise<AssignmentOffer
       profile_photo_url: photoByTalent.get(o.talent_user_id) ?? null,
       list_price: listPrice,
       list_currency: listCurrency,
+      talent_bids_used: talentMoves,
+      business_offers_used: businessMoves,
+      talent_bids_remaining: Math.max(0, MAX_TALENT_BIDS - talentMoves),
+      business_offers_remaining: Math.max(0, MAX_BUSINESS_OFFERS - businessMoves),
+      negotiation_started: businessMoves > 0 || o.opened_by === 'business' || o.opened_by === 'admin',
     });
   }
   return withThreads;
@@ -908,6 +1066,7 @@ export async function getOfferWithThread(offerId: string): Promise<AssignmentOff
   if (found) return found;
   const names = await getTalentNames([offer.talent_user_id]);
   const events = await listOfferEvents(offerId);
+  const { talentMoves, businessMoves } = await countMovesForCardTalent(offer.card_id, offer.talent_user_id);
   return {
     ...offer,
     talent_name: names.get(offer.talent_user_id) ?? 'Unknown talent',
@@ -917,6 +1076,11 @@ export async function getOfferWithThread(offerId: string): Promise<AssignmentOff
     profile_photo_url: null,
     list_price: null,
     list_currency: null,
+    talent_bids_used: talentMoves,
+    business_offers_used: businessMoves,
+    talent_bids_remaining: Math.max(0, MAX_TALENT_BIDS - talentMoves),
+    business_offers_remaining: Math.max(0, MAX_BUSINESS_OFFERS - businessMoves),
+    negotiation_started: businessMoves > 0 || offer.opened_by === 'business' || offer.opened_by === 'admin',
   };
 }
 

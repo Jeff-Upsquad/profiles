@@ -44,13 +44,23 @@ export interface AssignmentOfferEvent {
 }
 
 /** The talent's live offer + negotiation thread for one recipient (offer is null before any move). */
+export interface OfferMoveLimits {
+  max_talent_bids?: number;
+  max_business_offers?: number;
+  talent_bids_used?: number;
+  business_offers_used?: number;
+  talent_bids_remaining?: number;
+  business_offers_remaining?: number;
+  negotiation_started?: boolean;
+}
+
 export function useAssignmentOffer(recipientId: string, enabled = true) {
   return useQuery({
     queryKey: ['assignment-offer', recipientId],
     queryFn: async () => {
-      const { data } = await api.get<{ offer: AssignmentOffer | null; events: AssignmentOfferEvent[] }>(
-        `/talent/subscriptions/${recipientId}/offer`,
-      );
+      const { data } = await api.get<
+        { offer: AssignmentOffer | null; events: AssignmentOfferEvent[] } & OfferMoveLimits
+      >(`/talent/subscriptions/${recipientId}/offer`);
       return data;
     },
     enabled,

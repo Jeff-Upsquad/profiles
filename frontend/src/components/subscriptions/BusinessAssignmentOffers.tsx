@@ -75,7 +75,8 @@ export default function BusinessAssignmentOffers({
   const [sendOpen, setSendOpen] = useState(false);
   const [openThread, setOpenThread] = useState<string | null>(null);
 
-  const list = offers ?? [];
+  // First talent-only bids stay under For Review; Bidding starts after business engages.
+  const list = (offers ?? []).filter((o) => o.negotiation_started);
   const busy = counter.isPending || accept.isPending || decline.isPending || send.isPending;
   const baseline = listPrice && listPrice > 0 ? listPrice : 500;
 
@@ -88,7 +89,7 @@ export default function BusinessAssignmentOffers({
               Bidding
             </h2>
             <p className="mt-0.5 text-xs text-[#a3a3a3]">
-              Talent bids and your offers. Accept locks the figure; then Select to proceed.
+              Negotiations after you send an offer. Each side has up to 3 priced moves; Accept locks the figure, then Select.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -111,14 +112,16 @@ export default function BusinessAssignmentOffers({
       ) : list.length === 0 ? (
         <div className="px-6 py-10 text-center">
           <p className="text-sm text-[#737373]">
-            No bids yet. When a talent bids or you send an offer, it&apos;ll appear here.
+            No active negotiations yet. First talent bids appear under New talents for review — send an offer to start bidding here.
           </p>
         </div>
       ) : (
         <ul className="divide-y divide-[#E7E7EA]">
           {list.map((o) => {
             const meta = STATUS_META[o.status] ?? { label: o.status, cls: 'bg-[#f0f0f0] text-[#737373]' };
+            const offersLeft = o.business_offers_remaining ?? 0;
             const canAct = o.status === 'pending_business' && !disabled;
+            const canCounter = canAct && offersLeft > 0;
             const canSelect = o.status === 'accepted' && !disabled && !!onSelect;
             const original =
               formatListPrice(o.list_price ?? listPrice, o.list_currency ?? currency, period) ?? null;
@@ -171,6 +174,9 @@ export default function BusinessAssignmentOffers({
                       </span>
                     )}
                   </p>
+                  <p className="mt-0.5 text-[11px] text-[#a3a3a3]">
+                    Your offers left: {offersLeft}/3 · Talent bids left: {o.talent_bids_remaining ?? 0}/3
+                  </p>
                 </div>
               </div>
             );
@@ -212,11 +218,12 @@ export default function BusinessAssignmentOffers({
                       </button>
                       <button
                         type="button"
-                        disabled={busy}
+                        disabled={busy || !canCounter}
                         onClick={() => setCounterFor(o)}
+                        title={!canCounter ? 'No offers remaining on this card' : undefined}
                         className="rounded-lg border border-[#E7E7EA] px-3 py-1.5 text-xs font-semibold text-[#0a0a0a] transition-colors hover:bg-[#F5F5F6] disabled:opacity-40"
                       >
-                        Counter
+                        Counter{canCounter ? ` (${offersLeft} left)` : ''}
                       </button>
                       <button
                         type="button"
