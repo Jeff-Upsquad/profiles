@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as trainingService from '../services/training.service.js';
+import * as trainingAssignments from '../services/training-assignments.service.js';
+import * as trainingSopService from '../services/training-sop.service.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 
@@ -77,6 +79,31 @@ export async function getUserCourseEnrollments(req: Request, res: Response, next
 export async function reopenCourse(req: Request, res: Response, next: NextFunction) {
   try {
     const data = await trainingService.reopenCourse(req.params.userId as string, req.params.courseId as string);
+    res.json(data);
+  } catch (err) { next(err); }
+}
+
+// ---------------------------------------------------------------------------
+// Admin — Share course by job profile
+// ---------------------------------------------------------------------------
+
+export async function previewShareAudience(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await trainingAssignments.previewShareAudience(req.body);
+    res.json(data);
+  } catch (err) { next(err); }
+}
+
+export async function shareCourse(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await trainingAssignments.shareCourse(req.params.id as string, req.body);
+    res.json(data);
+  } catch (err) { next(err); }
+}
+
+export async function getCourseShareStats(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await trainingAssignments.getCourseShareStats(req.params.id as string);
     res.json(data);
   } catch (err) { next(err); }
 }
@@ -264,7 +291,28 @@ export async function getMyTraining(req: Request, res: Response, next: NextFunct
       };
     });
 
-    res.json({ courses, chapters: chaptersWithProgress });
+    const [assignments, incompleteCount, sops] = await Promise.all([
+      trainingAssignments.getMyAssignments(userId),
+      trainingAssignments.getIncompleteAssignmentCount(userId),
+      trainingSopService.getMySops(userId).catch(() => []),
+    ]);
+
+    res.json({
+      courses,
+      chapters: chaptersWithProgress,
+      sops,
+      assignments,
+      incomplete_count: incompleteCount,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getIncompleteTrainingCount(req: Request, res: Response, next: NextFunction) {
+  try {
+    const count = await trainingAssignments.getIncompleteAssignmentCount(req.user!.id);
+    res.json({ count });
   } catch (err) {
     next(err);
   }

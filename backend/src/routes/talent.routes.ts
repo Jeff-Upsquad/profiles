@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as talentController from '../controllers/talent.controller.js';
 import * as trainingController from '../controllers/training.controller.js';
+import * as trainingSopController from '../controllers/training-sop.controller.js';
 import * as notificationsController from '../controllers/notifications.controller.js';
 import * as appInstallController from '../controllers/app-install.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
@@ -75,6 +76,10 @@ router.post(
   trainingController.requestCourseReopen,
 );
 router.get('/training', trainingController.getMyTraining);
+router.get('/training/incomplete-count', trainingController.getIncompleteTrainingCount);
+router.get('/training/sops', trainingSopController.getMySops);
+router.get('/training/sops/:id', trainingSopController.getSopForTalent);
+router.post('/training/sops/:id/complete', trainingSopController.completeSop);
 router.post('/training/lessons/:lessonId/complete', trainingController.markComplete);
 router.delete('/training/lessons/:lessonId/complete', trainingController.markIncomplete);
 

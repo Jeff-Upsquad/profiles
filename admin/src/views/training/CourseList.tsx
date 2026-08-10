@@ -11,7 +11,7 @@ import {
   type TrainingCourse,
 } from '@/hooks/useTraining';
 
-export default function CourseList() {
+export default function CourseList({ hideHeading = false }: { hideHeading?: boolean } = {}) {
   const { data: courses, isLoading } = useCourses();
   const { data: unassignedChapters } = useChapters(null);
   const archiveMutation = useArchiveCourse();
@@ -35,8 +35,17 @@ export default function CourseList() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Training Program</h1>
+      <div className="mb-6 flex items-center justify-between">
+        {!hideHeading ? (
+          <h1 className="text-2xl font-bold text-gray-900">Training Program</h1>
+        ) : (
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Courses</h2>
+            <p className="mt-0.5 text-sm text-gray-500">
+              Video courses with chapters and lessons, including onboarding.
+            </p>
+          </div>
+        )}
         <Button onClick={openCreate}>Create Course</Button>
       </div>
 

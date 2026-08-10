@@ -4,6 +4,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import ChapterForm from './ChapterForm';
+import ShareCourseModal from './ShareCourseModal';
 import {
   useChapters,
   useCourse,
@@ -20,6 +21,7 @@ export default function TrainingChapterList({ courseId }: TrainingChapterListPro
   const { data: course } = useCourse(courseId);
   const deleteMutation = useDeleteChapter();
   const [modalOpen, setModalOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [editingChapter, setEditingChapter] = useState<TrainingChapter | null>(null);
 
   const openCreate = () => {
@@ -48,9 +50,16 @@ export default function TrainingChapterList({ courseId }: TrainingChapterListPro
           </Link>
         </div>
       )}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-3">
         <h1 className="text-2xl font-bold text-gray-900">{heading}</h1>
-        <Button onClick={openCreate}>Create Chapter</Button>
+        <div className="flex items-center gap-2">
+          {courseId && course && (
+            <Button variant="secondary" onClick={() => setShareOpen(true)}>
+              Share with talents
+            </Button>
+          )}
+          <Button onClick={openCreate}>Create Chapter</Button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -163,6 +172,17 @@ export default function TrainingChapterList({ courseId }: TrainingChapterListPro
       >
         <ChapterForm chapter={editingChapter} courseId={courseId} onClose={closeModal} />
       </Modal>
+
+      {course && (
+        <Modal
+          isOpen={shareOpen}
+          onClose={() => setShareOpen(false)}
+          title="Share course with talents"
+          size="lg"
+        >
+          <ShareCourseModal course={course} onClose={() => setShareOpen(false)} />
+        </Modal>
+      )}
     </div>
   );
 }

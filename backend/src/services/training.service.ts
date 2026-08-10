@@ -738,6 +738,15 @@ export async function markLessonComplete(userId: string, lessonId: string) {
     );
 
   if (error) throw new AppError(500, `Failed to mark lesson complete: ${error.message}`);
+
+  // Keep training_assignments + linked notification in sync (badge / clear-on-complete)
+  try {
+    const { syncCourseAssignmentForLesson } = await import('./training-assignments.service.js');
+    await syncCourseAssignmentForLesson(userId, lessonId);
+  } catch (e) {
+    console.error('[training] assignment sync after complete failed:', e);
+  }
+
   return { message: 'Lesson marked complete' };
 }
 
@@ -749,6 +758,14 @@ export async function markLessonIncomplete(userId: string, lessonId: string) {
     .eq('lesson_id', lessonId);
 
   if (error) throw new AppError(500, `Failed to unmark lesson: ${error.message}`);
+
+  try {
+    const { syncCourseAssignmentForLesson } = await import('./training-assignments.service.js');
+    await syncCourseAssignmentForLesson(userId, lessonId);
+  } catch (e) {
+    console.error('[training] assignment sync after incomplete failed:', e);
+  }
+
   return { message: 'Lesson marked incomplete' };
 }
 

@@ -7,6 +7,7 @@ import * as formConfigController from '../controllers/form-config.controller.js'
 import * as interviewController from '../controllers/interview.controller.js';
 import * as talentAccessController from '../controllers/talent-access.controller.js';
 import * as trainingController from '../controllers/training.controller.js';
+import * as trainingSopController from '../controllers/training-sop.controller.js';
 import * as howItWorksController from '../controllers/how-it-works.controller.js';
 import * as accessRequestsController from '../controllers/access-requests.controller.js';
 import * as savedFilterController from '../controllers/saved-filter.controller.js';
@@ -42,6 +43,16 @@ import {
   updateChapterSchema,
   createLessonSchema,
   updateLessonSchema,
+  shareCourseSchema,
+  previewShareAudienceSchema,
+  createSopSchema,
+  updateSopSchema,
+  createSopPageSchema,
+  updateSopPageSchema,
+  createSopBlockSchema,
+  updateSopBlockSchema,
+  reorderSopPagesSchema,
+  reorderSopBlocksSchema,
 } from '../validators/training.validators.js';
 import {
   createHowItWorksVideoSchema,
@@ -550,6 +561,17 @@ router.get('/training/courses/:id', trainingController.getCourse);
 router.put('/training/courses/:id', validate({ body: updateCourseSchema }), trainingController.updateCourse);
 router.delete('/training/courses/:id', trainingController.archiveCourse);
 router.post('/training/courses/:id/restore', trainingController.restoreCourse);
+router.get('/training/courses/:id/share-stats', trainingController.getCourseShareStats);
+router.post(
+  '/training/courses/:id/share',
+  validate({ body: shareCourseSchema }),
+  trainingController.shareCourse,
+);
+router.post(
+  '/training/share/preview',
+  validate({ body: previewShareAudienceSchema }),
+  trainingController.previewShareAudience,
+);
 
 // Course enrollment management (reopen expired deadlines)
 router.get('/training/users/:userId/enrollments', trainingController.getUserCourseEnrollments);
@@ -568,6 +590,54 @@ router.post('/training/chapters/:chapterId/lessons', validate({ body: createLess
 router.put('/training/lessons/:lessonId', validate({ body: updateLessonSchema }), trainingController.updateLesson);
 router.delete('/training/lessons/:lessonId', trainingController.deleteLesson);
 router.patch('/training/lessons/reorder', validate({ body: reorderSchema }), trainingController.reorderLessons);
+
+// SOPs (Systems & Procedures)
+router.get('/training/sops', trainingSopController.listSops);
+router.post('/training/sops', validate({ body: createSopSchema }), trainingSopController.createSop);
+router.get('/training/sops/:id', trainingSopController.getSop);
+router.put('/training/sops/:id', validate({ body: updateSopSchema }), trainingSopController.updateSop);
+router.delete('/training/sops/:id', trainingSopController.archiveSop);
+router.get('/training/sops/:id/share-stats', trainingSopController.getSopShareStats);
+router.post(
+  '/training/sops/:id/share',
+  validate({ body: shareCourseSchema }),
+  trainingSopController.shareSop,
+);
+router.get('/training/sops/:id/pages', trainingSopController.listPages);
+router.post(
+  '/training/sops/:id/pages',
+  validate({ body: createSopPageSchema }),
+  trainingSopController.createPage,
+);
+router.patch(
+  '/training/sops/:id/pages/reorder',
+  validate({ body: reorderSopPagesSchema }),
+  trainingSopController.reorderPages,
+);
+router.put(
+  '/training/sop-pages/:pageId',
+  validate({ body: updateSopPageSchema }),
+  trainingSopController.updatePage,
+);
+router.delete('/training/sop-pages/:pageId', trainingSopController.deletePage);
+router.get('/training/sop-pages/:pageId', trainingSopController.getPageWithBlocks);
+router.get('/training/sop-pages/:pageId/blocks', trainingSopController.listBlocks);
+router.post(
+  '/training/sop-pages/:pageId/blocks',
+  validate({ body: createSopBlockSchema }),
+  trainingSopController.createBlock,
+);
+router.patch(
+  '/training/sop-pages/:pageId/blocks/reorder',
+  validate({ body: reorderSopBlocksSchema }),
+  trainingSopController.reorderBlocks,
+);
+router.put(
+  '/training/sop-blocks/:blockId',
+  validate({ body: updateSopBlockSchema }),
+  trainingSopController.updateBlock,
+);
+router.delete('/training/sop-blocks/:blockId', trainingSopController.deleteBlock);
 
 // ---------------------------------------------------------------------------
 // How it works videos

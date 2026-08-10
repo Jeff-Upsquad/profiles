@@ -144,6 +144,34 @@ export const updateLessonSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Share / assignments
+// ---------------------------------------------------------------------------
+
+export const shareCourseSchema = z
+  .object({
+    available_to_all: z.boolean().optional(),
+    category_ids: z.array(z.string().uuid()).optional(),
+    notify: z.boolean().optional(),
+    reack: z.boolean().optional(),
+    title: z.string().max(200).optional(),
+    body: z.string().max(1000).optional(),
+  })
+  .refine(
+    (data) => data.available_to_all || (data.category_ids && data.category_ids.length > 0),
+    { message: 'Select at least one job profile or Everyone', path: ['category_ids'] },
+  );
+
+export const previewShareAudienceSchema = z
+  .object({
+    available_to_all: z.boolean().optional(),
+    category_ids: z.array(z.string().uuid()).optional(),
+  })
+  .refine(
+    (data) => data.available_to_all || (data.category_ids && data.category_ids.length > 0),
+    { message: 'Select at least one job profile or Everyone', path: ['category_ids'] },
+  );
+
+// ---------------------------------------------------------------------------
 // Inferred types
 // ---------------------------------------------------------------------------
 
@@ -151,3 +179,70 @@ export type CreateChapterInput = z.infer<typeof createChapterSchema>;
 export type UpdateChapterInput = z.infer<typeof updateChapterSchema>;
 export type CreateLessonInput = z.infer<typeof createLessonSchema>;
 export type UpdateLessonInput = z.infer<typeof updateLessonSchema>;
+export type ShareCourseInput = z.infer<typeof shareCourseSchema>;
+
+// ---------------------------------------------------------------------------
+// SOP schemas
+// ---------------------------------------------------------------------------
+
+export const createSopSchema = z.object({
+  title: z.string().min(1).max(200),
+  summary: z.string().max(2000).optional(),
+  icon: z.string().max(16).optional(),
+  cover_image_url: z.string().url().optional().or(z.literal('')),
+  available_to_all: z.boolean().optional(),
+  sort_order: z.number().int().min(0).optional(),
+  category_ids: z.array(z.string().uuid()).optional(),
+  status: z.enum(['draft', 'published', 'archived']).optional(),
+});
+
+export const updateSopSchema = createSopSchema.partial().extend({
+  summary: z.string().max(2000).nullable().optional(),
+  icon: z.string().max(16).nullable().optional(),
+  cover_image_url: z.string().url().nullable().optional().or(z.literal('')),
+});
+
+export const createSopPageSchema = z.object({
+  title: z.string().min(1).max(200),
+  parent_page_id: z.string().uuid().nullable().optional(),
+  icon: z.string().max(16).nullable().optional(),
+  position: z.number().int().min(0).optional(),
+  is_active: z.boolean().optional(),
+});
+
+export const updateSopPageSchema = createSopPageSchema.partial();
+
+export const createSopBlockSchema = z.object({
+  type: z.enum(['text', 'image', 'video_embed', 'pdf']),
+  position: z.number().int().min(0).optional(),
+  text_content: z.unknown().optional(),
+  file_url: z.string().nullable().optional(),
+  file_name: z.string().nullable().optional(),
+  file_size: z.number().int().nullable().optional(),
+  mime_type: z.string().nullable().optional(),
+  embed_url: z.string().nullable().optional(),
+  embed_provider: z.string().nullable().optional(),
+  caption: z.string().nullable().optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+export const updateSopBlockSchema = createSopBlockSchema.partial();
+
+export const reorderSopPagesSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string().uuid(),
+      position: z.number().int().min(0),
+      parent_page_id: z.string().uuid().nullable().optional(),
+    }),
+  ),
+});
+
+export const reorderSopBlocksSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string().uuid(),
+      position: z.number().int().min(0),
+    }),
+  ),
+});

@@ -7,7 +7,7 @@ import Badge from '@/components/ui/Badge';
 import { useUnreadSubscriptionCount } from '@/hooks/useSubscriptionCards';
 import { useUnreadJobsCount } from '@/hooks/useJobs';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
-import { useModuleAccess, useMyTraining } from '@/hooks/useTraining';
+import { useIncompleteTrainingCount, useModuleAccess } from '@/hooks/useTraining';
 import ModuleUnlockGate from '@/components/training/ModuleUnlockGate';
 
 const ALWAYS_ACCESSIBLE = ['/talent/dashboard', '/talent/training', '/talent/contact-support'];
@@ -48,10 +48,9 @@ export default function TalentLayout({
   const { data: unreadJobs = 0 } = useUnreadJobsCount({ enabled: isTalent });
   const { data: unreadNotifications = 0 } = useUnreadNotificationsCount({ enabled: isTalent });
   const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
-  const { data: trainingData } = useMyTraining();
-  const incompleteCoursesCount = (trainingData?.courses ?? []).filter(
-    (c) => c.total_count > 0 && c.completed_count < c.total_count,
-  ).length;
+  // Badge = incomplete training assignments (courses + SOPs once assigned).
+  // Completing the resource clears the linked notification and drops this count.
+  const { data: incompleteTrainingCount = 0 } = useIncompleteTrainingCount({ enabled: isTalent });
 
   if (isLoading) {
     return (
@@ -204,7 +203,7 @@ export default function TalentLayout({
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
-      badge: incompleteCoursesCount > 0 ? <Badge variant="indigo">{incompleteCoursesCount}</Badge> : undefined,
+      badge: incompleteTrainingCount > 0 ? <Badge variant="indigo">{incompleteTrainingCount}</Badge> : undefined,
     },
     {
       label: 'Contact Support',

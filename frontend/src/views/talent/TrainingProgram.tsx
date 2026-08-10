@@ -23,6 +23,9 @@ import {
   type TrainingCourse,
 } from '@/hooks/useTraining';
 import CourseStartPopup from './CourseStartPopup';
+import SopReader from '@/components/training/SopReader';
+import type { TrainingSopSummary } from '@/hooks/useTraining';
+import { useSearchParams } from 'next/navigation';
 
 // Both supported providers (Loom and SquadClips / clips.squadhub.in) expose a
 // chrome-free player at the same token under `/embed/` instead of `/share/`.
@@ -662,12 +665,24 @@ export default function TrainingProgram() {
 }
 
 function FullTrainingProgram() {
+  const searchParams = useSearchParams();
   const { data, isLoading } = useMyTraining();
   const courses = data?.courses ?? [];
   const legacyChapters = data?.chapters ?? [];
+  const sops = data?.sops ?? [];
   const activeCountdowns = getActiveCountdowns(courses);
+  const [openSopId, setOpenSopId] = useState<string | null>(null);
 
-  // Compute totals across all courses + legacy chapters
+  // Deep link: /talent/training?resource=sop:<id> or course:<id>
+  useEffect(() => {
+    const resource = searchParams.get('resource');
+    if (!resource) return;
+    if (resource.startsWith('sop:')) {
+      setOpenSopId(resource.slice(4));
+    }
+  }, [searchParams]);
+
+  // Compute totals across all courses + legacy chapters + SOPs (each SOP = 1 unit)
   const totals = (() => {
     let completed = 0;
     let total = 0;
@@ -679,11 +694,15 @@ function FullTrainingProgram() {
       completed += ch.completed_count;
       total += ch.total_count;
     }
+    for (const sop of sops) {
+      total += 1;
+      if (sop.completed) completed += 1;
+    }
     return { completed, total };
   })();
   const overallPct = totals.total > 0 ? Math.round((totals.completed / totals.total) * 100) : 0;
 
-  const isEmpty = courses.length === 0 && legacyChapters.length === 0;
+  const isEmpty = courses.length === 0 && legacyChapters.length === 0 && sops.length === 0;
 
   return (
     <div className="space-y-6">
@@ -757,13 +776,20 @@ function FullTrainingProgram() {
         </div>
       ) : (
         <div className="space-y-8">
-          {courses.map((course) => (
-            <CourseSection
-              key={course.id}
-              course={course}
-              enforceSequential={course.is_onboarding}
-            />
-          ))}
+          {courses.length > 0 && (
+            <section className="space-y-4">
+              <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">
+                Courses
+              </h2>
+              {courses.map((course) => (
+                <CourseSection
+                  key={course.id}
+                  course={course}
+                  enforceSequential={course.is_onboarding}
+                />
+              ))}
+            </section>
+          )}
           {legacyChapters.length > 0 && (
             <section className="space-y-4">
               {courses.length > 0 && (
@@ -780,8 +806,62 @@ function FullTrainingProgram() {
               </div>
             </section>
           )}
+          {sops.length > 0 && (
+            <section className="space-y-4">
+              <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">
+                Systems and Procedures
+              </h2>
+              <div className="space-y-3">
+                {sops.map((sop) => (
+                  <SopCard key={sop.id} sop={sop} onOpen={() => setOpenSopId(sop.id)} />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       )}
+
+      {openSopId && (
+        <SopReader sopId={openSopId} onClose={() => setOpenSopId(null)} />
+      )}
     </div>
+  );
+}
+
+function SopCard({ sop, onOpen }: { sop: TrainingSopSummary; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full items-center gap-4 rounded-2xl border border-[#E7E7EA] bg-white px-5 py-4 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)]"
+    >
+      <div
+        className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-lg ${
+          sop.completed ? 'bg-emerald-50 text-emerald-600' : 'bg-[#FFFAC2]'
+        }`}
+      >
+        {sop.completed ? (
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        ) : (
+          sop.icon || '📋'
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <h3 className="font-[family-name:var(--font-jakarta)] truncate font-semibold text-[#0a0a0a]">
+          {sop.title}
+        </h3>
+        {sop.summary && (
+          <p className="mt-0.5 truncate text-sm text-[#737373]">{sop.summary}</p>
+        )}
+        <p className="mt-1 text-xs font-medium text-[#525252]">
+          {sop.completed ? 'Completed' : sop.assignment_status === 'in_progress' ? 'In progress' : 'Assigned'}
+        </p>
+      </div>
+      <svg className="h-5 w-5 flex-shrink-0 text-[#a3a3a3]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
+    </button>
   );
 }

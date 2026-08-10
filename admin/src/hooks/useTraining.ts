@@ -159,6 +159,68 @@ export function useRestoreCourse() {
   });
 }
 
+// ── Share / assignments ───────────────────────────────
+
+export interface CourseShareStats {
+  assigned: number;
+  completed: number;
+  in_progress: number;
+  not_started: number;
+}
+
+export function useCourseShareStats(courseId: string | undefined) {
+  return useQuery<CourseShareStats>({
+    queryKey: ['admin', 'training', 'courses', courseId, 'share-stats'],
+    queryFn: async () => {
+      const { data } = await api.get(`/admin/training/courses/${courseId}/share-stats`);
+      return data;
+    },
+    enabled: !!courseId,
+  });
+}
+
+export function usePreviewShareAudience() {
+  return useMutation({
+    mutationFn: async (payload: { available_to_all?: boolean; category_ids?: string[] }) => {
+      const { data } = await api.post<{ count: number }>('/admin/training/share/preview', payload);
+      return data;
+    },
+  });
+}
+
+export function useShareCourse() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      courseId,
+      ...payload
+    }: {
+      courseId: string;
+      available_to_all?: boolean;
+      category_ids?: string[];
+      notify?: boolean;
+      reack?: boolean;
+      title?: string;
+      body?: string;
+    }) => {
+      const { data } = await api.post<{
+        recipient_count: number;
+        notified: number;
+        reopened: number;
+      }>(`/admin/training/courses/${courseId}/share`, payload);
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({
+        queryKey: ['admin', 'training', 'courses', vars.courseId, 'share-stats'],
+      });
+      toast.success('Course shared with talents');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.message || 'Failed to share course'),
+  });
+}
+
 // ── Chapter hooks ─────────────────────────────────────
 
 export function useChapters(courseId?: string | null) {

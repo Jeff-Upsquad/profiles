@@ -95,10 +95,79 @@ export interface TrainingCourse {
   total_count: number;
 }
 
+export interface TrainingAssignment {
+  id: string;
+  resource_type: 'course' | 'sop';
+  resource_id: string;
+  status: 'not_started' | 'in_progress' | 'completed';
+  progress_percent: number;
+  assigned_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  source: string;
+  notification_id: string | null;
+}
+
+export interface TrainingSopSummary {
+  id: string;
+  title: string;
+  summary?: string | null;
+  icon?: string | null;
+  cover_image_url?: string | null;
+  assignment_id: string;
+  assignment_status: 'not_started' | 'in_progress' | 'completed';
+  progress_percent: number;
+  assigned_at: string;
+  completed_at: string | null;
+  completed: boolean;
+}
+
+export interface SopBlock {
+  id: string;
+  page_id: string;
+  type: 'text' | 'image' | 'video_embed' | 'pdf';
+  position: number;
+  text_content?: unknown;
+  file_url?: string | null;
+  file_name?: string | null;
+  embed_url?: string | null;
+  caption?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SopPage {
+  id: string;
+  sop_id: string;
+  parent_page_id: string | null;
+  title: string;
+  icon?: string | null;
+  position: number;
+  is_active: boolean;
+  blocks: SopBlock[];
+}
+
+export interface TrainingSopDetail {
+  id: string;
+  title: string;
+  summary?: string | null;
+  icon?: string | null;
+  pages: SopPage[];
+  assignment: {
+    id: string;
+    status: string;
+    progress_percent: number;
+    completed_at: string | null;
+  };
+}
+
 export interface MyTrainingResponse {
   courses: TrainingCourse[];
   /** Legacy chapters not yet assigned to a course */
   chapters: TrainingChapter[];
+  sops?: TrainingSopSummary[];
+  assignments?: TrainingAssignment[];
+  /** Incomplete training_assignments count (sidebar badge) */
+  incomplete_count?: number;
 }
 
 export function useMyTraining() {
@@ -109,8 +178,49 @@ export function useMyTraining() {
       return {
         courses: data.courses ?? [],
         chapters: data.chapters ?? [],
+        sops: data.sops ?? [],
+        assignments: data.assignments ?? [],
+        incomplete_count: data.incomplete_count ?? 0,
       };
     },
+  });
+}
+
+export function useSopDetail(sopId: string | null) {
+  return useQuery<TrainingSopDetail>({
+    queryKey: ['myTraining', 'sop', sopId],
+    queryFn: async () => {
+      const { data } = await api.get(`/talent/training/sops/${sopId}`);
+      return data;
+    },
+    enabled: !!sopId,
+  });
+}
+
+export function useCompleteSop() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (sopId: string) => {
+      const { data } = await api.post(`/talent/training/sops/${sopId}/complete`);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['myTraining'] });
+      qc.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+}
+
+/** Lightweight badge count — falls back to myTraining cache when available. */
+export function useIncompleteTrainingCount(opts: { enabled?: boolean } = {}) {
+  return useQuery<number>({
+    queryKey: ['myTraining', 'incomplete-count'],
+    queryFn: async () => {
+      const { data } = await api.get('/talent/training/incomplete-count');
+      return data.count ?? 0;
+    },
+    enabled: opts.enabled !== false,
+    staleTime: 30_000,
   });
 }
 
@@ -272,6 +382,7 @@ export function useMarkLessonComplete() {
       qc.invalidateQueries({ queryKey: ['onboardingCourses'] });
       qc.invalidateQueries({ queryKey: ['moduleAccess'] });
       qc.invalidateQueries({ queryKey: ['profileGate'] });
+      qc.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }
@@ -289,6 +400,7 @@ export function useMarkLessonIncomplete() {
       qc.invalidateQueries({ queryKey: ['onboardingCourses'] });
       qc.invalidateQueries({ queryKey: ['moduleAccess'] });
       qc.invalidateQueries({ queryKey: ['profileGate'] });
+      qc.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }
