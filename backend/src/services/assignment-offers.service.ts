@@ -1014,48 +1014,40 @@ export async function listOffersForCard(cardId: string): Promise<AssignmentOffer
     photoByTalent.set((t as any).id, ((t as any).profile_photo_url as string | null) ?? null);
   }
 
-  // Best matching approved profile per talent (for profile deep-link).
-  // Prefer card categories; fall back to any approved profile so Bidding /
-  // For Review "open profile" works even when categories don't match.
+  // Best approved profile per talent for deep-links. Include inactive so a
+  // category-matched (but deactivated) profile still wins over a random ghost.
+  // Ranking: category match > active > non-ghost.
   const profileByTalent = new Map<string, { profile_id: string; category_id: string }>();
   if (talentIds.length > 0) {
-    let q = supabaseAdmin
+    const { data: profiles } = await supabaseAdmin
       .from('talent_profiles')
-      .select('id, talent_user_id, category_id')
+      .select('id, talent_user_id, category_id, is_active, is_ghost')
       .in('talent_user_id', talentIds)
       .eq('status', 'approved')
-      .eq('is_active', true)
       .is('deleted_at', null);
-    if (categoryIds.length > 0) q = q.in('category_id', categoryIds);
-    const { data: profiles } = await q;
+
+    const bestByTalent = new Map<string, { profile_id: string; category_id: string; score: number }>();
     for (const p of profiles ?? []) {
       const tid = (p as any).talent_user_id as string;
-      if (!profileByTalent.has(tid)) {
-        profileByTalent.set(tid, {
+      let score = 0;
+      const catId = (p as any).category_id as string;
+      if (categoryIds.length > 0 && categoryIds.includes(catId)) score += 100;
+      if ((p as any).is_active !== false) score += 10;
+      if ((p as any).is_ghost !== true) score += 5;
+      const prev = bestByTalent.get(tid);
+      if (!prev || score > prev.score) {
+        bestByTalent.set(tid, {
           profile_id: (p as any).id as string,
-          category_id: (p as any).category_id as string,
+          category_id: catId,
+          score,
         });
       }
     }
-
-    const missing = talentIds.filter((id) => !profileByTalent.has(id));
-    if (missing.length > 0) {
-      const { data: anyProfiles } = await supabaseAdmin
-        .from('talent_profiles')
-        .select('id, talent_user_id, category_id')
-        .in('talent_user_id', missing)
-        .eq('status', 'approved')
-        .eq('is_active', true)
-        .is('deleted_at', null);
-      for (const p of anyProfiles ?? []) {
-        const tid = (p as any).talent_user_id as string;
-        if (!profileByTalent.has(tid)) {
-          profileByTalent.set(tid, {
-            profile_id: (p as any).id as string,
-            category_id: (p as any).category_id as string,
-          });
-        }
-      }
+    for (const [tid, best] of bestByTalent) {
+      profileByTalent.set(tid, {
+        profile_id: best.profile_id,
+        category_id: best.category_id,
+      });
     }
   }
 

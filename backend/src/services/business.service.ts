@@ -332,6 +332,90 @@ async function resolveCardEngagement(
   };
 }
 
+/**
+ * Score a talent profile for deep-link selection on a card.
+ * Prefer: matching card category > active > real (non-ghost) profile.
+ * Category match wins even when the profile is inactive — the talent was
+ * still matched/accepted on that category, so the business must be able to open it.
+ */
+function scoreProfileForCard(p: {
+  category_id?: string | null;
+  is_active?: boolean | null;
+  is_ghost?: boolean | null;
+}, categoryIds: string[]): number {
+  let score = 0;
+  if (categoryIds.length > 0 && p.category_id && categoryIds.includes(p.category_id)) {
+    score += 100;
+  }
+  if (p.is_active !== false) score += 10;
+  if (p.is_ghost !== true) score += 5;
+  return score;
+}
+
+/** Attach Designer/Editor source profiles + portfolio onto a ghost profile payload. */
+async function withGhostSourceProfiles<T extends { is_ghost?: boolean }>(
+  baseProfile: T,
+  profileRow: {
+    source_designer_profile_id?: string | null;
+    source_editor_profile_id?: string | null;
+  },
+): Promise<T & { source_profiles?: unknown[] }> {
+  if (baseProfile.is_ghost !== true) return baseProfile;
+
+  const designerId = profileRow.source_designer_profile_id as string | null;
+  const editorId = profileRow.source_editor_profile_id as string | null;
+  const ids = [designerId, editorId].filter((v): v is string => !!v);
+  if (ids.length === 0) return { ...baseProfile, source_profiles: [] };
+
+  const [{ data: sources, error: srcErr }, { data: portfolio, error: pfErr }] =
+    await Promise.all([
+      supabaseAdmin
+        .from('talent_profiles')
+        .select('*, categories!inner(id, name, slug)')
+        .in('id', ids)
+        .is('deleted_at', null),
+      supabaseAdmin
+        .from('portfolio_items')
+        .select('*, portfolio_item_skills(skill_name)')
+        .in('profile_id', ids)
+        .eq('admin_is_active', true)
+        .order('category_name', { ascending: true })
+        .order('skill_name', { ascending: true })
+        .order('sort_order', { ascending: true }),
+    ]);
+  if (srcErr) throw new AppError(500, 'Failed to load ghost source profiles');
+  if (pfErr) throw new AppError(500, 'Failed to load ghost source portfolio');
+
+  const portfolioByProfile: Record<string, any[]> = {};
+  for (const row of (portfolio ?? []) as any[]) {
+    const { portfolio_item_skills, ...rest } = row;
+    const item = {
+      ...rest,
+      skills: Array.isArray(portfolio_item_skills)
+        ? portfolio_item_skills.map((s: { skill_name: string }) => s.skill_name)
+        : [],
+    };
+    const pid = rest.profile_id as string;
+    if (!portfolioByProfile[pid]) portfolioByProfile[pid] = [];
+    portfolioByProfile[pid].push(item);
+  }
+
+  const sourceProfiles = (sources ?? []).map((s: any) => ({
+    id: s.id,
+    category_id: s.category_id,
+    category: s.categories,
+    status: s.status,
+    field_data: s.field_data,
+    created_at: s.created_at,
+    updated_at: s.updated_at,
+    portfolio_items: portfolioByProfile[s.id] ?? [],
+  }));
+  sourceProfiles.sort((a, b) =>
+    a.category?.slug === 'designer' ? -1 : b.category?.slug === 'designer' ? 1 : 0,
+  );
+  return { ...baseProfile, source_profiles: sourceProfiles };
+}
+
 export async function getSharedProfile(
   businessUserId: string,
   categoryId: string,
@@ -358,10 +442,11 @@ export async function getSharedProfile(
     );
     if (!allowed) throw new AppError(404, 'Shared profile not found');
 
-    // Load profile without the is_active join filters that can false-negative
-    // when nested filters misbehave; still require non-deleted + active profile.
+    // Load without is_active join filters (nested filters can false-negative).
     // Prefer exact category match from the URL; if card-scoped access is
     // already authorized, load by profile id alone (category path can drift).
+    // Inactive profiles are allowed when the business has card access — the
+    // talent may have been matched before the profile was deactivated.
     let fallback: any = null;
     {
       const { data: byCat, error: byCatErr } = await supabaseAdmin
@@ -383,7 +468,10 @@ export async function getSharedProfile(
       if (!byIdErr && byId) fallback = byId;
     }
     if (!fallback) throw new AppError(404, 'Profile not found');
-    if ((fallback as any).is_active === false) throw new AppError(404, 'Profile not found');
+    // Card-scoped access may open inactive profiles; non-card still requires active.
+    if (!cardId && (fallback as any).is_active === false) {
+      throw new AppError(404, 'Profile not found');
+    }
     if ((fallback as any).talent_users?.is_active === false) {
       throw new AppError(404, 'Profile not found');
     }
@@ -393,7 +481,7 @@ export async function getSharedProfile(
     const card_engagement = cardId
       ? await resolveCardEngagement(cardId, p.talent_user_id as string)
       : null;
-    return {
+    const baseProfile = {
       id: p.id,
       user_id: p.talent_user_id,
       category_id: p.category_id,
@@ -408,6 +496,9 @@ export async function getSharedProfile(
       tier_custom: tiers[p.talent_user_id]?.tier_custom ?? null,
       card_engagement,
     };
+    // Same ghost hydration as the shared-list path — previously missing here,
+    // which showed "Profile not found" for ghost profiles opened from a card.
+    return withGhostSourceProfiles(baseProfile, p);
   }
 
   if (error) throw new AppError(500, (error as { message: string }).message);
@@ -435,62 +526,7 @@ export async function getSharedProfile(
     card_engagement,
   };
 
-  if (baseProfile.is_ghost) {
-    const designerId = p.source_designer_profile_id as string | null;
-    const editorId = p.source_editor_profile_id as string | null;
-    const ids = [designerId, editorId].filter((v): v is string => !!v);
-    if (ids.length > 0) {
-      const [{ data: sources, error: srcErr }, { data: portfolio, error: pfErr }] =
-        await Promise.all([
-          supabaseAdmin
-            .from('talent_profiles')
-            .select('*, categories!inner(id, name, slug)')
-            .in('id', ids)
-            .is('deleted_at', null),
-          supabaseAdmin
-            .from('portfolio_items')
-            .select('*, portfolio_item_skills(skill_name)')
-            .in('profile_id', ids)
-            .eq('admin_is_active', true)
-            .order('category_name', { ascending: true })
-            .order('skill_name', { ascending: true })
-            .order('sort_order', { ascending: true }),
-        ]);
-      if (srcErr) throw new AppError(500, 'Failed to load ghost source profiles');
-      if (pfErr) throw new AppError(500, 'Failed to load ghost source portfolio');
-
-      const portfolioByProfile: Record<string, any[]> = {};
-      for (const row of (portfolio ?? []) as any[]) {
-        const { portfolio_item_skills, ...rest } = row;
-        const item = {
-          ...rest,
-          skills: Array.isArray(portfolio_item_skills)
-            ? portfolio_item_skills.map((s: { skill_name: string }) => s.skill_name)
-            : [],
-        };
-        const pid = rest.profile_id as string;
-        if (!portfolioByProfile[pid]) portfolioByProfile[pid] = [];
-        portfolioByProfile[pid].push(item);
-      }
-
-      const sourceProfiles = (sources ?? []).map((s: any) => ({
-        id: s.id,
-        category_id: s.category_id,
-        category: s.categories,
-        status: s.status,
-        field_data: s.field_data,
-        created_at: s.created_at,
-        updated_at: s.updated_at,
-        portfolio_items: portfolioByProfile[s.id] ?? [],
-      }));
-      sourceProfiles.sort((a, b) =>
-        a.category?.slug === 'designer' ? -1 : b.category?.slug === 'designer' ? 1 : 0,
-      );
-      return { ...baseProfile, source_profiles: sourceProfiles };
-    }
-  }
-
-  return baseProfile;
+  return withGhostSourceProfiles(baseProfile, p);
 }
 
 export async function getPortfolioForProfile(
@@ -1611,47 +1647,32 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
   const talentMap = new Map<string, any>();
   for (const t of talents ?? []) talentMap.set((t as any).id, t);
 
-  // Best profile per talent for deep-links:
-  //  1) approved profile in the card's targeted categories (preferred)
-  //  2) any approved profile (fallback) so "open profile" works for first-bid
-  //     / cross-category talents who still appear under For Review.
-  // Talents with no approved profile at all still show (profile_id null) so
-  // the business can see the bid / acceptance.
+  // Best profile per talent for deep-links. Load all approved non-deleted
+  // profiles (including inactive + ghost), then pick the highest-scoring one:
+  // category match > active > non-ghost. Category match wins even when inactive
+  // so a deactivated editor profile still opens for an Editors card — previously
+  // we skipped inactive and linked a random ghost, which then 404'd.
   const profileMap = new Map<string, any>();
   if (talentMap.size > 0) {
     const talentUserIds = Array.from(talentMap.keys());
-    let pq = supabaseAdmin
+    const { data: profiles } = await supabaseAdmin
       .from('talent_profiles')
-      .select('id, talent_user_id, category_id, categories!inner(id, name, slug)')
+      .select(
+        'id, talent_user_id, category_id, is_active, is_ghost, categories!inner(id, name, slug)',
+      )
       .in('talent_user_id', talentUserIds)
       .eq('status', 'approved')
-      .eq('is_active', true)
       .is('deleted_at', null);
-    if (categoryIds.length > 0) {
-      pq = pq.in('category_id', categoryIds);
-    }
-    const { data: profiles } = await pq;
 
+    const bestByTalent = new Map<string, { p: any; score: number }>();
     for (const p of profiles ?? []) {
       const uid = (p as any).talent_user_id as string;
-      if (!profileMap.has(uid)) profileMap.set(uid, p);
+      const score = scoreProfileForCard(p as any, categoryIds);
+      const prev = bestByTalent.get(uid);
+      if (!prev || score > prev.score) bestByTalent.set(uid, { p, score });
     }
-
-    // Fallback for talents with no category-matched profile — still link their
-    // approved profile so every section can open it (cardId authorizes access).
-    const missing = talentUserIds.filter((id) => !profileMap.has(id));
-    if (missing.length > 0) {
-      const { data: anyProfiles } = await supabaseAdmin
-        .from('talent_profiles')
-        .select('id, talent_user_id, category_id, categories!inner(id, name, slug)')
-        .in('talent_user_id', missing)
-        .eq('status', 'approved')
-        .eq('is_active', true)
-        .is('deleted_at', null);
-      for (const p of anyProfiles ?? []) {
-        const uid = (p as any).talent_user_id as string;
-        if (!profileMap.has(uid)) profileMap.set(uid, p);
-      }
+    for (const [uid, { p }] of bestByTalent) {
+      profileMap.set(uid, p);
     }
   }
 
