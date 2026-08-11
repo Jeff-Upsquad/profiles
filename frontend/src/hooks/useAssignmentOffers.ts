@@ -107,6 +107,12 @@ export interface TalentCardOffer extends AssignmentOffer {
   card_type: string | null;
   brand_name: string | null;
   card_title: string | null;
+  /** Full card content for rendering the original offer card body. */
+  card_content?: Record<string, unknown> | null;
+  card_external_id?: string | null;
+  card_status?: string | null;
+  card_published_at?: string | null;
+  card_expires_at?: string | null;
   events: AssignmentOfferEvent[];
 }
 

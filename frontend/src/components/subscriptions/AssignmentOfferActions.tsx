@@ -33,10 +33,13 @@ export default function AssignmentOfferActions({
   currency,
   /** When true, priced path labels the middle action "Bid" (subscriptions). */
   bidLabel = false,
+  /** Hide the current-figure summary (e.g. Bidding cards already show it on top). */
+  hideAmountSummary = false,
 }: {
   item: SubscriptionCardItem;
   currency?: string;
   bidLabel?: boolean;
+  hideAmountSummary?: boolean;
 }) {
   const recipientId = item.id;
   const content = item.card.content as Record<string, unknown>;
@@ -85,8 +88,8 @@ export default function AssignmentOfferActions({
 
   return (
     <div className="mt-auto border-t border-[#E7E7EA] pt-4">
-      {/* Current negotiation figure */}
-      {openOffer && (
+      {/* Current negotiation figure — skip when parent already surfaces it. */}
+      {!hideAmountSummary && openOffer && (
         <div className="mb-3 rounded-xl bg-[#F5F5F6] px-3.5 py-2.5">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-[#737373]">
             {openOffer.status === 'pending_talent'
@@ -108,7 +111,10 @@ export default function AssignmentOfferActions({
           </p>
         </div>
       )}
-      {!openOffer && (
+      {hideAmountSummary && openOffer && (
+        <p className="mb-2 text-[11px] text-[#a3a3a3]">Bids left on this card: {bidsLeft}/3</p>
+      )}
+      {!hideAmountSummary && !openOffer && (
         <p className="mb-2 text-[11px] text-[#a3a3a3]">Bids left on this card: {bidsLeft}/3</p>
       )}
 

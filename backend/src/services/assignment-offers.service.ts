@@ -1188,6 +1188,12 @@ export interface TalentOfferListItem extends AssignmentOfferRow {
   card_type: string | null;
   brand_name: string | null;
   card_title: string | null;
+  /** Full card content so the Bidding tab can render the original card body. */
+  card_content: Record<string, unknown> | null;
+  card_external_id: string | null;
+  card_status: string | null;
+  card_published_at: string | null;
+  card_expires_at: string | null;
   events: unknown[];
 }
 
@@ -1206,7 +1212,7 @@ export async function listOffersForTalent(talentUserId: string): Promise<TalentO
   const cardIds = [...new Set(offers.map((o) => o.card_id))];
   const { data: cards } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, card_type, content')
+    .select('id, card_type, content, external_id, status, published_at, expires_at')
     .in('id', cardIds);
   const cardById = new Map<string, any>();
   for (const c of cards ?? []) cardById.set((c as any).id, c);
@@ -1214,13 +1220,19 @@ export async function listOffersForTalent(talentUserId: string): Promise<TalentO
   const out: TalentOfferListItem[] = [];
   for (const o of offers) {
     const card = cardById.get(o.card_id);
-    const content = (card?.content ?? {}) as Record<string, unknown>;
+    const content = (card?.content ?? null) as Record<string, unknown> | null;
+    const contentObj = content ?? {};
     const events = await listOfferEvents(o.id);
     out.push({
       ...o,
       card_type: (card?.card_type as string) ?? null,
-      brand_name: (typeof content.brand_name === 'string' ? content.brand_name : null),
-      card_title: cardOfferTitle(content, (card?.card_type as string) || 'subscription'),
+      brand_name: (typeof contentObj.brand_name === 'string' ? contentObj.brand_name : null),
+      card_title: cardOfferTitle(contentObj, (card?.card_type as string) || 'subscription'),
+      card_content: content,
+      card_external_id: (card?.external_id as string) ?? null,
+      card_status: (card?.status as string) ?? null,
+      card_published_at: (card?.published_at as string) ?? null,
+      card_expires_at: (card?.expires_at as string) ?? null,
       events,
     });
   }
