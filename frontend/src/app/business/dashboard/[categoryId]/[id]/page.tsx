@@ -9,12 +9,15 @@ import {
   useRemoveFromShortlist,
   useShortlist,
   useSendInterest,
+  useCardRecipients,
+  useReviewCardRecipient,
 } from '@/hooks/useBusiness';
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import { useBusinessSendOffer } from '@/hooks/useBusinessAssignmentOffers';
 import ThreadsProfileView from '@/views/shared/ThreadsProfileView';
 import GhostProfileView from '@/views/shared/GhostProfileView';
 import OfferAmountStepperModal, { snapOfferAmount } from '@/components/subscriptions/OfferAmountStepper';
+import toast from 'react-hot-toast';
 
 interface Params {
   categoryId: string;
@@ -27,6 +30,9 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
   const searchParams = useSearchParams();
   const cardId = searchParams.get('cardId');
   const recipientId = searchParams.get('recipientId');
+  // Opened from a card review → Shortlist must update that card's recipient, not
+  // the global All-profiles shortlist (those are separate lists).
+  const cardScoped = !!(cardId && recipientId);
 
   const { data: profile, isLoading: profileLoading, error: profileError } = useSharedProfile(
     params.categoryId,
@@ -43,10 +49,51 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
   const removeFromShortlist = useRemoveFromShortlist();
   const sendInterest = useSendInterest();
   const sendOffer = useBusinessSendOffer(cardId || '');
+  const { data: cardRecipients } = useCardRecipients(cardScoped ? cardId! : undefined);
+  const reviewRecipient = useReviewCardRecipient(cardId || '');
   const [offerOpen, setOfferOpen] = useState(false);
 
-  const isShortlisted = !!profile && (shortlist ?? []).some((p) => p.id === profile.id);
-  const canSendOffer = !!(cardId && recipientId);
+  const cardRecipient = useMemo(
+    () =>
+      cardScoped
+        ? (cardRecipients ?? []).find((r) => r.recipient_id === recipientId) ?? null
+        : null,
+    [cardScoped, cardRecipients, recipientId],
+  );
+
+  const isShortlisted = cardScoped
+    ? cardRecipient?.business_review_status === 'shortlisted'
+    : !!profile && (shortlist ?? []).some((p) => p.id === profile.id);
+  const shortlistLoading = cardScoped
+    ? reviewRecipient.isPending
+    : addToShortlist.isPending || removeFromShortlist.isPending;
+  const canSendOffer = cardScoped;
+
+  const handleShortlist = () => {
+    if (cardScoped && recipientId) {
+      reviewRecipient.mutate(
+        { recipientId, action: 'shortlist' },
+        {
+          onSuccess: () => toast.success('Talent shortlisted for this card'),
+        },
+      );
+      return;
+    }
+    if (profile) addToShortlist.mutate(profile.id);
+  };
+
+  const handleUnshortlist = () => {
+    if (cardScoped && recipientId) {
+      reviewRecipient.mutate(
+        { recipientId, action: 'unshortlist' },
+        {
+          onSuccess: () => toast.success('Removed from this card’s shortlist'),
+        },
+      );
+      return;
+    }
+    if (profile) removeFromShortlist.mutate(profile.id);
+  };
 
   const talentUser = {
     full_name: (profile as any)?.talent_user?.full_name ?? 'Unknown',
@@ -133,9 +180,9 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
           sourceProfiles={sourceProfiles}
           talentUser={talentUser}
           mode="business"
-          onShortlist={() => profile && addToShortlist.mutate(profile.id)}
-          onUnshortlist={() => profile && removeFromShortlist.mutate(profile.id)}
-          shortlistLoading={addToShortlist.isPending || removeFromShortlist.isPending}
+          onShortlist={handleShortlist}
+          onUnshortlist={handleUnshortlist}
+          shortlistLoading={shortlistLoading}
           isShortlisted={isShortlisted}
           onSendInterest={(message) => profile && sendInterest.mutate({ profileId: profile.id, message })}
           interestLoading={sendInterest.isPending}
@@ -156,9 +203,9 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
         category={categoryWithFields ?? null}
         portfolioItems={portfolioItems}
         mode="business"
-        onShortlist={() => profile && addToShortlist.mutate(profile.id)}
-        onUnshortlist={() => profile && removeFromShortlist.mutate(profile.id)}
-        shortlistLoading={addToShortlist.isPending || removeFromShortlist.isPending}
+        onShortlist={handleShortlist}
+        onUnshortlist={handleUnshortlist}
+        shortlistLoading={shortlistLoading}
         isShortlisted={isShortlisted}
         onSendInterest={(message) => profile && sendInterest.mutate({ profileId: profile.id, message })}
         interestLoading={sendInterest.isPending}

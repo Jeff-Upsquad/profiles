@@ -320,6 +320,7 @@ export function useReviewCardRecipient(cardId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['card-recipients', cardId] });
       queryClient.invalidateQueries({ queryKey: ['my-subscription-cards'] });
+      queryClient.invalidateQueries({ queryKey: ['my-assignment-cards'] });
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to review recipient');
