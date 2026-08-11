@@ -574,15 +574,6 @@ export async function talentSubmitOrCounter(
     }
     offer = data as unknown as AssignmentOfferRow;
     action = 'submitted';
-
-    // First bid → accepted interest at bid price → shows under For Review, not Bidding.
-    await markRecipientAcceptedOnFirstBid(
-      recipientId,
-      talentUserId,
-      ctx.cardId,
-      refs.externalId,
-      refs.businessUserId,
-    );
   } else {
     // Counters / revises only when negotiation allows it.
     if (businessMoves > 0 && existing.status === 'pending_business') {
@@ -596,6 +587,17 @@ export async function talentSubmitOrCounter(
     });
     action = isFirstBid ? 'submitted' : 'countered';
   }
+
+  // Talent bid = interest at that price → mark accepted so they appear under
+  // For Review (not Bidding). Idempotent: only flips pending → accepted.
+  // Also heals pre-deploy bids that stayed pending when the talent revises.
+  await markRecipientAcceptedOnFirstBid(
+    recipientId,
+    talentUserId,
+    ctx.cardId,
+    refs.externalId,
+    refs.businessUserId,
+  );
 
   await logEvent({ offerId: offer.id, actor, action, amount, note: input.note ?? null });
 
