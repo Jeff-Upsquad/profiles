@@ -87,7 +87,7 @@ export default function AssignmentOfferActions({
   const reviseLabel = bidLabel ? 'Revise bid' : 'Revise offer';
 
   return (
-    <div className="mt-auto border-t border-[#E7E7EA] pt-4">
+    <div className={hideAmountSummary ? '' : 'mt-auto border-t border-[#E7E7EA] pt-4'}>
       {/* Current negotiation figure — skip when parent already surfaces it. */}
       {!hideAmountSummary && openOffer && (
         <div className="mb-3 rounded-xl bg-[#F5F5F6] px-3.5 py-2.5">

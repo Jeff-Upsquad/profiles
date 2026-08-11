@@ -118,6 +118,7 @@ function BiddingRow({
 
   return (
     <li className={emphasize ? 'bg-indigo-50/40' : undefined}>
+      {/* Compact list header */}
       <button
         type="button"
         onClick={onToggle}
@@ -149,7 +150,7 @@ function BiddingRow({
           </p>
         </div>
         <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[#525252]">
-          {isOpen ? 'Hide details' : 'Details'}
+          {isOpen ? 'Hide card' : 'Card details'}
           <svg
             className={`h-4 w-4 text-[#a3a3a3] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
             viewBox="0 0 20 20"
@@ -161,58 +162,27 @@ function BiddingRow({
         </span>
       </button>
 
-      {/* Toggle: full original card body + bid actions */}
-      {isOpen && (
-        <div className="border-t border-[#E7E7EA] bg-[#F5F5F6] px-5 py-5 space-y-4">
-          {/* Bid summary strip (always visible above card details) */}
-          {offer.status === 'pending_talent' ? (
-            <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-700">
-                Business offer
-              </p>
-              <p className="mt-0.5 font-[family-name:var(--font-jakarta)] text-lg font-semibold text-[#0a0a0a]">
-                {amount}
-              </p>
-              <p className="mt-0.5 text-xs text-indigo-800">
-                Counter, accept, or decline this offer.
-              </p>
-            </div>
-          ) : offer.status === 'pending_business' ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-800">
-                Your bid
-              </p>
-              <p className="mt-0.5 font-[family-name:var(--font-jakarta)] text-lg font-semibold text-[#0a0a0a]">
-                {amount}
-              </p>
-              <p className="mt-0.5 text-xs text-amber-900">Waiting for the business to respond.</p>
-            </div>
-          ) : (
-            <div className="rounded-xl bg-white px-3.5 py-3 ring-1 ring-[#E7E7EA]">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#737373]">
-                Latest figure
-              </p>
-              <p className="mt-0.5 font-[family-name:var(--font-jakarta)] text-lg font-semibold text-[#0a0a0a]">
-                {amount}
-              </p>
-              <div className="mt-1.5">
-                <Badge variant={meta.variant}>{meta.label}</Badge>
-              </div>
-            </div>
-          )}
+      {/* Bid actions always visible in the list (withdraw / revise / accept / activity) */}
+      <div
+        className="border-t border-[#E7E7EA] px-5 pb-4"
+        // Stop row-toggle clicks when using action buttons
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="rounded-xl bg-white px-3.5 py-3 ring-1 ring-[#E7E7EA]">
+          <AssignmentOfferActions
+            item={item}
+            currency={currency}
+            bidLabel={!isAssignment}
+            hideAmountSummary
+          />
+        </div>
+      </div>
 
-          {/* Full card details under the toggle */}
+      {/* Toggle: full original card body only */}
+      {isOpen && (
+        <div className="border-t border-[#E7E7EA] bg-[#F5F5F6] px-5 py-5">
           <div className="rounded-xl bg-white p-4 ring-1 ring-[#E7E7EA]">
             <SubscriptionCardContent content={item.card.content} />
-          </div>
-
-          <div className="rounded-xl bg-white px-4 py-3 ring-1 ring-[#E7E7EA]">
-            <AssignmentOfferActions
-              item={item}
-              currency={currency}
-              bidLabel={!isAssignment}
-              hideAmountSummary
-            />
           </div>
         </div>
       )}
