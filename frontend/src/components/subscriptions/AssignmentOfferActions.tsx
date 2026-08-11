@@ -275,6 +275,14 @@ export default function AssignmentOfferActions({
         currency={currency}
         period={period}
         initialAmount={snapOfferAmount(standingAmount || 500)}
+        referenceAmount={standingAmount || listPrice || 500}
+        referenceLabel={
+          openOffer
+            ? openOffer.last_actor_side === 'business' || openOffer.last_actor_side === 'admin'
+              ? 'Business offer'
+              : 'Your last bid'
+            : 'List price'
+        }
         pending={submitOffer.isPending}
         onClose={() => setModal(null)}
         onSubmit={doSubmit}

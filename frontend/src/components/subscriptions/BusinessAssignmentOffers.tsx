@@ -80,6 +80,18 @@ export default function BusinessAssignmentOffers({
   const busy = counter.isPending || accept.isPending || decline.isPending || send.isPending;
   const baseline = listPrice && listPrice > 0 ? listPrice : 500;
 
+  // Prefer the talent's existing bid when opening "Send an Offer" for a recipient.
+  const sendOfferStanding = (() => {
+    if (!sendOfferRecipientId) return null;
+    const match = (offers ?? []).find((o) => o.recipient_id === sendOfferRecipientId);
+    const amt =
+      match && typeof match.current_amount?.amount === 'number' && match.current_amount.amount > 0
+        ? match.current_amount.amount
+        : null;
+    return amt;
+  })();
+  const sendInitial = sendOfferStanding ?? baseline;
+
   return (
     <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div className="border-b border-[#E7E7EA] px-5 py-4 sm:px-6">
@@ -305,6 +317,12 @@ export default function BusinessAssignmentOffers({
             ? counterFor.current_amount.amount
             : baseline) || 500,
         )}
+        referenceAmount={
+          typeof counterFor?.current_amount?.amount === 'number'
+            ? counterFor.current_amount.amount
+            : baseline
+        }
+        referenceLabel="Talent's bid"
         pending={counter.isPending}
         onClose={() => setCounterFor(null)}
         onSubmit={(amount, note) => {
@@ -322,7 +340,9 @@ export default function BusinessAssignmentOffers({
         submitLabel="Send offer"
         currency={currency || 'INR'}
         period={period}
-        initialAmount={snapOfferAmount(baseline)}
+        initialAmount={snapOfferAmount(sendInitial)}
+        referenceAmount={sendInitial}
+        referenceLabel={sendOfferStanding != null ? "Talent's bid" : 'List price'}
         pending={send.isPending}
         onClose={() => setSendOpen(false)}
         onSubmit={(amount, note) => {
@@ -332,7 +352,7 @@ export default function BusinessAssignmentOffers({
             { onSuccess: () => setSendOpen(false) },
           );
         }}
-        hint="Increase or decrease in steps of ₹500. The talent will be shortlisted automatically."
+        hint="Starts at this talent's accepted price. Increase or decrease in steps of ₹500. They will be shortlisted automatically."
       />
     </div>
   );

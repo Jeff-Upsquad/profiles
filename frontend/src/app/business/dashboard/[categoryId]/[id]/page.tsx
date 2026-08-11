@@ -59,6 +59,44 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
 
   const isGhost = (profile as any)?.is_ghost === true;
   const sourceProfiles = (profile as any)?.source_profiles ?? [];
+  const cardEngagement = (profile as any)?.card_engagement ?? null;
+
+  // Prefer the figure this talent already accepted (bid / agreed / list price).
+  const acceptedFigure = useMemo(() => {
+    const eng = cardEngagement as {
+      amount?: number | null;
+      list_price?: number | null;
+      kind?: string | null;
+      currency?: string | null;
+      period?: string | null;
+    } | null;
+    const bidOrAgreed =
+      eng?.amount != null && Number.isFinite(eng.amount) && eng.amount > 0
+        ? eng.amount
+        : null;
+    const list =
+      eng?.list_price != null && Number.isFinite(eng.list_price) && eng.list_price > 0
+        ? eng.list_price
+        : null;
+    const amount = bidOrAgreed ?? list ?? 500;
+    const kind = eng?.kind ?? null;
+    const referenceLabel =
+      kind === 'bid'
+        ? "Talent's bid"
+        : kind === 'agreed'
+          ? 'Agreed price'
+          : kind === 'accepted_list' || (bidOrAgreed == null && list != null)
+            ? 'List price'
+            : kind === 'business_offer'
+              ? 'Your last offer'
+              : 'Original';
+    return {
+      amount,
+      currency: eng?.currency || 'INR',
+      period: (eng?.period as 'per_month' | 'project' | undefined) || 'per_month',
+      referenceLabel,
+    };
+  }, [cardEngagement]);
 
   const offerModal = useMemo(
     () =>
@@ -67,9 +105,11 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
           open={offerOpen}
           title="Send an Offer"
           submitLabel="Send offer"
-          currency="INR"
-          period="per_month"
-          initialAmount={snapOfferAmount(500)}
+          currency={acceptedFigure.currency}
+          period={acceptedFigure.period}
+          initialAmount={snapOfferAmount(acceptedFigure.amount)}
+          referenceAmount={acceptedFigure.amount}
+          referenceLabel={acceptedFigure.referenceLabel}
           pending={sendOffer.isPending}
           onClose={() => setOfferOpen(false)}
           onSubmit={(amount, note) => {
@@ -79,10 +119,10 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
               { onSuccess: () => setOfferOpen(false) },
             );
           }}
-          hint="Increase or decrease in steps of ₹500. This talent will be shortlisted automatically."
+          hint="Starts at this talent's accepted price. Increase or decrease in steps of ₹500. They will be shortlisted automatically."
         />
       ) : null,
-    [canSendOffer, offerOpen, recipientId, sendOffer],
+    [canSendOffer, offerOpen, recipientId, sendOffer, acceptedFigure],
   );
 
   if (isGhost) {
@@ -107,8 +147,6 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
       </>
     );
   }
-
-  const cardEngagement = (profile as any)?.card_engagement ?? null;
 
   return (
     <>

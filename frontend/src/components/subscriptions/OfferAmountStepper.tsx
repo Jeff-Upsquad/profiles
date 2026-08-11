@@ -18,6 +18,9 @@ export function snapOfferAmount(n: number, step = OFFER_STEP): number {
 /**
  * Shared ₹500 step amount picker for Bid / Send Offer / Counter.
  * Starts at `initialAmount` (snapped) and lets the user +/- by 500.
+ *
+ * When `referenceAmount` is set (e.g. talent's accepted bid / list price),
+ * it is shown as "Original" once the stepper moves away from that figure.
  */
 export default function OfferAmountStepperModal({
   open,
@@ -26,6 +29,8 @@ export default function OfferAmountStepperModal({
   currency = 'INR',
   period = 'per_month',
   initialAmount,
+  referenceAmount,
+  referenceLabel = 'Original',
   pending = false,
   onClose,
   onSubmit,
@@ -36,7 +41,15 @@ export default function OfferAmountStepperModal({
   submitLabel: string;
   currency?: string;
   period?: OfferAmount['period'];
+  /** Starting figure in the stepper (talent bid / standing offer / list price). */
   initialAmount: number;
+  /**
+   * Anchor figure to keep visible when the user changes the stepper
+   * (talent's accepted bid, or card list price). Defaults to initialAmount.
+   */
+  referenceAmount?: number | null;
+  /** Label for the anchor, e.g. "Talent's bid" or "Original". */
+  referenceLabel?: string;
   pending?: boolean;
   onClose: () => void;
   onSubmit: (amount: OfferAmount, note?: string) => void;
@@ -54,6 +67,12 @@ export default function OfferAmountStepperModal({
 
   const cur = currency && currency !== 'INR' ? `${currency} ` : '₹';
   const valid = amount > 0 && amount % OFFER_STEP === 0;
+  const refRaw =
+    referenceAmount != null && Number.isFinite(referenceAmount) && referenceAmount > 0
+      ? referenceAmount
+      : initialAmount;
+  const refSnapped = snapOfferAmount(refRaw);
+  const showOriginal = amount !== refSnapped;
 
   const submit = () => {
     if (!valid) return;
@@ -87,6 +106,13 @@ export default function OfferAmountStepperModal({
           <p className="mt-0.5 text-[11px] text-[#a3a3a3]">
             {period === 'project' ? 'for the project' : period === 'per_month' ? 'per month' : period?.replace(/_/g, ' ')}
           </p>
+          {showOriginal && (
+            <p className="mt-1.5 text-[11px] font-medium text-[#737373]">
+              {referenceLabel}: {cur}
+              {refSnapped.toLocaleString()}
+              {period === 'project' ? '' : period === 'per_month' ? '/mo' : ''}
+            </p>
+          )}
         </div>
         <button
           type="button"
