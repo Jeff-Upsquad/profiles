@@ -360,14 +360,29 @@ export async function getSharedProfile(
 
     // Load profile without the is_active join filters that can false-negative
     // when nested filters misbehave; still require non-deleted + active profile.
-    const { data: fallback, error: fbErr } = await supabaseAdmin
-      .from('talent_profiles')
-      .select('*, talent_users(full_name, current_location, languages_spoken, profile_photo_url, phone, age, gender, is_active), categories(id, name, slug)')
-      .eq('id', profileId)
-      .eq('category_id', categoryId)
-      .is('deleted_at', null)
-      .maybeSingle();
-    if (fbErr || !fallback) throw new AppError(404, 'Profile not found');
+    // Prefer exact category match from the URL; if card-scoped access is
+    // already authorized, load by profile id alone (category path can drift).
+    let fallback: any = null;
+    {
+      const { data: byCat, error: byCatErr } = await supabaseAdmin
+        .from('talent_profiles')
+        .select('*, talent_users(full_name, current_location, languages_spoken, profile_photo_url, phone, age, gender, is_active), categories(id, name, slug)')
+        .eq('id', profileId)
+        .eq('category_id', categoryId)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (!byCatErr && byCat) fallback = byCat;
+    }
+    if (!fallback && cardId) {
+      const { data: byId, error: byIdErr } = await supabaseAdmin
+        .from('talent_profiles')
+        .select('*, talent_users(full_name, current_location, languages_spoken, profile_photo_url, phone, age, gender, is_active), categories(id, name, slug)')
+        .eq('id', profileId)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (!byIdErr && byId) fallback = byId;
+    }
+    if (!fallback) throw new AppError(404, 'Profile not found');
     if ((fallback as any).is_active === false) throw new AppError(404, 'Profile not found');
     if ((fallback as any).talent_users?.is_active === false) {
       throw new AppError(404, 'Profile not found');
@@ -1596,15 +1611,19 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
   const talentMap = new Map<string, any>();
   for (const t of talents ?? []) talentMap.set((t as any).id, t);
 
-  // Find the best matching active+approved profile per talent in the
-  // card's categories. If match_rules has no categories, load any approved
-  // profile so first-bid talents still surface for review.
+  // Best profile per talent for deep-links:
+  //  1) approved profile in the card's targeted categories (preferred)
+  //  2) any approved profile (fallback) so "open profile" works for first-bid
+  //     / cross-category talents who still appear under For Review.
+  // Talents with no approved profile at all still show (profile_id null) so
+  // the business can see the bid / acceptance.
   const profileMap = new Map<string, any>();
   if (talentMap.size > 0) {
+    const talentUserIds = Array.from(talentMap.keys());
     let pq = supabaseAdmin
       .from('talent_profiles')
       .select('id, talent_user_id, category_id, categories!inner(id, name, slug)')
-      .in('talent_user_id', Array.from(talentMap.keys()))
+      .in('talent_user_id', talentUserIds)
       .eq('status', 'approved')
       .eq('is_active', true)
       .is('deleted_at', null);
@@ -1617,11 +1636,25 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
       const uid = (p as any).talent_user_id as string;
       if (!profileMap.has(uid)) profileMap.set(uid, p);
     }
+
+    // Fallback for talents with no category-matched profile — still link their
+    // approved profile so every section can open it (cardId authorizes access).
+    const missing = talentUserIds.filter((id) => !profileMap.has(id));
+    if (missing.length > 0) {
+      const { data: anyProfiles } = await supabaseAdmin
+        .from('talent_profiles')
+        .select('id, talent_user_id, category_id, categories!inner(id, name, slug)')
+        .in('talent_user_id', missing)
+        .eq('status', 'approved')
+        .eq('is_active', true)
+        .is('deleted_at', null);
+      for (const p of anyProfiles ?? []) {
+        const uid = (p as any).talent_user_id as string;
+        if (!profileMap.has(uid)) profileMap.set(uid, p);
+      }
+    }
   }
 
-  // Prefer profile-eligible rows; if a first-bid talent has no matching
-  // category profile, still include them (profile_id null) so the business
-  // can see the bid.
   const acceptedRows = rows.filter(
     (r: any) => talentMap.has(r.talent_user_id),
   );

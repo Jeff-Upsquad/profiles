@@ -730,6 +730,14 @@ function RecipientInfo({ recipient: r, isNew = false }: { recipient: CardRecipie
   );
 }
 
+/** Resolve category id from the recipient payload (object or rare array shape). */
+function recipientCategoryId(r: CardRecipientForBusiness): string | null {
+  const cat = r.category as { id?: string } | Array<{ id?: string }> | null | undefined;
+  if (!cat) return null;
+  if (Array.isArray(cat)) return cat[0]?.id ?? null;
+  return cat.id ?? null;
+}
+
 function RecipientLink({ recipient: r, children, inactive = false }: { recipient: CardRecipientForBusiness; children: React.ReactNode; inactive?: boolean }) {
   if (inactive) {
     return (
@@ -738,12 +746,20 @@ function RecipientLink({ recipient: r, children, inactive = false }: { recipient
       </div>
     );
   }
-  if (r.profile_id && r.category?.id) {
-    const cardQ = r.card_id ? `?cardId=${encodeURIComponent(r.card_id)}&recipientId=${encodeURIComponent(r.recipient_id)}` : '';
+  // Open profile whenever we have ids — used in Assigned / Selected / Shortlisted /
+  // New talents for review. cardId+recipientId let the API authorize via the card
+  // even when the profile's category isn't on the card's match_rules.
+  const categoryId = recipientCategoryId(r);
+  if (r.profile_id && categoryId) {
+    const qs = new URLSearchParams();
+    if (r.card_id) qs.set('cardId', r.card_id);
+    if (r.recipient_id) qs.set('recipientId', r.recipient_id);
+    const q = qs.toString() ? `?${qs.toString()}` : '';
     return (
       <Link
-        href={`/business/dashboard/${r.category.id}/${r.profile_id}${cardQ}`}
-        className="flex min-w-0 flex-1 items-center gap-4 transition-opacity hover:opacity-70"
+        href={`/business/dashboard/${categoryId}/${r.profile_id}${q}`}
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-4 transition-opacity hover:opacity-70"
+        title="View full profile"
       >
         {children}
       </Link>

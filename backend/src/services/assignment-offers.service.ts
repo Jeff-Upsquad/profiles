@@ -1015,6 +1015,8 @@ export async function listOffersForCard(cardId: string): Promise<AssignmentOffer
   }
 
   // Best matching approved profile per talent (for profile deep-link).
+  // Prefer card categories; fall back to any approved profile so Bidding /
+  // For Review "open profile" works even when categories don't match.
   const profileByTalent = new Map<string, { profile_id: string; category_id: string }>();
   if (talentIds.length > 0) {
     let q = supabaseAdmin
@@ -1033,6 +1035,26 @@ export async function listOffersForCard(cardId: string): Promise<AssignmentOffer
           profile_id: (p as any).id as string,
           category_id: (p as any).category_id as string,
         });
+      }
+    }
+
+    const missing = talentIds.filter((id) => !profileByTalent.has(id));
+    if (missing.length > 0) {
+      const { data: anyProfiles } = await supabaseAdmin
+        .from('talent_profiles')
+        .select('id, talent_user_id, category_id')
+        .in('talent_user_id', missing)
+        .eq('status', 'approved')
+        .eq('is_active', true)
+        .is('deleted_at', null);
+      for (const p of anyProfiles ?? []) {
+        const tid = (p as any).talent_user_id as string;
+        if (!profileByTalent.has(tid)) {
+          profileByTalent.set(tid, {
+            profile_id: (p as any).id as string,
+            category_id: (p as any).category_id as string,
+          });
+        }
       }
     }
   }

@@ -488,6 +488,18 @@ export default function DesignerBriefForm({
       setError('Please pick at least one working day.');
       return;
     }
+    // Subscription briefs require a weekly plan per selected role.
+    if (product !== 'assignment') {
+      const missingPlan = roles.filter((r) => !roleRequirements[r]?.plan);
+      if (missingPlan.length > 0) {
+        setError(
+          missingPlan.length === 1
+            ? 'Please select a weekly plan.'
+            : 'Please select a weekly plan for each role.',
+        );
+        return;
+      }
+    }
 
     const isAssignment = product === 'assignment';
 
@@ -924,7 +936,7 @@ export default function DesignerBriefForm({
               hint={
                 product === 'assignment'
                   ? 'Pick the talent experience levels you want, set a project budget per level, and describe the timeline. All optional — we can finalize on the call.'
-                  : 'Pick a weekly plan, choose which experience levels you want, and set a monthly budget for each. All optional — we can finalize on the call.'
+                  : 'Pick a weekly plan (required), then choose experience levels and a monthly budget for each if you know them.'
               }
             >
               {product === 'assignment' && (
@@ -972,7 +984,7 @@ export default function DesignerBriefForm({
                         <div className="mb-1 flex items-center justify-between gap-2">
                           <label className="flex items-baseline gap-2 text-sm font-medium text-[#222]">
                             <span>Plan</span>
-                            <span className="text-xs font-normal text-[#9C9486]">(optional)</span>
+                            <span className="text-[#C13515]">*</span>
                           </label>
                           <button
                             type="button"

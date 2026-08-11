@@ -662,7 +662,14 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       | 'archived'
       | 'submitted';
     const nextStatus = input.status ?? previousStatus;
-    const isRecall = (previousStatus === 'active' || previousStatus === 'assigned') && nextStatus === 'archived';
+    // submitted is included so archive of a CRM pending-brief mirror (never
+    // published, status='submitted') still stamps cancelled_at on any
+    // recipients and leaves the card hidden via archived_at + status.
+    const isRecall =
+      (previousStatus === 'active' ||
+        previousStatus === 'assigned' ||
+        previousStatus === 'submitted') &&
+      nextStatus === 'archived';
     const isRepublish = previousStatus === 'archived' && nextStatus === 'active';
     // First real publish of a CRM pending brief — same fan-out gate as insert.
     const isFirstPublishFromSubmitted =
@@ -843,6 +850,22 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       external_id: input.external_id,
       inserted: false,
       recipient_count: recipientCount,
+    };
+  }
+
+  // Archive / recall re-delivery of a card that never had a SquadHire mirror
+  // (never published, no CRM pending-brief) must not create a dead archived
+  // shell. Only update an existing row for status='archived' first contact.
+  const insertStatusPreview = input.status ?? 'active';
+  if (insertStatusPreview === 'archived') {
+    console.info('[subscription] ignoring archive ingest — no existing mirror', {
+      external_id: input.external_id,
+    });
+    return {
+      id: '',
+      external_id: input.external_id,
+      inserted: false,
+      recipient_count: 0,
     };
   }
 

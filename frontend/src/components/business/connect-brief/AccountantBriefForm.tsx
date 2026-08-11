@@ -449,6 +449,10 @@ export default function AccountantBriefForm({
       setError('Please pick at least one working day.');
       return;
     }
+    if (!isAssignment && !subscription.plan) {
+      setError('Please select a weekly plan.');
+      return;
+    }
 
     // Single 'accountant' card. The engagement note becomes its requirement
     // note, and the build-your-own choices (tiers / plan or timeline / budget)
@@ -863,7 +867,7 @@ export default function AccountantBriefForm({
               hint={
                 isAssignment
                   ? 'Pick the experience levels you want, set a project budget per level, and describe the timeline. All optional — we can finalize on the call.'
-                  : 'Pick a weekly plan, choose experience levels, and set a monthly budget for each. All optional — we can finalize on the call.'
+                  : 'Pick a weekly plan (required), then choose experience levels and a monthly budget for each if you know them.'
               }
             >
               {isAssignment && (
@@ -908,7 +912,7 @@ export default function AccountantBriefForm({
                     <div className="mb-1 flex items-center justify-between gap-2">
                       <label className="flex items-baseline gap-2 text-sm font-medium text-[#222]">
                         <span>Plan</span>
-                        <span className="text-xs font-normal text-[#9C9486]">(optional)</span>
+                        <span className="text-[#C13515]">*</span>
                       </label>
                       <button
                         type="button"
