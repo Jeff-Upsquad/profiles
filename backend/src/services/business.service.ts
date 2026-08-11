@@ -3,6 +3,7 @@ import { AppError } from '../middleware/errorHandler.middleware.js';
 import type { UpdateBusinessUserInput, DiscoverQueryInput, SendInterestInput } from '../validators/business.validators.js';
 import { getTalentTiersByUserIds } from './talent-tier.service.js';
 import { adminSelectRecipient } from './subscription.service.js';
+import { businessAmountFromOffer } from './assignment-offers.service.js';
 
 // ─── Business User ──────────────────────────────────────────────────────────
 
@@ -1690,11 +1691,12 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
     offer_status: string;
     offer_amount: unknown;
     last_actor_side: string | null;
+    opened_by: string | null;
   }>();
   if (recipientIds.length > 0) {
     const { data: offerRows } = await supabaseAdmin
       .from('assignment_offers')
-      .select('id, recipient_id, status, current_amount, last_actor_side, updated_at')
+      .select('id, recipient_id, status, current_amount, last_actor_side, opened_by, updated_at')
       .in('recipient_id', recipientIds)
       .in('status', ['pending_business', 'pending_talent', 'accepted'])
       .order('updated_at', { ascending: false });
@@ -1706,8 +1708,15 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
         offer_status: (o as any).status as string,
         offer_amount: (o as any).current_amount,
         last_actor_side: ((o as any).last_actor_side as string | null) ?? null,
+        opened_by: ((o as any).opened_by as string | null) ?? null,
       });
     }
+  }
+
+  // Card content (margin + list prices) for converting partner bids → business.
+  const contentByCard = new Map<string, Record<string, unknown>>();
+  for (const c of groupCards) {
+    contentByCard.set(c.id as string, (((c as any).content ?? {}) as Record<string, unknown>));
   }
 
   // Selection is resolved per tier card (each tier card can be independently
@@ -1743,14 +1752,22 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
       const isCardSelected = sel.selectedTalent && r.talent_user_id === sel.selectedTalent;
       const price = priceByCard.get(r.card_id as string) ?? { price: null, currency: null };
       const offer = offerByRecipient.get(r.id as string);
-      const bidAmount =
-        offer?.offer_amount &&
-        typeof offer.offer_amount === 'object' &&
-        typeof (offer.offer_amount as any).amount === 'number'
-          ? ((offer.offer_amount as any).amount as number)
-          : null;
+      const content = contentByCard.get(r.card_id as string) ?? {};
+      // Business-facing bid (partner ask + margin). Legacy talent-only amounts
+      // are converted using card margin so the chip shows the increased price.
+      const bidAmount = offer
+        ? businessAmountFromOffer(offer.offer_amount, content, {
+            last_actor_side: offer.last_actor_side,
+            opened_by: offer.opened_by,
+          })
+        : null;
       // Prefer bid/agreed figure as the chip price for first-bid talents.
       const displayPrice = bidAmount != null ? bidAmount : price.price;
+      // Normalize offer_amount.amount to the business figure for the portal UI.
+      const offerAmountForBusiness =
+        offer && bidAmount != null && offer.offer_amount && typeof offer.offer_amount === 'object'
+          ? { ...(offer.offer_amount as Record<string, unknown>), amount: bidAmount }
+          : offer?.offer_amount ?? null;
       return {
         recipient_id: r.id as string,
         talent_user_id: r.talent_user_id as string,
@@ -1770,7 +1787,7 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
           ? {
               offer_id: offer.offer_id,
               offer_status: offer.offer_status,
-              offer_amount: offer.offer_amount,
+              offer_amount: offerAmountForBusiness,
               last_actor_side: offer.last_actor_side,
             }
           : {

@@ -433,7 +433,13 @@ export default function SubscriptionCardReview({
           </h2>
           <div className="space-y-3">
             {selectedAssigned.map((r) => (
-              <RecipientRow key={r.recipient_id} recipient={r} variant="assigned" />
+              <RecipientRow
+                key={r.recipient_id}
+                recipient={r}
+                variant="assigned"
+                listPrice={card.customer_monthly_price}
+                isAssignment={isAssignment}
+              />
             ))}
           </div>
         </div>
@@ -454,7 +460,13 @@ export default function SubscriptionCardReview({
           </p>
           <div className="space-y-3">
             {selectedPending.map((r) => (
-              <RecipientRow key={r.recipient_id} recipient={r} variant="selected" />
+              <RecipientRow
+                key={r.recipient_id}
+                recipient={r}
+                variant="selected"
+                listPrice={card.customer_monthly_price}
+                isAssignment={isAssignment}
+              />
             ))}
           </div>
         </div>
@@ -512,12 +524,17 @@ export default function SubscriptionCardReview({
             ) : (
               <ul className="divide-y divide-[#E7E7EA]">
                 {shortlistedView.map((r) => (
-                  <li key={r.recipient_id} className="px-5 py-3 sm:px-6">
-                    <div className="flex items-center gap-4">
+                  <li key={r.recipient_id} className="px-5 py-3.5 sm:px-6">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                       <RecipientLink recipient={r} inactive={(isClosed || hasSelection) && !r.selected_at}>
                         <RecipientAvatar recipient={r} />
                         <RecipientInfo recipient={r} />
                       </RecipientLink>
+                      <RecipientPrice
+                        recipient={r}
+                        listPrice={card.customer_monthly_price}
+                        isAssignment={isAssignment}
+                      />
                       <div className="flex shrink-0 items-center gap-2">
                         <button
                           type="button"
@@ -564,7 +581,7 @@ export default function SubscriptionCardReview({
                 <span className="text-xs text-[#a3a3a3]">{forReviewView.length} total</span>
               </div>
               <p className="mt-0.5 text-xs text-[#a3a3a3]">
-                Talents who accepted your card or submitted a first bid (shown as their price). Newly accepted are listed first. Send an offer to move a talent into Bidding.
+                Talents who accepted your card or submitted a first bid (price shown is what you would pay). Newly accepted are listed first. Open Bidding above to Accept or Counter a bid.
               </p>
             </div>
 
@@ -577,13 +594,18 @@ export default function SubscriptionCardReview({
                 {forReviewView.map((r, i) => (
                   <li
                     key={r.recipient_id}
-                    className={`relative px-5 py-3 sm:px-6 ${isNewAcceptance(r) ? 'bg-red-50/40' : ''}`}
+                    className={`relative px-5 py-3.5 sm:px-6 ${isNewAcceptance(r) ? 'bg-red-50/40' : ''}`}
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                       <RecipientLink recipient={r} inactive={(isClosed || hasSelection) && !r.selected_at}>
                         <RecipientAvatar recipient={r} />
                         <RecipientInfo recipient={r} isNew={isNewAcceptance(r)} />
                       </RecipientLink>
+                      <RecipientPrice
+                        recipient={r}
+                        listPrice={card.customer_monthly_price}
+                        isAssignment={isAssignment}
+                      />
                       <div className="flex shrink-0 items-center gap-2">
                         <button
                           type="button"
@@ -679,26 +701,130 @@ function RecipientAvatar({ recipient: r }: { recipient: CardRecipientForBusiness
   );
 }
 
-function formatOfferChip(amount: CardRecipientForBusiness['offer_amount'], fallbackCurrency: string | null): string | null {
-  if (!amount || typeof amount.amount !== 'number') return null;
-  const cur = amount.currency === 'INR' || !amount.currency ? '₹' : `${amount.currency} `;
-  const period =
-    amount.period === 'project'
-      ? ''
-      : amount.period === 'per_month' || !amount.period
-        ? '/mo'
-        : ` ${amount.period.replace(/_/g, ' ')}`;
-  return `${cur}${amount.amount.toLocaleString()}${period}`;
+/** Resolve the business-facing figure + whether it came from a live bid. */
+function resolveRecipientPrice(r: CardRecipientForBusiness): {
+  amount: number;
+  currency: string | null;
+  period: string | null;
+  fromBid: boolean;
+  offerStatus: string | null;
+} | null {
+  if (r.offer_amount && typeof r.offer_amount.amount === 'number' && r.offer_amount.amount > 0) {
+    return {
+      amount: r.offer_amount.amount,
+      currency: r.offer_amount.currency ?? r.currency ?? null,
+      period: r.offer_amount.period ?? 'per_month',
+      fromBid: true,
+      offerStatus: r.offer_status ?? null,
+    };
+  }
+  if (r.proposed_price != null && r.proposed_price > 0) {
+    return {
+      amount: r.proposed_price,
+      currency: r.currency ?? null,
+      period: 'per_month',
+      fromBid: false,
+      offerStatus: null,
+    };
+  }
+  return null;
+}
+
+function priceLabelForOffer(status: string | null, fromBid: boolean): string {
+  if (!fromBid) return 'List price';
+  if (status === 'accepted') return 'Agreed';
+  if (status === 'pending_talent') return 'Your offer';
+  if (status === 'pending_business') return 'Talent bid';
+  return 'Bid';
+}
+
+/**
+ * Prominent price block for talent rows — sits as its own column so the
+ * figure is scannable in New / Shortlisted / Selected / Assigned lists.
+ */
+function RecipientPrice({
+  recipient: r,
+  listPrice,
+  isAssignment = false,
+}: {
+  recipient: CardRecipientForBusiness;
+  listPrice?: number | null;
+  isAssignment?: boolean;
+}) {
+  const resolved = resolveRecipientPrice(r);
+  if (!resolved) return null;
+
+  const cur =
+    resolved.currency === 'INR' || !resolved.currency ? '₹' : `${resolved.currency} `;
+  const isProject =
+    isAssignment || resolved.period === 'project';
+  const periodSuffix = isProject ? '' : '/mo';
+  const label = priceLabelForOffer(resolved.offerStatus, resolved.fromBid);
+  const differsFromList =
+    listPrice != null &&
+    listPrice > 0 &&
+    resolved.amount !== listPrice;
+
+  // Stronger emphasis when the figure is a live bid (not plain list price).
+  const isLiveBid = resolved.fromBid && resolved.offerStatus !== 'accepted';
+  const isAgreed = resolved.fromBid && resolved.offerStatus === 'accepted';
+
+  return (
+    <div
+      className={`shrink-0 rounded-xl px-3.5 py-2 text-right ring-1 sm:min-w-[7.5rem] ${
+        isAgreed
+          ? 'bg-emerald-50 ring-emerald-200'
+          : isLiveBid
+            ? 'bg-[#FFFBEB] ring-[#FDE68A]'
+            : 'bg-[#FAFAF8] ring-[#E7E7EA]'
+      }`}
+      title={
+        differsFromList && listPrice != null
+          ? `${label} · list was ${cur}${listPrice.toLocaleString()}${periodSuffix}`
+          : label
+      }
+    >
+      <p
+        className={`text-[10px] font-semibold uppercase tracking-wider ${
+          isAgreed
+            ? 'text-emerald-700'
+            : isLiveBid
+              ? 'text-amber-800'
+              : 'text-[#a3a3a3]'
+        }`}
+      >
+        {label}
+      </p>
+      <p
+        className={`mt-0.5 font-[family-name:var(--font-jakarta)] text-[15px] font-bold tabular-nums leading-tight sm:text-base ${
+          isAgreed
+            ? 'text-emerald-900'
+            : isLiveBid
+              ? 'text-[#0a0a0a]'
+              : 'text-[#0a0a0a]'
+        }`}
+      >
+        {cur}
+        {resolved.amount.toLocaleString()}
+        {periodSuffix && (
+          <span className="ml-0.5 text-[11px] font-semibold text-[#737373]">{periodSuffix}</span>
+        )}
+      </p>
+      {differsFromList && listPrice != null && (
+        <p className="mt-0.5 text-[10px] font-medium text-[#a3a3a3]">
+          {resolved.amount > listPrice ? '↑' : '↓'} from {cur}
+          {listPrice.toLocaleString()}
+          {periodSuffix}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function RecipientInfo({ recipient: r, isNew = false }: { recipient: CardRecipientForBusiness; isNew?: boolean }) {
-  const offerChip = formatOfferChip(r.offer_amount, r.currency ?? null);
-  const priceChip =
-    offerChip ??
-    (r.proposed_price != null ? formatPrice(r.proposed_price, r.currency ?? null) : null);
   return (
     <div className="min-w-0 flex-1">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
           {r.talent_name || 'Unknown talent'}
         </p>
@@ -710,14 +836,6 @@ function RecipientInfo({ recipient: r, isNew = false }: { recipient: CardRecipie
         {r.tier && (
           <span className="shrink-0 rounded-full bg-[#F1F1F3] px-2 py-0.5 text-[10px] font-semibold text-[#0a0a0a]">
             {r.tier_custom || r.tier}
-          </span>
-        )}
-        {priceChip && (
-          <span
-            className="shrink-0 rounded-full bg-[#FFFAC2] px-2 py-0.5 text-[10px] font-semibold text-[#0a0a0a]"
-            title={offerChip ? 'Bid / agreed offer' : 'Proposed monthly price for this tier'}
-          >
-            {priceChip}
           </span>
         )}
       </div>
@@ -791,17 +909,22 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
 function RecipientRow({
   recipient: r,
   variant,
+  listPrice,
+  isAssignment = false,
 }: {
   recipient: CardRecipientForBusiness;
   variant: 'selected' | 'assigned';
+  listPrice?: number | null;
+  isAssignment?: boolean;
 }) {
   const isAssigned = variant === 'assigned';
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
       <RecipientLink recipient={r}>
         <RecipientAvatar recipient={r} />
         <RecipientInfo recipient={r} />
       </RecipientLink>
+      <RecipientPrice recipient={r} listPrice={listPrice} isAssignment={isAssignment} />
       <span
         className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
           isAssigned ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'

@@ -75,8 +75,13 @@ export default function BusinessAssignmentOffers({
   const [sendOpen, setSendOpen] = useState(false);
   const [openThread, setOpenThread] = useState<string | null>(null);
 
-  // First talent-only bids stay under For Review; Bidding starts after business engages.
-  const list = (offers ?? []).filter((o) => o.negotiation_started);
+  // Show every open bid/offer — including first talent bids awaiting Accept / Counter.
+  const list = (offers ?? []).filter((o) =>
+    o.status === 'pending_business' ||
+    o.status === 'pending_talent' ||
+    o.status === 'accepted' ||
+    o.negotiation_started,
+  );
   const busy = counter.isPending || accept.isPending || decline.isPending || send.isPending;
   const baseline = listPrice && listPrice > 0 ? listPrice : 500;
 
@@ -101,7 +106,7 @@ export default function BusinessAssignmentOffers({
               Bidding
             </h2>
             <p className="mt-0.5 text-xs text-[#a3a3a3]">
-              Negotiations after you send an offer. Each side has up to 3 priced moves; Accept locks the figure, then Select.
+              Talent bids show the price you would pay. Accept locks the figure, Counter to negotiate (3 moves each side), then Select.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -124,7 +129,7 @@ export default function BusinessAssignmentOffers({
       ) : list.length === 0 ? (
         <div className="px-6 py-10 text-center">
           <p className="text-sm text-[#737373]">
-            No active negotiations yet. First talent bids appear under New talents for review — send an offer to start bidding here.
+            No active bids yet. When a talent bids above the list price, their ask appears here so you can Accept or Counter.
           </p>
         </div>
       ) : (
@@ -142,6 +147,25 @@ export default function BusinessAssignmentOffers({
               o.profile_id && o.category_id
                 ? `/business/dashboard/${o.category_id}/${o.profile_id}?cardId=${encodeURIComponent(cardId)}&recipientId=${encodeURIComponent(o.recipient_id)}`
                 : null;
+
+            const priceLabel =
+              o.status === 'pending_business'
+                ? 'Talent bid'
+                : o.status === 'pending_talent'
+                  ? 'Your offer'
+                  : o.status === 'accepted'
+                    ? 'Agreed'
+                    : 'Latest';
+            const amountNum =
+              typeof o.current_amount?.amount === 'number' ? o.current_amount.amount : null;
+            const listNum = o.list_price ?? listPrice ?? null;
+            const differsFromList =
+              amountNum != null && listNum != null && listNum > 0 && amountNum !== listNum;
+            const isLiveBid = o.status === 'pending_business' || o.status === 'pending_talent';
+            const isAgreed = o.status === 'accepted';
+            const curSym =
+              !currency || currency === 'INR' || o.list_currency === 'INR' ? '₹' : `${currency || o.list_currency} `;
+            const periodSuffix = period === 'project' ? '' : '/mo';
 
             const nameBlock = (
               <div className="flex min-w-0 items-center gap-3">
@@ -170,22 +194,6 @@ export default function BusinessAssignmentOffers({
                       {meta.label}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-sm text-[#0a0a0a]">
-                    <span className="text-[#737373]">
-                      {o.status === 'pending_business'
-                        ? 'Talent bid'
-                        : o.status === 'pending_talent'
-                          ? 'You offered'
-                          : 'Latest'}
-                      :
-                    </span>{' '}
-                    <span className="font-semibold">{bid ?? '—'}</span>
-                    {original && (
-                      <span className="ml-1.5 text-xs text-[#a3a3a3]">
-                        (original {original})
-                      </span>
-                    )}
-                  </p>
                   <p className="mt-0.5 text-[11px] text-[#a3a3a3]">
                     Your offers left: {offersLeft}/3 · Talent bids left: {o.talent_bids_remaining ?? 0}/3
                   </p>
@@ -193,20 +201,69 @@ export default function BusinessAssignmentOffers({
               </div>
             );
 
+            const priceBlock = amountNum != null ? (
+              <div
+                className={`shrink-0 rounded-xl px-3.5 py-2 text-right ring-1 sm:min-w-[7.5rem] ${
+                  isAgreed
+                    ? 'bg-emerald-50 ring-emerald-200'
+                    : isLiveBid
+                      ? 'bg-[#FFFBEB] ring-[#FDE68A]'
+                      : 'bg-[#FAFAF8] ring-[#E7E7EA]'
+                }`}
+                title={original ? `${priceLabel} · original ${original}` : priceLabel}
+              >
+                <p
+                  className={`text-[10px] font-semibold uppercase tracking-wider ${
+                    isAgreed
+                      ? 'text-emerald-700'
+                      : isLiveBid
+                        ? 'text-amber-800'
+                        : 'text-[#a3a3a3]'
+                  }`}
+                >
+                  {priceLabel}
+                </p>
+                <p className="mt-0.5 font-[family-name:var(--font-jakarta)] text-[15px] font-bold tabular-nums leading-tight text-[#0a0a0a] sm:text-base">
+                  {curSym}
+                  {amountNum.toLocaleString()}
+                  {periodSuffix && (
+                    <span className="ml-0.5 text-[11px] font-semibold text-[#737373]">{periodSuffix}</span>
+                  )}
+                </p>
+                {differsFromList && listNum != null && (
+                  <p className="mt-0.5 text-[10px] font-medium text-[#a3a3a3]">
+                    {amountNum > listNum ? '↑' : '↓'} from {curSym}
+                    {listNum.toLocaleString()}
+                    {periodSuffix}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="shrink-0 rounded-xl bg-[#FAFAF8] px-3.5 py-2 text-right ring-1 ring-[#E7E7EA] sm:min-w-[7.5rem]">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
+                  {priceLabel}
+                </p>
+                <p className="mt-0.5 text-sm font-semibold text-[#a3a3a3]">{bid ?? '—'}</p>
+              </div>
+            );
+
             return (
               <li key={o.id} className="px-5 py-4 sm:px-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    {profileHref ? (
-                      <Link
-                        href={profileHref}
-                        className="block rounded-lg transition-opacity hover:opacity-75"
-                      >
-                        {nameBlock}
-                      </Link>
-                    ) : (
-                      nameBlock
-                    )}
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                      {profileHref ? (
+                        <Link
+                          href={profileHref}
+                          className="min-w-0 flex-1 rounded-lg transition-opacity hover:opacity-75"
+                        >
+                          {nameBlock}
+                        </Link>
+                      ) : (
+                        <div className="min-w-0 flex-1">{nameBlock}</div>
+                      )}
+                      {priceBlock}
+                    </div>
                     {o.events.length > 0 && (
                       <button
                         type="button"

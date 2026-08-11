@@ -19,9 +19,13 @@ import { writeAcceptedTalentToDashboard } from './subscription.service.js';
  *
  * Product rules (2026-08):
  *  - Talent's FIRST bid marks the recipient accepted and surfaces them under
- *    "New talents for review" with the bid price — NOT under Bidding yet.
- *  - Bidding section only after the business has sent an offer/counter.
+ *    "New talents for review" with the bid price, AND under Bidding so the
+ *    business can Accept / Counter immediately.
  *  - Each side has MAX 3 priced moves (bid / counter / send) per card.
+ *  - Dual pricing: talent enters partner pay; business sees customer pay.
+ *    Margin (content.margin_* or customer − partner list) is applied on every
+ *    priced move. Stored amount is always:
+ *      { amount: businessFigure, partner_amount, margin_amount, side, ... }
  *
  *   (talent bid / submit / counter) -> pending_business
  *   (business send / counter)       -> pending_talent
@@ -83,6 +87,205 @@ function actorSide(actor: JobsActor): 'talent' | 'business' | 'admin' {
 
 function talentDeepLink(cardType: string): string {
   return cardType === 'assignment' ? '/talent/assignments' : '/talent/subscriptions';
+}
+
+/** Round a positive amount UP to the nearest hundred (percent-margin rupee cuts). */
+function ceilToHundred(amount: number): number {
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
+  return Math.ceil(amount / 100) * 100;
+}
+
+/**
+ * Absolute margin for a card at a given business base price.
+ * Prefer fixed margin_amount / margin_value; percent re-applies to base;
+ * fall back to list customer − partner when both are set.
+ */
+function resolveCardMargin(
+  content: Record<string, unknown> | null | undefined,
+  businessBase: number | null,
+): number {
+  if (!content) return 0;
+  const marginType = content.margin_type === 'percent' ? 'percent' : 'fixed';
+  const marginValue =
+    typeof content.margin_value === 'number' && Number.isFinite(content.margin_value)
+      ? content.margin_value
+      : null;
+  if (marginType === 'percent' && marginValue != null && businessBase != null && businessBase > 0) {
+    return ceilToHundred((businessBase * marginValue) / 100);
+  }
+  if (typeof content.margin_amount === 'number' && Number.isFinite(content.margin_amount)) {
+    return Math.max(0, Math.round(content.margin_amount));
+  }
+  if (marginType === 'fixed' && marginValue != null) {
+    return Math.max(0, Math.round(marginValue));
+  }
+  const customer =
+    typeof content.customer_monthly_price === 'number' ? content.customer_monthly_price : null;
+  const partner = typeof content.monthly_price === 'number' ? content.monthly_price : null;
+  if (customer != null && partner != null && customer >= partner) {
+    return Math.round(customer - partner);
+  }
+  return 0;
+}
+
+/** Business (customer) figure implied by a talent/partner ask. */
+function businessFromPartner(
+  partnerAmount: number,
+  content: Record<string, unknown> | null | undefined,
+): number {
+  if (!Number.isFinite(partnerAmount) || partnerAmount < 0) return 0;
+  const marginType = content?.margin_type === 'percent' ? 'percent' : 'fixed';
+  const marginValue =
+    typeof content?.margin_value === 'number' && Number.isFinite(content.margin_value)
+      ? content.margin_value
+      : null;
+
+  if (marginType === 'percent' && marginValue != null && marginValue > 0 && marginValue < 100) {
+    // Smallest business amount whose partner side equals the talent ask.
+    let guess = Math.ceil(partnerAmount / (1 - marginValue / 100));
+    for (let i = 0; i < 500; i++) {
+      const margin = ceilToHundred((guess * marginValue) / 100);
+      const derived = Math.max(0, guess - margin);
+      if (derived === partnerAmount) return guess;
+      if (derived < partnerAmount) {
+        guess += 1;
+        continue;
+      }
+      while (guess > partnerAmount) {
+        const prev = guess - 1;
+        const prevMargin = ceilToHundred((prev * marginValue) / 100);
+        if (Math.max(0, prev - prevMargin) < partnerAmount) break;
+        guess = prev;
+      }
+      return guess;
+    }
+    return guess;
+  }
+
+  // Fixed margin: talent ask + absolute cut. When percent is unset, use list gap.
+  const fixed = resolveCardMargin(content, null);
+  return Math.round(partnerAmount + fixed);
+}
+
+/** Partner (talent) figure implied by a business amount. */
+function partnerFromBusiness(
+  businessAmount: number,
+  content: Record<string, unknown> | null | undefined,
+): number {
+  if (!Number.isFinite(businessAmount) || businessAmount < 0) return 0;
+  const margin = resolveCardMargin(content, businessAmount);
+  return Math.max(0, Math.round(businessAmount - margin));
+}
+
+/**
+ * Expand a raw figure into the dual payload stored on offers.
+ * Talent moves enter partner pay; business/admin moves enter customer pay.
+ *
+ * Storage convention (matches SquadHub lockAcceptedBidPrice):
+ *  - side 'talent'  → amount = partner pay (what talent bid)
+ *  - side 'business'→ amount = customer pay (what business offered)
+ * Always also write partner_amount + business_amount so each portal can
+ * render its side without re-deriving.
+ */
+function expandOfferAmount(
+  raw: Record<string, unknown>,
+  side: 'talent' | 'business',
+  content: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  const n = typeof raw.amount === 'number' ? raw.amount : Number(raw.amount);
+  if (!Number.isFinite(n) || n <= 0) return raw;
+
+  let business: number;
+  let partner: number;
+  if (side === 'talent') {
+    partner = Math.round(n);
+    business = businessFromPartner(partner, content);
+  } else {
+    business = Math.round(n);
+    partner = partnerFromBusiness(business, content);
+  }
+  const margin = Math.max(0, business - partner);
+
+  return {
+    ...raw,
+    // amount follows the actor's side (SquadHub lock convention).
+    amount: side === 'talent' ? partner : business,
+    partner_amount: partner,
+    business_amount: business,
+    margin_amount: margin,
+    side,
+  };
+}
+
+type OfferAmountHint = {
+  last_actor_side?: string | null;
+  opened_by?: string | null;
+};
+
+/** Business-facing figure from a stored offer amount (legacy-safe). */
+export function businessAmountFromOffer(
+  amount: unknown,
+  content?: Record<string, unknown> | null,
+  hint?: OfferAmountHint,
+): number | null {
+  if (!amount || typeof amount !== 'object') return null;
+  const a = amount as Record<string, unknown>;
+  if (typeof a.amount !== 'number' || !(a.amount > 0)) return null;
+
+  // Explicit dual field wins.
+  if (typeof a.business_amount === 'number' && a.business_amount > 0) {
+    return Math.round(a.business_amount);
+  }
+
+  const side =
+    a.side === 'talent' || a.side === 'business' || a.side === 'admin'
+      ? a.side
+      : hint?.last_actor_side === 'talent' ||
+          (hint?.opened_by === 'talent' &&
+            hint?.last_actor_side !== 'business' &&
+            hint?.last_actor_side !== 'admin')
+        ? 'talent'
+        : 'business';
+
+  if (side === 'talent') {
+    // amount is partner pay (or partner_amount if set).
+    const partner =
+      typeof a.partner_amount === 'number' && a.partner_amount >= 0
+        ? a.partner_amount
+        : a.amount;
+    return businessFromPartner(partner, content ?? null);
+  }
+
+  // Business/admin: amount is customer pay.
+  return Math.round(a.amount);
+}
+
+/** Talent-facing figure from a stored offer amount (legacy-safe). */
+export function partnerAmountFromOffer(
+  amount: unknown,
+  content?: Record<string, unknown> | null,
+  hint?: OfferAmountHint,
+): number | null {
+  if (!amount || typeof amount !== 'object') return null;
+  const a = amount as Record<string, unknown>;
+  if (typeof a.amount !== 'number' || !(a.amount > 0)) return null;
+
+  if (typeof a.partner_amount === 'number' && a.partner_amount >= 0) {
+    return Math.round(a.partner_amount);
+  }
+
+  const side =
+    a.side === 'talent' || a.side === 'business' || a.side === 'admin'
+      ? a.side
+      : hint?.last_actor_side === 'talent' ||
+          (hint?.opened_by === 'talent' &&
+            hint?.last_actor_side !== 'business' &&
+            hint?.last_actor_side !== 'admin')
+        ? 'talent'
+        : 'business';
+
+  if (side === 'talent') return Math.round(a.amount);
+  return partnerFromBusiness(a.amount, content ?? null);
 }
 
 /** Count priced moves (submit/counter) for each side across all offers on this card+talent. */
@@ -525,8 +728,15 @@ export async function talentSubmitOrCounter(
   const actor: JobsActor = { type: 'talent', id: talentUserId };
   const existing = await getOpenOfferForRecipient(recipientId);
   const periodDefault = refs.cardType === 'assignment' ? 'project' : 'per_month';
-  const amount = normalizeOfferAmount(input.amount, { period: periodDefault });
+  // Talent enters partner pay; expand to dual so business sees customer figure.
+  const amount = expandOfferAmount(
+    normalizeOfferAmount(input.amount, { period: periodDefault }),
+    'talent',
+    refs.content,
+  );
   const title = cardOfferTitle(refs.content, refs.cardType);
+  const talentFacing =
+    typeof amount.partner_amount === 'number' ? amount.partner_amount : amount.amount;
 
   const { talentMoves, businessMoves } = await countMovesForCardTalent(ctx.cardId, talentUserId);
   if (talentMoves >= MAX_TALENT_BIDS) {
@@ -605,14 +815,28 @@ export async function talentSubmitOrCounter(
     const names = await getTalentNames([talentUserId]);
     const talentName = names.get(talentUserId) ?? 'A talent';
     const remaining = MAX_TALENT_BIDS - (talentMoves + 1);
+    const businessFacing =
+      typeof amount.business_amount === 'number'
+        ? `₹${amount.business_amount.toLocaleString()}`
+        : typeof amount.amount === 'number'
+          ? `₹${amount.amount.toLocaleString()}`
+          : '';
     await createBusinessNotification({
       businessUserId: refs.businessUserId,
       type: action === 'submitted' ? 'assignment_offer_submitted' : 'assignment_offer_countered',
       title:
         action === 'submitted'
-          ? `${talentName} bid ${typeof amount.amount === 'number' ? `₹${amount.amount.toLocaleString()}` : ''} on ${title}`
+          ? `${talentName} bid ${businessFacing} on ${title}`
           : `${talentName} sent a counter-bid on ${title}`,
-      body: input.note ?? (remaining >= 0 ? `${remaining} talent bid(s) remaining` : null),
+      body:
+        input.note ??
+        (remaining >= 0
+          ? `${remaining} talent bid(s) remaining${
+              typeof talentFacing === 'number'
+                ? ` · talent ask ₹${Number(talentFacing).toLocaleString()}`
+                : ''
+            }`
+          : null),
       ref: {
         card_id: ctx.cardId,
         offer_id: offer.id,
@@ -671,9 +895,28 @@ export async function talentRespondToOffer(
   return updated;
 }
 
+/** Project an offer amount to the talent-facing partner figure for the portal. */
+function projectAmountForTalent(
+  amount: Record<string, unknown> | null | undefined,
+  content: Record<string, unknown> | null | undefined,
+  hint?: OfferAmountHint,
+): Record<string, unknown> | null | undefined {
+  if (!amount || typeof amount !== 'object') return amount;
+  const partner = partnerAmountFromOffer(amount, content, hint);
+  const business = businessAmountFromOffer(amount, content, hint);
+  if (partner == null) return amount;
+  return {
+    ...amount,
+    // Talent UIs read `amount` — put partner pay there, keep business dual fields.
+    amount: partner,
+    ...(business != null ? { business_amount: business } : {}),
+    ...(typeof amount.partner_amount === 'number' ? {} : { partner_amount: partner }),
+  };
+}
+
 /** Talent's live offer + thread for one recipient (null when none yet). */
 export async function getOfferForTalentRecipient(talentUserId: string, recipientId: string) {
-  const { ctx } = await loadTalentRecipient(talentUserId, recipientId);
+  const { ctx, refs } = await loadTalentRecipient(talentUserId, recipientId);
   const offer = (await getOpenOfferForRecipient(recipientId)) ?? (await getLatestOfferForRecipient(recipientId));
   const { talentMoves, businessMoves } = await countMovesForCardTalent(ctx.cardId, talentUserId);
   const limits = {
@@ -688,7 +931,22 @@ export async function getOfferForTalentRecipient(talentUserId: string, recipient
   };
   if (!offer) return { offer: null, events: [] as unknown[], ...limits };
   const events = await listOfferEvents(offer.id);
-  return { offer, events, ...limits };
+  const projected = projectAmountForTalent(offer.current_amount, refs.content, {
+    last_actor_side: offer.last_actor_side,
+    opened_by: offer.opened_by,
+  });
+  const eventsProjected = (events as any[]).map((e) => ({
+    ...e,
+    amount:
+      e?.amount && typeof e.amount === 'object'
+        ? projectAmountForTalent(e.amount as Record<string, unknown>, refs.content)
+        : e.amount,
+  }));
+  return {
+    offer: { ...offer, current_amount: projected ?? offer.current_amount },
+    events: eventsProjected,
+    ...limits,
+  };
 }
 
 // ─── Business / admin actions ──────────────────────────────────────────────
@@ -702,7 +960,12 @@ export async function businessCounter(
   if (offer.status !== 'pending_business') throw new AppError(409, 'It is not your turn to counter this offer');
   const refs = await getAssignmentCardRefs(offer.card_id);
   const periodDefault = refs.cardType === 'assignment' ? 'project' : 'per_month';
-  const amount = normalizeOfferAmount(input.amount, { period: periodDefault });
+  // Business enters customer pay; expand so talent sees partner figure.
+  const amount = expandOfferAmount(
+    normalizeOfferAmount(input.amount, { period: periodDefault }),
+    'business',
+    refs.content,
+  );
   const title = cardOfferTitle(refs.content, refs.cardType);
 
   const { businessMoves } = await countMovesForCardTalent(offer.card_id, offer.talent_user_id);
@@ -763,7 +1026,11 @@ export async function businessSendOffer(
 ): Promise<AssignmentOfferRow> {
   const refs = await getAssignmentCardRefs(cardId);
   const periodDefault = refs.cardType === 'assignment' ? 'project' : 'per_month';
-  const amount = normalizeOfferAmount(input.amount, { period: periodDefault });
+  const amount = expandOfferAmount(
+    normalizeOfferAmount(input.amount, { period: periodDefault }),
+    'business',
+    refs.content,
+  );
   const title = cardOfferTitle(refs.content, refs.cardType);
 
   const { data: recipient, error: recErr } = await supabaseAdmin
@@ -956,8 +1223,9 @@ export interface AssignmentOfferWithThread extends AssignmentOfferRow {
   talent_bids_remaining: number;
   business_offers_remaining: number;
   /**
-   * True once the business has made ≥1 priced move. First talent-only bids
-   * stay under For Review until this is true; then they appear under Bidding.
+   * True once the business has made ≥1 priced move (or opened the offer).
+   * First talent-only bids still appear under Bidding with Accept/Counter;
+   * this flag is kept for analytics / copy variants.
    */
   negotiation_started: boolean;
 }
@@ -1051,13 +1319,32 @@ export async function listOffersForCard(cardId: string): Promise<AssignmentOffer
     }
   }
 
+  const content = (refs?.content ?? {}) as Record<string, unknown>;
   const withThreads: AssignmentOfferWithThread[] = [];
   for (const o of offers) {
     const events = await listOfferEvents(o.id);
     const prof = profileByTalent.get(o.talent_user_id);
     const { talentMoves, businessMoves } = await countMovesForCardTalent(cardId, o.talent_user_id);
+    // Surface business-facing figures on the portal (convert legacy talent bids).
+    const biz = businessAmountFromOffer(o.current_amount, content, {
+      last_actor_side: o.last_actor_side,
+      opened_by: o.opened_by,
+    });
+    const partner = partnerAmountFromOffer(o.current_amount, content, {
+      last_actor_side: o.last_actor_side,
+      opened_by: o.opened_by,
+    });
+    const currentAmount =
+      biz != null && o.current_amount && typeof o.current_amount === 'object'
+        ? {
+            ...(o.current_amount as Record<string, unknown>),
+            amount: biz,
+            ...(partner != null ? { partner_amount: partner } : {}),
+          }
+        : o.current_amount;
     withThreads.push({
       ...o,
+      current_amount: currentAmount,
       talent_name: names.get(o.talent_user_id) ?? 'Unknown talent',
       events,
       profile_id: prof?.profile_id ?? null,
@@ -1069,7 +1356,8 @@ export async function listOffersForCard(cardId: string): Promise<AssignmentOffer
       business_offers_used: businessMoves,
       talent_bids_remaining: Math.max(0, MAX_TALENT_BIDS - talentMoves),
       business_offers_remaining: Math.max(0, MAX_BUSINESS_OFFERS - businessMoves),
-      negotiation_started: businessMoves > 0 || o.opened_by === 'business' || o.opened_by === 'admin',
+      // First talent bids are negotiable immediately (Accept / Counter).
+      negotiation_started: true,
     });
   }
   return withThreads;
@@ -1223,8 +1511,18 @@ export async function listOffersForTalent(talentUserId: string): Promise<TalentO
     const content = (card?.content ?? null) as Record<string, unknown> | null;
     const contentObj = content ?? {};
     const events = await listOfferEvents(o.id);
+    const hint = { last_actor_side: o.last_actor_side, opened_by: o.opened_by };
+    const projectedCurrent = projectAmountForTalent(o.current_amount, contentObj, hint);
+    const eventsProjected = (events as any[]).map((e) => ({
+      ...e,
+      amount:
+        e?.amount && typeof e.amount === 'object'
+          ? projectAmountForTalent(e.amount as Record<string, unknown>, contentObj)
+          : e.amount,
+    }));
     out.push({
       ...o,
+      current_amount: (projectedCurrent ?? o.current_amount) as Record<string, unknown>,
       card_type: (card?.card_type as string) ?? null,
       brand_name: (typeof contentObj.brand_name === 'string' ? contentObj.brand_name : null),
       card_title: cardOfferTitle(contentObj, (card?.card_type as string) || 'subscription'),
@@ -1233,7 +1531,7 @@ export async function listOffersForTalent(talentUserId: string): Promise<TalentO
       card_status: (card?.status as string) ?? null,
       card_published_at: (card?.published_at as string) ?? null,
       card_expires_at: (card?.expires_at as string) ?? null,
-      events,
+      events: eventsProjected,
     });
   }
   return out;
