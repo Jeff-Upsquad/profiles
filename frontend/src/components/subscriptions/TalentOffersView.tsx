@@ -1,20 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import SubscriptionCardView from '@/components/subscriptions/SubscriptionCardView';
 import RespondedListView from '@/components/subscriptions/RespondedListView';
+import BiddingListView, { useBiddingCount } from '@/components/subscriptions/BiddingListView';
 import {
   useMySubscriptionCards,
   type SubscriptionListFilter,
 } from '@/hooks/useSubscriptionCards';
 import { useTalentMe, useUpdateTalentMe } from '@/hooks/useTalentMe';
 
-const TABS: { key: SubscriptionListFilter; label: string }[] = [
+type TabKey = 'pending' | 'bidding' | 'responded' | 'expired';
+
+const TABS: { key: TabKey; label: string }[] = [
   { key: 'pending', label: 'Pending' },
+  { key: 'bidding', label: 'Bidding' },
   { key: 'responded', label: 'Responded' },
   { key: 'expired', label: 'Expired' },
 ];
+
+function isTabKey(v: string | null): v is TabKey {
+  return v === 'pending' || v === 'bidding' || v === 'responded' || v === 'expired';
+}
 
 export default function TalentOffersView({
   variant = 'subscription',
@@ -23,11 +31,23 @@ export default function TalentOffersView({
 }) {
   const isAssignment = variant === 'assignment';
   const heading = isAssignment ? 'Assignments' : 'Subscriptions';
-  const [tab, setTab] = useState<SubscriptionListFilter>('pending');
-  const { data, isLoading, isError } = useMySubscriptionCards(tab, variant);
+  const [tab, setTab] = useState<TabKey>('pending');
+
+  // Honor ?tab=bidding (e.g. redirects from the old /talent/bidding route).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const q = new URLSearchParams(window.location.search).get('tab');
+    if (isTabKey(q)) setTab(q);
+  }, []);
+
+  // Card-list tabs share one query; bidding is a separate offers feed.
+  const cardFilter: SubscriptionListFilter = tab === 'bidding' ? 'pending' : tab;
+  const { data, isLoading, isError } = useMySubscriptionCards(cardFilter, variant);
   const { data: pendingCount } = useMySubscriptionCards('pending', variant);
+  const biddingNum = useBiddingCount(variant);
 
   const pendingNum = (pendingCount ?? []).length;
+  const showCardQuery = tab !== 'bidding';
 
   return (
     <div className="space-y-6">
@@ -54,11 +74,12 @@ export default function TalentOffersView({
 
       <WhatsAppUpdatesToggle />
 
-      {/* V5 Tab Control */}
-      <div className="inline-flex items-center gap-1 rounded-xl bg-[#F5F5F6] p-1.5 border border-[#E7E7EA]">
+      {/* V5 Tab Control — Pending → Bidding → Responded → Expired */}
+      <div className="inline-flex flex-wrap items-center gap-1 rounded-xl bg-[#F5F5F6] p-1.5 border border-[#E7E7EA]">
         {TABS.map((t) => {
           const isActive = tab === t.key;
-          const count = t.key === 'pending' ? pendingNum : null;
+          const count =
+            t.key === 'pending' ? pendingNum : t.key === 'bidding' ? biddingNum : null;
           return (
             <button
               key={t.key}
@@ -82,7 +103,9 @@ export default function TalentOffersView({
         })}
       </div>
 
-      {isLoading && (
+      {tab === 'bidding' && <BiddingListView cardType={variant} />}
+
+      {showCardQuery && isLoading && (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {[0, 1, 2].map((i) => (
             <div key={i} className="rounded-2xl border border-[#E7E7EA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -95,7 +118,7 @@ export default function TalentOffersView({
         </div>
       )}
 
-      {isError && (
+      {showCardQuery && isError && (
         <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4">
           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-red-100">
             <svg className="h-4 w-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -109,7 +132,7 @@ export default function TalentOffersView({
         </div>
       )}
 
-      {!isLoading && !isError && (data?.length ?? 0) === 0 && (
+      {showCardQuery && !isLoading && !isError && (data?.length ?? 0) === 0 && (
         <div className="relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-6 py-16 text-center">
           <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
           <div className="relative">
@@ -142,7 +165,7 @@ export default function TalentOffersView({
         </div>
       )}
 
-      {!isLoading && !isError && (data?.length ?? 0) > 0 && tab === 'pending' && (
+      {showCardQuery && !isLoading && !isError && (data?.length ?? 0) > 0 && tab === 'pending' && (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {data!.map((item, i) => (
             <div key={item.id} className={`stagger-${Math.min(i + 1, 6)}`}>
@@ -152,7 +175,7 @@ export default function TalentOffersView({
         </div>
       )}
 
-      {!isLoading && !isError && (data?.length ?? 0) > 0 && tab !== 'pending' && (
+      {showCardQuery && !isLoading && !isError && (data?.length ?? 0) > 0 && tab !== 'pending' && (
         <RespondedListView items={data!} />
       )}
     </div>
