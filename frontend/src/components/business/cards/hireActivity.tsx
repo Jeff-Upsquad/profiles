@@ -41,7 +41,21 @@ export interface HireActivityItem {
   unreadCount?: number;
 }
 
-export type FilterKey = 'all' | HireProduct;
+/** Tab filter on My Cards / Your activity — by lifecycle status, not product type. */
+export type FilterKey = 'all' | ActivityStatus;
+
+/** Display order for status filter tabs (workflow-ish left → right).
+ *  Cancelled is intentionally omitted — cancelled cards are hidden from the list. */
+export const STATUS_FILTER_ORDER: ActivityStatus[] = [
+  'submitted',
+  'open',
+  'sourcing',
+  'interviewing',
+  'active',
+  'paused',
+  'filled',
+  'closed',
+];
 
 // ─── Mappers ─────────────────────────────────────────────────────────────────
 
@@ -265,13 +279,18 @@ export function useHireActivity({
   const jobQuery = useBusinessJobCards(live);
 
   const items = useMemo(() => {
-    if (activity) return activity;
-    if (preview) return MOCK_ACTIVITY;
-    return [
-      ...mapSubCards(subQuery.data ?? [], 'subscription'),
-      ...mapSubCards(asgQuery.data ?? [], 'assignment'),
-      ...mapJobCards(jobQuery.data ?? []),
-    ];
+    const raw = activity
+      ? activity
+      : preview
+        ? MOCK_ACTIVITY
+        : [
+            ...mapSubCards(subQuery.data ?? [], 'subscription'),
+            ...mapSubCards(asgQuery.data ?? [], 'assignment'),
+            ...mapJobCards(jobQuery.data ?? []),
+          ];
+    // Cancelled cards stay out of My Cards / Your activity — they clutter the
+    // list and aren't actionable. Closed/filled job posts still show.
+    return raw.filter((i) => i.status !== 'cancelled');
   }, [activity, preview, subQuery.data, asgQuery.data, jobQuery.data]);
 
   const isLoading =

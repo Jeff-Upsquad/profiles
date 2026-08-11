@@ -27,7 +27,7 @@ export default function BusinessMyCards() {
         isLoading={isLoading}
         isError={isError}
         title="All cards"
-        subtitle="Filter by type — subscriptions, assignments, and job posts."
+        subtitle="Filter by status — submitted, open, active, cancelled, and more."
       />
     </div>
   );

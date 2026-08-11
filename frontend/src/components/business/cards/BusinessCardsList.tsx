@@ -6,7 +6,9 @@ import { SkeletonCard } from '@/components/ui/Skeleton';
 import {
   type HireActivityItem,
   type FilterKey,
+  type ActivityStatus,
   STATUS_STYLES,
+  STATUS_FILTER_ORDER,
   PRODUCT_BADGE,
   PRODUCT_TINT,
   ProductIcon,
@@ -16,7 +18,8 @@ import {
  * The card-activity list — a filterable list of the business's subscriptions,
  * assignments and job posts. Shared by the Find talent "Your activity" section
  * and the standalone "My Cards" page so both render identical rows. Owns the
- * type filter and per-tab counts internally; data is passed in.
+ * status filter and per-tab counts internally; data is passed in. Cards are
+ * grouped by lifecycle status (not product type).
  */
 export default function BusinessCardsList({
   items,
@@ -24,7 +27,7 @@ export default function BusinessCardsList({
   isError = false,
   preview = false,
   title = 'Your activity',
-  subtitle = 'All subscriptions, assignments, and job posts in one list.',
+  subtitle = 'All subscriptions, assignments, and job posts — grouped by status.',
 }: {
   items: HireActivityItem[];
   isLoading?: boolean;
@@ -35,13 +38,58 @@ export default function BusinessCardsList({
 }) {
   const [filter, setFilter] = useState<FilterKey>('all');
 
-  const counts = useMemo(() => {
-    const c = { all: items.length, subscription: 0, assignment: 0, job: 0 };
-    for (const i of items) c[i.product] += 1;
-    return c;
-  }, [items]);
+  // Belt-and-suspenders: cancelled cards are already dropped in useHireActivity,
+  // but keep the list clean if items are passed in from elsewhere (e.g. previews).
+  const visibleItems = useMemo(
+    () => items.filter((i) => i.status !== 'cancelled'),
+    [items],
+  );
 
-  const visible = filter === 'all' ? items : items.filter((i) => i.product === filter);
+  const counts = useMemo(() => {
+    const c: Record<FilterKey, number> = { all: visibleItems.length } as Record<FilterKey, number>;
+    for (const status of STATUS_FILTER_ORDER) c[status] = 0;
+    for (const i of visibleItems) c[i.status] = (c[i.status] ?? 0) + 1;
+    return c;
+  }, [visibleItems]);
+
+  // Only show status tabs that have at least one card (plus All), so empty
+  // statuses don't clutter the bar. Keep the active tab even if its count
+  // drops to 0 while the user is looking at it.
+  const tabs = useMemo(() => {
+    const statusTabs = STATUS_FILTER_ORDER.filter(
+      (s) => (counts[s] ?? 0) > 0 || filter === s,
+    ).map((s) => ({ key: s as FilterKey, label: STATUS_STYLES[s].label }));
+    return [{ key: 'all' as const, label: 'All' }, ...statusTabs];
+  }, [counts, filter]);
+
+  // When the active filter has no cards left (e.g. data refreshed), fall back
+  // to All so the list isn't stuck on an empty status tab.
+  const effectiveFilter: FilterKey =
+    filter === 'all' || (counts[filter] ?? 0) > 0 ? filter : 'all';
+
+  // Group by status in workflow order. "All" shows every non-empty group;
+  // a specific status tab shows only that group.
+  const groups = useMemo(() => {
+    const byStatus = new Map<ActivityStatus, HireActivityItem[]>();
+    for (const item of visibleItems) {
+      const list = byStatus.get(item.status);
+      if (list) list.push(item);
+      else byStatus.set(item.status, [item]);
+    }
+    const order =
+      effectiveFilter === 'all'
+        ? STATUS_FILTER_ORDER
+        : STATUS_FILTER_ORDER.filter((s) => s === effectiveFilter);
+    return order
+      .filter((s) => (byStatus.get(s)?.length ?? 0) > 0)
+      .map((status) => ({
+        status,
+        label: STATUS_STYLES[status].label,
+        items: byStatus.get(status) ?? [],
+      }));
+  }, [visibleItems, effectiveFilter]);
+
+  const totalVisible = groups.reduce((n, g) => n + g.items.length, 0);
 
   return (
     <section className="overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -54,17 +102,10 @@ export default function BusinessCardsList({
         </div>
       </div>
 
-      <div className="border-b border-[#E7E7EA] px-5 sm:px-6" role="tablist" aria-label="Filter by type">
+      <div className="border-b border-[#E7E7EA] px-5 sm:px-6" role="tablist" aria-label="Filter by status">
         <div className="-mb-px flex gap-1 overflow-x-auto">
-          {(
-            [
-              { key: 'all' as const, label: 'All' },
-              { key: 'subscription' as const, label: 'Subscriptions' },
-              { key: 'assignment' as const, label: 'Assignments' },
-              { key: 'job' as const, label: 'Job posts' },
-            ] as const
-          ).map((tab) => {
-            const active = filter === tab.key;
+          {tabs.map((tab) => {
+            const active = effectiveFilter === tab.key;
             return (
               <button
                 key={tab.key}
@@ -78,7 +119,7 @@ export default function BusinessCardsList({
               >
                 {tab.label}
                 <span className={`ml-1.5 text-xs font-medium ${active ? 'text-[#525252]' : 'text-[#a3a3a3]'}`}>
-                  {counts[tab.key]}
+                  {counts[tab.key] ?? 0}
                 </span>
                 {active && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-[#0a0a0a]" />}
               </button>
@@ -100,7 +141,7 @@ export default function BusinessCardsList({
             <p className="mt-0.5 text-sm text-red-700">Refresh the page to try again.</p>
           </div>
         </div>
-      ) : visible.length === 0 ? (
+      ) : totalVisible === 0 ? (
         <div className="px-6 py-14 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F5F5F6]">
             <svg className="h-5 w-5 text-[#a3a3a3]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -115,59 +156,76 @@ export default function BusinessCardsList({
           </p>
         </div>
       ) : (
-        <ul className="divide-y divide-[#E7E7EA]">
-          {visible.map((item) => {
-            const status = STATUS_STYLES[item.status];
-            const unread = item.unreadCount ?? 0;
-            const body = (
-              <div className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-[#F5F5F6] sm:px-6">
-                <div
-                  className={`${PRODUCT_TINT[item.product]} flex h-11 w-11 shrink-0 items-center justify-center rounded-xl`}
-                  style={{ color: 'var(--tint-icon)' }}
-                >
-                  <ProductIcon product={item.product} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
-                      {item.title}
-                    </p>
-                    <span className="shrink-0 rounded-full bg-[#F5F5F6] px-2 py-0.5 text-[10px] font-semibold text-[#525252]">
-                      {PRODUCT_BADGE[item.product]}
+        <div>
+          {groups.map((group) => (
+            <div key={group.status}>
+              {/* Section header only when "All" shows multiple statuses */}
+              {effectiveFilter === 'all' && groups.length > 1 && (
+                <div className="border-b border-[#E7E7EA] bg-[#FAFAFA] px-5 py-2 sm:px-6">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#737373]">
+                    {group.label}
+                    <span className="ml-1.5 font-medium normal-case tracking-normal text-[#a3a3a3]">
+                      {group.items.length}
                     </span>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.className}`}>
-                      {status.label}
-                    </span>
-                    {unread > 0 && (
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-semibold text-white">
-                        {unread} new
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-0.5 truncate text-xs text-[#737373]">{item.subtitle}</p>
-                  <p className="mt-0.5 truncate text-xs text-[#a3a3a3]">{item.meta}</p>
+                  </p>
                 </div>
-                <svg className="h-4 w-4 shrink-0 text-[#D4D4D8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            );
-
-            if (item.href && !preview) {
-              return (
-                <li key={item.id}>
-                  <Link href={item.href}>{body}</Link>
-                </li>
-              );
-            }
-            return (
-              <li key={item.id} className={preview ? 'cursor-default' : undefined}>
-                {body}
-              </li>
-            );
-          })}
-        </ul>
+              )}
+              <ul className="divide-y divide-[#E7E7EA]">
+                {group.items.map((item) => (
+                  <CardRow key={item.id} item={item} preview={preview} />
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       )}
     </section>
   );
+}
+
+function CardRow({ item, preview }: { item: HireActivityItem; preview: boolean }) {
+  const status = STATUS_STYLES[item.status];
+  const unread = item.unreadCount ?? 0;
+  const body = (
+    <div className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-[#F5F5F6] sm:px-6">
+      <div
+        className={`${PRODUCT_TINT[item.product]} flex h-11 w-11 shrink-0 items-center justify-center rounded-xl`}
+        style={{ color: 'var(--tint-icon)' }}
+      >
+        <ProductIcon product={item.product} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
+            {item.title}
+          </p>
+          <span className="shrink-0 rounded-full bg-[#F5F5F6] px-2 py-0.5 text-[10px] font-semibold text-[#525252]">
+            {PRODUCT_BADGE[item.product]}
+          </span>
+          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.className}`}>
+            {status.label}
+          </span>
+          {unread > 0 && (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+              {unread} new
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 truncate text-xs text-[#737373]">{item.subtitle}</p>
+        <p className="mt-0.5 truncate text-xs text-[#a3a3a3]">{item.meta}</p>
+      </div>
+      <svg className="h-4 w-4 shrink-0 text-[#D4D4D8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
+    </div>
+  );
+
+  if (item.href && !preview) {
+    return (
+      <li>
+        <Link href={item.href}>{body}</Link>
+      </li>
+    );
+  }
+  return <li className={preview ? 'cursor-default' : undefined}>{body}</li>;
 }
