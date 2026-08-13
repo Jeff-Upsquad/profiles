@@ -892,6 +892,10 @@ interface DashboardCardSummary {
   recalled_at: string | null;
   paused_at: string | null;
   cancelled_at: string | null;
+  /** Set once SquadHub finalises the engagement (the "purchased" moment). A card
+   *  can sit at status='assigned' while only *selected* and awaiting admin
+   *  approval, so this is the only reliable "work has actually started" signal. */
+  subscription_activated_at: string | null;
   card_type: 'subscription' | 'assignment' | 'hiring';
   category_ids: string[];
   counts: {
@@ -953,6 +957,10 @@ function collapseByGroup(
       // Group lifecycle: any paused/cancelled sibling marks the collapsed card.
       if (!existing.paused_at && c.paused_at) existing.paused_at = c.paused_at;
       if (!existing.cancelled_at && c.cancelled_at) existing.cancelled_at = c.cancelled_at;
+      // One brief = one hire, so an activated sibling activates the whole group.
+      if (!existing.subscription_activated_at && c.subscription_activated_at) {
+        existing.subscription_activated_at = c.subscription_activated_at;
+      }
       if (!existing.currency && c.currency) existing.currency = c.currency;
     }
   }
@@ -1004,7 +1012,7 @@ export async function listMySubscriptionCards(
   const { data: cards, error } = await supabaseAdmin
     .from('subscription_cards')
     .select(
-      'id, external_id, content, match_rules, status, published_at, expires_at, created_at, business_user_id, recalled_at, paused_at, cancelled_at, is_secondary, group_id, card_type',
+      'id, external_id, content, match_rules, status, published_at, expires_at, created_at, business_user_id, recalled_at, paused_at, cancelled_at, subscription_activated_at, is_secondary, group_id, card_type',
     )
     .or(orFilter)
     // Split subscriptions from assignments — the portal shows each in its own
@@ -1211,6 +1219,8 @@ export async function listMySubscriptionCards(
       recalled_at: (card.recalled_at as string | null | undefined) ?? null,
       paused_at: (card.paused_at as string | null | undefined) ?? null,
       cancelled_at: (card.cancelled_at as string | null | undefined) ?? null,
+      subscription_activated_at:
+        (card.subscription_activated_at as string | null | undefined) ?? null,
       card_type: (card.card_type as 'subscription' | 'assignment' | 'hiring') ?? 'subscription',
       category_ids: categoryIds,
       counts: counts.get(card.id as string)!,

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import BusinessNotificationsBell from '@/components/jobs/business/BusinessNotificationsBell';
+import { useHasAssignedCard } from '@/components/business/cards/hireActivity';
 
 export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname() ?? '';
@@ -20,6 +21,10 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
   const allProfilesActive = pathname.startsWith('/business/talent-access');
   const notificationsActive = pathname.startsWith('/business/notifications');
   const howItWorksActive = pathname.startsWith('/business/how-it-works');
+  const squadHubActive = pathname.startsWith('/business/squadhub');
+  // Once the first card is assigned, this slot becomes the SquadHub gateway and
+  // the guide moves into My Cards (see BusinessMyCards).
+  const { hasAssignedCard } = useHasAssignedCard();
 
   const displayName =
     (user?.role === 'business' && user?.contact_person_name) || user?.full_name || user?.email || '';
@@ -106,23 +111,43 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
           onNavigate={onNavigate}
         />
 
-        <SidebarLink
-          href="/business/how-it-works"
-          active={howItWorksActive}
-          onNavigate={onNavigate}
-          icon={
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          }
-        >
-          How it works
-        </SidebarLink>
+        {hasAssignedCard ? (
+          <SidebarLink
+            href="/business/squadhub"
+            active={squadHubActive}
+            onNavigate={onNavigate}
+            icon={
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM13 6a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2V6zM4 15a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3zM13 15a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2v-3z"
+                />
+              </svg>
+            }
+          >
+            SquadHub
+          </SidebarLink>
+        ) : (
+          <SidebarLink
+            href="/business/how-it-works"
+            active={howItWorksActive}
+            onNavigate={onNavigate}
+            icon={
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            }
+          >
+            How it works
+          </SidebarLink>
+        )}
       </nav>
 
       {/* User footer */}

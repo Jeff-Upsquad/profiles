@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useHasAssignedCard } from '@/components/business/cards/hireActivity';
 
 /**
  * Optional top pill nav for business pages (legacy). Dashboard merged into Find talent.
@@ -18,6 +19,10 @@ export default function BusinessMobileNav() {
   const cardsActive = pathname.startsWith('/business/cards');
   const allProfilesActive = pathname.startsWith('/business/talent-access');
   const howItWorksActive = pathname.startsWith('/business/how-it-works');
+  const squadHubActive = pathname.startsWith('/business/squadhub');
+  // Swapped for the SquadHub gateway once the first card is assigned; the guide
+  // then lives inside My Cards (see BusinessMyCards).
+  const { hasAssignedCard } = useHasAssignedCard();
 
   return (
     <div className="sticky top-0 z-30 -mx-4 mb-4 border-b border-gray-200 bg-white shadow-sm md:hidden">
@@ -31,9 +36,15 @@ export default function BusinessMobileNav() {
         <Pill href="/business/talent-access" active={allProfilesActive}>
           All profiles
         </Pill>
-        <Pill href="/business/how-it-works" active={howItWorksActive}>
-          How it works
-        </Pill>
+        {hasAssignedCard ? (
+          <Pill href="/business/squadhub" active={squadHubActive}>
+            SquadHub
+          </Pill>
+        ) : (
+          <Pill href="/business/how-it-works" active={howItWorksActive}>
+            How it works
+          </Pill>
+        )}
       </div>
     </div>
   );

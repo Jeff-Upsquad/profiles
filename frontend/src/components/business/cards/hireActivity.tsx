@@ -300,3 +300,38 @@ export function useHireActivity({
 
   return { items, isLoading, isError };
 }
+
+// ─── First-engagement gate ───────────────────────────────────────────────────
+
+/**
+ * Has this business actually started work — i.e. has a subscription or
+ * assignment card been purchased and reached the **Assigned** stage?
+ *
+ * This gates the SquadHub tab (and the relocation of the How-it-works content
+ * into My Cards): before the first real engagement the portal looks exactly as
+ * it always has.
+ *
+ * Deliberately reads the RAW card queries rather than `useHireActivity`'s
+ * mapped items: `classifySubCard` collapses 'assigned' into the broader
+ * 'active' status and drops the timestamps, so the mapped shape can't tell a
+ * finalised engagement from an open one.
+ *
+ * A card counts only when SquadHub has *activated* it. `status === 'assigned'`
+ * alone is not enough — a client-selected card sits at 'assigned' while it
+ * still awaits admin approval, and firing the gate then would advertise
+ * SquadHub before the engagement is real. Cancelled cards are excluded;
+ * paused ones are not, since a pause follows work that genuinely started.
+ */
+export function useHasAssignedCard(): { hasAssignedCard: boolean; isLoading: boolean } {
+  const subQuery = useMySubscriptionCards();
+  const asgQuery = useMyAssignmentCards();
+
+  const hasAssignedCard = useMemo(() => {
+    const cards = [...(subQuery.data ?? []), ...(asgQuery.data ?? [])];
+    return cards.some(
+      (c) => c.status === 'assigned' && !!c.subscription_activated_at && !c.cancelled_at,
+    );
+  }, [subQuery.data, asgQuery.data]);
+
+  return { hasAssignedCard, isLoading: subQuery.isLoading || asgQuery.isLoading };
+}

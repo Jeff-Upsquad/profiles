@@ -2,8 +2,40 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useHasAssignedCard } from '@/components/business/cards/hireActivity';
 
-const NAV_ITEMS = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  /** Extra route prefixes that should also light this tab up. */
+  matchPrefixes?: string[];
+}
+
+// The fourth slot is either the How-it-works guide or, once the business has
+// its first assigned card, the SquadHub gateway. The guide isn't lost when it's
+// swapped out — it moves into My Cards as a section (see BusinessMyCards).
+const HOW_IT_WORKS_ITEM: NavItem = {
+  href: '/business/how-it-works',
+  label: 'How it works',
+  icon: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+};
+
+const SQUADHUB_ITEM: NavItem = {
+  href: '/business/squadhub',
+  label: 'SquadHub',
+  icon: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM13 6a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2V6zM4 15a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3zM13 15a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2v-3z" />
+    </svg>
+  ),
+};
+
+const NAV_ITEMS: NavItem[] = [
   {
     href: '/business/hire',
     label: 'Find talent',
@@ -39,19 +71,12 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
-  {
-    href: '/business/how-it-works',
-    label: 'How it works',
-    icon: (
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-  },
 ];
 
 export default function BusinessBottomNav() {
   const pathname = usePathname() ?? '';
+  const { hasAssignedCard } = useHasAssignedCard();
+  const navItems = [...NAV_ITEMS, hasAssignedCard ? SQUADHUB_ITEM : HOW_IT_WORKS_ITEM];
 
   const isActive = (href: string, matchPrefixes?: string[]) => {
     if (matchPrefixes?.length) {
@@ -68,7 +93,7 @@ export default function BusinessBottomNav() {
       <div className="h-[64px] md:hidden" />
       <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
         <nav className="mx-auto flex max-w-lg items-center justify-around py-2">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const active = isActive(item.href, item.matchPrefixes);
             return (
               <Link
