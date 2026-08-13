@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import AdditionalRequirementsField, {
+  type AdditionalRequirements,
+} from './AdditionalRequirementsField';
 
 // Kept in sync with admin/locationLanguageOptions.ts.
 // Inlined here because /web has no /admin dependency by design.
@@ -270,6 +273,9 @@ export default function DesignerBriefForm({
     useState<Record<RoleSlug, RoleRequirement>>(emptyRoleRequirements);
   // Slug of the role whose "Compare plans" modal is open (null = closed).
   const [comparePlanRole, setComparePlanRole] = useState<RoleSlug | null>(null);
+  // Optional skills/tools per role, keyed by service-type slug (designer /
+  // video_editor / designer_video_editor). Forwarded in role_requirements.
+  const [additionalReqs, setAdditionalReqs] = useState<Record<string, AdditionalRequirements>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
@@ -512,6 +518,7 @@ export default function DesignerBriefForm({
         tier_budgets?: Record<string, number>;
         budget?: number; duration?: string; start_date?: string; deadline?: string;
         pricing_mode?: 'priced' | 'unpriced';
+        additional_requirements?: AdditionalRequirements;
       }
     > = {};
     for (const r of roles) {
@@ -569,6 +576,16 @@ export default function DesignerBriefForm({
         ...(budget !== undefined ? { budget } : {}),
         ...(Object.keys(tierBudgets).length ? { tier_budgets: tierBudgets } : {}),
       };
+    }
+
+    // Attach optional skills/tools per role (keyed by service-type slug). Creates
+    // an entry if the role had no other requirement details.
+    for (const r of roles) {
+      const key = roleToServiceTypeSlug(r);
+      const extra = additionalReqs[key];
+      if (extra && Object.values(extra).some((l) => l.some((s) => s.trim()))) {
+        roleReqsPayload[key] = { ...(roleReqsPayload[key] ?? {}), additional_requirements: extra };
+      }
     }
 
     setSubmitting(true);
@@ -1214,6 +1231,23 @@ export default function DesignerBriefForm({
                 />
               )}
             </Section>
+
+            {/* Optional skills & tools per selected role — descriptive, not a filter. */}
+            {roles.length > 0 && (
+              <AdditionalRequirementsField
+                roles={roles.map((r) => ({
+                  slug: roleToServiceTypeSlug(r),
+                  label:
+                    r === 'designer'
+                      ? 'Designer'
+                      : r === 'editor'
+                        ? 'Video Editor'
+                        : 'Designer + Editor',
+                }))}
+                values={additionalReqs}
+                onChange={(slug, v) => setAdditionalReqs((prev) => ({ ...prev, [slug]: v }))}
+              />
+            )}
 
             {/* Submit (sticky on mobile) */}
             <div className="connect-submit-wrap">

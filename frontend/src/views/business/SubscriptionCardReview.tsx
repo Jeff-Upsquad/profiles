@@ -147,6 +147,9 @@ export default function SubscriptionCardReview({
     .sort((a, b) => (isNewAcceptance(b) ? 1 : 0) - (isNewAcceptance(a) ? 1 : 0));
   const shortlistedView = shortlisted.filter(tierMatches);
   const newAcceptedCount = forReview.filter(isNewAcceptance).length;
+  // Optional skills/tools the client attached to the brief — shown under each
+  // accepted talent as ✓ (they list it) / ✗ (they don't). Reference only.
+  const additionalReqs = flattenAdditionalReqs(card?.additional_requirements);
   const tierCount = (key: string) => {
     const pool = [...forReview, ...shortlisted];
     return key === 'all' ? pool.length : pool.filter((r) => normalizeTier(r.tier) === key).length;
@@ -559,6 +562,7 @@ export default function SubscriptionCardReview({
                         </span>
                       )}
                     </div>
+                    <MatchChips reqs={additionalReqs} talentNames={r.skill_tool_names} />
                   </li>
                 ))}
               </ul>
@@ -625,6 +629,7 @@ export default function SubscriptionCardReview({
                         </button>
                       </div>
                     </div>
+                    <MatchChips reqs={additionalReqs} talentNames={r.skill_tool_names} />
                     {i === 0 && !isClosed && !hasSelection && r.profile_id && r.category?.id && user?.id && (
                       <FirstItemTip
                         storageKey={`squadhire:tip:open-profile:${user.id}`}
@@ -844,6 +849,63 @@ function RecipientInfo({ recipient: r, isNew = false }: { recipient: CardRecipie
         {r.category?.name && r.current_location ? ' · ' : ''}
         {r.current_location}
       </p>
+    </div>
+  );
+}
+
+// ── Additional requirements (optional skills/tools) ─────────────────────────
+// Presence-match the card's optional requirements against a talent's profile
+// skill/tool names. Reference only for the business — never affects matching.
+interface ReqItem { group: string; label: string }
+
+function flattenAdditionalReqs(
+  raw: Record<string, string[]> | null | undefined,
+): ReqItem[] {
+  if (!raw || typeof raw !== 'object') return [];
+  const out: ReqItem[] = [];
+  for (const [group, list] of Object.entries(raw)) {
+    if (!Array.isArray(list)) continue;
+    for (const label of list) {
+      const l = typeof label === 'string' ? label.trim() : '';
+      if (l) out.push({ group, label: l });
+    }
+  }
+  return out;
+}
+
+function MatchChips({ reqs, talentNames }: { reqs: ReqItem[]; talentNames?: string[] }) {
+  if (reqs.length === 0) return null;
+  const have = new Set((talentNames ?? []).map((n) => n.trim().toLowerCase()).filter(Boolean));
+  return (
+    <div className="mt-3 sm:pl-[56px]">
+      <p className="mb-1.5 font-[family-name:var(--font-inter)] text-[10.5px] font-bold uppercase tracking-wide text-[#a3a3a3]">
+        Additional requirements
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {reqs.map((req, i) => {
+          const matched = have.has(req.label.toLowerCase());
+          return (
+            <span
+              key={`${req.group}-${req.label}-${i}`}
+              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-[family-name:var(--font-inter)] text-xs font-medium ${
+                matched
+                  ? 'border-[#BFE6C9] bg-[#EAF7EE] text-[#1F7E36]'
+                  : 'border-[#F4C9C4] bg-[#FDECEC] text-[#C13515]'
+              }`}
+              title={matched ? 'Talent lists this' : 'Not listed by this talent'}
+            >
+              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+                {matched ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
+                )}
+              </svg>
+              {req.label}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }

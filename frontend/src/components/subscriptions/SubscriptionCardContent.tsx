@@ -31,6 +31,34 @@ function asStringArray(v: unknown): string[] {
     .filter(Boolean);
 }
 
+// Optional "additional requirements" the client attached to the brief: a map
+// of group key → labels. Display labels for the common groups; unknown keys are
+// title-cased so future SquadHub groups still render sensibly.
+const AR_GROUP_LABELS: Record<string, string> = {
+  skills: 'Skill sets',
+  tools: 'Tools',
+  software: 'Software',
+  ai_tools: 'AI tools',
+  accounting_software: 'Accounting software',
+};
+function arGroupLabel(key: string): string {
+  return (
+    AR_GROUP_LABELS[key] ||
+    key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}
+function parseAdditionalRequirements(
+  raw: unknown,
+): { key: string; label: string; items: string[] }[] {
+  if (!raw || typeof raw !== 'object') return [];
+  const out: { key: string; label: string; items: string[] }[] = [];
+  for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
+    const items = asStringArray(val);
+    if (items.length) out.push({ key, label: arGroupLabel(key), items });
+  }
+  return out;
+}
+
 // Match the first two letters case-insensitively so "Mon" / "monday" / "MON" all resolve.
 const WEEK_ORDER = ['mo', 'tu', 'we', 'th', 'fr', 'sa', 'su'] as const;
 
@@ -197,6 +225,11 @@ const IconSpeech = (
     <path strokeLinecap="round" strokeLinejoin="round" d="M4 5.5h12a1.5 1.5 0 011.5 1.5v6a1.5 1.5 0 01-1.5 1.5H9l-3 2.5v-2.5H4A1.5 1.5 0 012.5 13V7A1.5 1.5 0 014 5.5z" />
   </svg>
 );
+const IconSparkles = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 3.5l1.2 3.3 3.3 1.2-3.3 1.2-1.2 3.3-1.2-3.3L5 8l3.3-1.2 1.2-3.3zM17 13l.8 2.2 2.2.8-2.2.8L17 19l-.8-2.2-2.2-.8 2.2-.8L17 13z" />
+  </svg>
+);
 
 // ────────────────────────────────────────────────────────────
 // Component
@@ -252,6 +285,10 @@ export default function SubscriptionCardContent({ content }: Props) {
   const notes = asString(content.notes).trim();
   const countries = asStringArray(content.target_country_names);
   const languages = asStringArray(content.target_languages);
+  // Optional skills/tools the client attached to the brief. Descriptive only —
+  // shown as nice-to-haves; never a condition of accepting the card.
+  const additionalGroups = parseAdditionalRequirements(content.additional_requirements);
+  const hasAdditional = additionalGroups.length > 0;
 
   // Client brief = engagement identity only (brand / role / plan).
   // About the client = company context under a toggle (nature, location, notes).
@@ -262,7 +299,7 @@ export default function SubscriptionCardContent({ content }: Props) {
     hoursLabel || capacityLabel || deliverablesLabel ||
     deliverables.length > 0 || priceFormatted ||
     workingDaysSorted.length > 0 || hasClientBrief || hasAboutClient ||
-    countries.length > 0 || languages.length > 0;
+    countries.length > 0 || languages.length > 0 || hasAdditional;
   const showDescription = description && !hasStructured;
 
   const expiresRelative = formatRelativeExpiry(
@@ -530,6 +567,36 @@ export default function SubscriptionCardContent({ content }: Props) {
                   <Chip key={i}>{l}</Chip>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Additional requirements — optional skills/tools the client would
+              like. Descriptive only; not a condition of accepting the card. */}
+          {hasAdditional && (
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <SectionLabel icon={IconSparkles}>Additional requirements</SectionLabel>
+                <span className="shrink-0 rounded-full bg-[#F3F3F4] px-2 py-0.5 font-[family-name:var(--font-inter)] text-[9.5px] font-bold uppercase tracking-wide text-[#737373] ring-1 ring-inset ring-[#E7E7EA]">
+                  Optional
+                </span>
+              </div>
+              <div className="mt-2 space-y-2.5">
+                {additionalGroups.map((g) => (
+                  <div key={g.key}>
+                    <p className="font-[family-name:var(--font-inter)] text-[11px] font-semibold text-[#737373]">
+                      {g.label}
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {g.items.map((it, i) => (
+                        <Chip key={i}>{it}</Chip>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 font-[family-name:var(--font-inter)] text-[11px] leading-relaxed text-[#a3a3a3]">
+                Nice-to-haves from the client — not required to accept this card.
+              </p>
             </div>
           )}
         </div>

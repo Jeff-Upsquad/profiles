@@ -1295,6 +1295,13 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
     business_nature: (content.business_nature as string) ?? null,
     hours_label: (content.hours_label as string) ?? null,
     working_days: Array.isArray(content.working_days) ? content.working_days : null,
+    // Optional skills/tools the client attached to the brief. From content, not
+    // match_rules — descriptive only, presence-matched against talents for the
+    // business's reference. null when the client didn't add any.
+    additional_requirements:
+      content.additional_requirements && typeof content.additional_requirements === 'object'
+        ? (content.additional_requirements as Record<string, string[]>)
+        : null,
     target_tiers: targetTiers,
     target_languages: Array.isArray(matchRules.target_languages) ? (matchRules.target_languages as string[]) : [],
     target_regions: Array.isArray(matchRules.target_regions)
@@ -1525,6 +1532,35 @@ async function resolveGroupCards(card: any): Promise<any[]> {
   return siblings && siblings.length > 0 ? siblings : [card];
 }
 
+// Collect a talent's skill/tool/AI-tool names from their profile field_data
+// into a flat list, used ONLY to presence-match a card's optional
+// additional_requirements for the business review UI (never for matching who
+// receives a card). Item shapes are inconsistent across groups — plain strings,
+// `{ skill }`, `{ name }`, or `{ category }` — so probe every known key.
+function talentSkillToolNames(fieldData: any): string[] {
+  if (!fieldData || typeof fieldData !== 'object') return [];
+  const groups = ['_skills', '_tools', '_ai_tools', '_accounting_software', '_categories'];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const g of groups) {
+    const list = fieldData[g];
+    if (!Array.isArray(list)) continue;
+    for (const item of list) {
+      const name =
+        typeof item === 'string'
+          ? item
+          : item?.name ?? item?.skill ?? item?.tool ?? item?.label ?? item?.category ?? '';
+      const n = typeof name === 'string' ? name.trim() : '';
+      if (!n) continue;
+      const k = n.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(n);
+    }
+  }
+  return out;
+}
+
 export async function getCardRecipientsForReview(businessUserId: string, cardId: string) {
   const card = await verifyCardOwnership(businessUserId, cardId);
 
@@ -1659,7 +1695,7 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
     const { data: profiles } = await supabaseAdmin
       .from('talent_profiles')
       .select(
-        'id, talent_user_id, category_id, is_active, is_ghost, categories!inner(id, name, slug)',
+        'id, talent_user_id, category_id, is_active, is_ghost, field_data, categories!inner(id, name, slug)',
       )
       .in('talent_user_id', talentUserIds)
       .eq('status', 'approved')
@@ -1778,6 +1814,9 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
         languages_spoken: talent.languages_spoken ?? null,
         profile_id: profile?.id ?? null,
         category: profile?.categories ?? null,
+        // Flat skill/tool/AI-tool names for presence-matching the card's optional
+        // additional_requirements in the review UI. Reference only; not matching.
+        skill_tool_names: talentSkillToolNames(profile?.field_data),
         tier: tiers[r.talent_user_id]?.tier ?? null,
         tier_custom: tiers[r.talent_user_id]?.tier_custom ?? null,
         // Bid amount wins over list price when the talent submitted a first bid.

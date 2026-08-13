@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import AdditionalRequirementsField, {
+  type AdditionalRequirements,
+} from './AdditionalRequirementsField';
 
 // Kept in sync with admin/locationLanguageOptions.ts.
 // Inlined here because /web has no /admin dependency by design.
@@ -245,6 +248,9 @@ export default function AccountantBriefForm({
   // Assignment only: whether the card is broadcast WITH a price (talents
   // accept/decline/counter) or WITHOUT (talents submit an offer). Brief-level.
   const [pricingMode, setPricingMode] = useState<'priced' | 'unpriced'>('priced');
+  // Optional skills/tools the client would like (keyed by role slug). Forwarded
+  // to squadhub as role_requirements.accountant.additional_requirements.
+  const [additionalReqs, setAdditionalReqs] = useState<Record<string, AdditionalRequirements>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
@@ -487,6 +493,7 @@ export default function AccountantBriefForm({
       start_date?: string;
       deadline?: string;
       pricing_mode?: 'priced' | 'unpriced';
+      additional_requirements?: AdditionalRequirements;
     } = isAssignment
       ? {
           ...(combinedNote ? { note: combinedNote } : {}),
@@ -505,6 +512,10 @@ export default function AccountantBriefForm({
           ...(budget !== undefined ? { budget } : {}),
           ...(Object.keys(tierBudgets).length ? { tier_budgets: tierBudgets } : {}),
         };
+    const accExtra = additionalReqs.accountant;
+    if (accExtra && Object.values(accExtra).some((l) => l.some((s) => s.trim()))) {
+      accountantReq.additional_requirements = accExtra;
+    }
     const roleReqsPayload: Record<string, typeof accountantReq> =
       Object.keys(accountantReq).length > 0 ? { accountant: accountantReq } : {};
 
@@ -1151,6 +1162,13 @@ export default function AccountantBriefForm({
                 />
               )}
             </Section>
+
+            {/* Optional skills & tools — descriptive, not a match filter. */}
+            <AdditionalRequirementsField
+              roles={[{ slug: 'accountant', label: 'Accountant' }]}
+              values={additionalReqs}
+              onChange={(slug, v) => setAdditionalReqs((prev) => ({ ...prev, [slug]: v }))}
+            />
 
             {/* Submit (sticky on mobile) */}
             <div className="connect-submit-wrap">

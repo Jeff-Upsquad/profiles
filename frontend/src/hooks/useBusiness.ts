@@ -183,6 +183,9 @@ export interface BusinessSubscriptionCardDetail {
   business_nature: string | null;
   hours_label: string | null;
   working_days: string[] | null;
+  /** Optional skills/tools the client requested, keyed by group → labels.
+   *  Descriptive only; presence-matched against talents for reference. */
+  additional_requirements: Record<string, string[]> | null;
   target_tiers: string[];
   target_languages: string[];
   target_regions: Array<{ country_id: string; region: string }>;
@@ -275,6 +278,10 @@ export interface CardRecipientForBusiness {
   languages_spoken: any;
   profile_id: string | null;
   category: { id: string; name: string; slug: string } | null;
+  /** Flat skill/tool/AI-tool names from the talent's profile — used only to
+   *  presence-match the card's optional additional_requirements in the review
+   *  UI. Reference only; never affects who receives a card. */
+  skill_tool_names?: string[];
   tier: string | null;
   tier_custom: string | null;
   /** The tier card this talent was matched into (for multi-tier briefs). */
