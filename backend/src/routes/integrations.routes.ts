@@ -60,6 +60,16 @@ router.post(
   integrationsController.lookupBusinessUser,
 );
 
+// First-login credential seeding: confirm an email + password really is this
+// business's SquadHire login so SquadHub can create their account with the same
+// password. Identity only — no token is minted, and no password ever comes back
+// the other way. See business-auth.service.verifyBusinessCredentials.
+router.post(
+  '/squadhub/business/verify-credentials',
+  verifySquadhubSecret,
+  integrationsController.verifyBusinessCredentials,
+);
+
 // Batch talent availability (self-declared virtual office hours → weekly hours),
 // keyed by talent_user_id. Powers the "available hours" column in SquadHub's
 // Subscription Assignments per-user view.

@@ -206,6 +206,63 @@ export async function businessLogin(identifier: {
   };
 }
 
+/**
+ * Identity check for SquadHub's first-login credential seeding.
+ *
+ * SquadHub calls this (server-to-server, shared secret) the first time an
+ * invited business user signs in there: if the email + password they typed are
+ * their real SquadHire credentials, SquadHub creates their account with that
+ * same password. From then on the two logins are independent — nothing is
+ * synced, and no password ever flows back the other way.
+ *
+ * Deliberately narrower than `businessLogin`:
+ *   • It mints no token and opens no session — identity only.
+ *   • It only ever validates against a real bcrypt hash. Legacy passwordless
+ *     accounts (`password_required === false`) log in here with no password at
+ *     all, so honouring that would let anyone who knows the email choose an
+ *     arbitrary SquadHub password. Those accounts return valid:false.
+ *   • Every rejection looks the same to the caller — unknown email, wrong
+ *     password, inactive, expired and not-yet-activated are indistinguishable,
+ *     so this can't be used to enumerate accounts.
+ */
+export async function verifyBusinessCredentials(input: {
+  email: string;
+  password: string;
+}): Promise<
+  | { valid: false }
+  | {
+      valid: true;
+      business_user_id: string;
+      email: string | null;
+      phone: string | null;
+      name: string | null;
+      company_name: string | null;
+    }
+> {
+  const businessUser = await findBusinessUser({ email: input.email }, { requireActive: true });
+  if (!businessUser) return { valid: false };
+
+  if (businessUser.access_expires_at && new Date(businessUser.access_expires_at) < new Date()) {
+    return { valid: false };
+  }
+
+  // No hash on file → provisioned/invited but never activated, or a legacy
+  // passwordless account. Either way there's no credential to verify against.
+  if (!businessUser.password_hash) return { valid: false };
+
+  const ok = await comparePassword(input.password, businessUser.password_hash);
+  if (!ok) return { valid: false };
+
+  return {
+    valid: true,
+    business_user_id: businessUser.id,
+    email: businessUser.contact_email ?? null,
+    phone: businessUser.contact_phone ?? null,
+    name: businessUser.contact_person_name ?? null,
+    company_name: businessUser.company_name ?? null,
+  };
+}
+
 // Open self-serve signup. Anyone can create a business account from the signup
 // page — no invitation required. Both email and phone are required. Two paths:
 //   * No existing row for email or phone → create a brand-new account.

@@ -145,6 +145,11 @@ export interface BusinessSubscriptionCardSummary {
   /** Set when SquadHub cancelled the subscription (card closed, status archived).
    *  Distinguishes a true cancel from a recall/plain-close in the Cancelled section. */
   cancelled_at: string | null;
+  /** Set once SquadHub finalises the engagement — the "purchased / work has
+   *  started" moment. A card can sit at status='assigned' while merely
+   *  *selected* and awaiting admin approval, so this is the signal that gates
+   *  the SquadHub tab (see useHasAssignedCard). */
+  subscription_activated_at?: string | null;
   category_ids: string[];
   /** Tiers this card covers. A multi-tier brief is collapsed server-side into
    *  one card spanning several tiers; single-tier cards have one entry. */

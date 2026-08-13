@@ -3,6 +3,7 @@ import { z } from 'zod';
 import * as integrationsService from '../services/integrations.service.js';
 import * as talentAccessService from '../services/talent-access.service.js';
 import * as businessProvisionService from '../services/business-provision.service.js';
+import * as businessAuthService from '../services/business-auth.service.js';
 import * as subscriptionService from '../services/subscription.service.js';
 import { ingestPendingBriefSchema } from '../validators/subscription.validators.js';
 import { supabaseAdmin } from '../config/supabase.js';
@@ -362,6 +363,36 @@ const lookupBusinessUserSchema = z.object({
   message: 'Email or phone is required',
   path: ['email'],
 });
+
+const verifyBusinessCredentialsSchema = z
+  .object({
+    email: z.string().email(),
+    password: z.string().min(1),
+  })
+  .strict();
+
+// SquadHub first-login credential seeding — confirm an email + password pair
+// really is this business's SquadHire login, so SquadHub can create their
+// account with the same password. Returns identity only, never a token; every
+// failure mode collapses into { valid: false }. See
+// business-auth.service.verifyBusinessCredentials for the security notes.
+export async function verifyBusinessCredentials(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = verifyBusinessCredentialsSchema.parse(req.body);
+    const result = await businessAuthService.verifyBusinessCredentials(body);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
+      return;
+    }
+    next(err);
+  }
+}
 
 // SquadHub client Connections panel — resolve a business_users row by email
 // and/or phone so admins can deep-link into the SquadHire business detail.
