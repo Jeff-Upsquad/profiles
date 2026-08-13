@@ -24,6 +24,11 @@ const roleRequirementSchema = z.object({
   deadline: z.string().trim().max(40).optional(),
   scope_type: z.string().trim().max(100).optional(),
   pricing_mode: z.enum(['priced', 'unpriced']).optional(),
+  // Optional skills/tools the business would like the talent to have. Forwarded
+  // verbatim to squadhub. Descriptive only — never used to match talent.
+  additional_requirements: z
+    .record(z.string().trim().min(1).max(40), z.array(z.string().trim().min(1).max(80)).max(40))
+    .optional(),
 });
 
 export const connectBriefSchema = z

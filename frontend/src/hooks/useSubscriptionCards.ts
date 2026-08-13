@@ -36,6 +36,10 @@ export interface SubscriptionCardContentShape {
   customer_location?: string;
   notes?: string;
   requirement_note?: string;
+  // Optional skills/tools the business requested on the brief, keyed by group
+  // ('skills' | 'tools' | 'ai_tools' | …) → labels. Descriptive only — shown to
+  // talent as nice-to-haves; never affects whether this card was broadcast.
+  additional_requirements?: Record<string, string[]>;
   target_country_names?: string[];
   target_languages?: string[];
   // Plan-card fields (SquadHub should forward these from the selected plan):
