@@ -64,6 +64,18 @@ export const passwordResetVerifySchema = z.object({
   temp_password: z.string().min(1, 'Temporary password is required'),
 });
 
+// ─── Authenticated login-detail change (WhatsApp code) ───────────────────────
+
+export const loginUpdateSendSchema = z.object({
+  field: z.enum(['email', 'phone', 'password']),
+});
+
+export const loginUpdateVerifySchema = z.object({
+  ticket: z.string().min(1, 'Verification session is required'),
+  code: z.string().min(1, 'Enter the code we sent to your WhatsApp'),
+  new_value: z.string().min(1, 'A new value is required'),
+});
+
 export type SignupTalentInput = z.infer<typeof signupTalentSchema>;
 export type SignupBusinessInput = z.infer<typeof signupBusinessSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

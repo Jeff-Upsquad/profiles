@@ -25,6 +25,7 @@ import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { generateWordTempPassword } from '../lib/password.js';
 import { phoneMatchSuffix, normalizePhoneDigits } from '../lib/phone.js';
+import { deliverCrmSystemEvent } from '../lib/crm-system-event.js';
 import {
   findBusinessUser,
   adminResetBusinessPassword,
@@ -139,59 +140,22 @@ export async function lookupAccountByPhone(
 }
 
 // Fire the CRM system event that maps to a WhatsApp template carrying the temp
-// password. Mirrors postToCrm in talent-whatsapp.service.ts: shared-secret
-// header, short timeout, and it treats a `{skipped:true}` body (no approved
-// template mapped yet) as "accepted but not delivered".
-const CRM_TIMEOUT_MS = 5_000;
-
+// password. Business resets route through the original Squad CRM, talent resets
+// through the SquadHire CRM (see deliverCrmSystemEvent); a `{skipped:true}` body
+// (no approved template mapped yet) counts as "accepted but not delivered".
 async function deliverTempPasswordWhatsApp(args: {
   event: 'talent_password_reset' | 'business_password_reset';
   name: string | null;
   phone: string;
   tempPassword: string;
 }): Promise<boolean> {
-  const url = env.SQUADHIRE_CRM_SYSTEM_EVENTS_URL;
-  if (!url) return false;
-
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (process.env.SQUADHIRE_CRM_INBOUND_SECRET) {
-    headers['X-SquadHire-Admin-Signature'] = process.env.SQUADHIRE_CRM_INBOUND_SECRET;
-  }
-
-  const payload = {
-    system_event: args.event,
-    talent: { name: args.name ?? '', phone: args.phone, email: null },
-    data: { talent_name: args.name ?? '', temp_password: args.tempPassword },
-    timestamp: new Date().toISOString(),
-  };
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), CRM_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      console.warn(`[password-reset] CRM webhook http_${res.status}`);
-      return false;
-    }
-    try {
-      const body = (await res.json()) as { data?: { skipped?: boolean } };
-      if (body?.data?.skipped === true) return false;
-    } catch {
-      // Non-JSON / empty body → treat as a real send.
-    }
-    return true;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`[password-reset] CRM webhook failed: ${msg.slice(0, 200)}`);
-    return false;
-  } finally {
-    clearTimeout(timer);
-  }
+  return deliverCrmSystemEvent({
+    audience: args.event === 'business_password_reset' ? 'business' : 'talent',
+    event: args.event,
+    name: args.name,
+    phone: args.phone,
+    data: { temp_password: args.tempPassword },
+  });
 }
 
 // Set a fresh Supabase password + force-reset flag on a talent account, then

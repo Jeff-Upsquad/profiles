@@ -83,5 +83,39 @@ export interface PasswordResetVerifyPayload {
   temp_password: string;
 }
 
+// ─── Authenticated login-detail change (WhatsApp code) ───────────────────────
+// A signed-in business user changing their login email / phone / password.
+// Mirrors the forgot-password flow: a one-time code is sent to the account's
+// registered WhatsApp, then the change is applied once the code is verified.
+
+export type LoginDetailField = 'email' | 'phone' | 'password';
+
+export interface LoginUpdateSendPayload {
+  field: LoginDetailField;
+}
+
+export interface LoginUpdateSendResponse {
+  sent: boolean;
+  // Whether the CRM actually dispatched the WhatsApp (false when no approved
+  // template is mapped yet — the change still works, delivery is just pending).
+  delivered: boolean;
+  // Masked form of the WhatsApp number the code was sent to, e.g. "•••• ••3210".
+  masked_phone: string;
+  // Opaque signed ticket that authorizes the verify step for this account+field.
+  ticket: string;
+}
+
+export interface LoginUpdateVerifyPayload {
+  ticket: string;
+  code: string;
+  // New email / new phone / new password depending on the ticket's field.
+  new_value: string;
+}
+
+export interface LoginUpdateVerifyResponse {
+  success: boolean;
+  field: LoginDetailField;
+}
+
 export type Gender = 'male' | 'female' | 'other' | 'prefer_not_to_say';
 export type CompanySize = '1-10' | '11-50' | '51-200' | '201-500' | '500+';

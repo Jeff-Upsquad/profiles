@@ -77,3 +77,13 @@ export function generateWordTempPassword(): string {
   }
   return `${first}-${second}`;
 }
+
+// A short numeric one-time code relayed over WhatsApp to confirm a sensitive
+// self-service change (e.g. updating login email/phone/password). Uniform,
+// bias-free digits; the verifying endpoint is rate-limited and the code expires
+// quickly, so 6 digits is plenty.
+export function generateNumericCode(length = 6): string {
+  let out = '';
+  for (let i = 0; i < length; i++) out += crypto.randomInt(10).toString();
+  return out;
+}

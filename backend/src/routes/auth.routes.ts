@@ -13,6 +13,8 @@ import {
   passwordResetLookupSchema,
   passwordResetSendSchema,
   passwordResetVerifySchema,
+  loginUpdateSendSchema,
+  loginUpdateVerifySchema,
 } from '../validators/auth.validators.js';
 import {
   businessLoginSchema,
@@ -141,6 +143,46 @@ router.post(
   resetVerifyLimiter,
   validate({ body: passwordResetVerifySchema }),
   authController.passwordResetVerify
+);
+
+// ─── Authenticated login-detail change (WhatsApp code) ───────────────────────
+// A signed-in business user changing their login email / phone / password.
+// Authenticated + rate-limited: `send` is capped per account (keyed off the
+// session user) so the registered WhatsApp can't be spammed with codes, and
+// `verify` is capped to blunt online brute force of the 6-digit code.
+
+const loginUpdateSendLimiter = rateLimit({
+  windowMs: 10 * 60_000,
+  max: 5,
+  keyGenerator: (req) => String(req.user?.id ?? req.ip),
+  message: { message: 'Too many codes requested. Please wait before trying again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const loginUpdateVerifyLimiter = rateLimit({
+  windowMs: 10 * 60_000,
+  max: 10,
+  keyGenerator: (req) => String(req.user?.id ?? req.ip),
+  message: { message: 'Too many attempts. Please start the change again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post(
+  '/business/login-update/send',
+  authenticate,
+  loginUpdateSendLimiter,
+  validate({ body: loginUpdateSendSchema }),
+  authController.loginUpdateSend
+);
+
+router.post(
+  '/business/login-update/verify',
+  authenticate,
+  loginUpdateVerifyLimiter,
+  validate({ body: loginUpdateVerifySchema }),
+  authController.loginUpdateVerify
 );
 
 router.post(

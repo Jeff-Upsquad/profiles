@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/auth.service.js';
 import * as businessAuthService from '../services/business-auth.service.js';
 import * as passwordResetService from '../services/password-reset.service.js';
+import * as loginUpdateService from '../services/business-account-update.service.js';
 
 export async function signupTalent(req: Request, res: Response, next: NextFunction) {
   try {
@@ -154,6 +155,39 @@ export async function passwordResetVerify(req: Request, res: Response, next: Nex
     const result = await passwordResetService.verifyTempPassword(
       req.body.reset_ticket,
       req.body.temp_password,
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── Authenticated login-detail change (WhatsApp code) ───────────────────────
+
+export async function loginUpdateSend(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (req.user!.role !== 'business') {
+      res.status(403).json({ message: 'Only business accounts can change login details here.' });
+      return;
+    }
+    const result = await loginUpdateService.sendLoginUpdateCode(req.user!.id, req.body.field);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function loginUpdateVerify(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (req.user!.role !== 'business') {
+      res.status(403).json({ message: 'Only business accounts can change login details here.' });
+      return;
+    }
+    const result = await loginUpdateService.verifyAndApplyLoginUpdate(
+      req.user!.id,
+      req.body.ticket,
+      req.body.code,
+      req.body.new_value,
     );
     res.json(result);
   } catch (err) {

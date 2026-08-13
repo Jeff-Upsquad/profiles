@@ -98,6 +98,13 @@ const envSchema = z.object({
   // is silently disabled.
   SQUADHIRE_CRM_SYSTEM_EVENTS_URL: z.string().url().optional(),
 
+  // Profiles → original Squad CRM: outbound URL for BUSINESS system-event
+  // notifications (e.g. business login/password verification codes). Business
+  // codes route here (talent codes stay on SQUADHIRE_CRM_SYSTEM_EVENTS_URL);
+  // authenticated with SQUADCRM_PROVISION_SECRET via X-SquadCRM-Signature.
+  // Optional — when unset, business events fall back to the SquadHire CRM URL.
+  SQUADCRM_SYSTEM_EVENTS_URL: z.string().url().optional(),
+
   // Notify talents when a card is *ingested* (created/edited/synced via the
   // SquadHub webhook), not just when it's explicitly broadcast. Default false:
   // ingest silently syncs the card + reconciles recipient rows (so it still

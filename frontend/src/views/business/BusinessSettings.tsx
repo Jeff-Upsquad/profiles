@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
+import LoginDetailsModal, { type LoginField } from '@/components/business/LoginDetailsModal';
 import toast from 'react-hot-toast';
 
 const COUNTRY_CODES = [
@@ -38,6 +39,11 @@ function splitPhone(stored: string | null | undefined): { code: string; number: 
 export default function BusinessSettings() {
   const { user, refetchUser } = useAuth();
   const [loading, setLoading] = useState(false);
+  // Which login detail (if any) is being changed via the WhatsApp-code flow.
+  const [loginField, setLoginField] = useState<LoginField | null>(null);
+  // The account's current login email/phone, shown in the Login & Security card.
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPhone, setLoginPhone] = useState('');
   const [form, setForm] = useState({
     company_name: '',
     company_website: '',
@@ -51,30 +57,38 @@ export default function BusinessSettings() {
     phone: '',
   });
 
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const { data } = await api.get('/business/me');
-        const info = data.business ?? data;
-        const phone = splitPhone(info.contact_phone);
-        setForm({
-          company_name: info.company_name ?? '',
-          company_website: info.company_website ?? '',
-          industry: info.industry ?? '',
-          company_size: info.company_size ?? '',
-          business_note: info.business_note ?? '',
-          business_location: info.business_location ?? '',
-          contact_person_name: info.contact_person_name ?? '',
-          contact_email: info.contact_email ?? '',
-          country_code: phone.code,
-          phone: phone.number,
-        });
-      } catch {
-        // ignore
-      }
-    };
-    loadProfile();
+  const loadProfile = useCallback(async () => {
+    try {
+      const { data } = await api.get('/business/me');
+      const info = data.business ?? data;
+      const phone = splitPhone(info.contact_phone);
+      setLoginEmail(info.contact_email ?? '');
+      setLoginPhone(info.contact_phone ?? '');
+      setForm({
+        company_name: info.company_name ?? '',
+        company_website: info.company_website ?? '',
+        industry: info.industry ?? '',
+        company_size: info.company_size ?? '',
+        business_note: info.business_note ?? '',
+        business_location: info.business_location ?? '',
+        contact_person_name: info.contact_person_name ?? '',
+        contact_email: info.contact_email ?? '',
+        country_code: phone.code,
+        phone: phone.number,
+      });
+    } catch {
+      // ignore
+    }
   }, []);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  const handleLoginChangeDone = async () => {
+    setLoginField(null);
+    await Promise.all([loadProfile(), refetchUser()]);
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -155,7 +169,6 @@ export default function BusinessSettings() {
               onChange={(e) => setForm((p) => ({ ...p, company_name: e.target.value }))}
               required
             />
-            <Input label="Login Email" value={user?.email ?? ''} disabled />
             <div className="grid gap-4 sm:grid-cols-2">
               <Input
                 label="Company Website"
@@ -282,6 +295,77 @@ export default function BusinessSettings() {
           </div>
         </div>
       </form>
+
+      {/* ── Login & Security ── */}
+      <section className="rounded-2xl border border-[#E7E7EA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="mb-5 flex items-start gap-4">
+          <div className="tint-blue flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl">
+            <svg
+              className="h-5 w-5"
+              style={{ color: 'var(--tint-icon)' }}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.75}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
+              Login &amp; Security
+            </h2>
+            <p className="mt-0.5 text-sm text-[#737373]">
+              The email, phone, and password you use to sign in. Changing any of these needs a code
+              sent to your registered WhatsApp.
+            </p>
+          </div>
+        </div>
+
+        <div className="divide-y divide-[#F0F0F0]">
+          {/* Login email */}
+          <div className="flex items-center justify-between gap-4 py-3.5">
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-[#3F3F46]">Login email</p>
+              <p className="truncate text-sm text-[#0a0a0a]">{loginEmail || user?.email || '—'}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setLoginField('email')}>
+              Change
+            </Button>
+          </div>
+
+          {/* Login phone */}
+          <div className="flex items-center justify-between gap-4 py-3.5">
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-[#3F3F46]">Login phone</p>
+              <p className="truncate text-sm text-[#0a0a0a]">{loginPhone || '—'}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setLoginField('phone')}>
+              Change
+            </Button>
+          </div>
+
+          {/* Password */}
+          <div className="flex items-center justify-between gap-4 py-3.5">
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-[#3F3F46]">Password</p>
+              <p className="truncate text-sm text-[#0a0a0a]">••••••••</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setLoginField('password')}>
+              Change
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {loginField && (
+        <LoginDetailsModal
+          field={loginField}
+          currentEmail={loginEmail || user?.email}
+          onClose={() => setLoginField(null)}
+          onDone={handleLoginChangeDone}
+        />
+      )}
     </div>
   );
 }
