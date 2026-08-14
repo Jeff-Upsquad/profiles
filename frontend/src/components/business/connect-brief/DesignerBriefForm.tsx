@@ -278,6 +278,11 @@ export default function DesignerBriefForm({
   const [additionalReqs, setAdditionalReqs] = useState<Record<string, AdditionalRequirements>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // Latches true on a successful submit. Autosave reads this ref so the
+  // post-submit refetchUser() → autofill → setForm chain can't re-write the
+  // draft we just cleared (which would resurrect stale roles/step/brand into
+  // the next brief and defeat a clean autofill).
+  const submittedRef = useRef(false);
   const [error, setError] = useState('');
   // Assignment only: whether the card is broadcast WITH a price (talents
   // accept/decline/counter) or WITHOUT (talents submit an offer). Brief-level.
@@ -361,9 +366,10 @@ export default function DesignerBriefForm({
   const emailLocked = Boolean((user?.contact_email || user?.email || '').trim());
   const phoneLocked = Boolean((user?.contact_phone || '').trim());
 
-  // Auto-save every change once armed.
+  // Auto-save every change once armed. Stops for good after a successful
+  // submit so the cleared draft isn't resurrected by the refetch-driven refill.
   useEffect(() => {
-    if (!autosaveArmed) return;
+    if (!autosaveArmed || submittedRef.current) return;
     try {
       window.localStorage.setItem(
         draftKey,
@@ -631,6 +637,8 @@ export default function DesignerBriefForm({
         setError(data.error || 'Something went wrong. Please try again.');
         return;
       }
+      // Latch before clearing so the post-submit refetch/refill can't re-save it.
+      submittedRef.current = true;
       setSubmitted(true);
       clearDraft();
       try { await refetchUser(); } catch { /* non-fatal — next page load will pick up */ }

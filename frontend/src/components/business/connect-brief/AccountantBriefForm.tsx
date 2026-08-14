@@ -253,6 +253,11 @@ export default function AccountantBriefForm({
   const [additionalReqs, setAdditionalReqs] = useState<Record<string, AdditionalRequirements>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // Latches true on a successful submit. Autosave reads this ref so the
+  // post-submit refetchUser() → autofill → setForm chain can't re-write the
+  // draft we just cleared (which would resurrect stale roles/step/brand into
+  // the next brief and defeat a clean autofill).
+  const submittedRef = useRef(false);
   const [error, setError] = useState('');
   const [countries, setCountries] = useState<Country[]>([]);
   // Autofill state — silent single-field lookup (email OR phone). On match,
@@ -331,7 +336,7 @@ export default function AccountantBriefForm({
 
   // Auto-save every change once armed.
   useEffect(() => {
-    if (!autosaveArmed) return;
+    if (!autosaveArmed || submittedRef.current) return;
     try {
       window.localStorage.setItem(
         draftKey,
@@ -562,6 +567,8 @@ export default function AccountantBriefForm({
         setError(data.error || 'Something went wrong. Please try again.');
         return;
       }
+      // Latch before clearing so the post-submit refetch/refill can't re-save it.
+      submittedRef.current = true;
       setSubmitted(true);
       clearDraft();
       try { await refetchUser(); } catch { /* non-fatal — next page load will pick up */ }
