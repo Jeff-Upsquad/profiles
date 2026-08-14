@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
+import { getTalentMatchSignals, buildViewerMatch } from './viewer-match.js';
 import {
   contentBusinessName,
   getTalentNames,
@@ -1500,16 +1501,24 @@ export async function listOffersForTalent(talentUserId: string): Promise<TalentO
   const cardIds = [...new Set(offers.map((o) => o.card_id))];
   const { data: cards } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, card_type, content, external_id, status, published_at, expires_at')
+    .select('id, card_type, content, match_rules, external_id, status, published_at, expires_at')
     .in('id', cardIds);
   const cardById = new Map<string, any>();
   for (const c of cards ?? []) cardById.set((c as any).id, c);
+
+  // Talent's own match signals (tick/cross on the card), fetched once.
+  const matchSignals = await getTalentMatchSignals(talentUserId);
 
   const out: TalentOfferListItem[] = [];
   for (const o of offers) {
     const card = cardById.get(o.card_id);
     const content = (card?.content ?? null) as Record<string, unknown> | null;
     const contentObj = content ?? {};
+    // Inject the viewer's match so the bidding card shows the same tick/cross
+    // as the subscriptions list. Null content stays null (nothing to show).
+    const contentWithMatch = content
+      ? { ...content, viewer_match: buildViewerMatch(content, card?.match_rules, matchSignals) }
+      : content;
     const events = await listOfferEvents(o.id);
     const hint = { last_actor_side: o.last_actor_side, opened_by: o.opened_by };
     const projectedCurrent = projectAmountForTalent(o.current_amount, contentObj, hint);
@@ -1526,7 +1535,7 @@ export async function listOffersForTalent(talentUserId: string): Promise<TalentO
       card_type: (card?.card_type as string) ?? null,
       brand_name: (typeof contentObj.brand_name === 'string' ? contentObj.brand_name : null),
       card_title: cardOfferTitle(contentObj, (card?.card_type as string) || 'subscription'),
-      card_content: content,
+      card_content: contentWithMatch,
       card_external_id: (card?.external_id as string) ?? null,
       card_status: (card?.status as string) ?? null,
       card_published_at: (card?.published_at as string) ?? null,
