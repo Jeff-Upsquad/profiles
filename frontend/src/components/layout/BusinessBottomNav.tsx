@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Fragment, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useHasAssignedCard } from '@/components/business/cards/hireActivity';
 
 const SQUADHUB_TIP_KEY = 'business-bottom-nav-squadhub-tip';
@@ -123,61 +123,59 @@ export default function BusinessBottomNav() {
             const isSquadHub = item.href === SQUADHUB_ITEM.href;
 
             return (
-              <Fragment key={item.href}>
-                <div className="relative">
-                  <Link
-                    href={item.href}
-                    className={`flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
-                      active
-                        ? 'text-[#0a0a0a]'
-                        : 'text-zinc-500 hover:text-zinc-900'
-                    }`}
-                  >
-                    <span className={active ? 'text-[#0a0a0a]' : ''}>{item.icon}</span>
-                    {item.label}
-                  </Link>
+              <div key={item.href} className="relative">
+                <Link
+                  href={item.href}
+                  className={`flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+                    active
+                      ? 'text-[#0a0a0a]'
+                      : 'text-zinc-500 hover:text-zinc-900'
+                  }`}
+                >
+                  <span className={active ? 'text-[#0a0a0a]' : ''}>{item.icon}</span>
+                  {item.label}
+                </Link>
 
-                  {isSquadHub && showSquadHubTip && (
-                    <div
-                      className="absolute bottom-full left-1/2 z-40 mb-2 -ml-32 w-64"
-                      style={{ animation: 'squadhub-tip-in 220ms ease-out both' }}
-                      role="status"
-                    >
-                      <div className="relative rounded-xl bg-[#0a0a0a] px-3.5 py-3 text-white shadow-[0_8px_24px_-8px_rgba(10,10,10,0.4)]">
-                        <div
-                          className="absolute -bottom-1 left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 bg-[#0a0a0a]"
-                          aria-hidden="true"
-                        />
-                        <div className="flex items-start gap-2.5">
-                          <p className="flex-1 font-[family-name:var(--font-inter)] text-[12.5px] font-medium leading-relaxed">
-                            Download the SquadHub app or log in on the web to start working with your
-                            talent.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={dismissSquadHubTip}
-                            aria-label="Dismiss tip"
-                            className="-mr-1 -mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-white/55 transition-colors hover:bg-white/10 hover:text-white"
-                          >
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                        <div className="mt-2 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={dismissSquadHubTip}
-                            className="text-[11px] font-semibold text-[#FFFAC2] transition-opacity hover:opacity-80"
-                          >
-                            Got it
-                          </button>
-                        </div>
+                {isSquadHub && showSquadHubTip && (
+                  <div
+                    className="fixed inset-x-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-sm"
+                    style={{ animation: 'squadhub-tip-in 220ms ease-out both' }}
+                    role="status"
+                  >
+                    <div className="relative rounded-xl bg-[#0a0a0a] px-3.5 py-3 text-white shadow-[0_8px_24px_-8px_rgba(10,10,10,0.4)]">
+                      <div
+                        className="absolute -bottom-1 right-8 h-2.5 w-2.5 rotate-45 bg-[#0a0a0a]"
+                        aria-hidden="true"
+                      />
+                      <div className="flex items-start gap-2.5">
+                        <p className="flex-1 font-[family-name:var(--font-inter)] text-[12.5px] font-medium leading-relaxed">
+                          Download the SquadHub app or log in on the web to start working with your
+                          talent.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={dismissSquadHubTip}
+                          aria-label="Dismiss tip"
+                          className="-mr-1 -mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+                        >
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="mt-2 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={dismissSquadHubTip}
+                          className="text-[11px] font-semibold text-[#FFFAC2] transition-opacity hover:opacity-80"
+                        >
+                          Got it
+                        </button>
                       </div>
                     </div>
-                  )}
-                </div>
-              </Fragment>
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>
