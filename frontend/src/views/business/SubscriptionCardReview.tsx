@@ -921,7 +921,7 @@ function recipientCategoryId(r: CardRecipientForBusiness): string | null {
 function RecipientLink({ recipient: r, children, inactive = false }: { recipient: CardRecipientForBusiness; children: React.ReactNode; inactive?: boolean }) {
   if (inactive) {
     return (
-      <div className="flex min-w-0 flex-1 items-center gap-4 opacity-45 grayscale cursor-default select-none">
+      <div className="flex min-w-0 basis-full flex-1 items-center gap-4 opacity-45 grayscale cursor-default select-none sm:basis-auto">
         {children}
       </div>
     );
@@ -938,14 +938,14 @@ function RecipientLink({ recipient: r, children, inactive = false }: { recipient
     return (
       <Link
         href={`/business/dashboard/${categoryId}/${r.profile_id}${q}`}
-        className="flex min-w-0 flex-1 cursor-pointer items-center gap-4 transition-opacity hover:opacity-70"
+        className="flex min-w-0 basis-full flex-1 cursor-pointer items-center gap-4 transition-opacity hover:opacity-70 sm:basis-auto"
         title="View full profile"
       >
         {children}
       </Link>
     );
   }
-  return <div className="flex min-w-0 flex-1 items-center gap-4">{children}</div>;
+  return <div className="flex min-w-0 basis-full flex-1 items-center gap-4 sm:basis-auto">{children}</div>;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
