@@ -830,7 +830,7 @@ function RecipientInfo({ recipient: r, isNew = false }: { recipient: CardRecipie
   return (
     <div className="min-w-0 flex-1">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
+        <p className="min-w-0 truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
           {r.talent_name || 'Unknown talent'}
         </p>
         {isNew && (
