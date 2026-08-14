@@ -59,6 +59,63 @@ function parseAdditionalRequirements(
   return out;
 }
 
+// ── Viewer match (tick / cross vs the talent's own profile) ──────────────────
+interface MatchItem { label: string; matched: boolean }
+// Group the flat additional-requirement matches back into display groups,
+// preserving first-seen order and mapping group keys to labels.
+function groupAdditionalMatches(
+  items: { group: string; label: string; matched: boolean }[] | undefined,
+): { key: string; label: string; items: MatchItem[] }[] {
+  if (!items || items.length === 0) return [];
+  const order: string[] = [];
+  const byGroup = new Map<string, MatchItem[]>();
+  for (const it of items) {
+    if (!byGroup.has(it.group)) {
+      byGroup.set(it.group, []);
+      order.push(it.group);
+    }
+    byGroup.get(it.group)!.push({ label: it.label, matched: it.matched });
+  }
+  return order.map((key) => ({ key, label: arGroupLabel(key), items: byGroup.get(key)! }));
+}
+
+// A single tick/cross chip — light green when the talent has it, light red when
+// they don't. Presence-only; reference for the talent, not a gate.
+function MatchChip({ item }: { item: MatchItem }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-[family-name:var(--font-inter)] text-xs font-medium ${
+        item.matched
+          ? 'border-[#BFE6C9] bg-[#EAF7EE] text-[#1F7E36]'
+          : 'border-[#F4C9C4] bg-[#FDECEC] text-[#C13515]'
+      }`}
+      title={item.matched ? 'In your profile' : 'Not in your profile'}
+    >
+      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+        {item.matched ? (
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        ) : (
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
+        )}
+      </svg>
+      {item.label}
+    </span>
+  );
+}
+function MatchChipGroup({ label, items }: { label: string; items: MatchItem[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <p className="font-[family-name:var(--font-inter)] text-[11px] font-semibold text-[#737373]">{label}</p>
+      <div className="mt-1 flex flex-wrap gap-1.5">
+        {items.map((it, i) => (
+          <MatchChip key={i} item={it} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Match the first two letters case-insensitively so "Mon" / "monday" / "MON" all resolve.
 const WEEK_ORDER = ['mo', 'tu', 'we', 'th', 'fr', 'sa', 'su'] as const;
 
@@ -288,7 +345,17 @@ export default function SubscriptionCardContent({ content }: Props) {
   // Optional skills/tools the client attached to the brief. Descriptive only —
   // shown as nice-to-haves; never a condition of accepting the card.
   const additionalGroups = parseAdditionalRequirements(content.additional_requirements);
-  const hasAdditional = additionalGroups.length > 0;
+  // Per-viewer match (present on talent-facing fetches). When available it
+  // drives the tick/cross chips + the Location & Language block; otherwise we
+  // fall back to the plain (no-match) rendering below.
+  const viewerMatch = content.viewer_match;
+  const vmLanguages = viewerMatch?.languages ?? [];
+  const vmCountries = viewerMatch?.countries ?? [];
+  const vmRegions = viewerMatch?.regions ?? [];
+  const additionalMatchGroups = groupAdditionalMatches(viewerMatch?.additional);
+  const hasLocationLang = vmCountries.length > 0 || vmRegions.length > 0 || vmLanguages.length > 0;
+  const hasAdditionalMatch = additionalMatchGroups.length > 0;
+  const hasAdditional = additionalGroups.length > 0 || hasAdditionalMatch;
 
   // Client brief = engagement identity only (brand / role / plan).
   // About the client = company context under a toggle (nature, location, notes).
@@ -299,7 +366,7 @@ export default function SubscriptionCardContent({ content }: Props) {
     hoursLabel || capacityLabel || deliverablesLabel ||
     deliverables.length > 0 || priceFormatted ||
     workingDaysSorted.length > 0 || hasClientBrief || hasAboutClient ||
-    countries.length > 0 || languages.length > 0 || hasAdditional;
+    countries.length > 0 || languages.length > 0 || hasAdditional || hasLocationLang;
   const showDescription = description && !hasStructured;
 
   const expiresRelative = formatRelativeExpiry(
@@ -544,7 +611,10 @@ export default function SubscriptionCardContent({ content }: Props) {
             </div>
           )}
 
-          {countries.length > 0 && (
+          {/* Plain Country / Language — only when we have no per-viewer match
+              to show (otherwise the Location & Language block below replaces
+              them with tick/cross chips). */}
+          {!hasLocationLang && countries.length > 0 && (
             <div>
               <SectionLabel icon={IconGlobe}>
                 {countries.length === 1 ? 'Country' : 'Countries'}
@@ -557,7 +627,7 @@ export default function SubscriptionCardContent({ content }: Props) {
             </div>
           )}
 
-          {languages.length > 0 && (
+          {!hasLocationLang && languages.length > 0 && (
             <div>
               <SectionLabel icon={IconSpeech}>
                 {languages.length === 1 ? 'Language' : 'Languages'}
@@ -566,6 +636,19 @@ export default function SubscriptionCardContent({ content }: Props) {
                 {languages.map((l, i) => (
                   <Chip key={i}>{l}</Chip>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Location & Language — the card's required country / state / language
+              with a tick when it's in your profile, a red cross when it isn't. */}
+          {hasLocationLang && (
+            <div>
+              <SectionLabel icon={IconGlobe}>Location &amp; Language</SectionLabel>
+              <div className="mt-2 space-y-2.5">
+                <MatchChipGroup label="Country" items={vmCountries} />
+                <MatchChipGroup label="State / region" items={vmRegions} />
+                <MatchChipGroup label="Language" items={vmLanguages} />
               </div>
             </div>
           )}
@@ -581,22 +664,44 @@ export default function SubscriptionCardContent({ content }: Props) {
                 </span>
               </div>
               <div className="mt-2 space-y-2.5">
-                {additionalGroups.map((g) => (
-                  <div key={g.key}>
-                    <p className="font-[family-name:var(--font-inter)] text-[11px] font-semibold text-[#737373]">
-                      {g.label}
-                    </p>
-                    <div className="mt-1 flex flex-wrap gap-1.5">
-                      {g.items.map((it, i) => (
-                        <Chip key={i}>{it}</Chip>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                {hasAdditionalMatch
+                  ? additionalMatchGroups.map((g) => (
+                      <MatchChipGroup key={g.key} label={g.label} items={g.items} />
+                    ))
+                  : additionalGroups.map((g) => (
+                      <div key={g.key}>
+                        <p className="font-[family-name:var(--font-inter)] text-[11px] font-semibold text-[#737373]">
+                          {g.label}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {g.items.map((it, i) => (
+                            <Chip key={i}>{it}</Chip>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
               </div>
               <p className="mt-2 font-[family-name:var(--font-inter)] text-[11px] leading-relaxed text-[#a3a3a3]">
                 Nice-to-haves from the client — not required to accept this card.
               </p>
+            </div>
+          )}
+
+          {/* Legend for the tick/cross chips, shown once when any match block is. */}
+          {(hasLocationLang || hasAdditionalMatch) && (
+            <div className="flex flex-wrap gap-4 pt-0.5">
+              <span className="inline-flex items-center gap-1.5 font-[family-name:var(--font-inter)] text-[11px] text-[#737373]">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-[#BFE6C9] bg-[#EAF7EE] text-[#1F7E36]">
+                  <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                </span>
+                In your profile
+              </span>
+              <span className="inline-flex items-center gap-1.5 font-[family-name:var(--font-inter)] text-[11px] text-[#737373]">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-[#F4C9C4] bg-[#FDECEC] text-[#C13515]">
+                  <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" /></svg>
+                </span>
+                Not in your profile
+              </span>
             </div>
           )}
         </div>

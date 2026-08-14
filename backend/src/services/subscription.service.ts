@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { supabaseAdmin } from '../config/supabase.js';
+import { getTalentMatchSignals, buildViewerMatch } from './viewer-match.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { findMatchingTalents } from './subscription-matcher.service.js';
@@ -989,7 +990,7 @@ export async function listForTalent(
   let q = supabaseAdmin
     .from('subscription_card_recipients')
     .select(
-      'id, status, responded_at, cancelled_at, selected_at, passed_over_at, created_at, viewed_at, subscription_cards!inner(id, external_id, content, status, published_at, expires_at, archived_at, card_type)'
+      'id, status, responded_at, cancelled_at, selected_at, passed_over_at, created_at, viewed_at, subscription_cards!inner(id, external_id, content, match_rules, status, published_at, expires_at, archived_at, card_type)'
     )
     .eq('talent_user_id', talentUserId)
     .eq('subscription_cards.card_type', cardType)
@@ -1058,15 +1059,33 @@ export async function listForTalent(
       });
   }
 
-  return (data ?? []).map((r: any) => ({
-    id: r.id,
-    status: r.status,
-    responded_at: r.responded_at,
-    cancelled_at: r.cancelled_at,
-    selected_at: r.selected_at ?? null,
-    passed_over_at: r.passed_over_at ?? null,
-    card: r.subscription_cards,
-  }));
+  // Enrich each card with the viewer's own match (tick/cross on the talent
+  // card). Signals are the talent's languages/location/skills, fetched once.
+  const rows = data ?? [];
+  const signals = rows.length > 0 ? await getTalentMatchSignals(talentUserId) : null;
+
+  return rows.map((r: any) => {
+    const c = r.subscription_cards;
+    const card =
+      c && signals
+        ? {
+            ...c,
+            content: {
+              ...(c.content ?? {}),
+              viewer_match: buildViewerMatch(c.content, c.match_rules, signals),
+            },
+          }
+        : c;
+    return {
+      id: r.id,
+      status: r.status,
+      responded_at: r.responded_at,
+      cancelled_at: r.cancelled_at,
+      selected_at: r.selected_at ?? null,
+      passed_over_at: r.passed_over_at ?? null,
+      card,
+    };
+  });
 }
 
 // ─── My Clients: cards where this talent has been selected ────────────────

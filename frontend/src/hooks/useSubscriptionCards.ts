@@ -40,6 +40,15 @@ export interface SubscriptionCardContentShape {
   // ('skills' | 'tools' | 'ai_tools' | …) → labels. Descriptive only — shown to
   // talent as nice-to-haves; never affects whether this card was broadcast.
   additional_requirements?: Record<string, string[]>;
+  // Per-viewer match (tick/cross on the talent card) computed server-side from
+  // the talent's own profile vs the card's required language/location and the
+  // optional skills/tools. Present only on talent-facing card fetches.
+  viewer_match?: {
+    languages: { label: string; matched: boolean }[];
+    countries: { label: string; matched: boolean }[];
+    regions: { label: string; matched: boolean }[];
+    additional: { group: string; label: string; matched: boolean }[];
+  };
   target_country_names?: string[];
   target_languages?: string[];
   // Plan-card fields (SquadHub should forward these from the selected plan):
