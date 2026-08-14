@@ -2,7 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Fragment, useEffect, useState } from 'react';
 import { useHasAssignedCard } from '@/components/business/cards/hireActivity';
+
+const SQUADHUB_TIP_KEY = 'business-bottom-nav-squadhub-tip';
 
 interface NavItem {
   href: string;
@@ -29,7 +32,7 @@ const SQUADHUB_ITEM: NavItem = {
   href: '/business/squadhub',
   label: 'SquadHub',
   icon: (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg className="h-5 w-5" fill="#FFFF99" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM13 6a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2V6zM4 15a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3zM13 15a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2v-3z" />
     </svg>
   ),
@@ -78,6 +81,28 @@ export default function BusinessBottomNav() {
   const { hasAssignedCard } = useHasAssignedCard();
   const navItems = [...NAV_ITEMS, hasAssignedCard ? SQUADHUB_ITEM : HOW_IT_WORKS_ITEM];
 
+  const [showSquadHubTip, setShowSquadHubTip] = useState(false);
+
+  useEffect(() => {
+    if (!hasAssignedCard) return;
+    try {
+      if (localStorage.getItem(SQUADHUB_TIP_KEY) !== 'dismissed') {
+        setShowSquadHubTip(true);
+      }
+    } catch {
+      setShowSquadHubTip(true);
+    }
+  }, [hasAssignedCard]);
+
+  function dismissSquadHubTip() {
+    setShowSquadHubTip(false);
+    try {
+      localStorage.setItem(SQUADHUB_TIP_KEY, 'dismissed');
+    } catch {
+      // ignore
+    }
+  }
+
   const isActive = (href: string, matchPrefixes?: string[]) => {
     if (matchPrefixes?.length) {
       return matchPrefixes.some(
@@ -95,23 +120,81 @@ export default function BusinessBottomNav() {
         <nav className="mx-auto flex max-w-lg items-center justify-around py-2">
           {navItems.map((item) => {
             const active = isActive(item.href, item.matchPrefixes);
+            const isSquadHub = item.href === SQUADHUB_ITEM.href;
+
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
-                  active
-                    ? 'text-[#0a0a0a]'
-                    : 'text-zinc-500 hover:text-zinc-900'
-                }`}
-              >
-                <span className={active ? 'text-[#0a0a0a]' : ''}>{item.icon}</span>
-                {item.label}
-              </Link>
+              <Fragment key={item.href}>
+                <div className="relative">
+                  <Link
+                    href={item.href}
+                    className={`flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+                      active
+                        ? 'text-[#0a0a0a]'
+                        : 'text-zinc-500 hover:text-zinc-900'
+                    }`}
+                  >
+                    <span className={active ? 'text-[#0a0a0a]' : ''}>{item.icon}</span>
+                    {item.label}
+                  </Link>
+
+                  {isSquadHub && showSquadHubTip && (
+                    <div
+                      className="absolute bottom-full left-1/2 z-40 mb-2 -ml-32 w-64"
+                      style={{ animation: 'squadhub-tip-in 220ms ease-out both' }}
+                      role="status"
+                    >
+                      <div className="relative rounded-xl bg-[#0a0a0a] px-3.5 py-3 text-white shadow-[0_8px_24px_-8px_rgba(10,10,10,0.4)]">
+                        <div
+                          className="absolute -bottom-1 left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 bg-[#0a0a0a]"
+                          aria-hidden="true"
+                        />
+                        <div className="flex items-start gap-2.5">
+                          <p className="flex-1 font-[family-name:var(--font-inter)] text-[12.5px] font-medium leading-relaxed">
+                            Download the SquadHub app or log in on the web to start working with your
+                            talent.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={dismissSquadHubTip}
+                            aria-label="Dismiss tip"
+                            className="-mr-1 -mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+                          >
+                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="mt-2 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={dismissSquadHubTip}
+                            className="text-[11px] font-semibold text-[#FFFAC2] transition-opacity hover:opacity-80"
+                          >
+                            Got it
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Fragment>
             );
           })}
         </nav>
       </div>
+
+      <style jsx>{`
+        @keyframes squadhub-tip-in {
+          from {
+            opacity: 0;
+            transform: translateY(6px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </>
   );
 }
