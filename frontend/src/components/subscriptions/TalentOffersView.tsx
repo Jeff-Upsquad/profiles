@@ -26,8 +26,11 @@ function isTabKey(v: string | null): v is TabKey {
 
 export default function TalentOffersView({
   variant = 'subscription',
+  embedded = false,
 }: {
   variant?: 'subscription' | 'assignment';
+  /** Hide the page hero when rendered as a Home tab. */
+  embedded?: boolean;
 }) {
   const isAssignment = variant === 'assignment';
   const heading = isAssignment ? 'Assignments' : 'Subscriptions';
@@ -51,26 +54,27 @@ export default function TalentOffersView({
 
   return (
     <div className="space-y-6">
-      {/* Compact Hero */}
-      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-6 sm:px-7 sm:py-7">
-        <div className="hero-content flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="mb-2.5 stagger-1">
-              <span className="eyebrow-rainbow">
-                {pendingNum > 0 ? `${pendingNum} pending offer${pendingNum === 1 ? '' : 's'}` : 'No pending offers'}
-              </span>
+      {!embedded && (
+        <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-6 sm:px-7 sm:py-7">
+          <div className="hero-content flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="mb-2.5 stagger-1">
+                <span className="eyebrow-rainbow">
+                  {pendingNum > 0 ? `${pendingNum} pending offer${pendingNum === 1 ? '' : 's'}` : 'No pending offers'}
+                </span>
+              </div>
+              <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
+                <span className="text-rainbow">{heading}</span>.
+              </h1>
+              <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
+                {isAssignment
+                  ? 'One-off project briefs matched to your profile. Accept or decline each one.'
+                  : 'Offers pushed to you based on your profile. Accept or decline each one.'}
+              </p>
             </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
-              <span className="text-rainbow">{heading}</span>.
-            </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
-              {isAssignment
-                ? 'One-off project briefs matched to your profile. Accept or decline each one.'
-                : 'Offers pushed to you based on your profile. Accept or decline each one.'}
-            </p>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <WhatsAppUpdatesToggle />
 
