@@ -27,7 +27,12 @@ const TABS: { key: TalentJobsTab; label: string }[] = [
   { key: 'placed', label: 'Placed' },
 ];
 
-export default function TalentJobsView() {
+export default function TalentJobsView({
+  embedded = false,
+}: {
+  /** Hide the page hero when rendered as a Home tab. */
+  embedded?: boolean;
+}) {
   const [tab, setTab] = useState<TalentJobsTab>('new');
   const { data: prefs, isLoading: prefsLoading } = useJobPreferences();
   const optOut = useOptOutOfJobs();
@@ -39,29 +44,30 @@ export default function TalentJobsView() {
 
   return (
     <div className="space-y-6">
-      {/* Compact hero */}
-      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-6 sm:px-7 sm:py-7">
-        <div className="hero-glow-blur" />
-        <div className="hero-content">
-          <div className="mb-2.5 stagger-1">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFFAC2] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              {optedIn && newCount > 0
-                ? `${newCount} new opening${newCount === 1 ? '' : 's'}`
-                : 'Opportunities'}
-            </span>
+      {!embedded && (
+        <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-6 sm:px-7 sm:py-7">
+          <div className="hero-glow-blur" />
+          <div className="hero-content">
+            <div className="mb-2.5 stagger-1">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFFAC2] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                {optedIn && newCount > 0
+                  ? `${newCount} new opening${newCount === 1 ? '' : 's'}`
+                  : 'Opportunities'}
+              </span>
+            </div>
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] font-semibold leading-[1.15] tracking-[-0.025em] text-[#0a0a0a] sm:text-[30px] stagger-2">
+              Job Openings
+            </h1>
+            <p className="mt-1.5 max-w-xl font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
+              Full-time roles from businesses hiring through UpSquad — apply, interview and get placed,
+              all in one place.
+            </p>
           </div>
-          <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] font-semibold leading-[1.15] tracking-[-0.025em] text-[#0a0a0a] sm:text-[30px] stagger-2">
-            Job Openings
-          </h1>
-          <p className="mt-1.5 max-w-xl font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
-            Full-time roles from businesses hiring through UpSquad — apply, interview and get placed,
-            all in one place.
-          </p>
-        </div>
-      </section>
+        </section>
+      )}
 
       {prefsLoading && (
         <div className="space-y-3">

@@ -87,6 +87,7 @@ export interface SubscriptionCardItem {
 export function useMySubscriptionCards(
   filter: SubscriptionListFilter = 'pending',
   cardType: 'subscription' | 'assignment' = 'subscription',
+  opts: { enabled?: boolean } = {},
 ) {
   return useQuery({
     queryKey: ['subscriptions', cardType, filter],
@@ -97,6 +98,7 @@ export function useMySubscriptionCards(
       );
       return data.items ?? [];
     },
+    enabled: opts.enabled ?? true,
   });
 }
 
@@ -113,6 +115,12 @@ export function useUnreadSubscriptionCount(opts: { enabled?: boolean } = {}) {
     refetchOnWindowFocus: true,
     enabled: opts.enabled ?? true,
   });
+}
+
+/** Pending assignment offers — assignments have no dedicated unread endpoint. */
+export function useUnreadAssignmentCount(opts: { enabled?: boolean } = {}) {
+  const query = useMySubscriptionCards('pending', 'assignment', opts);
+  return { ...query, data: query.data?.length ?? 0 };
 }
 
 export function useRespondToSubscriptionCard() {

@@ -4,14 +4,16 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import DashboardLayout, { type SidebarItem } from '@/components/layout/DashboardLayout';
 import Badge from '@/components/ui/Badge';
-import { useUnreadSubscriptionCount } from '@/hooks/useSubscriptionCards';
+import { useUnreadSubscriptionCount, useUnreadAssignmentCount } from '@/hooks/useSubscriptionCards';
+import TalentTopBar from '@/components/layout/TalentTopBar';
+import TalentBottomNav from '@/components/layout/TalentBottomNav';
 import { useUnreadJobsCount } from '@/hooks/useJobs';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { useConversationUnread } from '@/hooks/useConversations';
 import { useIncompleteTrainingCount, useModuleAccess } from '@/hooks/useTraining';
 import ModuleUnlockGate from '@/components/training/ModuleUnlockGate';
 
-const ALWAYS_ACCESSIBLE = ['/talent/dashboard', '/talent/training', '/talent/contact-support', '/talent/messages'];
+const ALWAYS_ACCESSIBLE = ['/talent/dashboard', '/talent/training', '/talent/contact-support', '/talent/messages', '/talent/more'];
 
 const ROUTE_TO_MODULE: Record<string, string> = {
   '/talent/basic-profile': 'basic-profile',
@@ -47,6 +49,7 @@ export default function TalentLayout({
   const isTalent = !!user && user.role === 'talent';
   const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
   const { data: unread = 0 } = useUnreadSubscriptionCount({ enabled: isTalent });
+  const { data: unreadAssignments = 0 } = useUnreadAssignmentCount({ enabled: isTalent });
   const { data: unreadJobs = 0 } = useUnreadJobsCount({ enabled: isTalent });
   const { data: unreadNotifications = 0 } = useUnreadNotificationsCount({ enabled: isTalent });
   const { data: unreadMessages = 0 } = useConversationUnread('talent', { enabled: isTalent });
@@ -134,6 +137,7 @@ export default function TalentLayout({
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
         </svg>
       ),
+      badge: unreadAssignments > 0 ? <Badge variant="indigo">{unreadAssignments}</Badge> : undefined,
     },
     // Bidding lives as a tab inside Subscriptions / Assignments (not a sidebar module).
     {
@@ -278,5 +282,15 @@ export default function TalentLayout({
       children
     );
 
-  return <DashboardLayout sidebarItems={gatedItems}>{content}</DashboardLayout>;
+  return (
+    <DashboardLayout
+      sidebarItems={gatedItems}
+      hideMobileSidebar
+      hideNavbarOnMobile
+    >
+      <TalentTopBar />
+      {content}
+      <TalentBottomNav />
+    </DashboardLayout>
+  );
 }

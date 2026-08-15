@@ -19,10 +19,12 @@ interface DashboardLayoutProps {
   sidebarContent?: React.ReactNode | ((opts: { onNavigate: () => void }) => React.ReactNode);
   hideMobileSidebar?: boolean;
   hideNavbar?: boolean;
+  /** Keep the desktop top bar, hide it on mobile (talent uses TalentTopBar). */
+  hideNavbarOnMobile?: boolean;
   children: React.ReactNode;
 }
 
-export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobileSidebar, hideNavbar, children }: DashboardLayoutProps) {
+export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobileSidebar, hideNavbar, hideNavbarOnMobile, children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname() ?? '';
   const isMessagesList = pathname === '/business/messages' || pathname === '/talent/messages';
@@ -35,7 +37,11 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
 
   return (
     <div className="flex h-screen flex-col bg-[#F5F5F6]">
-      {!hideNavbar && <Navbar />}
+      {!hideNavbar && (
+        <div className={hideNavbarOnMobile ? 'hidden md:block' : undefined}>
+          <Navbar />
+        </div>
+      )}
       <div className="flex flex-1 overflow-hidden">
         {/* Overlay */}
         {sidebarOpen && !hideMobileSidebar && (
