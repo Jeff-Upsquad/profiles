@@ -7,7 +7,7 @@ String? mapNotificationRoute(String? linkOrRoute) {
   // Already an app route.
   const appRoots = [
     '/home', '/jobs', '/offers', '/notifications', '/more',
-    '/job/', '/job-profile/', '/interview/', '/offer/',
+    '/job/', '/job-profile/', '/interview/', '/offer/', '/messages',
   ];
   for (final r in appRoots) {
     if (raw == r || raw.startsWith(r)) return raw;
@@ -35,6 +35,10 @@ String? mapNotificationRoute(String? linkOrRoute) {
     return '/offers';
   }
   if (path.contains('/my-clients')) return '/more/my-clients';
+  final intro = RegExp(r'/talent/messages/([^/]+)').firstMatch(path);
+  if (intro != null) return '/messages/${intro.group(1)}';
+  if (path.contains('/messages')) return '/messages';
+
   if (path.contains('/notifications')) return '/notifications';
   if (path.contains('/training')) return '/more/training';
   if (path.contains('/dashboard')) return '/home';

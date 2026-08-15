@@ -15,6 +15,8 @@ import '../features/jobs/offers/offers_screen.dart';
 import '../features/jobs/offers/offer_detail_screen.dart';
 import '../features/offers/offers_inbox_screen.dart';
 import '../features/notifications/notifications_screen.dart';
+import '../features/messages/messages_inbox_screen.dart';
+import '../features/messages/conversation_screen.dart';
 import '../features/clients/my_clients_screen.dart';
 import '../features/training/training_screen.dart';
 import '../features/profile/basic_profile_screen.dart';
@@ -91,6 +93,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       _rootRoute('/more/profiles/edit/:id',
           (s) => ProfileEditScreen(profileId: s.pathParameters['id']!)),
       _rootRoute('/more/training', (_) => const TrainingScreen()),
+      _rootRoute('/messages', (_) => const MessagesInboxScreen()),
+      _rootRoute('/messages/:id',
+          (s) => ConversationScreen(conversationId: s.pathParameters['id']!)),
       _rootRoute('/subscription-detail', (state) {
         final recipient = state.extra as SubscriptionCardRecipient?;
         if (recipient == null) {

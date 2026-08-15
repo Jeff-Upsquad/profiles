@@ -10,6 +10,7 @@ import 'features/update/update_gate.dart';
 import 'providers/providers.dart';
 import 'providers/jobs_providers.dart';
 import 'providers/talent_providers.dart';
+import 'providers/conversations_providers.dart';
 import 'services/notification_service.dart';
 import 'services/update_controller.dart';
 
@@ -123,6 +124,8 @@ class _TalentAppState extends ConsumerState<TalentApp> {
     ref.invalidate(offersListProvider);
     ref.invalidate(notificationsProvider);
     ref.invalidate(unreadNotificationsProvider);
+    ref.invalidate(conversationsListProvider);
+    ref.invalidate(conversationsUnreadProvider);
   }
 
   /// Navigate to a notification's target (a web link_url or an app route), or

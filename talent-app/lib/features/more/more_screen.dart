@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
+import '../../providers/conversations_providers.dart';
 import '../../providers/providers.dart';
 import '../../providers/talent_providers.dart';
 
@@ -64,10 +65,12 @@ class MoreScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          _group('Work', const [
-            _Item(Icons.event_available_outlined, 'Interviews', '/interviews'),
-            _Item(Icons.mail_outline, 'Job offers', '/job-offers'),
-            _Item(Icons.groups_outlined, 'My Clients', '/more/my-clients'),
+          _group('Work', [
+            const _Item(Icons.chat_bubble_outline, 'Messages', '/messages',
+                showUnread: true),
+            const _Item(Icons.event_available_outlined, 'Interviews', '/interviews'),
+            const _Item(Icons.mail_outline, 'Job offers', '/job-offers'),
+            const _Item(Icons.groups_outlined, 'My Clients', '/more/my-clients'),
           ]),
           const SizedBox(height: 12),
           _group('Profile', const [
@@ -159,7 +162,8 @@ class _Item extends ConsumerWidget {
   final IconData icon;
   final String label;
   final String route;
-  const _Item(this.icon, this.label, this.route);
+  final bool showUnread;
+  const _Item(this.icon, this.label, this.route, {this.showUnread = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -182,10 +186,31 @@ class _Item extends ConsumerWidget {
       );
     }
 
+    final unread = showUnread
+        ? (ref.watch(conversationsUnreadProvider).value ?? 0)
+        : 0;
+
     return ListTile(
       leading: Icon(icon, color: AppColors.textSecondary),
       title: Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-      trailing: const Icon(Icons.chevron_right, color: AppColors.textTertiary),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (unread > 0)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: CircleAvatar(
+                radius: 10,
+                backgroundColor: AppColors.primary,
+                child: Text(
+                  '$unread',
+                  style: const TextStyle(color: Colors.white, fontSize: 10),
+                ),
+              ),
+            ),
+          const Icon(Icons.chevron_right, color: AppColors.textTertiary),
+        ],
+      ),
       onTap: () => context.push(route),
     );
   }
