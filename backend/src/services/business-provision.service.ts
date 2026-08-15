@@ -8,7 +8,7 @@ export interface ProvisionBusinessInput {
   phone?: string | null;
   company_name?: string | null;
   contact_person_name?: string | null;
-  expires_at: string; // ISO timestamp — end of the access window
+  expires_at?: string; // ignored — business accounts no longer expire
 }
 
 export interface ProvisionBusinessResult {
@@ -38,17 +38,10 @@ export async function provisionBusinessUser(
   const existing = await findExisting(email, phone);
 
   if (existing) {
-    // Keep the more generous of the current vs incoming expiry.
-    const current = existing.access_expires_at
-      ? new Date(existing.access_expires_at).getTime()
-      : 0;
-    const incoming = new Date(input.expires_at).getTime();
-    const access_expires_at =
-      Number.isFinite(incoming) && incoming > current
-        ? input.expires_at
-        : existing.access_expires_at;
-
-    const update: Record<string, unknown> = { access_expires_at, is_active: true };
+    const update: Record<string, unknown> = {
+      access_expires_at: null,
+      is_active: true,
+    };
     // Backfill identity fields only where currently empty, so we never clobber
     // details the business user has already set for themselves.
     if (input.company_name && (!existing.company_name || existing.company_name === 'Unnamed Company')) {
@@ -66,7 +59,7 @@ export async function provisionBusinessUser(
       .eq('id', existing.id);
     if (error) throw new AppError(500, error.message);
 
-    return { business_user_id: existing.id, created: false, access_expires_at };
+    return { business_user_id: existing.id, created: false, access_expires_at: null };
   }
 
   const id = crypto.randomUUID();
@@ -76,14 +69,14 @@ export async function provisionBusinessUser(
     contact_person_name: input.contact_person_name || '',
     contact_email: email,
     contact_phone: phone,
-    access_expires_at: input.expires_at,
+    access_expires_at: null,
     is_active: true,
     verified: true,
     // password_required defaults to true (migration 00111) → first-time signup.
   });
   if (error) throw new AppError(400, error.message);
 
-  return { business_user_id: id, created: true, access_expires_at: input.expires_at };
+  return { business_user_id: id, created: true, access_expires_at: null };
 }
 
 async function findExisting(email: string | null, phone: string | null) {

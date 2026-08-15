@@ -376,11 +376,6 @@ export async function getMe(userId: string, role: UserRole) {
 
     if (error || !data) throw new AppError(404, 'Business user not found');
 
-    // Check if access has expired
-    if (data.access_expires_at && new Date(data.access_expires_at) < new Date()) {
-      throw new AppError(403, 'Your access has expired. Please contact the administrator.');
-    }
-
     return { ...data, role, must_reset_password: mustResetPassword };
   }
 

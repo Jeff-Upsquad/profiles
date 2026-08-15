@@ -122,9 +122,9 @@ export async function listPendingRequests(): Promise<PendingRequestsResponse> {
 
 export async function grantBusinessAccess(
   businessId: string,
-  expiresAt: string,
+  _expiresAt?: string,
 ) {
-  return adminService.extendBusinessAccess(businessId, { expiresAt });
+  return adminService.clearBusinessAccessExpiry(businessId);
 }
 
 export async function grantCourseReopen(requestId: string, adminUserId: string) {

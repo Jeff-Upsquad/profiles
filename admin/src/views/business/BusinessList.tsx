@@ -1,14 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Modal from '@/components/ui/Modal';
 import { formatDate } from '@/lib/formatDate';
 
 interface BusinessUser {
@@ -24,35 +19,12 @@ interface BusinessUser {
 
 export default function BusinessList() {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const [extendModal, setExtendModal] = useState<BusinessUser | null>(null);
-  const [extendDays, setExtendDays] = useState(30);
 
   const { data: businessUsers, isLoading } = useQuery<BusinessUser[]>({
     queryKey: ['admin-business-users'],
     queryFn: async () => {
       const { data } = await api.get('/admin/users/business');
       return data.users ?? data;
-    },
-  });
-
-  const isExpired = (expiresAt?: string) => {
-    if (!expiresAt) return false;
-    return new Date(expiresAt) < new Date();
-  };
-
-  const extendAccess = useMutation({
-    mutationFn: async ({ businessId, days }: { businessId: string; days: number }) => {
-      await api.patch(`/admin/business/${businessId}/extend-access`, { days });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-business-users'] });
-      toast.success('Access extended successfully');
-      setExtendModal(null);
-      setExtendDays(30);
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Failed to extend access');
     },
   });
 
@@ -82,9 +54,7 @@ export default function BusinessList() {
                 <th className="px-6 py-3">Contact</th>
                 <th className="px-6 py-3">Email</th>
                 <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3">Expires</th>
                 <th className="px-6 py-3">Created</th>
-                <th className="px-6 py-3">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -104,40 +74,14 @@ export default function BusinessList() {
                     {user.contact_email}
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-1.5">
-                      {isExpired(user.access_expires_at) ? (
-                        <Badge variant="red">Expired</Badge>
-                      ) : user.is_active ? (
-                        <Badge variant="green">Active</Badge>
-                      ) : (
-                        <Badge variant="gray">Inactive</Badge>
-                      )}
-                      {user.access_requested_at && isExpired(user.access_expires_at) && (
-                        <Badge variant="yellow">Requested</Badge>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">
-                    {user.access_expires_at
-                      ? formatDate(user.access_expires_at)
-                      : 'No expiry'}
+                    {user.is_active ? (
+                      <Badge variant="green">Active</Badge>
+                    ) : (
+                      <Badge variant="gray">Inactive</Badge>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-gray-500">
                     {formatDate(user.created_at)}
-                  </td>
-                  <td className="px-6 py-4">
-                    {isExpired(user.access_expires_at) && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setExtendModal(user);
-                        }}
-                      >
-                        Extend Access
-                      </Button>
-                    )}
                   </td>
                 </tr>
               ))}
@@ -145,45 +89,6 @@ export default function BusinessList() {
           </table>
         )}
       </div>
-
-      <Modal
-        isOpen={!!extendModal}
-        onClose={() => { setExtendModal(null); setExtendDays(30); }}
-        title="Extend Access"
-        size="sm"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Extend access for <strong>{extendModal?.company_name}</strong> ({extendModal?.contact_email})
-          </p>
-          <Input
-            label="Number of days"
-            type="number"
-            min={1}
-            max={365}
-            value={extendDays}
-            onChange={(e) => setExtendDays(Number(e.target.value))}
-          />
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => { setExtendModal(null); setExtendDays(30); }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => extendModal && extendAccess.mutate({
-                businessId: extendModal.id,
-                days: extendDays,
-              })}
-              loading={extendAccess.isPending}
-              disabled={extendDays < 1 || extendDays > 365}
-            >
-              Extend
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

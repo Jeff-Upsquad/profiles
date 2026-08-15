@@ -620,7 +620,7 @@ export async function getBusinessTalentInfo(businessUser: BusinessUserLite): Pro
   if (categories.length === 0) return null;
   return {
     email: businessUser.contact_email ?? null,
-    expires_at: businessUser.access_expires_at ?? null,
+    expires_at: null,
     categories,
   };
 }

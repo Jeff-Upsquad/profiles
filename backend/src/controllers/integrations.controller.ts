@@ -15,7 +15,7 @@ const provisionBusinessSchema = z
     phone: z.string().trim().min(3).optional(),
     company_name: z.string().max(300).optional(),
     contact_person_name: z.string().max(200).optional(),
-    expires_at: z.string().datetime(),
+    expires_at: z.string().datetime().optional(),
   })
   .refine((v) => !!v.email || !!v.phone, {
     message: 'Email or phone is required',

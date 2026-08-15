@@ -8,7 +8,6 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import TierBadge from '@/components/ui/TierBadge';
 import toast from 'react-hot-toast';
-import { formatDate } from '@/lib/formatDate';
 
 interface Category {
   id: string;
@@ -252,11 +251,7 @@ export default function BusinessDetail({ businessId }: { businessId: string }) {
             </h1>
             <p className="text-sm text-gray-500">
               {businessUser?.contact_email || businessUser?.contact_phone}
-              {businessUser?.access_expires_at && (
-                <span className="ml-2">
-                  — Expires {formatDate(businessUser.access_expires_at)}
-                </span>
-              )}
+
             </p>
           </div>
         </div>

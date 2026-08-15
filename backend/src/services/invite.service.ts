@@ -11,7 +11,7 @@ export async function createInvitation(input: {
   phone?: string;
   adminId: string;
 }) {
-  const { email, role, expires_at, company_name, contact_person_name, phone, adminId } = input;
+  const { email, role, company_name, contact_person_name, phone, adminId } = input;
 
   const normalizedEmail = email ? email.toLowerCase() : null;
 
@@ -59,7 +59,7 @@ export async function createInvitation(input: {
       email: normalizedEmail,
       role,
       status: 'pending',
-      expires_at: role === 'business' ? expires_at || null : null,
+      expires_at: null,
       company_name: role === 'business' ? company_name || null : null,
       contact_person_name: role === 'business' ? contact_person_name || null : null,
       phone: trimmedPhone,
@@ -81,7 +81,7 @@ export async function createInvitation(input: {
         contact_person_name: contact_person_name || '',
         contact_email: normalizedEmail,
         contact_phone: trimmedPhone,
-        access_expires_at: expires_at || null,
+        access_expires_at: null,
         invitation_id: invitation.id,
         is_active: true,
         verified: true,
@@ -142,16 +142,6 @@ export async function checkInvitation(email: string, role: 'talent' | 'business'
 
   if (error) throw new AppError(500, error.message);
   if (!data) return null;
-
-  // For business, also check expiration on the invitation itself
-  if (data.expires_at && new Date(data.expires_at) < new Date()) {
-    // Mark as expired
-    await supabaseAdmin
-      .from('invitations')
-      .update({ status: 'expired' })
-      .eq('id', data.id);
-    return null;
-  }
 
   return data;
 }

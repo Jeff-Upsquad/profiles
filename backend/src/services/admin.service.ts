@@ -764,52 +764,37 @@ export async function getUserDetail(userId: string) {
   throw new AppError(404, 'User not found');
 }
 
-export async function extendBusinessAccess(
-  businessUserId: string,
-  input: { days?: number; expiresAt?: string }
-) {
-  if (input.days == null && !input.expiresAt) {
-    throw new AppError(400, 'Either days or expiresAt is required');
-  }
-
-  let newExpiry: Date;
-  if (input.expiresAt) {
-    newExpiry = new Date(input.expiresAt);
-    if (Number.isNaN(newExpiry.getTime())) {
-      throw new AppError(400, 'Invalid expiresAt');
-    }
-  } else {
-    const { data: user, error: fetchError } = await supabaseAdmin
-      .from('business_users')
-      .select('access_expires_at')
-      .eq('id', businessUserId)
-      .single();
-
-    if (fetchError) throw new AppError(404, 'Business user not found');
-
-    const baseDate =
-      user.access_expires_at && new Date(user.access_expires_at) > new Date()
-        ? new Date(user.access_expires_at)
-        : new Date();
-    newExpiry = new Date(baseDate.getTime() + input.days! * 24 * 60 * 60 * 1000);
-  }
+export async function clearBusinessAccessExpiry(businessUserId: string) {
+  const { data, error: fetchError } = await supabaseAdmin
+    .from('business_users')
+    .select('id')
+    .eq('id', businessUserId)
+    .maybeSingle();
+  if (fetchError) throw new AppError(500, fetchError.message);
+  if (!data) throw new AppError(404, 'Business user not found');
 
   const { error } = await supabaseAdmin
     .from('business_users')
     .update({
-      access_expires_at: newExpiry.toISOString(),
+      access_expires_at: null,
       access_requested_at: null,
+      is_active: true,
     })
     .eq('id', businessUserId);
 
   if (error) throw new AppError(400, error.message);
 
   return {
-    message: input.expiresAt
-      ? 'Access expiry updated'
-      : `Access extended by ${input.days} days`,
-    access_expires_at: newExpiry.toISOString(),
+    message: 'Access granted with no expiry',
+    access_expires_at: null,
   };
+}
+
+export async function extendBusinessAccess(
+  businessUserId: string,
+  _input: { days?: number; expiresAt?: string } = {},
+) {
+  return clearBusinessAccessExpiry(businessUserId);
 }
 
 // Suspension blocks NEW opportunities only (subscription/assignment/hiring

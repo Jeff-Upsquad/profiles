@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
-import api from '@/services/api';
 import toast from 'react-hot-toast';
 
 type LoginMode = 'talent' | 'business';
@@ -17,9 +16,6 @@ export default function Login() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [accessExpired, setAccessExpired] = useState(false);
-  const [requestSent, setRequestSent] = useState(false);
-  const [requestLoading, setRequestLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -31,34 +27,10 @@ export default function Login() {
         await login(email, password);
       }
     } catch (err: any) {
-      if (mode === 'business' && err.response?.status === 403) {
-        setAccessExpired(true);
-      } else {
-        toast.error(err.response?.data?.message || 'Login failed');
-      }
+      toast.error(err.response?.data?.message || 'Login failed');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleRequestAccess = async () => {
-    setRequestLoading(true);
-    try {
-      await api.post(
-        '/auth/request-access',
-        bizIdentifier === 'email' ? { email } : { phone }
-      );
-      setRequestSent(true);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to send request');
-    } finally {
-      setRequestLoading(false);
-    }
-  };
-
-  const resetExpiredState = () => {
-    setAccessExpired(false);
-    setRequestSent(false);
   };
 
   return (
@@ -84,7 +56,7 @@ export default function Login() {
           <div className="mb-6 flex gap-1 rounded-lg bg-gray-100 p-1">
             <button
               type="button"
-              onClick={() => { setMode('talent'); resetExpiredState(); }}
+              onClick={() => { setMode('talent'); }}
               className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
                 mode === 'talent'
                   ? 'bg-white text-gray-900 shadow-sm'
@@ -95,7 +67,7 @@ export default function Login() {
             </button>
             <button
               type="button"
-              onClick={() => { setMode('business'); resetExpiredState(); }}
+              onClick={() => { setMode('business'); }}
               className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
                 mode === 'business'
                   ? 'bg-white text-gray-900 shadow-sm'
@@ -111,7 +83,7 @@ export default function Login() {
               <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
                 <button
                   type="button"
-                  onClick={() => { setBizIdentifier('email'); resetExpiredState(); }}
+                  onClick={() => { setBizIdentifier('email'); }}
                   className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                     bizIdentifier === 'email'
                       ? 'bg-white text-gray-900 shadow-sm'
@@ -122,7 +94,7 @@ export default function Login() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setBizIdentifier('phone'); resetExpiredState(); }}
+                  onClick={() => { setBizIdentifier('phone'); }}
                   className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                     bizIdentifier === 'phone'
                       ? 'bg-white text-gray-900 shadow-sm'
@@ -139,7 +111,7 @@ export default function Login() {
                 label="Phone"
                 type="tel"
                 value={phone}
-                onChange={(e) => { setPhone(e.target.value); resetExpiredState(); }}
+                onChange={(e) => { setPhone(e.target.value); }}
                 placeholder="+91 98765 43210"
                 required
               />
@@ -148,7 +120,7 @@ export default function Login() {
                 label="Email"
                 type="email"
                 value={email}
-                onChange={(e) => { setEmail(e.target.value); resetExpiredState(); }}
+                onChange={(e) => { setEmail(e.target.value); }}
                 placeholder="you@example.com"
                 required
               />
@@ -185,30 +157,6 @@ export default function Login() {
               {mode === 'business' ? 'Log In' : 'Sign In'}
             </Button>
           </form>
-
-          {accessExpired && mode === 'business' && (
-            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
-              {requestSent ? (
-                <p className="text-sm text-green-700">
-                  Your request has been sent to the administrator. You will be contacted when access is restored.
-                </p>
-              ) : (
-                <>
-                  <p className="mb-3 text-sm text-red-700">
-                    Your access has expired. Please contact the administrator or request access renewal below.
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRequestAccess}
-                    loading={requestLoading}
-                  >
-                    Request Access
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
 
           {mode === 'talent' && (
             <div className="mt-6 text-center text-sm text-gray-500">

@@ -1,12 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
 import { formatDateTime } from '@/lib/formatDate';
 
 export interface GrantTarget {
@@ -37,30 +35,12 @@ function describeRelative(iso: string | null): string {
   return days === 0 ? 'expired today' : `expired ${days}d ago`;
 }
 
-function defaultExpiryDate(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 30);
-  return d.toISOString().slice(0, 10); // yyyy-mm-dd for <input type="date">
-}
-
 export default function GrantAccessModal({ target, onClose, onGranted }: Props) {
-  const [newExpiryDate, setNewExpiryDate] = useState(defaultExpiryDate());
-
-  // Reset date input when target changes (modal opens for a different row)
-  useEffect(() => {
-    if (target) setNewExpiryDate(defaultExpiryDate());
-  }, [target?.id]);
-
   const grant = useMutation({
     mutationFn: async () => {
       if (!target) return;
       if (target.kind === 'business') {
-        // Build an ISO datetime at end of day on the chosen date
-        const dt = new Date(newExpiryDate + 'T23:59:59');
-        await api.patch(
-          `/admin/access-requests/business/${target.id}/grant`,
-          { expiresAt: dt.toISOString() },
-        );
+        await api.patch(`/admin/access-requests/business/${target.id}/grant`, {});
       } else {
         await api.patch(`/admin/access-requests/course/${target.id}/grant`, {});
       }
@@ -106,29 +86,25 @@ export default function GrantAccessModal({ target, onClose, onGranted }: Props) 
             <span className="text-gray-500">{target.kind === 'course' ? 'Course' : 'Company'}</span>
             <span className="font-medium text-gray-900 text-right">{target.subject}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-500">Current expiry</span>
-            <span className={`font-medium text-right ${isExpired ? 'text-red-700' : 'text-gray-900'}`}>
-              {formatDateLong(target.currentExpiresAt)}
-              {target.currentExpiresAt && (
-                <span className="block text-xs text-gray-500">
-                  {describeRelative(target.currentExpiresAt)}
-                </span>
-              )}
-            </span>
-          </div>
+          {target.kind === 'course' && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">Current expiry</span>
+              <span className={`font-medium text-right ${isExpired ? 'text-red-700' : 'text-gray-900'}`}>
+                {formatDateLong(target.currentExpiresAt)}
+                {target.currentExpiresAt && (
+                  <span className="block text-xs text-gray-500">
+                    {describeRelative(target.currentExpiresAt)}
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
         </div>
 
         {target.kind === 'business' ? (
-          <Input
-            label="New expiry date"
-            type="date"
-            min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
-            max={new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10)}
-            value={newExpiryDate}
-            onChange={(e) => setNewExpiryDate(e.target.value)}
-            helperText="Defaults to 30 days from today; you can pick any date up to a year out."
-          />
+          <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-900">
+            This grants the business account permanent access. There is no expiry date.
+          </div>
         ) : (
           <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-sm text-indigo-900">
             Granting will reset the countdown. The talent gets a fresh{' '}
@@ -144,7 +120,6 @@ export default function GrantAccessModal({ target, onClose, onGranted }: Props) 
             variant="primary"
             onClick={() => grant.mutate()}
             loading={grant.isPending}
-            disabled={target.kind === 'business' && !newExpiryDate}
           >
             Confirm Grant
           </Button>

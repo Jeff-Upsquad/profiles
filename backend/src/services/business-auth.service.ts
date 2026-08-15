@@ -177,11 +177,6 @@ export async function businessLogin(identifier: {
     );
   }
 
-  // Check expiration
-  if (businessUser.access_expires_at && new Date(businessUser.access_expires_at) < new Date()) {
-    throw new AppError(403, 'Your access has expired. Please contact the administrator.');
-  }
-
   // Legacy users (grandfathered by migration 00111, password_required = false)
   // keep logging in with just their identifier — any password field is ignored.
   if (businessUser.password_required === false) {
@@ -241,10 +236,6 @@ export async function verifyBusinessCredentials(input: {
 > {
   const businessUser = await findBusinessUser({ email: input.email }, { requireActive: true });
   if (!businessUser) return { valid: false };
-
-  if (businessUser.access_expires_at && new Date(businessUser.access_expires_at) < new Date()) {
-    return { valid: false };
-  }
 
   // No hash on file → provisioned/invited but never activated, or a legacy
   // passwordless account. Either way there's no credential to verify against.
@@ -458,12 +449,11 @@ export async function validateBusinessToken(token: string) {
     // Also check if business user's access has expired
     const { data: bizUser } = await supabaseAdmin
       .from('business_users')
-      .select('is_active, access_expires_at')
+      .select('is_active')
       .eq('id', payload.sub)
       .single();
 
     if (!bizUser || !bizUser.is_active) return null;
-    if (bizUser.access_expires_at && new Date(bizUser.access_expires_at) < new Date()) return null;
 
     return {
       id: payload.sub,
@@ -488,12 +478,6 @@ export async function refreshSession(oldToken: string, userId: string) {
 
   if (fetchError || !businessUser) throw new AppError(401, 'Account not found');
   if (!businessUser.is_active) throw new AppError(403, 'Account is inactive');
-  if (
-    businessUser.access_expires_at &&
-    new Date(businessUser.access_expires_at) < new Date()
-  ) {
-    throw new AppError(403, 'Your access has expired. Please contact the administrator.');
-  }
 
   const sessionExpiry = new Date(Date.now() + SESSION_DURATION_HOURS * 60 * 60 * 1000);
   const newToken = jwt.sign(
@@ -542,16 +526,18 @@ export async function requestAccess(identifier: { email?: string; phone?: string
   const user = await findBusinessUser(identifier);
   if (!user) throw new AppError(404, 'No account found.');
 
-  if (!user.access_expires_at || new Date(user.access_expires_at) >= new Date()) {
-    throw new AppError(400, 'Your access has not expired.');
-  }
-
+  // Business accounts no longer expire. Clear any leftover window and restore
+  // the account so the old "Request Access" button unblocks immediately.
   const { error: updateError } = await supabaseAdmin
     .from('business_users')
-    .update({ access_requested_at: new Date().toISOString() })
+    .update({
+      access_expires_at: null,
+      access_requested_at: null,
+      is_active: true,
+    })
     .eq('id', user.id);
 
   if (updateError) throw new AppError(500, updateError.message);
 
-  return { message: 'Your request has been sent to the administrator.' };
+  return { message: 'Access restored. You can sign in now.' };
 }

@@ -4,7 +4,6 @@ import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import api from '@/services/api';
 import toast from 'react-hot-toast';
 import { AuthShell } from './LoginTalent';
 import { COUNTRY_CODES } from '@/constants/country-codes';
@@ -38,14 +37,6 @@ export default function LoginBusiness() {
   const [phone, setPhone] = useState('+91');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [accessExpired, setAccessExpired] = useState(false);
-  const [requestSent, setRequestSent] = useState(false);
-  const [requestLoading, setRequestLoading] = useState(false);
-
-  const resetExpiredState = () => {
-    setAccessExpired(false);
-    setRequestSent(false);
-  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -63,32 +54,13 @@ export default function LoginBusiness() {
         router.push(`/signup/business?${q}`);
       }
     } catch (err: any) {
-      if (err.response?.status === 403) {
-        setAccessExpired(true);
-      } else {
-        toast.error(err.response?.data?.message || 'Login failed');
-      }
+      toast.error(err.response?.data?.message || 'Login failed');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRequestAccess = async () => {
-    setRequestLoading(true);
-    try {
-      await api.post(
-        '/auth/request-access',
-        identifier === 'email' ? { email } : { phone }
-      );
-      setRequestSent(true);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to send request');
-    } finally {
-      setRequestLoading(false);
-    }
-  };
-
-  // A token is present — a still-signed-in user reached this page (e.g. mobile
+  // A token is present — a still-signed-in user reached this page (e.g. mobile)
   // swipe-back). Render nothing while the effect above redirects, so the login
   // form never flashes.
   if (token) return null;
@@ -120,7 +92,6 @@ export default function LoginBusiness() {
               type="button"
               onClick={() => {
                 setIdentifier(identifier === 'email' ? 'phone' : 'email');
-                resetExpiredState();
               }}
               className="font-ui inline-flex items-center gap-1 text-xs font-medium text-cu-900 underline underline-offset-4 hover:opacity-70"
             >
@@ -145,7 +116,7 @@ export default function LoginBusiness() {
             <input
               type="email"
               value={email}
-              onChange={(e) => { setEmail(e.target.value); resetExpiredState(); }}
+              onChange={(e) => { setEmail(e.target.value); }}
               placeholder="you@company.com"
               required
               autoFocus
@@ -160,7 +131,6 @@ export default function LoginBusiness() {
                   const digits = phone.replace(countryCode, '');
                   setCountryCode(newCode);
                   setPhone(newCode + digits);
-                  resetExpiredState();
                 }}
                 aria-label="Country code"
                 className="input-v5"
@@ -180,7 +150,6 @@ export default function LoginBusiness() {
                 onChange={(e) => {
                   const digits = e.target.value.replace(/\D/g, '').slice(0, 15);
                   setPhone(countryCode + digits);
-                  resetExpiredState();
                 }}
                 placeholder="98765 43210"
                 required
@@ -200,7 +169,6 @@ export default function LoginBusiness() {
             value={password}
             onChange={(e) => {
               setPassword(e.target.value);
-              resetExpiredState();
             }}
             placeholder="Enter your password"
             className="input-v5"
@@ -242,34 +210,7 @@ export default function LoginBusiness() {
 
       </form>
 
-      {accessExpired && (
-        <div className="stagger-3 mt-5 rounded-[var(--cu-radius)] border border-red-200 bg-red-50 p-4">
-          {requestSent ? (
-            <div className="flex items-start gap-2.5">
-              <svg className="mt-0.5 h-4 w-4 shrink-0 text-cu-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <p className="font-ui text-sm text-green-700">
-                Request sent. You'll be contacted once access is restored.
-              </p>
-            </div>
-          ) : (
-            <>
-              <p className="font-ui mb-3 text-sm text-red-700">
-                Your access has expired. Request a renewal below.
-              </p>
-              <button
-                type="button"
-                onClick={handleRequestAccess}
-                disabled={requestLoading}
-                className="btn-v5 border border-red-200 bg-white text-xs text-red-700 hover:bg-red-50 disabled:opacity-60"
-              >
-                {requestLoading ? 'Sending…' : 'Request Access'}
-              </button>
-            </>
-          )}
-        </div>
-      )}
+
     </AuthShell>
   );
 }

@@ -66,12 +66,6 @@ export default function BusinessTalentAccess() {
     search: debouncedSearch || undefined,
   });
 
-  const expiresInDays = useMemo(() => {
-    if (!status?.expires_at) return null;
-    const ms = new Date(status.expires_at).getTime() - Date.now();
-    return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
-  }, [status?.expires_at]);
-
   const profiles = profilesQuery.data?.profiles ?? [];
   const total = profilesQuery.data?.total ?? 0;
   const filterCount = totalSelected(filters);
@@ -136,11 +130,7 @@ export default function BusinessTalentAccess() {
               <span className="eyebrow-rainbow">
                 {profilesQuery.isLoading ? 'Loading' : `${total} ${total === 1 ? 'profile' : 'profiles'}`}
               </span>
-              {expiresInDays !== null && (
-                <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                  Access expires in {expiresInDays} day{expiresInDays === 1 ? '' : 's'}
-                </span>
-              )}
+
             </div>
             <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
               Talent <span className="text-rainbow">Profiles</span>.

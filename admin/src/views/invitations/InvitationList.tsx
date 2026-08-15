@@ -35,7 +35,6 @@ export default function InvitationList() {
   const [formCompanyName, setFormCompanyName] = useState('');
   const [formContactPerson, setFormContactPerson] = useState('');
   const [formPhone, setFormPhone] = useState('');
-  const [formExpiresAt, setFormExpiresAt] = useState('');
 
   const { data: invitations, isLoading } = useQuery<Invitation[]>({
     queryKey: ['admin-invitations', filterRole, activeTab],
@@ -88,7 +87,6 @@ export default function InvitationList() {
     setFormCompanyName('');
     setFormContactPerson('');
     setFormPhone('');
-    setFormExpiresAt('');
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -105,9 +103,6 @@ export default function InvitationList() {
       payload.company_name = formCompanyName;
       payload.contact_person_name = formContactPerson;
       if (phone) payload.phone = phone;
-      if (formExpiresAt) {
-        payload.expires_at = new Date(formExpiresAt).toISOString();
-      }
     }
     createInvitation.mutate(payload);
   }
@@ -298,18 +293,6 @@ export default function InvitationList() {
                 placeholder="+91 98765 43210"
                 helperText="Lets the user log in with phone instead of email."
               />
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Access Expiration Date
-                </label>
-                <input
-                  type="date"
-                  value={formExpiresAt}
-                  onChange={(e) => setFormExpiresAt(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
             </>
           )}
 

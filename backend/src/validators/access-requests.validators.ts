@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const grantBusinessAccessSchema = z.object({
-  expiresAt: z.string().datetime(),
+  expiresAt: z.string().datetime().optional(),
 });
 
 export const rejectCourseReopenSchema = z.object({

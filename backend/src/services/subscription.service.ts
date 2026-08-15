@@ -261,8 +261,6 @@ async function createBusinessInvitationIfNew(input: {
     }
   }
 
-  // 7-day expiry from now.
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
   const newUserId = crypto.randomUUID();
 
   // 1. Create the invitations row.
@@ -275,7 +273,7 @@ async function createBusinessInvitationIfNew(input: {
       status: 'pending',
       company_name: input.company || null,
       contact_person_name: input.contactName || null,
-      expires_at: expiresAt,
+      expires_at: null,
       invited_by: SYSTEM_ACTOR_UUID,
     })
     .select('id')
@@ -290,7 +288,7 @@ async function createBusinessInvitationIfNew(input: {
   // 2. Create the business_users row immediately so the customer can sign in
   //    by email or phone (mirrors the existing admin-side invite flow in
   //    invite.service.ts — businessLogin queries business_users, not the
-  //    invitations table). access_expires_at = same 7-day window.
+  //    invitations table). Business accounts do not expire.
   const { error: bizErr } = await supabaseAdmin
     .from('business_users')
     .insert({
@@ -299,7 +297,7 @@ async function createBusinessInvitationIfNew(input: {
       contact_person_name: input.contactName || '',
       contact_email: (email ?? '').toLowerCase(),
       contact_phone: phone,
-      access_expires_at: expiresAt,
+      access_expires_at: null,
       invitation_id: invitation.id,
       is_active: true,
       verified: true,
@@ -313,7 +311,7 @@ async function createBusinessInvitationIfNew(input: {
     });
     return null;
   }
-  console.info('[subscription] auto-created business_user + 7-day invitation', {
+  console.info('[subscription] auto-created business_user + invitation', {
     email,
     phone,
     businessUserId: newUserId,
