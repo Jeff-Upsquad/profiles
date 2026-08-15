@@ -7,6 +7,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import CandidateFunnelTabs, { type FunnelTab } from './CandidateFunnelTabs';
 import CandidateRow from './CandidateRow';
+import OpenIntroRoomButton from '@/components/conversations/OpenIntroRoomButton';
 import StartScreeningButton from './StartScreeningButton';
 import InterviewSchedulerModal from './InterviewSchedulerModal';
 import InterviewRoundsList from './InterviewRoundsList';
@@ -343,6 +344,8 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
                     actions={
                       !isClosed && (
                         <>
+                          <OpenIntroRoomButton cardId={cardId} talentUserId={c.talent_user_id} />
+                          <OpenIntroRoomButton cardId={cardId} talentUserId={c.talent_user_id} intent="meet" />
                           <button
                             type="button"
                             onClick={() => {
@@ -407,6 +410,14 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
                         ? 'Invited — waiting for their RSVP'
                         : 'Accepted the interview call'
                     }
+                    actions={
+                      !isClosed && (
+                        <>
+                          <OpenIntroRoomButton cardId={cardId} talentUserId={c.talent_user_id} />
+                          <OpenIntroRoomButton cardId={cardId} talentUserId={c.talent_user_id} intent="meet" />
+                        </>
+                      )
+                    }
                   />
                 )),
               ),
@@ -428,6 +439,8 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
                     actions={
                       !isClosed && (
                         <>
+                          <OpenIntroRoomButton cardId={cardId} talentUserId={c.talent_user_id} />
+                          <OpenIntroRoomButton cardId={cardId} talentUserId={c.talent_user_id} intent="meet" />
                           {c.funnel_stage === 'selected' ? (
                             <button
                               type="button"
@@ -593,16 +606,24 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
                           : null
                     }
                     actions={
-                      c.funnel_stage === 'hired' && (
-                        <button
-                          type="button"
-                          disabled={markJoined.isPending}
-                          onClick={() => markJoined.mutate(c.id)}
-                          className={actionBtn('positive')}
-                        >
-                          Mark joined
-                        </button>
-                      )
+                      <>
+                        {c.funnel_stage === 'hired' && !isClosed && (
+                          <>
+                            <OpenIntroRoomButton cardId={cardId} talentUserId={c.talent_user_id} />
+                            <OpenIntroRoomButton cardId={cardId} talentUserId={c.talent_user_id} intent="meet" />
+                          </>
+                        )}
+                        {c.funnel_stage === 'hired' && (
+                          <button
+                            type="button"
+                            disabled={markJoined.isPending}
+                            onClick={() => markJoined.mutate(c.id)}
+                            className={actionBtn('positive')}
+                          >
+                            Mark joined
+                          </button>
+                        )}
+                      </>
                     }
                   />
                 )),

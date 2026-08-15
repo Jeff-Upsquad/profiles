@@ -14,6 +14,7 @@ import {
 } from '@/hooks/useBusiness';
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
 import BusinessAssignmentOffers from '@/components/subscriptions/BusinessAssignmentOffers';
+import OpenIntroRoomButton from '@/components/conversations/OpenIntroRoomButton';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
 
 const TINTS = ['tint-purple', 'tint-blue', 'tint-orange', 'tint-green', 'tint-pink', 'tint-amber'] as const;
@@ -469,6 +470,7 @@ export default function SubscriptionCardReview({
                 variant="selected"
                 listPrice={card.customer_monthly_price}
                 isAssignment={isAssignment}
+                cardId={cardId}
               />
             ))}
           </div>
@@ -539,6 +541,17 @@ export default function SubscriptionCardReview({
                         isAssignment={isAssignment}
                       />
                       <div className="flex shrink-0 items-center gap-2">
+                        <OpenIntroRoomButton
+                          cardId={r.card_id ?? cardId}
+                          talentUserId={r.talent_user_id}
+                          disabled={isClosed}
+                        />
+                        <OpenIntroRoomButton
+                          cardId={r.card_id ?? cardId}
+                          talentUserId={r.talent_user_id}
+                          intent="meet"
+                          disabled={isClosed}
+                        />
                         <button
                           type="button"
                           disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
@@ -973,11 +986,13 @@ function RecipientRow({
   variant,
   listPrice,
   isAssignment = false,
+  cardId,
 }: {
   recipient: CardRecipientForBusiness;
   variant: 'selected' | 'assigned';
   listPrice?: number | null;
   isAssignment?: boolean;
+  cardId?: string;
 }) {
   const isAssigned = variant === 'assigned';
   return (
@@ -987,6 +1002,12 @@ function RecipientRow({
         <RecipientInfo recipient={r} />
       </RecipientLink>
       <RecipientPrice recipient={r} listPrice={listPrice} isAssignment={isAssignment} />
+      {!isAssigned && r.talent_user_id && (
+        <div className="flex shrink-0 items-center gap-2">
+          <OpenIntroRoomButton cardId={r.card_id ?? cardId ?? ''} talentUserId={r.talent_user_id} />
+          <OpenIntroRoomButton cardId={r.card_id ?? cardId ?? ''} talentUserId={r.talent_user_id} intent="meet" />
+        </div>
+      )}
       <span
         className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
           isAssigned ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'

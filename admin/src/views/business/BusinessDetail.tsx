@@ -63,6 +63,7 @@ interface BusinessUser {
   contact_phone?: string | null;
   access_expires_at?: string;
   is_active: boolean;
+  default_salesperson_id?: string | null;
 }
 
 export default function BusinessDetail({ businessId }: { businessId: string }) {
@@ -75,6 +76,27 @@ export default function BusinessDetail({ businessId }: { businessId: string }) {
   const [tempPassword, setTempPassword] = useState<string | null>(null);
 
   // Fetch business user info
+  const { data: staffOptions } = useQuery<Array<{ id: string; name: string; email: string }>>({
+    queryKey: ['admin-conversation-staff'],
+    queryFn: async () => {
+      const { data } = await api.get('/admin/conversations/staff-options');
+      return data.staff ?? [];
+    },
+  });
+
+  const setSalesperson = useMutation({
+    mutationFn: async (staff_user_id: string | null) => {
+      await api.patch(`/admin/conversations/business/${businessId}/salesperson`, { staff_user_id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-business-user', businessId] });
+      toast.success('Default salesperson saved');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Could not save salesperson');
+    },
+  });
+
   const { data: businessUser } = useQuery<BusinessUser>({
     queryKey: ['admin-business-user', businessId],
     queryFn: async () => {
@@ -238,6 +260,20 @@ export default function BusinessDetail({ businessId }: { businessId: string }) {
             </p>
           </div>
         </div>
+        <div className="flex items-center gap-3">
+          <label className="text-xs font-medium text-gray-500">Default salesperson</label>
+          <select
+            value={businessUser?.default_salesperson_id ?? ''}
+            onChange={(e) => setSalesperson.mutate(e.target.value || null)}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+          >
+            <option value="">Use fallback</option>
+            {(staffOptions ?? []).map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
         <Button
           onClick={() => {
             if (
@@ -252,6 +288,7 @@ export default function BusinessDetail({ businessId }: { businessId: string }) {
         >
           Reset password
         </Button>
+        </div>
       </div>
 
       {tempPassword && (

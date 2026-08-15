@@ -7,10 +7,11 @@ import Badge from '@/components/ui/Badge';
 import { useUnreadSubscriptionCount } from '@/hooks/useSubscriptionCards';
 import { useUnreadJobsCount } from '@/hooks/useJobs';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
+import { useConversationUnread } from '@/hooks/useConversations';
 import { useIncompleteTrainingCount, useModuleAccess } from '@/hooks/useTraining';
 import ModuleUnlockGate from '@/components/training/ModuleUnlockGate';
 
-const ALWAYS_ACCESSIBLE = ['/talent/dashboard', '/talent/training', '/talent/contact-support'];
+const ALWAYS_ACCESSIBLE = ['/talent/dashboard', '/talent/training', '/talent/contact-support', '/talent/messages'];
 
 const ROUTE_TO_MODULE: Record<string, string> = {
   '/talent/basic-profile': 'basic-profile',
@@ -48,6 +49,7 @@ export default function TalentLayout({
   const { data: unread = 0 } = useUnreadSubscriptionCount({ enabled: isTalent });
   const { data: unreadJobs = 0 } = useUnreadJobsCount({ enabled: isTalent });
   const { data: unreadNotifications = 0 } = useUnreadNotificationsCount({ enabled: isTalent });
+  const { data: unreadMessages = 0 } = useConversationUnread('talent', { enabled: isTalent });
   const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
   // Badge = incomplete training assignments (courses + SOPs once assigned).
   // Completing the resource clears the linked notification and drops this count.
@@ -176,9 +178,19 @@ export default function TalentLayout({
     },
     // Group: More — notifications, settings, training, support
     {
+      label: 'Messages',
+      to: '/talent/messages',
+      groupStart: true,
+      icon: (
+        <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+        </svg>
+      ),
+      badge: unreadMessages > 0 ? <Badge variant="indigo">{unreadMessages}</Badge> : undefined,
+    },
+    {
       label: 'Notifications',
       to: '/talent/notifications',
-      groupStart: true,
       icon: (
         <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />

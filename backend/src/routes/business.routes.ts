@@ -29,6 +29,16 @@ import {
   businessNotificationIdParamSchema,
 } from '../validators/jobs.validators.js';
 import { connectBriefSchema } from '../validators/connect-brief.validators.js';
+import * as conversationsController from '../controllers/conversations.controller.js';
+import {
+  conversationIdParamSchema,
+  conversationMeetingIdParamSchema,
+  createConversationSchema,
+  listMessagesQuerySchema,
+  proposeMeetingSchema,
+  respondMeetingSchema,
+  sendMessageSchema,
+} from '../validators/conversations.validators.js';
 
 const router = Router();
 
@@ -189,6 +199,45 @@ router.post(
   '/connect-brief',
   validate({ body: connectBriefSchema }),
   connectBriefController.submitBrief
+);
+
+// Intro rooms — 3-party chat with shortlisted / selected talent
+router.get('/conversations', conversationsController.businessList);
+router.get('/conversations/unread-count', conversationsController.businessUnread);
+router.post(
+  '/conversations',
+  validate({ body: createConversationSchema }),
+  conversationsController.businessCreate,
+);
+router.get(
+  '/conversations/:id',
+  validate({ params: conversationIdParamSchema }),
+  conversationsController.businessGet,
+);
+router.get(
+  '/conversations/:id/messages',
+  validate({ params: conversationIdParamSchema, query: listMessagesQuerySchema }),
+  conversationsController.businessMessages,
+);
+router.post(
+  '/conversations/:id/messages',
+  validate({ params: conversationIdParamSchema, body: sendMessageSchema }),
+  conversationsController.businessSend,
+);
+router.post(
+  '/conversations/:id/meetings',
+  validate({ params: conversationIdParamSchema, body: proposeMeetingSchema }),
+  conversationsController.businessProposeMeeting,
+);
+router.post(
+  '/conversations/:id/meetings/:meetingId/respond',
+  validate({ params: conversationMeetingIdParamSchema, body: respondMeetingSchema }),
+  conversationsController.businessRespondMeeting,
+);
+router.post(
+  '/conversations/:id/meetings/:meetingId/cancel',
+  validate({ params: conversationMeetingIdParamSchema }),
+  conversationsController.businessCancelMeeting,
 );
 
 export default router;

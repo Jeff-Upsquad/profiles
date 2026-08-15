@@ -16,6 +16,15 @@ import {
 import { requireApprovalOrAutoApprove } from '../middleware/approval.middleware.js';
 import { requestCourseReopenSchema } from '../validators/access-requests.validators.js';
 import { appCheckinSchema } from '../validators/app-install.validators.js';
+import * as conversationsController from '../controllers/conversations.controller.js';
+import {
+  conversationIdParamSchema,
+  conversationMeetingIdParamSchema,
+  listMessagesQuerySchema,
+  proposeMeetingSchema,
+  respondMeetingSchema,
+  sendMessageSchema,
+} from '../validators/conversations.validators.js';
 
 const router = Router();
 
@@ -88,5 +97,39 @@ router.get('/notifications', notificationsController.listTalent);
 router.get('/notifications/unread-count', notificationsController.unreadCountTalent);
 router.post('/notifications/mark-all-read', notificationsController.markAllReadTalent);
 router.post('/notifications/:id/read', notificationsController.markReadTalent);
+
+// Intro rooms
+router.get('/conversations', conversationsController.talentList);
+router.get('/conversations/unread-count', conversationsController.talentUnread);
+router.get(
+  '/conversations/:id',
+  validate({ params: conversationIdParamSchema }),
+  conversationsController.talentGet,
+);
+router.get(
+  '/conversations/:id/messages',
+  validate({ params: conversationIdParamSchema, query: listMessagesQuerySchema }),
+  conversationsController.talentMessages,
+);
+router.post(
+  '/conversations/:id/messages',
+  validate({ params: conversationIdParamSchema, body: sendMessageSchema }),
+  conversationsController.talentSend,
+);
+router.post(
+  '/conversations/:id/meetings',
+  validate({ params: conversationIdParamSchema, body: proposeMeetingSchema }),
+  conversationsController.talentProposeMeeting,
+);
+router.post(
+  '/conversations/:id/meetings/:meetingId/respond',
+  validate({ params: conversationMeetingIdParamSchema, body: respondMeetingSchema }),
+  conversationsController.talentRespondMeeting,
+);
+router.post(
+  '/conversations/:id/meetings/:meetingId/cancel',
+  validate({ params: conversationMeetingIdParamSchema }),
+  conversationsController.talentCancelMeeting,
+);
 
 export default router;

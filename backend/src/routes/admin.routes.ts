@@ -96,6 +96,22 @@ import {
   updateStaffSchema,
   putGrantsSchema,
 } from '../validators/staff-admin.validators.js';
+import * as conversationsController from '../controllers/conversations.controller.js';
+import {
+  assignSalespersonSchema,
+  conversationIdParamSchema,
+  conversationMeetingIdParamSchema,
+  conversationMessageIdParamSchema,
+  createConversationSchema,
+  createNoteSchema,
+  listConversationsQuerySchema,
+  listMessagesQuerySchema,
+  proposeMeetingSchema,
+  respondMeetingSchema,
+  sendMessageSchema,
+  setDefaultSalespersonSchema,
+  setFallbackSalespersonSchema,
+} from '../validators/conversations.validators.js';
 
 const router = Router();
 
@@ -389,6 +405,93 @@ router.patch(
 // ---------------------------------------------------------------------------
 
 router.get('/shortlists', adminController.getShortlistTracking);
+
+// ---------------------------------------------------------------------------
+// Intro rooms (conversations)
+// ---------------------------------------------------------------------------
+
+router.get(
+  '/conversations',
+  validate({ query: listConversationsQuerySchema }),
+  conversationsController.adminList,
+);
+router.get('/conversations/staff-options', conversationsController.adminListStaffOptions);
+router.get('/conversations/settings/fallback-salesperson', conversationsController.adminGetFallbackSalesperson);
+router.patch(
+  '/conversations/settings/fallback-salesperson',
+  validate({ body: setFallbackSalespersonSchema }),
+  conversationsController.adminSetFallbackSalesperson,
+);
+router.patch(
+  '/conversations/business/:businessId/salesperson',
+  validate({ body: setDefaultSalespersonSchema }),
+  conversationsController.adminSetBusinessSalesperson,
+);
+router.post(
+  '/conversations',
+  validate({ body: createConversationSchema }),
+  conversationsController.adminCreate,
+);
+router.get(
+  '/conversations/:id',
+  validate({ params: conversationIdParamSchema }),
+  conversationsController.adminGet,
+);
+router.get(
+  '/conversations/:id/messages',
+  validate({ params: conversationIdParamSchema, query: listMessagesQuerySchema }),
+  conversationsController.adminMessages,
+);
+router.post(
+  '/conversations/:id/messages',
+  validate({ params: conversationIdParamSchema, body: sendMessageSchema }),
+  conversationsController.adminSend,
+);
+router.post(
+  '/conversations/:id/assign',
+  validate({ params: conversationIdParamSchema, body: assignSalespersonSchema }),
+  conversationsController.adminAssign,
+);
+router.post(
+  '/conversations/:id/close',
+  validate({ params: conversationIdParamSchema }),
+  conversationsController.adminClose,
+);
+router.post(
+  '/conversations/:id/reopen',
+  validate({ params: conversationIdParamSchema }),
+  conversationsController.adminReopen,
+);
+router.delete(
+  '/conversations/:id/messages/:messageId',
+  validate({ params: conversationMessageIdParamSchema }),
+  conversationsController.adminDeleteMessage,
+);
+router.post(
+  '/conversations/:id/meetings',
+  validate({ params: conversationIdParamSchema, body: proposeMeetingSchema }),
+  conversationsController.adminProposeMeeting,
+);
+router.post(
+  '/conversations/:id/meetings/:meetingId/respond',
+  validate({ params: conversationMeetingIdParamSchema, body: respondMeetingSchema }),
+  conversationsController.adminRespondMeeting,
+);
+router.post(
+  '/conversations/:id/meetings/:meetingId/cancel',
+  validate({ params: conversationMeetingIdParamSchema }),
+  conversationsController.adminCancelMeeting,
+);
+router.get(
+  '/conversations/:id/notes',
+  validate({ params: conversationIdParamSchema }),
+  conversationsController.adminListNotes,
+);
+router.post(
+  '/conversations/:id/notes',
+  validate({ params: conversationIdParamSchema, body: createNoteSchema }),
+  conversationsController.adminAddNote,
+);
 
 // ---------------------------------------------------------------------------
 // User Management

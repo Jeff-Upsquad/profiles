@@ -41,6 +41,7 @@ export const MODULE_ROUTE_RULES: ModuleRule[] = [
   { prefix: '/business', module: 'business' },
   { prefix: '/access-requests', module: 'access-requests' },
   { prefix: '/shortlists', module: 'shortlists' },
+  { prefix: '/conversations', module: 'conversations' },
 
   { prefix: '/search', module: 'users' },
   { prefix: '/users', module: 'users' },

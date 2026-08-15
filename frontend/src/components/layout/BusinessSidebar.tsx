@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import BusinessNotificationsBell from '@/components/jobs/business/BusinessNotificationsBell';
 import { useHasAssignedCard } from '@/components/business/cards/hireActivity';
+import { useConversationUnread } from '@/hooks/useConversations';
 
 export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname() ?? '';
@@ -20,11 +21,13 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
   const cardsActive = pathname.startsWith('/business/cards');
   const allProfilesActive = pathname.startsWith('/business/talent-access');
   const notificationsActive = pathname.startsWith('/business/notifications');
+  const messagesActive = pathname.startsWith('/business/messages');
   const howItWorksActive = pathname.startsWith('/business/how-it-works');
   const squadHubActive = pathname.startsWith('/business/squadhub');
   // Once the first card is assigned, this slot becomes the SquadHub gateway and
   // the guide moves into My Cards (see BusinessMyCards).
   const { hasAssignedCard } = useHasAssignedCard();
+  const { data: unreadMessages = 0 } = useConversationUnread('business');
 
   const displayName =
     (user?.role === 'business' && user?.contact_person_name) || user?.full_name || user?.email || '';
@@ -103,6 +106,29 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
           }
         >
           All profiles
+        </SidebarLink>
+
+        <SidebarLink
+          href="/business/messages"
+          active={messagesActive}
+          onNavigate={onNavigate}
+          icon={
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+              />
+            </svg>
+          }
+        >
+          Messages
+          {unreadMessages > 0 && (
+            <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0a0a0a] px-1.5 text-[10px] font-semibold text-white">
+              {unreadMessages}
+            </span>
+          )}
         </SidebarLink>
 
         <BusinessNotificationsBell

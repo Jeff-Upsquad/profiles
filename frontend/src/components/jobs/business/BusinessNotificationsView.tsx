@@ -14,6 +14,7 @@ import { fmtDateTime } from '@/components/jobs/shared';
 // RSVPs, offer responses, questions…). Click-through lands on the job post.
 
 function targetHref(n: BusinessNotification): string | null {
+  if (typeof n.ref?.route === 'string' && n.ref.route) return n.ref.route as string;
   const cardId = typeof n.ref?.card_id === 'string' ? n.ref.card_id : null;
   if (!cardId) return null;
   const roundId = typeof n.ref?.round_id === 'string' ? n.ref.round_id : null;
