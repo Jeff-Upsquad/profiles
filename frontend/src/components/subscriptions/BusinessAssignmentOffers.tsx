@@ -16,6 +16,7 @@ import {
   type BusinessAssignmentOffer,
 } from '@/hooks/useBusinessAssignmentOffers';
 import OfferAmountStepperModal, { snapOfferAmount } from './OfferAmountStepper';
+import OpenIntroRoomButton from '@/components/conversations/OpenIntroRoomButton';
 
 const ACTION_LABELS: Record<string, string> = {
   submitted: 'submitted a bid',
@@ -308,48 +309,58 @@ export default function BusinessAssignmentOffers({
                     )}
                   </div>
 
-                  {canAct && (
-                    <div className="grid w-full grid-cols-3 gap-2 lg:flex lg:w-auto lg:shrink-0 lg:items-center">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => decline.mutate({ offerId: o.id })}
-                        className="rounded-lg border border-[#E7E7EA] px-2 py-2 text-xs font-semibold text-[#737373] transition-colors hover:text-red-600 disabled:opacity-40 sm:px-3 sm:py-1.5"
-                      >
-                        Decline
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy || !canCounter}
-                        onClick={() => setCounterFor(o)}
-                        title={!canCounter ? 'No offers remaining on this card' : undefined}
+                  <div className={`grid w-full gap-2 lg:flex lg:w-auto lg:shrink-0 lg:items-center ${canAct ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2'}`}>
+                    {o.talent_user_id && (
+                      <OpenIntroRoomButton
+                        cardId={o.card_id || cardId}
+                        talentUserId={o.talent_user_id}
+                        disabled={disabled}
                         className="rounded-lg border border-[#E7E7EA] px-2 py-2 text-xs font-semibold text-[#0a0a0a] transition-colors hover:bg-[#F5F5F6] disabled:opacity-40 sm:px-3 sm:py-1.5"
-                      >
-                        Counter{canCounter ? ` (${offersLeft})` : ''}
-                      </button>
+                      />
+                    )}
+                    {canAct && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => decline.mutate({ offerId: o.id })}
+                          className="rounded-lg border border-[#E7E7EA] px-2 py-2 text-xs font-semibold text-[#737373] transition-colors hover:text-red-600 disabled:opacity-40 sm:px-3 sm:py-1.5"
+                        >
+                          Decline
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy || !canCounter}
+                          onClick={() => setCounterFor(o)}
+                          title={!canCounter ? 'No offers remaining on this card' : undefined}
+                          className="rounded-lg border border-[#E7E7EA] px-2 py-2 text-xs font-semibold text-[#0a0a0a] transition-colors hover:bg-[#F5F5F6] disabled:opacity-40 sm:px-3 sm:py-1.5"
+                        >
+                          Counter{canCounter ? ` (${offersLeft})` : ''}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => accept.mutate({ offerId: o.id })}
+                          className="rounded-lg bg-[#0a0a0a] px-2 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1a1a1a] disabled:opacity-40 sm:px-3 sm:py-1.5"
+                        >
+                          Accept<span className="hidden lg:inline"> bid</span>
+                        </button>
+                      </>
+                    )}
+                    {o.status === 'pending_talent' && (
+                      <span className="self-center text-xs text-[#737373] lg:shrink-0">Awaiting the talent…</span>
+                    )}
+                    {canSelect && (
                       <button
                         type="button"
                         disabled={busy}
-                        onClick={() => accept.mutate({ offerId: o.id })}
-                        className="rounded-lg bg-[#0a0a0a] px-2 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1a1a1a] disabled:opacity-40 sm:px-3 sm:py-1.5"
+                        onClick={() => onSelect?.(o.recipient_id, o.talent_name)}
+                        className="rounded-lg bg-[#0a0a0a] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1a1a1a] disabled:opacity-40 lg:py-1.5"
                       >
-                        Accept<span className="hidden lg:inline"> bid</span>
+                        Select
                       </button>
-                    </div>
-                  )}
-                  {o.status === 'pending_talent' && (
-                    <span className="text-xs text-[#737373] lg:shrink-0 lg:self-center">Awaiting the talent…</span>
-                  )}
-                  {canSelect && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => onSelect?.(o.recipient_id, o.talent_name)}
-                      className="w-full rounded-lg bg-[#0a0a0a] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1a1a1a] disabled:opacity-40 lg:w-auto lg:shrink-0 lg:py-1.5"
-                    >
-                      Select
-                    </button>
-                  )}
+                    )}
+                  </div>
                 </div>
 
                 {openThread === o.id && o.events.length > 0 && (

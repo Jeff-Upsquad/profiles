@@ -190,11 +190,23 @@ function computeFrozenReason(
   return null;
 }
 
-function assertEligibleToOpen(
+async function recipientHasOpenOffer(recipientId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from('assignment_offers')
+    .select('id')
+    .eq('recipient_id', recipientId)
+    .in('status', ['pending_business', 'pending_talent', 'accepted'])
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new AppError(500, error.message);
+  return !!data;
+}
+
+async function assertEligibleToOpen(
   card: CardRow,
   recipient: RecipientRow | null,
   jobCandidate: JobCandidateRow | null,
-): void {
+): Promise<void> {
   if (cardTypeOf(card) === 'hiring') {
     if (!jobCandidate) {
       throw new AppError(400, 'This talent is not on this job yet.');
@@ -215,9 +227,9 @@ function assertEligibleToOpen(
   }
   const shortlisted = recipient.business_review_status === 'shortlisted';
   const selected = !!recipient.selected_at;
-  if (!shortlisted && !selected) {
-    throw new AppError(400, 'You can open a room after you shortlist or select this talent.');
-  }
+  if (shortlisted || selected) return;
+  if (await recipientHasOpenOffer(recipient.id)) return;
+  throw new AppError(400, 'You can open a room after you shortlist, select, or start bidding with this talent.');
 }
 
 async function resolveSalespersonId(businessUserId: string): Promise<string | null> {
@@ -652,7 +664,7 @@ export async function createOrGetConversation(
   const frozenReason = computeFrozenReason(targetCard, candidate, jobCard);
   if (frozenReason) throw new AppError(409, freezeMessage(frozenReason));
 
-  assertEligibleToOpen(targetCard, recipientRow, candidate);
+  await assertEligibleToOpen(targetCard, recipientRow, candidate);
 
   const businessUserId =
     actor.type === 'business'
