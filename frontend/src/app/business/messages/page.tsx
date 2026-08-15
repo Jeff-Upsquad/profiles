@@ -10,7 +10,7 @@ export default function BusinessMessagesPage() {
     <div className="flex min-h-0 flex-1 flex-col bg-white">
       <div className="border-b border-[#E7E7EA] px-4 py-3">
         <h1 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.02em] text-[#0a0a0a]">
-          Messages
+          Chatroom
         </h1>
       </div>
       {isLoading ? (
@@ -30,7 +30,7 @@ export default function BusinessMessagesPage() {
           conversations={data ?? []}
           hrefFor={(c) => `/business/messages/${c.id}`}
           counterpart="talent"
-          empty="No conversations yet. Open a room from a shortlisted talent."
+          empty="No chatrooms yet. Open one from a shortlisted or selected talent."
         />
       )}
     </div>

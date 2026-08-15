@@ -15,6 +15,7 @@ import {
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
 import BusinessAssignmentOffers from '@/components/subscriptions/BusinessAssignmentOffers';
 import OpenIntroRoomButton from '@/components/conversations/OpenIntroRoomButton';
+import { isOpenBusinessOffer, useBusinessAssignmentOffers } from '@/hooks/useBusinessAssignmentOffers';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
 
 const TINTS = ['tint-purple', 'tint-blue', 'tint-orange', 'tint-green', 'tint-pink', 'tint-amber'] as const;
@@ -61,6 +62,14 @@ function normalizeTier(tier: string | null | undefined): string | null {
 // Highest tier first, matching the requested All · Top talents · Pro · Junior order.
 const TIER_TAB_ORDER = ['Top Talents', 'Pro', 'Junior'];
 
+const SECTION_RANK: Record<string, number> = {
+  assigned: 5,
+  selected: 4,
+  shortlisted: 3,
+  bidding: 2,
+  review: 1,
+};
+
 export default function SubscriptionCardReview({
   cardId,
   variant = 'subscription',
@@ -77,6 +86,7 @@ export default function SubscriptionCardReview({
   const { user } = useAuth();
   const { data: card, isLoading: cardLoading, error: cardError } = useMySubscriptionCard(cardId);
   const { data: recipients, isLoading: recipientsLoading } = useCardRecipients(cardId);
+  const { data: offers } = useBusinessAssignmentOffers(cardId);
   const reviewMutation = useReviewCardRecipient(cardId);
   const selectMutation = useSelectCardRecipient(cardId);
   const markSeenMutation = useMarkCardAcceptancesSeen(cardId);
@@ -120,24 +130,66 @@ export default function SubscriptionCardReview({
   const isClosed = card?.status === 'archived' || !!card?.recalled_at;
   const isSubmitted = card?.status === 'submitted';
 
+  // One talent → one section. Highest stage wins when the same person has
+  // multiple recipient rows (e.g. a grouped brief) or also has an open bid.
+  // Assigned > Selected > Shortlisted > Bidding > New review.
+  const openBids = useMemo(() => {
+    const recipientIds = new Set<string>();
+    const talentIds = new Set<string>();
+    for (const o of offers ?? []) {
+      if (!isOpenBusinessOffer(o)) continue;
+      recipientIds.add(o.recipient_id);
+      if (o.talent_user_id) talentIds.add(o.talent_user_id);
+    }
+    return { recipientIds, talentIds };
+  }, [offers]);
+
+  const uniqueByTalent = useMemo(() => {
+    const sectionOf = (r: CardRecipientForBusiness) => {
+      if (r.selected_at && r.subscription_activated_at) return 'assigned';
+      if (r.selected_at) return 'selected';
+      if (r.business_review_status === 'shortlisted') return 'shortlisted';
+      if (
+        openBids.recipientIds.has(r.recipient_id) ||
+        (!!r.talent_user_id && openBids.talentIds.has(r.talent_user_id))
+      ) {
+        return 'bidding';
+      }
+      if (!r.business_review_status) return 'review';
+      return null;
+    };
+    const best = new Map<string, CardRecipientForBusiness>();
+    for (const r of recipients ?? []) {
+      const key = r.talent_user_id || `recipient:${r.recipient_id}`;
+      const prev = best.get(key);
+      if (!prev) {
+        best.set(key, r);
+        continue;
+      }
+      const nextRank = SECTION_RANK[sectionOf(r) ?? ''] ?? 0;
+      const prevRank = SECTION_RANK[sectionOf(prev) ?? ''] ?? 0;
+      if (nextRank > prevRank) best.set(key, r);
+    }
+    return [...best.values()].map((r) => ({ r, section: sectionOf(r) }));
+  }, [recipients, openBids]);
+
   // Passed-over talents stay in the lists (greyed out + disabled buttons) so
   // the customer can still click through to view a profile after a selection
   // has been made — useful for reference or a side-by-side compare.
-  const forReview = useMemo(() => {
-    return (recipients ?? []).filter(
-      (r) => !r.business_review_status && !r.selected_at,
-    );
-  }, [recipients]);
+  const forReview = useMemo(
+    () => uniqueByTalent.filter((x) => x.section === 'review').map((x) => x.r),
+    [uniqueByTalent],
+  );
 
-  const shortlisted = useMemo(() => {
-    return (recipients ?? []).filter(
-      (r) => r.business_review_status === 'shortlisted' && !r.selected_at,
-    );
-  }, [recipients]);
+  const shortlisted = useMemo(
+    () => uniqueByTalent.filter((x) => x.section === 'shortlisted').map((x) => x.r),
+    [uniqueByTalent],
+  );
 
-  const selected = useMemo(() => {
-    return (recipients ?? []).filter((r) => r.selected_at);
-  }, [recipients]);
+  const selected = useMemo(
+    () => uniqueByTalent.filter((x) => x.section === 'selected' || x.section === 'assigned').map((x) => x.r),
+    [uniqueByTalent],
+  );
 
   // Tier sub-tab filtering applied to both review sections.
   const tierMatches = (r: CardRecipientForBusiness) =>
@@ -594,7 +646,7 @@ export default function SubscriptionCardReview({
                 <span className="shrink-0 text-xs text-[#a3a3a3]">{forReviewView.length} total</span>
               </div>
               <p className="mt-0.5 hidden text-xs text-[#a3a3a3] sm:block">
-                Talents who accepted your card or submitted a first bid (price shown is what you would pay). Newly accepted are listed first. Open Bidding above to Accept or Counter a bid.
+                Talents who accepted your card. Newly accepted are listed first. Bids live under Bidding above.
               </p>
             </div>
 

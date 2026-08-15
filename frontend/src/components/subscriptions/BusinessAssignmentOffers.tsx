@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import { fmtDateTime } from '@/components/jobs/shared';
 import { formatOfferAmount, type OfferAmount, type AssignmentOfferEvent } from '@/hooks/useAssignmentOffers';
+import { useCardRecipients } from '@/hooks/useBusiness';
 import {
+  isOpenBusinessOffer,
   useBusinessAssignmentOffers,
   useBusinessCounterOffer,
   useBusinessAcceptOffer,
@@ -66,6 +68,7 @@ export default function BusinessAssignmentOffers({
   sendOfferTalentName?: string | null;
 }) {
   const { data: offers, isLoading } = useBusinessAssignmentOffers(cardId);
+  const { data: recipients } = useCardRecipients(cardId);
   const counter = useBusinessCounterOffer(cardId);
   const accept = useBusinessAcceptOffer(cardId);
   const decline = useBusinessDeclineOffer(cardId);
@@ -75,13 +78,38 @@ export default function BusinessAssignmentOffers({
   const [sendOpen, setSendOpen] = useState(false);
   const [openThread, setOpenThread] = useState<string | null>(null);
 
-  // Show every open bid/offer — including first talent bids awaiting Accept / Counter.
-  const list = (offers ?? []).filter((o) =>
-    o.status === 'pending_business' ||
-    o.status === 'pending_talent' ||
-    o.status === 'accepted' ||
-    o.negotiation_started,
-  );
+  // Shortlisted / selected talent already appear below — don't also list them here.
+  const taken = useMemo(() => {
+    const recipientIds = new Set<string>();
+    const talentIds = new Set<string>();
+    for (const r of recipients ?? []) {
+      if (r.business_review_status === 'shortlisted' || r.selected_at) {
+        recipientIds.add(r.recipient_id);
+        if (r.talent_user_id) talentIds.add(r.talent_user_id);
+      }
+    }
+    return { recipientIds, talentIds };
+  }, [recipients]);
+
+  // Open bids only, and never a talent who is already shortlisted or selected.
+  // One row per talent — if they have more than one open offer, keep the newest.
+  const list = useMemo(() => {
+    const open = (offers ?? []).filter((o) => {
+      if (!isOpenBusinessOffer(o)) return false;
+      if (taken.recipientIds.has(o.recipient_id)) return false;
+      if (o.talent_user_id && taken.talentIds.has(o.talent_user_id)) return false;
+      return true;
+    });
+    const best = new Map<string, BusinessAssignmentOffer>();
+    for (const o of open) {
+      const key = o.talent_user_id || o.recipient_id;
+      const prev = best.get(key);
+      if (!prev || new Date(o.updated_at).getTime() > new Date(prev.updated_at).getTime()) {
+        best.set(key, o);
+      }
+    }
+    return [...best.values()];
+  }, [offers, taken]);
   const busy = counter.isPending || accept.isPending || decline.isPending || send.isPending;
   const baseline = listPrice && listPrice > 0 ? listPrice : 500;
 

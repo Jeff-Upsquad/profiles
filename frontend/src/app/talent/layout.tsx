@@ -178,7 +178,7 @@ export default function TalentLayout({
     },
     // Group: More — notifications, settings, training, support
     {
-      label: 'Messages',
+      label: 'Chatroom',
       to: '/talent/messages',
       groupStart: true,
       icon: (

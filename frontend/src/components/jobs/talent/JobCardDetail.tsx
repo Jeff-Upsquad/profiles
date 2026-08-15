@@ -274,10 +274,10 @@ export default function JobCardDetail({ recipientId }: { recipientId: string }) 
                   router.push(`/talent/messages/${existingRoom.id}`);
                   return;
                 }
-                toast('The business has not opened a chat yet.');
+                toast('The business has not opened a chatroom yet.');
               }}
             >
-              Message
+              Chatroom
             </Button>
           )}
           {isPending && (

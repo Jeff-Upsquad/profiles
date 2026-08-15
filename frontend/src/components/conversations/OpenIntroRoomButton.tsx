@@ -39,7 +39,7 @@ export default function OpenIntroRoomButton({
         'rounded-lg border border-[#E7E7EA] px-3 py-1.5 text-xs font-semibold text-[#0a0a0a] transition-colors hover:bg-[#F5F5F6] disabled:cursor-not-allowed disabled:opacity-40'
       }
     >
-      {open.isPending ? 'Opening…' : intent === 'meet' ? 'Meet' : 'Message'}
+      {open.isPending ? 'Opening…' : intent === 'meet' ? 'Meet' : 'Chatroom'}
     </button>
   );
 }

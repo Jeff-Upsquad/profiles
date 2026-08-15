@@ -10,7 +10,7 @@ export default function TalentMessagesPage() {
     <div className="flex min-h-0 flex-1 flex-col bg-white">
       <div className="border-b border-[#E7E7EA] px-4 py-3">
         <h1 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.02em] text-[#0a0a0a]">
-          Messages
+          Chatroom
         </h1>
       </div>
       {isLoading ? (
@@ -30,7 +30,7 @@ export default function TalentMessagesPage() {
           conversations={data ?? []}
           hrefFor={(c) => `/talent/messages/${c.id}`}
           counterpart="business"
-          empty="No conversations yet. A business will reach out after they shortlist you."
+          empty="No chatrooms yet. A business will open one after they shortlist you."
         />
       )}
     </div>

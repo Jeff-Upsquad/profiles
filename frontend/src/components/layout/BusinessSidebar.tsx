@@ -123,7 +123,7 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
             </svg>
           }
         >
-          Messages
+          Chatroom
           {unreadMessages > 0 && (
             <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0a0a0a] px-1.5 text-[10px] font-semibold text-white">
               {unreadMessages}

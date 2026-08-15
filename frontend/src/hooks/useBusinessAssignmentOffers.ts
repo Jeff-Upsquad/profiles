@@ -37,6 +37,15 @@ export interface BusinessAssignmentOffer {
   negotiation_started?: boolean;
 }
 
+export function isOpenBusinessOffer(o: Pick<BusinessAssignmentOffer, 'status' | 'negotiation_started'>): boolean {
+  return (
+    o.status === 'pending_business' ||
+    o.status === 'pending_talent' ||
+    o.status === 'accepted' ||
+    !!o.negotiation_started
+  );
+}
+
 function offersBase(cardId: string) {
   // Canonical path works for subscription + assignment cards.
   return `/business/my-subscription-cards/${cardId}/offers`;
