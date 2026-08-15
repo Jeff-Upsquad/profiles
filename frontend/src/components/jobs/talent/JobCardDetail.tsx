@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import {
@@ -13,6 +14,7 @@ import {
 } from '@/hooks/useJobs';
 import { useMyInterviewInvites } from '@/hooks/useJobInterviews';
 import { useMyJobOffers } from '@/hooks/useJobOffers';
+import { useConversations } from '@/hooks/useConversations';
 import BusinessBrandSection from './BusinessBrandSection';
 import InterviewInviteCard from './InterviewInviteCard';
 import OfferHighlightCard from './OfferHighlightCard';
@@ -31,6 +33,16 @@ import {
 // Job detail for one recipient — Apply/Decline while pending, the stage
 // timeline once applied, plus cross-links to the full job profile, interview
 // invites and offers for this card.
+
+const MESSAGEABLE_STAGES = new Set([
+  'shortlisted',
+  'interview_invited',
+  'interview',
+  'on_hold',
+  'selected',
+  'offer',
+  'hired',
+]);
 
 const TIMELINE_STAGES = [
   'applied',
@@ -141,6 +153,9 @@ export default function JobCardDetail({ recipientId }: { recipientId: string }) 
   const { data: profileData, isLoading: profileLoading } = useJobProfileView(
     data?.job_profile_id ?? undefined,
   );
+  const canMessage = !!candidateStage && MESSAGEABLE_STAGES.has(candidateStage);
+  const { data: conversations } = useConversations('talent', canMessage);
+  const existingRoom = (conversations ?? []).find((c) => c.card_id === data?.card?.id);
 
   if (isLoading) {
     return (
@@ -250,6 +265,21 @@ export default function JobCardDetail({ recipientId }: { recipientId: string }) 
         </dl>
 
         <div className="mt-4 flex flex-wrap items-center justify-end gap-3 border-t border-[#E7E7EA] pt-4">
+          {canMessage && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (existingRoom) {
+                  router.push(`/talent/messages/${existingRoom.id}`);
+                  return;
+                }
+                toast('The business has not opened a chat yet.');
+              }}
+            >
+              Message
+            </Button>
+          )}
           {isPending && (
             <div className="flex items-center gap-2">
               <Button

@@ -547,12 +547,6 @@ export default function SubscriptionCardReview({
                             talentUserId={r.talent_user_id}
                             disabled={isClosed}
                           />
-                          <OpenIntroRoomButton
-                            cardId={r.card_id ?? cardId}
-                            talentUserId={r.talent_user_id}
-                            intent="meet"
-                            disabled={isClosed}
-                          />
                           <button
                             type="button"
                             disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
@@ -1008,11 +1002,8 @@ function RecipientRow({
       <div className="flex flex-col gap-2.5 sm:ml-auto sm:flex-row sm:items-center">
         <RecipientPrice recipient={r} listPrice={listPrice} isAssignment={isAssignment} />
         <div className="flex flex-wrap items-center gap-2">
-          {!isAssigned && r.talent_user_id && (
-            <>
-              <OpenIntroRoomButton cardId={r.card_id ?? cardId ?? ''} talentUserId={r.talent_user_id} />
-              <OpenIntroRoomButton cardId={r.card_id ?? cardId ?? ''} talentUserId={r.talent_user_id} intent="meet" />
-            </>
+          {!isAssigned && r.talent_user_id && (r.card_id || cardId) && (
+            <OpenIntroRoomButton cardId={r.card_id ?? cardId ?? ''} talentUserId={r.talent_user_id} />
           )}
           <span
             className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${

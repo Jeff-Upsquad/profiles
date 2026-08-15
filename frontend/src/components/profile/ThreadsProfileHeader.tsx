@@ -47,6 +47,9 @@ interface ThreadsProfileHeaderProps {
   sendOfferLoading?: boolean;
   /** Price/bid for the specific card this profile was opened from. */
   cardEngagement?: CardEngagementDisplay | null;
+  /** Opens the intro room with this talent when they are shortlisted / selected / in a job funnel. */
+  onMessage?: () => void;
+  messageLoading?: boolean;
   editProfileHref?: string;
 }
 
@@ -93,6 +96,8 @@ export default function ThreadsProfileHeader({
   onSendOffer,
   sendOfferLoading,
   cardEngagement,
+  onMessage,
+  messageLoading,
   editProfileHref,
 }: ThreadsProfileHeaderProps) {
   const fields = (category?.fields ?? []).filter((f) => f.is_active).sort((a, b) => a.sort_order - b.sort_order);
@@ -278,7 +283,25 @@ export default function ThreadsProfileHeader({
                 'Shortlist'
               )}
             </button>
-            {onSendOffer ? (
+            {onMessage ? (
+              <button
+                type="button"
+                onClick={onMessage}
+                disabled={messageLoading}
+                className="flex h-[40px] items-center justify-center gap-1.5 rounded-[10px] border border-zinc-200 bg-white text-sm font-semibold text-zinc-950 transition-colors hover:bg-zinc-50 disabled:opacity-50"
+              >
+                {messageLoading ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent" />
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                    Message
+                  </>
+                )}
+              </button>
+            ) : onSendOffer ? (
               <button
                 type="button"
                 onClick={onSendOffer}
@@ -305,6 +328,25 @@ export default function ThreadsProfileHeader({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
                 Coming Soon
+              </button>
+            )}
+            {onMessage && onSendOffer && (
+              <button
+                type="button"
+                onClick={onSendOffer}
+                disabled={sendOfferLoading}
+                className="col-span-2 flex h-[40px] items-center justify-center gap-1.5 rounded-[10px] border border-zinc-200 bg-white text-sm font-semibold text-zinc-950 transition-colors hover:bg-zinc-50 disabled:opacity-50"
+              >
+                {sendOfferLoading ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent" />
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Send an Offer
+                  </>
+                )}
               </button>
             )}
           </div>

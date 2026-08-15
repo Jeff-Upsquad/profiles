@@ -14,6 +14,7 @@ import {
 } from '@/hooks/useBusiness';
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import { useBusinessSendOffer } from '@/hooks/useBusinessAssignmentOffers';
+import { useOpenConversation } from '@/hooks/useConversations';
 import ThreadsProfileView from '@/views/shared/ThreadsProfileView';
 import GhostProfileView from '@/views/shared/GhostProfileView';
 import OfferAmountStepperModal, { snapOfferAmount } from '@/components/subscriptions/OfferAmountStepper';
@@ -51,6 +52,7 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
   const sendOffer = useBusinessSendOffer(cardId || '');
   const { data: cardRecipients } = useCardRecipients(cardScoped ? cardId! : undefined);
   const reviewRecipient = useReviewCardRecipient(cardId || '');
+  const openRoom = useOpenConversation('business');
   const [offerOpen, setOfferOpen] = useState(false);
 
   const cardRecipient = useMemo(
@@ -68,6 +70,23 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
     ? reviewRecipient.isPending
     : addToShortlist.isPending || removeFromShortlist.isPending;
   const canSendOffer = cardScoped;
+  const canMessage =
+    cardScoped &&
+    !!cardRecipient?.talent_user_id &&
+    !cardRecipient.subscription_activated_at &&
+    (cardRecipient.business_review_status === 'shortlisted' || !!cardRecipient.selected_at);
+
+  const handleMessage = () => {
+    if (!cardRecipient?.talent_user_id) return;
+    const roomCardId = cardRecipient.card_id || cardId;
+    if (!roomCardId) return;
+    openRoom.mutate(
+      { cardId: roomCardId, talentUserId: cardRecipient.talent_user_id },
+      {
+        onSuccess: (conversation) => router.push(`/business/messages/${conversation.id}`),
+      },
+    );
+  };
 
   const handleShortlist = () => {
     if (cardScoped && recipientId) {
@@ -186,6 +205,8 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
           isShortlisted={isShortlisted}
           onSendInterest={(message) => profile && sendInterest.mutate({ profileId: profile.id, message })}
           interestLoading={sendInterest.isPending}
+          onMessage={canMessage ? handleMessage : undefined}
+          messageLoading={openRoom.isPending}
           isLoading={profileLoading}
           error={profileError ? 'Failed to load profile' : undefined}
           onBack={() => router.push(`/business/dashboard/${params.categoryId}`)}
@@ -212,6 +233,8 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
         onSendOffer={canSendOffer ? () => setOfferOpen(true) : undefined}
         sendOfferLoading={sendOffer.isPending}
         cardEngagement={cardEngagement}
+        onMessage={canMessage ? handleMessage : undefined}
+        messageLoading={openRoom.isPending}
         isLoading={profileLoading}
         error={profileError ? 'Failed to load profile' : undefined}
         onBack={() =>

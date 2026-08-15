@@ -40,6 +40,8 @@ interface ThreadsProfileViewProps {
   onSendOffer?: () => void;
   sendOfferLoading?: boolean;
   cardEngagement?: import('@/components/profile/ThreadsProfileHeader').CardEngagementDisplay | null;
+  onMessage?: () => void;
+  messageLoading?: boolean;
   editProfileHref?: string;
   isLoading: boolean;
   error?: string;
@@ -76,6 +78,8 @@ export default function ThreadsProfileView({
   onSendOffer,
   sendOfferLoading,
   cardEngagement,
+  onMessage,
+  messageLoading,
   editProfileHref,
   isLoading,
   error,
@@ -185,6 +189,8 @@ export default function ThreadsProfileView({
           onSendOffer={onSendOffer}
           sendOfferLoading={sendOfferLoading}
           cardEngagement={cardEngagement}
+          onMessage={onMessage}
+          messageLoading={messageLoading}
           editProfileHref={editProfileHref}
         />
 

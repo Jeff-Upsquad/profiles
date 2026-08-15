@@ -2,9 +2,20 @@
 
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCandidateProfile } from '@/hooks/useBusinessJobs';
+import { useCandidateProfile, useJobCandidates } from '@/hooks/useBusinessJobs';
+import { useOpenConversation } from '@/hooks/useConversations';
 import ThreadsProfileView from '@/views/shared/ThreadsProfileView';
 import GhostProfileView from '@/views/shared/GhostProfileView';
+
+const MESSAGEABLE_STAGES = new Set([
+  'shortlisted',
+  'interview_invited',
+  'interview',
+  'on_hold',
+  'selected',
+  'offer',
+  'hired',
+]);
 
 // Full talent profile for a job candidate — access rule server-side: the
 // candidate applied to YOUR card (no talent-access session or shared-profile
@@ -13,6 +24,21 @@ import GhostProfileView from '@/views/shared/GhostProfileView';
 function CandidateProfileContent({ cardId, candidateId }: { cardId: string; candidateId: string }) {
   const router = useRouter();
   const { data, isLoading, error } = useCandidateProfile(cardId, candidateId);
+  const { data: candidates } = useJobCandidates(cardId);
+  const openRoom = useOpenConversation('business');
+  const candidate = (candidates ?? []).find((c) => c.id === candidateId);
+  const talentUserId = candidate?.talent_user_id || data?.talent_user?.id;
+  const canMessage = !!talentUserId && !!candidate && MESSAGEABLE_STAGES.has(candidate.funnel_stage);
+
+  const handleMessage = () => {
+    if (!talentUserId) return;
+    openRoom.mutate(
+      { cardId, talentUserId },
+      {
+        onSuccess: (conversation) => router.push(`/business/messages/${conversation.id}`),
+      },
+    );
+  };
 
   const status = (error as any)?.response?.status;
   const errorMessage = error
@@ -47,6 +73,8 @@ function CandidateProfileContent({ cardId, candidateId }: { cardId: string; cand
           gender: data.talent_user.gender,
         }}
         mode="business"
+        onMessage={canMessage ? handleMessage : undefined}
+        messageLoading={openRoom.isPending}
         isLoading={isLoading}
         error={errorMessage}
         onBack={onBack}
@@ -86,6 +114,8 @@ function CandidateProfileContent({ cardId, candidateId }: { cardId: string; cand
       category={data?.category ?? null}
       portfolioItems={data?.portfolio_items ?? []}
       mode="business"
+      onMessage={canMessage ? handleMessage : undefined}
+      messageLoading={openRoom.isPending}
       isLoading={isLoading}
       error={errorMessage}
       onBack={onBack}

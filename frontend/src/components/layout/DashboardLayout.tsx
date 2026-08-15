@@ -24,10 +24,13 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobileSidebar, hideNavbar, children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
+  const isMessagesList = pathname === '/business/messages' || pathname === '/talent/messages';
+  const isMessagesThread = /^\/(business|talent)\/messages\/[^/]+/.test(pathname);
+  const isMessages = isMessagesList || isMessagesThread;
 
   const isActive = (href: string) => {
-    return pathname === href || pathname?.startsWith(href + '/') === true;
+    return pathname === href || pathname.startsWith(href + '/');
   };
 
   return (
@@ -100,15 +103,30 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
         ) : null}
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto bg-[#F5F5F6] p-4 sm:p-6 lg:p-8">
-          <div className="mx-auto max-w-5xl">
+        <main
+          className={`flex-1 bg-[#F5F5F6] ${
+            isMessagesThread
+              ? 'flex min-h-0 flex-col overflow-hidden p-0'
+              : isMessages
+                ? 'overflow-y-auto p-0'
+                : 'overflow-y-auto p-4 sm:p-6 lg:p-8'
+          }`}
+        >
+          <div
+            className={
+              isMessages
+                ? `flex min-h-0 flex-1 flex-col ${isMessagesThread ? 'h-full' : ''}`
+                : 'mx-auto max-w-5xl'
+            }
+          >
             {/* Mobile menu trigger — only renders when the layout opted INTO
                 a mobile drawer. Business pages use BusinessMobileNav for
                 always-visible top-of-page navigation, so they pass
                 hideMobileSidebar and skip this. Other roles that still rely
                 on the drawer keep the labeled button (more discoverable
-                than the corner FAB it replaced). */}
-            {!hideMobileSidebar && (
+                than the corner FAB it replaced). Hidden on a chat thread so
+                the conversation can use the full height. */}
+            {!hideMobileSidebar && !isMessagesThread && (
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="mb-3 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 active:scale-[0.98] md:hidden"

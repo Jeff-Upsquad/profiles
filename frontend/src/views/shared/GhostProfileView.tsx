@@ -43,6 +43,8 @@ interface GhostProfileViewProps {
   isShortlisted?: boolean;
   onSendInterest?: (message: string) => void;
   interestLoading?: boolean;
+  onMessage?: () => void;
+  messageLoading?: boolean;
   isLoading: boolean;
   error?: string;
   onBack: () => void;
@@ -75,6 +77,8 @@ export default function GhostProfileView({
   isShortlisted,
   onSendInterest,
   interestLoading,
+  onMessage,
+  messageLoading,
   isLoading,
   error,
   onBack,
@@ -193,6 +197,8 @@ export default function GhostProfileView({
           isShortlisted={isShortlisted}
           onSendInterest={() => setInterestModalOpen(true)}
           interestLoading={interestLoading}
+          onMessage={onMessage}
+          messageLoading={messageLoading}
         />
 
         {/* Source switcher: lets the viewer flip between Designer and
