@@ -513,7 +513,7 @@ export default function SubscriptionCardReview({
               curated picks (and the Select action) sit near the top, right
               under any Selected talent, following the review funnel order. */}
           <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <div className="border-b border-[#E7E7EA] px-5 py-4 sm:px-6">
+            <div className="border-b border-[#E7E7EA] px-4 py-3 sm:px-6 sm:py-4">
               <div className="flex items-center justify-between">
                 <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
                   Shortlisted
@@ -529,48 +529,50 @@ export default function SubscriptionCardReview({
             ) : (
               <ul className="divide-y divide-[#E7E7EA]">
                 {shortlistedView.map((r) => (
-                  <li key={r.recipient_id} className="px-5 py-3.5 sm:px-6">
-                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                  <li key={r.recipient_id} className="px-4 py-4 sm:px-6">
+                    <div className="flex flex-col gap-3">
                       <RecipientLink recipient={r} inactive={(isClosed || hasSelection) && !r.selected_at}>
                         <RecipientAvatar recipient={r} />
                         <RecipientInfo recipient={r} />
                       </RecipientLink>
-                      <RecipientPrice
-                        recipient={r}
-                        listPrice={card.customer_monthly_price}
-                        isAssignment={isAssignment}
-                      />
-                      <div className="flex shrink-0 items-center gap-2">
-                        <OpenIntroRoomButton
-                          cardId={r.card_id ?? cardId}
-                          talentUserId={r.talent_user_id}
-                          disabled={isClosed}
+                      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                        <RecipientPrice
+                          recipient={r}
+                          listPrice={card.customer_monthly_price}
+                          isAssignment={isAssignment}
                         />
-                        <OpenIntroRoomButton
-                          cardId={r.card_id ?? cardId}
-                          talentUserId={r.talent_user_id}
-                          intent="meet"
-                          disabled={isClosed}
-                        />
-                        <button
-                          type="button"
-                          disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
-                          onClick={() => handleReview(r.recipient_id, 'unshortlist')}
-                          className="rounded-lg border border-[#E7E7EA] px-3 py-1.5 text-xs font-semibold text-[#737373] transition-colors hover:bg-[#F5F5F6] disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Unshortlist
-                        </button>
-                        <button
-                          type="button"
-                          disabled={selectMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
-                          onClick={() => handleSelect(r)}
-                          className="rounded-lg bg-[#0a0a0a] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Select
-                        </button>
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center">
+                          <OpenIntroRoomButton
+                            cardId={r.card_id ?? cardId}
+                            talentUserId={r.talent_user_id}
+                            disabled={isClosed}
+                          />
+                          <OpenIntroRoomButton
+                            cardId={r.card_id ?? cardId}
+                            talentUserId={r.talent_user_id}
+                            intent="meet"
+                            disabled={isClosed}
+                          />
+                          <button
+                            type="button"
+                            disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
+                            onClick={() => handleReview(r.recipient_id, 'unshortlist')}
+                            className="rounded-lg border border-[#E7E7EA] px-3 py-2 text-xs font-semibold text-[#737373] transition-colors hover:bg-[#F5F5F6] disabled:cursor-not-allowed disabled:opacity-40 sm:py-1.5"
+                          >
+                            Unshortlist
+                          </button>
+                          <button
+                            type="button"
+                            disabled={selectMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
+                            onClick={() => handleSelect(r)}
+                            className="rounded-lg bg-[#0a0a0a] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-40 sm:py-1.5"
+                          >
+                            Select
+                          </button>
+                        </div>
                       </div>
                       {(hasSelection || isClosed) && !r.selected_at && (
-                        <span className="shrink-0 rounded-full bg-[#f0f0f0] px-2 py-0.5 text-[10px] font-medium text-[#737373]">
+                        <span className="self-start rounded-full bg-[#f0f0f0] px-2 py-0.5 text-[10px] font-medium text-[#737373]">
                           Not selected
                         </span>
                       )}
@@ -583,21 +585,21 @@ export default function SubscriptionCardReview({
           </div>
 
           <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <div className="border-b border-[#E7E7EA] px-5 py-4 sm:px-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+            <div className="border-b border-[#E7E7EA] px-4 py-3 sm:px-6 sm:py-4">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
                   <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
                     New talents for review
                   </h2>
                   {newAcceptedCount > 0 && (
-                    <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                    <span className="shrink-0 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">
                       {newAcceptedCount} new
                     </span>
                   )}
                 </div>
-                <span className="text-xs text-[#a3a3a3]">{forReviewView.length} total</span>
+                <span className="shrink-0 text-xs text-[#a3a3a3]">{forReviewView.length} total</span>
               </div>
-              <p className="mt-0.5 text-xs text-[#a3a3a3]">
+              <p className="mt-0.5 hidden text-xs text-[#a3a3a3] sm:block">
                 Talents who accepted your card or submitted a first bid (price shown is what you would pay). Newly accepted are listed first. Open Bidding above to Accept or Counter a bid.
               </p>
             </div>
@@ -611,35 +613,37 @@ export default function SubscriptionCardReview({
                 {forReviewView.map((r, i) => (
                   <li
                     key={r.recipient_id}
-                    className={`relative px-5 py-3.5 sm:px-6 ${isNewAcceptance(r) ? 'bg-red-50/40' : ''}`}
+                    className={`relative px-4 py-4 sm:px-6 ${isNewAcceptance(r) ? 'bg-red-50/40' : ''}`}
                   >
-                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                    <div className="flex flex-col gap-3">
                       <RecipientLink recipient={r} inactive={(isClosed || hasSelection) && !r.selected_at}>
                         <RecipientAvatar recipient={r} />
                         <RecipientInfo recipient={r} isNew={isNewAcceptance(r)} />
                       </RecipientLink>
-                      <RecipientPrice
-                        recipient={r}
-                        listPrice={card.customer_monthly_price}
-                        isAssignment={isAssignment}
-                      />
-                      <div className="flex shrink-0 items-center gap-2">
-                        <button
-                          type="button"
-                          disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
-                          onClick={() => handleReview(r.recipient_id, 'shortlist')}
-                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Shortlist
-                        </button>
-                        <button
-                          type="button"
-                          disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
-                          onClick={() => handleReview(r.recipient_id, 'reject')}
-                          className="rounded-lg border border-[#E7E7EA] px-3 py-1.5 text-xs font-semibold text-[#737373] transition-colors hover:border-red-200 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Reject
-                        </button>
+                      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                        <RecipientPrice
+                          recipient={r}
+                          listPrice={card.customer_monthly_price}
+                          isAssignment={isAssignment}
+                        />
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center">
+                          <button
+                            type="button"
+                            disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
+                            onClick={() => handleReview(r.recipient_id, 'shortlist')}
+                            className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 sm:py-1.5"
+                          >
+                            Shortlist
+                          </button>
+                          <button
+                            type="button"
+                            disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
+                            onClick={() => handleReview(r.recipient_id, 'reject')}
+                            className="rounded-lg border border-[#E7E7EA] px-3 py-2 text-xs font-semibold text-[#737373] transition-colors hover:border-red-200 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 sm:py-1.5"
+                          >
+                            Reject
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <MatchChips reqs={additionalReqs} talentNames={r.skill_tool_names} />
@@ -789,7 +793,7 @@ function RecipientPrice({
 
   return (
     <div
-      className={`shrink-0 rounded-xl px-3.5 py-2 text-right ring-1 sm:min-w-[7.5rem] ${
+      className={`w-full rounded-xl px-3.5 py-2 text-left ring-1 sm:w-auto sm:min-w-[7.5rem] sm:shrink-0 sm:text-right ${
         isAgreed
           ? 'bg-emerald-50 ring-emerald-200'
           : isLiveBid
@@ -934,7 +938,7 @@ function recipientCategoryId(r: CardRecipientForBusiness): string | null {
 function RecipientLink({ recipient: r, children, inactive = false }: { recipient: CardRecipientForBusiness; children: React.ReactNode; inactive?: boolean }) {
   if (inactive) {
     return (
-      <div className="flex min-w-0 basis-full flex-1 items-center gap-4 opacity-45 grayscale cursor-default select-none sm:basis-auto">
+      <div className="flex min-w-0 items-center gap-3 opacity-45 grayscale cursor-default select-none sm:gap-4">
         {children}
       </div>
     );
@@ -951,14 +955,14 @@ function RecipientLink({ recipient: r, children, inactive = false }: { recipient
     return (
       <Link
         href={`/business/dashboard/${categoryId}/${r.profile_id}${q}`}
-        className="flex min-w-0 basis-full flex-1 cursor-pointer items-center gap-4 transition-opacity hover:opacity-70 sm:basis-auto"
+        className="flex min-w-0 cursor-pointer items-center gap-3 transition-opacity hover:opacity-70 sm:gap-4"
         title="View full profile"
       >
         {children}
       </Link>
     );
   }
-  return <div className="flex min-w-0 basis-full flex-1 items-center gap-4 sm:basis-auto">{children}</div>;
+  return <div className="flex min-w-0 items-center gap-3 sm:gap-4">{children}</div>;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -996,25 +1000,29 @@ function RecipientRow({
 }) {
   const isAssigned = variant === 'assigned';
   return (
-    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
       <RecipientLink recipient={r}>
         <RecipientAvatar recipient={r} />
         <RecipientInfo recipient={r} />
       </RecipientLink>
-      <RecipientPrice recipient={r} listPrice={listPrice} isAssignment={isAssignment} />
-      {!isAssigned && r.talent_user_id && (
-        <div className="flex shrink-0 items-center gap-2">
-          <OpenIntroRoomButton cardId={r.card_id ?? cardId ?? ''} talentUserId={r.talent_user_id} />
-          <OpenIntroRoomButton cardId={r.card_id ?? cardId ?? ''} talentUserId={r.talent_user_id} intent="meet" />
+      <div className="flex flex-col gap-2.5 sm:ml-auto sm:flex-row sm:items-center">
+        <RecipientPrice recipient={r} listPrice={listPrice} isAssignment={isAssignment} />
+        <div className="flex flex-wrap items-center gap-2">
+          {!isAssigned && r.talent_user_id && (
+            <>
+              <OpenIntroRoomButton cardId={r.card_id ?? cardId ?? ''} talentUserId={r.talent_user_id} />
+              <OpenIntroRoomButton cardId={r.card_id ?? cardId ?? ''} talentUserId={r.talent_user_id} intent="meet" />
+            </>
+          )}
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+              isAssigned ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+            }`}
+          >
+            {isAssigned ? 'Assigned' : 'Selected'}
+          </span>
         </div>
-      )}
-      <span
-        className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-          isAssigned ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-        }`}
-      >
-        {isAssigned ? 'Assigned' : 'Selected'}
-      </span>
+      </div>
     </div>
   );
 }
