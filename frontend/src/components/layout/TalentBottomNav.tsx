@@ -44,6 +44,7 @@ function NavBadge({ count }: { count: number }) {
 export default function TalentBottomNav() {
   const pathname = usePathname() ?? '';
   const { data: unreadMessages = 0 } = useConversationUnread('talent');
+  if (/^\/talent\/messages\/[^/]+/.test(pathname)) return null;
   const { data: unreadNotifications = 0 } = useUnreadNotificationsCount();
   const { data: incompleteTraining = 0 } = useIncompleteTrainingCount();
 
@@ -60,7 +61,7 @@ export default function TalentBottomNav() {
     },
     {
       href: '/talent/messages',
-      label: 'Messages',
+      label: 'Chatroom',
       badge: unreadMessages,
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

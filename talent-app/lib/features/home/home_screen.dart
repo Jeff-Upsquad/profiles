@@ -203,7 +203,7 @@ class _QuickActions extends StatelessWidget {
     final actions = <({IconData icon, String label, String route})>[
       (icon: Icons.work_outline, label: 'Jobs', route: '/jobs'),
       (icon: Icons.mail_outline, label: 'Offers', route: '/offers'),
-      (icon: Icons.chat_bubble_outline, label: 'Messages', route: '/messages'),
+      (icon: Icons.chat_bubble_outline, label: 'Chatroom', route: '/messages'),
       (icon: Icons.groups_outlined, label: 'My Clients', route: '/more/my-clients'),
     ];
     return GridView.count(

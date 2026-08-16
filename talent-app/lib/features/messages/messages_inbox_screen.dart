@@ -23,7 +23,7 @@ class MessagesInboxScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final list = ref.watch(conversationsListProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Messages')),
+      appBar: AppBar(title: const Text('Chatroom')),
       body: list.when(
         loading: () => const ShimmerCardList(),
         error: (_, _) => AppErrorRetry(
@@ -42,9 +42,9 @@ class MessagesInboxScreen extends ConsumerWidget {
                       padding: EdgeInsets.only(top: 80),
                       child: EmptyState(
                         icon: Icons.chat_bubble_outline,
-                        title: 'No conversations yet',
+                        title: 'No chatrooms yet',
                         subtitle:
-                            'A business will reach out after they shortlist you. An UpSquad teammate is always in the room.',
+                            'A business will open one after they shortlist you. An UpSquad teammate is always in the room.',
                       ),
                     ),
                   ],

@@ -66,7 +66,7 @@ class MoreScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           _group('Work', [
-            const _Item(Icons.chat_bubble_outline, 'Messages', '/messages',
+            const _Item(Icons.chat_bubble_outline, 'Chatroom', '/messages',
                 showUnread: true),
             const _Item(Icons.event_available_outlined, 'Interviews', '/interviews'),
             const _Item(Icons.mail_outline, 'Job offers', '/job-offers'),

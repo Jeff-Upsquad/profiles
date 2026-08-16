@@ -170,7 +170,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               ),
             ],
           ),
-          orElse: () => const Text('Messages'),
+          orElse: () => const Text('Chatroom'),
         ),
       ),
       body: detail.when(

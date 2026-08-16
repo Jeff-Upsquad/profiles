@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useTalentMe } from '@/hooks/useTalentMe';
 
@@ -12,6 +13,7 @@ import { useTalentMe } from '@/hooks/useTalentMe';
 export default function TalentTopBar() {
   const { user, logout } = useAuth();
   const { data: me } = useTalentMe();
+  const pathname = usePathname() ?? '';
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -45,9 +47,16 @@ export default function TalentTopBar() {
   }, [open]);
 
   if (!user) return null;
+  if (/^\/talent\/messages\/[^/]+/.test(pathname)) return null;
+
+  const flush = pathname === '/talent/messages' || pathname.startsWith('/talent/messages/');
 
   return (
-    <header className="sticky top-0 z-40 -mx-4 mb-4 border-b border-[#E7E7EA] bg-white/95 px-4 py-2.5 backdrop-blur-sm md:hidden">
+    <header
+      className={`sticky top-0 z-40 border-b border-[#E7E7EA] bg-white/95 px-4 py-2.5 backdrop-blur-sm md:hidden ${
+        flush ? 'mb-0' : '-mx-4 mb-4'
+      }`}
+    >
       <div className="flex items-center justify-between gap-3">
         <Link href="/talent/dashboard" className="flex min-w-0 items-center gap-2">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0a0a0a] text-[11px] font-bold text-white">
