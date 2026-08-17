@@ -47,14 +47,14 @@ class _JobsOptInCardState extends ConsumerState<JobsOptInCard> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 72,
-              height: 72,
+              width: 48,
+              height: 48,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(20),
+                color: AppColors.accentWash,
+                borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(Icons.work_outline, size: 38, color: AppColors.primary),
+              child: const Icon(Icons.work_outline, size: 24, color: AppColors.primary),
             ),
             const SizedBox(height: 24),
             Text(

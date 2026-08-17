@@ -6,14 +6,12 @@ import '../models/subscription_card.dart';
 import '../features/auth/splash_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/home/home_screen.dart';
-import '../features/jobs/jobs_screen.dart';
 import '../features/jobs/job_detail_screen.dart';
 import '../features/jobs/job_profile_screen.dart';
 import '../features/jobs/interviews/interviews_screen.dart';
 import '../features/jobs/interviews/interview_detail_screen.dart';
 import '../features/jobs/offers/offers_screen.dart';
 import '../features/jobs/offers/offer_detail_screen.dart';
-import '../features/offers/offers_inbox_screen.dart';
 import '../features/notifications/notifications_screen.dart';
 import '../features/messages/messages_inbox_screen.dart';
 import '../features/messages/conversation_screen.dart';
@@ -59,18 +57,27 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final authState = ref.read(authProvider);
       final isAuth = authState.status == AuthStatus.authenticated;
-      final isSplash = state.matchedLocation == '/splash';
-      final isLogin = state.matchedLocation == '/login';
+      final loc = state.matchedLocation;
+      final isSplash = loc == '/splash';
+      final isLogin = loc == '/login';
 
       if (authState.status == AuthStatus.unknown) return null;
       if (!isAuth && !isSplash && !isLogin) return '/login';
       if (!isAuth && isSplash) return '/login';
       if (isAuth && (isSplash || isLogin)) return '/home';
+
+      // Legacy 5-tab paths land on the matching Home inner tab.
+      if (loc == '/jobs') return '/home?tab=jobs';
+      if (loc == '/offers') return '/home';
       return null;
     },
     routes: [
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+
+      // Compatibility aliases so existing go/push calls keep working.
+      GoRoute(path: '/jobs', redirect: (_, _) => '/home?tab=jobs'),
+      GoRoute(path: '/offers', redirect: (_, _) => '/home'),
 
       // Full-screen detail routes (stacked over the shell).
       _rootRoute('/job/:recipientId',
@@ -93,7 +100,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       _rootRoute('/more/profiles/edit/:id',
           (s) => ProfileEditScreen(profileId: s.pathParameters['id']!)),
       _rootRoute('/more/training', (_) => const TrainingScreen()),
-      _rootRoute('/messages', (_) => const MessagesInboxScreen()),
       _rootRoute('/messages/:id',
           (s) => ConversationScreen(conversationId: s.pathParameters['id']!)),
       _rootRoute('/subscription-detail', (state) {
@@ -104,24 +110,26 @@ final routerProvider = Provider<GoRouter>((ref) {
         return SubscriptionDetailScreen(recipient: recipient);
       }),
 
-      // The tab shell.
       StatefulShellRoute.indexedStack(
         builder: (_, _, navigationShell) =>
             AppBottomNav(navigationShell: navigationShell),
         branches: [
           StatefulShellBranch(routes: [
-            GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
+            GoRoute(
+              path: '/home',
+              builder: (_, state) => HomeScreen(
+                initialTab: state.uri.queryParameters['tab'],
+              ),
+            ),
           ]),
           StatefulShellBranch(routes: [
-            GoRoute(path: '/jobs', builder: (_, _) => const JobsScreen()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: '/offers', builder: (_, _) => const OffersInboxScreen()),
+            GoRoute(path: '/messages', builder: (_, _) => const MessagesInboxScreen()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(
-                path: '/notifications',
-                builder: (_, _) => const NotificationsScreen()),
+              path: '/notifications',
+              builder: (_, _) => const NotificationsScreen(),
+            ),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/more', builder: (_, _) => const MoreScreen()),

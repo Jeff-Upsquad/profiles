@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/theme.dart';
-import '../providers/jobs_providers.dart';
-import '../providers/providers.dart';
+import '../providers/conversations_providers.dart';
 import '../providers/talent_providers.dart';
+import 'talent_top_bar.dart';
+import 'ui_kit.dart';
 
-/// The redesigned 5-tab shell: Home · Jobs · Offers · Alerts · More.
-/// Jobs, Offers and Alerts carry live unread badges.
+/// 4-tab shell matching the web phone chrome: Home · Chatroom · Notifications · More.
 class AppBottomNav extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
 
@@ -15,57 +15,128 @@ class AppBottomNav extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final jobsUnread = ref.watch(jobsUnreadCountProvider).value ?? 0;
-    final offersUnread = ref.watch(unreadCountProvider).value ?? 0;
+    final chatUnread = ref.watch(conversationsUnreadProvider).value ?? 0;
     final alertsUnread = ref.watch(unreadNotificationsProvider).value ?? 0;
+    final trainingBadge = ref.watch(incompleteTrainingCountProvider).value ?? 0;
+    final index = navigationShell.currentIndex;
+    final isChat = index == 1;
 
     return Scaffold(
-      body: navigationShell,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: (index) {
-          navigationShell.goBranch(
-            index,
-            initialLocation: index == navigationShell.currentIndex,
-          );
-        },
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: _badged(const Icon(Icons.work_outline), jobsUnread),
-            selectedIcon: _badged(const Icon(Icons.work), jobsUnread),
-            label: 'Jobs',
-          ),
-          NavigationDestination(
-            icon: _badged(const Icon(Icons.mail_outline), offersUnread),
-            selectedIcon: _badged(const Icon(Icons.mail), offersUnread),
-            label: 'Offers',
-          ),
-          NavigationDestination(
-            icon: _badged(const Icon(Icons.notifications_none), alertsUnread),
-            selectedIcon: _badged(const Icon(Icons.notifications), alertsUnread),
-            label: 'Alerts',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.menu),
-            selectedIcon: Icon(Icons.menu_open),
-            label: 'More',
-          ),
+      backgroundColor: isChat ? Colors.white : AppColors.surface,
+      body: Column(
+        children: [
+          TalentTopBar(flush: isChat),
+          Expanded(child: navigationShell),
         ],
+      ),
+      bottomNavigationBar: Material(
+        color: Colors.white,
+        child: Container(
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+          ),
+          padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+          child: SizedBox(
+            height: 64,
+            child: Row(
+              children: [
+                _Tab(
+                  icon: Icons.home_outlined,
+                  selectedIcon: Icons.home,
+                  label: 'Home',
+                  selected: index == 0,
+                  onTap: () => _go(0),
+                ),
+                _Tab(
+                  icon: Icons.chat_bubble_outline,
+                  selectedIcon: Icons.chat_bubble,
+                  label: 'Chatroom',
+                  selected: index == 1,
+                  badge: chatUnread,
+                  onTap: () => _go(1),
+                ),
+                _Tab(
+                  icon: Icons.notifications_none,
+                  selectedIcon: Icons.notifications,
+                  label: 'Notifications',
+                  selected: index == 2,
+                  badge: alertsUnread,
+                  onTap: () => _go(2),
+                ),
+                _Tab(
+                  icon: Icons.apps_outlined,
+                  selectedIcon: Icons.apps,
+                  label: 'More',
+                  selected: index == 3,
+                  badge: trainingBadge,
+                  onTap: () => _go(3),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _badged(Widget child, int count) {
-    return Badge(
-      isLabelVisible: count > 0,
-      label: Text('$count'),
-      backgroundColor: AppColors.primary,
-      child: child,
+  void _go(int index) {
+    navigationShell.goBranch(
+      index,
+      initialLocation: index == navigationShell.currentIndex,
+    );
+  }
+}
+
+class _Tab extends StatelessWidget {
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  final bool selected;
+  final int badge;
+  final VoidCallback onTap;
+
+  const _Tab({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.badge = 0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppColors.textPrimary : const Color(0xFF71717A);
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(selected ? selectedIcon : icon, size: 22, color: color),
+                if (badge > 0)
+                  Positioned(
+                    right: -10,
+                    top: -6,
+                    child: CountBadge(badge),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

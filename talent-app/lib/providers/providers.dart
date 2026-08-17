@@ -177,6 +177,17 @@ final unreadCountProvider = FutureProvider.autoDispose<int>((ref) async {
   return service.getUnreadCount();
 });
 
+/// Pending assignment count (assignments have no dedicated unread endpoint).
+final unreadAssignmentCountProvider = FutureProvider.autoDispose<int>((ref) async {
+  final items = await ref.watch(subscriptionListProvider('pending').future);
+  return items.where((r) => r.card?.isAssignment == true).length;
+});
+
+final unreadSubscriptionFeedCountProvider = FutureProvider.autoDispose<int>((ref) async {
+  final items = await ref.watch(subscriptionListProvider('pending').future);
+  return items.where((r) => r.card?.isAssignment != true).length;
+});
+
 // ─── Talent profile (for WhatsApp toggle + inactive-profile guard) ───────────
 
 final talentMeProvider = FutureProvider.autoDispose<TalentMe>((ref) async {

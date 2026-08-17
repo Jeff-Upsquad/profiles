@@ -20,7 +20,7 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
-  bool _unreadOnly = false;
+  String _tab = 'unread';
 
   Future<void> _markAllRead() async {
     try {
@@ -38,7 +38,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   Future<void> _open(NotificationItem n) async {
     if (!n.read) {
-      // Optimistic: fire the mark-read and refresh badges.
       ref.read(notificationsServiceProvider).markRead(n.id).then((_) {
         ref.invalidate(notificationsProvider);
         ref.invalidate(unreadNotificationsProvider);
@@ -51,32 +50,50 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     final notifs = ref.watch(notificationsProvider);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notifications'),
-        actions: [
-          TextButton(
-            onPressed: _markAllRead,
-            child: const Text('Mark all read'),
-          ),
-        ],
-      ),
-      body: Column(
+    final unread = notifs.value?.where((n) => !n.read).length ?? 0;
+
+    return ColoredBox(
+      color: AppColors.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Row(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Column(
               children: [
-                _FilterChip(
-                  label: 'All',
-                  selected: !_unreadOnly,
-                  onTap: () => setState(() => _unreadOnly = false),
+                HeroCard(
+                  eyebrow: unread > 0
+                      ? '$unread unread'
+                      : 'All caught up',
+                  title: 'Notifications',
+                  titleHighlight: '.',
+                  subtitle: 'Updates about your jobs, offers and profiles.',
+                  trailing: TextButton(
+                    onPressed: _markAllRead,
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.textPrimary,
+                      backgroundColor: Colors.white,
+                      side: const BorderSide(color: AppColors.border),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Mark all read', style: TextStyle(fontSize: 12)),
+                  ),
                 ),
-                const SizedBox(width: 8),
-                _FilterChip(
-                  label: 'Unread',
-                  selected: _unreadOnly,
-                  onTap: () => setState(() => _unreadOnly = true),
+                const SizedBox(height: 12),
+                InkSegmentedTabs(
+                  tabs: [
+                    SegmentTab(key: 'unread', label: 'Unread', count: unread),
+                    SegmentTab(key: 'all', label: 'All', count: notifs.value?.length ?? 0),
+                    SegmentTab(
+                      key: 'read',
+                      label: 'Read',
+                      count: (notifs.value?.length ?? 0) - unread,
+                    ),
+                  ],
+                  activeKey: _tab,
+                  onChange: (k) => setState(() => _tab = k),
                 ),
               ],
             ),
@@ -88,8 +105,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 onRetry: () => ref.invalidate(notificationsProvider),
               ),
               data: (items) {
-                final visible =
-                    _unreadOnly ? items.where((n) => !n.read).toList() : items;
+                final visible = switch (_tab) {
+                  'unread' => items.where((n) => !n.read).toList(),
+                  'read' => items.where((n) => n.read).toList(),
+                  _ => items,
+                };
                 return RefreshIndicator(
                   onRefresh: () async {
                     ref.invalidate(notificationsProvider);
@@ -103,18 +123,20 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                               padding: const EdgeInsets.only(top: 80),
                               child: EmptyState(
                                 icon: Icons.notifications_none,
-                                title: _unreadOnly ? 'All caught up' : 'No notifications',
-                                subtitle: _unreadOnly
+                                title: _tab == 'unread'
+                                    ? 'All caught up'
+                                    : 'No notifications',
+                                subtitle: _tab == 'unread'
                                     ? "You've read everything."
-                                    : "Updates about your jobs, offers and profiles will appear here.",
+                                    : 'Updates about your jobs, offers and profiles will appear here.',
                               ),
                             ),
                           ],
                         )
                       : ListView.separated(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                           itemCount: visible.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 10),
+                          separatorBuilder: (_, _) => const SizedBox(height: 12),
                           itemBuilder: (_, i) => _NotificationTile(
                             item: visible[i],
                             onTap: () => _open(visible[i]),
@@ -130,36 +152,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _FilterChip({required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? AppColors.primary : AppColors.border),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : AppColors.textSecondary,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _NotificationTile extends StatelessWidget {
   final NotificationItem item;
   final VoidCallback onTap;
@@ -167,13 +159,18 @@ class _NotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      color: item.read ? AppColors.card : const Color(0xFFF5F3FF),
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -182,9 +179,9 @@ class _NotificationTile extends StatelessWidget {
                 children: [
                   if (!item.read)
                     Container(
-                      margin: const EdgeInsets.only(top: 5, right: 8),
-                      width: 8,
-                      height: 8,
+                      margin: const EdgeInsets.only(top: 6, right: 10),
+                      width: 6,
+                      height: 6,
                       decoration: const BoxDecoration(
                         color: AppColors.primary,
                         shape: BoxShape.circle,
@@ -194,16 +191,19 @@ class _NotificationTile extends StatelessWidget {
                     child: Text(
                       item.title,
                       style: TextStyle(
-                        color: AppColors.textPrimary,
+                        color: item.read
+                            ? AppColors.textSecondary
+                            : AppColors.textPrimary,
                         fontSize: 14,
-                        fontWeight: item.read ? FontWeight.w600 : FontWeight.w700,
+                        fontWeight:
+                            item.read ? FontWeight.w500 : FontWeight.w600,
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     timeAgo(item.createdAt),
-                    style: const TextStyle(color: AppColors.textTertiary, fontSize: 11),
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
                   ),
                 ],
               ),
@@ -211,9 +211,11 @@ class _NotificationTile extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   item.body!,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
+                  style: TextStyle(
+                    color: item.read
+                        ? AppColors.textTertiary
+                        : const Color(0xFF404040),
+                    fontSize: 14,
                     height: 1.4,
                   ),
                 ),
@@ -224,15 +226,14 @@ class _NotificationTile extends StatelessWidget {
               ],
               if (item.isClickable) ...[
                 const SizedBox(height: 8),
-                const Row(
-                  children: [
-                    Text('View',
-                        style: TextStyle(
-                            color: AppColors.primary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600)),
-                    Icon(Icons.chevron_right, size: 18, color: AppColors.primary),
-                  ],
+                const Text(
+                  'View',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.underline,
+                  ),
                 ),
               ],
             ],

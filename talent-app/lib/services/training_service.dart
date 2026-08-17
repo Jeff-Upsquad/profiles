@@ -17,6 +17,11 @@ class TrainingService {
     return ModuleAccess.fromJson(asObject(r.data));
   }
 
+  Future<int> incompleteCount() async {
+    final r = await _client.dio.get('/talent/training/incomplete-count');
+    return asInt(asObject(r.data)['incomplete_count']) ?? 0;
+  }
+
   Future<void> startCourse(String courseId) async {
     await _client.dio.post('/talent/training/courses/$courseId/start');
   }

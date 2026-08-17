@@ -30,10 +30,9 @@ String? mapNotificationRoute(String? linkOrRoute) {
     return '/job/${job.group(1)}';
   }
 
-  if (path.contains('/job-openings')) return '/jobs';
-  if (path.contains('/subscriptions') || path.contains('/assignments')) {
-    return '/offers';
-  }
+  if (path.contains('/job-openings')) return '/home?tab=jobs';
+  if (path.contains('/assignments')) return '/home?tab=assignments';
+  if (path.contains('/subscriptions')) return '/home';
   if (path.contains('/my-clients')) return '/more/my-clients';
   final intro = RegExp(r'/talent/messages/([^/]+)').firstMatch(path);
   if (intro != null) return '/messages/${intro.group(1)}';

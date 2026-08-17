@@ -6,10 +6,16 @@ class SubscriptionService {
 
   SubscriptionService(this._client);
 
-  Future<List<SubscriptionCardRecipient>> list({String status = 'pending'}) async {
+  Future<List<SubscriptionCardRecipient>> list({
+    String status = 'pending',
+    String? cardType,
+  }) async {
     final response = await _client.dio.get(
       '/talent/subscriptions',
-      queryParameters: {'status': status},
+      queryParameters: {
+        'status': status,
+        'card_type': ?cardType,
+      },
     );
     final data = response.data as Map<String, dynamic>;
     final items = data['items'] as List<dynamic>;

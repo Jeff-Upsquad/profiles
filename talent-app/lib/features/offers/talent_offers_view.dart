@@ -1,0 +1,156 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../core/subscription_utils.dart';
+import '../../core/theme.dart';
+import '../../models/subscription_card.dart';
+import '../../providers/providers.dart';
+import '../../widgets/shimmer_loading.dart';
+import '../../widgets/ui_kit.dart';
+import '../subscriptions/widgets/empty_state.dart';
+import '../subscriptions/widgets/subscription_list_tile.dart';
+
+/// Subscriptions or Assignments feed. Matches `TalentOffersView` (embedded).
+class TalentOffersView extends ConsumerStatefulWidget {
+  final bool assignments;
+  const TalentOffersView({super.key, this.assignments = false});
+
+  @override
+  ConsumerState<TalentOffersView> createState() => _TalentOffersViewState();
+}
+
+class _TalentOffersViewState extends ConsumerState<TalentOffersView> {
+  String _tab = 'pending';
+
+  bool _matches(SubscriptionCardRecipient r) {
+    final isAssignment = r.card?.isAssignment ?? false;
+    return widget.assignments ? isAssignment : !isAssignment;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pending = ref.watch(subscriptionListProvider('pending')).value ?? const [];
+    final pendingCount = pending.where(_matches).length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SoftSegmentedTabs(
+          tabs: [
+            SegmentTab(key: 'pending', label: 'Pending', count: pendingCount),
+            const SegmentTab(key: 'responded', label: 'Responded'),
+            const SegmentTab(key: 'expired', label: 'Expired'),
+          ],
+          activeKey: _tab,
+          onChange: (k) => setState(() => _tab = k),
+        ),
+        const SizedBox(height: 16),
+        Expanded(child: _OffersList(status: _tab, match: _matches)),
+      ],
+    );
+  }
+}
+
+class _OffersList extends ConsumerWidget {
+  final String status;
+  final bool Function(SubscriptionCardRecipient) match;
+  const _OffersList({required this.status, required this.match});
+
+  String get _queryStatus => switch (status) {
+        'responded' => 'all',
+        _ => status,
+      };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cards = ref.watch(subscriptionListProvider(_queryStatus));
+    return cards.when(
+      loading: () => const ShimmerCardList(),
+      error: (_, _) => AppErrorRetry(
+        onRetry: () => ref.invalidate(subscriptionListProvider(_queryStatus)),
+      ),
+      data: (all) {
+        var items = all.where(match).toList();
+        if (status == 'responded') {
+          items = items.where((r) => !r.isPending).toList();
+        }
+        return RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(subscriptionListProvider(_queryStatus));
+            ref.invalidate(unreadCountProvider);
+            await ref.read(subscriptionListProvider(_queryStatus).future);
+          },
+          child: items.isEmpty
+              ? ListView(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 56),
+                      child: EmptyState(
+                        icon: status == 'pending'
+                            ? Icons.inbox_outlined
+                            : Icons.history,
+                        title: status == 'pending'
+                            ? 'All caught up'
+                            : 'Nothing here yet',
+                        subtitle: status == 'pending'
+                            ? "You don't have any pending offers right now."
+                            : 'Offers you respond to will appear here.',
+                      ),
+                    ),
+                  ],
+                )
+              : ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                        boxShadow: AppShadows.soft,
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          for (int i = 0; i < items.length; i++) ...[
+                            if (i > 0)
+                              const Divider(
+                                height: 1,
+                                indent: 68,
+                                color: AppColors.border,
+                              ),
+                            SubscriptionListTile(
+                              recipient: items[i],
+                              trailing: _price(items[i].card),
+                              onTap: () => context.push(
+                                '/subscription-detail',
+                                extra: items[i],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+        );
+      },
+    );
+  }
+
+  Widget? _price(SubscriptionCard? card) {
+    if (card == null) return null;
+    final label = (card.priceLabel ?? '').trim();
+    final text = label.isNotEmpty ? label : formatPrice(card.monthlyPrice, card.currency);
+    if (text.isEmpty) return null;
+    return Text(
+      text,
+      style: const TextStyle(
+        color: AppColors.textPrimary,
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+}

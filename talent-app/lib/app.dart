@@ -142,8 +142,9 @@ class _TalentAppState extends ConsumerState<TalentApp> {
     _pendingRoute = null;
     if (!mounted) return;
     final router = ref.read(routerProvider);
-    const tabs = {'/home', '/jobs', '/offers', '/notifications', '/more'};
-    if (tabs.contains(mapped)) {
+    const tabs = {'/home', '/messages', '/notifications', '/more'};
+    final isTab = tabs.contains(mapped) || mapped.startsWith('/home?');
+    if (isTab) {
       router.go(mapped);
     } else {
       router.push(mapped);

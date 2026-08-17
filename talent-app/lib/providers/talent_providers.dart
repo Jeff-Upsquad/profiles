@@ -82,3 +82,7 @@ final myTrainingProvider = FutureProvider.autoDispose<MyTraining>((ref) async {
 final moduleAccessProvider = FutureProvider.autoDispose<ModuleAccess>((ref) async {
   return ref.watch(trainingServiceProvider).moduleAccess();
 });
+
+final incompleteTrainingCountProvider = FutureProvider.autoDispose<int>((ref) async {
+  return ref.watch(trainingServiceProvider).incompleteCount();
+});

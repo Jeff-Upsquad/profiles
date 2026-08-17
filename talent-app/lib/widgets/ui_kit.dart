@@ -19,7 +19,7 @@ enum BadgeVariant { green, yellow, red, gray, indigo, blue }
     case BadgeVariant.gray:
       return (fg: AppColors.textTertiary, bg: AppColors.divider);
     case BadgeVariant.indigo:
-      return (fg: AppColors.primary, bg: Color(0x1A4F46E5));
+      return (fg: AppColors.primary, bg: AppColors.accentWash);
     case BadgeVariant.blue:
       return (fg: AppColors.info, bg: AppColors.infoBg);
   }
@@ -204,7 +204,7 @@ class TitledCard extends StatelessWidget {
             Row(
               children: [
                 if (icon != null) ...[
-                  Icon(icon, size: 18, color: AppColors.primary),
+                  Icon(icon, size: 18, color: AppColors.textPrimary),
                   const SizedBox(width: 8),
                 ],
                 Expanded(
@@ -351,3 +351,615 @@ class LogoAvatar extends StatelessWidget {
         ),
       );
 }
+
+// ─── Count badge (nav / inbox) ───────────────────────────────────────────────
+
+class CountBadge extends StatelessWidget {
+  final int count;
+  const CountBadge(this.count, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    if (count <= 0) return const SizedBox.shrink();
+    return Container(
+      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.all(Radius.circular(99)),
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          height: 1,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Soft segmented tabs (Home, offers, jobs) ────────────────────────────────
+
+class SegmentTab {
+  final String key;
+  final String label;
+  final int count;
+  const SegmentTab({required this.key, required this.label, this.count = 0});
+}
+
+class SoftSegmentedTabs extends StatelessWidget {
+  final List<SegmentTab> tabs;
+  final String activeKey;
+  final ValueChanged<String> onChange;
+  final bool expanded;
+
+  const SoftSegmentedTabs({
+    super.key,
+    required this.tabs,
+    required this.activeKey,
+    required this.onChange,
+    this.expanded = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final row = Row(
+      mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
+      children: [
+        for (final t in tabs) ...[
+          if (expanded)
+            Expanded(child: _chip(t))
+          else
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: _chip(t),
+            ),
+        ],
+      ],
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: expanded
+          ? row
+          : SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: row,
+            ),
+    );
+  }
+
+  Widget _chip(SegmentTab t) {
+    final active = t.key == activeKey;
+    return GestureDetector(
+      onTap: () => onChange(t.key),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: active
+              ? const [
+                  BoxShadow(
+                    color: Color(0x1A000000),
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              t.label,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: active ? AppColors.textPrimary : AppColors.textSecondary,
+              ),
+            ),
+            if (t.count > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: active ? AppColors.accentWash : AppColors.border,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  t.count > 99 ? '99+' : '${t.count}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: active ? AppColors.textPrimary : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Equal-width ink tabs used by Notifications (Unread / All / Read).
+class InkSegmentedTabs extends StatelessWidget {
+  final List<SegmentTab> tabs;
+  final String activeKey;
+  final ValueChanged<String> onChange;
+
+  const InkSegmentedTabs({
+    super.key,
+    required this.tabs,
+    required this.activeKey,
+    required this.onChange,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          for (final t in tabs)
+            Expanded(
+              child: GestureDetector(
+                onTap: () => onChange(t.key),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: t.key == activeKey ? AppColors.primary : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  alignment: Alignment.center,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        t.label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: t.key == activeKey ? Colors.white : AppColors.textSecondary,
+                        ),
+                      ),
+                      if (t.count > 0) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          t.count > 99 ? '99+' : '${t.count}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: t.key == activeKey
+                                ? Colors.white70
+                                : AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Hero card (welcome / notifications) ─────────────────────────────────────
+
+class HeroCard extends StatelessWidget {
+  final String eyebrow;
+  final String title;
+  final String? titleHighlight;
+  final String subtitle;
+  final Widget? trailing;
+  final bool live;
+
+  const HeroCard({
+    super.key,
+    required this.eyebrow,
+    required this.title,
+    this.titleHighlight,
+    required this.subtitle,
+    this.trailing,
+    this.live = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.white, Color(0xFFFFFEF5)],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _EyebrowPill(label: eyebrow),
+              if (live) const _LivePill(),
+              ?trailing,
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text.rich(
+            TextSpan(
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.6,
+                height: 1.15,
+                color: AppColors.textPrimary,
+              ),
+              children: [
+                TextSpan(text: title),
+                if (titleHighlight != null && titleHighlight!.isNotEmpty)
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.baseline,
+                    baseline: TextBaseline.alphabetic,
+                    child: Container(
+                      margin: const EdgeInsets.only(left: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        titleHighlight!,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.6,
+                          height: 1.15,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EyebrowPill extends StatelessWidget {
+  final String label;
+  const _EyebrowPill({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: AppColors.primary, width: 1.5),
+        boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(2, 2))],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.black, width: 1),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LivePill extends StatelessWidget {
+  const _LivePill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.accent,
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: AppColors.primary, width: 1.5),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.circle, size: 7, color: AppColors.primary),
+          SizedBox(width: 6),
+          Text(
+            'Live',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── More list row ───────────────────────────────────────────────────────────
+
+class MoreRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String description;
+  final VoidCallback onTap;
+  final int badge;
+  final bool locked;
+
+  const MoreRow({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.description,
+    required this.onTap,
+    this.badge = 0,
+    this.locked = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 20, color: AppColors.textSecondary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          label,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (badge > 0) ...[
+                        const SizedBox(width: 8),
+                        Pill(label: '$badge', variant: BadgeVariant.indigo),
+                      ],
+                      if (locked) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.lock_outline, size: 14, color: AppColors.textMuted),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, size: 16, color: AppColors.textMuted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class GroupedCard extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+  const GroupedCard({super.key, required this.title, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadows.soft,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppColors.border)),
+            ),
+            child: Text(
+              title.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ),
+          for (int i = 0; i < children.length; i++) ...[
+            if (i > 0) const Divider(height: 1, color: AppColors.border),
+            children[i],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Brand mark + brutal login CTA ───────────────────────────────────────────
+
+class BrandMark extends StatelessWidget {
+  final double size;
+  final String letters;
+  const BrandMark({super.key, this.size = 32, this.letters = 'SH'});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(size * 0.25),
+      ),
+      child: Text(
+        letters,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: size * 0.34,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
+        ),
+      ),
+    );
+  }
+}
+
+class BrutalPrimaryButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+  final bool loading;
+  final Widget? trailing;
+
+  const BrutalPrimaryButton({
+    super.key,
+    required this.label,
+    this.onPressed,
+    this.loading = false,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.accent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: loading ? null : onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.primary, width: 2),
+            boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(4, 4))],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (loading)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.primary,
+                  ),
+                )
+              else ...[
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 6),
+                  trailing!,
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+

@@ -14,6 +14,8 @@ class TalentMe {
   final List<LanguageEntry> languagesSpoken;
   final bool isActive;
   final bool whatsappUpdatesEnabled;
+  final String? profilePhotoUrl;
+  final String? approvalStatus;
 
   TalentMe({
     required this.id,
@@ -26,6 +28,8 @@ class TalentMe {
     this.languagesSpoken = const [],
     required this.isActive,
     required this.whatsappUpdatesEnabled,
+    this.profilePhotoUrl,
+    this.approvalStatus,
   });
 
   factory TalentMe.fromJson(Map<String, dynamic> json) {
@@ -43,6 +47,8 @@ class TalentMe {
       isActive: json['is_active'] != false,
       // DB default is TRUE; only an explicit false disables.
       whatsappUpdatesEnabled: json['whatsapp_subscription_updates_enabled'] != false,
+      profilePhotoUrl: asString(json['profile_photo_url']),
+      approvalStatus: asString(json['approval_status']),
     );
   }
 }

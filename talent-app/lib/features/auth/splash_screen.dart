@@ -2,53 +2,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
+import '../../widgets/ui_kit.dart';
 
 class SplashScreen extends ConsumerWidget {
   const SplashScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      backgroundColor: AppColors.primary,
+    return const Scaffold(
+      backgroundColor: AppColors.surface,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(
-                Icons.bolt_rounded,
-                size: 44,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 24),
+            BrandMark(size: 80, letters: 'SH'),
+            SizedBox(height: 24),
             Text(
               appName,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.7,
+                color: AppColors.textPrimary,
+              ),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Text(
               appTagline,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white70,
-                  ),
+              style: TextStyle(fontSize: 14, color: AppColors.textTertiary),
             ),
-            const SizedBox(height: 48),
-            const SizedBox(
+            SizedBox(height: 48),
+            SizedBox(
               width: 24,
               height: 24,
               child: CircularProgressIndicator(
                 strokeWidth: 2.5,
-                color: Colors.white70,
+                color: AppColors.primary,
               ),
             ),
           ],

@@ -8,6 +8,7 @@ class OnboardingProgress {
   final bool basicProfileCompleted;
   final bool jobProfileCompleted;
   final bool portfolioCompleted;
+  final DateTime? allCompletedAt;
 
   const OnboardingProgress({
     this.signedUp = false,
@@ -15,17 +16,20 @@ class OnboardingProgress {
     this.basicProfileCompleted = false,
     this.jobProfileCompleted = false,
     this.portfolioCompleted = false,
+    this.allCompletedAt,
   });
 
   factory OnboardingProgress.fromJson(Map<String, dynamic> json) {
     // Endpoint wraps the flags in `progress`; tolerate a flat shape too.
     final p = json['progress'] is Map ? asObject(json['progress']) : json;
+    final completedRaw = asString(json['all_completed_at']);
     return OnboardingProgress(
       signedUp: asBool(p['signed_up']),
       onboardingCompleted: asBool(p['onboarding_completed']),
       basicProfileCompleted: asBool(p['basic_profile_completed']),
       jobProfileCompleted: asBool(p['job_profile_completed']),
       portfolioCompleted: asBool(p['portfolio_completed']),
+      allCompletedAt: completedRaw == null ? null : DateTime.tryParse(completedRaw),
     );
   }
 
@@ -41,4 +45,10 @@ class OnboardingProgress {
   int get completed => stages.where((s) => s.done).length;
   int get total => stages.length;
   bool get allDone => completed == total;
+
+  /// Web keeps the strip for 7 days after every stage is complete.
+  bool get showStrip {
+    if (allCompletedAt == null) return true;
+    return DateTime.now().difference(allCompletedAt!).inDays < 7;
+  }
 }
