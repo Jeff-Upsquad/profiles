@@ -215,6 +215,45 @@ export const cardFreshBroadcastWebhookSchema = z.object({
   card_id: z.string().min(1).max(200),
 });
 
+// SquadHub Client View — Leads/admin acting as the business on a published card.
+export const clientViewActorSchema = z.object({
+  email: z.string().email().optional().nullable(),
+  name: z.string().trim().min(1).max(200).optional().nullable(),
+  id: z.string().trim().min(1).max(80).optional().nullable(),
+});
+
+export const clientViewReviewSchema = z.object({
+  external_id: z.string().min(1).max(200),
+  talent_user_id: z.string().uuid(),
+  action: z.enum(['shortlist', 'reject', 'unshortlist']),
+  actor: clientViewActorSchema.optional(),
+});
+
+export const clientViewSelectSchema = z.object({
+  external_id: z.string().min(1).max(200),
+  talent_user_id: z.string().uuid(),
+  actor: clientViewActorSchema.optional(),
+});
+
+export const clientViewOpenConversationSchema = z.object({
+  external_id: z.string().min(1).max(200),
+  talent_user_id: z.string().uuid(),
+  actor: clientViewActorSchema.optional(),
+});
+
+export const clientViewConversationGetSchema = z.object({
+  conversation_id: z.string().uuid(),
+  after: z.string().uuid().optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  actor: clientViewActorSchema.optional(),
+});
+
+export const clientViewConversationSendSchema = z.object({
+  conversation_id: z.string().uuid(),
+  body: z.string().trim().min(1).max(4000),
+  actor: clientViewActorSchema.optional(),
+});
+
 export type SelectRecipientInput = z.infer<typeof selectRecipientSchema>;
 export type CardSelectionWebhookInput = z.infer<typeof cardSelectionWebhookSchema>;
 export type CardSelectionUndoWebhookInput = z.infer<typeof cardSelectionUndoWebhookSchema>;

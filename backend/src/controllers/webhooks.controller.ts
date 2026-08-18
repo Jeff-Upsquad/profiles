@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as subscriptionService from '../services/subscription.service.js';
+import * as clientView from '../services/client-view.service.js';
 
 export async function ingestSubscriptionCard(
   req: Request,
@@ -173,6 +174,73 @@ export async function previewCardRecipients(
       card_type ?? 'subscription',
     );
     res.json({ data: preview.talents, count: preview.count });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── Client View (SquadHub Leads / admin acting as the business) ─────────────
+
+export async function handleClientViewReview(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await clientView.reviewRecipient(req.body);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function handleClientViewSelect(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await clientView.selectRecipient(req.body);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function handleClientViewOpenConversation(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await clientView.openConversation(req.body);
+    res.status(201).json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function handleClientViewConversationGet(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await clientView.listConversationMessages(req.body);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function handleClientViewConversationSend(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await clientView.sendConversationMessage(req.body);
+    res.status(201).json({ success: true, ...result });
   } catch (err) {
     next(err);
   }

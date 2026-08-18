@@ -530,7 +530,11 @@ function serializeMeeting(row: any): IntroMeeting {
 async function serializeMessage(row: any): Promise<IntroMessage> {
   let senderName: string | null = null;
   if (row.sender_type === 'system') senderName = 'System';
-  else if (row.sender_id) {
+  else if (typeof row.sender_display_name === 'string' && row.sender_display_name.trim()) {
+    // Snapshot wins: Client View messages stamp the acting SquadHub user's name
+    // so the talent never sees the business company in their place.
+    senderName = row.sender_display_name.trim();
+  } else if (row.sender_id) {
     if (row.sender_type === 'business') senderName = (await loadBusinessPerson(row.sender_id)).name;
     else if (row.sender_type === 'talent') senderName = (await loadTalentPerson(row.sender_id)).name;
     else {
@@ -855,23 +859,30 @@ export async function sendMessage(
   actor: ConversationActor,
   id: string,
   body: string,
+  opts?: { displayName?: string | null },
 ): Promise<IntroMessage> {
   const convo = await loadConversation(id);
   const card = await loadCard(convo.card_id);
   await assertCanSend(actor, convo, card);
 
   const senderType = senderTypeFor(actor, convo.salesperson_id);
-  const { data, error } = await supabaseAdmin
-    .from('intro_messages')
-    .insert({
-      conversation_id: id,
-      sender_type: senderType,
-      sender_id: actor.id,
-      kind: 'text',
-      body,
-    })
-    .select('*')
-    .single();
+  const displayName = (opts?.displayName || actor.name || '').trim() || null;
+  const row = {
+    conversation_id: id,
+    sender_type: senderType,
+    sender_id: actor.id,
+    sender_display_name: displayName,
+    kind: 'text',
+    body,
+  };
+  let { data, error } = await supabaseAdmin.from('intro_messages').insert(row).select('*').single();
+  // Pre-migration environments don't have sender_display_name yet. Retry
+  // without it so chat still sends; the talent then sees the resolved name.
+  if (error && /sender_display_name/i.test(error.message)) {
+    const { sender_display_name: _ignored, ...legacy } = row;
+    ({ data, error } = await supabaseAdmin.from('intro_messages').insert(legacy).select('*').single());
+    if (data) (data as any).sender_display_name = displayName;
+  }
   if (error) throw new AppError(500, error.message);
 
   await supabaseAdmin
@@ -879,7 +890,7 @@ export async function sendMessage(
     .update({ last_message_at: new Date().toISOString() })
     .eq('id', id);
 
-  const senderName = await actorDisplayName(actor);
+  const senderName = displayName || (await actorDisplayName(actor));
   notifyNewActivity({
     convo,
     except: actor,

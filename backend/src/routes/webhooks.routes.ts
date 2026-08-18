@@ -24,6 +24,11 @@ import {
   cardActivationWebhookSchema,
   cardFreshBroadcastWebhookSchema,
   talentAcceptedWebhookSchema,
+  clientViewReviewSchema,
+  clientViewSelectSchema,
+  clientViewOpenConversationSchema,
+  clientViewConversationGetSchema,
+  clientViewConversationSendSchema,
 } from '../validators/subscription.validators.js';
 import {
   jobsCandidateReviewWebhookSchema,
@@ -247,6 +252,40 @@ router.post(
   verifySquadhubSecret,
   validate({ body: jobsCloseWebhookSchema }),
   jobsWebhooksController.handleClose
+);
+
+// SquadHub Client View — Leads/admin take the same actions the business can
+// (review / select / intro chat). Chat is sent as the acting SquadHub user,
+// not as the business, so the talent sees that person's name.
+router.post(
+  '/squadhub/cards/client-view/review',
+  verifySquadhubSecret,
+  validate({ body: clientViewReviewSchema }),
+  webhooksController.handleClientViewReview,
+);
+router.post(
+  '/squadhub/cards/client-view/select',
+  verifySquadhubSecret,
+  validate({ body: clientViewSelectSchema }),
+  webhooksController.handleClientViewSelect,
+);
+router.post(
+  '/squadhub/cards/client-view/conversations',
+  verifySquadhubSecret,
+  validate({ body: clientViewOpenConversationSchema }),
+  webhooksController.handleClientViewOpenConversation,
+);
+router.post(
+  '/squadhub/cards/client-view/conversations/messages',
+  verifySquadhubSecret,
+  validate({ body: clientViewConversationGetSchema }),
+  webhooksController.handleClientViewConversationGet,
+);
+router.post(
+  '/squadhub/cards/client-view/conversations/send',
+  verifySquadhubSecret,
+  validate({ body: clientViewConversationSendSchema }),
+  webhooksController.handleClientViewConversationSend,
 );
 
 // SquadHire CRM (shcrm) reports a Kanban card move so we can mirror the new
