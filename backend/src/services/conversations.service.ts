@@ -763,6 +763,8 @@ export async function listConversations(
     talent_user_id?: string;
     salesperson_id?: string;
     card_id?: string;
+    /** Card-scoped listing (Squad CRM lists rooms for the cards it owns). */
+    card_ids?: string[];
   } = {},
 ): Promise<IntroConversationSummary[]> {
   let q = supabaseAdmin
@@ -785,6 +787,12 @@ export async function listConversations(
     q = q.eq('salesperson_id', filters.salesperson_id);
   }
   if (filters.card_id) q = q.eq('card_id', filters.card_id);
+  if (filters.card_ids) {
+    // Empty set = no cards owned, so no rooms. Skipping the filter here would
+    // silently widen the query to every room in the system.
+    if (filters.card_ids.length === 0) return [];
+    q = q.in('card_id', filters.card_ids);
+  }
 
   const { data, error } = await q.limit(200);
   if (error) throw new AppError(500, error.message);

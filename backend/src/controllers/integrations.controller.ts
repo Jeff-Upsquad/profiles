@@ -5,7 +5,13 @@ import * as talentAccessService from '../services/talent-access.service.js';
 import * as businessProvisionService from '../services/business-provision.service.js';
 import * as businessAuthService from '../services/business-auth.service.js';
 import * as subscriptionService from '../services/subscription.service.js';
-import { ingestPendingBriefSchema } from '../validators/subscription.validators.js';
+import {
+  ingestPendingBriefSchema,
+  squadcrmRoomGetSchema,
+  squadcrmRoomSendSchema,
+  squadcrmRoomsListSchema,
+} from '../validators/subscription.validators.js';
+import * as squadcrmRooms from '../services/squadcrm-rooms.service.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 
@@ -405,6 +411,66 @@ export async function lookupBusinessUser(
     const body = lookupBusinessUserSchema.parse(req.body);
     const result = await integrationsService.lookupBusinessUser(body);
     res.json({ success: true, data: result });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
+      return;
+    }
+    next(err);
+  }
+}
+
+// ─── Squad CRM chat rooms ───────────────────────────────────────────────────
+//
+// CRM lists the SquadHire intro rooms that hang off the requirement cards its
+// caller owns. It passes those card ids on every call, so scope is decided by
+// the side that actually knows who owns a card.
+
+export async function listSquadcrmRooms(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = squadcrmRoomsListSchema.parse(req.body);
+    const result = await squadcrmRooms.listRooms(body);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
+      return;
+    }
+    next(err);
+  }
+}
+
+export async function getSquadcrmRoom(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = squadcrmRoomGetSchema.parse(req.body);
+    const result = await squadcrmRooms.getRoom(body);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
+      return;
+    }
+    next(err);
+  }
+}
+
+export async function sendSquadcrmRoomMessage(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = squadcrmRoomSendSchema.parse(req.body);
+    const result = await squadcrmRooms.sendRoomMessage(body);
+    res.status(201).json({ success: true, ...result });
   } catch (err) {
     if (err instanceof z.ZodError) {
       next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
