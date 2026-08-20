@@ -9,13 +9,11 @@ import { useCardRecipients } from '@/hooks/useBusiness';
 import {
   isOpenBusinessOffer,
   useBusinessAssignmentOffers,
-  useBusinessCounterOffer,
-  useBusinessAcceptOffer,
-  useBusinessDeclineOffer,
   useBusinessSendOffer,
   type BusinessAssignmentOffer,
 } from '@/hooks/useBusinessAssignmentOffers';
 import OfferAmountStepperModal, { snapOfferAmount } from './OfferAmountStepper';
+import BidActions from './BidActions';
 import OpenIntroRoomButton from '@/components/conversations/OpenIntroRoomButton';
 
 const ACTION_LABELS: Record<string, string> = {
@@ -70,56 +68,34 @@ export default function BusinessAssignmentOffers({
 }) {
   const { data: offers, isLoading } = useBusinessAssignmentOffers(cardId);
   const { data: recipients } = useCardRecipients(cardId);
-  const counter = useBusinessCounterOffer(cardId);
-  const accept = useBusinessAcceptOffer(cardId);
-  const decline = useBusinessDeclineOffer(cardId);
   const send = useBusinessSendOffer(cardId);
 
-  const [counterFor, setCounterFor] = useState<BusinessAssignmentOffer | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
   const [openThread, setOpenThread] = useState<string | null>(null);
 
-  // Talent who already have their own row below. Split, because the two cases
-  // behave differently once a bid is live: a SELECTED talent's negotiation is
-  // over, but a SHORTLISTED one's may still be waiting on the business.
+  // Shortlisted / selected talent already appear below — don't also list them
+  // here. One talent belongs to exactly one section; the bid actions travel to
+  // whichever section they're in (see BidActions), rather than pulling them back
+  // into this one.
   const taken = useMemo(() => {
-    const shortlistedRecipients = new Set<string>();
-    const shortlistedTalents = new Set<string>();
-    const selectedRecipients = new Set<string>();
-    const selectedTalents = new Set<string>();
+    const recipientIds = new Set<string>();
+    const talentIds = new Set<string>();
     for (const r of recipients ?? []) {
-      const target = r.selected_at
-        ? ([selectedRecipients, selectedTalents] as const)
-        : r.business_review_status === 'shortlisted'
-          ? ([shortlistedRecipients, shortlistedTalents] as const)
-          : null;
-      if (!target) continue;
-      target[0].add(r.recipient_id);
-      if (r.talent_user_id) target[1].add(r.talent_user_id);
+      if (r.business_review_status === 'shortlisted' || r.selected_at) {
+        recipientIds.add(r.recipient_id);
+        if (r.talent_user_id) talentIds.add(r.talent_user_id);
+      }
     }
-    return { shortlistedRecipients, shortlistedTalents, selectedRecipients, selectedTalents };
+    return { recipientIds, talentIds };
   }, [recipients]);
 
-  // Open bids only. One row per talent — if they have more than one open offer,
-  // keep the newest.
-  //
-  // Shortlisted talent normally show only in their own section below, but
-  // Accept / Counter live ONLY here: countering auto-shortlists, so hiding
-  // every shortlisted talent stranded any negotiation the moment the business
-  // made its first move. They stay listed while the next move is theirs.
+  // Open bids only, and never a talent who is already shortlisted or selected.
+  // One row per talent — if they have more than one open offer, keep the newest.
   const list = useMemo(() => {
     const open = (offers ?? []).filter((o) => {
       if (!isOpenBusinessOffer(o)) return false;
-      if (
-        taken.selectedRecipients.has(o.recipient_id) ||
-        (o.talent_user_id && taken.selectedTalents.has(o.talent_user_id))
-      ) {
-        return false;
-      }
-      const shortlisted =
-        taken.shortlistedRecipients.has(o.recipient_id) ||
-        (!!o.talent_user_id && taken.shortlistedTalents.has(o.talent_user_id));
-      if (shortlisted && o.status !== 'pending_business') return false;
+      if (taken.recipientIds.has(o.recipient_id)) return false;
+      if (o.talent_user_id && taken.talentIds.has(o.talent_user_id)) return false;
       return true;
     });
     const best = new Map<string, BusinessAssignmentOffer>();
@@ -132,7 +108,24 @@ export default function BusinessAssignmentOffers({
     }
     return [...best.values()];
   }, [offers, taken]);
-  const busy = counter.isPending || accept.isPending || decline.isPending || send.isPending;
+
+  // Live bids that sit with the talent in another section. Without this the box
+  // would read "no active bids" while a bid is genuinely waiting on the client.
+  const elsewhere = useMemo(() => {
+    let waiting = 0;
+    let total = 0;
+    for (const o of offers ?? []) {
+      if (!isOpenBusinessOffer(o)) continue;
+      const isTaken =
+        taken.recipientIds.has(o.recipient_id) ||
+        (!!o.talent_user_id && taken.talentIds.has(o.talent_user_id));
+      if (!isTaken) continue;
+      total += 1;
+      if (o.status === 'pending_business') waiting += 1;
+    }
+    return { waiting, total };
+  }, [offers, taken]);
+  const busy = send.isPending;
   const baseline = listPrice && listPrice > 0 ? listPrice : 500;
 
   // Prefer the talent's existing bid when opening "Send an Offer" for a recipient.
@@ -179,7 +172,11 @@ export default function BusinessAssignmentOffers({
       ) : list.length === 0 ? (
         <div className="px-6 py-10 text-center">
           <p className="text-sm text-[#737373]">
-            No active bids yet. When a talent bids above the list price, their ask appears here so you can Accept or Counter.
+            {elsewhere.waiting > 0
+              ? `${elsewhere.waiting === 1 ? 'A bid is' : `${elsewhere.waiting} bids are`} waiting on you below — once you shortlist a talent, their bid moves down with them.`
+              : elsewhere.total > 0
+                ? 'No new bids here. Bids from talents you have shortlisted show on their own row below.'
+                : 'No active bids yet. When a talent bids above the list price, their ask appears here so you can Accept or Counter.'}
           </p>
         </div>
       ) : (
@@ -188,7 +185,6 @@ export default function BusinessAssignmentOffers({
             const meta = STATUS_META[o.status] ?? { label: o.status, cls: 'bg-[#f0f0f0] text-[#737373]' };
             const offersLeft = o.business_offers_remaining ?? 0;
             const canAct = o.status === 'pending_business' && !disabled;
-            const canCounter = canAct && offersLeft > 0;
             const canSelect = o.status === 'accepted' && !disabled && !!onSelect;
             const original =
               formatListPrice(o.list_price ?? listPrice, o.list_currency ?? currency, period) ?? null;
@@ -339,35 +335,14 @@ export default function BusinessAssignmentOffers({
                         className="rounded-lg border border-[#E7E7EA] px-2 py-2 text-xs font-semibold text-[#0a0a0a] transition-colors hover:bg-[#F5F5F6] disabled:opacity-40 sm:px-3 sm:py-1.5"
                       />
                     )}
-                    {canAct && (
-                      <>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => decline.mutate({ offerId: o.id })}
-                          className="rounded-lg border border-[#E7E7EA] px-2 py-2 text-xs font-semibold text-[#737373] transition-colors hover:text-red-600 disabled:opacity-40 sm:px-3 sm:py-1.5"
-                        >
-                          Decline
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy || !canCounter}
-                          onClick={() => setCounterFor(o)}
-                          title={!canCounter ? 'No offers remaining on this card' : undefined}
-                          className="rounded-lg border border-[#E7E7EA] px-2 py-2 text-xs font-semibold text-[#0a0a0a] transition-colors hover:bg-[#F5F5F6] disabled:opacity-40 sm:px-3 sm:py-1.5"
-                        >
-                          Counter{canCounter ? ` (${offersLeft})` : ''}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => accept.mutate({ offerId: o.id })}
-                          className="rounded-lg bg-[#0a0a0a] px-2 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1a1a1a] disabled:opacity-40 sm:px-3 sm:py-1.5"
-                        >
-                          Accept<span className="hidden lg:inline"> bid</span>
-                        </button>
-                      </>
-                    )}
+                    <BidActions
+                      offer={o}
+                      cardId={cardId}
+                      currency={currency}
+                      period={period}
+                      listPrice={o.list_price ?? listPrice}
+                      disabled={disabled}
+                    />
                     {o.status === 'pending_talent' && (
                       <span className="self-center text-xs text-[#737373] lg:shrink-0">Awaiting the talent…</span>
                     )}
@@ -427,34 +402,6 @@ export default function BusinessAssignmentOffers({
           })}
         </ul>
       )}
-
-      <OfferAmountStepperModal
-        open={!!counterFor}
-        title="Send a counter-offer"
-        submitLabel="Send counter"
-        currency={currency || 'INR'}
-        period={period}
-        initialAmount={snapOfferAmount(
-          (typeof counterFor?.current_amount?.amount === 'number'
-            ? counterFor.current_amount.amount
-            : baseline) || 500,
-        )}
-        referenceAmount={
-          typeof counterFor?.current_amount?.amount === 'number'
-            ? counterFor.current_amount.amount
-            : baseline
-        }
-        referenceLabel="Talent's bid"
-        pending={counter.isPending}
-        onClose={() => setCounterFor(null)}
-        onSubmit={(amount, note) => {
-          if (!counterFor) return;
-          counter.mutate(
-            { offerId: counterFor.id, amount, ...(note ? { note } : {}) },
-            { onSuccess: () => setCounterFor(null) },
-          );
-        }}
-      />
 
       <OfferAmountStepperModal
         open={sendOpen}
