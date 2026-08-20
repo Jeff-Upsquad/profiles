@@ -44,9 +44,9 @@ function NavBadge({ count }: { count: number }) {
 export default function TalentBottomNav() {
   const pathname = usePathname() ?? '';
   const { data: unreadMessages = 0 } = useConversationUnread('talent');
-  if (/^\/talent\/messages\/[^/]+/.test(pathname)) return null;
   const { data: unreadNotifications = 0 } = useUnreadNotificationsCount();
   const { data: incompleteTraining = 0 } = useIncompleteTrainingCount();
+  if (/^\/talent\/messages\/[^/]+/.test(pathname)) return null;
 
   const navItems: NavItem[] = [
     {

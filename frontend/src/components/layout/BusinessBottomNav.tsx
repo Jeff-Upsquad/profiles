@@ -88,11 +88,8 @@ const NAV_ITEMS: NavItem[] = [
 export default function BusinessBottomNav() {
   const pathname = usePathname() ?? '';
   const { hasAssignedCard } = useHasAssignedCard();
-  const navItems = [...NAV_ITEMS, hasAssignedCard ? SQUADHUB_ITEM : HOW_IT_WORKS_ITEM];
-  // Give the conversation the full viewport — the thread header has a back link.
-  if (/^\/business\/messages\/[^/]+/.test(pathname)) return null;
-
   const [showSquadHubTip, setShowSquadHubTip] = useState(false);
+  const navItems = [...NAV_ITEMS, hasAssignedCard ? SQUADHUB_ITEM : HOW_IT_WORKS_ITEM];
 
   useEffect(() => {
     if (!hasAssignedCard) return;
@@ -104,6 +101,9 @@ export default function BusinessBottomNav() {
       setShowSquadHubTip(true);
     }
   }, [hasAssignedCard]);
+
+  // Give the conversation the full viewport — the thread header has a back link.
+  if (/^\/business\/messages\/[^/]+/.test(pathname)) return null;
 
   function dismissSquadHubTip() {
     setShowSquadHubTip(false);
