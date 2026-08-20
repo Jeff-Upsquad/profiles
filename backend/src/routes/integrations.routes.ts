@@ -71,6 +71,15 @@ router.post(
   integrationsController.verifyBusinessCredentials,
 );
 
+// Auto-login hand-off: redeem the one-time code a business carried from the
+// SquadHire portal's SquadHub tab for their identity, so SquadHub can start
+// their session without asking for credentials it already provisioned around.
+router.post(
+  '/squadhub/business/sso/token',
+  verifySquadhubSecret,
+  integrationsController.redeemBusinessSsoCode,
+);
+
 // Batch talent availability (self-declared virtual office hours → weekly hours),
 // keyed by talent_user_id. Powers the "available hours" column in SquadHub's
 // Subscription Assignments per-user view.

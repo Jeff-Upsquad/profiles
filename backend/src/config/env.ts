@@ -44,6 +44,11 @@ const envSchema = z.object({
   // The server-to-server calls reuse SQUADHUB_CALLBACK_SECRET for signing.
   SQUADHUB_API_URL: z.string().url().optional(),
 
+  // Public origin of the SquadHub WEB app (not its API), used to build the
+  // auto-login hand-off link the business tab sends the browser to. Defaults to
+  // production; override for staging/local.
+  SQUADHUB_WEB_URL: z.string().url().default('https://squadhub.in'),
+
   // Jobs module: SquadHub's SINGLE inbound events endpoint (cross-repo
   // contract) — every outbound job event (candidate applied, interview
   // lifecycle, offers, hire, Q&A) posts one envelope here, signed with

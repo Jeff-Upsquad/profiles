@@ -215,6 +215,10 @@ router.post(
 );
 router.post('/notifications/mark-all-read', businessController.markAllNotificationsRead);
 
+// SquadHub auto-login — mints the one-time code the SquadHub tab hands over so
+// the business lands inside SquadHub without a second sign-in.
+router.post('/squadhub/sso/authorize', businessController.authorizeSquadhubLogin);
+
 // Connect brief — self-serve "Request talent" form. Forwards to squadhub-web's
 // public lead pipeline; contact details default to the signed-in account.
 router.get('/connect-brief/countries', connectBriefController.getCountries);

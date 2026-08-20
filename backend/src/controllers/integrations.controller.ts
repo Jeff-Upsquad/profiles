@@ -4,6 +4,7 @@ import * as integrationsService from '../services/integrations.service.js';
 import * as talentAccessService from '../services/talent-access.service.js';
 import * as businessProvisionService from '../services/business-provision.service.js';
 import * as businessAuthService from '../services/business-auth.service.js';
+import * as squadhubBusinessSsoService from '../services/squadhub-business-sso.service.js';
 import * as subscriptionService from '../services/subscription.service.js';
 import {
   ingestPendingBriefSchema,
@@ -400,6 +401,34 @@ export async function verifyBusinessCredentials(
     const body = verifyBusinessCredentialsSchema.parse(req.body);
     const result = await businessAuthService.verifyBusinessCredentials(body);
     res.json({ success: true, data: result });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
+      return;
+    }
+    next(err);
+  }
+}
+
+const businessSsoTokenSchema = z.object({ code: z.string().min(1) }).strict();
+
+// SquadHub auto-login — redeem the one-time code the business's browser carried
+// over for their identity. Single use: a replayed or expired code is a 400, and
+// nothing here is reachable without the shared secret. See
+// squadhub-business-sso.service for the flow.
+export async function redeemBusinessSsoCode(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = businessSsoTokenSchema.parse(req.body);
+    const identity = await squadhubBusinessSsoService.consumeSquadhubLoginCode(body.code);
+    if (!identity) {
+      next(new AppError(400, 'Invalid, expired, or already-used code'));
+      return;
+    }
+    res.json({ success: true, data: identity });
   } catch (err) {
     if (err instanceof z.ZodError) {
       next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));

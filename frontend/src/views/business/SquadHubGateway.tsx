@@ -9,15 +9,21 @@ import { useHasAssignedCard } from '@/components/business/cards/hireActivity';
 // (GET /business-app/version) and knows whether a build has actually been
 // published, so version handling stays in one place.
 const SQUADHUB_APK_URL = 'https://squadhub.in/business-app';
-const SQUADHUB_WEB_URL = 'https://squadhub.in';
+
+// Not squadhub.in directly: this local page mints a one-time sign-in code with
+// the business's session and forwards them, so the web option lands them
+// already signed in. See frontend/src/app/business/squadhub/launch/page.tsx.
+const SQUADHUB_WEB_URL = '/business/squadhub/launch';
 
 /**
  * The SquadHub gateway — what the fourth bottom-nav tab opens once the
  * business has its first assigned card. Three ways in: the Android app, iOS
  * (not yet), and the web app.
  *
- * Businesses sign in to SquadHub with the same email and password they use
- * here; the account is created for them on first login.
+ * The web option signs them in automatically — their SquadHub account is
+ * created for them when their first card is assigned, so there is nothing to
+ * register. The Android app still takes the same email and password they use
+ * here.
  */
 export default function SquadHubGateway() {
   const router = useRouter();
@@ -76,8 +82,9 @@ export default function SquadHubGateway() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
         </svg>
         <p className="font-[family-name:var(--font-inter)] text-[13px] leading-relaxed text-[#525252]">
-          Sign in with the <span className="font-semibold text-[#0a0a0a]">same email and password</span>{' '}
-          you use here. Your SquadHub account is created automatically the first time you log in.
+          Your SquadHub account is <span className="font-semibold text-[#0a0a0a]">already set up</span>.
+          Opening it on the web signs you straight in — no password needed. In the app, use the same
+          email and password you use here.
         </p>
       </div>
 
@@ -97,9 +104,9 @@ export default function SquadHubGateway() {
 
         <OptionCard
           href={SQUADHUB_WEB_URL}
-          title="Log in via website"
-          body="Open SquadHub in your browser — nothing to install."
-          actionLabel="Open squadhub.in"
+          title="Open on the web"
+          body="Opens SquadHub in your browser, already signed in."
+          actionLabel="Open SquadHub"
           icon={
             <svg className="h-5 w-5 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

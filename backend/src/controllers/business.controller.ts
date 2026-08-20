@@ -4,6 +4,7 @@ import * as talentAccessService from '../services/talent-access.service.js';
 import * as howItWorksService from '../services/how-it-works.service.js';
 import * as jobsService from '../services/jobs.service.js';
 import * as businessNotificationsService from '../services/business-notifications.service.js';
+import * as squadhubBusinessSsoService from '../services/squadhub-business-sso.service.js';
 
 export async function getMe(req: Request, res: Response, next: NextFunction) {
   try {
@@ -426,6 +427,18 @@ export async function markNotificationRead(req: Request, res: Response, next: Ne
 export async function markAllNotificationsRead(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await businessNotificationsService.markAllRead(req.user!.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// SquadHub auto-login — mint a one-time code and hand back the SquadHub URL to
+// send this business to. The account on the other side was created for them at
+// card assignment, so they should never be asked to sign in again.
+export async function authorizeSquadhubLogin(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await squadhubBusinessSsoService.createSquadhubLoginCode(req.user!.id);
     res.json(result);
   } catch (err) {
     next(err);
