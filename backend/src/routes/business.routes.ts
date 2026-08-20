@@ -111,6 +111,12 @@ router.post(
   validate({ body: selectCardRecipientSchema }),
   businessController.selectCardRecipient,
 );
+// Undo the pick so another talent can be chosen. Refused once the assignment is
+// confirmed by an admin or already paid for.
+router.post(
+  '/my-subscription-cards/:cardId/unselect',
+  businessController.unselectCardRecipient,
+);
 
 // ─── Card payments ─────────────────────────────────────────────────────────
 // Once a talent is selected the business pays the agreed figure here. POST

@@ -11,6 +11,10 @@ import { notifyTalentSubscriptionCardReceived } from './talent-whatsapp.service.
 import { assertHiringContentValid, syncJobEntitiesForCard } from './jobs-ingest.service.js';
 import { onHiringCardAccepted, onHiringCardDeclined } from './jobs.service.js';
 import { phoneMatchSuffix } from '../lib/phone.js';
+import {
+  businessAmountFromOffer,
+  partnerAmountFromOffer,
+} from './assignment-offers.service.js';
 import type {
   IngestPendingBriefInput,
   IngestSubscriptionCardInput,
@@ -2314,6 +2318,54 @@ export interface SelectRecipientResult {
   selected_talent_user_id: string;
 }
 
+/**
+ * Accept a recipient's live bid at exactly the figure currently on the table,
+ * stamping the resolved dual-pricing fields so the amount can never be
+ * re-interpreted later. Returns silently when there's no open bid (selection at
+ * plain list price).
+ */
+async function lockRecipientOfferAtStandingFigure(
+  recipientId: string,
+  content: Record<string, unknown>,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { data: offers } = await supabaseAdmin
+    .from('assignment_offers')
+    .select('id, current_amount, last_actor_side, opened_by')
+    .eq('recipient_id', recipientId)
+    .in('status', ['pending_business', 'pending_talent']);
+
+  for (const o of offers ?? []) {
+    const amount = ((o as any).current_amount ?? {}) as Record<string, unknown>;
+    const hint = {
+      last_actor_side: ((o as any).last_actor_side as string | null) ?? null,
+      opened_by: ((o as any).opened_by as string | null) ?? null,
+    };
+    // Resolve BEFORE writing — once we've written, the provenance is gone.
+    const business = businessAmountFromOffer(amount, content, hint as any);
+    const partner = partnerAmountFromOffer(amount, content, hint as any);
+
+    const frozen =
+      business != null && partner != null
+        ? {
+            ...amount,
+            // `amount` stays the business/customer figure, matching what every
+            // other business-side write stores.
+            amount: business,
+            side: 'business',
+            partner_amount: partner,
+            business_amount: business,
+            margin_amount: business - partner,
+          }
+        : amount;
+
+    await supabaseAdmin
+      .from('assignment_offers')
+      .update({ status: 'accepted', responded_at: now, current_amount: frozen })
+      .eq('id', (o as any).id as string);
+  }
+}
+
 export async function adminSelectRecipient(
   cardId: string,
   recipientId: string,
@@ -2364,11 +2416,20 @@ export async function adminSelectRecipient(
 
   // Lock any open bid for this recipient as accepted at the standing figure
   // (Select is the finalize step after Accept ≠ Select negotiation).
-  await supabaseAdmin
-    .from('assignment_offers')
-    .update({ status: 'accepted', responded_at: now, last_actor_side: 'business' })
-    .eq('recipient_id', recipientId)
-    .in('status', ['pending_business', 'pending_talent']);
+  //
+  // Two things matter here, both about NOT moving the agreed number:
+  //
+  //  1. We do NOT touch `last_actor_side`. Selecting isn't a priced move, but
+  //     that column doubles as pricing provenance — for a legacy amount with no
+  //     explicit `side`, it's the only signal of whose figure `amount` holds.
+  //     Stamping 'business' on it made a talent bid look like a customer-pay
+  //     figure, so the margin silently vanished the moment you selected.
+  //  2. We freeze the figure explicitly: the standing amount is rewritten to the
+  //     full dual-pricing shape (side/partner_amount/business_amount) computed
+  //     from the provenance as it stands BEFORE the lock. Once those fields are
+  //     present no inference is ever needed again, so the number the client was
+  //     shown is the number they're later charged.
+  await lockRecipientOfferAtStandingFigure(recipientId, (card as any).content ?? {});
 
   // Expire other talents' open negotiations on this card.
   await supabaseAdmin
