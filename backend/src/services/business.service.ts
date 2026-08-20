@@ -2036,17 +2036,66 @@ export async function businessUnselectRecipient(businessUserId: string, cardId: 
       .eq('id', (p as any).id as string);
   }
 
+  // The recipient whose bid the selection locked, captured before the undo
+  // clears selected_at.
+  const { data: pickedRows } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id')
+    .eq('card_id', selectedCardId)
+    .not('selected_at', 'is', null);
+  const pickedIds = (pickedRows ?? []).map((r: any) => r.id as string);
+
   await adminUndoSelection(selectedCardId);
 
-  // Revive the other talents' bids that THIS selection expired, matched on the
-  // timestamp the expiry stamped. Without this the client unselects only to find
-  // every rival bid gone and everyone re-quoted at list price.
-  await supabaseAdmin
+  // Put the negotiation back where it was.
+  //
+  // Selecting closes bids two ways: it accepts the chosen talent's, and expires
+  // everyone else's. Both are stamped with the selection's own timestamp, so we
+  // can reopen exactly those and leave alone any offer the business had settled
+  // deliberately beforehand. Without this the client unselects into a dead end:
+  // no live bid anywhere, so no way to counter, and everyone silently back at
+  // list price.
+  //
+  // Which side's turn it goes back to is read off last_actor_side — the move
+  // that was pending when the selection interrupted it.
+  const reopenTurn = (lastActorSide: string | null) =>
+    lastActorSide === 'business' || lastActorSide === 'admin' ? 'pending_talent' : 'pending_business';
+
+  // a) the chosen talent's bid, accepted BY this selection
+  if (pickedIds.length > 0) {
+    const { data: locked } = await supabaseAdmin
+      .from('assignment_offers')
+      .select('id, last_actor_side')
+      .in('recipient_id', pickedIds)
+      .eq('status', 'accepted')
+      .eq('responded_at', selectedAt);
+    for (const o of locked ?? []) {
+      await supabaseAdmin
+        .from('assignment_offers')
+        .update({
+          status: reopenTurn(((o as any).last_actor_side as string | null) ?? null),
+          responded_at: null,
+        })
+        .eq('id', (o as any).id as string);
+    }
+  }
+
+  // b) the rival bids this selection expired
+  const { data: expired } = await supabaseAdmin
     .from('assignment_offers')
-    .update({ status: 'pending_business', responded_at: null })
+    .select('id, last_actor_side')
     .eq('card_id', selectedCardId)
     .eq('status', 'expired')
     .eq('responded_at', selectedAt);
+  for (const o of expired ?? []) {
+    await supabaseAdmin
+      .from('assignment_offers')
+      .update({
+        status: reopenTurn(((o as any).last_actor_side as string | null) ?? null),
+        responded_at: null,
+      })
+      .eq('id', (o as any).id as string);
+  }
 
   return { card_id: selectedCardId, unselected: true };
 }

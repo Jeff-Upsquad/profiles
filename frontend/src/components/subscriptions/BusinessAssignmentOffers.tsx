@@ -79,26 +79,47 @@ export default function BusinessAssignmentOffers({
   const [sendOpen, setSendOpen] = useState(false);
   const [openThread, setOpenThread] = useState<string | null>(null);
 
-  // Shortlisted / selected talent already appear below — don't also list them here.
+  // Talent who already have their own row below. Split, because the two cases
+  // behave differently once a bid is live: a SELECTED talent's negotiation is
+  // over, but a SHORTLISTED one's may still be waiting on the business.
   const taken = useMemo(() => {
-    const recipientIds = new Set<string>();
-    const talentIds = new Set<string>();
+    const shortlistedRecipients = new Set<string>();
+    const shortlistedTalents = new Set<string>();
+    const selectedRecipients = new Set<string>();
+    const selectedTalents = new Set<string>();
     for (const r of recipients ?? []) {
-      if (r.business_review_status === 'shortlisted' || r.selected_at) {
-        recipientIds.add(r.recipient_id);
-        if (r.talent_user_id) talentIds.add(r.talent_user_id);
-      }
+      const target = r.selected_at
+        ? ([selectedRecipients, selectedTalents] as const)
+        : r.business_review_status === 'shortlisted'
+          ? ([shortlistedRecipients, shortlistedTalents] as const)
+          : null;
+      if (!target) continue;
+      target[0].add(r.recipient_id);
+      if (r.talent_user_id) target[1].add(r.talent_user_id);
     }
-    return { recipientIds, talentIds };
+    return { shortlistedRecipients, shortlistedTalents, selectedRecipients, selectedTalents };
   }, [recipients]);
 
-  // Open bids only, and never a talent who is already shortlisted or selected.
-  // One row per talent — if they have more than one open offer, keep the newest.
+  // Open bids only. One row per talent — if they have more than one open offer,
+  // keep the newest.
+  //
+  // Shortlisted talent normally show only in their own section below, but
+  // Accept / Counter live ONLY here: countering auto-shortlists, so hiding
+  // every shortlisted talent stranded any negotiation the moment the business
+  // made its first move. They stay listed while the next move is theirs.
   const list = useMemo(() => {
     const open = (offers ?? []).filter((o) => {
       if (!isOpenBusinessOffer(o)) return false;
-      if (taken.recipientIds.has(o.recipient_id)) return false;
-      if (o.talent_user_id && taken.talentIds.has(o.talent_user_id)) return false;
+      if (
+        taken.selectedRecipients.has(o.recipient_id) ||
+        (o.talent_user_id && taken.selectedTalents.has(o.talent_user_id))
+      ) {
+        return false;
+      }
+      const shortlisted =
+        taken.shortlistedRecipients.has(o.recipient_id) ||
+        (!!o.talent_user_id && taken.shortlistedTalents.has(o.talent_user_id));
+      if (shortlisted && o.status !== 'pending_business') return false;
       return true;
     });
     const best = new Map<string, BusinessAssignmentOffer>();
