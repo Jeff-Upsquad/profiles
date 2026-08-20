@@ -222,9 +222,13 @@ export const clientViewActorSchema = z.object({
   id: z.string().trim().min(1).max(80).optional().nullable(),
 });
 
+// recipient_id is preferred and sent by SquadHub's Client View: on a grouped
+// brief one talent holds a recipient row per tier card, so the talent id alone
+// is ambiguous. talent_user_id stays for older callers.
 export const clientViewReviewSchema = z.object({
   external_id: z.string().min(1).max(200),
   talent_user_id: z.string().uuid(),
+  recipient_id: z.string().uuid().optional(),
   action: z.enum(['shortlist', 'reject', 'unshortlist']),
   actor: clientViewActorSchema.optional(),
 });
@@ -232,6 +236,7 @@ export const clientViewReviewSchema = z.object({
 export const clientViewSelectSchema = z.object({
   external_id: z.string().min(1).max(200),
   talent_user_id: z.string().uuid(),
+  recipient_id: z.string().uuid().optional(),
   actor: clientViewActorSchema.optional(),
 });
 
@@ -251,6 +256,30 @@ export const clientViewConversationGetSchema = z.object({
 export const clientViewConversationSendSchema = z.object({
   conversation_id: z.string().uuid(),
   body: z.string().trim().min(1).max(4000),
+  actor: clientViewActorSchema.optional(),
+});
+
+// Read the card + its recipients in the SAME shape the business portal gets,
+// so SquadHub's Client View renders the customer's screen rather than a
+// thinner admin approximation.
+export const clientViewCardSchema = z.object({
+  external_id: z.string().min(1).max(200),
+  actor: clientViewActorSchema.optional(),
+});
+
+// Undo a selection on behalf of the business. No talent id — selection is
+// per card, and the service resolves which tier sibling holds it.
+export const clientViewUnselectSchema = z.object({
+  external_id: z.string().min(1).max(200),
+  actor: clientViewActorSchema.optional(),
+});
+
+// Mint (or resume) the hosted payment link for a selected talent. SquadHub
+// shows the figure and hands the link over for the client to pay; nobody in
+// the Hub ever handles card details.
+export const clientViewPaymentLinkSchema = z.object({
+  external_id: z.string().min(1).max(200),
+  recipient_id: z.string().uuid(),
   actor: clientViewActorSchema.optional(),
 });
 

@@ -245,3 +245,56 @@ export async function handleClientViewConversationSend(
     next(err);
   }
 }
+
+/** The card + recipients exactly as the business portal renders them. */
+export async function handleClientViewCard(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await clientView.getCardForClientView(req.body);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function handleClientViewUnselect(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await clientView.unselectRecipient(req.body);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function handleClientViewPayments(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await clientView.listCardPayments(req.body);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function handleClientViewPaymentLink(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await clientView.createCardPaymentLink(req.body);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+}

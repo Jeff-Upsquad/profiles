@@ -29,6 +29,9 @@ import {
   clientViewOpenConversationSchema,
   clientViewConversationGetSchema,
   clientViewConversationSendSchema,
+  clientViewCardSchema,
+  clientViewUnselectSchema,
+  clientViewPaymentLinkSchema,
 } from '../validators/subscription.validators.js';
 import {
   jobsCandidateReviewWebhookSchema,
@@ -286,6 +289,32 @@ router.post(
   verifySquadhubSecret,
   validate({ body: clientViewConversationSendSchema }),
   webhooksController.handleClientViewConversationSend,
+);
+// The card + its recipients in the business portal's own shape, so SquadHub
+// renders the customer's screen instead of a thinner admin copy of it.
+router.post(
+  '/squadhub/cards/client-view/card',
+  verifySquadhubSecret,
+  validate({ body: clientViewCardSchema }),
+  webhooksController.handleClientViewCard,
+);
+router.post(
+  '/squadhub/cards/client-view/unselect',
+  verifySquadhubSecret,
+  validate({ body: clientViewUnselectSchema }),
+  webhooksController.handleClientViewUnselect,
+);
+router.post(
+  '/squadhub/cards/client-view/payments',
+  verifySquadhubSecret,
+  validate({ body: clientViewCardSchema }),
+  webhooksController.handleClientViewPayments,
+);
+router.post(
+  '/squadhub/cards/client-view/payments/link',
+  verifySquadhubSecret,
+  validate({ body: clientViewPaymentLinkSchema }),
+  webhooksController.handleClientViewPaymentLink,
 );
 
 // SquadHire CRM (shcrm) reports a Kanban card move so we can mirror the new
