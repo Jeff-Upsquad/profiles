@@ -338,3 +338,148 @@ export async function findMatchingTalents(
   }
   return Array.from(unique);
 }
+
+// ─── Single-talent tier check ──────────────────────────────────────────────
+
+export interface TierEligibility {
+  eligible: boolean;
+  // The card's target_tiers, as sent (PascalCase) — for the error message.
+  cardTiers: string[];
+  // The talent's tier(s) on their approved profiles in the card's categories,
+  // as stored. Empty when the talent has no tiered profile there at all.
+  talentTiers: string[];
+}
+
+/**
+ * Tier check for ONE talent against ONE card's match_rules — the single-talent
+ * counterpart to the Step-2 tier filter in findMatchingTalents.
+ *
+ * Broadcast fan-out can only ever reach tier-matching talents because it runs
+ * through the matcher. The hand-pick path (SquadHub's assign-talent picker →
+ * /webhooks/squadhub/cards/manual-assignments) skipped the matcher entirely,
+ * so a Pro talent could be sent a Junior card of the same brief — the same
+ * person then showed up twice in the merged "All tiers" recipients list.
+ * Same semantics as the matcher: category-scoped approved+active profiles,
+ * case-insensitive tier compare ('Top Talents' is PascalCase in the view,
+ * junior/pro are lowercase).
+ *
+ * A card with NO target_tiers carries no tier intent to enforce, so this
+ * returns eligible (the broadcast matcher's separate fail-closed rule still
+ * refuses to fan such a card out). Hiring cards likewise promise
+ * "empty tiers = any tier".
+ */
+export async function checkTalentTierEligibility(
+  matchRules: MatchRules,
+  talentUserId: string,
+): Promise<TierEligibility> {
+  const cardTiers = Array.isArray(matchRules.target_tiers)
+    ? matchRules.target_tiers.filter((t): t is string => typeof t === 'string' && t.length > 0)
+    : [];
+  if (cardTiers.length === 0) {
+    return { eligible: true, cardTiers, talentTiers: [] };
+  }
+
+  const categoryIds = Array.isArray(matchRules.category_ids)
+    ? matchRules.category_ids.filter((v): v is string => typeof v === 'string' && v.length > 0)
+    : [];
+
+  // Scope to the card's categories when it names any: a talent can hold
+  // profiles in several categories at different tiers, and only the tier of
+  // the profile the card is actually for should decide this.
+  let pq = supabaseAdmin
+    .from('talent_profiles')
+    .select('id')
+    .eq('talent_user_id', talentUserId)
+    .eq('status', 'approved')
+    .eq('is_active', true)
+    .is('deleted_at', null);
+  if (categoryIds.length > 0) pq = pq.in('category_id', categoryIds);
+
+  const { data: profileRows, error: profileErr } = await pq;
+  if (profileErr) {
+    console.error('[subscription-matcher] tier-eligibility profile query failed', profileErr);
+    throw profileErr;
+  }
+  const profileIds = (profileRows ?? []).map((r: any) => r.id as string);
+  if (profileIds.length === 0) {
+    return { eligible: false, cardTiers, talentTiers: [] };
+  }
+
+  const { data: tierRows, error: tierErr } = await supabaseAdmin
+    .from('v_talent_profile_tier')
+    .select('talent_profile_id, tier')
+    .in('talent_profile_id', profileIds);
+  if (tierErr) {
+    console.error('[subscription-matcher] tier-eligibility tier query failed', tierErr);
+    throw tierErr;
+  }
+
+  const talentTiers = (tierRows ?? [])
+    .map((r: any) => (r.tier == null ? '' : String(r.tier)))
+    .filter((t: string) => t.length > 0);
+  const wanted = new Set(cardTiers.map((t) => t.toLowerCase()));
+  const eligible = talentTiers.some((t) => wanted.has(t.toLowerCase()));
+
+  return { eligible, cardTiers, talentTiers: [...new Set(talentTiers)] };
+}
+
+/**
+ * Tier(s) held by each of the given talents, keyed by talent_user_id — the
+ * bulk read behind SquadHub's assign picker, so it can label and disable
+ * talents whose level doesn't match the card. Approved + active profiles only,
+ * optionally scoped to a card's categories.
+ *
+ * Deliberately reads the same v_talent_profile_tier the matcher filters on,
+ * NOT talent-tier.service's getTalentTiersByUserIds: that one is a display
+ * helper that falls back to the tier on the original lead submission, which is
+ * not what decides who a card reaches. The picker must agree with the gate.
+ */
+export async function getTiersByTalent(
+  talentUserIds: string[],
+  categoryIds: string[] = [],
+): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (talentUserIds.length === 0) return out;
+
+  let pq = supabaseAdmin
+    .from('talent_profiles')
+    .select('id, talent_user_id')
+    .in('talent_user_id', talentUserIds)
+    .eq('status', 'approved')
+    .eq('is_active', true)
+    .is('deleted_at', null);
+  if (categoryIds.length > 0) pq = pq.in('category_id', categoryIds);
+
+  const { data: profileRows, error: profileErr } = await pq;
+  if (profileErr) {
+    console.error('[subscription-matcher] getTiersByTalent profile query failed', profileErr);
+    throw profileErr;
+  }
+  const rows = (profileRows ?? []) as Array<{ id: string; talent_user_id: string }>;
+  if (rows.length === 0) return out;
+
+  const { data: tierRows, error: tierErr } = await supabaseAdmin
+    .from('v_talent_profile_tier')
+    .select('talent_profile_id, tier')
+    .in('talent_profile_id', rows.map((r) => r.id));
+  if (tierErr) {
+    console.error('[subscription-matcher] getTiersByTalent tier query failed', tierErr);
+    throw tierErr;
+  }
+  const tierByProfile = new Map<string, string>();
+  for (const t of tierRows ?? []) {
+    const tier = (t as any).tier;
+    if (tier != null && String(tier).length > 0) {
+      tierByProfile.set((t as any).talent_profile_id as string, String(tier));
+    }
+  }
+
+  for (const r of rows) {
+    const tier = tierByProfile.get(r.id);
+    if (!tier) continue;
+    const list = out.get(r.talent_user_id) ?? [];
+    if (!list.includes(tier)) list.push(tier);
+    out.set(r.talent_user_id, list);
+  }
+  return out;
+}

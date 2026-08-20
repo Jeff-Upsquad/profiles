@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabase.js';
+import { getTiersByTalent } from './subscription-matcher.service.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { phoneMatchSuffix } from '../lib/phone.js';
@@ -38,7 +39,22 @@ export interface PublicTalent {
   name: string;
   email: string | null;
   country: string | null;
+  // First tier held (back-compat: this field shipped as always-null).
   tier: string | null;
+  // Every tier this talent holds, scoped to the card's categories when the
+  // caller names them.
+  tiers: string[];
+  // Whether this talent's level matches the card being assigned: true/false
+  // once the caller sends target_tiers, null when it asks without card
+  // context (nothing to judge against).
+  tier_eligible: boolean | null;
+}
+
+export interface TalentSearchScope {
+  // The card's SquadHire categories — scopes which profile's tier counts.
+  categoryIds?: string[];
+  // The card's target_tiers. Present => every hit is judged eligible or not.
+  targetTiers?: string[];
 }
 
 const TALENT_SEARCH_LIMIT = 20;
@@ -51,8 +67,17 @@ const TALENT_CANDIDATE_LIMIT = 60;
  * have at least one approved + active talent_profile, so admins don't invite
  * draft / rejected / inactive accounts. Email is intentionally null today —
  * it lives in auth.users and isn't part of this public surface.
+ *
+ * When `scope` carries the card's categories and target_tiers, each hit is
+ * tagged with the tier(s) it holds and whether those match the card, so the
+ * SquadHub picker can label and disable talents of the wrong level instead of
+ * letting the admin send a Junior card to a Pro talent (which the
+ * manual-assignment webhook now rejects outright).
  */
-export async function searchActiveTalents(rawQuery: string): Promise<PublicTalent[]> {
+export async function searchActiveTalents(
+  rawQuery: string,
+  scope: TalentSearchScope = {},
+): Promise<PublicTalent[]> {
   const q = rawQuery.trim();
   if (q.length === 0) return [];
 
@@ -107,16 +132,31 @@ export async function searchActiveTalents(rawQuery: string): Promise<PublicTalen
     if (r.id && r.email) emailByUser.set(r.id, r.email);
   }
 
-  return users
-    .filter((u: any) => approvedSet.has(u.id))
-    .slice(0, TALENT_SEARCH_LIMIT)
-    .map((u: any) => ({
+  const hits = users.filter((u: any) => approvedSet.has(u.id)).slice(0, TALENT_SEARCH_LIMIT);
+
+  const tiersByTalent = await getTiersByTalent(
+    hits.map((u: any) => u.id as string),
+    scope.categoryIds ?? [],
+  );
+  const wantedTiers = (scope.targetTiers ?? [])
+    .filter((t): t is string => typeof t === 'string' && t.length > 0)
+    .map((t) => t.toLowerCase());
+
+  return hits.map((u: any) => {
+    const tiers = tiersByTalent.get(u.id as string) ?? [];
+    return {
       id: u.id,
       name: u.full_name ?? '',
       email: emailByUser.get(u.id) ?? null,
       country: countryByUser.get(u.id) ?? null,
-      tier: null,
-    }));
+      tier: tiers[0] ?? null,
+      tiers,
+      tier_eligible:
+        wantedTiers.length === 0
+          ? null
+          : tiers.some((t) => wantedTiers.includes(t.toLowerCase())),
+    };
+  });
 }
 
 // ── Email-based user lookup (for SquadHub partner↔talent linking) ──

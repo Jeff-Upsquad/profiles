@@ -89,7 +89,16 @@ export async function searchTalents(
 ): Promise<void> {
   try {
     const q = typeof req.query.q === 'string' ? req.query.q : '';
-    const talents = await integrationsService.searchActiveTalents(q);
+    // Optional card context (comma-separated) so hits come back tagged with
+    // their tier and whether it matches the card the admin is assigning for.
+    const csv = (v: unknown): string[] =>
+      typeof v === 'string' && v.length > 0
+        ? v.split(',').map((s) => s.trim()).filter(Boolean)
+        : [];
+    const talents = await integrationsService.searchActiveTalents(q, {
+      categoryIds: csv(req.query.category_ids),
+      targetTiers: csv(req.query.target_tiers),
+    });
     res.json({ talents });
   } catch (err) {
     next(err);
