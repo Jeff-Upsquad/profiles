@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { getTalentMatchSignals, buildViewerMatch } from './viewer-match.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
-import { findMatchingTalents } from './subscription-matcher.service.js';
+import { checkTalentTierEligibility, findMatchingTalents } from './subscription-matcher.service.js';
 import { deliverCallback } from './squadhub-callback.service.js';
 import { notifyNewCard, notifySelected, notifyUnassigned } from './push.service.js';
 import { getTalentTiersByUserIds } from './talent-tier.service.js';
@@ -1928,6 +1928,36 @@ export async function manualAssignTalent(
   }
   if ((talent as any).blacklisted === true) {
     throw new AppError(409, 'Talent is blacklisted on Profiles and cannot receive new assignments');
+  }
+
+  // A talent only ever receives cards at their own level. Broadcast fan-out
+  // gets this for free (the matcher filters on tier); a hand-pick lands here
+  // instead, and used to skip the check entirely — that's how a Pro talent was
+  // sent the Junior card of a multi-tier brief and ended up listed twice under
+  // the same brief, once per tier.
+  //
+  // Exempt: direct-assign (`assigned: true`). That isn't an offer being pushed
+  // to a talent — it's SquadHub recording a placement it has already made
+  // (change-talent swap, resume with the same talent), where the terms are
+  // settled and blocking would only strand a live engagement whose talent has
+  // since been re-tiered.
+  if (input.assigned !== true) {
+    const tierCheck = await checkTalentTierEligibility(
+      ((card as any).match_rules ?? {}) as Record<string, unknown>,
+      input.talent_id,
+    );
+    if (!tierCheck.eligible) {
+      const wanted = tierCheck.cardTiers.join(' / ');
+      const held = tierCheck.talentTiers.join(' / ');
+      throw new AppError(
+        409,
+        held.length > 0
+          ? `Level mismatch: this card is for ${wanted} talents and this talent is ${held}. ` +
+              `Send them the ${held} card of this brief instead.`
+          : `Level mismatch: this card is for ${wanted} talents and this talent has no ` +
+              `approved profile at that level in the card's category.`,
+      );
+    }
   }
 
   // Only an *active* (uncancelled) row counts as "already assigned". A
