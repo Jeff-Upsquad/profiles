@@ -16,6 +16,7 @@ import { FirstItemTip } from '@/components/ui/FirstItemTip';
 import BusinessAssignmentOffers from '@/components/subscriptions/BusinessAssignmentOffers';
 import OpenIntroRoomButton from '@/components/conversations/OpenIntroRoomButton';
 import { isOpenBusinessOffer, useBusinessAssignmentOffers } from '@/hooks/useBusinessAssignmentOffers';
+import { useCardPayments, useStartCardPayment, type CardPayment } from '@/hooks/useCardPayments';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
 
 const TINTS = ['tint-purple', 'tint-blue', 'tint-orange', 'tint-green', 'tint-pink', 'tint-amber'] as const;
@@ -87,6 +88,22 @@ export default function SubscriptionCardReview({
   const { data: card, isLoading: cardLoading, error: cardError } = useMySubscriptionCard(cardId);
   const { data: recipients, isLoading: recipientsLoading } = useCardRecipients(cardId);
   const { data: offers } = useBusinessAssignmentOffers(cardId);
+  // Razorpay sends the client back to ?payment=done. Captured once on mount so
+  // the first read verifies against Razorpay rather than our own (possibly
+  // not-yet-updated) row; the param is then cleaned out of the URL.
+  const [returnedFromCheckout] = useState(
+    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('payment') === 'done',
+  );
+  useEffect(() => {
+    if (!returnedFromCheckout) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('payment');
+    window.history.replaceState({}, '', url.toString());
+  }, [returnedFromCheckout]);
+  const { data: cardPayments } = useCardPayments(cardId, {
+    justReturnedFromCheckout: returnedFromCheckout,
+  });
+  const startPayment = useStartCardPayment(cardId);
   const reviewMutation = useReviewCardRecipient(cardId);
   const selectMutation = useSelectCardRecipient(cardId);
   const markSeenMutation = useMarkCardAcceptancesSeen(cardId);
@@ -495,6 +512,10 @@ export default function SubscriptionCardReview({
                 variant="assigned"
                 listPrice={card.customer_monthly_price}
                 isAssignment={isAssignment}
+                cardId={cardId}
+                payment={cardPayments?.[r.recipient_id] ?? null}
+                onPay={() => startPayment.mutate(r.recipient_id)}
+                paying={startPayment.isPending}
               />
             ))}
           </div>
@@ -523,6 +544,9 @@ export default function SubscriptionCardReview({
                 listPrice={card.customer_monthly_price}
                 isAssignment={isAssignment}
                 cardId={cardId}
+                payment={cardPayments?.[r.recipient_id] ?? null}
+                onPay={() => startPayment.mutate(r.recipient_id)}
+                paying={startPayment.isPending}
               />
             ))}
           </div>
@@ -1038,35 +1062,156 @@ function RecipientRow({
   listPrice,
   isAssignment = false,
   cardId,
+  payment,
+  onPay,
+  paying = false,
 }: {
   recipient: CardRecipientForBusiness;
   variant: 'selected' | 'assigned';
   listPrice?: number | null;
   isAssignment?: boolean;
   cardId?: string;
+  payment?: CardPayment | null;
+  onPay?: () => void;
+  paying?: boolean;
 }) {
   const isAssigned = variant === 'assigned';
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-      <RecipientLink recipient={r}>
-        <RecipientAvatar recipient={r} />
-        <RecipientInfo recipient={r} />
-      </RecipientLink>
-      <div className="flex flex-col gap-2.5 sm:ml-auto sm:flex-row sm:items-center">
-        <RecipientPrice recipient={r} listPrice={listPrice} isAssignment={isAssignment} />
-        <div className="flex flex-wrap items-center gap-2">
-          {!isAssigned && r.talent_user_id && (r.card_id || cardId) && (
-            <OpenIntroRoomButton cardId={r.card_id ?? cardId ?? ''} talentUserId={r.talent_user_id} />
-          )}
-          <span
-            className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-              isAssigned ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-            }`}
-          >
-            {isAssigned ? 'Assigned' : 'Selected'}
-          </span>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+        <RecipientLink recipient={r}>
+          <RecipientAvatar recipient={r} />
+          <RecipientInfo recipient={r} />
+        </RecipientLink>
+        <div className="flex flex-col gap-2.5 sm:ml-auto sm:flex-row sm:items-center">
+          <RecipientPrice recipient={r} listPrice={listPrice} isAssignment={isAssignment} />
+          <div className="flex flex-wrap items-center gap-2">
+            {!isAssigned && r.talent_user_id && (r.card_id || cardId) && (
+              <OpenIntroRoomButton cardId={r.card_id ?? cardId ?? ''} talentUserId={r.talent_user_id} />
+            )}
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                isAssigned ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+              }`}
+            >
+              {isAssigned ? 'Assigned' : 'Selected'}
+            </span>
+          </div>
         </div>
       </div>
+      {onPay && (
+        <MakePaymentSection
+          recipient={r}
+          payment={payment ?? null}
+          onPay={onPay}
+          paying={paying}
+          isAssignment={isAssignment}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * "Make Payment" — sits directly under the selected talent. Three states:
+ *
+ *   nothing yet   → the agreed figure + a Pay button (hands off to Razorpay)
+ *   paid          → a receipt line, plus the invoice number/link once SquadBooks
+ *                   has raised it (a beat behind the payment, so we say so)
+ *   link pending  → the client abandoned the checkout; the same link reopens
+ *
+ * The figure shown is whatever the price block above resolved to, so what the
+ * client is asked to pay always matches what they were quoted.
+ */
+function MakePaymentSection({
+  recipient: r,
+  payment,
+  onPay,
+  paying,
+  isAssignment,
+}: {
+  recipient: CardRecipientForBusiness;
+  payment: CardPayment | null;
+  onPay: () => void;
+  paying: boolean;
+  isAssignment: boolean;
+}) {
+  const resolved = resolveRecipientPrice(r);
+  const amount = payment?.amount ?? resolved?.amount ?? null;
+  const currencyCode = payment?.currency ?? resolved?.currency ?? null;
+  const isPaid = payment?.status === 'paid';
+
+  // Nothing agreed yet — there is no figure to charge, so don't offer to.
+  if (amount == null || !(amount > 0)) return null;
+
+  const cur = currencyCode === 'INR' || !currencyCode ? '₹' : `${currencyCode} `;
+  const isProject = isAssignment || (payment?.period ?? resolved?.period) === 'project';
+  const amountLabel = `${cur}${amount.toLocaleString()}${isProject ? '' : '/mo'}`;
+
+  if (isPaid) {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-white p-3.5 sm:p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <svg className="h-4 w-4 shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="font-[family-name:var(--font-jakarta)] text-[13px] font-semibold text-emerald-800">
+              Payment received — {amountLabel}
+            </p>
+          </div>
+          {payment?.invoice_number && payment.invoice_url && (
+            <a
+              href={payment.invoice_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-full border border-emerald-300 px-3 py-1 text-[11px] font-semibold text-emerald-800 transition-colors hover:bg-emerald-50"
+            >
+              View invoice {payment.invoice_number}
+            </a>
+          )}
+        </div>
+        <p className="mt-1 text-[11.5px] text-[#737373]">
+          {payment?.invoice_sent_at
+            ? 'Your invoice has been sent to you on WhatsApp.'
+            : payment?.invoice_number
+              ? 'Your invoice is ready — it will reach you on WhatsApp shortly.'
+              : "We're generating your invoice — it will reach you on WhatsApp shortly."}
+        </p>
+      </div>
+    );
+  }
+
+  const resuming = payment?.status === 'created' && !!payment.payment_url;
+
+  return (
+    <div className="rounded-xl border border-[#E7E7EA] bg-white p-3.5 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-[family-name:var(--font-jakarta)] text-[13px] font-semibold text-[#0a0a0a]">
+            Make Payment
+          </p>
+          <p className="mt-0.5 text-[11.5px] text-[#737373]">
+            {resuming
+              ? 'You have a payment in progress — pick up where you left off.'
+              : `Pay ${amountLabel} to confirm ${r.talent_name || 'this talent'}. Your invoice follows on WhatsApp.`}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onPay}
+          disabled={paying}
+          className="shrink-0 rounded-full bg-[#0a0a0a] px-4 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {paying ? 'Opening…' : resuming ? `Continue — ${amountLabel}` : `Pay ${amountLabel}`}
+        </button>
+      </div>
+      <p className="mt-2 flex items-center gap-1.5 text-[10.5px] text-[#a3a3a3]">
+        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+        Secured by Razorpay
+      </p>
     </div>
   );
 }
