@@ -15,8 +15,9 @@ import {
 } from '@/hooks/useBusiness';
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
 import BusinessAssignmentOffers from '@/components/subscriptions/BusinessAssignmentOffers';
+import BidActions from '@/components/subscriptions/BidActions';
 import OpenIntroRoomButton from '@/components/conversations/OpenIntroRoomButton';
-import { isOpenBusinessOffer, useBusinessAssignmentOffers } from '@/hooks/useBusinessAssignmentOffers';
+import { isOpenBusinessOffer, useBusinessAssignmentOffers, type BusinessAssignmentOffer } from '@/hooks/useBusinessAssignmentOffers';
 import { useCardPayments, useStartCardPayment, type CardPayment } from '@/hooks/useCardPayments';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
 
@@ -101,6 +102,19 @@ export default function SubscriptionCardReview({
     url.searchParams.delete('payment');
     window.history.replaceState({}, '', url.toString());
   }, [returnedFromCheckout]);
+  // Live bid per recipient, so a talent's own row can carry its bid actions.
+  const offerByRecipientId = useMemo(() => {
+    const m = new Map<string, BusinessAssignmentOffer>();
+    for (const o of offers ?? []) {
+      if (!isOpenBusinessOffer(o)) continue;
+      const prev = m.get(o.recipient_id);
+      if (!prev || new Date(o.updated_at).getTime() > new Date(prev.updated_at).getTime()) {
+        m.set(o.recipient_id, o);
+      }
+    }
+    return m;
+  }, [offers]);
+
   const { data: cardPayments } = useCardPayments(cardId, {
     justReturnedFromCheckout: returnedFromCheckout,
   });
@@ -621,12 +635,23 @@ export default function SubscriptionCardReview({
                           listPrice={card.customer_monthly_price}
                           isAssignment={isAssignment}
                         />
-                        <div className="grid grid-cols-3 gap-2 sm:flex sm:shrink-0 sm:items-center">
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:flex-wrap sm:items-center">
                           <OpenIntroRoomButton
                             cardId={r.card_id ?? cardId}
                             talentUserId={r.talent_user_id}
                             disabled={isClosed}
                             className="rounded-lg border border-[#E7E7EA] px-2 py-2 text-xs font-semibold text-[#0a0a0a] transition-colors hover:bg-[#F5F5F6] disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:py-1.5"
+                          />
+                          {/* A shortlisted talent can still have a bid waiting on
+                              you. They only appear in this one section, so the
+                              Accept / Counter / Decline actions come to them. */}
+                          <BidActions
+                            offer={offerByRecipientId.get(r.recipient_id) ?? null}
+                            cardId={cardId}
+                            currency={card.currency}
+                            period={isAssignment ? 'project' : 'per_month'}
+                            listPrice={card.customer_monthly_price}
+                            disabled={isClosed || isSubmitted || hasSelection}
                           />
                           <button
                             type="button"
