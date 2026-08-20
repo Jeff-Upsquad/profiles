@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as businessController from '../controllers/business.controller.js';
+import * as cardPaymentsController from '../controllers/card-payments.controller.js';
 import * as assignmentOffers from '../controllers/assignment-offers.controller.js';
 import * as connectBriefController from '../controllers/connect-brief.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
@@ -109,6 +110,23 @@ router.post(
   '/my-subscription-cards/:cardId/select',
   validate({ body: selectCardRecipientSchema }),
   businessController.selectCardRecipient,
+);
+
+// ─── Card payments ─────────────────────────────────────────────────────────
+// Once a talent is selected the business pays the agreed figure here. POST
+// returns a hosted Razorpay URL to send the client to; the invoice is raised in
+// SquadBooks (and WhatsApp'd) only after Razorpay confirms the money landed.
+router.get(
+  '/my-subscription-cards/:cardId/payments',
+  cardPaymentsController.listCardPayments,
+);
+router.get(
+  '/my-subscription-cards/:cardId/recipients/:recipientId/payment',
+  cardPaymentsController.getCardPayment,
+);
+router.post(
+  '/my-subscription-cards/:cardId/recipients/:recipientId/payment',
+  cardPaymentsController.startCardPayment,
 );
 
 // ─── Card offers / bids (subscription + assignment) ────────────────────────

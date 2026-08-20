@@ -26,6 +26,8 @@ import { startCallbackSweeper } from './services/squadhub-callback.service.js';
 import { startJobsOutboxSweeper } from './services/jobs-outbox.service.js';
 import { startCardEventsOutboxSweeper } from './services/card-events-outbox.service.js';
 import { startInterviewSweeper } from './services/jobs-sweepers.service.js';
+import { startCardPaymentsSweeper } from './services/card-payments.service.js';
+import * as cardPaymentsController from './controllers/card-payments.controller.js';
 
 const app = express();
 
@@ -61,6 +63,15 @@ app.use(
     credentials: true,
   })
 );
+// Razorpay verifies with an HMAC over the EXACT bytes it sent, so this one
+// route needs the raw body — mounted ahead of the global JSON parser, which
+// would otherwise consume the stream and leave only a re-serialized object.
+app.post(
+  '/api/webhooks/razorpay',
+  express.raw({ type: '*/*', limit: '1mb' }),
+  cardPaymentsController.razorpayWebhook,
+);
+
 app.use(express.json({ limit: '10mb' }));
 
 // ---------------------------------------------------------------------------
@@ -132,6 +143,7 @@ app.listen(env.PORT, () => {
   startJobsOutboxSweeper();
   startCardEventsOutboxSweeper();
   startInterviewSweeper();
+  startCardPaymentsSweeper();
 });
 
 export default app;

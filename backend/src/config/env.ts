@@ -127,6 +127,35 @@ const envSchema = z.object({
   UPSQUAD_API_URL: z.string().url().optional(),
   UPSQUAD_API_TOKEN: z.string().optional(),
 
+  // ─── Card payments (business pays for the talent it selected) ──────────
+  // Razorpay lives on THIS side: SquadHire mints the payment link, hosts the
+  // webhook, and only once the money has landed does it ask SquadBooks to raise
+  // the invoice. All optional — when the keys are unset the "Make Payment"
+  // endpoints return 503 and the UI hides the section, so local dev is
+  // zero-config. Use TEST keys everywhere except production.
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  // Must match the secret on the Razorpay dashboard webhook that points at
+  // POST /api/webhooks/razorpay. Without it the webhook fails closed (401).
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+
+  // SquadBooks (books.squadhub.in) — where the invoice is raised once a card
+  // payment succeeds. On the shared `squadhub` Docker network prefer the
+  // internal container origin (http://squadbooks:3000). The key must equal
+  // SQUADBOOKS_ADMIN_API_KEY in SquadBooks' own env.
+  SQUADBOOKS_API_URL: z.string().url().optional(),
+  SQUADBOOKS_ADMIN_API_KEY: z.string().optional(),
+  // The SquadBooks workspace that issues these invoices (the UpSquad org).
+  SQUADBOOKS_ORG_ID: z.string().uuid().optional(),
+  // Letterhead name stamped on the generated invoice. Optional — SquadBooks
+  // falls back to the org's own last-used name.
+  SQUADBOOKS_ORG_NAME: z.string().optional(),
+
+  // Public origin of the business web app, used to build the Razorpay
+  // callback_url the client returns to after paying. Falls back to the first
+  // CORS_ORIGIN entry when unset.
+  BUSINESS_APP_URL: z.string().url().optional(),
+
   // Firebase Cloud Messaging (push notifications for talent app)
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional(),
 
