@@ -2327,8 +2327,8 @@ export interface SelectRecipientResult {
 async function lockRecipientOfferAtStandingFigure(
   recipientId: string,
   content: Record<string, unknown>,
+  now: string,
 ): Promise<void> {
-  const now = new Date().toISOString();
   const { data: offers } = await supabaseAdmin
     .from('assignment_offers')
     .select('id, current_amount, last_actor_side, opened_by')
@@ -2419,6 +2419,9 @@ export async function adminSelectRecipient(
   //
   // Two things matter here, both about NOT moving the agreed number:
   //
+  //  0. `last_actor_side` is left intact, which also records whose move the
+  //     negotiation was on — that's what lets an undo put the bid back on the
+  //     right side's turn instead of guessing.
   //  1. We do NOT touch `last_actor_side`. Selecting isn't a priced move, but
   //     that column doubles as pricing provenance — for a legacy amount with no
   //     explicit `side`, it's the only signal of whose figure `amount` holds.
@@ -2429,7 +2432,10 @@ export async function adminSelectRecipient(
   //     from the provenance as it stands BEFORE the lock. Once those fields are
   //     present no inference is ever needed again, so the number the client was
   //     shown is the number they're later charged.
-  await lockRecipientOfferAtStandingFigure(recipientId, (card as any).content ?? {});
+  // `now` is shared with the card/recipient stamps on purpose: the undo path
+  // identifies the offers THIS selection locked (rather than ones the business
+  // had explicitly accepted earlier) by matching responded_at to selected_at.
+  await lockRecipientOfferAtStandingFigure(recipientId, (card as any).content ?? {}, now);
 
   // Expire other talents' open negotiations on this card.
   await supabaseAdmin
