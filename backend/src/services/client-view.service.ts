@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import * as businessService from './business.service.js';
+import * as cardPayments from './card-payments.service.js';
 import * as conversations from './conversations.service.js';
 import type { ConversationActor } from './conversations.service.js';
 import type { IntroConversationDetail, IntroMessage } from '../../../shared/src/types/conversations.js';
@@ -49,16 +50,25 @@ async function resolveGroupCardIds(card: CardRow): Promise<string[]> {
   return ids.length ? ids : [card.id];
 }
 
-async function findRecipient(card: CardRow, talentUserId: string) {
+/**
+ * Resolve the recipient row an action targets. `recipientId` is preferred and
+ * is what SquadHub's Client View sends: on a grouped brief the same talent
+ * holds one row per tier card, so the talent id alone can match several. When
+ * only a talent id is given, the most recently created row wins.
+ */
+async function findRecipient(card: CardRow, talentUserId: string, recipientId?: string) {
   const groupIds = await resolveGroupCardIds(card);
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('subscription_card_recipients')
     .select('id, card_id, talent_user_id, status, cancelled_at, business_review_status, selected_at')
-    .eq('talent_user_id', talentUserId)
     .in('card_id', groupIds)
-    .is('cancelled_at', null)
-    .maybeSingle();
+    .is('cancelled_at', null);
+  query = recipientId
+    ? query.eq('id', recipientId)
+    : query.eq('talent_user_id', talentUserId).order('created_at', { ascending: false }).limit(1);
+  const { data: rows, error } = await query;
   if (error) throw new AppError(500, error.message);
+  const data = (rows ?? [])[0];
   if (!data) throw new AppError(404, 'Recipient not found');
   return data as {
     id: string;
@@ -135,10 +145,11 @@ async function actorForClientView(input?: ClientViewActorInput): Promise<{
 export async function reviewRecipient(input: {
   external_id: string;
   talent_user_id: string;
+  recipient_id?: string;
   action: 'shortlist' | 'reject' | 'unshortlist';
 }) {
   const card = await loadCardByExternalId(input.external_id);
-  const recipient = await findRecipient(card, input.talent_user_id);
+  const recipient = await findRecipient(card, input.talent_user_id, input.recipient_id);
   const businessUserId = requireBusinessUserId(card);
   await businessService.reviewCardRecipient(
     businessUserId,
@@ -153,9 +164,13 @@ export async function reviewRecipient(input: {
   };
 }
 
-export async function selectRecipient(input: { external_id: string; talent_user_id: string }) {
+export async function selectRecipient(input: {
+  external_id: string;
+  talent_user_id: string;
+  recipient_id?: string;
+}) {
   const card = await loadCardByExternalId(input.external_id);
-  const recipient = await findRecipient(card, input.talent_user_id);
+  const recipient = await findRecipient(card, input.talent_user_id, input.recipient_id);
   const businessUserId = requireBusinessUserId(card);
   const result = await businessService.businessSelectRecipient(
     businessUserId,
@@ -210,4 +225,76 @@ export async function sendConversationMessage(input: {
     displayName,
   });
   return { message, display_name: displayName };
+}
+
+// ─── Reading the customer's own screen ──────────────────────────────────────
+// SquadHub's Client View is meant to BE the business review screen, not an
+// admin approximation of it, so it reads the card and its recipients through
+// the very same business-portal services the customer's browser calls. Anything
+// the portal shows — photo, tier, category, live bid figure, "New" markers —
+// arrives here already resolved.
+
+export async function getCardForClientView(input: { external_id: string }) {
+  const card = await loadCardByExternalId(input.external_id);
+  const businessUserId = requireBusinessUserId(card);
+  const [detail, recipients] = await Promise.all([
+    businessService.getMySubscriptionCard(businessUserId, card.id),
+    businessService.getCardRecipientsForReview(businessUserId, card.id),
+  ]);
+  return { card: detail, recipients };
+}
+
+/**
+ * Undo a selection on behalf of the business — same guards as the portal:
+ * refused once the subscription is activated or the card has been paid for.
+ */
+export async function unselectRecipient(input: { external_id: string }) {
+  const card = await loadCardByExternalId(input.external_id);
+  const businessUserId = requireBusinessUserId(card);
+  const result = await businessService.businessUnselectRecipient(businessUserId, card.id);
+  return result;
+}
+
+/**
+ * Payments on the card, keyed by recipient. Read across every tier sibling: a
+ * grouped brief can hold its selection (and therefore its payment) on a card
+ * other than the one SquadHub has open.
+ */
+export async function listCardPayments(input: { external_id: string }) {
+  const card = await loadCardByExternalId(input.external_id);
+  const businessUserId = requireBusinessUserId(card);
+  const cardIds = await resolveGroupCardIds(card);
+  const merged: Record<string, unknown> = {};
+  for (const id of cardIds) {
+    const payments = await cardPayments.getCardPayments(businessUserId, id);
+    Object.assign(merged, payments);
+  }
+  return { payments: merged };
+}
+
+/**
+ * Mint (or resume) the hosted payment link for a selected talent, so SquadHub
+ * can hand it to the client. The Hub never collects the payment itself — it
+ * passes the link on — so this only ever returns a URL.
+ */
+export async function createCardPaymentLink(input: { external_id: string; recipient_id: string }) {
+  const card = await loadCardByExternalId(input.external_id);
+  const businessUserId = requireBusinessUserId(card);
+  // The selection may sit on a tier sibling, so charge against the card that
+  // actually holds this recipient.
+  const { data: recipient, error } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id, card_id')
+    .eq('id', input.recipient_id)
+    .in('card_id', await resolveGroupCardIds(card))
+    .maybeSingle();
+  if (error) throw new AppError(500, error.message);
+  if (!recipient) throw new AppError(404, 'Recipient not found');
+
+  const result = await cardPayments.startCardPayment(
+    businessUserId,
+    (recipient as { card_id: string }).card_id,
+    input.recipient_id,
+  );
+  return result;
 }
