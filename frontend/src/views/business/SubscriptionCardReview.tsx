@@ -9,6 +9,7 @@ import {
   useCardRecipients,
   useReviewCardRecipient,
   useSelectCardRecipient,
+  useUnselectCardRecipient,
   useMarkCardAcceptancesSeen,
   type CardRecipientForBusiness,
 } from '@/hooks/useBusiness';
@@ -106,6 +107,8 @@ export default function SubscriptionCardReview({
   const startPayment = useStartCardPayment(cardId);
   const reviewMutation = useReviewCardRecipient(cardId);
   const selectMutation = useSelectCardRecipient(cardId);
+  const unselectMutation = useUnselectCardRecipient(cardId);
+  const [confirmUnselect, setConfirmUnselect] = useState<CardRecipientForBusiness | null>(null);
   const markSeenMutation = useMarkCardAcceptancesSeen(cardId);
   const [confirmSelect, setConfirmSelect] = useState<CardRecipientForBusiness | null>(null);
 
@@ -547,6 +550,7 @@ export default function SubscriptionCardReview({
                 payment={cardPayments?.[r.recipient_id] ?? null}
                 onPay={() => startPayment.mutate(r.recipient_id)}
                 paying={startPayment.isPending}
+                onUnselect={() => setConfirmUnselect(r)}
               />
             ))}
           </div>
@@ -763,6 +767,47 @@ export default function SubscriptionCardReview({
                 className="rounded-lg bg-[#0a0a0a] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#1a1a1a] disabled:opacity-50"
               >
                 {selectMutation.isPending ? 'Selecting…' : 'Select talent'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmUnselect && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setConfirmUnselect(null)} />
+          <div className="relative mx-4 w-full max-w-md rounded-2xl border border-[#E7E7EA] bg-white p-6 shadow-2xl">
+            <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold text-[#0a0a0a]">
+              Remove this selection?
+            </h3>
+            <p className="mt-2 text-sm text-[#525252]">
+              <strong>{confirmUnselect.talent_name || 'This talent'}</strong> will no longer be
+              selected, and you can pick someone else. Their agreed price is kept, so you can
+              select them again later at the same figure.
+            </p>
+            <p className="mt-2 text-sm text-[#525252]">
+              We&rsquo;ll let them know, and any other bids this pick closed will reopen.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmUnselect(null)}
+                className="rounded-lg border border-[#E7E7EA] px-4 py-2 text-sm font-semibold text-[#525252] transition-colors hover:bg-[#F5F5F6]"
+              >
+                Keep selection
+              </button>
+              <button
+                type="button"
+                disabled={unselectMutation.isPending}
+                onClick={() =>
+                  unselectMutation.mutate(undefined, {
+                    onSuccess: () => setConfirmUnselect(null),
+                    onError: () => setConfirmUnselect(null),
+                  })
+                }
+                className="rounded-lg bg-[#0a0a0a] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#1a1a1a] disabled:opacity-50"
+              >
+                {unselectMutation.isPending ? 'Removing…' : 'Remove selection'}
               </button>
             </div>
           </div>
@@ -1065,6 +1110,7 @@ function RecipientRow({
   payment,
   onPay,
   paying = false,
+  onUnselect,
 }: {
   recipient: CardRecipientForBusiness;
   variant: 'selected' | 'assigned';
@@ -1074,8 +1120,12 @@ function RecipientRow({
   payment?: CardPayment | null;
   onPay?: () => void;
   paying?: boolean;
+  onUnselect?: () => void;
 }) {
   const isAssigned = variant === 'assigned';
+  // Undoing a pick that's been paid for needs a refund, so the server refuses it
+  // — don't offer the action we know will be rejected.
+  const canUnselect = !isAssigned && !!onUnselect && payment?.status !== 'paid';
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
@@ -1096,6 +1146,16 @@ function RecipientRow({
             >
               {isAssigned ? 'Assigned' : 'Selected'}
             </span>
+            {canUnselect && (
+              <button
+                type="button"
+                onClick={onUnselect}
+                className="rounded-full border border-[#E7E7EA] px-2.5 py-0.5 text-[11px] font-semibold text-[#737373] transition-colors hover:border-[#d4d4d8] hover:text-[#0a0a0a]"
+                title="Remove this selection and pick someone else"
+              >
+                Unselect
+              </button>
+            )}
           </div>
         </div>
       </div>

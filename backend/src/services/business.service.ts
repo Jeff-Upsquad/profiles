@@ -2,8 +2,9 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import type { UpdateBusinessUserInput, DiscoverQueryInput, SendInterestInput } from '../validators/business.validators.js';
 import { getTalentTiersByUserIds } from './talent-tier.service.js';
-import { adminSelectRecipient } from './subscription.service.js';
+import { adminSelectRecipient, adminUndoSelection } from './subscription.service.js';
 import { businessAmountFromOffer } from './assignment-offers.service.js';
+import { cancelPaymentLink } from './razorpay.service.js';
 
 // ─── Business User ──────────────────────────────────────────────────────────
 
@@ -1961,4 +1962,91 @@ export async function businessSelectRecipient(
 
   // Delegate to the existing selection logic, on the recipient's own tier card.
   return adminSelectRecipient((recipient as any).card_id as string, recipientId);
+}
+
+/**
+ * Undo the business's own pick so they can choose someone else.
+ *
+ * Reuses the admin unassign primitive (which clears the selection, reopens the
+ * card and its tier siblings, and tells SquadHub + the talent), wrapped in the
+ * three guards that make it safe for a client to do unaided:
+ *
+ *  - Once a SquadHub admin has activated the subscription the talent is really
+ *    working, so undoing it is an admin decision, not a self-serve one.
+ *  - Once the card has been PAID FOR, undoing would leave money collected for
+ *    nobody. That needs a refund, so it's refused here and pointed at support.
+ *  - An unpaid payment link is cancelled on the way out, so an abandoned
+ *    checkout can't be completed for a talent who is no longer selected.
+ *
+ * Bids that this selection expired for the OTHER talents are revived, so
+ * unselecting genuinely returns the card to where it was rather than quietly
+ * throwing away everyone's negotiated prices.
+ */
+export async function businessUnselectRecipient(businessUserId: string, cardId: string) {
+  const card = await verifyCardOwnership(businessUserId, cardId);
+  const groupCards = await resolveGroupCards(card);
+
+  // Selection lives on the recipient's own tier card, which may not be the one
+  // the client opened.
+  const selectedCard = groupCards.find((c: any) => c.selected_at);
+  if (!selectedCard) throw new AppError(409, 'No talent is selected on this card');
+
+  if ((selectedCard as any).subscription_activated_at) {
+    throw new AppError(
+      409,
+      "This assignment has already been confirmed and is live. Contact support if you need to change it.",
+    );
+  }
+
+  const selectedCardId = (selectedCard as any).id as string;
+  const selectedAt = (selectedCard as any).selected_at as string;
+
+  const { data: paidPayment } = await supabaseAdmin
+    .from('card_payments')
+    .select('id, squadbooks_invoice_number')
+    .eq('card_id', selectedCardId)
+    .eq('status', 'paid')
+    .maybeSingle();
+  if (paidPayment) {
+    const invoice = (paidPayment as any).squadbooks_invoice_number as string | null;
+    throw new AppError(
+      409,
+      `You've already paid for this talent${invoice ? ` (invoice ${invoice})` : ''}. Contact support to arrange a change.`,
+    );
+  }
+
+  // Retire any unpaid link so an abandoned checkout can't be completed later.
+  const { data: openPayments } = await supabaseAdmin
+    .from('card_payments')
+    .select('id, razorpay_payment_link_id')
+    .eq('card_id', selectedCardId)
+    .eq('status', 'created');
+  for (const p of openPayments ?? []) {
+    const linkId = (p as any).razorpay_payment_link_id as string | null;
+    if (linkId) {
+      await cancelPaymentLink(linkId).catch((e) => {
+        // Razorpay refuses to cancel an already-paid/expired link. The row is
+        // retired either way; a genuinely paid one is caught by the guard above.
+        console.error(`[unselect] couldn't cancel link ${linkId}:`, (e as Error).message);
+      });
+    }
+    await supabaseAdmin
+      .from('card_payments')
+      .update({ status: 'cancelled' })
+      .eq('id', (p as any).id as string);
+  }
+
+  await adminUndoSelection(selectedCardId);
+
+  // Revive the other talents' bids that THIS selection expired, matched on the
+  // timestamp the expiry stamped. Without this the client unselects only to find
+  // every rival bid gone and everyone re-quoted at list price.
+  await supabaseAdmin
+    .from('assignment_offers')
+    .update({ status: 'pending_business', responded_at: null })
+    .eq('card_id', selectedCardId)
+    .eq('status', 'expired')
+    .eq('responded_at', selectedAt);
+
+  return { card_id: selectedCardId, unselected: true };
 }

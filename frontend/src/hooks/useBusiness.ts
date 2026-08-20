@@ -357,6 +357,32 @@ export function useSelectCardRecipient(cardId: string) {
   });
 }
 
+/**
+ * Undo the pick so another talent can be chosen. The server refuses once the
+ * assignment has been confirmed by an admin or already paid for, and surfaces
+ * the reason — so show its message rather than a generic failure.
+ */
+export function useUnselectCardRecipient(cardId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await api.post(`/business/my-subscription-cards/${cardId}/unselect`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['card-recipients', cardId] });
+      queryClient.invalidateQueries({ queryKey: ['my-subscription-card', cardId] });
+      queryClient.invalidateQueries({ queryKey: ['card-payments', cardId] });
+      queryClient.invalidateQueries({ queryKey: ['business-assignment-offers', cardId] });
+      queryClient.invalidateQueries({ queryKey: ['my-subscription-cards'] });
+      queryClient.invalidateQueries({ queryKey: ['my-assignment-cards'] });
+      toast.success('Selection removed. You can pick another talent.');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to remove the selection');
+    },
+  });
+}
+
 // Mark all of a card's unseen acceptances as seen (called when the business
 // opens the review page). Clears the unread badge on the card list. Deliberately
 // does NOT invalidate ['card-recipients'] so the "New" markers stay visible for
