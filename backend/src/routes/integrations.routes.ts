@@ -30,6 +30,7 @@ import {
  *
  *   /squadcrm/business/provision          — give SQUADHire access
  *   /squadcrm/pending-brief               — business-visible submitted card
+ *   /squadcrm/rooms/{list,get,send}       — CRM's window onto intro rooms
  */
 
 const router = Router();
@@ -152,6 +153,25 @@ router.post(
   '/squadcrm/pending-brief',
   verifySquadcrmProvisionSecret,
   integrationsController.ingestPendingBrief,
+);
+
+// Original Squad CRM → chat rooms. The salesperson who owns a requirement card
+// reads and answers its intro rooms from inside CRM; SquadHire stays canonical
+// for the thread. CRM sends the card ids it may see with every call.
+router.post(
+  '/squadcrm/rooms/list',
+  verifySquadcrmProvisionSecret,
+  integrationsController.listSquadcrmRooms,
+);
+router.post(
+  '/squadcrm/rooms/get',
+  verifySquadcrmProvisionSecret,
+  integrationsController.getSquadcrmRoom,
+);
+router.post(
+  '/squadcrm/rooms/send',
+  verifySquadcrmProvisionSecret,
+  integrationsController.sendSquadcrmRoomMessage,
 );
 
 export default router;

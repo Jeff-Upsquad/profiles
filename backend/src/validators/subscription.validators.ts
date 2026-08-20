@@ -254,6 +254,37 @@ export const clientViewConversationSendSchema = z.object({
   actor: clientViewActorSchema.optional(),
 });
 
+// Squad CRM chat rooms — the salesperson's window onto SquadHire intro rooms.
+// CRM scopes by card ownership on its own side and sends the cards it may see;
+// every call is answered strictly inside that set.
+export const squadcrmRoomActorSchema = clientViewActorSchema;
+
+const squadcrmRoomCardSchema = z.object({
+  external_id: z.string().min(1).max(200),
+  salesperson_email: z.string().email().optional().nullable(),
+  salesperson_name: z.string().trim().min(1).max(200).optional().nullable(),
+});
+
+export const squadcrmRoomsListSchema = z.object({
+  cards: z.array(squadcrmRoomCardSchema).max(1000).default([]),
+  actor: squadcrmRoomActorSchema.optional(),
+});
+
+export const squadcrmRoomGetSchema = z.object({
+  conversation_id: z.string().uuid(),
+  external_ids: z.array(z.string().min(1).max(200)).max(1000).default([]),
+  after: z.string().uuid().optional(),
+  limit: z.number().int().min(1).max(200).optional(),
+  actor: squadcrmRoomActorSchema.optional(),
+});
+
+export const squadcrmRoomSendSchema = z.object({
+  conversation_id: z.string().uuid(),
+  body: z.string().trim().min(1).max(4000),
+  external_ids: z.array(z.string().min(1).max(200)).max(1000).default([]),
+  actor: squadcrmRoomActorSchema.optional(),
+});
+
 export type SelectRecipientInput = z.infer<typeof selectRecipientSchema>;
 export type CardSelectionWebhookInput = z.infer<typeof cardSelectionWebhookSchema>;
 export type CardSelectionUndoWebhookInput = z.infer<typeof cardSelectionUndoWebhookSchema>;
