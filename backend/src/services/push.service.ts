@@ -13,7 +13,14 @@ export type JobPushType =
   | 'job_hired';
 
 interface PushPayload {
-  type: 'new_card' | 'selected' | 'cancelled' | 'unassigned' | 'assignment_offer' | JobPushType;
+  type:
+    | 'new_card'
+    | 'selected'
+    | 'cancelled'
+    | 'unassigned'
+    | 'assignment_offer'
+    | 'broadcast'
+    | JobPushType;
   title: string;
   body: string;
   card_id: string;
@@ -192,5 +199,23 @@ export async function notifyAssignmentEvent(
     body: input.body,
     card_id: input.cardId,
     route: '/talent/assignments',
+  });
+}
+
+/**
+ * Push for an admin broadcast. `route` is the notification's link_url (web
+ * path or absolute URL — the app maps it to an in-app screen or opens the
+ * browser), falling back to the in-app notifications inbox.
+ */
+export async function notifyBroadcast(
+  talentUserIds: string[],
+  input: { title: string; body?: string | null; route?: string | null },
+): Promise<void> {
+  await sendToUsers(talentUserIds, {
+    type: 'broadcast',
+    title: input.title,
+    body: input.body ?? '',
+    card_id: '',
+    route: input.route?.trim() || '/notifications',
   });
 }

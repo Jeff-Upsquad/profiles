@@ -235,6 +235,16 @@ function ViewModal({ notification, onClose }: { notification: AdminNotification 
           {notification.body && (
             <p className="whitespace-pre-wrap text-sm text-gray-700">{notification.body}</p>
           )}
+          {notification.link_url && (
+            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+              <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+              </svg>
+              <a href={notification.link_url} target="_blank" rel="noopener noreferrer" className="truncate text-sm text-indigo-600 hover:underline">
+                {notification.link_url}
+              </a>
+            </div>
+          )}
           {notification.media.length > 0 && (
             <div className="space-y-3">
               {notification.media.map((m, i) => (
@@ -289,12 +299,14 @@ function CreateModal({
     body?: string;
     media: NotificationMediaItem[];
     filters: NotificationFilters;
+    link_url?: string;
   }) => Promise<void>;
   submitting: boolean;
 }) {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [media, setMedia] = useState<NotificationMediaItem[]>([]);
+  const [linkUrl, setLinkUrl] = useState('');
   const [loomInput, setLoomInput] = useState('');
 
   // Filters
@@ -310,6 +322,7 @@ function CreateModal({
     setTitle('');
     setBody('');
     setMedia([]);
+    setLinkUrl('');
     setLoomInput('');
     setApprovalStatus([]);
     setActiveFilter('');
@@ -382,6 +395,7 @@ function CreateModal({
       body: body.trim() || undefined,
       media,
       filters,
+      link_url: linkUrl.trim() || undefined,
     });
   }
 
@@ -412,6 +426,22 @@ function CreateModal({
             placeholder="Plain text. Newlines are preserved."
             className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
+        </div>
+
+        {/* Link */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Link (optional)</label>
+          <input
+            type="url"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            maxLength={2048}
+            placeholder="https://… or /talent/training — tapping the notification opens this"
+            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            In-app pages open inside the app; other URLs open in the browser.
+          </p>
         </div>
 
         {/* Media */}

@@ -216,10 +216,15 @@ export default function TalentNotifications() {
   });
 
   // Clicking a linked notification marks it read, then opens the thing it's about.
+  // External URLs open in a new tab; app paths route internally.
   const openNotification = (n: Notification) => {
     if (!n.link_url) return;
     if (!n.read) markRead.mutate(n.id);
-    router.push(n.link_url);
+    if (/^https?:\/\//i.test(n.link_url)) {
+      window.open(n.link_url, '_blank', 'noopener,noreferrer');
+    } else {
+      router.push(n.link_url);
+    }
   };
 
   const filtered = useMemo(() => {

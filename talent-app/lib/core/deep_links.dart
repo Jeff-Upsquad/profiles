@@ -13,6 +13,11 @@ String? mapNotificationRoute(String? linkOrRoute) {
     if (raw == r || raw.startsWith(r)) return raw;
   }
 
+  // Legacy subscription-card push routes (notifyNewCard / notifySelected /
+  // notifyUnassigned still send these). Both land on the Home subscriptions
+  // tab, which lists pending offers by default.
+  if (raw == '/pending' || raw == '/responded') return '/home';
+
   // Strip any origin, then the query string.
   final path = raw.replaceFirst(RegExp(r'^https?://[^/]+'), '').split('?').first;
 

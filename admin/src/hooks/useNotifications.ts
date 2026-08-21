@@ -22,6 +22,7 @@ export interface AdminNotification {
   title: string;
   body: string | null;
   media: NotificationMediaItem[];
+  link_url: string | null;
   target_filters: NotificationFilters | null;
   created_by: string | null;
   created_at: string;
@@ -56,6 +57,7 @@ export function useCreateNotification() {
       body?: string;
       media: NotificationMediaItem[];
       filters: NotificationFilters;
+      link_url?: string;
     }) => {
       const { data } = await api.post('/admin/notifications', payload);
       return data as AdminNotification;
