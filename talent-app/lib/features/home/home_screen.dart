@@ -63,8 +63,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final me = ref.watch(talentMeProvider).value;
     final firstName = (user?.fullName ?? me?.fullName ?? '').trim().split(RegExp(r'\s+')).first;
     final onboarded = user?.isOnboarded ?? true;
-    final approved = user?.isApproved == true || me?.approvalStatus == 'approved';
-    final active = user?.isActive != false && me?.isActive != false;
 
     final progress = ref.watch(onboardingProgressProvider).value;
     final access = ref.watch(moduleAccessProvider).value;
@@ -94,15 +92,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: [
                 const UpdateCard(),
                 HeroCard(
-                  eyebrow: approved ? 'Talent Workspace' : 'Pending Approval',
                   title: firstName.isEmpty ? 'Welcome back.' : 'Welcome back, ',
                   titleHighlight: firstName.isEmpty ? null : '$firstName.',
-                  subtitle:
-                      'Subscriptions, assignments, and job openings in one place.',
-                  live: approved && active,
-                  trailing: !active
-                      ? const Pill(label: 'Profile Inactive', variant: BadgeVariant.red)
-                      : null,
                 ),
                 if (progress != null && progress.showStrip) ...[
                   const SizedBox(height: 16),

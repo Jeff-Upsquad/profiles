@@ -42,6 +42,7 @@ class _TalentOffersViewState extends ConsumerState<TalentOffersView> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SoftSegmentedTabs(
+          expanded: true,
           tabs: [
             SegmentTab(key: 'pending', label: 'Pending', count: pendingCount),
             const SegmentTab(key: 'responded', label: 'Responded'),

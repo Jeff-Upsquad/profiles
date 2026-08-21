@@ -458,26 +458,25 @@ class SoftSegmentedTabs extends StatelessWidget {
                 ]
               : null,
         ),
-        // Flexible label + clip: on narrow screens the label shrinks/ellipsises
-        // instead of overflowing its Expanded cell and painting over the
-        // neighbouring chip.
-        child: ClipRect(
+        // Scale-down fit: on narrow screens the whole label+badge shrinks
+        // slightly instead of truncating or painting over the neighbouring
+        // segment.
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Flexible(
-                child: Text(
-                  t.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color:
-                        active ? AppColors.textPrimary : AppColors.textSecondary,
-                  ),
+              Text(
+                t.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color:
+                      active ? AppColors.textPrimary : AppColors.textSecondary,
                 ),
               ),
               if (t.count > 0) ...[
@@ -584,25 +583,29 @@ class InkSegmentedTabs extends StatelessWidget {
 // ─── Hero card (welcome / notifications) ─────────────────────────────────────
 
 class HeroCard extends StatelessWidget {
-  final String eyebrow;
+  final String? eyebrow;
   final String title;
   final String? titleHighlight;
-  final String subtitle;
+  final String? subtitle;
   final Widget? trailing;
   final bool live;
 
   const HeroCard({
     super.key,
-    required this.eyebrow,
+    this.eyebrow,
     required this.title,
     this.titleHighlight,
-    required this.subtitle,
+    this.subtitle,
     this.trailing,
     this.live = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final hasEyebrow = (eyebrow != null && eyebrow!.isNotEmpty) ||
+        live ||
+        trailing != null;
+    final hasSubtitle = subtitle != null && subtitle!.isNotEmpty;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
@@ -619,17 +622,19 @@ class HeroCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _EyebrowPill(label: eyebrow),
-              if (live) const _LivePill(),
-              ?trailing,
-            ],
-          ),
-          const SizedBox(height: 10),
+          if (hasEyebrow) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _EyebrowPill(label: eyebrow ?? ''),
+                if (live) const _LivePill(),
+                ?trailing,
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
           Text.rich(
             TextSpan(
               style: const TextStyle(
@@ -667,15 +672,17 @@ class HeroCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-              height: 1.4,
+          if (hasSubtitle) ...[
+            const SizedBox(height: 6),
+            Text(
+              subtitle!,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
