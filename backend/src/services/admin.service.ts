@@ -948,6 +948,27 @@ export async function setTalentOnboardingBypass(
 }
 
 export async function deleteUser(userId: string) {
+  // Business users are not Supabase auth users: migration 00010 dropped the
+  // business_users -> auth.users FK, and 00111 moved them onto their own
+  // password_hash. Their ids only exist in business_users, so deleting them
+  // through auth.admin returns "User not found". Dependent rows are removed by
+  // the ON DELETE CASCADE FKs that point at business_users(id).
+  const { data: business, error: businessErr } = await supabaseAdmin
+    .from('business_users')
+    .select('id')
+    .eq('id', userId)
+    .maybeSingle();
+  if (businessErr) throw new AppError(500, businessErr.message);
+
+  if (business) {
+    const { error } = await supabaseAdmin
+      .from('business_users')
+      .delete()
+      .eq('id', userId);
+    if (error) throw new AppError(400, error.message);
+    return { message: 'User permanently deleted' };
+  }
+
   const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
   if (error) throw new AppError(400, error.message);
   return { message: 'User permanently deleted' };
