@@ -444,7 +444,7 @@ class SoftSegmentedTabs extends StatelessWidget {
       onTap: () => onChange(t.key),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
           color: active ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
@@ -458,40 +458,52 @@ class SoftSegmentedTabs extends StatelessWidget {
                 ]
               : null,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              t.label,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: active ? AppColors.textPrimary : AppColors.textSecondary,
-              ),
-            ),
-            if (t.count > 0) ...[
-              const SizedBox(width: 6),
-              Container(
-                constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: active ? AppColors.accentWash : AppColors.border,
-                  borderRadius: BorderRadius.circular(99),
-                ),
+        // Flexible label + clip: on narrow screens the label shrinks/ellipsises
+        // instead of overflowing its Expanded cell and painting over the
+        // neighbouring chip.
+        child: ClipRect(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
                 child: Text(
-                  t.count > 99 ? '99+' : '${t.count}',
+                  t.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontFamily: 'Inter',
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: active ? AppColors.textPrimary : AppColors.textSecondary,
+                    color:
+                        active ? AppColors.textPrimary : AppColors.textSecondary,
                   ),
                 ),
               ),
+              if (t.count > 0) ...[
+                const SizedBox(width: 4),
+                Container(
+                  constraints:
+                      const BoxConstraints(minWidth: 18, minHeight: 18),
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: active ? AppColors.accentWash : AppColors.border,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    t.count > 99 ? '99+' : '${t.count}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color:
+                          active ? AppColors.textPrimary : AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

@@ -334,27 +334,35 @@ class _SubscriptionDetailScreenState
           Expanded(
             child: OutlinedButton(
               onPressed: _loading ? null : () => _respond('reject'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.danger,
-                side: const BorderSide(color: AppColors.danger, width: 1.5),
+              style: _actionButtonStyle(color: AppColors.danger),
+              child: const Text(
+                'Decline',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              child: const Text('Decline'),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: OutlinedButton(
               onPressed: _loading ? null : _openBidSheet,
+              style: _actionButtonStyle(),
               child: Text(
                 (recipient.card?.isAssignment ?? false) ? 'Counter' : 'Bid',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             flex: 2,
             child: ElevatedButton(
               onPressed: _loading ? null : () => _respond('accept'),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(0, 46),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+              ),
               child: _loading
                   ? const SizedBox(
                       width: 20,
@@ -362,11 +370,27 @@ class _SubscriptionDetailScreenState
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white),
                     )
-                  : Text(ctaLabel),
+                  : Text(
+                      ctaLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
             ),
           ),
         ],
       ),
     );
   }
+
+  /// Bottom-bar variant of [OutlinedButton]: tight horizontal padding so short
+  /// labels never wrap inside their Expanded cell, fixed height so all three
+  /// actions line up.
+  ButtonStyle _actionButtonStyle({Color? color}) => OutlinedButton.styleFrom(
+        foregroundColor: color ?? AppColors.textPrimary,
+        side: color == null
+            ? null
+            : BorderSide(color: color, width: 1.2),
+        minimumSize: const Size(0, 46),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+      );
 }
