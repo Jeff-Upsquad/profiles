@@ -55,3 +55,23 @@ The four base entries (`admin`, `frontend`, `backend`, `admin-lite`) already exi
 ```
 
 For `admin-lite-mobile` (Expo), start it manually inside the worktree with `npm start`; no launch.json entry needed.
+
+## Linting
+
+`frontend/` has ESLint 9 flat config (`frontend/eslint.config.mjs`, `next/core-web-vitals`).
+
+```sh
+cd frontend && npm run lint
+```
+
+`prebuild` runs it, so `npm run build` — and therefore `deploy/deploy.sh` — fails on
+any lint **error**. Warnings don't block: the pre-existing `exhaustive-deps` /
+`no-img-element` findings are parked at `warn` so they stay visible without
+gating deploys. Work them down, don't add to them.
+
+`react-hooks/rules-of-hooks` is pinned to `error` on purpose. A conditional hook in
+the bottom navs (early `return null` above the remaining hooks) took the whole app
+down with "Application error: a client-side exception has occurred" whenever a user
+opened a chatroom. Don't relax it.
+
+`admin/`, `admin-lite/` and `backend/` have no ESLint config yet.
