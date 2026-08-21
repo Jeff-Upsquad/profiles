@@ -12,7 +12,9 @@ import '../subscriptions/widgets/empty_state.dart';
 import 'widgets/job_list_card.dart';
 import 'widgets/jobs_opt_in_card.dart';
 
-/// Jobs funnel feed for embedding under Home. Matches `TalentJobsView` (`embedded`).
+/// Jobs funnel feed for embedding under Home. Matches `TalentJobsView`
+/// (`embedded`): renders shrink-wrapped content — the parent page scroll
+/// view owns scrolling and pull-to-refresh.
 class JobsView extends ConsumerWidget {
   const JobsView({super.key});
 
@@ -20,10 +22,9 @@ class JobsView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final optIn = ref.watch(jobOptInProvider);
     return optIn.when(
-      loading: () => const ShimmerCardList(),
-      error: (_, _) => AppErrorRetry(
-        onRetry: () => ref.invalidate(jobOptInProvider),
-      ),
+      loading: () => const ShimmerCardList.embedded(),
+      error: (_, _) =>
+          AppErrorRetry(onRetry: () => ref.invalidate(jobOptInProvider)),
       data: (prefs) =>
           prefs.optedIn ? _JobsHome(prefs: prefs) : const JobsOptInCard(),
     );
@@ -58,7 +59,7 @@ class _JobsHomeState extends ConsumerState<_JobsHome> {
           onChange: (k) => setState(() => _tab = k),
         ),
         const SizedBox(height: 16),
-        Expanded(child: _JobsFeedList(tab: _tab)),
+        _JobsFeedList(tab: _tab),
       ],
     );
   }
@@ -73,38 +74,27 @@ class _JobsFeedList extends ConsumerWidget {
     final feed = ref.watch(jobsFeedProvider(tab));
 
     return feed.when(
-      loading: () => const ShimmerCardList(),
-      error: (_, _) => AppErrorRetry(
-        onRetry: () => ref.invalidate(jobsFeedProvider(tab)),
-      ),
-      data: (items) => RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(jobsFeedProvider(tab));
-          ref.invalidate(jobsCountsProvider);
-          ref.invalidate(jobsUnreadCountProvider);
-          await ref.read(jobsFeedProvider(tab).future);
-        },
-        child: items.isEmpty
-            ? ListView(
-                children: const [
-                  Padding(
-                    padding: EdgeInsets.only(top: 64),
-                    child: EmptyState(
-                      icon: Icons.work_outline,
-                      title: 'Nothing here yet',
-                      subtitle:
-                          "When there's a job at this stage, it'll show up here.",
-                    ),
-                  ),
-                ],
-              )
-            : ListView.separated(
-                padding: const EdgeInsets.only(bottom: 24),
-                itemCount: items.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 12),
-                itemBuilder: (_, i) => JobListCard(item: items[i]),
+      loading: () => const ShimmerCardList.embedded(),
+      error: (_, _) =>
+          AppErrorRetry(onRetry: () => ref.invalidate(jobsFeedProvider(tab))),
+      data: (items) => items.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.only(top: 64),
+              child: EmptyState(
+                icon: Icons.work_outline,
+                title: 'Nothing here yet',
+                subtitle:
+                    "When there's a job at this stage, it'll show up here.",
               ),
-      ),
+            )
+          : Column(
+              children: [
+                for (int i = 0; i < items.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 12),
+                  JobListCard(item: items[i]),
+                ],
+              ],
+            ),
     );
   }
 }
@@ -175,7 +165,9 @@ class _PreferencesBar extends ConsumerWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              summary.isEmpty ? 'No preferences set yet' : summary.join('  ·  '),
+              summary.isEmpty
+                  ? 'No preferences set yet'
+                  : summary.join('  ·  '),
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 12.5,

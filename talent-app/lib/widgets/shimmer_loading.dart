@@ -5,10 +5,27 @@ import '../core/theme.dart';
 class ShimmerCardList extends StatelessWidget {
   final int itemCount;
 
-  const ShimmerCardList({super.key, this.itemCount = 3});
+  /// Shrink-wrapped column for embedding inside a parent scroll view
+  /// (the Home feed), which already provides scrolling + padding.
+  final bool embedded;
+
+  const ShimmerCardList({super.key, this.itemCount = 3, this.embedded = false});
+
+  const ShimmerCardList.embedded({super.key, this.itemCount = 3})
+    : embedded = true;
 
   @override
   Widget build(BuildContext context) {
+    if (embedded) {
+      return Column(
+        children: [
+          for (var i = 0; i < itemCount; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            const _ShimmerCard(),
+          ],
+        ],
+      );
+    }
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       physics: const NeverScrollableScrollPhysics(),
