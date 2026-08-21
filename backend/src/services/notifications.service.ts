@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
+import { notifyBroadcast } from './push.service.js';
 import type {
   CreateNotificationInput,
   TargetFilters,
@@ -52,7 +53,7 @@ export async function previewRecipients(filters: TargetFilters): Promise<{ count
 export async function listAdminNotifications() {
   const { data, error } = await supabaseAdmin
     .from('notifications')
-    .select('id, kind, system_type, title, body, media, target_filters, created_by, created_at')
+    .select('id, kind, system_type, title, body, media, link_url, target_filters, created_by, created_at')
     .eq('kind', 'broadcast')
     .order('created_at', { ascending: false })
     .limit(200);
@@ -93,6 +94,8 @@ export async function createBroadcast(
     throw new AppError(400, 'No talent users match the selected filters');
   }
 
+  const linkUrl = input.link_url?.trim() || null;
+
   const { data: notification, error: insertErr } = await supabaseAdmin
     .from('notifications')
     .insert({
@@ -100,6 +103,7 @@ export async function createBroadcast(
       title: input.title.trim(),
       body: input.body?.trim() || null,
       media: input.media ?? [],
+      link_url: linkUrl,
       target_filters: input.filters,
       created_by: createdBy,
     })
@@ -124,6 +128,14 @@ export async function createBroadcast(
       throw new AppError(500, `Failed to fan out notification: ${recipErr.message}`);
     }
   }
+
+  // Push to every recipient's devices. Fire-and-forget — the in-app rows are
+  // already committed; a push failure must not roll them back.
+  notifyBroadcast(recipientIds, {
+    title: notification.title as string,
+    body: (notification.body as string | null) ?? null,
+    route: linkUrl,
+  }).catch((err) => console.error('[push] broadcast failed:', err));
 
   return { ...notification, recipient_count: recipientIds.length, read_count: 0 };
 }

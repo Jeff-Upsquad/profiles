@@ -12,7 +12,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 ///   • terminated  → background isolate shows it; the tap cold-starts the app
 ///                   and [consumeLaunchRoute] picks up the route.
 ///
-/// Tapping a notification routes to `data['route']` (e.g. `/pending`).
+/// Tapping a notification routes to `data['route']` (e.g. `/home`).
 
 const String _channelId = 'subscription_offers';
 const String _channelName = 'Offers & Updates';
@@ -90,7 +90,7 @@ Future<void> showLocalNotification(RemoteMessage message) async {
       : (message.notification?.body ?? '');
   final route = (data['route']?.toString().trim().isNotEmpty ?? false)
       ? data['route'].toString()
-      : '/pending';
+      : '/home';
 
   final id = message.messageId?.hashCode ??
       DateTime.now().millisecondsSinceEpoch.remainder(1 << 31);

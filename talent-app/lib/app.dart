@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'config/router.dart';
 import 'core/constants.dart';
 import 'core/deep_links.dart';
+import 'core/launchers.dart';
 import 'core/theme.dart';
 import 'features/update/update_gate.dart';
 import 'providers/providers.dart';
@@ -66,51 +67,71 @@ class _TalentAppState extends ConsumerState<TalentApp> {
   }
 
   Future<void> _setupPushNotifications() async {
-    final messaging = FirebaseMessaging.instance;
-
-    // Set up local-notification rendering + tap routing first. We do NOT bail
-    // out if the user declines the prompt: FCM data messages still arrive (so
-    // in-app refresh keeps working), the user just won't see banners until they
-    // enable notifications in system settings.
-    await initNotifications(onTap: _handleRoute);
-    await messaging.requestPermission();
-
-    final token = await messaging.getToken();
-    if (token != null) {
-      _fcmToken = token;
-      _registerToken(token);
+    // Local-notification rendering + tap routing first; works even if FCM is
+    // unavailable (e.g. missing iOS Firebase config).
+    try {
+      await initNotifications(onTap: _handleRoute);
+    } catch (e) {
+      debugPrint('[push] local notification init failed: $e');
     }
 
-    messaging.onTokenRefresh.listen((t) {
-      _fcmToken = t;
-      _registerToken(t);
-    });
+    final FirebaseMessaging messaging;
+    try {
+      messaging = FirebaseMessaging.instance;
+    } catch (e) {
+      debugPrint('[push] FCM unavailable: $e');
+      return;
+    }
 
-    // Foreground: the OS does not display data-only messages, so render one
-    // ourselves, then refresh the lists.
-    FirebaseMessaging.onMessage.listen((message) {
-      showLocalNotification(message);
-      _refreshFeeds();
-    });
+    // We do NOT bail out if the user declines the permission prompt: FCM data
+    // messages still arrive (so in-app refresh keeps working), the user just
+    // won't see banners until they enable notifications in system settings.
+    try {
+      await messaging.requestPermission();
 
-    // A tap that resumes the app from background (FCM notification-type path).
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      _refreshFeeds();
-      final route = message.data['route']?.toString();
-      if (route != null && route.isNotEmpty) _handleRoute(route);
-    });
+      final token = await messaging.getToken();
+      if (token != null) {
+        _fcmToken = token;
+        _registerToken(token);
+      }
 
-    // Cold-start via a tapped FCM notification (app was terminated).
-    final initialMessage = await messaging.getInitialMessage();
-    if (initialMessage != null) {
-      _refreshFeeds();
-      final route = initialMessage.data['route']?.toString();
-      if (route != null && route.isNotEmpty) _handleRoute(route);
+      messaging.onTokenRefresh.listen((t) {
+        _fcmToken = t;
+        _registerToken(t);
+      });
+
+      // Foreground: the OS does not display data-only messages, so render one
+      // ourselves, then refresh the lists.
+      FirebaseMessaging.onMessage.listen((message) {
+        showLocalNotification(message);
+        _refreshFeeds();
+      });
+
+      // A tap that resumes the app from background (FCM notification-type path).
+      FirebaseMessaging.onMessageOpenedApp.listen((message) {
+        _refreshFeeds();
+        final route = message.data['route']?.toString();
+        if (route != null && route.isNotEmpty) _handleRoute(route);
+      });
+
+      // Cold-start via a tapped FCM notification (app was terminated).
+      final initialMessage = await messaging.getInitialMessage();
+      if (initialMessage != null) {
+        _refreshFeeds();
+        final route = initialMessage.data['route']?.toString();
+        if (route != null && route.isNotEmpty) _handleRoute(route);
+      }
+    } catch (e) {
+      debugPrint('[push] setup failed: $e');
     }
 
     // Cold-start via a tapped local notification (terminated → launched).
-    final launchRoute = consumeLaunchRoute();
-    if (launchRoute != null) _handleRoute(launchRoute);
+    try {
+      final launchRoute = consumeLaunchRoute();
+      if (launchRoute != null) _handleRoute(launchRoute);
+    } catch (e) {
+      debugPrint('[push] launch route failed: $e');
+    }
   }
 
   /// Refresh every unread badge + feed after a push arrives.
@@ -130,10 +151,12 @@ class _TalentAppState extends ConsumerState<TalentApp> {
 
   /// Navigate to a notification's target (a web link_url or an app route), or
   /// defer it until the session is authenticated (cold start). The auth
-  /// listener calls [_flushPendingRoute].
+  /// listener calls [_flushPendingRoute]. Links with no in-app surface
+  /// (external https URLs) open in the browser.
   void _handleRoute(String route) {
     final mapped = mapNotificationRoute(route);
-    if (mapped == null) return;
+    final isExternal = mapped == null && _isExternalLink(route);
+    if (mapped == null && !isExternal) return;
     final authed = ref.read(authProvider).status == AuthStatus.authenticated;
     if (!authed) {
       _pendingRoute = route;
@@ -141,14 +164,28 @@ class _TalentAppState extends ConsumerState<TalentApp> {
     }
     _pendingRoute = null;
     if (!mounted) return;
+    if (isExternal) {
+      openExternalUrl(route);
+      return;
+    }
     final router = ref.read(routerProvider);
     const tabs = {'/home', '/messages', '/notifications', '/more'};
-    final isTab = tabs.contains(mapped) || mapped.startsWith('/home?');
+    final isTab = tabs.contains(mapped!) || mapped.startsWith('/home?');
     if (isTab) {
       router.go(mapped);
     } else {
       router.push(mapped);
     }
+  }
+
+  /// True for absolute links the app has no internal screen for — broadcasts
+  /// can carry arbitrary https URLs, which open in the system browser.
+  bool _isExternalLink(String route) {
+    final r = route.trim().toLowerCase();
+    return r.startsWith('https://') ||
+        r.startsWith('http://') ||
+        r.startsWith('mailto:') ||
+        r.startsWith('tel:');
   }
 
   void _flushPendingRoute() {

@@ -33,12 +33,23 @@ export const targetFiltersSchema = z
   })
   .strict();
 
+// Either a full https URL or an app-relative path starting with '/'.
+const linkUrlSchema = z
+  .string()
+  .trim()
+  .max(2048)
+  .refine(
+    (v) => v === '' || /^https?:\/\/\S+$/.test(v) || /^\/\S*$/.test(v),
+    'Link must be an https URL or an app path starting with /',
+  );
+
 export const createNotificationSchema = z
   .object({
     title: z.string().trim().min(1, 'Title is required').max(200),
     body: z.string().trim().max(5000).optional().or(z.literal('')),
     media: z.array(mediaItemSchema).max(20).default([]),
     filters: targetFiltersSchema.default({}),
+    link_url: linkUrlSchema.optional(),
   })
   .refine((v) => !!v.body?.trim() || (v.media && v.media.length > 0), {
     message: 'Notification must have body text or at least one media item',
