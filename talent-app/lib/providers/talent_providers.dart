@@ -49,6 +49,34 @@ final onboardingProgressProvider =
   return ref.watch(dashboardServiceProvider).onboardingProgress();
 });
 
+/// Whether the user closed the "Your onboarding journey" strip. Persisted
+/// locally so it stays hidden across restarts.
+class OnboardingJourneyDismissal extends Notifier<bool> {
+  @override
+  bool build() {
+    Future(() async {
+      try {
+        final dismissed = await ref
+            .read(secureStorageProvider)
+            .getOnboardingJourneyDismissed();
+        if (dismissed && !state) state = true;
+      } catch (_) {}
+    });
+    return false;
+  }
+
+  Future<void> dismiss() async {
+    state = true;
+    try {
+      await ref.read(secureStorageProvider).setOnboardingJourneyDismissed();
+    } catch (_) {}
+  }
+}
+
+final onboardingJourneyDismissalProvider =
+    NotifierProvider<OnboardingJourneyDismissal, bool>(
+        OnboardingJourneyDismissal.new);
+
 final myProfilesProvider =
     FutureProvider.autoDispose<List<TalentProfile>>((ref) async {
   return ref.watch(profilesServiceProvider).list();

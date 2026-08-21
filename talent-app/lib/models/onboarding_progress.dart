@@ -46,9 +46,6 @@ class OnboardingProgress {
   int get total => stages.length;
   bool get allDone => completed == total;
 
-  /// Web keeps the strip for 7 days after every stage is complete.
-  bool get showStrip {
-    if (allCompletedAt == null) return true;
-    return DateTime.now().difference(allCompletedAt!).inDays < 7;
-  }
+  /// Hide the strip automatically once every stage is complete.
+  bool get showStrip => !allDone;
 }

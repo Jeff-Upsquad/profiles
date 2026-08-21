@@ -33,6 +33,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   late String _tab;
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -43,9 +44,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void didUpdateWidget(covariant HomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialTab != oldWidget.initialTab && _isHomeTab(widget.initialTab)) {
+    if (widget.initialTab != oldWidget.initialTab &&
+        _isHomeTab(widget.initialTab)) {
       _tab = widget.initialTab!;
+      _scrollToTop();
     }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   bool _isHomeTab(String? v) =>
@@ -53,18 +62,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _setTab(String next) {
     setState(() => _tab = next);
+    _scrollToTop();
     final uri = next == 'subscriptions' ? '/home' : '/home?tab=$next';
     context.go(uri);
+  }
+
+  /// One page, one scroll — pull anywhere refreshes the active tab.
+  Future<void> _refresh() async {
+    ref.invalidate(onboardingProgressProvider);
+    switch (_tab) {
+      case 'jobs':
+        ref.invalidate(jobOptInProvider);
+        invalidateJobs(ref);
+      case 'assignments' || 'subscriptions':
+        ref.invalidate(subscriptionListProvider);
+        ref.invalidate(unreadCountProvider);
+        ref.invalidate(unreadSubscriptionFeedCountProvider);
+        ref.invalidate(unreadAssignmentCountProvider);
+    }
+  }
+
+  void _scrollToTop() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
     final me = ref.watch(talentMeProvider).value;
-    final firstName = (user?.fullName ?? me?.fullName ?? '').trim().split(RegExp(r'\s+')).first;
+    final firstName = (user?.fullName ?? me?.fullName ?? '')
+        .trim()
+        .split(RegExp(r'\s+'))
+        .first;
     final onboarded = user?.isOnboarded ?? true;
 
     final progress = ref.watch(onboardingProgressProvider).value;
+    final stripDismissed = ref.watch(onboardingJourneyDismissalProvider);
     final access = ref.watch(moduleAccessProvider).value;
     final accessLoading = ref.watch(moduleAccessProvider).isLoading;
 
@@ -79,33 +117,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final module = _tabModule[_tab]!;
     final lock = access?.lockedInfo(module);
     final unlocked = access?.unlocked.contains(module) ?? false;
-    final tabLocked = !accessLoading && !unlocked && (lock != null || !onboarded);
+    final tabLocked =
+        !accessLoading && !unlocked && (lock != null || !onboarded);
 
     return ColoredBox(
       color: AppColors.surface,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              children: [
-                const UpdateCard(),
-                HeroCard(
-                  title: firstName.isEmpty ? 'Welcome back.' : 'Welcome back, ',
-                  titleHighlight: firstName.isEmpty ? null : '$firstName.',
-                ),
-                if (progress != null && progress.showStrip) ...[
-                  const SizedBox(height: 16),
-                  _OnboardingJourney(progress: progress),
-                ],
-                const SizedBox(height: 16),
-              ],
+      child: RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            const UpdateCard(),
+            HeroCard(
+              title: firstName.isEmpty ? 'Welcome back.' : 'Welcome back, ',
+              titleHighlight: firstName.isEmpty ? null : '$firstName.',
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: SoftSegmentedTabs(
+            if (progress != null && progress.showStrip && !stripDismissed) ...[
+              const SizedBox(height: 16),
+              _OnboardingJourney(
+                progress: progress,
+                onDismiss: () => ref
+                    .read(onboardingJourneyDismissalProvider.notifier)
+                    .dismiss(),
+              ),
+            ],
+            const SizedBox(height: 16),
+            SoftSegmentedTabs(
               expanded: true,
               tabs: [
                 SegmentTab(
@@ -123,24 +162,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               activeKey: _tab,
               onChange: _setTab,
             ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-              child: tabLocked
-                  ? _ModuleLocked(
-                      label: _tabLabel[_tab] ?? _tab,
-                      chapterTitle: lock?.chapterTitle,
-                    )
-                  : switch (_tab) {
-                      'jobs' => const JobsView(),
-                      'assignments' => const TalentOffersView(assignments: true),
-                      _ => const TalentOffersView(),
-                    },
-            ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            if (tabLocked)
+              _ModuleLocked(
+                label: _tabLabel[_tab] ?? _tab,
+                chapterTitle: lock?.chapterTitle,
+              )
+            else
+              switch (_tab) {
+                'jobs' => const JobsView(),
+                'assignments' => const TalentOffersView(assignments: true),
+                _ => const TalentOffersView(),
+              },
+          ],
+        ),
       ),
     );
   }
@@ -148,7 +183,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 class _OnboardingJourney extends StatelessWidget {
   final OnboardingProgress progress;
-  const _OnboardingJourney({required this.progress});
+  final VoidCallback onDismiss;
+  const _OnboardingJourney({required this.progress, required this.onDismiss});
 
   @override
   Widget build(BuildContext context) {
@@ -171,14 +207,33 @@ class _OnboardingJourney extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Your onboarding journey',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.24,
-              color: AppColors.textPrimary,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(
+                child: Text(
+                  'Your onboarding journey',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.24,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: IconButton(
+                  onPressed: onDismiss,
+                  tooltip: 'Dismiss',
+                  padding: EdgeInsets.zero,
+                  iconSize: 18,
+                  color: AppColors.textMuted,
+                  icon: const Icon(Icons.close),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 2),
           Text(
@@ -195,7 +250,9 @@ class _OnboardingJourney extends StatelessWidget {
                   child: Column(
                     children: [
                       Icon(
-                        stages[i].done ? Icons.check_circle : Icons.circle_outlined,
+                        stages[i].done
+                            ? Icons.check_circle
+                            : Icons.circle_outlined,
                         size: 22,
                         color: stages[i].done
                             ? AppColors.success
@@ -258,7 +315,11 @@ class _TrainingGate extends StatelessWidget {
                   color: AppColors.accentWash,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(Icons.play_circle_outline, size: 28, color: AppColors.primary),
+                child: const Icon(
+                  Icons.play_circle_outline,
+                  size: 28,
+                  color: AppColors.primary,
+                ),
               ),
               const SizedBox(height: 20),
               const Text(
@@ -276,7 +337,11 @@ class _TrainingGate extends StatelessWidget {
               const Text(
                 'Watch the onboarding video to unlock all modules and start building your profile.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.45),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                  height: 1.45,
+                ),
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -301,40 +366,35 @@ class _ModuleLocked extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.fromLTRB(20, 40, 20, 40),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 40, 20, 40),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.lock_outline, size: 28, color: AppColors.textMuted),
+          const SizedBox(height: 12),
+          Text(
+            chapterTitle == null || chapterTitle!.isEmpty
+                ? 'Complete training to unlock $label.'
+                : 'Complete "$chapterTitle" to unlock $label.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
           ),
-          child: Column(
-            children: [
-              const Icon(Icons.lock_outline, size: 28, color: AppColors.textMuted),
-              const SizedBox(height: 12),
-              Text(
-                chapterTitle == null || chapterTitle!.isEmpty
-                    ? 'Complete training to unlock $label.'
-                    : 'Complete "$chapterTitle" to unlock $label.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => context.push('/more/training'),
-                child: const Text('Go to Training'),
-              ),
-            ],
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => context.push('/more/training'),
+            child: const Text('Go to Training'),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
