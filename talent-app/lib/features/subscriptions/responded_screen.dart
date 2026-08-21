@@ -32,7 +32,7 @@ class _RespondedScreenState extends ConsumerState<RespondedScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = subscriptionListProvider(_status);
+    final provider = subscriptionListProvider(('subscription', _status));
     final cards = ref.watch(provider);
 
     return Scaffold(

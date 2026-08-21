@@ -161,16 +161,22 @@ final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new)
 // ─── Subscription providers ─────────────────────────────────────────────────
 
 /// Fetches subscription recipients for a backend-supported status filter:
-/// `pending` | `accepted` | `rejected` | `all`. Keyed by status so the Pending
+/// `pending` | `accepted` | `rejected` | `all`, scoped to one product line
+/// (`card_type`: 'subscription' | 'assignment' — the backend defaults to
+/// 'subscription' when omitted). Keyed by (cardType, status) so the Pending
 /// and Responded screens (and the Responded filter chips) each cache their own
 /// list. Invalidate the whole family with `ref.invalidate(subscriptionListProvider)`.
+typedef SubscriptionListQuery = (String cardType, String status);
+
 final subscriptionListProvider = FutureProvider.autoDispose
-    .family<List<SubscriptionCardRecipient>, String>((ref, status) async {
+    .family<List<SubscriptionCardRecipient>, SubscriptionListQuery>(
+        (ref, query) async {
   final service = ref.watch(subscriptionServiceProvider);
-  return service.list(status: status);
+  final (cardType, status) = query;
+  return service.list(status: status, cardType: cardType);
 });
 
-final pendingCardsProvider = subscriptionListProvider('pending');
+final pendingCardsProvider = subscriptionListProvider(('subscription', 'pending'));
 
 final unreadCountProvider = FutureProvider.autoDispose<int>((ref) async {
   final service = ref.watch(subscriptionServiceProvider);
@@ -179,13 +185,15 @@ final unreadCountProvider = FutureProvider.autoDispose<int>((ref) async {
 
 /// Pending assignment count (assignments have no dedicated unread endpoint).
 final unreadAssignmentCountProvider = FutureProvider.autoDispose<int>((ref) async {
-  final items = await ref.watch(subscriptionListProvider('pending').future);
-  return items.where((r) => r.card?.isAssignment == true).length;
+  final items =
+      await ref.watch(subscriptionListProvider(('assignment', 'pending')).future);
+  return items.length;
 });
 
 final unreadSubscriptionFeedCountProvider = FutureProvider.autoDispose<int>((ref) async {
-  final items = await ref.watch(subscriptionListProvider('pending').future);
-  return items.where((r) => r.card?.isAssignment != true).length;
+  final items = await ref
+      .watch(subscriptionListProvider(('subscription', 'pending')).future);
+  return items.length;
 });
 
 // ─── Talent profile (for WhatsApp toggle + inactive-profile guard) ───────────

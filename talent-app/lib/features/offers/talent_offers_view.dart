@@ -22,6 +22,10 @@ class TalentOffersView extends ConsumerStatefulWidget {
 class _TalentOffersViewState extends ConsumerState<TalentOffersView> {
   String _tab = 'pending';
 
+  /// The backend filters server-side on card_type (defaulting to
+  /// 'subscription'), so each product line must request its own feed.
+  String get _cardType => widget.assignments ? 'assignment' : 'subscription';
+
   bool _matches(SubscriptionCardRecipient r) {
     final isAssignment = r.card?.isAssignment ?? false;
     return widget.assignments ? isAssignment : !isAssignment;
@@ -29,7 +33,9 @@ class _TalentOffersViewState extends ConsumerState<TalentOffersView> {
 
   @override
   Widget build(BuildContext context) {
-    final pending = ref.watch(subscriptionListProvider('pending')).value ?? const [];
+    final pending =
+        ref.watch(subscriptionListProvider((_cardType, 'pending'))).value ??
+            const [];
     final pendingCount = pending.where(_matches).length;
 
     return Column(
@@ -45,7 +51,9 @@ class _TalentOffersViewState extends ConsumerState<TalentOffersView> {
           onChange: (k) => setState(() => _tab = k),
         ),
         const SizedBox(height: 16),
-        Expanded(child: _OffersList(status: _tab, match: _matches)),
+        Expanded(
+            child: _OffersList(
+                status: _tab, match: _matches, cardType: _cardType)),
       ],
     );
   }
@@ -54,7 +62,12 @@ class _TalentOffersViewState extends ConsumerState<TalentOffersView> {
 class _OffersList extends ConsumerWidget {
   final String status;
   final bool Function(SubscriptionCardRecipient) match;
-  const _OffersList({required this.status, required this.match});
+  final String cardType;
+  const _OffersList({
+    required this.status,
+    required this.match,
+    required this.cardType,
+  });
 
   String get _queryStatus => switch (status) {
         'responded' => 'all',
@@ -63,11 +76,12 @@ class _OffersList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cards = ref.watch(subscriptionListProvider(_queryStatus));
+    final query = (cardType, _queryStatus);
+    final cards = ref.watch(subscriptionListProvider(query));
     return cards.when(
       loading: () => const ShimmerCardList(),
       error: (_, _) => AppErrorRetry(
-        onRetry: () => ref.invalidate(subscriptionListProvider(_queryStatus)),
+        onRetry: () => ref.invalidate(subscriptionListProvider(query)),
       ),
       data: (all) {
         var items = all.where(match).toList();
@@ -76,9 +90,9 @@ class _OffersList extends ConsumerWidget {
         }
         return RefreshIndicator(
           onRefresh: () async {
-            ref.invalidate(subscriptionListProvider(_queryStatus));
+            ref.invalidate(subscriptionListProvider(query));
             ref.invalidate(unreadCountProvider);
-            await ref.read(subscriptionListProvider(_queryStatus).future);
+            await ref.read(subscriptionListProvider(query).future);
           },
           child: items.isEmpty
               ? ListView(

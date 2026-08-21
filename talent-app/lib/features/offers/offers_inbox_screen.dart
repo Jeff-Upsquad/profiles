@@ -135,66 +135,83 @@ class _OffersList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cards = ref.watch(subscriptionListProvider(status));
-    return cards.when(
-      loading: () => const ShimmerCardList(),
-      error: (_, _) => AppErrorRetry(
-        onRetry: () => ref.invalidate(subscriptionListProvider(status)),
-      ),
-      data: (all) {
-        final items = all.where(_matches).toList();
-        return RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(subscriptionListProvider(status));
-            ref.invalidate(unreadCountProvider);
-            await ref.read(subscriptionListProvider(status).future);
-          },
-          child: items.isEmpty
-              ? ListView(
-                  children: [
-                    const UpdateCard(),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 56),
-                      child: EmptyState(
-                        icon: respondedOnly ? Icons.history : Icons.inbox_outlined,
-                        title: respondedOnly ? 'Nothing here yet' : 'All caught up',
-                        subtitle: respondedOnly
-                            ? 'Offers you respond to will appear here.'
-                            : "You don't have any pending offers right now.",
-                      ),
-                    ),
-                  ],
-                )
-              : ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    const UpdateCard(),
-                    Card(
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        children: [
-                          for (int i = 0; i < items.length; i++) ...[
-                            if (i > 0)
-                              const Divider(
-                                  height: 1,
-                                  indent: 68,
-                                  color: AppColors.divider),
-                            SubscriptionListTile(
-                              recipient: items[i],
-                              trailing: _price(items[i].card),
-                              onTap: () => context.push('/subscription-detail',
-                                  extra: items[i]),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-        );
+    // The backend scopes each response to one card_type, so "All" merges both
+    // product-line feeds.
+    final queries = [
+      ('subscription', status),
+      ('assignment', status),
+    ];
+    final subs = ref.watch(subscriptionListProvider(queries[0]));
+    final assigns = ref.watch(subscriptionListProvider(queries[1]));
+
+    if (subs.isLoading || assigns.isLoading) return const ShimmerCardList();
+    if (subs.hasError || assigns.hasError) {
+      return AppErrorRetry(
+        onRetry: () => ref.invalidate(subscriptionListProvider),
+      );
+    }
+
+    final all = [
+      ...(subs.value ?? const <SubscriptionCardRecipient>[]),
+      ...(assigns.value ?? const <SubscriptionCardRecipient>[]),
+    ];
+    final items = all.where(_matches).toList()
+      ..sort((a, b) => _publishedMs(b).compareTo(_publishedMs(a)));
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(subscriptionListProvider);
+        ref.invalidate(unreadCountProvider);
+        await Future.wait([
+          for (final q in queries) ref.read(subscriptionListProvider(q).future),
+        ]);
       },
+      child: items.isEmpty
+          ? ListView(
+              children: [
+                const UpdateCard(),
+                Padding(
+                  padding: const EdgeInsets.only(top: 56),
+                  child: EmptyState(
+                    icon: respondedOnly ? Icons.history : Icons.inbox_outlined,
+                    title: respondedOnly ? 'Nothing here yet' : 'All caught up',
+                    subtitle: respondedOnly
+                        ? 'Offers you respond to will appear here.'
+                        : "You don't have any pending offers right now.",
+                  ),
+                ),
+              ],
+            )
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                const UpdateCard(),
+                Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      for (int i = 0; i < items.length; i++) ...[
+                        if (i > 0)
+                          const Divider(
+                              height: 1,
+                              indent: 68,
+                              color: AppColors.divider),
+                        SubscriptionListTile(
+                          recipient: items[i],
+                          trailing: _price(items[i].card),
+                          onTap: () => context.push('/subscription-detail',
+                              extra: items[i]),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
     );
   }
+
+  int _publishedMs(SubscriptionCardRecipient r) =>
+      DateTime.tryParse(r.card?.publishedAt ?? '')?.millisecondsSinceEpoch ?? 0;
 
   Widget? _price(SubscriptionCard? card) {
     if (card == null) return null;
