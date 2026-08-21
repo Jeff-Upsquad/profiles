@@ -132,7 +132,9 @@ export async function notifyNewCard(
     title: 'New Opportunity Available',
     body: buildCardBody('A new opportunity from {brand_name} is waiting for your response', content),
     card_id: cardId,
-    route: '/pending',
+    // Home subscriptions tab (pending offers). '/pending' is a dead route on
+    // every shipped app version — '/home' maps on old and new clients alike.
+    route: '/home',
   });
 }
 
@@ -146,7 +148,7 @@ export async function notifySelected(
     title: "You've Been Selected!",
     body: buildCardBody("Congratulations! You were selected for {brand_name}'s opportunity", content),
     card_id: cardId,
-    route: '/responded',
+    route: '/home',
   });
 }
 
@@ -160,7 +162,7 @@ export async function notifyUnassigned(
     title: 'Assignment Update',
     body: buildCardBody("Your assignment for {brand_name}'s opportunity has been updated by the team", content),
     card_id: cardId,
-    route: '/responded',
+    route: '/home',
   });
 }
 
