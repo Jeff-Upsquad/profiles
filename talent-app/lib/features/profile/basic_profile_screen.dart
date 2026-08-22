@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/india_locations.dart';
+import '../../core/theme.dart';
 import '../../models/basic_profile.dart';
 import '../../models/job_preferences.dart';
 import '../../models/language_entry.dart';
@@ -34,6 +35,8 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
   bool _loading = true;
   bool _error = false;
   bool _saving = false;
+  int _active = 0;
+  final Map<int, GlobalKey> _tabKeys = {};
 
   @override
   void initState() {
@@ -128,6 +131,90 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
     _p.pinCode = _p.permanentPinCode;
   }
 
+  /// Sections in form order; the freelance tab only appears when freelance
+  /// work is selected (mirrors the old stacked layout). Completion checks
+  /// mirror the web's BasicProfileForm heuristics.
+  List<_SectionSpec> get _sections => [
+        _SectionSpec(
+          label: 'Basic details',
+          icon: Icons.person_outline,
+          build: _basicDetails,
+          done: () => _fullName.text.trim().isNotEmpty,
+        ),
+        _SectionSpec(
+          label: 'Languages',
+          icon: Icons.translate_outlined,
+          build: _languagesSection,
+          done: () => _languages.isNotEmpty &&
+              _languages.any((l) => l.proficiency == 'native'),
+        ),
+        _SectionSpec(
+          label: 'Address',
+          icon: Icons.home_outlined,
+          build: _addressSection,
+          done: () => _p.permanentCountry.isNotEmpty &&
+              _p.permanentState.isNotEmpty &&
+              _p.permanentDistrict.isNotEmpty &&
+              _p.permanentCity.isNotEmpty,
+        ),
+        _SectionSpec(
+          label: 'Education & courses',
+          icon: Icons.school_outlined,
+          build: _educationSection,
+          done: () => _p.educationCourses
+              .any((e) => e.courseName.isNotEmpty && e.institution.isNotEmpty),
+        ),
+        _SectionSpec(
+          label: 'Experience',
+          icon: Icons.work_history_outlined,
+          build: _experienceSection,
+          done: () => _p.experience
+              .any((e) => e.companyName.isNotEmpty && e.designation.isNotEmpty),
+        ),
+        _SectionSpec(
+          label: 'Job preference',
+          icon: Icons.tune,
+          build: _jobPreferenceSection,
+          done: () => _p.availability.isNotEmpty && _p.jobType.isNotEmpty,
+        ),
+        if (_p.employmentType.contains('freelance'))
+          _SectionSpec(
+            label: 'Freelance',
+            icon: Icons.handshake_outlined,
+            build: _freelanceSection,
+            done: () => _p.freelanceAvailable,
+          ),
+        _SectionSpec(
+          label: 'Profile picture',
+          icon: Icons.account_circle_outlined,
+          build: _pictureSection,
+          done: () => _p.profilePictureUrl?.isNotEmpty ?? false,
+        ),
+        _SectionSpec(
+          label: 'ID proofs',
+          icon: Icons.badge_outlined,
+          build: _idProofsSection,
+          done: () => _p.aadhaarNumber.isNotEmpty || _p.panNumber.isNotEmpty,
+          optional: true,
+        ),
+        _SectionSpec(
+          label: 'Bank account',
+          icon: Icons.account_balance_outlined,
+          build: _bankSection,
+          done: () => _p.bankAccountHolder.isNotEmpty &&
+              _p.bankAccountNumber.isNotEmpty &&
+              _p.bankIfscCode.isNotEmpty,
+          optional: true,
+        ),
+        _SectionSpec(
+          label: 'Resume',
+          icon: Icons.description_outlined,
+          build: _resumeSection,
+          done: () => _p.resumeUrl?.isNotEmpty ?? false,
+          optional: true,
+        ),
+      ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -136,38 +223,263 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _error
               ? AppErrorRetry(onRetry: _load)
-              : ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    _basicDetails(),
-                    const SizedBox(height: 12),
-                    _languagesSection(),
-                    const SizedBox(height: 12),
-                    _addressSection(),
-                    const SizedBox(height: 12),
-                    _educationSection(),
-                    const SizedBox(height: 12),
-                    _experienceSection(),
-                    const SizedBox(height: 12),
-                    _jobPreferenceSection(),
-                    if (_p.employmentType.contains('freelance')) ...[
-                      const SizedBox(height: 12),
-                      _freelanceSection(),
+              : Builder(builder: (_) {
+                  final sections = _sections;
+                  final active = _active.clamp(0, sections.length - 1);
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        child: _headerCard(sections),
+                      ),
+                      const SizedBox(height: 10),
+                      _tabStrip(sections, active),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: sections[active].build(),
+                        ),
+                      ),
                     ],
-                    const SizedBox(height: 12),
-                    _pictureSection(),
-                    const SizedBox(height: 12),
-                    _idProofsSection(),
-                    const SizedBox(height: 12),
-                    _bankSection(),
-                    const SizedBox(height: 12),
-                    _resumeSection(),
-                    const SizedBox(height: 24),
-                  ],
-                ),
+                  );
+                }),
       bottomNavigationBar: (_loading || _error)
           ? null
-          : SaveBar(saving: _saving, onSave: _save),
+          : _navBar(),
+    );
+  }
+
+  // ─── Header / tabs / nav ──────────────────────────────────────────────────
+
+  /// One-line header: title + "done/total" pill + small progress ring.
+  Widget _headerCard(List<_SectionSpec> sections) {
+    final counted = sections.where((s) => !s.optional).toList();
+    final doneCount = counted.where((s) => s.done()).length;
+    final pct = counted.isEmpty
+        ? 0
+        : (doneCount / counted.length * 100).round();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Complete your profile.',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                    color: AppColors.textPrimary,
+                  ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '$doneCount/${counted.length}',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 36,
+            height: 36,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularProgressIndicator(
+                  value: pct / 100,
+                  strokeWidth: 4,
+                  strokeCap: StrokeCap.round,
+                  backgroundColor: AppColors.border,
+                  valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                ),
+                Text(
+                  '$pct%',
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Horizontally scrollable section tabs — tap to open that section.
+  Widget _tabStrip(List<_SectionSpec> sections, int active) {
+    return SizedBox(
+      height: 40,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            for (var i = 0; i < sections.length; i++) _tabChip(sections, i, active),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tabChip(List<_SectionSpec> sections, int i, int active) {
+    final s = sections[i];
+    final isActive = i == active;
+    final complete = s.done();
+    final Color bg;
+    final Color fg;
+    var borderColor = AppColors.border;
+    if (isActive) {
+      bg = AppColors.primary;
+      fg = Colors.white;
+    } else if (complete) {
+      bg = AppColors.successBg;
+      fg = const Color(0xFF15803D);
+      borderColor = const Color(0xFFBBF7D0);
+    } else {
+      bg = AppColors.card;
+      fg = AppColors.textSecondary;
+    }
+    final key = (_tabKeys[i] ??= GlobalKey());
+    return Padding(
+      key: key,
+      padding: const EdgeInsets.only(right: 6),
+      child: Material(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: () => _selectTab(i),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: borderColor),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                complete
+                    ? Icon(Icons.check,
+                        size: 14,
+                        color: isActive ? Colors.white : const Color(0xFF16A34A))
+                    : Icon(Icons.close,
+                        size: 13,
+                        color:
+                            isActive ? const Color(0xFFFCA5A5) : AppColors.danger),
+                const SizedBox(width: 6),
+                Text(
+                  s.label,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: fg,
+                  ),
+                ),
+                if (!complete && !isActive && s.optional) ...[
+                  const SizedBox(width: 4),
+                  const Text(
+                    '· Optional',
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textMuted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _selectTab(int i) {
+    setState(() => _active = i);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _tabKeys[i]?.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 250),
+          alignment: 0.5,
+        );
+      }
+    });
+  }
+
+  /// Prev | Save | Next bar (mirrors the web's sticky action bar).
+  Widget _navBar() {
+    final sections = _sections;
+    final active = _active.clamp(0, sections.length - 1);
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        child: Row(
+          children: [
+            OutlinedButton(
+              onPressed:
+                  active == 0 ? null : () => setState(() => _active = active - 1),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(48, 48),
+                padding: EdgeInsets.zero,
+              ),
+              child: const Icon(Icons.arrow_back_ios_new, size: 16),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _saving ? null : _save,
+                  child: _saving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2.4, color: Colors.white),
+                        )
+                      : const Text('Save'),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            OutlinedButton(
+              onPressed: active >= sections.length - 1
+                  ? null
+                  : () => setState(() => _active = active + 1),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(48, 48),
+                padding: EdgeInsets.zero,
+              ),
+              child: const Icon(Icons.arrow_forward_ios, size: 16),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -623,4 +935,21 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
       ),
     );
   }
+}
+
+/// One tab in the basic-profile section strip.
+class _SectionSpec {
+  final String label;
+  final IconData icon;
+  final Widget Function() build;
+  final bool Function() done;
+  final bool optional;
+
+  const _SectionSpec({
+    required this.label,
+    required this.icon,
+    required this.build,
+    required this.done,
+    this.optional = false,
+  });
 }
