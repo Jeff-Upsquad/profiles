@@ -80,6 +80,15 @@ router.post(
   integrationsController.redeemBusinessSsoCode,
 );
 
+// Talent auto-login hand-off. Deliberately its own path + table so a talent
+// code can never be redeemed as a business (or vice versa) — the talent lands
+// as a partner on SquadHub, the business as a client.
+router.post(
+  '/squadhub/talent/sso/token',
+  verifySquadhubSecret,
+  integrationsController.redeemTalentSsoCode,
+);
+
 // Batch talent availability (self-declared virtual office hours → weekly hours),
 // keyed by talent_user_id. Powers the "available hours" column in SquadHub's
 // Subscription Assignments per-user view.

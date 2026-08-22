@@ -36,3 +36,13 @@ export function useMyClients() {
     staleTime: 60_000,
   });
 }
+
+/**
+ * Whether this talent is actually working on a client — one assigned card is
+ * enough. Gates the SquadHub tab and its gateway, mirroring useHasAssignedCard
+ * on the business side. Reuses the my-clients query, so no extra request.
+ */
+export function useTalentHasAssignedCard(): { hasAssignedCard: boolean; isLoading: boolean } {
+  const { data, isLoading } = useMyClients();
+  return { hasAssignedCard: (data?.assigned.length ?? 0) > 0, isLoading };
+}

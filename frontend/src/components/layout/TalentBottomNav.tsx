@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useConversationUnread } from '@/hooks/useConversations';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { useIncompleteTrainingCount } from '@/hooks/useTraining';
+import { useTalentHasAssignedCard } from '@/hooks/useMyClients';
 
 interface NavItem {
   href: string;
@@ -46,6 +47,9 @@ export default function TalentBottomNav() {
   const { data: unreadMessages = 0 } = useConversationUnread('talent');
   const { data: unreadNotifications = 0 } = useUnreadNotificationsCount();
   const { data: incompleteTraining = 0 } = useIncompleteTrainingCount();
+  // Hooks must all run before any early return — a conditional hook here took
+  // the whole app down once already (see the rules-of-hooks note in CLAUDE.md).
+  const { hasAssignedCard } = useTalentHasAssignedCard();
   if (/^\/talent\/messages\/[^/]+/.test(pathname)) return null;
 
   const navItems: NavItem[] = [
@@ -91,6 +95,20 @@ export default function TalentBottomNav() {
       ),
     },
   ];
+
+  // Only once they're assigned to a client — before that there's no SquadHub
+  // account waiting for them and the gateway would bounce them back.
+  if (hasAssignedCard) {
+    navItems.push({
+      href: '/talent/squadhub',
+      label: 'SquadHub',
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h4v6H4V6zM14 4h4a2 2 0 012 2v4h-6V4zM4 12h6v6H6a2 2 0 01-2-2v-4zM14 12h6v4a2 2 0 01-2 2h-4v-6z" />
+        </svg>
+      ),
+    });
+  }
 
   const isActive = (href: string, matchPrefixes?: string[]) => {
     if (matchPrefixes?.length) {

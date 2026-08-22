@@ -31,6 +31,11 @@ const router = Router();
 // All talent routes require authentication + talent role
 router.use(authenticate, requireRole('talent'));
 
+// SquadHub auto-login — mints the one-time code the SquadHub tab hands over so
+// an assigned talent lands inside SquadHub as a partner without a second
+// sign-in. Mirrors /api/business/squadhub/sso/authorize.
+router.post('/squadhub/sso/authorize', talentController.authorizeSquadhubLogin);
+
 // App install/version check-in — fired by the mobile app once per launch so the
 // admin panel can see who has the talent app and which build they run.
 router.post('/app-checkin', validate({ body: appCheckinSchema }), appInstallController.checkin);

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as talentService from '../services/talent.service.js';
+import * as squadhubTalentSsoService from '../services/squadhub-talent-sso.service.js';
 
 function paramStr(val: string | string[]): string {
   return Array.isArray(val) ? val[0] : val;
@@ -230,6 +231,18 @@ export async function getCategoryBySlug(req: Request, res: Response, next: NextF
 export async function getTalentCreatableCategories(_req: Request, res: Response, next: NextFunction) {
   try {
     const result = await talentService.getTalentCreatableCategories();
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// SquadHub auto-login — mint a one-time code and hand back the SquadHub URL to
+// send this talent to. They're provisioned as a partner on the other side, with
+// the role their assigned card implies.
+export async function authorizeSquadhubLogin(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await squadhubTalentSsoService.createSquadhubLoginCode(req.user!.id);
     res.json(result);
   } catch (err) {
     next(err);

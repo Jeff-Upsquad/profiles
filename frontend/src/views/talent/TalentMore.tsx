@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useIncompleteTrainingCount, useModuleAccess } from '@/hooks/useTraining';
+import { useTalentHasAssignedCard } from '@/hooks/useMyClients';
 import Badge from '@/components/ui/Badge';
 
 interface MoreItem {
@@ -19,6 +20,7 @@ export default function TalentMore() {
   const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
   const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
   const { data: incompleteTraining = 0 } = useIncompleteTrainingCount();
+  const { hasAssignedCard } = useTalentHasAssignedCard();
 
   const unlockedSet = new Set(moduleAccess?.unlocked ?? []);
   const lockedMap = new Map((moduleAccess?.locked ?? []).map((l) => [l.module, l]));
@@ -32,6 +34,27 @@ export default function TalentMore() {
   };
 
   const groups: { title: string; items: MoreItem[] }[] = [
+    // Only once they're on a client. The bottom nav carries this too, but that
+    // is mobile-only — without an entry here desktop talents have no way in.
+    ...(hasAssignedCard
+      ? [
+          {
+            title: 'SquadHub',
+            items: [
+              {
+                label: 'Open SquadHub',
+                to: '/talent/squadhub',
+                description: 'Where the work happens — tasks, chat and deliverables',
+                icon: (
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h4v6H4V6zM14 4h4a2 2 0 012 2v4h-6V4zM4 12h6v6H6a2 2 0 01-2-2v-4zM14 12h6v4a2 2 0 01-2 2h-4v-6z" />
+                  </svg>
+                ),
+              },
+            ],
+          },
+        ]
+      : []),
     {
       title: 'Profile',
       items: [
