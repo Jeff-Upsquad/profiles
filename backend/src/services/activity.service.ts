@@ -86,6 +86,42 @@ const EVENT_META: Record<string, { title: string; category: ActivityCategory }> 
   talent_card_whatsapp_skipped: { title: 'WhatsApp skipped', category: 'comms' },
 };
 
+// Jobs-module funnel stage labels (job_candidates.funnel_stage vocab).
+const JOB_STAGE_LABELS: Record<string, string> = {
+  applied: 'Applied',
+  screening: 'Screening',
+  shortlisted: 'Shortlisted',
+  interview_invited: 'Interview Invited',
+  interview: 'Interview',
+  on_hold: 'On Hold',
+  selected: 'Selected',
+  rejected: 'Rejected',
+  offer: 'Offer',
+  hired: 'Hired',
+  placed: 'Placed',
+  withdrawn: 'Withdrawn',
+};
+
+function jobStageLabel(stage: string | null | undefined): string | null {
+  if (!stage) return null;
+  return JOB_STAGE_LABELS[stage] ?? humaniseEventType(stage);
+}
+
+// Human labels + categories for the job_candidate_events audit rows. Known
+// prefixes (interview_* / offer_*) get sensible categories so new event kinds
+// surface without a map entry.
+const JOB_EVENT_META: Record<string, { title: string; category: ActivityCategory }> = {
+  stage_changed: { title: 'Job stage changed', category: 'pipeline' },
+  offer_sent: { title: 'Offer sent', category: 'pipeline' },
+};
+
+const JOB_ACTOR_LABELS: Record<string, string> = {
+  talent: 'Candidate',
+  business: 'Business',
+  admin: 'Admin',
+  system: 'System',
+};
+
 function humaniseEventType(eventType: string): string {
   return eventType.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 }
@@ -383,6 +419,58 @@ export async function getCandidateActivity(params: {
           description: cardRef,
           actor: 'System',
           timestamp: r.cancelled_at,
+        });
+      }
+    }
+  }
+
+  // --- job_candidate_events (jobs-module hiring funnel audit trail) ---------
+  // Immutable rows written by the jobs services (stage moves, interviews,
+  // offers). Resolved through this talent's job_candidates; each item carries
+  // the job's title so events from multiple openings stay distinguishable.
+  if (talentUserId) {
+    const { data: jcands, error: jcandErr } = await supabaseAdmin
+      .from('job_candidates')
+      .select('id, subscription_cards(content)')
+      .eq('talent_user_id', talentUserId);
+    if (jcandErr) throw new AppError(500, `Failed to load job candidates: ${jcandErr.message}`);
+
+    const jobTitleByCandidate = new Map<string, string>();
+    for (const c of (jcands ?? []) as any[]) {
+      const content = (c.subscription_cards?.content ?? {}) as Record<string, unknown>;
+      const title =
+        typeof content.title === 'string' && content.title.trim() ? content.title.trim() : null;
+      jobTitleByCandidate.set(c.id as string, title ?? 'a job');
+    }
+    const candIds = [...jobTitleByCandidate.keys()];
+
+    if (candIds.length) {
+      const { data: jEvents, error: jErr } = await supabaseAdmin
+        .from('job_candidate_events')
+        .select('id, candidate_id, actor_type, event_type, from_stage, to_stage, payload, created_at')
+        .in('candidate_id', candIds)
+        .order('created_at', { ascending: false });
+      if (jErr) throw new AppError(500, `Failed to load job events: ${jErr.message}`);
+      for (const ev of (jEvents ?? []) as any[]) {
+        const meta = JOB_EVENT_META[ev.event_type];
+        const md = (ev.payload ?? {}) as Record<string, unknown>;
+        let category: ActivityCategory = meta?.category ?? 'system';
+        if (!meta && ev.event_type.startsWith('interview_')) category = 'interview';
+        if (!meta && ev.event_type.startsWith('offer_')) category = 'pipeline';
+        const transition = [ev.from_stage, ev.to_stage]
+          .map((s) => jobStageLabel(s))
+          .filter(Boolean)
+          .join(' → ');
+        const parts = [jobTitleByCandidate.get(ev.candidate_id), transition].filter(Boolean);
+        items.push({
+          id: `jobevent:${ev.id}`,
+          type: ev.event_type,
+          category,
+          title: meta?.title ?? humaniseEventType(ev.event_type),
+          description: parts.join(' · ') || null,
+          actor: JOB_ACTOR_LABELS[ev.actor_type] ?? humaniseEventType(ev.actor_type),
+          timestamp: ev.created_at,
+          metadata: md,
         });
       }
     }
