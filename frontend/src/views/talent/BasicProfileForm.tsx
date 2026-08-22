@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent, type ReactNode } from 'react';
+import { useState, useEffect, useRef, type FormEvent, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
@@ -612,6 +612,17 @@ export default function BasicProfileForm() {
     if (idx !== -1) setActiveSection(idx);
   }, [isLoading]);
 
+  // Keep the active tab visible in the horizontal scroller when the section
+  // changes (tap, Previous/Next, deep link).
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  useEffect(() => {
+    tabRefs.current[activeSection]?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'center',
+    });
+  }, [activeSection]);
+
   // Progress counts only mandatory (enabled, non-optional) sections, so 100%
   // means every required field is done. Optional sections never block it.
   const countedSections = sections.filter((s) => !s.disabled && !s.optional);
@@ -631,26 +642,62 @@ export default function BasicProfileForm() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* ── Hero Section (compact) ── */}
-      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-5 sm:px-7 sm:py-6">
-        <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-4 lg:space-y-8">
+      {/* ── Header — mobile: single line ── */}
+      <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-4 py-3 sm:px-6 lg:hidden">
+        <div className="hero-content flex items-center justify-between gap-3">
+          <h1 className="min-w-0 truncate font-[family-name:var(--font-jakarta)] text-[16px] font-semibold tracking-[-0.02em] text-[#0a0a0a] sm:text-lg">
+            Complete your <span className="text-rainbow">profile</span>.
+          </h1>
+          <div className="flex shrink-0 items-center gap-2.5" title={`${completedCount} of ${enabledSections} sections complete`}>
+            <span className="rounded-full bg-[#F5F5F6] px-2.5 py-1 font-[family-name:var(--font-inter)] text-[11px] font-medium whitespace-nowrap text-[#525252]">
+              {completedCount}/{enabledSections}
+            </span>
+            <div className="relative flex h-9 w-9 items-center justify-center">
+              <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#E7E7EA" strokeWidth="12" />
+                <circle
+                  cx="50" cy="50" r="42" fill="none"
+                  stroke="url(#prog-grad)"
+                  strokeWidth="12" strokeLinecap="round"
+                  strokeDasharray={`${(progressPct / 100) * 264} 264`}
+                  className="transition-all duration-700"
+                />
+                <defs>
+                  <linearGradient id="prog-grad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#FFF27A" />
+                    <stop offset="50%" stopColor="#0A0A0A" />
+                    <stop offset="100%" stopColor="#737373" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <span className="font-[family-name:var(--font-jakarta)] text-[10px] font-semibold tracking-[-0.02em] text-[#0a0a0a]">
+                {progressPct}%
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Header — desktop: full hero ── */}
+      <section className="hero-container hero-glow-purple relative hidden overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-5 sm:px-7 sm:py-6 lg:block">
+        <div className="hero-content flex items-center justify-between">
           <div className="min-w-0 flex-1">
-            <div className="mb-2.5 stagger-1">
+            <div className="mb-2.5">
               <span className="eyebrow-rainbow">
                 {completedCount} of {enabledSections} sections complete
               </span>
             </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[24px] sm:text-[28px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[24px] sm:text-[28px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a]">
               Complete your <span className="text-rainbow">profile</span>.
             </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
+            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252]">
               These details are shared across all your job profiles.
             </p>
           </div>
 
-          {/* Progress ring (compact) */}
-          <div className="stagger-4">
+          {/* Progress ring */}
+          <div>
             <div className="relative flex h-16 w-16 items-center justify-center">
               <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r="42" fill="none" stroke="#E7E7EA" strokeWidth="9" />
@@ -662,7 +709,7 @@ export default function BasicProfileForm() {
                   className="transition-all duration-700"
                 />
                 <defs>
-                  <linearGradient id="prog-grad" x1="0" y1="0" x2="1" y2="1">
+                  <linearGradient id="prog-grad-d" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0%" stopColor="#FFF27A" />
                     <stop offset="50%" stopColor="#0A0A0A" />
                     <stop offset="100%" stopColor="#737373" />
@@ -677,10 +724,72 @@ export default function BasicProfileForm() {
         </div>
       </section>
 
-      {/* ── Layout: Sidebar Stepper + Form ── */}
-      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-        {/* Sidebar Stepper */}
-        <aside className="lg:sticky lg:top-6 lg:self-start">
+      {/* ── Section tabs (horizontal, scrollable) — mobile ── */}
+      <div
+        role="tablist"
+        aria-label="Profile sections"
+        className="scrollbar-hide -mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 lg:hidden"
+      >
+        <nav className="flex min-w-max gap-1.5">
+          {sections.map((section, i) => {
+            const isActive = activeSection === i;
+            const isComplete = completion[section.id];
+            return (
+              <button
+                key={section.id}
+                ref={(el) => { tabRefs.current[i] = el; }}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => !section.disabled && setActiveSection(i)}
+                disabled={section.disabled}
+                title={
+                  section.disabled
+                    ? 'Select the matching work preference to enable this section'
+                    : isComplete
+                      ? 'Complete'
+                      : section.optional
+                        ? 'Optional'
+                        : 'Not started'
+                }
+                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 font-[family-name:var(--font-inter)] text-[13px] font-semibold transition-all duration-200 ${
+                  section.disabled
+                    ? 'cursor-not-allowed border-[#E7E7EA] bg-white text-[#a3a3a3] opacity-50'
+                    : isActive
+                      ? 'border-[#0a0a0a] bg-[#0a0a0a] text-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.25)]'
+                      : isComplete
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300'
+                        : 'border-[#E7E7EA] bg-white text-[#525252] hover:border-[#a3a3a3]'
+                }`}
+              >
+                {isComplete ? (
+                  <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg
+                    className={`h-3 w-3 shrink-0 ${isActive ? 'text-red-400' : 'text-red-500'}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                )}
+                <span className="whitespace-nowrap">{section.name}</span>
+                {!isComplete && !isActive && section.optional && (
+                  <span className="text-[10px] font-medium text-[#a3a3a3]">Optional</span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      <div className="lg:grid lg:grid-cols-[280px_1fr] lg:gap-6">
+        {/* Sidebar Stepper — desktop */}
+        <aside className="hidden lg:sticky lg:top-6 lg:self-start lg:block">
           <div className="rounded-2xl border border-[#E7E7EA] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <h3 className="mb-2 px-2 pt-1 font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
               Sections
