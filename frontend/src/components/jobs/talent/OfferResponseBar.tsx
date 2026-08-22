@@ -14,14 +14,47 @@ export default function OfferResponseBar({ offer }: { offer: JobOffer }) {
   const [confirmAction, setConfirmAction] = useState<'accept' | 'decline' | null>(null);
   const respond = useRespondToOffer(offer.id);
 
-  const responded = ['accepted', 'declined', 'withdrawn', 'expired'].includes(offer.status);
+  const responded = ['declined', 'withdrawn', 'expired'].includes(offer.status);
   if (responded) return null;
 
+  const isAccepted = offer.status === 'accepted';
   const canRespond = ['sent', 'negotiating', 'countered'].includes(offer.status);
   const canNegotiate = offer.status === 'sent' && !offer.is_final_counter;
   const isFinal = offer.is_final_counter || offer.status === 'countered';
 
-  if (!canRespond) return null;
+  if (!canRespond && !isAccepted) return null;
+
+  if (isAccepted && confirmAction !== 'decline') {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E7E7EA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <p className="text-sm font-medium text-emerald-700">You accepted this offer.</p>
+        <Button variant="ghost" size="sm" onClick={() => setConfirmAction('decline')}>
+          Decline
+        </Button>
+      </div>
+    );
+  }
+
+  if (isAccepted) {
+    return (
+      <div className="rounded-2xl border border-[#E7E7EA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-[#0a0a0a]">
+            Decline this offer?{' '}
+            <span className="text-[#737373]">This can&apos;t be undone.</span>
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setConfirmAction(null)}>
+              Back
+            </Button>
+            <Button size="sm" variant="danger" loading={respond.isPending} onClick={() => respond.mutate({ action: 'decline' }, { onSuccess: () => setConfirmAction(null) })}>
+              Yes, decline offer
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-2xl border border-[#E7E7EA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">

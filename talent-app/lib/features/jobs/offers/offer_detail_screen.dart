@@ -297,7 +297,26 @@ class _OfferActionsState extends ConsumerState<_OfferActions> {
   Widget build(BuildContext context) {
     if (!offer.isOpen) {
       final badge = offerStatusBadge(offer.status);
-      return _resultBanner(badge.label, offer.isAccepted);
+      if (!offer.isAccepted) return _resultBanner(badge.label, offer.isAccepted);
+      return Column(
+        children: [
+          _resultBanner(badge.label, true),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _busy ? null : _confirmDecline,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.danger,
+                side: const BorderSide(color: AppColors.danger),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              icon: const Icon(Icons.close, size: 18),
+              label: const Text('Decline'),
+            ),
+          ),
+        ],
+      );
     }
 
     return Column(

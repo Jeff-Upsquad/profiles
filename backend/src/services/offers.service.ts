@@ -28,7 +28,9 @@ import type { CreateOffersInput, UpdateOfferInput } from '../validators/jobs.val
  *        → negotiating → business: accept-negotiation | decline-negotiation
  *                        | counter (FINAL → 'countered')
  *   from countered: the talent may only accept / decline / ask a question.
- *   Terminal: accepted | declined | withdrawn | expired.
+ *   accepted is soft-terminal: the talent may still decline (backs out),
+ *   which frees the candidate for a new offer round.
+ *   Terminal: declined | withdrawn | expired.
  *
  * One LIVE offer per candidate — enforced by the partial unique index
  * job_offers_one_open_per_candidate (23505 → 409 here).
@@ -524,7 +526,7 @@ export async function respondToOffer(
     eventAction = 'accepted';
     eventName = 'job_offer_accepted';
   } else if (input.action === 'decline') {
-    if (!['sent', 'negotiating', 'countered'].includes(offer.status)) {
+    if (!['sent', 'negotiating', 'countered', 'accepted'].includes(offer.status)) {
       throw new AppError(409, `Offer can no longer be declined (status: ${offer.status})`);
     }
     nextStatus = 'declined';
