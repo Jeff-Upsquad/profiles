@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   type DayId,
   type DayHours,
@@ -10,6 +10,7 @@ import {
   ALL_DAYS,
   toMinutes,
   minutesToTime,
+  dailyHours,
   monthlyOccurrences,
   fmt,
   format12,
@@ -159,32 +160,36 @@ export default function PartnerProgramPreference({
     onOfficeHoursChange(officeHours.map((h) => (ids.has(h.day) ? { ...h, from, to } : h)));
   };
 
-  // Daily Available Hours are independent of the office-hours window — the
-  // talent tells us how many hours they'll actually commit each day.
-  const setDayHours = (day: DayId, raw: string) => {
-    const others = dailyAvailable.filter((d) => d.day !== day);
-    if (raw === '') {
-      onDailyAvailableChange(others);
-      return;
-    }
-    const hours = Math.min(24, Math.max(0, Number(raw)));
-    if (Number.isNaN(hours)) {
-      onDailyAvailableChange(others);
-      return;
-    }
-    onDailyAvailableChange([...others, { day, hours }]);
-  };
+  // Daily Available Hours are derived straight from the office-hours windows
+  // above: only the selected days are listed and each row shows that group's
+  // window length — read-only by design.
+  const selectedDays = useMemo(
+    () =>
+      ALL_DAYS.flatMap((d) => {
+        const entry = officeMap.get(d.id);
+        if (!entry) return [];
+        return [{ id: d.id, label: d.label, hours: +dailyHours(entry.from, entry.to).toFixed(1) }];
+      }),
+    [officeMap]
+  );
 
-  const weekly = ALL_DAYS.reduce((s, d) => s + (dailyMap.get(d.id)?.hours ?? 0), 0);
+  // Keep the persisted daily_available_hours in lockstep with what's shown.
+  useEffect(() => {
+    const next = selectedDays.map(({ id, hours }) => ({ day: id, hours }));
+    const same =
+      next.length === dailyAvailable.length &&
+      next.every((n) => dailyMap.get(n.day)?.hours === n.hours);
+    if (!same) onDailyAvailableChange(next);
+  }, [selectedDays, dailyAvailable, dailyMap, onDailyAvailableChange]);
+
+  const weekly = selectedDays.reduce((s, d) => s + d.hours, 0);
   const monthly = useMemo(() => {
-    const now = new Date();
-    const total = ALL_DAYS.reduce(
-      (s, d) => s + (dailyMap.get(d.id)?.hours ?? 0) * monthlyOccurrences(d.id, now),
+    const total = selectedDays.reduce(
+      (s, d) => s + d.hours * monthlyOccurrences(d.id, new Date()),
       0
     );
     return +total.toFixed(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dailyAvailable]);
+  }, [selectedDays]);
 
   const renderGroup = (title: string, group: typeof WEEKDAYS) => {
     const hasSelection = group.some((d) => officeMap.has(d.id));
@@ -239,14 +244,14 @@ export default function PartnerProgramPreference({
         </div>
       </div>
 
-      {/* Daily Available Hours — how many hours you'll actually commit.
-          Independent of the office-hours window above. */}
+      {/* Daily Available Hours — derived from the selected days' office-hours
+          windows above; read-only. */}
       <div>
         <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
           Daily Available Hours <span className="text-red-500">*</span>
         </h3>
         <p className="mb-4 mt-1 text-sm text-[#737373]">
-          How many hours can you actually commit each day? This is separate from your office-hours window.
+          Calculated automatically from the days and office-hours window you set above.
         </p>
 
         <div className="space-y-4">
@@ -265,27 +270,23 @@ export default function PartnerProgramPreference({
             </div>
           </div>
 
-          <div className="divide-y divide-gray-100 rounded-lg border border-gray-200">
-            {ALL_DAYS.map((d) => (
-              <div key={d.id} className="flex items-center justify-between px-4 py-3">
-                <div className="text-sm font-medium text-gray-700">{d.label}</div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    max={24}
-                    step={0.5}
-                    value={dailyMap.get(d.id)?.hours ?? ''}
-                    onChange={(e) => setDayHours(d.id, e.target.value)}
-                    placeholder="0"
-                    className="w-20 rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/20"
-                    aria-label={`${d.label} available hours`}
-                  />
-                  <span className="text-xs text-gray-500">hrs</span>
+          {selectedDays.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-400">
+              Select your available days above and your hours will show up here.
+            </p>
+          ) : (
+            <div className="divide-y divide-gray-100 rounded-lg border border-gray-200">
+              {selectedDays.map((d) => (
+                <div key={d.id} className="flex items-center justify-between px-4 py-3">
+                  <div className="text-sm font-medium text-gray-700">{d.label}</div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm font-semibold text-[#0a0a0a]">{fmt(d.hours)}</span>
+                    <span className="text-xs text-gray-500">hrs</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
