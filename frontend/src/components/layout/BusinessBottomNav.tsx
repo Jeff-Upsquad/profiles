@@ -137,14 +137,14 @@ export default function BusinessBottomNav() {
               <div key={item.href} className="relative">
                 <Link
                   href={item.href}
-                  className={`flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+                  className={`flex flex-col items-center gap-0.5 rounded-lg px-1.5 py-1.5 text-[10px] font-medium leading-tight transition-colors ${
                     active
                       ? 'text-[#0a0a0a]'
                       : 'text-zinc-500 hover:text-zinc-900'
                   }`}
                 >
                   <span className={active ? 'text-[#0a0a0a]' : ''}>{item.icon}</span>
-                  {item.label}
+                  <span className="whitespace-nowrap">{item.label}</span>
                 </Link>
 
                 {isSquadHub && showSquadHubTip && (
