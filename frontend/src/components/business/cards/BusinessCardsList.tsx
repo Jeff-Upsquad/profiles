@@ -64,7 +64,14 @@ export default function BusinessCardsList({
   const effectiveFilter: FilterKey =
     filter === 'all' || (counts[filter] ?? 0) > 0 ? filter : 'all';
 
-  // Group by status in workflow order. "All" shows every non-empty group;
+  // Statuses visible in the "All" tab — only open (pre-assigned) and active
+  // (assigned). Terminal states (paused, filled, cancelled, closed) live in
+  // their own tabs.
+  const ALL_TAB_STATUSES: ActivityStatus[] = [
+    'submitted', 'open', 'sourcing', 'interviewing', 'active',
+  ];
+
+  // Group by status in workflow order. "All" shows only open + active groups;
   // a specific status tab shows only that group.
   const groups = useMemo(() => {
     const byStatus = new Map<ActivityStatus, HireActivityItem[]>();
@@ -75,7 +82,7 @@ export default function BusinessCardsList({
     }
     const order =
       effectiveFilter === 'all'
-        ? STATUS_FILTER_ORDER
+        ? ALL_TAB_STATUSES
         : STATUS_FILTER_ORDER.filter((s) => s === effectiveFilter);
     return order
       .filter((s) => (byStatus.get(s)?.length ?? 0) > 0)

@@ -53,8 +53,8 @@ export const STATUS_FILTER_ORDER: ActivityStatus[] = [
   'active',
   'paused',
   'filled',
-  'closed',
   'cancelled',
+  'closed',
 ];
 
 // ─── Mappers ─────────────────────────────────────────────────────────────────
