@@ -47,12 +47,14 @@ export default function BusinessCardsList({
     return c;
   }, [visibleItems]);
 
-  // Only show status tabs that have at least one card (plus All), so empty
-  // statuses don't clutter the bar. Keep the active tab even if its count
-  // drops to 0 while the user is looking at it.
+  // These tabs are always visible even when empty, so the business can see
+  // at a glance that no cards are in those terminal/paused states.
+  const ALWAYS_SHOW_STATUSES: ActivityStatus[] = ['paused', 'closed', 'cancelled'];
+
+  // Show tabs with cards, the active tab, and always-visible statuses.
   const tabs = useMemo(() => {
     const statusTabs = STATUS_FILTER_ORDER.filter(
-      (s) => (counts[s] ?? 0) > 0 || filter === s,
+      (s) => (counts[s] ?? 0) > 0 || filter === s || ALWAYS_SHOW_STATUSES.includes(s),
     ).map((s) => ({ key: s as FilterKey, label: STATUS_STYLES[s].label }));
     return [{ key: 'all' as const, label: 'All' }, ...statusTabs];
   }, [counts, filter]);
