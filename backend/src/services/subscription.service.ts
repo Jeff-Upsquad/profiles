@@ -14,6 +14,8 @@ import { phoneMatchSuffix } from '../lib/phone.js';
 import {
   businessAmountFromOffer,
   partnerAmountFromOffer,
+  resolveCardMargin,
+  partnerFromBusiness,
 } from './assignment-offers.service.js';
 import type {
   IngestPendingBriefInput,
@@ -1068,12 +1070,31 @@ export async function listForTalent(
 
   return rows.map((r: any) => {
     const c = r.subscription_cards;
+    let cardContent = c?.content ?? {};
+
+    // Compute partner (talent) price from margin fields so talent always sees
+    // the correct pay figure, regardless of what SquadHub stamped into
+    // monthly_price.
+    if (cardContent && typeof cardContent === 'object') {
+      const businessPrice =
+        typeof cardContent.customer_monthly_price === 'number'
+          ? cardContent.customer_monthly_price
+          : typeof cardContent.proposed_price === 'number'
+            ? cardContent.proposed_price
+            : null;
+      if (businessPrice != null && businessPrice > 0) {
+        const margin = resolveCardMargin(cardContent, businessPrice);
+        const partnerPrice = Math.max(0, Math.round(businessPrice - margin));
+        cardContent = { ...cardContent, monthly_price: partnerPrice };
+      }
+    }
+
     const card =
       c && signals
         ? {
             ...c,
             content: {
-              ...(c.content ?? {}),
+              ...cardContent,
               viewer_match: buildViewerMatch(c.content, c.match_rules, signals),
             },
           }

@@ -73,8 +73,50 @@ class SubscriptionCard {
   String? get priceLabel => content['price_label'] as String?;
   String? get notes => content['notes'] as String?;
   String? get ctaLabel => content['cta_label'] as String?;
-  num? get monthlyPrice => content['monthly_price'] as num?;
   String? get currency => content['currency'] as String?;
+
+  /// Partner (talent) price. If margin fields are present, compute from the
+  /// business budget so the talent always sees their actual pay, regardless of
+  /// what was stamped into `monthly_price` by the upstream system.
+  num? get monthlyPrice {
+    // Business-side budget (what the client pays).
+    final businessPrice = (content['customer_monthly_price'] as num?) ??
+        (content['proposed_price'] as num?);
+    if (businessPrice != null && businessPrice > 0) {
+      final margin = _resolveMargin(businessPrice);
+      final partner = (businessPrice - margin).round();
+      return partner > 0 ? partner : content['monthly_price'] as num?;
+    }
+    return content['monthly_price'] as num?;
+  }
+
+  /// Compute the absolute margin amount from the card's margin fields.
+  num _resolveMargin(num businessBase) {
+    final marginType = content['margin_type'] == 'percent' ? 'percent' : 'fixed';
+    final marginValue = content['margin_value'] as num?;
+
+    if (marginType == 'percent' && marginValue != null && businessBase > 0) {
+      // Ceiling to nearest 100, matching the backend ceilToHundred helper.
+      final raw = (businessBase * marginValue) / 100;
+      return (raw / 100).ceil() * 100;
+    }
+
+    final marginAmount = content['margin_amount'] as num?;
+    if (marginAmount != null && marginAmount >= 0) return marginAmount;
+
+    if (marginType == 'fixed' && marginValue != null && marginValue >= 0) {
+      return marginValue;
+    }
+
+    // Fallback: customer - partner gap.
+    final customer = content['customer_monthly_price'] as num?;
+    final partner = content['monthly_price'] as num?;
+    if (customer != null && partner != null && customer >= partner) {
+      return customer - partner;
+    }
+
+    return 0;
+  }
   List<dynamic>? get customDeliverables =>
       content['custom_deliverables'] as List<dynamic>?;
   List<dynamic>? get workingDays =>

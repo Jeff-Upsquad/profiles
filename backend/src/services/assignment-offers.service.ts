@@ -101,7 +101,7 @@ function ceilToHundred(amount: number): number {
  * Prefer fixed margin_amount / margin_value; percent re-applies to base;
  * fall back to list customer − partner when both are set.
  */
-function resolveCardMargin(
+export function resolveCardMargin(
   content: Record<string, unknown> | null | undefined,
   businessBase: number | null,
 ): number {
@@ -169,7 +169,7 @@ function businessFromPartner(
 }
 
 /** Partner (talent) figure implied by a business amount. */
-function partnerFromBusiness(
+export function partnerFromBusiness(
   businessAmount: number,
   content: Record<string, unknown> | null | undefined,
 ): number {
