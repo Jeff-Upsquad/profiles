@@ -6,6 +6,7 @@ import { AppError } from '../middleware/errorHandler.middleware.js';
 import { markInvitationAccepted } from './invite.service.js';
 import { hashPassword, comparePassword, generateTempPassword } from '../lib/password.js';
 import { phoneMatchSuffix } from '../lib/phone.js';
+import { pushCrmIdentityNames } from '../lib/crm-identity-names.js';
 
 const SESSION_DURATION_HOURS = 24;
 
@@ -109,6 +110,8 @@ async function afterBusinessSignupEmailLinked(input: {
   businessUserId: string;
   email: string;
   phone: string;
+  person_name?: string | null;
+  brand_name?: string | null;
 }): Promise<void> {
   const email = input.email.trim().toLowerCase();
   if (!email) return;
@@ -153,6 +156,13 @@ async function afterBusinessSignupEmailLinked(input: {
   } catch (err) {
     console.error('[business-auth] CRM email-backfill request failed', err);
   }
+
+  await pushCrmIdentityNames({
+    phone: input.phone,
+    email,
+    person_name: input.person_name,
+    brand_name: input.brand_name,
+  });
 }
 
 // Login result is discriminated: `needs_signup` means a provisioned/invited
@@ -314,6 +324,8 @@ export async function businessSignup(input: {
       businessUserId: created.id as string,
       email,
       phone,
+      person_name: input.name,
+      brand_name: input.company_name,
     });
 
     return { status: 'ok' as const, ...(await issueBusinessSession(created)) };
@@ -352,6 +364,8 @@ export async function businessSignup(input: {
     businessUserId: updated.id as string,
     email,
     phone,
+    person_name: input.name,
+    brand_name: input.company_name,
   });
 
   return { status: 'ok' as const, ...(await issueBusinessSession(updated)) };

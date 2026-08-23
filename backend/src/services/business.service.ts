@@ -5,6 +5,7 @@ import { getTalentTiersByUserIds } from './talent-tier.service.js';
 import { adminSelectRecipient, adminUndoSelection } from './subscription.service.js';
 import { businessAmountFromOffer } from './assignment-offers.service.js';
 import { cancelPaymentLink } from './razorpay.service.js';
+import { pushCrmIdentityNames } from '../lib/crm-identity-names.js';
 
 // ─── Business User ──────────────────────────────────────────────────────────
 
@@ -28,6 +29,16 @@ export async function updateBusinessUser(userId: string, input: UpdateBusinessUs
     .single();
 
   if (error) throw new AppError(400, error.message);
+
+  if (input.contact_person_name || input.company_name) {
+    void pushCrmIdentityNames({
+      phone: (data as { contact_phone?: string | null }).contact_phone,
+      email: (data as { contact_email?: string | null }).contact_email,
+      person_name: input.contact_person_name,
+      brand_name: input.company_name,
+    });
+  }
+
   return data;
 }
 
