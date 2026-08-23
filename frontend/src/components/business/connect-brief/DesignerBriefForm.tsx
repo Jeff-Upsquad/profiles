@@ -132,11 +132,8 @@ const COUNTRY_CODES = [
   { code: '+86', flag: '🇨🇳' },
 ];
 
-// Multi-select roles. Mirrors upsquadconnect.com's three service-type pills
-// (Designers / Editors / Designer plus Editor). At submit time, any
-// combination collapses to a single canonical service_type — picking
-// "Designer plus Editor" OR picking both Designer + Editor both map to
-// the hybrid service_type.
+// Multi-select roles. Designer + Editor (hybrid) is kept in the type/payload
+// map so it can be re-enabled, but is hidden from the picker for now.
 type RoleSlug = 'designer' | 'editor' | 'designer_plus_editor';
 type ServiceType = 'designer' | 'video_editor' | 'designer_video_editor';
 
@@ -144,6 +141,7 @@ const ROLE_OPTIONS: {
   slug: RoleSlug;
   title: string;
   description: string;
+  hidden?: boolean;
 }[] = [
   {
     slug: 'designer',
@@ -159,8 +157,12 @@ const ROLE_OPTIONS: {
     slug: 'designer_plus_editor',
     title: 'Designer + Editor',
     description: 'One person who does both — design work and video editing — instead of hiring two separate specialists.',
+    hidden: true,
   },
 ];
+
+const VISIBLE_ROLE_OPTIONS = ROLE_OPTIONS.filter((o) => !o.hidden);
+const VISIBLE_ROLE_SLUGS = new Set(VISIBLE_ROLE_OPTIONS.map((o) => o.slug));
 
 function rolesToServiceType(roles: RoleSlug[]): ServiceType | null {
   const hasDesigner = roles.includes('designer');
@@ -331,7 +333,9 @@ export default function DesignerBriefForm({
       const raw = window.localStorage.getItem(draftKey);
       if (raw) {
         const d = JSON.parse(raw);
-        if (Array.isArray(d.roles)) setRoles(d.roles);
+        if (Array.isArray(d.roles)) {
+          setRoles(d.roles.filter((r: RoleSlug) => VISIBLE_ROLE_SLUGS.has(r)));
+        }
         if (d.form) setForm((prev) => ({ ...prev, ...d.form }));
         if (d.roleRequirements) setRoleRequirements(d.roleRequirements);
         if (d.pricingMode) setPricingMode(d.pricingMode);
@@ -688,7 +692,7 @@ export default function DesignerBriefForm({
               What do you need?
             </h2>
             <p className="mb-2 max-w-md text-center text-sm text-[#5C5C5C]">
-              Designers create static visuals, Editors craft motion and video, or pick a hybrid who does both.
+              Designers create static visuals. Editors craft motion and video.
             </p>
             <p className="mb-6 inline-flex items-center gap-1.5 rounded-full border border-[#0a0a0a] bg-[#F2FCBC] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
               <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
@@ -698,7 +702,7 @@ export default function DesignerBriefForm({
             </p>
 
             <div className="mb-2 inline-flex flex-wrap justify-center gap-2">
-              {ROLE_OPTIONS.map((opt) => {
+              {VISIBLE_ROLE_OPTIONS.map((opt) => {
                 const selected = roles.includes(opt.slug);
                 return (
                   <button
@@ -725,7 +729,7 @@ export default function DesignerBriefForm({
               </p>
             ) : (
               <div className="mt-4 w-full max-w-md space-y-2">
-                {ROLE_OPTIONS.filter((o) => roles.includes(o.slug)).map((opt) => (
+                {VISIBLE_ROLE_OPTIONS.filter((o) => roles.includes(o.slug)).map((opt) => (
                   <div key={opt.slug} className="connect-role-card">
                     <div className="mb-1.5 flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full bg-[#FCF487] ring-1 ring-[#0a0a0a]" />
@@ -779,7 +783,7 @@ export default function DesignerBriefForm({
             {/* Selected category — always visible on top. */}
             <CategoryBanner
               product={product}
-              roles={ROLE_OPTIONS.filter((o) => roles.includes(o.slug))}
+              roles={VISIBLE_ROLE_OPTIONS.filter((o) => roles.includes(o.slug))}
               onEdit={() => setStep(1)}
             />
 
@@ -995,7 +999,7 @@ export default function DesignerBriefForm({
                   </div>
                 </div>
               )}
-              {ROLE_OPTIONS.filter((o) => roles.includes(o.slug)).map((opt) => {
+              {VISIBLE_ROLE_OPTIONS.filter((o) => roles.includes(o.slug)).map((opt) => {
                 const req = roleRequirements[opt.slug];
                 return (
                   <div key={opt.slug} className="connect-role-req overflow-hidden">
