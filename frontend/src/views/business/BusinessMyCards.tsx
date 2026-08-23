@@ -35,7 +35,7 @@ export default function BusinessMyCards() {
         isLoading={isLoading}
         isError={isError}
         title="All cards"
-        subtitle="Filter by status — submitted, open, active, cancelled, and more."
+        subtitle="Filter by status — submitted, open, active, paused, closed, cancelled, and more."
       />
 
       {hasAssignedCard && (

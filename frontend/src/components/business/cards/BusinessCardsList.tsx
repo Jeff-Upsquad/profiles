@@ -38,12 +38,7 @@ export default function BusinessCardsList({
 }) {
   const [filter, setFilter] = useState<FilterKey>('all');
 
-  // Belt-and-suspenders: cancelled cards are already dropped in useHireActivity,
-  // but keep the list clean if items are passed in from elsewhere (e.g. previews).
-  const visibleItems = useMemo(
-    () => items.filter((i) => i.status !== 'cancelled'),
-    [items],
-  );
+  const visibleItems = items;
 
   const counts = useMemo(() => {
     const c: Record<FilterKey, number> = { all: visibleItems.length } as Record<FilterKey, number>;

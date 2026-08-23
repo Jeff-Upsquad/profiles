@@ -44,8 +44,7 @@ export interface HireActivityItem {
 /** Tab filter on My Cards / Your activity — by lifecycle status, not product type. */
 export type FilterKey = 'all' | ActivityStatus;
 
-/** Display order for status filter tabs (workflow-ish left → right).
- *  Cancelled is intentionally omitted — cancelled cards are hidden from the list. */
+/** Display order for status filter tabs (workflow-ish left → right). */
 export const STATUS_FILTER_ORDER: ActivityStatus[] = [
   'submitted',
   'open',
@@ -55,6 +54,7 @@ export const STATUS_FILTER_ORDER: ActivityStatus[] = [
   'paused',
   'filled',
   'closed',
+  'cancelled',
 ];
 
 // ─── Mappers ─────────────────────────────────────────────────────────────────
@@ -288,9 +288,7 @@ export function useHireActivity({
             ...mapSubCards(asgQuery.data ?? [], 'assignment'),
             ...mapJobCards(jobQuery.data ?? []),
           ];
-    // Cancelled cards stay out of My Cards / Your activity — they clutter the
-    // list and aren't actionable. Closed/filled job posts still show.
-    return raw.filter((i) => i.status !== 'cancelled');
+    return raw;
   }, [activity, preview, subQuery.data, asgQuery.data, jobQuery.data]);
 
   const isLoading =
