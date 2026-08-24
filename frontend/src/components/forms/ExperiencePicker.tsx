@@ -116,7 +116,7 @@ export default function ExperiencePicker({ value, onChange }: ExperiencePickerPr
                     label="Company Name"
                     value={entry.company_name}
                     onChange={(e) => updateEntry(i, 'company_name', e.target.value)}
-                    placeholder="e.g. Acme Corp, Infosys"
+                    placeholder="e.g. Acme Corp, Infosys, Freelancer"
                   />
                   <Input
                     label="Designation"

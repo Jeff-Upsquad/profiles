@@ -29,7 +29,7 @@ export default function ExperiencePickerPreview() {
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Company Name</label>
-            <input disabled placeholder="e.g. Acme Corp, Infosys" className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm opacity-60 placeholder:text-gray-400" />
+            <input disabled placeholder="e.g. Acme Corp, Infosys, Freelancer" className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm opacity-60 placeholder:text-gray-400" />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Designation</label>
