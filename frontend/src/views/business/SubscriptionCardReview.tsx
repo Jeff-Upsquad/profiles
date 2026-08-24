@@ -272,9 +272,19 @@ export default function SubscriptionCardReview({
   const title = card.subscription_name && titleLead !== card.subscription_name
     ? `${titleLead} · ${card.subscription_name}`
     : titleLead;
-  const price = formatPrice(card.customer_monthly_price, card.currency);
-  // Assignments are one-off projects — show the budget without the "/mo" suffix.
-  const priceDisplay = isAssignment && price ? price.replace(/\/mo$/, '') : price;
+  // Per-level prices for the brief — one row per experience level with the
+  // budget the client set for it. Falls back to the card's own price for
+  // single-tier cards that never carried a per-tier breakdown.
+  const levelPrices: Array<{ tier: string; price: number | null }> = card.tier_prices?.length
+    ? card.tier_prices.map((t) => ({ tier: t.tier, price: t.price }))
+    : card.target_tiers.length === 1 && card.customer_monthly_price != null
+      ? [{ tier: card.target_tiers[0], price: card.customer_monthly_price }]
+      : card.target_tiers.map((t) => ({ tier: t, price: null }));
+  // Assignments are one-off projects — show the level budgets without "/mo".
+  const levelPrice = (n: number) => {
+    const p = formatPrice(n, card.currency);
+    return isAssignment && p ? p.replace(/\/mo$/, '') : p;
+  };
   const timeline = card.assignment_details ?? null;
   // Assignment is per tier sibling (grouped briefs assign each tier
   // independently), so read activation per selected recipient — their own tier
@@ -318,8 +328,20 @@ export default function SubscriptionCardReview({
             <h1 className="truncate font-[family-name:var(--font-jakarta)] text-lg font-semibold text-[#0a0a0a]">
               {title}
             </h1>
-            {card.plan_name && (
-              <p className="mt-0.5 text-sm text-[#737373]">{card.plan_name}</p>
+            {(card.plan_name || card.categories.length > 0) && (
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                {card.plan_name && (
+                  <span className="text-sm text-[#737373]">{card.plan_name}</span>
+                )}
+                {card.categories.map((cat) => (
+                  <span
+                    key={cat.id}
+                    className="rounded-full bg-[#F1F1F3] px-2.5 py-0.5 text-[11px] font-medium text-[#0a0a0a]"
+                  >
+                    {cat.name}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -333,77 +355,40 @@ export default function SubscriptionCardReview({
                 {card.recalled_at ? 'Recalled' : 'Closed'}
               </span>
             )}
-            {price && (
-              <span className="rounded-full bg-[#FFFAC2] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
-                {priceDisplay}
-              </span>
-            )}
           </div>
         </div>
 
-        {card.categories.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {card.categories.map((cat) => (
-              <span
-                key={cat.id}
-                className="rounded-full bg-[#F1F1F3] px-2.5 py-0.5 text-[11px] font-medium text-[#0a0a0a]"
-              >
-                {cat.name}
-              </span>
-            ))}
-          </div>
+        {/* === Plan & levels === one price per experience level (the budgets
+            the client set) instead of a single headline budget figure. */}
+        {levelPrices.length > 0 && (
+          <Section title={isAssignment ? 'Levels & budget' : 'Plan & levels'}>
+            <ul className="space-y-1.5">
+              {levelPrices.map((l) => (
+                <li key={l.tier} className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="font-medium text-[#0a0a0a]">{l.tier}</span>
+                  <span className="font-semibold text-[#0a0a0a]">
+                    {l.price != null ? levelPrice(l.price) : '—'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Section>
         )}
 
-        {/* === Subscription / Assignment === plan, tier, hours, working days, deliverables */}
-        <Section title={isAssignment ? 'Assignment' : 'Subscription'}>
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
-            {card.subscription_name && (
-              <DetailRow label="Service">{card.subscription_name}</DetailRow>
-            )}
-            {card.plan_name && (
-              <DetailRow label="Plan">{card.plan_name}</DetailRow>
-            )}
-            {card.target_tiers.length > 0 && (
-              <DetailRow label={card.target_tiers.length === 1 ? 'Tier' : 'Tiers'}>
-                {card.target_tiers.join(', ')}
-              </DetailRow>
-            )}
-            {card.hours_label && (
-              <DetailRow label="Availability">{card.hours_label}</DetailRow>
-            )}
-            {!isAssignment && card.working_days && card.working_days.length > 0 && (
-              <DetailRow label="Working days">{card.working_days.join(', ')}</DetailRow>
-            )}
-          </dl>
-          {card.custom_deliverables.length > 0 && (
-            <div className="mt-3">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3]">
-                Custom deliverables
-              </p>
-              <ul className="mt-1.5 space-y-1 text-sm text-[#0a0a0a]">
-                {card.custom_deliverables.map((d, i) => {
-                  const cadence = [
-                    d.per_day ? `${d.per_day}/day` : null,
-                    d.per_week ? `${d.per_week}/week` : null,
-                    d.per_month ? `${d.per_month}/month` : null,
-                  ].filter(Boolean).join(' · ');
-                  return (
-                    <li key={d.id ?? i} className="flex items-baseline gap-2">
-                      <span className="font-medium">{d.name || '—'}</span>
-                      {cadence && <span className="text-xs text-[#737373]">{cadence}</span>}
-                      {d.kind && <span className="text-[10px] text-[#a3a3a3] uppercase">{d.kind}</span>}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-        </Section>
-
-        {/* === Location & languages === */}
-        {(card.target_regions.length > 0 || card.target_languages.length > 0) && (
-          <Section title="Location & languages">
+        {/* === Details === availability, schedule, location and languages in
+            one compact grid (service/plan live in the title + subtitle). */}
+        {(card.hours_label ||
+          (card.working_days && card.working_days.length > 0) ||
+          card.target_regions.length > 0 ||
+          card.target_languages.length > 0) && (
+          <Section title="Details">
             <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+              {card.hours_label && (
+                <DetailRow label="Availability">{card.hours_label}</DetailRow>
+              )}
+              {!isAssignment && card.working_days && card.working_days.length > 0 && (
+                <DetailRow label="Working days">{card.working_days.join(', ')}</DetailRow>
+              )}
               {card.target_regions.length > 0 && (
                 <DetailRow label={card.target_regions.length === 1 ? 'Region' : 'Regions'}>
                   {card.target_regions.map((r) => r.region).join(', ')}
@@ -418,10 +403,25 @@ export default function SubscriptionCardReview({
           </Section>
         )}
 
-        {/* === Budget === */}
-        {price && (
-          <Section title={isAssignment ? 'Project budget' : 'Budget'}>
-            <p className="text-lg font-semibold text-[#0a0a0a]">{priceDisplay}</p>
+        {/* === Custom deliverables === */}
+        {card.custom_deliverables.length > 0 && (
+          <Section title="Custom deliverables">
+            <ul className="space-y-1 text-sm text-[#0a0a0a]">
+              {card.custom_deliverables.map((d, i) => {
+                const cadence = [
+                  d.per_day ? `${d.per_day}/day` : null,
+                  d.per_week ? `${d.per_week}/week` : null,
+                  d.per_month ? `${d.per_month}/month` : null,
+                ].filter(Boolean).join(' · ');
+                return (
+                  <li key={d.id ?? i} className="flex items-baseline gap-2">
+                    <span className="font-medium">{d.name || '—'}</span>
+                    {cadence && <span className="text-xs text-[#737373]">{cadence}</span>}
+                    {d.kind && <span className="text-[10px] text-[#a3a3a3] uppercase">{d.kind}</span>}
+                  </li>
+                );
+              })}
+            </ul>
           </Section>
         )}
 
@@ -1118,10 +1118,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  // Mobile: label and value share one line (wrapping) so rows don't stack into
+  // a tall column. sm+: back to the stacked label-above-value 2-col grid look.
   return (
-    <div>
-      <dt className="text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3]">{label}</dt>
-      <dd className="text-sm text-[#0a0a0a]">{children}</dd>
+    <div className="flex items-baseline gap-2 sm:block">
+      <dt className="shrink-0 text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3]">
+        {label}
+      </dt>
+      <dd className="min-w-0 text-sm text-[#0a0a0a]">{children}</dd>
     </div>
   );
 }

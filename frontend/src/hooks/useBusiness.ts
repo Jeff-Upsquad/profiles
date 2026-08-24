@@ -192,6 +192,9 @@ export interface BusinessSubscriptionCardDetail {
    *  Descriptive only; presence-matched against talents for reference. */
   additional_requirements: Record<string, string[]> | null;
   target_tiers: string[];
+  /** One price per experience level (the budgets the client set per tier),
+   *  ordered junior → top. Empty when no tier carried a price. */
+  tier_prices?: Array<{ tier: string; plan_name: string | null; price: number }>;
   target_languages: string[];
   target_regions: Array<{ country_id: string; region: string }>;
   custom_deliverables: Array<{

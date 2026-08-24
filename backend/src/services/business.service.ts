@@ -1273,6 +1273,21 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
   // business dashboard can render a complete subscription summary.
   const matchRules = ((card as any).match_rules ?? {}) as Record<string, unknown>;
 
+  // Per-level pricing: a multi-tier brief is one sibling card per tier, each
+  // priced individually. Collect every level's price so the review header can
+  // show "Junior ₹3,000/mo · Pro ₹5,000/mo" instead of a single budget figure.
+  const priceByTier = new Map<string, { plan_name: string | null; price: number }>();
+  const collectTierPrice = (c: Record<string, unknown>) => {
+    const tier = typeof c.plan_tier === 'string' ? c.plan_tier.trim() : '';
+    const price = typeof c.customer_monthly_price === 'number' ? c.customer_monthly_price : null;
+    if (!tier || price == null || priceByTier.has(tier)) return;
+    priceByTier.set(tier, {
+      plan_name: typeof c.plan_name === 'string' && c.plan_name ? c.plan_name : null,
+      price,
+    });
+  };
+  collectTierPrice(content);
+
   // For a multi-tier brief, this card is one tier sibling. Surface the union of
   // the group's tiers so the header reads "Junior · Pro · Top Talents" and the
   // review page can offer a sub-tab per tier (the per-talent prices come from
@@ -1288,6 +1303,7 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
     const tierSet = new Set<string>();
     for (const s of siblings ?? []) {
       const sc = ((s as any).content ?? {}) as Record<string, unknown>;
+      collectTierPrice(sc);
       if (typeof sc.plan_tier === 'string' && sc.plan_tier) tierSet.add(sc.plan_tier);
       const sm = ((s as any).match_rules ?? {}) as Record<string, unknown>;
       if (Array.isArray(sm.target_tiers)) {
@@ -1325,6 +1341,11 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
         ? (content.additional_requirements as Record<string, string[]>)
         : null,
     target_tiers: targetTiers,
+    // One price per experience level (the budgets the client set per tier),
+    // ordered junior → top. Empty when no tier carried a price.
+    tier_prices: Array.from(priceByTier.entries())
+      .map(([tier, v]) => ({ tier, plan_name: v.plan_name, price: v.price }))
+      .sort((a, b) => tierRankOf(a.tier) - tierRankOf(b.tier)),
     target_languages: Array.isArray(matchRules.target_languages) ? (matchRules.target_languages as string[]) : [],
     target_regions: Array.isArray(matchRules.target_regions)
       ? (matchRules.target_regions as Array<{ country_id: string; region: string }>)
