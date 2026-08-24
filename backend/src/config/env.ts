@@ -103,6 +103,11 @@ const envSchema = z.object({
   // is silently disabled.
   SQUADHIRE_CRM_SYSTEM_EVENTS_URL: z.string().url().optional(),
 
+  // SquadHire CRM API origin (no trailing slash), e.g. https://shcrm-api.squadhub.in.
+  // Used to stamp talent names onto matched CRM leads after signup / account
+  // settings. When unset, derived from SQUADHIRE_CRM_SYSTEM_EVENTS_URL's origin.
+  SQUADHIRE_CRM_API_URL: z.string().url().optional(),
+
   // Profiles → original Squad CRM: outbound URL for BUSINESS system-event
   // notifications (e.g. business login/password verification codes). Business
   // codes route here (talent codes stay on SQUADHIRE_CRM_SYSTEM_EVENTS_URL);

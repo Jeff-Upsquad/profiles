@@ -103,6 +103,17 @@ export async function signupTalent(input: SignupTalentInput) {
     console.error('[automation] onCandidateSignedUp failed:', e);
   }
 
+  try {
+    const { pushShcrmIdentityNames } = await import('../lib/crm-identity-names.js');
+    await pushShcrmIdentityNames({
+      phone: profileData.phone ?? null,
+      email,
+      person_name: full_name,
+    });
+  } catch (e) {
+    console.error('[shcrm-identity-names] talent signup sync failed:', e);
+  }
+
   return { message: 'Account created successfully. Please sign in to continue.' };
 }
 

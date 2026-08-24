@@ -8,6 +8,7 @@ import {
   isGhostSourceCategory,
   syncGhostForTalent,
 } from './ghost-profile.service.js';
+import { pushShcrmIdentityNames } from '../lib/crm-identity-names.js';
 
 // ---------------------------------------------------------------------------
 // Talent User
@@ -58,6 +59,14 @@ export async function updateTalentUser(userId: string, input: UpdateTalentUserIn
     .single();
 
   if (error || !data) throw new AppError(404, 'Talent user not found');
+
+  if (input.full_name) {
+    void pushShcrmIdentityNames({
+      phone: (data as { phone?: string | null }).phone,
+      person_name: input.full_name,
+    });
+  }
+
   return data;
 }
 
