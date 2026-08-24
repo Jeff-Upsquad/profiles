@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/constants.dart';
 import '../../core/launchers.dart';
 import '../../core/theme.dart';
@@ -192,6 +193,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               () => _obscurePassword = !_obscurePassword,
                             ),
                           ),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => context.push('/forgot-password'),
+                          child: const Text('Forgot password?'),
                         ),
                       ),
                     ],

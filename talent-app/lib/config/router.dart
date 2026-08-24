@@ -5,6 +5,7 @@ import '../providers/providers.dart';
 import '../models/subscription_card.dart';
 import '../features/auth/splash_screen.dart';
 import '../features/auth/login_screen.dart';
+import '../features/auth/forgot_password_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/jobs/job_detail_screen.dart';
 import '../features/jobs/job_profile_screen.dart';
@@ -60,11 +61,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
       final isSplash = loc == '/splash';
       final isLogin = loc == '/login';
+      // Password reset is a pre-auth surface: reachable while signed out,
+      // and once signed in mid-wizard there's no reason to go back to it.
+      final isForgotPassword = loc == '/forgot-password';
 
       if (authState.status == AuthStatus.unknown) return null;
-      if (!isAuth && !isSplash && !isLogin) return '/login';
+      if (!isAuth && !isSplash && !isLogin && !isForgotPassword) return '/login';
       if (!isAuth && isSplash) return '/login';
-      if (isAuth && (isSplash || isLogin)) return '/home';
+      if (isAuth && (isSplash || isLogin || isForgotPassword)) return '/home';
 
       // Legacy 5-tab paths land on the matching Home inner tab.
       if (loc == '/jobs') return '/home?tab=jobs';
@@ -74,6 +78,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (_, _) => const ForgotPasswordScreen(),
+      ),
 
       // Compatibility aliases so existing go/push calls keep working.
       GoRoute(path: '/jobs', redirect: (_, _) => '/home?tab=jobs'),

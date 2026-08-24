@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/secure_storage.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
+import '../services/password_reset_service.dart';
 import '../services/subscription_service.dart';
 import '../services/talent_service.dart';
 import '../services/push_service.dart';
@@ -22,6 +23,10 @@ final apiClientProvider = Provider((ref) {
 
 final authServiceProvider = Provider((ref) {
   return AuthService(ref.watch(apiClientProvider));
+});
+
+final passwordResetServiceProvider = Provider((ref) {
+  return PasswordResetService(ref.watch(apiClientProvider));
 });
 
 final subscriptionServiceProvider = Provider((ref) {
@@ -136,6 +141,21 @@ class AuthNotifier extends Notifier<AuthState> {
     final storage = ref.read(secureStorageProvider);
     await storage.clearTokens();
     state = const AuthState(status: AuthStatus.unauthenticated);
+  }
+
+  /// Adopts a session obtained outside the login form — currently only the
+  /// WhatsApp password-reset wizard, which signs the user in with the temp
+  /// password before collecting a new one. Mirrors the web's
+  /// `applyResetSession`: persist tokens immediately so the router redirect
+  /// lands the user in the app; [refreshUser] then swaps in the full profile
+  /// (the reset payload carries only id/email/role).
+  Future<void> applySession(AuthResponse response) async {
+    final storage = ref.read(secureStorageProvider);
+    await storage.saveTokens(
+      accessToken: response.accessToken,
+      refreshToken: response.refreshToken,
+    );
+    state = AuthState(status: AuthStatus.authenticated, user: response.user);
   }
 
   /// Re-fetch the authenticated user (e.g. after editing name in Settings) so
