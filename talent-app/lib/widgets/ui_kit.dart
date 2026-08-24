@@ -944,6 +944,9 @@ class BrutalPrimaryButton extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
           decoration: BoxDecoration(
+            // Fill is required: without it the solid offset shadow paints
+            // over the yellow Material and the button renders black-on-black.
+            color: AppColors.accent,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.primary, width: 2),
             boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(4, 4))],
