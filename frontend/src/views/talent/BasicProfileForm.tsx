@@ -430,6 +430,15 @@ export default function BasicProfileForm() {
       const validEntries = educationCourses.filter(
         (e) => e.course_name.trim() || e.institution.trim()
       );
+      // The backend rejects rows whose from/to dates are missing — and since a
+      // save sends the whole payload, one incomplete row would fail everything.
+      const missingDates = validEntries.some(
+        (e) => !e.from_year || !e.from_month || !e.to_year || !e.to_month
+      );
+      if (missingDates) {
+        toast.error('Select From and To month & year for every education entry');
+        return;
+      }
       saveMutation.mutate({ education_courses: validEntries.length > 0 ? validEntries : null } as any);
       return;
     }
@@ -438,6 +447,13 @@ export default function BasicProfileForm() {
       const validEntries = experienceEntries.filter(
         (e) => e.company_name.trim() || e.designation.trim()
       );
+      const missingDates = validEntries.some(
+        (e) => !e.from_year || !e.from_month || !e.to_year || !e.to_month
+      );
+      if (missingDates) {
+        toast.error('Select From and To month & year for every experience entry');
+        return;
+      }
       saveMutation.mutate({ experience: validEntries.length > 0 ? validEntries : null } as any);
       return;
     }

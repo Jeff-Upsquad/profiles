@@ -61,6 +61,7 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
       final me = await ref.read(talentServiceProvider).getMe();
       final prefs = await ref.read(jobsServiceProvider).getOptIn();
       _p = bp;
+      _sameAsOfficial = _inferSameAsOfficial();
       _fullName.text = me.fullName ?? '';
       _languages = List.of(me.languagesSpoken);
       _preferredLocations = List.of(prefs.preferredLocations);
@@ -77,19 +78,136 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
     }
   }
 
+  /// Web parity: tick "Same as official" on load when the saved current
+  /// address is absent or identical to the official one, so later edits to
+  /// the official address keep mirroring across.
+  bool _inferSameAsOfficial() {
+    bool has(String a, String b, String c, String d, String e, String f) =>
+        [a, b, c, d, e, f].any((s) => s.trim().isNotEmpty);
+    final hasAnyCurrent = has(_p.currentAddress, _p.country, _p.state,
+        _p.currentDistrict, _p.city, _p.pinCode);
+    final hasAnyPermanent = has(_p.permanentAddress, _p.permanentCountry,
+        _p.permanentState, _p.permanentDistrict, _p.permanentCity,
+        _p.permanentPinCode);
+    bool eq(String a, String b) => a.trim() == b.trim();
+    final identical = eq(_p.currentAddress, _p.permanentAddress) &&
+        eq(_p.country, _p.permanentCountry) &&
+        eq(_p.state, _p.permanentState) &&
+        eq(_p.currentDistrict, _p.permanentDistrict) &&
+        eq(_p.city, _p.permanentCity) &&
+        eq(_p.pinCode, _p.permanentPinCode);
+    return hasAnyPermanent && (!hasAnyCurrent || identical);
+  }
+
+  /// Client-side mirror of the backend's `updateBasicProfileSchema` rules.
+  /// Without this, one bad field anywhere (a 5-digit PIN, an education row
+  /// missing dates…) makes the whole PUT fail with a generic "Could not save"
+  /// and nothing — including the address — gets persisted. Address-section
+  /// completeness is only enforced while saving from the Address tab, exactly
+  /// like the web's BasicProfileForm.
+  String? _validateForSave({required bool addressSectionActive}) {
+    if (addressSectionActive) {
+      const missing =
+          'Country, state, district and city are required for official address';
+      if (_p.permanentCountry.trim().isEmpty ||
+          _p.permanentState.trim().isEmpty ||
+          _p.permanentDistrict.trim().isEmpty ||
+          _p.permanentCity.trim().isEmpty) {
+        return missing;
+      }
+      if (_p.permanentPinCode.trim().isEmpty) {
+        return 'PIN code is required for official address';
+      }
+      if (!_isSixDigits(_p.permanentPinCode)) {
+        return 'Official PIN code must be 6 digits';
+      }
+      const missingCurrent =
+          'Country, state, district and city are required for current address';
+      if (_p.country.trim().isEmpty ||
+          _p.state.trim().isEmpty ||
+          _p.currentDistrict.trim().isEmpty ||
+          _p.city.trim().isEmpty) {
+        return missingCurrent;
+      }
+      if (_p.pinCode.trim().isEmpty) {
+        return 'PIN code is required for current address';
+      }
+      if (!_isSixDigits(_p.pinCode)) {
+        return 'Current PIN code must be 6 digits';
+      }
+    } else {
+      // Format guards apply from any tab: the server rejects these outright.
+      if (_p.permanentPinCode.trim().isNotEmpty &&
+          !_isSixDigits(_p.permanentPinCode)) {
+        return 'Official PIN code must be 6 digits';
+      }
+      if (_p.pinCode.trim().isNotEmpty && !_isSixDigits(_p.pinCode)) {
+        return 'Current PIN code must be 6 digits';
+      }
+    }
+
+    for (final e in _p.educationCourses) {
+      if (!e.isValid) continue;
+      if (e.fromYear == null ||
+          e.fromMonth == null ||
+          e.toYear == null ||
+          e.toMonth == null) {
+        return 'Select from/to month and year for every education entry';
+      }
+    }
+    for (final e in _p.experience) {
+      if (!e.isValid) continue;
+      if (e.fromYear == null ||
+          e.fromMonth == null ||
+          e.toYear == null ||
+          e.toMonth == null) {
+        return 'Select from/to month and year for every experience entry';
+      }
+    }
+
+    final aadhaar = _p.aadhaarNumber.trim();
+    if (aadhaar.isNotEmpty && !RegExp(r'^\d{12}$').hasMatch(aadhaar)) {
+      return 'Aadhaar number must be 12 digits';
+    }
+    final pan = _p.panNumber.trim();
+    if (pan.isNotEmpty && !RegExp(r'^[A-Z]{5}\d{4}[A-Z]$').hasMatch(pan)) {
+      return 'Invalid PAN format (e.g. ABCDE1234F)';
+    }
+    return null;
+  }
+
+  static bool _isSixDigits(String v) => RegExp(r'^\d{6}$').hasMatch(v.trim());
+
   Future<void> _save() async {
     if (_saving) return;
     FocusScope.of(context).unfocus();
-    setState(() => _saving = true);
-    try {
-      if (_sameAsOfficial) _copyOfficialToCurrent();
 
+    if (_sameAsOfficial) _copyOfficialToCurrent();
+
+    final sections = _sections;
+    final active = _active.clamp(0, sections.length - 1);
+    final validationError =
+        _validateForSave(addressSectionActive: sections[active].label == 'Address');
+    if (validationError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(validationError)),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+    var step = 'basic profile';
+    try {
       await ref.read(basicProfileServiceProvider).update(_p);
+
+      step = 'name & languages';
       await ref.read(talentServiceProvider).updateFields({
         'full_name': _fullName.text.trim(),
         'languages_spoken':
             _languages.where((e) => e.language.isNotEmpty).map((e) => e.toJson()).toList(),
       });
+
+      step = 'job preferences';
       await ref.read(jobsServiceProvider).updatePreferences({
         'preferred_locations': _preferredLocations.map((e) => e.toJson()).toList(),
         'preferred_job_types': [
@@ -114,7 +232,7 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not save. Please try again.')),
+          SnackBar(content: Text('Could not save $step. Please try again.')),
         );
       }
     } finally {
