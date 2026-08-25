@@ -8,7 +8,7 @@ const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function useDuplicateContactCheck() {
   const [emailDuplicate, setEmailDuplicate] = useState(false);
   const [phoneDuplicate, setPhoneDuplicate] = useState(false);
-  const [showModal, setShowModal] = useState(false);
+  const [showSheet, setShowSheet] = useState(false);
   const seenRef = useRef<Map<string, boolean>>(new Map());
 
   const fetchExists = useCallback(
@@ -33,7 +33,7 @@ export function useDuplicateContactCheck() {
       if (!EMAIL_RX.test(email)) return;
       const exists = await fetchExists({ email }, `e:${email}`);
       setEmailDuplicate(exists);
-      if (exists) setShowModal(true);
+      if (exists) setShowSheet(true);
     },
     [fetchExists]
   );
@@ -47,7 +47,7 @@ export function useDuplicateContactCheck() {
       if (digits.length < 10) return;
       const exists = await fetchExists({ phone: digits }, `p:${digits}`);
       setPhoneDuplicate(exists);
-      if (exists) setShowModal(true);
+      if (exists) setShowSheet(true);
     },
     [fetchExists]
   );
@@ -61,8 +61,8 @@ export function useDuplicateContactCheck() {
     emailDuplicate,
     phoneDuplicate,
     anyDuplicate,
-    showModal,
-    setShowModal,
+    showSheet,
+    setShowSheet,
     checkEmail,
     checkPhone,
     clearEmail,

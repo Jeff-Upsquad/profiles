@@ -8,7 +8,7 @@ import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
 import MultiSelectSearch from '@/components/ui/MultiSelectSearch';
 import ChipSelect from '@/components/ui/ChipSelect';
-import AlreadySubmittedModal from '@/components/forms/AlreadySubmittedModal';
+import AlreadySubmittedSheet from '@/components/forms/AlreadySubmittedSheet';
 import SubmissionResultScreen from '@/components/forms/SubmissionResultScreen';
 import { useDuplicateContactCheck } from '@/hooks/useDuplicateContactCheck';
 import {
@@ -251,6 +251,7 @@ export default function AccountantLeadForm() {
     if (dup.anyDuplicate) {
       setShakeWarning(true);
       setTimeout(() => setShakeWarning(false), 450);
+      dup.setShowSheet(true);
       document
         .getElementById('duplicate-warning')
         ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -485,7 +486,7 @@ export default function AccountantLeadForm() {
                   This number is already registered with us.{' '}
                   <button
                     type="button"
-                    onClick={() => dup.setShowModal(true)}
+                    onClick={() => dup.setShowSheet(true)}
                     className="font-semibold underline underline-offset-2 hover:text-amber-900"
                   >
                     Contact Talent Support
@@ -546,7 +547,7 @@ export default function AccountantLeadForm() {
                   This email is already registered with us.{' '}
                   <button
                     type="button"
-                    onClick={() => dup.setShowModal(true)}
+                    onClick={() => dup.setShowSheet(true)}
                     className="font-semibold underline underline-offset-2 hover:text-amber-900"
                   >
                     Contact Talent Support
@@ -893,7 +894,7 @@ export default function AccountantLeadForm() {
                 You&rsquo;ve already submitted.{' '}
                 <button
                   type="button"
-                  onClick={() => dup.setShowModal(true)}
+                  onClick={() => dup.setShowSheet(true)}
                   className="font-semibold underline underline-offset-4 hover:text-amber-900"
                 >
                   Contact Talent Support
@@ -937,9 +938,9 @@ export default function AccountantLeadForm() {
         </form>
       </div>
 
-      <AlreadySubmittedModal
-        open={dup.showModal}
-        onClose={() => dup.setShowModal(false)}
+      <AlreadySubmittedSheet
+        open={dup.showSheet}
+        onClose={() => dup.setShowSheet(false)}
       />
     </div>
   );

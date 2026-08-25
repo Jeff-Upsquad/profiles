@@ -9,7 +9,7 @@ import ChipSelect from '@/components/ui/ChipSelect';
 import { CREATIVE_ROLES, WORK_TYPE_SEEKING_OPTIONS, GENDER_OPTIONS } from '@/constants/lead-form-options';
 import { COUNTRIES, INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-locations';
 import { COUNTRY_CODES } from '@/constants/country-codes';
-import AlreadySubmittedModal from '@/components/forms/AlreadySubmittedModal';
+import AlreadySubmittedSheet from '@/components/forms/AlreadySubmittedSheet';
 import SubmissionResultScreen from '@/components/forms/SubmissionResultScreen';
 import { useDuplicateContactCheck } from '@/hooks/useDuplicateContactCheck';
 
@@ -177,6 +177,7 @@ export default function CreativeLeadForm() {
     if (dup.anyDuplicate) {
       setShakeWarning(true);
       setTimeout(() => setShakeWarning(false), 450);
+      dup.setShowSheet(true);
       document
         .getElementById('duplicate-warning')
         ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -405,7 +406,7 @@ export default function CreativeLeadForm() {
                   This number is already registered with us.{' '}
                   <button
                     type="button"
-                    onClick={() => dup.setShowModal(true)}
+                    onClick={() => dup.setShowSheet(true)}
                     className="font-semibold underline underline-offset-2 hover:text-amber-900"
                   >
                     Contact Talent Support
@@ -441,7 +442,7 @@ export default function CreativeLeadForm() {
                   This email is already registered with us.{' '}
                   <button
                     type="button"
-                    onClick={() => dup.setShowModal(true)}
+                    onClick={() => dup.setShowSheet(true)}
                     className="font-semibold underline underline-offset-2 hover:text-amber-900"
                   >
                     Contact Talent Support
@@ -639,7 +640,7 @@ export default function CreativeLeadForm() {
                 You&rsquo;ve already submitted.{' '}
                 <button
                   type="button"
-                  onClick={() => dup.setShowModal(true)}
+                  onClick={() => dup.setShowSheet(true)}
                   className="font-semibold underline underline-offset-4 hover:text-amber-900"
                 >
                   Contact Talent Support
@@ -683,9 +684,9 @@ export default function CreativeLeadForm() {
         </form>
       </div>
 
-      <AlreadySubmittedModal
-        open={dup.showModal}
-        onClose={() => dup.setShowModal(false)}
+      <AlreadySubmittedSheet
+        open={dup.showSheet}
+        onClose={() => dup.setShowSheet(false)}
       />
     </div>
   );
