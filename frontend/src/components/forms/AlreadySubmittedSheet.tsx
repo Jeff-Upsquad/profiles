@@ -1,17 +1,27 @@
 'use client';
 
+import Link from 'next/link';
 import { createPortal } from 'react-dom';
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  title?: string;
+  message?: string;
+  signInHref?: string;
 }
 
 const SUPPORT_PHONE_DIGITS = '919995266342';
 const SUPPORT_PHONE_DISPLAY = '+91 99952 66342';
 const WHATSAPP_URL = `https://wa.me/${SUPPORT_PHONE_DIGITS}`;
 
-export default function AlreadySubmittedSheet({ open, onClose }: Props) {
+export default function AlreadySubmittedSheet({
+  open,
+  onClose,
+  title = 'Account already exists',
+  message = 'You’ve already submitted an application with this number or email. Chat with Talent Support on WhatsApp and we’ll help you out.',
+  signInHref,
+}: Props) {
   if (!open) return null;
 
   return createPortal(
@@ -31,19 +41,18 @@ export default function AlreadySubmittedSheet({ open, onClose }: Props) {
             </span>
             <div className="min-w-0 flex-1">
               <p className="font-display-saas text-sm font-bold text-canvas-900">
-                Account already exists
+                {title}
               </p>
               <p className="mt-1 text-sm leading-relaxed text-canvas-500">
-                You&rsquo;ve already submitted an application with this number or
-                email. Chat with Talent Support on WhatsApp and we&rsquo;ll help
-                you out.
+                {message}
               </p>
-              <a
-                href={WHATSAPP_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#1ebe57] focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:ring-offset-2 sm:w-auto"
-              >
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <a
+                  href={WHATSAPP_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#1ebe57] focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:ring-offset-2 sm:w-auto"
+                >
                 <svg
                   className="h-5 w-5"
                   viewBox="0 0 24 24"
@@ -54,6 +63,15 @@ export default function AlreadySubmittedSheet({ open, onClose }: Props) {
                 </svg>
                 Connect on WhatsApp
               </a>
+              {signInHref && (
+                  <Link
+                    href={signInHref}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-canvas-200 bg-white px-4 py-2.5 text-sm font-semibold text-canvas-700 transition-colors hover:bg-canvas-100 sm:w-auto"
+                  >
+                    Sign In Instead
+                  </Link>
+                )}
+              </div>
               <p className="mt-2 text-center text-xs text-canvas-400 sm:text-left">
                 Talent Support · {SUPPORT_PHONE_DISPLAY}
               </p>
