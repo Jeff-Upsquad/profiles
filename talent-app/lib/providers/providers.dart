@@ -216,6 +216,35 @@ final unreadSubscriptionFeedCountProvider = FutureProvider.autoDispose<int>((ref
   return items.length;
 });
 
+// ─── Bidding providers ─────────────────────────────────────────────────────
+
+/// All active bids/offers across cards for the Bidding tab.
+final talentCardOffersProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  final service = ref.watch(subscriptionServiceProvider);
+  return service.listOffers();
+});
+
+/// Open (active) bid count for a card type — used as the Bidding tab badge.
+final biddingCountProvider = Provider.autoDispose<int>((ref) {
+  final offers = ref.watch(talentCardOffersProvider).value ?? const [];
+  final openStatuses = {'pending_business', 'pending_talent'};
+  return offers.where((o) {
+    final status = o['status'] as String? ?? '';
+    return openStatuses.contains(status);
+  }).length;
+});
+
+/// Offer details for a specific recipient (used in subscription detail screen).
+final offerDetailProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>?, String>((ref, recipientId) async {
+  final service = ref.watch(subscriptionServiceProvider);
+  try {
+    return await service.getOffer(recipientId);
+  } catch (_) {
+    return null;
+  }
+});
+
 // ─── Talent profile (for WhatsApp toggle + inactive-profile guard) ───────────
 
 final talentMeProvider = FutureProvider.autoDispose<TalentMe>((ref) async {

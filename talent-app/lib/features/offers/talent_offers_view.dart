@@ -7,6 +7,7 @@ import '../../models/subscription_card.dart';
 import '../../providers/providers.dart';
 import '../../widgets/shimmer_loading.dart';
 import '../../widgets/ui_kit.dart';
+import '../subscriptions/widgets/bidding_list_view.dart';
 import '../subscriptions/widgets/empty_state.dart';
 import '../subscriptions/widgets/subscription_list_tile.dart';
 
@@ -39,6 +40,7 @@ class _TalentOffersViewState extends ConsumerState<TalentOffersView> {
         ref.watch(subscriptionListProvider((_cardType, 'pending'))).value ??
         const [];
     final pendingCount = pending.where(_matches).length;
+    final biddingCount = ref.watch(biddingCountProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -47,6 +49,7 @@ class _TalentOffersViewState extends ConsumerState<TalentOffersView> {
           expanded: true,
           tabs: [
             SegmentTab(key: 'pending', label: 'Pending', count: pendingCount),
+            SegmentTab(key: 'bidding', label: 'Bidding', count: biddingCount),
             const SegmentTab(key: 'responded', label: 'Responded'),
             const SegmentTab(key: 'expired', label: 'Expired'),
           ],
@@ -54,7 +57,10 @@ class _TalentOffersViewState extends ConsumerState<TalentOffersView> {
           onChange: (k) => setState(() => _tab = k),
         ),
         const SizedBox(height: 16),
-        _OffersList(status: _tab, match: _matches, cardType: _cardType),
+        if (_tab == 'bidding')
+          const BiddingListView()
+        else
+          _OffersList(status: _tab, match: _matches, cardType: _cardType),
       ],
     );
   }

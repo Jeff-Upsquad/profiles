@@ -94,6 +94,95 @@ class SubscriptionDetailContent extends StatelessWidget {
   List<String> get _languages =>
       (card.targetLanguages ?? []).map((e) => e.toString().trim()).where((s) => s.isNotEmpty).toList();
 
+  // Additional requirements (optional skills/tools from the client brief).
+  List<_AdditionalGroup> get _additionalGroups {
+    final raw = card.content['additional_requirements'];
+    if (raw == null || raw is! Map<String, dynamic>) return [];
+    final out = <_AdditionalGroup>[];
+    for (final entry in raw.entries) {
+      final items = (entry.value as List<dynamic>?)
+              ?.map((e) => e.toString().trim())
+              .where((s) => s.isNotEmpty)
+              .toList() ??
+          [];
+      if (items.isNotEmpty) {
+        out.add(_AdditionalGroup(
+          key: entry.key,
+          label: _arGroupLabel(entry.key),
+          items: items,
+        ));
+      }
+    }
+    return out;
+  }
+
+  String _arGroupLabel(String key) {
+    const labels = {
+      'skills': 'Skill sets',
+      'tools': 'Tools',
+      'software': 'Software',
+      'ai_tools': 'AI tools',
+      'accounting_software': 'Accounting software',
+    };
+    return labels[key] ??
+        key.replaceAll('_', ' ').split(' ').map((w) {
+          if (w.isEmpty) return w;
+          return '${w[0].toUpperCase()}${w.substring(1)}';
+        }).join(' ');
+  }
+
+  // Viewer match data (tick/cross chips for talent-facing views).
+  Map<String, dynamic> get _viewerMatch {
+    final raw = card.content['viewer_match'];
+    if (raw is Map<String, dynamic>) return raw;
+    return {};
+  }
+
+  List<_MatchItem> get _vmCountries {
+    final raw = _viewerMatch['countries'] as List<dynamic>? ?? [];
+    return raw.map((e) => _MatchItem.fromDynamic(e)).toList();
+  }
+
+  List<_MatchItem> get _vmRegions {
+    final raw = _viewerMatch['regions'] as List<dynamic>? ?? [];
+    return raw.map((e) => _MatchItem.fromDynamic(e)).toList();
+  }
+
+  List<_MatchItem> get _vmLanguages {
+    final raw = _viewerMatch['languages'] as List<dynamic>? ?? [];
+    return raw.map((e) => _MatchItem.fromDynamic(e)).toList();
+  }
+
+  List<_MatchGroup> get _additionalMatchGroups {
+    final raw = _viewerMatch['additional'] as List<dynamic>? ?? [];
+    final order = <String>[];
+    final byGroup = <String, List<_MatchItem>>{};
+    for (final item in raw) {
+      if (item is! Map<String, dynamic>) continue;
+      final group = item['group'] as String? ?? '';
+      final label = item['label'] as String? ?? '';
+      final matched = item['matched'] == true;
+      if (group.isEmpty || label.isEmpty) continue;
+      if (!byGroup.containsKey(group)) {
+        byGroup[group] = [];
+        order.add(group);
+      }
+      byGroup[group]!.add(_MatchItem(label: label, matched: matched));
+    }
+    return order
+        .map((key) => _MatchGroup(
+              key: key,
+              label: _arGroupLabel(key),
+              items: byGroup[key]!,
+            ))
+        .toList();
+  }
+
+  bool get _hasLocationLang =>
+      _vmCountries.isNotEmpty || _vmRegions.isNotEmpty || _vmLanguages.isNotEmpty;
+  bool get _hasAdditionalMatch => _additionalMatchGroups.isNotEmpty;
+  bool get _hasAdditional => _additionalGroups.isNotEmpty || _hasAdditionalMatch;
+
   // Client brief = engagement identity only (brand / role / plan).
   // About the client = company context under a toggle (nature, location, notes).
   // Requirement is only under Deliverables — never repeated here.
@@ -117,7 +206,9 @@ class SubscriptionDetailContent extends StatelessWidget {
       _hasClientBrief ||
       _hasAboutClient ||
       _countries.isNotEmpty ||
-      _languages.isNotEmpty;
+      _languages.isNotEmpty ||
+      _hasAdditional ||
+      _hasLocationLang;
 
   // ─── Build ───────────────────────────────────────────────────────────────
 
@@ -550,14 +641,50 @@ class SubscriptionDetailContent extends StatelessWidget {
             const SizedBox(height: 16),
           ],
           if (_hasAboutClient) ...[
-            _AboutClientToggle(
-              businessNature: _businessNature,
-              customerLocation: _customerLocation,
-              notes: _notes,
+            _SectionLabel(icon: Icons.business_outlined, label: 'About the client'),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_businessNature.isNotEmpty)
+                    _briefLine('Nature of business', _businessNature),
+                  if (_customerLocation.isNotEmpty)
+                    _briefLine('Location of business', _customerLocation),
+                  if (_notes.isNotEmpty)
+                    Text(
+                      _notes,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                    ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
           ],
-          if (_countries.isNotEmpty) ...[
+          // Location & Language with match chips (when viewer_match is available)
+          if (_hasLocationLang) ...[
+            _SectionLabel(icon: Icons.public_outlined, label: 'Location & Language'),
+            const SizedBox(height: 8),
+            _MatchChipGroup(label: 'Country', items: _vmCountries),
+            _MatchChipGroup(label: 'State / region', items: _vmRegions),
+            _MatchChipGroup(label: 'Language', items: _vmLanguages),
+            const SizedBox(height: 12),
+            // Legend
+            const _MatchLegend(),
+            const SizedBox(height: 16),
+          ],
+          // Plain Country / Language (when no viewer_match)
+          if (!_hasLocationLang && _countries.isNotEmpty) ...[
             _SectionLabel(
                 icon: Icons.public_outlined,
                 label: _countries.length == 1 ? 'Country' : 'Countries'),
@@ -569,7 +696,7 @@ class SubscriptionDetailContent extends StatelessWidget {
             ),
             const SizedBox(height: 16),
           ],
-          if (_languages.isNotEmpty) ...[
+          if (!_hasLocationLang && _languages.isNotEmpty) ...[
             _SectionLabel(
                 icon: Icons.translate_outlined,
                 label: _languages.length == 1 ? 'Language' : 'Languages'),
@@ -578,6 +705,74 @@ class SubscriptionDetailContent extends StatelessWidget {
               spacing: 6,
               runSpacing: 6,
               children: _languages.map((l) => _Chip(l)).toList(),
+            ),
+            const SizedBox(height: 16),
+          ],
+          // Additional requirements
+          if (_hasAdditional) ...[
+            Row(
+              children: [
+                const Expanded(
+                  child: _SectionLabel(
+                    icon: Icons.auto_awesome_outlined,
+                    label: 'Additional requirements',
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: const Text(
+                    'OPTIONAL',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                      color: AppColors.textTertiary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_hasAdditionalMatch)
+              for (final group in _additionalMatchGroups)
+                _MatchChipGroup(label: group.label, items: group.items)
+            else
+              for (final group in _additionalGroups)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      group.label,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textTertiary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: group.items.map((item) => _Chip(item)).toList(),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text(
+                'Nice-to-haves from the client — not required to accept this card.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textTertiary,
+                  height: 1.4,
+                ),
+              ),
             ),
             const SizedBox(height: 16),
           ],
@@ -692,96 +887,149 @@ class _Deliverable {
   _Deliverable(this.label, [this.description]);
 }
 
-/// Collapsible "About the client" — same visual language as Client Brief
-/// (section label + Brand: value rows). Body toggles; no extra card chrome.
-class _AboutClientToggle extends StatefulWidget {
-  final String businessNature;
-  final String customerLocation;
-  final String notes;
+class _MatchItem {
+  final String label;
+  final bool matched;
+  const _MatchItem({required this.label, required this.matched});
 
-  const _AboutClientToggle({
-    required this.businessNature,
-    required this.customerLocation,
-    required this.notes,
-  });
-
-  @override
-  State<_AboutClientToggle> createState() => _AboutClientToggleState();
+  factory _MatchItem.fromDynamic(dynamic raw) {
+    if (raw is Map<String, dynamic>) {
+      return _MatchItem(
+        label: (raw['label'] as String?) ?? '',
+        matched: raw['matched'] == true,
+      );
+    }
+    return const _MatchItem(label: '', matched: false);
+  }
 }
 
-class _AboutClientToggleState extends State<_AboutClientToggle> {
-  bool _open = false;
+class _MatchGroup {
+  final String key;
+  final String label;
+  final List<_MatchItem> items;
+  const _MatchGroup({
+    required this.key,
+    required this.label,
+    required this.items,
+  });
+}
+
+class _AdditionalGroup {
+  final String key;
+  final String label;
+  final List<String> items;
+  const _AdditionalGroup({
+    required this.key,
+    required this.label,
+    required this.items,
+  });
+}
+
+class _MatchChipGroup extends StatelessWidget {
+  final String label;
+  final List<_MatchItem> items;
+  const _MatchChipGroup({required this.label, required this.items});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        InkWell(
-          onTap: () => setState(() => _open = !_open),
-          borderRadius: BorderRadius.circular(4),
-          child: Row(
-            children: [
-              const Expanded(
-                child: _SectionLabel(
-                  icon: Icons.business_outlined,
-                  label: 'About the client',
-                ),
-              ),
-              AnimatedRotation(
-                turns: _open ? 0.5 : 0,
-                duration: const Duration(milliseconds: 180),
-                child: const Icon(
-                  Icons.keyboard_arrow_down,
-                  size: 18,
-                  color: AppColors.textTertiary,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (_open) ...[
-          const SizedBox(height: 6),
-          if (widget.businessNature.isNotEmpty)
-            _briefLine('Nature of business', widget.businessNature),
-          if (widget.customerLocation.isNotEmpty)
-            _briefLine('Location of business', widget.customerLocation),
-          if (widget.notes.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                widget.notes,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 14,
-                  height: 1.4,
-                ),
-              ),
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textTertiary,
             ),
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: items.map((item) => _MatchChip(item: item)).toList(),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _MatchChip extends StatelessWidget {
+  final _MatchItem item;
+  const _MatchChip({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final matched = item.matched;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: matched ? const Color(0xFFEAF7EE) : const Color(0xFFFDECEC),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: matched ? const Color(0xFFBFE6C9) : const Color(0xFFF4C9C4),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            matched ? Icons.check : Icons.close,
+            size: 12,
+            color: matched ? const Color(0xFF1F7E36) : const Color(0xFFC13515),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            item.label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: matched ? const Color(0xFF1F7E36) : const Color(0xFFC13515),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MatchLegend extends StatelessWidget {
+  const _MatchLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _legendItem(Icons.check, const Color(0xFF1F7E36), 'In your profile'),
+        const SizedBox(width: 16),
+        _legendItem(Icons.close, const Color(0xFFC13515), 'Not in your profile'),
       ],
     );
   }
 
-  Widget _briefLine(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: RichText(
-        text: TextSpan(
-          text: '$label: ',
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
-          children: [
-            TextSpan(
-              text: value,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ],
+  Widget _legendItem(IconData icon, Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 10, color: color),
         ),
-      ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+        ),
+      ],
     );
   }
 }

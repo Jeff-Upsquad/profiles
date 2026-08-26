@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../core/tints.dart';
 import '../../models/subscription_card.dart';
@@ -21,6 +22,7 @@ class SubscriptionDetailScreen extends ConsumerStatefulWidget {
 class _SubscriptionDetailScreenState
     extends ConsumerState<SubscriptionDetailScreen> {
   bool _loading = false;
+  bool _showThread = false;
 
   SubscriptionCardRecipient get recipient => widget.recipient;
 
@@ -44,6 +46,32 @@ class _SubscriptionDetailScreenState
         action == 'accept' ? AppColors.success : AppColors.textSecondary,
       );
       context.pop();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _snack(_errorMessage(e), AppColors.danger);
+    }
+  }
+
+  Future<void> _respondToOffer(String action) async {
+    setState(() => _loading = true);
+    try {
+      await ref.read(subscriptionServiceProvider).respondToOffer(
+            recipient.id,
+            action: action,
+          );
+      ref.invalidate(subscriptionListProvider);
+      ref.invalidate(offerDetailProvider(recipient.id));
+      if (!mounted) return;
+      _snack(
+        action == 'withdraw'
+            ? 'Offer withdrawn'
+            : action == 'accept'
+                ? 'Offer accepted!'
+                : 'Offer declined',
+        action == 'accept' ? AppColors.success : AppColors.textSecondary,
+      );
+      if (action != 'withdraw') context.pop();
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -149,6 +177,7 @@ class _SubscriptionDetailScreenState
             period: period,
           );
       ref.invalidate(subscriptionListProvider);
+      ref.invalidate(offerDetailProvider(recipient.id));
       if (!mounted) return;
       _snack('Bid submitted', AppColors.success);
       context.pop();
@@ -210,6 +239,10 @@ class _SubscriptionDetailScreenState
                           child: SubscriptionDetailContent(card: card),
                         ),
                       ),
+                      if (_showActions) ...[
+                        const SizedBox(height: 16),
+                        _OfferDetailSection(recipientId: recipient.id),
+                      ],
                     ],
                   ),
                 ),
@@ -393,4 +426,169 @@ class _SubscriptionDetailScreenState
         minimumSize: const Size(0, 46),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
       );
+}
+
+/// Shows the current negotiation state, bids remaining, and activity thread
+/// when an offer exists for this recipient. Matches the web's
+/// `AssignmentOfferActions` component.
+class _OfferDetailSection extends ConsumerWidget {
+  final String recipientId;
+  const _OfferDetailSection({required this.recipientId});
+
+  static const _actionLabels = {
+    'submitted': 'submitted an offer',
+    'countered': 'sent a counter-offer',
+    'accepted': 'accepted the offer',
+    'declined': 'declined the offer',
+    'withdrawn': 'withdrew the offer',
+    'expired': 'offer expired',
+    'question_asked': 'asked a question',
+    'question_answered': 'answered a question',
+  };
+
+  static const _openStatuses = {'pending_business', 'pending_talent', 'accepted'};
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final offerAsync = ref.watch(offerDetailProvider(recipientId));
+
+    return offerAsync.when(
+      loading: () => const SizedBox(
+        height: 60,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (data) {
+        if (data == null) return const SizedBox.shrink();
+
+        final offer = data['offer'] as Map<String, dynamic>?;
+        final events = (data['events'] as List<dynamic>?) ?? [];
+        final bidsLeft = data['talent_bids_remaining'] as int? ?? 3;
+
+        if (offer == null) {
+          // No offer yet — just show bids remaining
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Text(
+              'Bids left on this card: $bidsLeft/3',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textTertiary,
+              ),
+            ),
+          );
+        }
+
+        final status = offer['status'] as String? ?? '';
+        final isOpen = _openStatuses.contains(status);
+        final currentAmount = offer['current_amount'] as Map<String, dynamic>?;
+        final formattedAmount = _formatAmount(currentAmount);
+
+        // Determine the label for the current figure
+        String figureLabel;
+        if (status == 'pending_talent') {
+          figureLabel = 'Business offer';
+        } else if (status == 'accepted') {
+          figureLabel = 'Agreed';
+        } else {
+          figureLabel = 'Your bid';
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Current figure
+              if (isOpen && formattedAmount.isNotEmpty) ...[
+                Text(
+                  figureLabel,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                    color: AppColors.textTertiary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  formattedAmount,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                if (status == 'pending_business') ...[
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Waiting for the business to respond.',
+                    style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                  ),
+                ],
+                const SizedBox(height: 8),
+              ],
+              // Bids remaining
+              Text(
+                'Bids left on this card: $bidsLeft/3',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textTertiary,
+                ),
+              ),
+              // Activity thread toggle
+              if (events.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () {
+                    // Toggle thread visibility - using setState via parent
+                    // For now, navigate to a detail view
+                  },
+                  child: Text(
+                    'View activity (${events.length})',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _formatAmount(Map<String, dynamic>? amount) {
+    if (amount == null) return '';
+    final value = amount['amount'];
+    if (value == null) return '';
+    final numValue = value is num ? value : num.tryParse(value.toString());
+    if (numValue == null) return '';
+
+    final period = amount['period'] as String?;
+    final formatted = '₹${numValue.toInt().toStringAsFixed(0)}';
+    final periodLabel = switch (period) {
+      'per_month' => '/month',
+      'per_week' => '/week',
+      'per_day' => '/day',
+      'per_hour' => '/hour',
+      'project' => '',
+      _ => '',
+    };
+    return '$formatted$periodLabel';
+  }
 }

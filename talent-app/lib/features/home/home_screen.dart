@@ -79,6 +79,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ref.invalidate(unreadCountProvider);
         ref.invalidate(unreadSubscriptionFeedCountProvider);
         ref.invalidate(unreadAssignmentCountProvider);
+        ref.invalidate(talentCardOffersProvider);
     }
   }
 

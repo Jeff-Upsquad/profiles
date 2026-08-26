@@ -64,4 +64,27 @@ class SubscriptionService {
     final items = data['offers'] as List<dynamic>? ?? [];
     return items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
+
+  /// Get offer details for a specific recipient (bid/offer state + events).
+  Future<Map<String, dynamic>> getOffer(String recipientId) async {
+    final response = await _client.dio.get(
+      '/talent/subscriptions/$recipientId/offer',
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Respond to an offer (accept, decline, or withdraw).
+  Future<void> respondToOffer(
+    String recipientId, {
+    required String action,
+    String? note,
+  }) async {
+    await _client.dio.post(
+      '/talent/subscriptions/$recipientId/offer/respond',
+      data: {
+        'action': action,
+        if (note != null && note.isNotEmpty) 'note': note,
+      },
+    );
+  }
 }

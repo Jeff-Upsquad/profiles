@@ -10,6 +10,7 @@ import '../../../widgets/ui_kit.dart';
 
 /// A single job in the feed. `new`-tab cards carry inline Apply / Decline;
 /// funnel cards show their stage badge. Tapping opens the job detail.
+/// Matches the web's `JobCard.tsx` component styling.
 class JobListCard extends ConsumerStatefulWidget {
   final TalentJobFeedItem item;
   const JobListCard({super.key, required this.item});
@@ -68,146 +69,256 @@ class _JobListCardState extends ConsumerState<JobListCard> {
     final tint = tintFor(business);
     final logo = content?.businessProfile.logoUrl ??
         content?.brandProfile?.logoUrl;
+    final description = content?.description ?? '';
+    final isNew = item.isNew;
+    final pkg = content?.packageLabel;
+    final joiningDate = formatDateShort(content?.expectedJoiningDate);
+    final openings = content?.openingsCount;
 
-    final chips = <Widget>[
-      if (content?.employmentType != null)
-        InfoChip(icon: Icons.work_outline, label: humanize(content!.employmentType)),
-      if (content?.workMode != null)
-        InfoChip(icon: Icons.laptop_mac_outlined, label: humanize(content!.workMode)),
-      if (content?.locationLabel != null)
-        InfoChip(icon: Icons.place_outlined, label: content!.locationLabel!),
-    ];
-
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadows.soft,
+      ),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: _open,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  LogoAvatar(
-                    logoUrl: logo,
-                    initials: initialsFor(business),
-                    bg: tint.bg,
-                    fg: tint.fg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Tinted top strip with business name
+          Container(
+            color: tint.bg,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
+                  child: logo != null && logo.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            logo,
+                            width: 40,
+                            height: 40,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Icon(
+                              Icons.work_outline,
+                              color: tint.fg,
+                              size: 20,
+                            ),
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                        )
+                      : Icon(
+                          Icons.work_outline,
+                          color: tint.fg,
+                          size: 20,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          business,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isNew ? 'New opening' : 'Job opening',
+                        style: TextStyle(
+                          color: tint.fg,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
                         ),
-                      ],
-                    ),
-                  ),
-                  if (!item.isNew && item.funnelStage != null) ...[
-                    const SizedBox(width: 8),
-                    Pill(
-                      label: funnelStageLabel(item.funnelStage),
-                      variant: funnelStageVariant(item.funnelStage),
-                    ),
-                  ],
-                ],
-              ),
-              if (chips.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Wrap(spacing: 14, runSpacing: 8, children: chips),
-              ],
-              if (content?.packageLabel != null) ...[
-                const SizedBox(height: 10),
-                Text(
-                  content!.packageLabel!,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        business,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                if (!isNew && item.funnelStage != null) ...[
+                  const SizedBox(width: 8),
+                  Pill(
+                    label: funnelStageLabel(item.funnelStage),
+                    variant: funnelStageVariant(item.funnelStage),
+                  ),
+                ],
               ],
-              _footer(content),
-              if (item.isNew) ...[
-                const SizedBox(height: 14),
+            ),
+          ),
+          // Body
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title and metadata
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  [content?.employmentType, content?.workMode, content?.locationLabel]
+                      .where((s) => s != null && s.isNotEmpty)
+                      .map((s) => humanize(s!))
+                      .join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textTertiary,
+                    fontSize: 12,
+                  ),
+                ),
+                // Chips row (package, joining date, openings)
+                if (pkg != null || joiningDate.isNotEmpty || (openings != null && openings > 1)) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      if (pkg != null)
+                        _BadgeChip(
+                          label: pkg,
+                          bgColor: const Color(0xFFFFFAC2),
+                          fgColor: AppColors.textPrimary,
+                        ),
+                      if (joiningDate.isNotEmpty)
+                        _BadgeChip(
+                          label: 'Join by $joiningDate',
+                          bgColor: AppColors.surface,
+                          fgColor: AppColors.textPrimary,
+                        ),
+                      if (openings != null && openings > 1)
+                        _BadgeChip(
+                          label: '$openings openings',
+                          bgColor: AppColors.surface,
+                          fgColor: AppColors.textPrimary,
+                        ),
+                    ],
+                  ),
+                ],
+                // Description (line-clamped)
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    description,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+                // Footer with View details link and Apply/Decline buttons
+                const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
+                    if (item.recipientId != null)
+                      GestureDetector(
+                        onTap: _open,
+                        child: const Text(
+                          'View details',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      )
+                    else
+                      const Spacer(),
+                    if (isNew) ...[
+                      const Spacer(),
+                      OutlinedButton(
                         onPressed: _busy ? null : () => _respond('reject'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.textSecondary,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
-                        child: const Text('Decline'),
+                        child: const Text('Decline', style: TextStyle(fontSize: 12)),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
+                      const SizedBox(width: 8),
+                      ElevatedButton(
                         onPressed: _busy ? null : () => _respond('accept'),
                         style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         child: _busy
                             ? const SizedBox(
-                                width: 18,
-                                height: 18,
+                                width: 14,
+                                height: 14,
                                 child: CircularProgressIndicator(
-                                  strokeWidth: 2.2,
+                                  strokeWidth: 2,
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text('Apply'),
+                            : const Text('Apply', style: TextStyle(fontSize: 12)),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ],
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
+}
 
-  Widget _footer(JobCardContent? content) {
-    if (content == null) return const SizedBox.shrink();
-    final bits = <String>[];
-    final openings = content.openingsCount;
-    if (openings != null && openings > 0) {
-      bits.add('$openings opening${openings == 1 ? '' : 's'}');
-    }
-    final joins = formatDateShort(content.expectedJoiningDate);
-    if (joins.isNotEmpty) bits.add('Joins $joins');
-    if (bits.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
+/// Small badge chip for package, joining date, openings count.
+class _BadgeChip extends StatelessWidget {
+  final String label;
+  final Color bgColor;
+  final Color fgColor;
+
+  const _BadgeChip({
+    required this.label,
+    required this.bgColor,
+    required this.fgColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Text(
-        bits.join('  ·  '),
-        style: const TextStyle(color: AppColors.textTertiary, fontSize: 12),
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: fgColor,
+        ),
       ),
     );
   }
