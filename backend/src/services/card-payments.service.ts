@@ -276,7 +276,10 @@ export async function getCardPayment(
     .eq('recipient_id', recipientId)
     .in('status', ['created', 'paid'])
     .maybeSingle();
-  if (error) throw new AppError(500, error.message);
+  if (error) {
+    console.error('[card-payments] load payment failed:', error.message);
+    throw new AppError(500, 'Something went wrong while loading the payment. Please try again.');
+  }
   if (!data) return null;
 
   const row = await reconcileIfStale(data as Record<string, unknown>, opts?.force);
@@ -295,7 +298,10 @@ export async function getCardPayments(
     .eq('business_user_id', businessUserId)
     .eq('card_id', cardId)
     .in('status', ['created', 'paid']);
-  if (error) throw new AppError(500, error.message);
+  if (error) {
+    console.error('[card-payments] load payments failed:', error.message);
+    throw new AppError(500, 'Something went wrong while loading payments. Please try again.');
+  }
 
   const out: Record<string, CardPaymentView> = {};
   for (const raw of data ?? []) {
@@ -344,7 +350,13 @@ export async function startCardPayment(
     .select('id, company_name, contact_person_name, contact_email, contact_phone')
     .eq('id', businessUserId)
     .maybeSingle();
-  if (bizErr) throw new AppError(500, bizErr.message);
+  if (bizErr) {
+    console.error('[card-payments] load business failed:', bizErr.message);
+    throw new AppError(
+      500,
+      "Couldn't start the payment. Please try again in a few minutes — if it keeps failing, contact support.",
+    );
+  }
   if (!business) throw new AppError(404, 'Business account not found');
 
   // Persist BEFORE minting the link, so the gateway can never confirm a
@@ -370,7 +382,11 @@ export async function startCardPayment(
     // The partial unique index means a concurrent click already opened one.
     const concurrent = await getCardPayment(businessUserId, cardId, recipientId);
     if (concurrent) return { payment: concurrent, alreadyPaid: concurrent.status === 'paid' };
-    throw new AppError(500, insErr.message);
+    console.error(`[card-payments] insert failed (card=${cardId}):`, insErr.message);
+    throw new AppError(
+      500,
+      "Couldn't start the payment. Please try again in a few minutes — if it keeps failing, contact support.",
+    );
   }
 
   const paymentId = (inserted as Record<string, unknown>).id as string;
@@ -435,7 +451,16 @@ export async function startCardPayment(
       .from('card_payments')
       .update({ status: 'failed', invoice_last_error: (err as Error).message })
       .eq('id', paymentId);
-    throw new AppError(502, `Couldn't start the payment: ${(err as Error).message}`);
+    // The raw gateway/DB reason stays server-side (logs + the row above) —
+    // the customer only ever sees the generic message.
+    console.error(
+      `[card-payments] link mint failed (payment=${paymentId}, gateway=${gateway}):`,
+      (err as Error).message,
+    );
+    throw new AppError(
+      502,
+      "Couldn't start the payment. Please try again in a few minutes — if it keeps failing, contact support.",
+    );
   }
 }
 
