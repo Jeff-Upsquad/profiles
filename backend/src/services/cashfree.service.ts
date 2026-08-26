@@ -105,7 +105,11 @@ export async function createPaymentLink(input: CreatePaymentLinkInput): Promise<
       // Echoed back verbatim on the webhook — how we find our own payment row.
       link_notes: input.notes,
       ...(input.callbackUrl ? { link_meta: { return_url: input.callbackUrl } } : {}),
-      ...(input.expireBy ? { link_expiry_time: input.expireBy } : {}),
+      // Cashfree takes an ISO datetime here (NOT Razorpay's unix seconds — a
+      // raw epoch number fails validation with a blank " should be " error).
+      ...(input.expireBy
+        ? { link_expiry_time: new Date(input.expireBy * 1000).toISOString() }
+        : {}),
     }),
   });
 
