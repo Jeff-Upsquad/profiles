@@ -18,7 +18,7 @@ import BusinessAssignmentOffers from '@/components/subscriptions/BusinessAssignm
 import BidActions from '@/components/subscriptions/BidActions';
 import OpenIntroRoomButton from '@/components/conversations/OpenIntroRoomButton';
 import { isOpenBusinessOffer, useBusinessAssignmentOffers, type BusinessAssignmentOffer } from '@/hooks/useBusinessAssignmentOffers';
-import { useCardPayments, useStartCardPayment, type CardPayment } from '@/hooks/useCardPayments';
+import { useCardPayments, useStartCardPayment, type CardPayment, type CardGateway } from '@/hooks/useCardPayments';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
 
 const TINTS = ['tint-purple', 'tint-blue', 'tint-orange', 'tint-green', 'tint-pink', 'tint-amber'] as const;
@@ -530,7 +530,8 @@ export default function SubscriptionCardReview({
                 listPrice={card.customer_monthly_price}
                 isAssignment={isAssignment}
                 cardId={cardId}
-                payment={cardPayments?.[r.recipient_id] ?? null}
+                payment={cardPayments?.payments[r.recipient_id] ?? null}
+                gateway={cardPayments?.gateway ?? null}
                 onPay={() => startPayment.mutate(r.recipient_id)}
                 paying={startPayment.isPending}
               />
@@ -561,7 +562,8 @@ export default function SubscriptionCardReview({
                 listPrice={card.customer_monthly_price}
                 isAssignment={isAssignment}
                 cardId={cardId}
-                payment={cardPayments?.[r.recipient_id] ?? null}
+                payment={cardPayments?.payments[r.recipient_id] ?? null}
+                gateway={cardPayments?.gateway ?? null}
                 onPay={() => startPayment.mutate(r.recipient_id)}
                 paying={startPayment.isPending}
                 onUnselect={() => setConfirmUnselect(r)}
@@ -1137,6 +1139,7 @@ function RecipientRow({
   isAssignment = false,
   cardId,
   payment,
+  gateway,
   onPay,
   paying = false,
   onUnselect,
@@ -1147,6 +1150,8 @@ function RecipientRow({
   isAssignment?: boolean;
   cardId?: string;
   payment?: CardPayment | null;
+  /** Gateway new payments will open (null when payments are switched off). */
+  gateway?: CardGateway | null;
   onPay?: () => void;
   paying?: boolean;
   onUnselect?: () => void;
@@ -1192,6 +1197,7 @@ function RecipientRow({
         <MakePaymentSection
           recipient={r}
           payment={payment ?? null}
+          gateway={gateway}
           onPay={onPay}
           paying={paying}
           isAssignment={isAssignment}
@@ -1204,7 +1210,8 @@ function RecipientRow({
 /**
  * "Make Payment" — sits directly under the selected talent. Three states:
  *
- *   nothing yet   → the agreed figure + a Pay button (hands off to Razorpay)
+ *   nothing yet   → the agreed figure + a Pay button (hands off to the gateway
+ *                   SQUADbooks has enabled: Razorpay, else Cashfree)
  *   paid          → a receipt line, plus the invoice number/link once SquadBooks
  *                   has raised it (a beat behind the payment, so we say so)
  *   link pending  → the client abandoned the checkout; the same link reopens
@@ -1215,12 +1222,14 @@ function RecipientRow({
 function MakePaymentSection({
   recipient: r,
   payment,
+  gateway,
   onPay,
   paying,
   isAssignment,
 }: {
   recipient: CardRecipientForBusiness;
   payment: CardPayment | null;
+  gateway?: CardGateway | null;
   onPay: () => void;
   paying: boolean;
   isAssignment: boolean;
@@ -1229,6 +1238,9 @@ function MakePaymentSection({
   const amount = payment?.amount ?? resolved?.amount ?? null;
   const currencyCode = payment?.currency ?? resolved?.currency ?? null;
   const isPaid = payment?.status === 'paid';
+  // An existing payment knows which gateway owns its checkout; before one
+  // exists, trust the server's read of SQUADbooks' Payment Gateway setting.
+  const securedBy = (payment?.gateway ?? gateway) === 'cashfree' ? 'Cashfree' : 'Razorpay';
 
   // Nothing agreed yet — there is no figure to charge, so don't offer to.
   if (amount == null || !(amount > 0)) return null;
@@ -1299,7 +1311,7 @@ function MakePaymentSection({
         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
-        Secured by Razorpay
+        Secured by {securedBy}
       </p>
     </div>
   );

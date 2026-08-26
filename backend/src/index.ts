@@ -63,13 +63,18 @@ app.use(
     credentials: true,
   })
 );
-// Razorpay verifies with an HMAC over the EXACT bytes it sent, so this one
-// route needs the raw body — mounted ahead of the global JSON parser, which
+// Gateways verify with an HMAC over the EXACT bytes they sent, so these two
+// routes need the raw body — mounted ahead of the global JSON parser, which
 // would otherwise consume the stream and leave only a re-serialized object.
 app.post(
   '/api/webhooks/razorpay',
   express.raw({ type: '*/*', limit: '1mb' }),
   cardPaymentsController.razorpayWebhook,
+);
+app.post(
+  '/api/webhooks/cashfree',
+  express.raw({ type: '*/*', limit: '1mb' }),
+  cardPaymentsController.cashfreeWebhook,
 );
 
 app.use(express.json({ limit: '10mb' }));

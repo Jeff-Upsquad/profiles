@@ -149,6 +149,18 @@ const envSchema = z.object({
   // POST /api/webhooks/razorpay. Without it the webhook fails closed (401).
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
 
+  // Cashfree Payment Links — the alternative gateway. Which one actually
+  // collects a payment is NOT decided here: every mint asks SQUADbooks for the
+  // org's Payment Gateway setting and routes Razorpay while that is enabled,
+  // Cashfree otherwise. These keys (same account SQUADbooks uses) only need to
+  // be present when that answer is Cashfree.
+  CASHFREE_APP_ID: z.string().optional(),
+  CASHFREE_SECRET_KEY: z.string().optional(),
+  // 'live' (default) or 'sandbox'.
+  CASHFREE_ENV: z.string().optional(),
+  // Pins the Cashfree API version header; defaults to '2023-08-01'.
+  CASHFREE_API_VERSION: z.string().optional(),
+
   // SquadBooks (books.squadhub.in) — where the invoice is raised once a card
   // payment succeeds. On the shared `squadhub` Docker network prefer the
   // internal container origin (http://squadbooks:3000). The key must equal

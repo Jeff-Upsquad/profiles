@@ -4,7 +4,8 @@ import type { UpdateBusinessUserInput, DiscoverQueryInput, SendInterestInput } f
 import { getTalentTiersByUserIds } from './talent-tier.service.js';
 import { adminSelectRecipient, adminUndoSelection } from './subscription.service.js';
 import { businessAmountFromOffer } from './assignment-offers.service.js';
-import { cancelPaymentLink } from './razorpay.service.js';
+import { cancelPaymentLink as cancelRazorpayPaymentLink } from './razorpay.service.js';
+import { cancelPaymentLink as cancelCashfreePaymentLink } from './cashfree.service.js';
 import { pushCrmIdentityNames } from '../lib/crm-identity-names.js';
 
 // ─── Business User ──────────────────────────────────────────────────────────
@@ -2050,15 +2051,18 @@ export async function businessUnselectRecipient(businessUserId: string, cardId: 
   // Retire any unpaid link so an abandoned checkout can't be completed later.
   const { data: openPayments } = await supabaseAdmin
     .from('card_payments')
-    .select('id, razorpay_payment_link_id')
+    .select('id, gateway, payment_link_id')
     .eq('card_id', selectedCardId)
     .eq('status', 'created');
   for (const p of openPayments ?? []) {
-    const linkId = (p as any).razorpay_payment_link_id as string | null;
+    const linkId = (p as any).payment_link_id as string | null;
     if (linkId) {
-      await cancelPaymentLink(linkId).catch((e) => {
-        // Razorpay refuses to cancel an already-paid/expired link. The row is
-        // retired either way; a genuinely paid one is caught by the guard above.
+      const cancel =
+        (p as any).gateway === 'cashfree' ? cancelCashfreePaymentLink : cancelRazorpayPaymentLink;
+      await cancel(linkId).catch((e) => {
+        // The gateway refuses to cancel an already-paid/expired link. The row
+        // is retired either way; a genuinely paid one is caught by the guard
+        // above.
         console.error(`[unselect] couldn't cancel link ${linkId}:`, (e as Error).message);
       });
     }

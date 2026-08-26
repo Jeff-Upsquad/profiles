@@ -18,6 +18,49 @@ export function isSquadBooksConfigured(): boolean {
   return !!(env.SQUADBOOKS_API_URL && env.SQUADBOOKS_ADMIN_API_KEY && env.SQUADBOOKS_ORG_ID);
 }
 
+/** The payment gateway an org has enabled in SQUADbooks (Settings → Payment Gateway). */
+export type SquadBooksGateway = 'razorpay' | 'cashfree';
+
+/**
+ * Which gateway should collect the next card payment.
+ *
+ * SQUADbooks is the source of truth: its Settings page picks exactly one active
+ * gateway per org. We ask it server-to-server over the same `x-admin-key`
+ * channel as the invoice call, and cache briefly so a burst of "Pay" clicks
+ * doesn't turn into a burst of lookups.
+ *
+ * ALWAYS resolves: if SQUADbooks isn't configured, or the call fails, or the
+ * answer is unknown, we fall back to Razorpay — the gateway SquadHire used
+ * before Cashfree existed, so a SQUADbooks blip degrades to status quo rather
+ * than breaking checkout.
+ */
+let cachedGateway: { value: SquadBooksGateway; readAt: number } | null = null;
+const GATEWAY_CACHE_MS = 60_000;
+
+export async function getOrgPaymentGateway(): Promise<SquadBooksGateway> {
+  if (!isSquadBooksConfigured()) return 'razorpay';
+  if (cachedGateway && Date.now() - cachedGateway.readAt < GATEWAY_CACHE_MS) {
+    return cachedGateway.value;
+  }
+
+  let value: SquadBooksGateway = 'razorpay';
+  try {
+    const res = await fetch(
+      `${env.SQUADBOOKS_API_URL!.replace(/\/$/, '')}/api/integrations/squadhire/payment-gateway?org_id=${env.SQUADBOOKS_ORG_ID}`,
+      { headers: { 'x-admin-key': env.SQUADBOOKS_ADMIN_API_KEY! }, signal: AbortSignal.timeout(5_000) },
+    );
+    const body = (await res.json().catch(() => null)) as
+      | { ok?: boolean; gateway?: string }
+      | null;
+    if (res.ok && body?.gateway === 'cashfree') value = 'cashfree';
+  } catch {
+    // Unreachable SQUADbooks keeps the last-known default: Razorpay.
+  }
+
+  cachedGateway = { value, readAt: Date.now() };
+  return value;
+}
+
 export interface RaisePaidInvoiceInput {
   idempotencyKey: string;
   customer: {

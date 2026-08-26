@@ -2,12 +2,22 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import {
-  createPaymentLink,
-  cancelPaymentLink,
-  fetchPaymentLink,
+  createPaymentLink as createRazorpayPaymentLink,
+  cancelPaymentLink as cancelRazorpayPaymentLink,
+  fetchPaymentLink as fetchRazorpayPaymentLink,
   isRazorpayConfigured,
 } from './razorpay.service.js';
-import { isSquadBooksConfigured, raisePaidInvoice } from './squadbooks.service.js';
+import {
+  createPaymentLink as createCashfreePaymentLink,
+  cancelPaymentLink as cancelCashfreePaymentLink,
+  fetchPaymentLink as fetchCashfreePaymentLink,
+  isCashfreeConfigured,
+} from './cashfree.service.js';
+import {
+  getOrgPaymentGateway,
+  isSquadBooksConfigured,
+  raisePaidInvoice,
+} from './squadbooks.service.js';
 import { getCardRecipientsForReview, getMySubscriptionCard } from './business.service.js';
 
 /**
@@ -15,9 +25,11 @@ import { getCardRecipientsForReview, getMySubscriptionCard } from './business.se
  *
  * Flow (see supabase/migrations/00122_card_payments.sql for the schema notes):
  *   1. Business clicks "Make Payment" under the selected talent.
- *   2. We snapshot the agreed figure + the invoice line into a `card_payments`
- *      row FIRST, then mint a Razorpay payment link and hand back its URL.
- *   3. Razorpay's `payment_link.paid` webhook marks the row paid.
+ *   2. We ask SQUADbooks which gateway its Payment Gateway setting has enabled
+ *      — Razorpay while that's the pick, Cashfree otherwise — then snapshot
+ *      the agreed figure + the invoice line into a `card_payments` row FIRST,
+ *      mint the payment link there, and hand back its URL.
+ *   3. The gateway's paid webhook marks the row paid.
  *   4. We ask SquadBooks to raise the (already-paid) invoice and WhatsApp it.
  *
  * Steps 3 and 4 are tracked separately on purpose: the money landing and the
@@ -31,6 +43,9 @@ const MAX_INVOICE_ATTEMPTS = 10;
 /** Unpaid links expire after this long, freeing the selection for a fresh try. */
 const LINK_TTL_MINUTES = 60;
 
+/** The gateways a card payment can be collected on. */
+export type CardGateway = 'razorpay' | 'cashfree';
+
 export type CardPaymentStatus = 'created' | 'paid' | 'failed' | 'cancelled';
 
 export interface CardPaymentView {
@@ -39,6 +54,8 @@ export interface CardPaymentView {
   amount: number;
   currency: string;
   period: 'per_month' | 'project';
+  /** Which gateway minted this payment's hosted checkout page. */
+  gateway: CardGateway;
   payment_url: string | null;
   paid_at: string | null;
   invoice_number: string | null;
@@ -64,7 +81,8 @@ function toView(row: Record<string, unknown>): CardPaymentView {
     amount: Number(row.amount),
     currency: (row.currency as string) ?? 'INR',
     period: (row.period as 'per_month' | 'project') ?? 'per_month',
-    payment_url: (row.razorpay_payment_link_url as string | null) ?? null,
+    gateway: row.gateway === 'cashfree' ? 'cashfree' : 'razorpay',
+    payment_url: (row.payment_link_url as string | null) ?? null,
     paid_at: (row.paid_at as string | null) ?? null,
     invoice_number: (row.squadbooks_invoice_number as string | null) ?? null,
     invoice_url: (row.squadbooks_invoice_url as string | null) ?? null,
@@ -177,8 +195,21 @@ async function resolvePaymentContext(
 }
 
 /**
- * A payment left sitting in `created` past its TTL is reconciled against
- * Razorpay before we report it — a webhook can be delayed or lost, and the
+ * Which gateway new payments will be minted on: SQUADbooks' Payment Gateway
+ * setting decides — Razorpay while that's what it has enabled, Cashfree
+ * otherwise. Null when the winning gateway has no usable credentials, i.e.
+ * payments are switched off. Also surfaced on the review page so the
+ * "Secured by …" label matches what a click will actually do.
+ */
+export async function getActiveCardGateway(): Promise<CardGateway | null> {
+  const preferred = await getOrgPaymentGateway();
+  if (preferred === 'cashfree') return isCashfreeConfigured() ? 'cashfree' : null;
+  return isRazorpayConfigured() ? 'razorpay' : null;
+}
+
+/**
+ * A payment left sitting in `created` past its TTL is reconciled against its
+ * gateway before we report it — a webhook can be delayed or lost, and the
  * client must never be shown "Pay now" for something they already paid.
  * Returns the row to report, or null when it turned out to be dead.
  */
@@ -190,11 +221,11 @@ async function reconcileIfStale(
 
   // `force` is the just-returned-from-checkout case: the client is back on the
   // card page seconds after paying and the webhook may still be in flight, so
-  // we ask Razorpay directly rather than showing them "Pay now" again.
+  // we ask the gateway directly rather than showing them "Pay now" again.
   const ageMs = Date.now() - new Date(row.created_at as string).getTime();
   if (!force && ageMs <= LINK_TTL_MINUTES * 60_000) return row;
 
-  const linkId = row.razorpay_payment_link_id as string | null;
+  const linkId = row.payment_link_id as string | null;
   if (!linkId) {
     // Minting died before the link was stored — retire it so a fresh attempt
     // isn't blocked by the one-live-payment index. Only once it's actually
@@ -204,7 +235,10 @@ async function reconcileIfStale(
     return null;
   }
 
-  const live = await fetchPaymentLink(linkId);
+  const live =
+    row.gateway === 'cashfree'
+      ? await fetchCashfreePaymentLink(linkId)
+      : await fetchRazorpayPaymentLink(linkId);
   if (live?.status === 'paid') {
     await markPaymentPaid(row.id as string, null, live.amountPaid);
     await syncCardPaymentInvoice(row.id as string).catch((e) => {
@@ -272,16 +306,18 @@ export async function getCardPayments(
 }
 
 /**
- * Start (or resume) a payment for a selected talent. Returns the hosted Razorpay
- * URL the client is sent to. Resumes an existing unpaid link rather than minting
- * a second one, and refuses outright once the payment has already been made.
+ * Start (or resume) a payment for a selected talent on the gateway SQUADbooks
+ * has enabled. Returns the hosted checkout URL the client is sent to. Resumes
+ * an existing unpaid link rather than minting a second one, and refuses
+ * outright once the payment has already been made.
  */
 export async function startCardPayment(
   businessUserId: string,
   cardId: string,
   recipientId: string,
 ): Promise<{ payment: CardPaymentView; alreadyPaid: boolean }> {
-  if (!isRazorpayConfigured()) {
+  const gateway = await getActiveCardGateway();
+  if (!gateway) {
     throw new AppError(503, 'Payments are not available right now. Please contact support.');
   }
 
@@ -311,8 +347,9 @@ export async function startCardPayment(
   if (bizErr) throw new AppError(500, bizErr.message);
   if (!business) throw new AppError(404, 'Business account not found');
 
-  // Persist BEFORE minting the link, so Razorpay can never confirm a payment we
-  // have no record of. The row carries the snapshot the invoice is built from.
+  // Persist BEFORE minting the link, so the gateway can never confirm a
+  // payment we have no record of. The row carries the snapshot the invoice is
+  // built from, plus which gateway owns its link.
   const { data: inserted, error: insErr } = await supabaseAdmin
     .from('card_payments')
     .insert({
@@ -324,6 +361,7 @@ export async function startCardPayment(
       currency: ctx.currency,
       period: ctx.period,
       line_item: ctx.lineItem,
+      gateway,
       status: 'created',
     })
     .select('*')
@@ -344,7 +382,7 @@ export async function startCardPayment(
   let mintedLinkId: string | null = null;
 
   try {
-    const link = await createPaymentLink({
+    const mintInput = {
       amount: ctx.amount,
       currency: ctx.currency,
       description: `${ctx.lineItem.name} — ${ctx.lineItem.description}`.slice(0, 200),
@@ -362,15 +400,21 @@ export async function startCardPayment(
       },
       callbackUrl: appUrl ? `${appUrl}/business/hire/${cardId}?payment=done` : undefined,
       expireBy: Math.floor(Date.now() / 1000) + LINK_TTL_MINUTES * 60,
-    });
+    };
+    // Both services speak the same shape; only the wire format differs
+    // (Razorpay wants paise, Cashfree rupees).
+    const link =
+      gateway === 'cashfree'
+        ? await createCashfreePaymentLink(mintInput)
+        : await createRazorpayPaymentLink(mintInput);
 
     mintedLinkId = link.id;
 
     const { data: updated, error: updErr } = await supabaseAdmin
       .from('card_payments')
       .update({
-        razorpay_payment_link_id: link.id,
-        razorpay_payment_link_url: link.shortUrl,
+        payment_link_id: link.id,
+        payment_link_url: link.shortUrl,
       })
       .eq('id', paymentId)
       .select('*')
@@ -380,8 +424,13 @@ export async function startCardPayment(
     return { payment: toView(updated as Record<string, unknown>), alreadyPaid: false };
   } catch (err) {
     // Retire the row so the client can try again cleanly, and best-effort cancel
-    // any link Razorpay did create before we lost the thread.
-    if (mintedLinkId) await cancelPaymentLink(mintedLinkId).catch(() => undefined);
+    // any link the gateway did create before we lost the thread.
+    if (mintedLinkId) {
+      await (gateway === 'cashfree'
+        ? cancelCashfreePaymentLink(mintedLinkId)
+        : cancelRazorpayPaymentLink(mintedLinkId)
+      ).catch(() => undefined);
+    }
     await supabaseAdmin
       .from('card_payments')
       .update({ status: 'failed', invoice_last_error: (err as Error).message })
@@ -391,13 +440,13 @@ export async function startCardPayment(
 }
 
 /**
- * Mark a payment received. Idempotent — a repeated webhook (Razorpay retries at
- * least once) finds the row already paid and does nothing. Returns the row id
- * when this call is the one that flipped it, so the caller can raise the invoice.
+ * Mark a payment received. Idempotent — a repeated webhook (gateways retry at
+ * least once) finds the row already paid and does nothing. Returns true when
+ * this call is the one that flipped it, so the caller can raise the invoice.
  */
 async function markPaymentPaid(
   paymentId: string,
-  razorpayPaymentId: string | null,
+  gatewayPaymentId: string | null,
   amountPaid: number,
 ): Promise<boolean> {
   const { data, error } = await supabaseAdmin
@@ -405,7 +454,7 @@ async function markPaymentPaid(
     .update({
       status: 'paid',
       paid_at: new Date().toISOString(),
-      razorpay_payment_id: razorpayPaymentId,
+      gateway_payment_id: gatewayPaymentId,
     })
     .eq('id', paymentId)
     .eq('status', 'created')
@@ -426,32 +475,62 @@ async function markPaymentPaid(
 }
 
 /**
- * Handle a verified `payment_link.paid` webhook. Marks the payment received and
- * immediately attempts the SquadBooks invoice; if that attempt fails the row is
- * left in the sweeper's queue rather than failing the webhook (which would only
- * make Razorpay retry the whole thing).
+ * Handle a verified "payment link paid" webhook from either gateway. Marks the
+ * payment received and immediately attempts the SquadBooks invoice; if that
+ * attempt fails the row is left in the sweeper's queue rather than failing the
+ * webhook (which would only make the gateway retry the whole thing).
  */
 export async function handlePaymentLinkPaid(input: {
   cardPaymentId?: string | null;
-  razorpayLinkId?: string | null;
-  razorpayPaymentId?: string | null;
+  linkId?: string | null;
+  gatewayPaymentId?: string | null;
   amountPaid: number;
 }): Promise<{ matched: boolean }> {
   let query = supabaseAdmin.from('card_payments').select('id, status').limit(1);
   query = input.cardPaymentId
     ? query.eq('id', input.cardPaymentId)
-    : query.eq('razorpay_payment_link_id', input.razorpayLinkId!);
+    : query.eq('payment_link_id', input.linkId!);
 
   const { data: row, error } = await query.maybeSingle();
   if (error) throw new Error(error.message);
   if (!row) return { matched: false };
 
   const paymentId = (row as Record<string, unknown>).id as string;
-  await markPaymentPaid(paymentId, input.razorpayPaymentId ?? null, input.amountPaid);
+  await markPaymentPaid(paymentId, input.gatewayPaymentId ?? null, input.amountPaid);
 
   // Raise the invoice on the first confirmation, and also on a redelivery that
   // finds it still missing (e.g. the first attempt died mid-call). Never let a
   // failure here fail the webhook — the sweeper owns the retry.
+  await syncCardPaymentInvoice(paymentId).catch((e) => {
+    console.error(`[card-payments] ${paymentId}: invoice sync failed:`, (e as Error).message);
+  });
+
+  return { matched: true };
+}
+
+/**
+ * Settle a Cashfree generic PAYMENT_SUCCESS event. Orders created from a link
+ * embed the link's URL slug ("CFPay_<slug>_<rand>"), and we store that URL on
+ * the row — so match on the slug segment. No match means the payment isn't one
+ * of ours (the event fires account-wide); the caller just acks.
+ */
+export async function handleCardPaymentByLinkSlug(input: {
+  slug: string;
+  gatewayPaymentId: string | null;
+  amountPaid: number;
+}): Promise<{ matched: boolean }> {
+  const { data: row, error } = await supabaseAdmin
+    .from('card_payments')
+    .select('id, status')
+    .like('payment_link_url', `%/${input.slug}`)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!row) return { matched: false };
+
+  const paymentId = (row as Record<string, unknown>).id as string;
+  await markPaymentPaid(paymentId, input.gatewayPaymentId, input.amountPaid);
+
   await syncCardPaymentInvoice(paymentId).catch((e) => {
     console.error(`[card-payments] ${paymentId}: invoice sync failed:`, (e as Error).message);
   });
@@ -517,8 +596,8 @@ export async function syncCardPaymentInvoice(paymentId: string): Promise<void> {
     amount: Number(row.amount),
     currency: (row.currency as string) || 'INR',
     payment: {
-      reference: (row.razorpay_payment_id as string | null) ?? undefined,
-      mode: 'Razorpay',
+      reference: (row.gateway_payment_id as string | null) ?? undefined,
+      mode: row.gateway === 'cashfree' ? 'Cashfree' : 'Razorpay',
       paidAt: (row.paid_at as string | null) ?? undefined,
     },
   });
