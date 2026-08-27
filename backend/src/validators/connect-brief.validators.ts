@@ -15,7 +15,9 @@ const SERVICE_TYPE = z.enum([
 const roleRequirementSchema = z.object({
   note: z.string().trim().max(2000).optional(),
   hours: z.string().trim().max(200).optional(),
-  tiers: z.array(z.enum(['Junior', 'Pro', 'Top Talents', 'Custom'])).max(4).optional(),
+  // Agencies is a delivery option, alongside individual talent levels. It is
+  // forwarded verbatim to SquadHub so it appears on the requirement card.
+  tiers: z.array(z.enum(['Junior', 'Pro', 'Top Talents', 'Agencies', 'Custom'])).max(5).optional(),
   plan: z.string().trim().max(50).optional(),
   tier_budgets: z.record(z.string(), z.number().int().nonnegative()).optional(),
   budget: z.number().int().nonnegative().optional(),

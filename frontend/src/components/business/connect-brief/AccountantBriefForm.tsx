@@ -61,12 +61,13 @@ const LANGUAGES = [
 
 // Build-your-own-subscription workflow (mirrors /connect and the pricing page):
 // experience level(s) → plan → budget. Display labels are plural; stored
-// values match subscription_cards.target_tiers' CHECK (Junior/Pro/Top Talents).
+// values are forwarded to SquadHub requirement cards (Junior/Pro/Top Talents/Agencies).
 // Descriptions so the client knows what each level means before choosing.
 const EXPERIENCE_LEVELS: { label: string; value: string; desc: string }[] = [
   { label: 'Juniors', value: 'Junior', desc: 'Less than 2 years of experience. Great for straightforward bookkeeping and cost-effective support.' },
   { label: 'Pros', value: 'Pro', desc: 'More than 2 years of experience with strong, well-rounded skill sets. Reliable quality across a wide range of finance work.' },
   { label: 'Top Talents', value: 'Top Talents', desc: 'Top talents with 5+ years of experience. Best for complex filings, audits, or high-stakes financial work.' },
+  { label: 'Agencies', value: 'Agencies', desc: 'Specialized teams and companies that can take on your work.' },
 ];
 
 // Plans differ by availability (Mon–Fri) — the same five bands seeded for
