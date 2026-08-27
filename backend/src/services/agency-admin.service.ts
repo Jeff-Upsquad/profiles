@@ -9,8 +9,19 @@ export interface AgencyListFilters {
   limit?: number;
 }
 
+function isMissingColumn(err: any) {
+  const m = String(err?.message || err || '').toLowerCase();
+  return m.includes('column') && m.includes('does not exist');
+}
+
 export async function getAgencyStats() {
-  const { data, error } = await supabaseAdmin.from('agency_users').select('approval_status, is_active, suspended');
+  let data: any[] | null = null;
+  let error: any = null;
+  ({ data, error } = await supabaseAdmin.from('agency_users').select('approval_status, is_active, suspended'));
+  if (error && isMissingColumn(error)) {
+    ({ data, error } = await supabaseAdmin.from('agency_users').select('approval_status'));
+  }
+  if (error && String(error.code) === '42P01') return { total: 0, by_status: {}, pending: 0, approved: 0, rejected: 0, active: 0, suspended: 0 };
   if (error) throw new AppError(500, error.message);
   const rows = (data ?? []) as any[];
   const byStatus: Record<string, number> = {};
@@ -21,6 +32,7 @@ export async function getAgencyStats() {
     const s = r.approval_status ?? 'pending';
     byStatus[s] = (byStatus[s] ?? 0) + 1;
     if (r.is_active && !r.suspended) active++;
+    else if (r.is_active === undefined && !r.suspended) active++; // fallback when col missing
     if (r.suspended) suspendedCount++;
   }
   return {
@@ -112,27 +124,26 @@ export async function getAgencyDetail(agencyId: string) {
 }
 
 export async function approveAgency(agencyId: string, adminId: string) {
-  const { data, error } = await supabaseAdmin.from('agency_users').update({
-    approval_status: 'approved',
-    approved_at: new Date().toISOString(),
-    approved_by: adminId,
-    rejected_at: null,
-    rejection_reason: null,
-  }).eq('id', agencyId).eq('approval_status', 'pending').select('*').single();
-  if (error || !data) throw new AppError(400, error?.message || 'Agency not found or not pending');
-  return data;
+  for (const attempt of [true, false]) {
+    const patch: any = { approval_status: 'approved', approved_at: new Date().toISOString(), ...(attempt ? { approved_by: adminId, rejected_at: null, rejection_reason: null } : {}) };
+    const { data, error } = await supabaseAdmin.from('agency_users').update(patch).eq('id', agencyId).eq('approval_status', 'pending').select('*').single();
+    if (!error && data) return data;
+    if (error && isMissingColumn(error) && attempt) continue;
+    throw new AppError(400, error?.message || 'Agency not found or not pending');
+  }
+  throw new AppError(400, 'Agency not found or not pending');
 }
 
 export async function rejectAgency(agencyId: string, adminId: string, reason: string) {
   if (!reason?.trim()) throw new AppError(400, 'Rejection reason is required');
-  const { data, error } = await supabaseAdmin.from('agency_users').update({
-    approval_status: 'rejected',
-    rejected_at: new Date().toISOString(),
-    approved_by: adminId,
-    rejection_reason: reason.trim(),
-  }).eq('id', agencyId).eq('approval_status', 'pending').select('*').single();
-  if (error || !data) throw new AppError(400, error?.message || 'Agency not found or not pending');
-  return data;
+  for (const attempt of [true, false]) {
+    const patch: any = { approval_status: 'rejected', ...(attempt ? { rejected_at: new Date().toISOString(), approved_by: adminId, rejection_reason: reason.trim() } : { rejection_reason: reason.trim() }) };
+    const { data, error } = await supabaseAdmin.from('agency_users').update(patch).eq('id', agencyId).eq('approval_status', 'pending').select('*').single();
+    if (!error && data) return data;
+    if (error && isMissingColumn(error) && attempt) continue;
+    throw new AppError(400, error?.message || 'Agency not found or not pending');
+  }
+  throw new AppError(400, 'Agency not found or not pending');
 }
 
 export async function bulkApproveAgencies(ids: string[], adminId: string) {
@@ -153,9 +164,25 @@ export async function checkDuplicate(params: { email?: string; phone?: string; e
       p_email: email,
       p_phone_digits: normalizedPhone,
     });
-    if (error) throw error;
+    if (error) {
+      if (String(error.code) === 'PGRST202' || String(error.message).includes('does not exist')) {
+        // detailed function not migrated yet — fallback to simple
+        const { data: simple } = await supabaseAdmin.rpc('check_contact_exists', { p_email: email, p_phone_digits: normalizedPhone });
+        const src = (simple ?? [])[0]?.source;
+        if (src) return { exists: true, duplicates: [{ source: src, matched_field: 'email/phone', record_id: '', display_name: src }], sources: [src], quick_source: src, email_checked: email, phone_checked: normalizedPhone };
+        return { exists: false, duplicates: [], sources: [], quick_source: null, email_checked: email, phone_checked: normalizedPhone };
+      }
+      throw error;
+    }
     duplicates = (data ?? []).filter((d: any) => !params.excludeId || d.record_id !== params.excludeId);
   } catch (e: any) {
+    if (e instanceof AppError) throw e;
+    // simple fallback
+    try {
+      const { data: simple } = await supabaseAdmin.rpc('check_contact_exists', { p_email: email, p_phone_digits: normalizedPhone });
+      const src = (simple ?? [])[0]?.source;
+      if (src) return { exists: true, duplicates: [{ source: src, matched_field: 'email/phone', record_id: '', display_name: src }], sources: [src], quick_source: src, email_checked: email, phone_checked: normalizedPhone };
+    } catch (_) {}
     throw new AppError(500, e.message);
   }
 
@@ -179,18 +206,28 @@ export async function checkDuplicate(params: { email?: string; phone?: string; e
 
 export async function updateAgency(agencyId: string, patch: Record<string, any>) {
   const allowed = ['agency_name','agency_short_name','contact_person','contact_email','email','phone','whatsapp_number','website','description','location','logo_url','is_active'];
-  const updates: Record<string, any> = {};
+  let updates: Record<string, any> = {};
   for (const k of allowed) if (patch[k] !== undefined) updates[k] = patch[k];
   if (Object.keys(updates).length === 0) throw new AppError(400, 'Nothing to update');
-  updates.updated_at = new Date().toISOString();
-  const { data, error } = await supabaseAdmin.from('agency_users').update(updates).eq('id', agencyId).select('*').single();
-  if (error || !data) throw new AppError(404, 'Agency not found');
-  return data;
+  // retry without new columns if migration not applied
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const tryUpdates = { ...updates, updated_at: new Date().toISOString() };
+    if (attempt === 1) { delete (tryUpdates as any).is_active; delete (tryUpdates as any).agency_short_name; delete (tryUpdates as any).contact_email; delete (tryUpdates as any).whatsapp_number; }
+    const { data, error } = await supabaseAdmin.from('agency_users').update(tryUpdates).eq('id', agencyId).select('*').single();
+    if (!error && data) return data;
+    if (error && isMissingColumn(error) && attempt === 0) { updates = { ...updates }; continue; }
+    if (error && !isMissingColumn(error)) throw new AppError(500, error.message);
+  }
+  throw new AppError(404, 'Agency not found');
 }
 
 export async function setAgencyActive(agencyId: string, isActive: boolean) {
   const { data, error } = await supabaseAdmin.from('agency_users').update({ is_active: isActive, updated_at: new Date().toISOString() }).eq('id', agencyId).select('id, is_active').single();
-  if (error || !data) throw new AppError(404, 'Agency not found');
+  if (error) {
+    if (isMissingColumn(error)) throw new AppError(400, 'is_active column not migrated yet — apply 00129');
+    throw new AppError(404, 'Agency not found');
+  }
+  if (!data) throw new AppError(404, 'Agency not found');
   return data;
 }
 
