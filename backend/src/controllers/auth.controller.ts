@@ -83,6 +83,15 @@ export async function checkCandidateStatus(req: Request, res: Response, next: Ne
   }
 }
 
+export async function checkAgencyContact(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await authService.checkAgencyContact(req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await authService.login(req.body);

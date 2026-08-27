@@ -14,6 +14,7 @@ import * as savedFilterController from '../controllers/saved-filter.controller.j
 import * as notificationsController from '../controllers/notifications.controller.js';
 import * as appInstallController from '../controllers/app-install.controller.js';
 import * as staffAdminController from '../controllers/staff-admin.controller.js';
+import agencyAdminRouter from './agency-admin.routes.js';
 import {
   requireAdminOrStaff,
   enforceModuleAccess,
@@ -808,5 +809,10 @@ router.delete('/staff/:id', staffAdminController.deleteStaff);
 router.get('/staff/:id/grants', staffAdminController.listGrants);
 router.put('/staff/:id/grants', validate({ body: putGrantsSchema }), staffAdminController.putGrants);
 router.delete('/staff/:id/grants/:slug', staffAdminController.deleteGrant);
+
+// ---------------------------------------------------------------------------
+// Agencies (admin management + approval workflow + duplicate checks)
+// ---------------------------------------------------------------------------
+router.use('/agencies', agencyAdminRouter);
 
 export default router;

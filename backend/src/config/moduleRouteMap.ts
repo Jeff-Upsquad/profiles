@@ -70,6 +70,8 @@ export const MODULE_ROUTE_RULES: ModuleRule[] = [
 
   { prefix: '/notifications', module: 'notifications' },
 
+  { prefix: '/agencies', module: 'agencies' },
+
   // Team & Access management API (staff CRUD + grants + module registry)
   { prefix: '/staff', module: 'team-access' },
   { prefix: '/modules', module: 'team-access' },
