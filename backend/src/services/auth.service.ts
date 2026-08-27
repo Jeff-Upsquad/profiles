@@ -302,6 +302,41 @@ export async function checkCandidateStatus(input: { email?: string; phone?: stri
   };
 }
 
+export async function checkAgencyContact(input: { email?: string; phone?: string }) {
+  const normalizedEmail = input.email?.trim().toLowerCase() || null;
+  const phoneDigits = input.phone ? input.phone.replace(/\D/g, '').slice(-10) : null;
+  const normalizedPhone = phoneDigits && phoneDigits.length === 10 ? phoneDigits : null;
+  if (!normalizedEmail && !normalizedPhone) {
+    return { exists: false, duplicates: [], message: 'Email or phone required' };
+  }
+  try {
+    const { data } = await supabaseAdmin.rpc('check_contact_exists_detailed', {
+      p_email: normalizedEmail,
+      p_phone_digits: normalizedPhone,
+    });
+    const dups = (data ?? []) as any[];
+    const exists = dups.length > 0;
+    // For agency signup we consider any duplicate as blocking (agency/talent/business/auth/lead)
+    // Frontend can show specific source
+    return {
+      exists,
+      duplicates: dups.map((d: any) => ({ source: d.source, field: d.matched_field, id: d.record_id, name: d.display_name })),
+      sources: [...new Set(dups.map((d: any) => d.source))],
+      email: normalizedEmail,
+      phone: normalizedPhone,
+    };
+  } catch (e: any) {
+    // fallback to simple check
+    try {
+      const { data } = await supabaseAdmin.rpc('check_contact_exists', { p_email: normalizedEmail, p_phone_digits: normalizedPhone });
+      const exists = (data ?? []).length > 0;
+      return { exists, duplicates: (data ?? []).map((d: any) => ({ source: d.source, field: 'unknown', id: '', name: '' })), sources: (data ?? []).map((d: any) => d.source), email: normalizedEmail, phone: normalizedPhone };
+    } catch {
+      return { exists: false, duplicates: [], sources: [], email: normalizedEmail, phone: normalizedPhone };
+    }
+  }
+}
+
 export async function login(input: LoginInput) {
   // Use anon client for user sign-in (service-role client doesn't support user sessions)
   const { data, error } = await supabaseAnon.auth.signInWithPassword({

@@ -45,6 +45,12 @@ router.post(
 );
 
 router.post(
+  '/check-agency-contact',
+  validate({ body: checkCandidateStatusSchema }),
+  authController.checkAgencyContact
+);
+
+router.post(
   '/login',
   validate({ body: loginSchema }),
   authController.login
