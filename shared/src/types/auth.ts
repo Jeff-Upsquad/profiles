@@ -1,4 +1,4 @@
-export type UserRole = 'talent' | 'business' | 'admin' | 'staff';
+export type UserRole = 'talent' | 'business' | 'admin' | 'staff' | 'agency' | 'squad_member' | 'squad_manager';
 
 export interface SignupTalentPayload {
   email: string;
@@ -115,6 +115,16 @@ export interface LoginUpdateVerifyPayload {
 export interface LoginUpdateVerifyResponse {
   success: boolean;
   field: LoginDetailField;
+}
+
+export interface SignupAgencyPayload {
+  email: string;
+  password: string;
+  agency_name: string;
+  contact_person?: string;
+  phone?: string;
+  website?: string;
+  location?: string;
 }
 
 export type Gender = 'male' | 'female' | 'other' | 'prefer_not_to_say';

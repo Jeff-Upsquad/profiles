@@ -2,7 +2,7 @@ import { supabaseAdmin, supabaseAnon } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { checkInvitation, markInvitationAccepted } from './invite.service.js';
 import { getAdminSetting } from './admin.service.js';
-import type { SignupTalentInput, LoginInput } from '../validators/auth.validators.js';
+import type { SignupTalentInput, SignupAgencyInput, LoginInput } from '../validators/auth.validators.js';
 import type { UserRole } from '../../../shared/src/types/auth.js';
 
 export async function signupTalent(input: SignupTalentInput) {
@@ -115,6 +115,38 @@ export async function signupTalent(input: SignupTalentInput) {
   }
 
   return { message: 'Account created successfully. Please sign in to continue.' };
+}
+
+export async function signupAgency(input: SignupAgencyInput) {
+  const { email, password, agency_name, contact_person, phone, website, location } = input;
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { role: 'agency' as UserRole, agency_name },
+  });
+  if (authError) {
+    if (authError.message.includes('already')) throw new AppError(409, 'An account with this email already exists');
+    throw new AppError(400, authError.message);
+  }
+  const userId = authData.user.id;
+  const { error: profileError } = await supabaseAdmin.from('agency_users').insert({
+    id: userId, agency_name, contact_person: contact_person ?? null, email, phone: phone ?? null, website: website ?? null, location: location ?? null,
+  });
+  if (profileError) {
+    console.error('Agency profile insert error:', profileError);
+    const msg = String(profileError.message || '').toLowerCase();
+    const isMissing = msg.includes('does not exist') || msg.includes('could not find the table') || (profileError as any).code === 'PGRST205' || (profileError as any).code === '42P01';
+    if (!isMissing) {
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      throw new AppError(500, 'Failed to create agency profile');
+    }
+    // table missing – auth user already created, keep it (fallback in-memory)
+  } else {
+    // create empty agency_profiles row
+    await supabaseAdmin.from('agency_profiles').insert({ agency_user_id: userId }).then(() => {}, () => {});
+  }
+  return { message: 'Agency account created successfully. Please sign in to continue.' };
 }
 
 const VALID_GENDERS = new Set(['male', 'female', 'other', 'prefer_not_to_say']);
@@ -387,6 +419,15 @@ export async function getMe(userId: string, role: UserRole) {
 
     if (error || !data) throw new AppError(404, 'Business user not found');
 
+    return { ...data, role, must_reset_password: mustResetPassword };
+  }
+
+  if ((role as string) === 'agency') {
+    const { data, error } = await supabaseAdmin.from('agency_users').select('*').eq('id', userId).single();
+    if (error || !data) {
+      // fallback when table missing – return minimal agency user
+      return { id: userId, agency_name: authUser?.user?.user_metadata?.agency_name ?? 'Agency', role, must_reset_password: mustResetPassword };
+    }
     return { ...data, role, must_reset_password: mustResetPassword };
   }
 

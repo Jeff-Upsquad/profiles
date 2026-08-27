@@ -13,6 +13,15 @@ export async function signupTalent(req: Request, res: Response, next: NextFuncti
   }
 }
 
+export async function signupAgency(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await authService.signupAgency(req.body);
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function businessLogin(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await businessAuthService.businessLogin({

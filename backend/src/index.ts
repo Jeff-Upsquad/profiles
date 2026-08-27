@@ -20,6 +20,8 @@ import integrationsRouter from './routes/integrations.routes.js';
 import pushRouter from './routes/push.routes.js';
 import jobsTalentRouter from './routes/jobs-talent.routes.js';
 import jobsBusinessRouter from './routes/jobs-business.routes.js';
+import agencyRouter from './routes/agency.routes.js';
+import squadRouter, { squadSelfRouter } from './routes/squad.routes.js';
 import * as pushController from './controllers/push.controller.js';
 import * as appVersionController from './controllers/app-version.controller.js';
 import { startCallbackSweeper } from './services/squadhub-callback.service.js';
@@ -96,6 +98,9 @@ app.use('/api/upload', uploadRouter);
 // pass through their middleware chains first.
 app.use('/api/talent/jobs', jobsTalentRouter);
 app.use('/api/business/jobs', jobsBusinessRouter);
+app.use('/api/agency', agencyRouter);
+app.use('/api/squad', squadRouter);
+app.use('/api/squad', squadSelfRouter);
 app.use('/api/talent', talentRouter);
 app.use('/api/public', publicRouter);
 app.use('/api/business', businessRouter);
