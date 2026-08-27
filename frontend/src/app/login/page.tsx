@@ -92,6 +92,28 @@ export default function LoginChooseRolePage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>
+
+            <Link
+              href="/login/agency"
+              className="group card-v5 flex items-center gap-4 p-5"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--cu-radius)] bg-[#FFFAC2] border-2 border-cu-900 shadow-brutal-sm">
+                <svg className="h-5.5 w-5.5 text-cu-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <div className="font-display text-[15px] font-semibold text-cu-900">
+                  I'm an Agency
+                </div>
+                <div className="mt-0.5 font-ui text-xs text-cu-500">
+                  Manage your squad & agency portfolio
+                </div>
+              </div>
+              <svg className="h-5 w-5 text-cu-400 transition-transform group-hover:translate-x-0.5 group-hover:text-cu-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
           </div>
 
           {/* Footer */}

@@ -3,8 +3,9 @@ export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 export interface User {
   id: string;
   email: string;
-  role: 'talent' | 'business' | 'admin';
+  role: 'talent' | 'business' | 'admin' | 'agency' | 'squad_member' | 'squad_manager';
   full_name?: string;
+  agency_name?: string;
   company_name?: string;
   industry?: string;
   business_note?: string;
@@ -131,6 +132,16 @@ export interface BusinessSignupData {
   contact_person_name: string;
   contact_email: string;
   contact_phone?: string;
+}
+
+export interface AgencySignupData {
+  email: string;
+  password: string;
+  agency_name: string;
+  contact_person?: string;
+  phone?: string;
+  website?: string;
+  location?: string;
 }
 
 export interface PresignedUrlResponse {

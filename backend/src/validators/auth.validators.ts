@@ -76,6 +76,17 @@ export const loginUpdateVerifySchema = z.object({
   new_value: z.string().min(1, 'A new value is required'),
 });
 
+export const signupAgencySchema = z.object({
+  email: z.string().email('Valid email is required'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  agency_name: z.string().min(1, 'Agency name is required').max(300),
+  contact_person: z.string().max(200).optional(),
+  phone: z.string().optional(),
+  website: z.string().optional(),
+  location: z.string().max(200).optional(),
+});
+
 export type SignupTalentInput = z.infer<typeof signupTalentSchema>;
 export type SignupBusinessInput = z.infer<typeof signupBusinessSchema>;
+export type SignupAgencyInput = z.infer<typeof signupAgencySchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

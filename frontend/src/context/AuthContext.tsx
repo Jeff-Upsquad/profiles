@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import api from '@/services/api';
-import type { User, TalentSignupData } from '@/types';
+import type { User, TalentSignupData, AgencySignupData } from '@/types';
 
 const CHANGE_PASSWORD_PATH = '/change-password';
 const BUSINESS_CHANGE_PASSWORD_PATH = '/change-password/business';
@@ -33,6 +33,8 @@ interface AuthContextType {
   }) => Promise<{ needsSignup: boolean }>;
   businessSignup: (data: BusinessSignupData) => Promise<void>;
   signupTalent: (data: TalentSignupData, options?: { skipRedirect?: boolean }) => Promise<void>;
+  signupAgency: (data: AgencySignupData) => Promise<void>;
+  agencyLogin: (email: string, password: string) => Promise<void>;
   applyResetSession: (data: {
     access_token?: string;
     token?: string;
@@ -195,6 +197,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [storeAuth, router]
   );
 
+  const signupAgency = useCallback(
+    async (data: AgencySignupData) => {
+      await api.post('/auth/signup/agency', data);
+      // auto-login via standard login (agency uses same Supabase auth)
+      const { data: loginData } = await api.post('/auth/login', { email: data.email, password: data.password });
+      storeAuth(loginData.access_token || loginData.token, loginData.user, loginData.refresh_token);
+      enterApp('/agency/dashboard');
+    },
+    [storeAuth]
+  );
+
+  const agencyLogin = useCallback(
+    async (email: string, password: string) => {
+      const { data } = await api.post('/auth/login', { email, password });
+      if (data.user?.role && data.user.role !== 'agency') {
+        throw new Error('This account is not an agency account');
+      }
+      storeAuth(data.access_token || data.token, data.user, data.refresh_token);
+      enterApp('/agency/dashboard');
+    },
+    [storeAuth]
+  );
+
   const logout = useCallback(
     (redirectTo: string = '/') => {
       clearAuth();
@@ -219,6 +244,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         businessLogin,
         businessSignup,
         signupTalent,
+        signupAgency,
+        agencyLogin,
         applyResetSession,
         logout,
         refetchUser,

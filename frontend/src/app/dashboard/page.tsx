@@ -14,6 +14,10 @@ export default function DashboardPage() {
         router.push('/business/hire');
       } else if (user.role === 'talent') {
         router.push('/talent/dashboard');
+      } else if (user.role === 'agency') {
+        router.push('/agency/dashboard');
+      } else if (user.role === 'squad_member' || user.role === 'squad_manager') {
+        router.push('/squad/dashboard');
       } else if (user.role === 'admin') {
         router.push('/admin/');
       } else {

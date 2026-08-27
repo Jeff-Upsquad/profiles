@@ -5,6 +5,7 @@ import { authenticate } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import {
   signupTalentSchema,
+  signupAgencySchema,
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
@@ -29,6 +30,12 @@ router.post(
   '/signup/talent',
   validate({ body: signupTalentSchema }),
   authController.signupTalent
+);
+
+router.post(
+  '/signup/agency',
+  validate({ body: signupAgencySchema }),
+  authController.signupAgency
 );
 
 router.post(
