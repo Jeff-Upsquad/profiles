@@ -45,13 +45,13 @@ export async function createMyJobProfile(req: Request, res: Response, next: Next
 }
 export async function updateMyJobProfile(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await squadService.squadUpdateJobProfile(req.user!.id, req.params.id, req.body);
+    const data = await squadService.squadUpdateJobProfile(req.user!.id, req.params.id as string, req.body);
     res.json(data);
   } catch (e) { next(e); }
 }
 export async function deleteMyJobProfile(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await squadService.squadDeleteJobProfile(req.user!.id, req.params.id);
+    const data = await squadService.squadDeleteJobProfile(req.user!.id, req.params.id as string);
     res.json(data);
   } catch (e) { next(e); }
 }
