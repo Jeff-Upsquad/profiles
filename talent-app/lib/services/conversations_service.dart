@@ -7,26 +7,28 @@ class ConversationsService {
   final ApiClient _client;
   ConversationsService(this._client);
 
-  Future<List<IntroConversation>> list() async {
-    final r = await _client.dio.get('/talent/conversations');
+  Future<List<IntroConversation>> list({String prefix = '/talent'}) async {
+    final r = await _client.dio.get('$prefix/conversations');
     return asObjectList(asObject(r.data)['conversations'])
         .map(IntroConversation.fromJson)
         .toList();
   }
 
-  Future<int> unreadCount() async {
-    final r = await _client.dio.get('/talent/conversations/unread-count');
-    return asInt(asObject(r.data)['unread']) ?? 0;
+  Future<int> unreadCount({String prefix = '/talent'}) async {
+    final r = await _client.dio.get('$prefix/conversations/unread-count');
+    // Agency returns {count: N}, talent returns {unread: N}
+    final obj = asObject(r.data);
+    return asInt(obj['unread']) ?? asInt(obj['count']) ?? 0;
   }
 
-  Future<IntroConversation> get(String id) async {
-    final r = await _client.dio.get('/talent/conversations/$id');
+  Future<IntroConversation> get(String id, {String prefix = '/talent'}) async {
+    final r = await _client.dio.get('$prefix/conversations/$id');
     return IntroConversation.fromJson(asObject(asObject(r.data)['conversation']));
   }
 
-  Future<List<IntroMessage>> messages(String id) async {
+  Future<List<IntroMessage>> messages(String id, {String prefix = '/talent'}) async {
     final r = await _client.dio.get(
-      '/talent/conversations/$id/messages',
+      '$prefix/conversations/$id/messages',
       queryParameters: {'limit': 100},
     );
     return asObjectList(asObject(r.data)['messages'])
@@ -34,9 +36,9 @@ class ConversationsService {
         .toList();
   }
 
-  Future<IntroMessage> send(String id, String body) async {
+  Future<IntroMessage> send(String id, String body, {String prefix = '/talent'}) async {
     final r = await _client.dio.post(
-      '/talent/conversations/$id/messages',
+      '$prefix/conversations/$id/messages',
       data: {'body': body},
     );
     return IntroMessage.fromJson(asObject(asObject(r.data)['message']));
@@ -49,9 +51,10 @@ class ConversationsService {
     String? timezone,
     required String provider,
     required String meetingLink,
+    String prefix = '/talent',
   }) async {
     final r = await _client.dio.post(
-      '/talent/conversations/$id/meetings',
+      '$prefix/conversations/$id/meetings',
       data: {
         'starts_at': startsAt,
         ?'ends_at': endsAt,
@@ -66,18 +69,19 @@ class ConversationsService {
   Future<IntroMeeting> respond(
     String conversationId,
     String meetingId,
-    String action,
-  ) async {
+    String action, {
+    String prefix = '/talent',
+  }) async {
     final r = await _client.dio.post(
-      '/talent/conversations/$conversationId/meetings/$meetingId/respond',
+      '$prefix/conversations/$conversationId/meetings/$meetingId/respond',
       data: {'action': action},
     );
     return IntroMeeting.fromJson(asObject(asObject(r.data)['meeting']));
   }
 
-  Future<IntroMeeting> cancel(String conversationId, String meetingId) async {
+  Future<IntroMeeting> cancel(String conversationId, String meetingId, {String prefix = '/talent'}) async {
     final r = await _client.dio.post(
-      '/talent/conversations/$conversationId/meetings/$meetingId/cancel',
+      '$prefix/conversations/$conversationId/meetings/$meetingId/cancel',
     );
     return IntroMeeting.fromJson(asObject(asObject(r.data)['meeting']));
   }

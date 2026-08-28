@@ -10,6 +10,7 @@ import '../../widgets/ui_kit.dart';
 import '../jobs/jobs_view.dart';
 import '../offers/talent_offers_view.dart';
 import '../update/update_card.dart';
+import 'agency_home_screen.dart';
 
 const _tabModule = {
   'subscriptions': 'subscriptions',
@@ -95,6 +96,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
+    if (user?.isAgency == true) {
+      return const AgencyHomeScreen();
+    }
     final me = ref.watch(talentMeProvider).value;
     final firstName = (user?.fullName ?? me?.fullName ?? '')
         .trim()

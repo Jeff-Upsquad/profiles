@@ -1,7 +1,7 @@
 'use client';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import DashboardLayout, { type SidebarItem } from '@/components/layout/DashboardLayout';
 import AgencyTopBar from '@/components/layout/AgencyTopBar';
 import AgencyBottomNav from '@/components/layout/AgencyBottomNav';
@@ -9,6 +9,22 @@ import AgencyBottomNav from '@/components/layout/AgencyBottomNav';
 export default function AgencyLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const [isInApp, setIsInApp] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return new URLSearchParams(window.location.search).get('in_app') === '1';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      setIsInApp(new URLSearchParams(window.location.search).get('in_app') === '1');
+    } catch {
+      setIsInApp(false);
+    }
+  }, [pathname]);
   useEffect(() => {
     if (!isLoading) {
       if (!user) router.replace('/login/agency');
@@ -38,6 +54,10 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
     { label: 'Training Program', to: '/agency/training', icon: (<svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>) },
     { label: 'Contact Support', to: '/agency/support', icon: (<svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>) },
   ];
+
+  if (isInApp) {
+    return <div className="min-h-screen bg-[#F5F5F6]">{children}</div>;
+  }
 
   return (
     <DashboardLayout sidebarItems={sidebarItems} hideMobileSidebar hideNavbarOnMobile>
