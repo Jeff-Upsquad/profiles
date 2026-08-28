@@ -64,6 +64,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
+      // In-app WebView bridge: the talent app appends `?app_token=` (+ optional
+      // `app_refresh`) so the web page can silently inherit the app's session
+      // without requiring the user to log in again inside the WebView.
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const appToken = params.get('app_token');
+        const appRefresh = params.get('app_refresh');
+        if (appToken) {
+          localStorage.setItem('squadhire_token', appToken);
+          if (appRefresh) localStorage.setItem('squadhire_refresh', appRefresh);
+          else localStorage.removeItem('squadhire_refresh');
+          params.delete('app_token');
+          params.delete('app_refresh');
+          params.delete('in_app');
+          const clean =
+            params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
+          window.history.replaceState({}, '', clean);
+          return appToken;
+        }
+      } catch {
+        // ignore — storage may be unavailable in some embed contexts
+      }
       return localStorage.getItem('squadhire_token');
     }
     return null;
@@ -94,6 +116,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     setUser(null);
   }, []);
+
+  // In-app WebView may navigate to a URL that carries `?app_token=` after the
+  // provider has already mounted (soft navigation). Promote it to localStorage.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const appToken = params.get('app_token');
+      if (appToken && appToken !== token) {
+        const appRefresh = params.get('app_refresh');
+        localStorage.setItem('squadhire_token', appToken);
+        if (appRefresh) localStorage.setItem('squadhire_refresh', appRefresh);
+        else localStorage.removeItem('squadhire_refresh');
+        params.delete('app_token');
+        params.delete('app_refresh');
+        params.delete('in_app');
+        const clean =
+          params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
+        window.history.replaceState({}, '', clean);
+        setToken(appToken);
+      }
+    } catch {
+      // ignore
+    }
+  }, [pathname, token]);
 
   // On mount (or token change), always fetch the latest user from the server.
   // This ensures approval_status and other fields stay current.
