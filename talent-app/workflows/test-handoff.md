@@ -5,7 +5,7 @@
 - **Android**: Internal Testing → [Google Play Console](https://play.google.com/console)
 - **Web (live)**: https://squadhire.upsquadconnect.com/{talent,agency}/* — deployed via `scripts/deploy.sh`
 
-## What Changed (Current Release — 1.1.20+30)
+## What Changed (Current Release — 1.1.21+31)
 - **Agency login in Talent App**: Login screen now has Talent/Agency toggle (`talent-app/lib/features/auth/login_screen.dart:38`). Auth layer allows `talent` + `agency` (`providers/providers.dart:79` `AppInstall` + `AuthUser.isAgency`), `GET /auth/me` restores agency sessions, and `agencyLogin` validates `expectedRole`.
 - **Agency Home → Subscriptions/Assignments (talent parity)**: `talent-app/lib/features/home/agency_home_screen.dart:7` now mirrors talent Home — `SoftSegmentedTabs` **Subscriptions** (`GET /agency/subscriptions`) and **Assignments** (`GET /agency/assignments`) with badges, pull-to-refresh, empty cards ("No subscriptions/assignments yet"), and request cards. Old 4-stat grid moved below as **Get Started** (kept). `home_screen.dart:97` routes to it when `user.isAgency`.
 - **AgencyService扩展**: `services/agency_service.dart:42` added `listSubscriptions()` / `listAssignments()` (`providers/providers.dart:303` `agencySubscriptionsProvider` / `agencyAssignmentsProvider`).
@@ -23,7 +23,7 @@
 ```bash
 cd talent-app
 
-# Version already bumped to 1.1.20+30
+# Version already bumped to 1.1.21+31
 flutter pub get
 
 # iOS
