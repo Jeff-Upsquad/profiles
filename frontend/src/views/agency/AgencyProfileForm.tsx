@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { agencyApi } from '@/services/agency-api';
 import Input from '@/components/ui/Input';
@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { COUNTRIES, INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-locations';
 import { useUpload } from '@/hooks/useUpload';
 import api from '@/services/api';
+import DesignerExtras from '@/components/forms/DesignerExtras';
 
 const AGENCY_LANGUAGES = [
   'English',
@@ -44,7 +45,12 @@ export default function AgencyProfileForm(){
     languages:[] as string[],
     location_country:'India', location_state:'', location_district:'', location_city:'', address:'', pincode:'',
     founded_year:'', logo_url:'',
-    contact_person:'', contact_email:'', whatsapp_number:''
+    contact_person:'', contact_email:'', whatsapp_number:'',
+    skills:[],
+    tools:[],
+    ai_tools:[],
+    categories:[],
+    industry_experience:[]
   });
 
   const normalizeLanguages = (val:any): string[]=>{
@@ -76,7 +82,12 @@ export default function AgencyProfileForm(){
         address: (agencyProfile as any)?.address||prev.address||'',
         pincode: (agencyProfile as any)?.pincode||prev.pincode||'',
         founded_year: (agencyProfile as any)?.founded_year?String((agencyProfile as any).founded_year):prev.founded_year||'',
-        logo_url: (agencyProfile as any)?.logo_url || (me as any)?.logo_url || prev.logo_url || ''
+        logo_url: (agencyProfile as any)?.logo_url || (me as any)?.logo_url || prev.logo_url || '',
+        skills: Array.isArray((agencyProfile as any)?.skills)? (agencyProfile as any).skills: prev.skills||[],
+        tools: Array.isArray((agencyProfile as any)?.tools)? (agencyProfile as any).tools: prev.tools||[],
+        ai_tools: Array.isArray((agencyProfile as any)?.ai_tools)? (agencyProfile as any).ai_tools: prev.ai_tools||[],
+        categories: Array.isArray((agencyProfile as any)?.categories)? (agencyProfile as any).categories: prev.categories||[],
+        industry_experience: Array.isArray((agencyProfile as any)?.industry_experience)? (agencyProfile as any).industry_experience: prev.industry_experience||[]
       }));
     }
   },[agencyProfile, me]);
@@ -144,6 +155,11 @@ export default function AgencyProfileForm(){
         address: form.address||null,
         pincode: form.pincode||null,
         founded_year: form.founded_year? Number(form.founded_year):null,
+        skills: form.skills?.length? form.skills:null,
+        tools: form.tools?.length? form.tools:null,
+        ai_tools: form.ai_tools?.length? form.ai_tools:null,
+        categories: form.categories?.length? form.categories:null,
+        industry_experience: form.industry_experience?.length? form.industry_experience:null,
       };
       const userPayload:any = {
         agency_name: form.agency_name?.trim(),
@@ -165,6 +181,12 @@ export default function AgencyProfileForm(){
   const districtOptions = form.location_state ? (DISTRICTS_BY_STATE[form.location_state] || []).map(d=>({label:d,value:d})) : [];
   const cityOptions = districtOptions;
   const liveCategories = (categories as any[]).filter((c:any)=>c.is_active!==false);
+  const primaryCategoryId = useMemo(()=>{
+    if (!form.services?.length || !liveCategories?.length) return null;
+    const first = form.services[0];
+    const cat = liveCategories.find((c:any)=>c.name===first);
+    return cat ? cat.id : null;
+  }, [form.services, liveCategories]);
 
   return (
     <div className="space-y-6">
@@ -326,6 +348,32 @@ export default function AgencyProfileForm(){
             <Input label="Contact Email" type="email" value={form.contact_email} onChange={e=>setForm((p:any)=>({...p, contact_email:e.target.value}))} placeholder="person@agency.com" />
             <Input label="WhatsApp Number" value={form.whatsapp_number} onChange={e=>setForm((p:any)=>({...p, whatsapp_number:e.target.value}))} placeholder="+91 9..." helperText="With country code" />
           </div>
+        </div>
+
+        {/* Skills & Tools — agency level */}
+        <div className="mt-6 border-t border-[#E7E7EA] pt-6">
+          <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Skills & Tools</h3>
+          <p className="text-sm text-[#737373]">Pick what your agency specialises in — categories, skills, tools, AI tools and industry experience. Proficiency is rated 1-5.</p>
+          {primaryCategoryId ? (
+            <div className="mt-4">
+              <DesignerExtras
+                categoryId={primaryCategoryId}
+                skills={form.skills ?? []}
+                tools={form.tools ?? []}
+                aiTools={form.ai_tools ?? []}
+                categories={form.categories ?? []}
+                industryExperience={form.industry_experience ?? []}
+                onSkillsChange={(s)=>setForm((p:any)=>({...p, skills:s}))}
+                onToolsChange={(t)=>setForm((p:any)=>({...p, tools:t}))}
+                onAiToolsChange={(at)=>setForm((p:any)=>({...p, ai_tools:at}))}
+                onCategoriesChange={(c)=>setForm((p:any)=>({...p, categories:c}))}
+                onIndustryExperienceChange={(ie)=>setForm((p:any)=>({...p, industry_experience:ie}))}
+              />
+              <p className="mt-2 text-xs text-[#a3a3a3]">Skills loaded from first selected service: {form.services?.[0] || '—'}. Add more services to expand coverage.</p>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-[#a3a3a3]">Select at least one service above to configure skills & tools for that category.</p>
+          )}
         </div>
 
         <div className="mt-6">
