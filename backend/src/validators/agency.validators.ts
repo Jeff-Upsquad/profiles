@@ -20,6 +20,7 @@ export const updateAgencyProfileSchema = z.object({
   founded_year: z.number().int().min(1900).max(2100).nullable().optional(),
   team_size: z.string().max(50).nullable().optional(),
   services: z.array(z.string()).nullable().optional(),
+  languages: z.array(z.string().max(50)).max(30).nullable().optional(),
   industries: z.array(z.string()).nullable().optional(),
   location_country: z.string().max(100).nullable().optional(),
   location_state: z.string().max(100).nullable().optional(),

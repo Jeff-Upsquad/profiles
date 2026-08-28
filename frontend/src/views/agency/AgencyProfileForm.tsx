@@ -11,18 +11,49 @@ import { COUNTRIES, INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-
 import { useUpload } from '@/hooks/useUpload';
 import api from '@/services/api';
 
+const AGENCY_LANGUAGES = [
+  'English',
+  'Hindi',
+  'Malayalam',
+  'Tamil',
+  'Kannada',
+  'Telugu',
+  'Bengali',
+  'Marathi',
+  'Gujarati',
+  'Urdu',
+  'Odia',
+  'Punjabi',
+  'Assamese',
+  'Arabic',
+  'French',
+  'German',
+  'Spanish',
+  'Portuguese',
+];
+
 export default function AgencyProfileForm(){
   const qc=useQueryClient();
   const { data: agencyProfile } = useQuery({ queryKey:['agencyProfile'], queryFn: agencyApi.getProfile });
   const { data: me } = useQuery({ queryKey:['agencyMe'], queryFn: agencyApi.me });
   const { data: categories=[] } = useQuery({ queryKey:['agencyCategories'], queryFn: async()=>{ const {data}=await api.get('/public/categories'); return data as any[]; }});
   const { uploadFile, uploading } = useUpload();
+  const [languageSelect, setLanguageSelect] = useState('');
   const [form,setForm]=useState<any>({
     agency_name:'', agency_short_name:'', tagline:'', about:'', team_size:'', services:[] as string[],
+    languages:[] as string[],
     location_country:'India', location_state:'', location_district:'', location_city:'', address:'', pincode:'',
     founded_year:'', logo_url:'',
     contact_person:'', contact_email:'', whatsapp_number:''
   });
+
+  const normalizeLanguages = (val:any): string[]=>{
+    if(!val) return [];
+    if(Array.isArray(val)){
+      return val.map((v:any)=> typeof v==='string'? v : v?.language).filter(Boolean);
+    }
+    return [];
+  };
 
   useEffect(()=>{
     if(me || agencyProfile){
@@ -37,6 +68,7 @@ export default function AgencyProfileForm(){
         about: (agencyProfile as any)?.about||prev.about||'',
         team_size: (agencyProfile as any)?.team_size||prev.team_size||'',
         services: Array.isArray((agencyProfile as any)?.services)? (agencyProfile as any).services: prev.services||[],
+        languages: normalizeLanguages((agencyProfile as any)?.languages ?? (agencyProfile as any)?.languages_spoken) .length ? normalizeLanguages((agencyProfile as any)?.languages ?? (agencyProfile as any)?.languages_spoken) : prev.languages||[],
         location_country: (agencyProfile as any)?.location_country||prev.location_country||'India',
         location_state: (agencyProfile as any)?.location_state||prev.location_state||'',
         location_district: (agencyProfile as any)?.location_district||prev.location_district||'',
@@ -68,6 +100,20 @@ export default function AgencyProfileForm(){
     });
   };
 
+  const handleLanguageSelect = (val:string)=>{
+    if(!val) return;
+    setForm((prev:any)=>{
+      const cur:string[] = Array.isArray(prev.languages)? prev.languages: [];
+      if(cur.includes(val)) return prev;
+      return { ...prev, languages: [...cur, val] };
+    });
+    setLanguageSelect('');
+  };
+
+  const removeLanguage = (val:string)=>{
+    setForm((prev:any)=>({ ...prev, languages: (prev.languages||[]).filter((l:string)=>l!==val) }));
+  };
+
   const handleLogoUpload = async()=>{
     const input=document.createElement('input');
     input.type='file';
@@ -90,6 +136,7 @@ export default function AgencyProfileForm(){
         about: form.about||null,
         team_size: form.team_size||null,
         services: form.services?.length? form.services:null,
+        languages: form.languages?.length? form.languages:null,
         location_country: form.location_country||null,
         location_state: form.location_state||null,
         location_district: form.location_district||null,
@@ -236,6 +283,38 @@ export default function AgencyProfileForm(){
             })}
           </div>
           {form.services.length>0 && <p className="mt-2 text-xs text-[#737373]">{form.services.length} selected: {form.services.join(', ')}</p>}
+        </div>
+
+        {/* Languages — dropdown + chips, used for requirement-card matching (category + language + location) */}
+        <div className="mt-6 border-t border-[#E7E7EA] pt-6">
+          <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Languages</h3>
+          <p className="text-sm text-[#737373]">Select languages your team can work in — agencies are matched to requirement cards by category, language and location.</p>
+          <div className="mt-3 max-w-sm">
+            <Select
+              label="Add Language"
+              value={languageSelect}
+              onChange={e=>handleLanguageSelect(e.target.value)}
+              placeholder="Select language"
+              options={AGENCY_LANGUAGES.filter(l=>!(form.languages||[]).includes(l)).map(l=>({label:l,value:l}))}
+            />
+            {AGENCY_LANGUAGES.filter(l=>!(form.languages||[]).includes(l)).length===0 && (
+              <p className="mt-1.5 text-xs text-[#a3a3a3]">All languages selected.</p>
+            )}
+          </div>
+          {(form.languages||[]).length>0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(form.languages as string[]).map((lang:string)=>(
+                <span key={lang} className="inline-flex items-center gap-1.5 rounded-full border border-[#E7E7EA] bg-[#F5F5F6] px-3 py-1 text-sm font-medium text-[#0a0a0a]">
+                  {lang}
+                  <button type="button" onClick={()=>removeLanguage(lang)} className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-[#737373] hover:bg-white hover:text-red-600" aria-label={`Remove ${lang}`}>
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          {(form.languages||[]).length>0 && <p className="mt-2 text-xs text-[#737373]">{(form.languages as string[]).length} selected: {(form.languages as string[]).join(', ')}</p>}
+          {(form.languages||[]).length===0 && <p className="mt-2 text-xs text-[#a3a3a3]">No language selected yet — requirement cards filter by your languages.</p>}
         </div>
 
         {/* Primary Contact — requested */}
