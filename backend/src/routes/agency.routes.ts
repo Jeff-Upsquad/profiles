@@ -59,6 +59,10 @@ router.delete('/portfolio/:itemId', ctrl.deletePortfolio);
 // Total portfolio view
 router.get('/total-portfolio', ctrl.getTotal);
 
+// Public preview for agency to see how they appear to businesses (category-filtered)
+router.get('/preview', ctrl.getPublicPreview);
+router.get('/public-view/:agencyId', ctrl.getPublicPreview);
+
 // ── Talent-parity modules for agency (stubs returning empty/mock, so UI mirrors talent) ──
 router.get('/subscriptions', (_req, res) => res.json([]));
 router.get('/assignments', (_req, res) => res.json([]));

@@ -61,3 +61,13 @@ export async function deletePortfolio(req: Request, res: Response, next: NextFun
 export async function getTotal(req: Request, res: Response, next: NextFunction) {
   try { const data = await svc.getTotalPortfolio(req.user!.id); res.json(data); } catch (e) { next(e); }
 }
+
+export async function getPublicPreview(req: Request, res: Response, next: NextFunction) {
+  try {
+    const agencyId = (req.query.agencyId as string) || req.user!.id;
+    const categoryId = (req.query.category_id as string) || (req.query.categoryId as string) || undefined;
+    const { getAgencyPublicView } = await import('../services/agency-public.service.js');
+    const data = await getAgencyPublicView(agencyId, { categoryId });
+    res.json(data);
+  } catch (e) { next(e); }
+}
