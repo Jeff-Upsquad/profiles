@@ -294,3 +294,13 @@ final agencyTotalPortfolioProvider = FutureProvider.autoDispose<Map<String, dyna
   final service = ref.watch(agencyServiceProvider);
   return service.getTotalPortfolio();
 });
+
+final agencySubscriptionsProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async {
+  final service = ref.watch(agencyServiceProvider);
+  return service.listSubscriptions();
+});
+
+final agencyAssignmentsProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async {
+  final service = ref.watch(agencyServiceProvider);
+  return service.listAssignments();
+});

@@ -5,14 +5,14 @@
 - **Android**: Internal Testing → [Google Play Console](https://play.google.com/console)
 - **Web (live)**: https://squadhire.upsquadconnect.com/{talent,agency}/* — deployed via `scripts/deploy.sh`
 
-## What Changed (Current Release — 1.1.19+29)
+## What Changed (Current Release — 1.1.20+30)
 - **Agency login in Talent App**: Login screen now has Talent/Agency toggle (`talent-app/lib/features/auth/login_screen.dart:38`). Auth layer allows `talent` + `agency` (`providers/providers.dart:79` `AppInstall` + `AuthUser.isAgency`), `GET /auth/me` restores agency sessions, and `agencyLogin` validates `expectedRole`.
-- **Agency Home (native)**: `talent-app/lib/features/home/agency_home_screen.dart:7` — Welcome + 4 stat cards (Squad, Job Profiles, General, Total Portfolio via `agencyServiceProvider` + `agency*Provider`) + Get Started checklist. `home_screen.dart:97` routes to it when `user.isAgency`.
+- **Agency Home → Subscriptions/Assignments (talent parity)**: `talent-app/lib/features/home/agency_home_screen.dart:7` now mirrors talent Home — `SoftSegmentedTabs` **Subscriptions** (`GET /agency/subscriptions`) and **Assignments** (`GET /agency/assignments`) with badges, pull-to-refresh, empty cards ("No subscriptions/assignments yet"), and request cards. Old 4-stat grid moved below as **Get Started** (kept). `home_screen.dart:97` routes to it when `user.isAgency`.
+- **AgencyService扩展**: `services/agency_service.dart:42` added `listSubscriptions()` / `listAssignments()` (`providers/providers.dart:303` `agencySubscriptionsProvider` / `agencyAssignmentsProvider`).
 - **Chatroom & Notifications (role-aware)**: `services/conversations_service.dart:10` + `services/notifications_service.dart:10` now take `prefix` (`/agency` vs `/talent`). Providers `conversationsListProvider`/`conversationsUnreadProvider`/`notificationsProvider` branch on `authProvider.user.isAgency`.
 - **More → Agency WebViews**: `talent-app/lib/features/more/more_screen.dart:13` shows 9 agency items (Agency Profile, Squad Members, Job Profiles, General Portfolio, Total Portfolio, My Clients, Settings, Training, Support) each opening `/agency/...?in_app=1&app_token=` in `MoreWebViewScreen`. Talent More stays as 6 webviews (`/talent/...`).
 - **Top bar & nav**: `widgets/talent_top_bar.dart:16` shows agency name/logo and routes profile/settings to agency webviews. `widgets/app_bottom_nav.dart` badge now agency-aware (training badge hidden for agency).
 - **Web `in_app` chrome**: `frontend/src/app/agency/layout.tsx:13` mirrors talent's `in_app` handling — strips `DashboardLayout`/`AgencyTopBar`/`AgencyBottomNav` when `?in_app=1`. `frontend/src/app/talent/layout.tsx` already does this. Both share `AuthContext` `?app_token` bridge (`frontend/src/context/AuthContext.tsx:65`).
-- **Previous**: Talent More → WebView (1.1.17) — 6 items (`/talent/...`) with `webview_flutter` + `webBaseUrl`.
 
 ## How to Test
 
@@ -23,7 +23,7 @@
 ```bash
 cd talent-app
 
-# Version already bumped to 1.1.19+29
+# Version already bumped to 1.1.20+30
 flutter pub get
 
 # iOS
@@ -43,8 +43,8 @@ flutter build appbundle --release
 ### 4. Key Flows to Test
 - [ ] **Login → Talent**: Talent tab → valid talent email/pass → lands on Subscriptions/Assignments/Jobs tabs
 - [ ] **Login → Agency**: Agency tab → valid agency email/pass → lands on Agency Home (Welcome + 4 cards + checklist); if talent account used with Agency tab → error "not an agency account"
-- [ ] **Agency Home**: stats reflect `/agency/squad`, `/agency/member-profiles`, `/agency/general-portfolios`, `/agency/total-portfolio`; pull-to-refresh works
-- [ ] **Agency Home → card tap**: each stat navigates to correct `/agency/...` WebView
+- [ ] **Agency Home**: Subscriptions tab shows `/agency/subscriptions` (empty card until businesses subscribe) + badge; Assignments tab shows `/agency/assignments`; switching tabs preserves scroll, pull-to-refresh reloads both; Get Started at bottom still links to squad/profile pages
+- [ ] **Agency Home → empty action**: "View squad" / "View subscriptions" buttons navigate to correct `/agency/...` WebViews
 - [ ] **Bottom nav — Chatroom/Notifications**: both roles show same tabs; agency stubs show empty states until backend fills
 - [ ] **More (Agency)**: 9 rows grouped Agency / Squad & Portfolio / Account — each opens authenticated WebView (`?app_token`+`in_app`), back stack inside WebView before popping
 - [ ] **Talent More**: still 6 rows → `/talent/...` WebViews (regression check)
