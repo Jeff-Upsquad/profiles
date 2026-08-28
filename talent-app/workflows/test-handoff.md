@@ -5,7 +5,7 @@
 - **Android**: Internal Testing → [Google Play Console](https://play.google.com/console)
 - **Web (live)**: https://squadhire.upsquadconnect.com/{talent,agency}/* — deployed via `scripts/deploy.sh`
 
-## What Changed (Current Release — 1.1.18+28)
+## What Changed (Current Release — 1.1.19+29)
 - **Agency login in Talent App**: Login screen now has Talent/Agency toggle (`talent-app/lib/features/auth/login_screen.dart:38`). Auth layer allows `talent` + `agency` (`providers/providers.dart:79` `AppInstall` + `AuthUser.isAgency`), `GET /auth/me` restores agency sessions, and `agencyLogin` validates `expectedRole`.
 - **Agency Home (native)**: `talent-app/lib/features/home/agency_home_screen.dart:7` — Welcome + 4 stat cards (Squad, Job Profiles, General, Total Portfolio via `agencyServiceProvider` + `agency*Provider`) + Get Started checklist. `home_screen.dart:97` routes to it when `user.isAgency`.
 - **Chatroom & Notifications (role-aware)**: `services/conversations_service.dart:10` + `services/notifications_service.dart:10` now take `prefix` (`/agency` vs `/talent`). Providers `conversationsListProvider`/`conversationsUnreadProvider`/`notificationsProvider` branch on `authProvider.user.isAgency`.
@@ -23,7 +23,7 @@
 ```bash
 cd talent-app
 
-# Version already bumped to 1.1.18+28
+# Version already bumped to 1.1.19+29
 flutter pub get
 
 # iOS
