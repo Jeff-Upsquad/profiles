@@ -6,6 +6,21 @@ const String apiBaseUrl = String.fromEnvironment(
   defaultValue: 'https://squadhire.upsquadconnect.com/api',
 );
 
+/// Web origin for the SquadHire frontend. Used as the host for More → in-app
+/// WebViews so the mobile app renders the responsive web pages (`/talent/...`)
+/// with the native shell hidden. Override via `--dart-define=WEB_BASE_URL=...`.
+const String webBaseUrl = String.fromEnvironment(
+  'WEB_BASE_URL',
+  defaultValue: 'https://squadhire.upsquadconnect.com',
+);
+
+/// Resolves a `/talent/...` path to a fully-qualified web URL.
+String webUrlForPath(String path) {
+  final base = webBaseUrl.endsWith('/') ? webBaseUrl.substring(0, webBaseUrl.length - 1) : webBaseUrl;
+  final p = path.startsWith('/') ? path : '/$path';
+  return '$base$p';
+}
+
 /// SquadHire talent-support WhatsApp number (shared by Contact Support and the
 /// "Quit a client" flow). Mirrors `src/lib/whatsapp.ts` on the web.
 const String supportPhoneDigits = '919995266342';

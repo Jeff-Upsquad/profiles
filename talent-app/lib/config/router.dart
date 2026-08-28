@@ -23,6 +23,7 @@ import '../features/profile/profiles_list_screen.dart';
 import '../features/profile/profile_create_screen.dart';
 import '../features/profile/profile_edit_screen.dart';
 import '../features/more/more_screen.dart';
+import '../features/more/more_webview_screen.dart';
 import '../features/more/contact_support_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/settings/change_password_screen.dart';
@@ -98,6 +99,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           (s) => OfferDetailScreen(offerId: s.pathParameters['offerId']!)),
       _rootRoute('/interviews', (_) => const InterviewsScreen()),
       _rootRoute('/job-offers', (_) => const OffersScreen()),
+      // Generic in-app WebView for every **More** entry. The native screens below
+      // are retained for backward-compat (deep links, push routes) but are no
+      // longer reachable from the More list itself.
+      _rootRoute('/more/webview', (s) {
+        final title = s.uri.queryParameters['title'] ?? 'SquadHire';
+        final path = s.uri.queryParameters['path'] ?? '/talent/dashboard';
+        return MoreWebViewScreen(title: title, webPath: path);
+      }),
       _rootRoute('/more/my-clients', (_) => const MyClientsScreen()),
       _rootRoute('/more/settings', (_) => const SettingsScreen()),
       _rootRoute('/more/change-password', (_) => const ChangePasswordScreen()),

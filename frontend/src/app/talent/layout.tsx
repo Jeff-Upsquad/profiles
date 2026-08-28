@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import DashboardLayout, { type SidebarItem } from '@/components/layout/DashboardLayout';
 import Badge from '@/components/ui/Badge';
@@ -46,6 +47,25 @@ export default function TalentLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { user, isLoading } = useAuth();
+
+  // When rendered inside the talent app's in-app WebView (`?in_app=1`) we strip
+  // the outer shell chrome — the native app already provides its own AppBar /
+  // bottom tabs, so showing the web's sidebar + top bar would duplicate nav.
+  const [isInApp, setIsInApp] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return new URLSearchParams(window.location.search).get('in_app') === '1';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      setIsInApp(new URLSearchParams(window.location.search).get('in_app') === '1');
+    } catch {
+      setIsInApp(false);
+    }
+  }, [pathname]);
   const isTalent = !!user && user.role === 'talent';
   const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
   const { data: unread = 0 } = useUnreadSubscriptionCount({ enabled: isTalent });
@@ -281,6 +301,13 @@ export default function TalentLayout({
     ) : (
       children
     );
+
+  if (isInApp) {
+    // Minimal chrome for the in-app WebView: no sidebar, no app top bar.
+    // The page content is the sole scrollable surface; module gating still
+    // applies via `content` above.
+    return <div className="min-h-screen bg-[#F5F5F6]">{content}</div>;
+  }
 
   return (
     <DashboardLayout

@@ -51,21 +51,27 @@ class MoreScreen extends ConsumerWidget {
               label: 'Basic Profile',
               description: 'Your personal details and job preferences',
               locked: locked('basic-profile'),
-              onTap: () => context.push('/basic-profile'),
+              onTap: () => context.push(
+                '/more/webview?title=${Uri.encodeComponent('Basic Profile')}&path=${Uri.encodeComponent('/talent/basic-profile')}',
+              ),
             ),
             MoreRow(
               icon: Icons.badge_outlined,
               label: 'Job Profiles',
               description: 'Role-specific profiles businesses discover',
               locked: locked('profiles'),
-              onTap: () => context.push('/more/profiles'),
+              onTap: () => context.push(
+                '/more/webview?title=${Uri.encodeComponent('Job Profiles')}&path=${Uri.encodeComponent('/talent/profiles')}',
+              ),
             ),
             MoreRow(
               icon: Icons.groups_outlined,
               label: 'My Clients',
               description: 'Businesses you are working with',
               locked: locked('subscriptions'),
-              onTap: () => context.push('/more/my-clients'),
+              onTap: () => context.push(
+                '/more/webview?title=${Uri.encodeComponent('My Clients')}&path=${Uri.encodeComponent('/talent/my-clients')}',
+              ),
             ),
           ],
         ),
@@ -78,20 +84,26 @@ class MoreScreen extends ConsumerWidget {
               label: 'Settings',
               description: 'Login details and account preferences',
               locked: locked('settings'),
-              onTap: () => context.push('/more/settings'),
+              onTap: () => context.push(
+                '/more/webview?title=${Uri.encodeComponent('Settings')}&path=${Uri.encodeComponent('/talent/settings')}',
+              ),
             ),
             MoreRow(
               icon: Icons.play_circle_outline,
               label: 'Training Program',
               description: 'Courses, SOPs, and assigned lessons',
               badge: trainingBadge,
-              onTap: () => context.push('/more/training'),
+              onTap: () => context.push(
+                '/more/webview?title=${Uri.encodeComponent('Training Program')}&path=${Uri.encodeComponent('/talent/training')}',
+              ),
             ),
             MoreRow(
               icon: Icons.chat_outlined,
               label: 'Contact Support',
               description: 'Chat with the UpSquad team',
-              onTap: () => context.push('/more/contact-support'),
+              onTap: () => context.push(
+                '/more/webview?title=${Uri.encodeComponent('Contact Support')}&path=${Uri.encodeComponent('/talent/contact-support')}',
+              ),
             ),
           ],
         ),
