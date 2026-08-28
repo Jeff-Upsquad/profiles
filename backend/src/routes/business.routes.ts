@@ -182,6 +182,11 @@ router.get(
   businessController.getTalentAccessFilterOptions,
 );
 
+// Agency Public View — business sees agency profile with All / Individuals portfolio tabs, category-filtered
+import * as agencyPublicController from '../controllers/agency-public.controller.js';
+router.get('/agency-view/:agencyId', agencyPublicController.getAgencyPublicView);
+router.get('/agency-view/:agencyId/members/:memberId', agencyPublicController.getAgencyMemberPublicView);
+
 // How it works videos (active only)
 router.get('/how-it-works/videos', businessController.getHowItWorksVideos);
 
