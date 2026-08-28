@@ -12,6 +12,9 @@ class MoreScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
+    final isAgency = user?.isAgency == true;
+    if (isAgency) return _AgencyMore(ref: ref);
+
     final onboarded = user?.isOnboarded ?? true;
     final access = ref.watch(moduleAccessProvider).value;
     final accessLoading = ref.watch(moduleAccessProvider).isLoading;
@@ -104,6 +107,102 @@ class MoreScreen extends ConsumerWidget {
               onTap: () => context.push(
                 '/more/webview?title=${Uri.encodeComponent('Contact Support')}&path=${Uri.encodeComponent('/talent/contact-support')}',
               ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _AgencyMore extends StatelessWidget {
+  final WidgetRef ref;
+  const _AgencyMore({required this.ref});
+
+  void _open(BuildContext context, String title, String path) {
+    context.push('/more/webview?title=${Uri.encodeComponent(title)}&path=${Uri.encodeComponent(path)}');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        const Text(
+          'More',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, letterSpacing: -0.48, color: AppColors.textPrimary),
+        ),
+        const SizedBox(height: 4),
+        const Text('Agency profile, squad, and account', style: TextStyle(fontSize: 14, color: AppColors.textTertiary)),
+        const SizedBox(height: 24),
+        GroupedCard(
+          title: 'Agency',
+          children: [
+            MoreRow(
+              icon: Icons.business_outlined,
+              label: 'Agency Profile',
+              description: 'About, services, and location',
+              onTap: () => _open(context, 'Agency Profile', '/agency/profile'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        GroupedCard(
+          title: 'Squad & Portfolio',
+          children: [
+            MoreRow(
+              icon: Icons.groups_outlined,
+              label: 'Squad Members',
+              description: 'People in your squad',
+              onTap: () => _open(context, 'Squad Members', '/agency/squad'),
+            ),
+            MoreRow(
+              icon: Icons.badge_outlined,
+              label: 'Job Profiles',
+              description: 'Per-member job profiles',
+              onTap: () => _open(context, 'Job Profiles', '/agency/profiles'),
+            ),
+            MoreRow(
+              icon: Icons.description_outlined,
+              label: 'General Portfolio',
+              description: 'Agency-level portfolios',
+              onTap: () => _open(context, 'General Portfolio', '/agency/general'),
+            ),
+            MoreRow(
+              icon: Icons.collections_outlined,
+              label: 'Total Portfolio',
+              description: 'What businesses see',
+              onTap: () => _open(context, 'Total Portfolio', '/agency/portfolio'),
+            ),
+            MoreRow(
+              icon: Icons.handshake_outlined,
+              label: 'My Clients',
+              description: 'Businesses you work with',
+              onTap: () => _open(context, 'My Clients', '/agency/clients'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        GroupedCard(
+          title: 'Account',
+          children: [
+            MoreRow(
+              icon: Icons.settings_outlined,
+              label: 'Settings',
+              description: 'Agency details and preferences',
+              onTap: () => _open(context, 'Settings', '/agency/settings'),
+            ),
+            MoreRow(
+              icon: Icons.play_circle_outline,
+              label: 'Training Program',
+              description: 'Courses, SOPs, and lessons',
+              onTap: () => _open(context, 'Training Program', '/agency/training'),
+            ),
+            MoreRow(
+              icon: Icons.chat_outlined,
+              label: 'Contact Support',
+              description: 'Chat with the UpSquad team',
+              onTap: () => _open(context, 'Contact Support', '/agency/support'),
             ),
           ],
         ),

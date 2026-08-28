@@ -16,11 +16,23 @@ class TalentTopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
     final me = ref.watch(talentMeProvider).value;
+    final agencyMe = ref.watch(agencyMeProvider).value;
     if (user == null) return const SizedBox.shrink();
 
-    final name = (user.fullName ?? me?.fullName ?? user.email).trim();
-    final email = (user.email.isNotEmpty ? user.email : me?.email) ?? '';
-    final photo = me?.profilePhotoUrl;
+    final isAgency = user.isAgency;
+    String name;
+    String email;
+    String? photo;
+    if (isAgency) {
+      final agencyName = (agencyMe?['agency_name'] as String?) ?? user.fullName ?? '';
+      name = agencyName.trim().isEmpty ? user.email : agencyName.trim();
+      email = (agencyMe?['email'] as String?) ?? user.email;
+      photo = agencyMe?['logo_url'] as String?;
+    } else {
+      name = (user.fullName ?? me?.fullName ?? user.email).trim();
+      email = (user.email.isNotEmpty ? user.email : me?.email) ?? '';
+      photo = me?.profilePhotoUrl;
+    }
     final initials = initialsFor(name.isEmpty ? email : name);
 
     return Material(
@@ -115,51 +127,67 @@ class _AvatarMenu extends ConsumerWidget {
         side: const BorderSide(color: AppColors.border),
       ),
       onSelected: (value) {
+        final isAgency = ref.read(authProvider).user?.isAgency == true;
         switch (value) {
           case 'profile':
-            context.push('/basic-profile');
+            if (isAgency) {
+              context.push(
+                '/more/webview?title=${Uri.encodeComponent('Agency Profile')}&path=${Uri.encodeComponent('/agency/profile')}',
+              );
+            } else {
+              context.push('/basic-profile');
+            }
           case 'settings':
-            context.push('/more/settings');
+            if (isAgency) {
+              context.push(
+                '/more/webview?title=${Uri.encodeComponent('Settings')}&path=${Uri.encodeComponent('/agency/settings')}',
+              );
+            } else {
+              context.push('/more/settings');
+            }
           case 'logout':
             ref.read(authProvider.notifier).logout();
         }
       },
-      itemBuilder: (context) => [
-        PopupMenuItem<String>(
-          enabled: false,
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (name.isNotEmpty)
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              if (email.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    email,
+      itemBuilder: (context) {
+        final isAgency = ref.read(authProvider).user?.isAgency == true;
+        return [
+          PopupMenuItem<String>(
+            enabled: false,
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (name.isNotEmpty)
+                  Text(
+                    name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                ),
-            ],
+                if (email.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
-        const PopupMenuDivider(height: 1),
-        _item('profile', Icons.person_outline, 'Basic profile'),
-        _item('settings', Icons.settings_outlined, 'Account settings'),
-        _item('logout', Icons.logout, 'Logout'),
-      ],
+          const PopupMenuDivider(height: 1),
+          _item('profile', Icons.person_outline, isAgency ? 'Agency profile' : 'Basic profile'),
+          _item('settings', Icons.settings_outlined, 'Account settings'),
+          _item('logout', Icons.logout, 'Logout'),
+        ];
+      },
       child: Container(
         width: 36,
         height: 36,

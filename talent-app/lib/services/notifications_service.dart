@@ -7,23 +7,23 @@ class NotificationsService {
   final ApiClient _client;
   NotificationsService(this._client);
 
-  Future<List<NotificationItem>> list() async {
-    final r = await _client.dio.get('/talent/notifications');
+  Future<List<NotificationItem>> list({String prefix = '/talent'}) async {
+    final r = await _client.dio.get('$prefix/notifications');
     final data = r.data;
     final raw = data is Map ? data['notifications'] ?? data : data;
     return asObjectList(raw).map(NotificationItem.fromJson).toList();
   }
 
-  Future<int> unreadCount() async {
-    final r = await _client.dio.get('/talent/notifications/unread-count');
-    return asInt(asObject(r.data)['unread']) ?? 0;
+  Future<int> unreadCount({String prefix = '/talent'}) async {
+    final r = await _client.dio.get('$prefix/notifications/unread-count');
+    return asInt(asObject(r.data)['unread']) ?? asInt(asObject(r.data)['count']) ?? 0;
   }
 
-  Future<void> markRead(String id) async {
-    await _client.dio.post('/talent/notifications/$id/read');
+  Future<void> markRead(String id, {String prefix = '/talent'}) async {
+    await _client.dio.post('$prefix/notifications/$id/read');
   }
 
-  Future<void> markAllRead() async {
-    await _client.dio.post('/talent/notifications/mark-all-read');
+  Future<void> markAllRead({String prefix = '/talent'}) async {
+    await _client.dio.post('$prefix/notifications/mark-all-read');
   }
 }

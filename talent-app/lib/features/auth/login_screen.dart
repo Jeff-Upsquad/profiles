@@ -20,6 +20,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _loading = false;
   bool _obscurePassword = true;
   bool _emailStep = true;
+  String _role = 'talent'; // talent | agency
 
   @override
   void dispose() {
@@ -36,7 +37,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _loading = true);
     ref.read(authProvider.notifier).clearError();
 
-    await ref.read(authProvider.notifier).login(email, password);
+    await ref.read(authProvider.notifier).login(email, password, expectedRole: _role);
     if (mounted) setState(() => _loading = false);
   }
 
@@ -132,11 +133,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Sign in to your talent account',
-                      style: TextStyle(fontSize: 14, color: AppColors.textTertiary),
+                    Text(
+                      _role == 'agency' ? 'Sign in to your agency account' : 'Sign in to your talent account',
+                      style: const TextStyle(fontSize: 14, color: AppColors.textTertiary),
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 20),
+                    SoftSegmentedTabs(
+                      expanded: true,
+                      tabs: const [
+                        SegmentTab(key: 'talent', label: 'Talent'),
+                        SegmentTab(key: 'agency', label: 'Agency'),
+                      ],
+                      activeKey: _role,
+                      onChange: (v) {
+                        setState(() => _role = v);
+                        ref.read(authProvider.notifier).clearError();
+                      },
+                    ),
+                    const SizedBox(height: 20),
                     const Text(
                       'Email address',
                       style: TextStyle(

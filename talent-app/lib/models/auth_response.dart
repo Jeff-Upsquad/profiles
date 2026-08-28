@@ -41,6 +41,9 @@ class AuthUser {
 
   bool get isApproved => approvalStatus == 'approved';
   bool get isOnboarded => onboardingCompleted || skipOnboarding;
+  bool get isTalent => role == 'talent';
+  bool get isAgency => role == 'agency';
+  bool get isSquad => role == 'squad_member' || role == 'squad_manager';
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     return AuthUser(

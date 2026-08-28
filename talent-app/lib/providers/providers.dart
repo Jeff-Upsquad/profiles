@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import '../services/password_reset_service.dart';
 import '../services/subscription_service.dart';
 import '../services/talent_service.dart';
+import '../services/agency_service.dart';
 import '../services/push_service.dart';
 import '../services/app_install_service.dart';
 import '../models/auth_response.dart';
@@ -45,6 +46,10 @@ final appInstallServiceProvider = Provider((ref) {
   return AppInstallService(ref.watch(apiClientProvider));
 });
 
+final agencyServiceProvider = Provider((ref) {
+  return AgencyService(ref.watch(apiClientProvider));
+});
+
 // ─── Auth state ──────────────────────────────────────────────────────────────
 
 enum AuthStatus { unknown, authenticated, unauthenticated }
@@ -76,6 +81,8 @@ class AuthNotifier extends Notifier<AuthState> {
     return const AuthState();
   }
 
+  static const _allowedRoles = {'talent', 'agency'};
+
   Future<void> _restoreSession() async {
     final storage = ref.read(secureStorageProvider);
     final token = await storage.getAccessToken();
@@ -87,7 +94,7 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final authService = ref.read(authServiceProvider);
       final user = await authService.getMe();
-      if (user.role != 'talent') {
+      if (!_allowedRoles.contains(user.role)) {
         await storage.clearTokens();
         state = state.copyWith(status: AuthStatus.unauthenticated);
         return;
@@ -99,16 +106,25 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  Future<void> login(String email, String password) async {
+  Future<void> login(String email, String password, {String? expectedRole}) async {
     try {
       final authService = ref.read(authServiceProvider);
       final storage = ref.read(secureStorageProvider);
       final response = await authService.login(email, password);
 
-      if (response.user.role != 'talent') {
+      if (!_allowedRoles.contains(response.user.role)) {
         state = state.copyWith(
           status: AuthStatus.unauthenticated,
-          error: 'This app is for talent users only.',
+          error: 'This account type is not supported in this app.',
+        );
+        return;
+      }
+
+      if (expectedRole != null && response.user.role != expectedRole) {
+        final label = expectedRole == 'agency' ? 'agency' : 'talent';
+        state = state.copyWith(
+          status: AuthStatus.unauthenticated,
+          error: 'This account is not an $label account.',
         );
         return;
       }
@@ -163,7 +179,7 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> refreshUser() async {
     try {
       final user = await ref.read(authServiceProvider).getMe();
-      if (user.role == 'talent') {
+      if (_allowedRoles.contains(user.role)) {
         state = AuthState(status: AuthStatus.authenticated, user: user);
       }
     } catch (_) {
@@ -250,4 +266,31 @@ final offerDetailProvider = FutureProvider.autoDispose
 final talentMeProvider = FutureProvider.autoDispose<TalentMe>((ref) async {
   final service = ref.watch(talentServiceProvider);
   return service.getMe();
+});
+
+// ─── Agency providers ───────────────────────────────────────────────────────
+
+final agencyMeProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final service = ref.watch(agencyServiceProvider);
+  return service.getMe();
+});
+
+final agencySquadProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async {
+  final service = ref.watch(agencyServiceProvider);
+  return service.listSquad();
+});
+
+final agencyMemberProfilesProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async {
+  final service = ref.watch(agencyServiceProvider);
+  return service.listMemberProfiles();
+});
+
+final agencyGeneralPortfoliosProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async {
+  final service = ref.watch(agencyServiceProvider);
+  return service.listGeneralPortfolios();
+});
+
+final agencyTotalPortfolioProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final service = ref.watch(agencyServiceProvider);
+  return service.getTotalPortfolio();
 });

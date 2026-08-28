@@ -33,13 +33,17 @@ final trainingServiceProvider =
 
 // ─── Notifications ───────────────────────────────────────────────────────────
 
+String _notifPrefix(Ref ref) {
+  return ref.read(authProvider).user?.isAgency == true ? '/agency' : '/talent';
+}
+
 final notificationsProvider =
     FutureProvider.autoDispose<List<NotificationItem>>((ref) async {
-  return ref.watch(notificationsServiceProvider).list();
+  return ref.watch(notificationsServiceProvider).list(prefix: _notifPrefix(ref));
 });
 
 final unreadNotificationsProvider = FutureProvider.autoDispose<int>((ref) async {
-  return ref.watch(notificationsServiceProvider).unreadCount();
+  return ref.watch(notificationsServiceProvider).unreadCount(prefix: _notifPrefix(ref));
 });
 
 // ─── Dashboard / profiles / clients ──────────────────────────────────────────
@@ -112,5 +116,12 @@ final moduleAccessProvider = FutureProvider.autoDispose<ModuleAccess>((ref) asyn
 });
 
 final incompleteTrainingCountProvider = FutureProvider.autoDispose<int>((ref) async {
+  final isAgency = ref.read(authProvider).user?.isAgency == true;
+  if (isAgency) return 0;
   return ref.watch(trainingServiceProvider).incompleteCount();
+});
+
+final agencyTrainingIncompleteProvider = FutureProvider.autoDispose<int>((ref) async {
+  // Agency training is currently stub — always 0. Kept separate for future use.
+  return 0;
 });

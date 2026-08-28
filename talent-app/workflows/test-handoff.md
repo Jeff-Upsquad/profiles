@@ -3,24 +3,27 @@
 ## Where to Test
 - **iOS**: TestFlight → [App Store Connect](https://appstoreconnect.apple.com)
 - **Android**: Internal Testing → [Google Play Console](https://play.google.com/console)
-- **Web (live)**: https://squadhire.upsquadconnect.com/talent/* — already deployed via `scripts/deploy.sh`
+- **Web (live)**: https://squadhire.upsquadconnect.com/{talent,agency}/* — deployed via `scripts/deploy.sh`
 
-## What Changed (Current Release — 1.1.17+27)
-- **More tab → in-app WebView**: Every item under **More → Profile / Account** (Basic Profile, Job Profiles, My Clients, Settings, Training Program, Contact Support) now opens the responsive web page inside the app (`/talent/...?in_app=1`) instead of the native screens. Native routes are kept for deep-links but are hidden from the More list.
-- **Auth bridge**: App appends `?app_token=`/`?app_refresh=`; web `AuthContext` consumes it and strips the query. `TalentLayout` hides outer chrome (`DashboardLayout`, top/bottom nav) when `?in_app=1`.
-- **Fallback + extras**: `MoreWebViewScreen` injects token into `localStorage` if the page lands on `/login`, handles `mailto:`/`tel:`, back-stack inside WebView, refresh & "open in browser" actions, `webview_flutter` + `webBaseUrl` in `talent-app/lib/core/constants.dart`.
+## What Changed (Current Release — 1.1.18+28)
+- **Agency login in Talent App**: Login screen now has Talent/Agency toggle (`talent-app/lib/features/auth/login_screen.dart:38`). Auth layer allows `talent` + `agency` (`providers/providers.dart:79` `AppInstall` + `AuthUser.isAgency`), `GET /auth/me` restores agency sessions, and `agencyLogin` validates `expectedRole`.
+- **Agency Home (native)**: `talent-app/lib/features/home/agency_home_screen.dart:7` — Welcome + 4 stat cards (Squad, Job Profiles, General, Total Portfolio via `agencyServiceProvider` + `agency*Provider`) + Get Started checklist. `home_screen.dart:97` routes to it when `user.isAgency`.
+- **Chatroom & Notifications (role-aware)**: `services/conversations_service.dart:10` + `services/notifications_service.dart:10` now take `prefix` (`/agency` vs `/talent`). Providers `conversationsListProvider`/`conversationsUnreadProvider`/`notificationsProvider` branch on `authProvider.user.isAgency`.
+- **More → Agency WebViews**: `talent-app/lib/features/more/more_screen.dart:13` shows 9 agency items (Agency Profile, Squad Members, Job Profiles, General Portfolio, Total Portfolio, My Clients, Settings, Training, Support) each opening `/agency/...?in_app=1&app_token=` in `MoreWebViewScreen`. Talent More stays as 6 webviews (`/talent/...`).
+- **Top bar & nav**: `widgets/talent_top_bar.dart:16` shows agency name/logo and routes profile/settings to agency webviews. `widgets/app_bottom_nav.dart` badge now agency-aware (training badge hidden for agency).
+- **Web `in_app` chrome**: `frontend/src/app/agency/layout.tsx:13` mirrors talent's `in_app` handling — strips `DashboardLayout`/`AgencyTopBar`/`AgencyBottomNav` when `?in_app=1`. `frontend/src/app/talent/layout.tsx` already does this. Both share `AuthContext` `?app_token` bridge (`frontend/src/context/AuthContext.tsx:65`).
+- **Previous**: Talent More → WebView (1.1.17) — 6 items (`/talent/...`) with `webview_flutter` + `webBaseUrl`.
 
 ## How to Test
 
-### 1. Web (already live on VPS)
-No manual step — `scripts/deploy.sh` rebuilt frontend+backend and pm2 reloaded. Verify:
-- `https://squadhire.upsquadconnect.com/talent/basic-profile?app_token=xxx&in_app=1` loads without login redirect and shows no outer sidebar.
+### 1. Web (already live after deploy)
+- Verify `…/agency/profile?app_token=xxx&in_app=1` loads without outer sidebar (same for `/agency/squad`, `/agency/profiles`, etc.).
 
 ### 2. Talent App Build & Release
 ```bash
 cd talent-app
 
-# Version already bumped to 1.1.17+27
+# Version already bumped to 1.1.18+28
 flutter pub get
 
 # iOS
@@ -38,12 +41,14 @@ flutter build appbundle --release
 3. Testers install via TestFlight app (iOS) or Play Store (Android)
 
 ### 4. Key Flows to Test
-- [ ] **More → Basic Profile**: tap → WebView opens `/talent/basic-profile` authenticated, edit & save works
-- [ ] **More → Job Profiles**: lists role profiles, create/edit navigates inside WebView
-- [ ] **More → My Clients**: shows client businesses, WhatsApp quit flow works
-- [ ] **More → Settings / Training / Contact Support**: each loads the matching web page, in-app back goes back inside WebView before popping to More
-- [ ] **Auth**: kill & relaunch → More items still auto-authenticated (no login screen in WebView)
-- [ ] **External links**: `mailto:`/`tel:`/WhatsApp opens OS handler, not WebView
+- [ ] **Login → Talent**: Talent tab → valid talent email/pass → lands on Subscriptions/Assignments/Jobs tabs
+- [ ] **Login → Agency**: Agency tab → valid agency email/pass → lands on Agency Home (Welcome + 4 cards + checklist); if talent account used with Agency tab → error "not an agency account"
+- [ ] **Agency Home**: stats reflect `/agency/squad`, `/agency/member-profiles`, `/agency/general-portfolios`, `/agency/total-portfolio`; pull-to-refresh works
+- [ ] **Agency Home → card tap**: each stat navigates to correct `/agency/...` WebView
+- [ ] **Bottom nav — Chatroom/Notifications**: both roles show same tabs; agency stubs show empty states until backend fills
+- [ ] **More (Agency)**: 9 rows grouped Agency / Squad & Portfolio / Account — each opens authenticated WebView (`?app_token`+`in_app`), back stack inside WebView before popping
+- [ ] **Talent More**: still 6 rows → `/talent/...` WebViews (regression check)
+- [ ] **Top bar avatar**: talent shows talent photo/name, agency shows agency logo/name; profile/settings in menu open role-correct webviews
 
 ### 5. Production Release
 - iOS: Submit for App Review → Release manually or automatically
