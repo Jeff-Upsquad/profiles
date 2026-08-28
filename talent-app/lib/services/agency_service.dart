@@ -40,6 +40,16 @@ class AgencyService {
     return {};
   }
 
+  Future<List<dynamic>> listSubscriptions() async {
+    final res = await _client.dio.get('/agency/subscriptions');
+    return _unwrapList(res.data);
+  }
+
+  Future<List<dynamic>> listAssignments() async {
+    final res = await _client.dio.get('/agency/assignments');
+    return _unwrapList(res.data);
+  }
+
   List<dynamic> _unwrapList(dynamic data) {
     if (data is Map && data['data'] is List) return data['data'] as List;
     if (data is List) return data;
