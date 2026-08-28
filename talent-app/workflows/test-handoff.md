@@ -3,43 +3,49 @@
 ## Where to Test
 - **iOS**: TestFlight → [App Store Connect](https://appstoreconnect.apple.com)
 - **Android**: Internal Testing → [Google Play Console](https://play.google.com/console)
+- **Web (live)**: https://squadhire.upsquadconnect.com/talent/* — already deployed via `scripts/deploy.sh`
 
-## What Changed (Current Release)
-- **Bidding module** added to Offers screen — 4th tab showing active bids with status badges
-- **Job card styling** updated with tinted top strip, description, badge chips
-- **Subscription detail** shows current bid, bids remaining, match chips, additional requirements
+## What Changed (Current Release — 1.1.16+26)
+- **More tab → in-app WebView**: Every item under **More → Profile / Account** (Basic Profile, Job Profiles, My Clients, Settings, Training Program, Contact Support) now opens the responsive web page inside the app (`/talent/...?in_app=1`) instead of the native screens. Native routes are kept for deep-links but are hidden from the More list.
+- **Auth bridge**: App appends `?app_token=`/`?app_refresh=`; web `AuthContext` consumes it and strips the query. `TalentLayout` hides outer chrome (`DashboardLayout`, top/bottom nav) when `?in_app=1`.
+- **Fallback + extras**: `MoreWebViewScreen` injects token into `localStorage` if the page lands on `/login`, handles `mailto:`/`tel:`, back-stack inside WebView, refresh & "open in browser" actions, `webview_flutter` + `webBaseUrl` in `talent-app/lib/core/constants.dart`.
 
 ## How to Test
 
-### 1. Build & Release
+### 1. Web (already live on VPS)
+No manual step — `scripts/deploy.sh` rebuilt frontend+backend and pm2 reloaded. Verify:
+- `https://squadhire.upsquadconnect.com/talent/basic-profile?app_token=xxx&in_app=1` loads without login redirect and shows no outer sidebar.
+
+### 2. Talent App Build & Release
 ```bash
 cd talent-app
 
-# Bump version in pubspec.yaml (version: X.Y.Z+N)
-# Increment build number (+N) for each release
+# Version already bumped to 1.1.16+26
+flutter pub get
 
-# Build for iOS
+# iOS
 flutter build ios --release
 # Then archive in Xcode → Upload to App Store Connect
 
-# Build for Android
+# Android
 flutter build appbundle --release
 # Then upload to Google Play Console
 ```
 
-### 2. TestFlight / Internal Testing
+### 3. TestFlight / Internal Testing
 1. Upload build to App Store Connect / Google Play Console
 2. Add testers to TestFlight (iOS) or Internal Testing track (Android)
 3. Testers install via TestFlight app (iOS) or Play Store (Android)
 
-### 3. Key Flows to Test
-- [ ] **Offers → Bidding tab**: Pull to refresh, verify bids load with status badges
-- [ ] **Subscription detail**: Tap a card, verify match chips, additional requirements section
-- [ ] **Job cards**: Verify tinted header, description, badge chips (package, joining date)
-- [ ] **Bid actions**: Withdraw/accept/decline on existing offers
-- [ ] **Pull-to-refresh**: All tabs refresh correctly
+### 4. Key Flows to Test
+- [ ] **More → Basic Profile**: tap → WebView opens `/talent/basic-profile` authenticated, edit & save works
+- [ ] **More → Job Profiles**: lists role profiles, create/edit navigates inside WebView
+- [ ] **More → My Clients**: shows client businesses, WhatsApp quit flow works
+- [ ] **More → Settings / Training / Contact Support**: each loads the matching web page, in-app back goes back inside WebView before popping to More
+- [ ] **Auth**: kill & relaunch → More items still auto-authenticated (no login screen in WebView)
+- [ ] **External links**: `mailto:`/`tel:`/WhatsApp opens OS handler, not WebView
 
-### 4. Production Release
+### 5. Production Release
 - iOS: Submit for App Review → Release manually or automatically
 - Android: Promote from Internal Testing to Production → Release
 
