@@ -5,7 +5,7 @@
 - **Android**: Internal Testing → [Google Play Console](https://play.google.com/console)
 - **Web (live)**: https://squadhire.upsquadconnect.com/talent/* — already deployed via `scripts/deploy.sh`
 
-## What Changed (Current Release — 1.1.16+26)
+## What Changed (Current Release — 1.1.17+27)
 - **More tab → in-app WebView**: Every item under **More → Profile / Account** (Basic Profile, Job Profiles, My Clients, Settings, Training Program, Contact Support) now opens the responsive web page inside the app (`/talent/...?in_app=1`) instead of the native screens. Native routes are kept for deep-links but are hidden from the More list.
 - **Auth bridge**: App appends `?app_token=`/`?app_refresh=`; web `AuthContext` consumes it and strips the query. `TalentLayout` hides outer chrome (`DashboardLayout`, top/bottom nav) when `?in_app=1`.
 - **Fallback + extras**: `MoreWebViewScreen` injects token into `localStorage` if the page lands on `/login`, handles `mailto:`/`tel:`, back-stack inside WebView, refresh & "open in browser" actions, `webview_flutter` + `webBaseUrl` in `talent-app/lib/core/constants.dart`.
@@ -20,7 +20,7 @@ No manual step — `scripts/deploy.sh` rebuilt frontend+backend and pm2 reloaded
 ```bash
 cd talent-app
 
-# Version already bumped to 1.1.16+26
+# Version already bumped to 1.1.17+27
 flutter pub get
 
 # iOS
