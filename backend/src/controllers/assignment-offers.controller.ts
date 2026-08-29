@@ -17,6 +17,8 @@ export async function talentGetOffer(req: Request, res: Response, next: NextFunc
 export async function talentSubmitOffer(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     if (!req.user) throw new AppError(401, 'Authentication required');
+    const { assertTalentCanRespond } = await import('../services/respond-gate.js');
+    await assertTalentCanRespond(req.user.id);
     const offer = await offers.talentSubmitOrCounter(req.user.id, req.params.recipientId as string, req.body);
     res.json({ offer });
   } catch (err) {
@@ -27,6 +29,8 @@ export async function talentSubmitOffer(req: Request, res: Response, next: NextF
 export async function talentRespond(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     if (!req.user) throw new AppError(401, 'Authentication required');
+    const { assertTalentCanRespond } = await import('../services/respond-gate.js');
+    await assertTalentCanRespond(req.user.id);
     const offer = await offers.talentRespondToOffer(req.user.id, req.params.recipientId as string, req.body);
     res.json({ offer });
   } catch (err) {

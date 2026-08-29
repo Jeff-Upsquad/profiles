@@ -531,6 +531,10 @@ export async function optInToJobs(talentUserId: string, prefs: JobPreferencesInp
     { onConflict: 'talent_user_id' },
   );
   if (error) throw new AppError(500, error.message);
+  try {
+    const { backfillCardsForTalent } = await import('./card-backfill.service.js');
+    backfillCardsForTalent(talentUserId).catch((e) => console.error('[card-backfill] opt-in backfill failed', e));
+  } catch {}
   return getJobPreferences(talentUserId);
 }
 
@@ -588,6 +592,10 @@ export async function updateJobPreferences(talentUserId: string, prefs: JobPrefe
     { onConflict: 'talent_user_id' },
   );
   if (error) throw new AppError(500, error.message);
+  try {
+    const { backfillCardsForTalent } = await import('./card-backfill.service.js');
+    backfillCardsForTalent(talentUserId).catch((e) => console.error('[card-backfill] prefs backfill failed', e));
+  } catch {}
   return getJobPreferences(talentUserId);
 }
 

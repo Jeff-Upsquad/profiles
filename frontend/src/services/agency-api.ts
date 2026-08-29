@@ -22,4 +22,13 @@ export const agencyApi = {
   deletePortfolio: (id: string) => api.delete(`/agency/portfolio/${id}`).then(r => r.data),
   total: () => api.get('/agency/total-portfolio').then(r => r.data),
   categories: () => api.get('/public/categories').then(r => r.data),
+  subscriptions: (status: string = 'pending') => api.get('/agency/subscriptions', { params: { status } }).then(r => r.data as any[]),
+  assignments: (status: string = 'pending') => api.get('/agency/assignments', { params: { status } }).then(r => r.data as any[]),
+  unreadCount: () => api.get('/agency/subscriptions/unread-count').then(r => r.data as { count: number }),
+  respondCard: (recipientId: string, action: 'accept' | 'reject') => api.patch(`/agency/cards/${recipientId}/respond`, { action }).then(r => r.data),
+  getOffer: (recipientId: string) => api.get(`/agency/cards/${recipientId}/offer`).then(r => r.data),
+  submitOffer: (recipientId: string, data: any) => api.post(`/agency/cards/${recipientId}/offer`, data).then(r => r.data),
+  respondOffer: (recipientId: string, data: any) => api.post(`/agency/cards/${recipientId}/offer/respond`, data).then(r => r.data),
+  allOffers: () => api.get('/agency/offers').then(r => r.data as { offers: any[] }),
+  backfillCards: () => api.post('/agency/cards/backfill').then(r => r.data as { inserted: number }),
 };

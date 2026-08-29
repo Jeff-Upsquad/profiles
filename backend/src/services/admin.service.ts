@@ -420,6 +420,12 @@ export async function approveProfile(profileId: string, adminId: string) {
     console.error('[automation] syncOnboardingStage failed:', e);
   }
 
+  // Newly approved profile — backfill any existing cards this talent now matches
+  try {
+    const { backfillCardsForTalent } = await import('./card-backfill.service.js');
+    backfillCardsForTalent(data.talent_user_id).catch((e) => console.error('[card-backfill] approveProfile backfill failed', e));
+  } catch {}
+
   return data;
 }
 
@@ -483,6 +489,10 @@ export async function approveUser(userId: string, adminId: string) {
     .single();
 
   if (error) throw new AppError(400, `Failed to approve user: ${error.message}`);
+  try {
+    const { backfillCardsForTalent } = await import('./card-backfill.service.js');
+    backfillCardsForTalent(userId).catch((e) => console.error('[card-backfill] approveUser backfill failed', e));
+  } catch {}
   return data;
 }
 
