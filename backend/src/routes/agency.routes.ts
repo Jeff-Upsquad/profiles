@@ -63,9 +63,113 @@ router.get('/total-portfolio', ctrl.getTotal);
 router.get('/preview', ctrl.getPublicPreview);
 router.get('/public-view/:agencyId', ctrl.getPublicPreview);
 
-// ── Talent-parity modules for agency (stubs returning empty/mock, so UI mirrors talent) ──
-router.get('/subscriptions', (_req, res) => res.json([]));
-router.get('/assignments', (_req, res) => res.json([]));
+// ── Requirement cards for agency (mirrors talent subscriptions feed) ──
+router.get('/subscriptions', async (req, res, next) => {
+  try {
+    const { listForAgency } = await import('../services/agency-cards.service.js');
+    const status = typeof req.query.status === 'string' ? req.query.status : 'pending';
+    const items = await listForAgency(req.user!.id, { status, card_type: 'subscription' });
+    res.json(items);
+  } catch (e) { next(e); }
+});
+router.get('/subscriptions/unread-count', async (req, res, next) => {
+  try {
+    const { getUnreadCountAgency } = await import('../services/agency-cards.service.js');
+    const count = await getUnreadCountAgency(req.user!.id);
+    res.json({ count });
+  } catch (e) { next(e); }
+});
+router.get('/assignments', async (req, res, next) => {
+  try {
+    const { listForAgency } = await import('../services/agency-cards.service.js');
+    const status = typeof req.query.status === 'string' ? req.query.status : 'pending';
+    const items = await listForAgency(req.user!.id, { status, card_type: 'assignment' });
+    res.json(items);
+  } catch (e) { next(e); }
+});
+// Hiring cards for agencies
+router.get('/jobs', async (req, res, next) => {
+  try {
+    const { listForAgency } = await import('../services/agency-cards.service.js');
+    const status = typeof req.query.status === 'string' ? req.query.status : 'pending';
+    const items = await listForAgency(req.user!.id, { status, card_type: 'hiring' });
+    res.json(items);
+  } catch (e) { next(e); }
+});
+router.get('/cards', async (req, res, next) => {
+  try {
+    const { listForAgency } = await import('../services/agency-cards.service.js');
+    const status = typeof req.query.status === 'string' ? req.query.status : undefined;
+    const cardType = typeof req.query.card_type === 'string' ? req.query.card_type : undefined;
+    const items = await listForAgency(req.user!.id, { status, card_type: cardType });
+    res.json(items);
+  } catch (e) { next(e); }
+});
+
+// Accept / decline a card (mirrors talent respond), gated on completed profile.
+router.patch('/cards/:recipientId/respond', async (req, res, next) => {
+  try {
+    const { respondToSubscriptionSchema } = await import('../validators/subscription.validators.js');
+    const params = { recipientId: req.params.recipientId };
+    const body = respondToSubscriptionSchema.parse(req.body);
+    const { assertAgencyCanRespond } = await import('../services/respond-gate.js');
+    await assertAgencyCanRespond(req.user!.id);
+    const { respondCard } = await import('../services/agency-cards.service.js');
+    const result = await respondCard(req.user!.id, params.recipientId as string, body.action);
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+// Bidding on a card (mirrors talent assignment-offers), gated on completed profile.
+router.get('/cards/:recipientId/offer', async (req, res, next) => {
+  try {
+    const { getOfferForAgencyRecipient } = await import('../services/agency-offers.service.js');
+    const data = await getOfferForAgencyRecipient(req.user!.id, req.params.recipientId as string);
+    res.json(data);
+  } catch (e) { next(e); }
+});
+router.post('/cards/:recipientId/offer', async (req, res, next) => {
+  try {
+    const { submitOfferSchema } = await import('../validators/assignment-offers.validators.js');
+    const body = submitOfferSchema.parse(req.body);
+    const { assertAgencyCanRespond } = await import('../services/respond-gate.js');
+    await assertAgencyCanRespond(req.user!.id);
+    const { agencySubmitOrCounter } = await import('../services/agency-offers.service.js');
+    const offer = await agencySubmitOrCounter(req.user!.id, req.params.recipientId as string, body);
+    res.json({ offer });
+  } catch (e) { next(e); }
+});
+router.post('/cards/:recipientId/offer/respond', async (req, res, next) => {
+  try {
+    const { talentOfferRespondSchema } = await import('../validators/assignment-offers.validators.js');
+    const body = talentOfferRespondSchema.parse(req.body);
+    const { assertAgencyCanRespond } = await import('../services/respond-gate.js');
+    await assertAgencyCanRespond(req.user!.id);
+    const { agencyRespondToOffer } = await import('../services/agency-offers.service.js');
+    const offer = await agencyRespondToOffer(req.user!.id, req.params.recipientId as string, body);
+    res.json({ offer });
+  } catch (e) { next(e); }
+});
+// All offers across cards (for Bidding tab)
+router.get('/offers', async (req, res, next) => {
+  try {
+    const { listAllAgencyOffers } = await import('../services/agency-offers.service.js');
+    const offers = await listAllAgencyOffers(req.user!.id);
+    res.json({ offers });
+  } catch (e) { next(e); }
+});
+
+// Manual backfill: re-run card matching for this agency (use after profile/services update)
+router.post('/cards/backfill', async (req, res, next) => {
+  try {
+    const { backfillCardsForAgency } = await import('../services/card-backfill.service.js');
+    const inserted = await backfillCardsForAgency(req.user!.id);
+    res.json({ inserted });
+  } catch (e) { next(e); }
+});
+
+// End generic card action routes (must stay before /clients etc.)
+
 router.get('/clients', (_req, res) => res.json([]));
 router.get('/notifications', (_req, res) => res.json([]));
 router.get('/notifications/unread-count', (_req, res) => res.json({ count: 0 }));

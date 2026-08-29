@@ -114,6 +114,14 @@ export async function signupTalent(input: SignupTalentInput) {
     console.error('[shcrm-identity-names] talent signup sync failed:', e);
   }
 
+  // Backfill existing cards matching this newly signed-up talent (fire-and-forget)
+  try {
+    const { backfillCardsForTalent } = await import('./card-backfill.service.js');
+    backfillCardsForTalent(userId).catch((e) => console.error('[card-backfill] talent signup backfill failed', e));
+  } catch (e) {
+    console.error('[card-backfill] talent signup import failed', e);
+  }
+
   return { message: 'Account created successfully. Please sign in to continue.' };
 }
 
@@ -145,6 +153,13 @@ export async function signupAgency(input: SignupAgencyInput) {
   } else {
     // create empty agency_profiles row
     await supabaseAdmin.from('agency_profiles').insert({ agency_user_id: userId }).then(() => {}, () => {});
+  }
+  // Backfill existing cards for new agency (fire-and-forget)
+  try {
+    const { backfillCardsForAgency } = await import('./card-backfill.service.js');
+    backfillCardsForAgency(userId).catch((e) => console.error('[card-backfill] agency signup backfill failed', e));
+  } catch (e) {
+    console.error('[card-backfill] agency signup import failed', e);
   }
   return { message: 'Agency account created successfully. Please sign in to continue.' };
 }

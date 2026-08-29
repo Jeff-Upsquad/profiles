@@ -76,6 +76,11 @@ export async function upsertAgencyProfile(userId: string, patch: Record<string, 
   try {
     const { data, error } = await supabaseAdmin.from('agency_profiles').upsert({ agency_user_id: userId, ...patch }, { onConflict: 'agency_user_id' }).select('*').single();
     if (error) throw error;
+    // Backfill cards when agency profile changes (services/languages/location)
+    try {
+      const { backfillCardsForAgency } = await import('./card-backfill.service.js');
+      backfillCardsForAgency(userId).catch((e) => console.error('[card-backfill] agency profile backfill failed', e));
+    } catch {}
     const mem = memProfiles.get(userId);
     return mem ? { ...data, ...mem } : data;
   } catch (e: any) {

@@ -67,6 +67,12 @@ export async function updateTalentUser(userId: string, input: UpdateTalentUserIn
     });
   }
 
+  // languages/age/gender changes can unlock new cards
+  try {
+    const { backfillCardsForTalent } = await import('./card-backfill.service.js');
+    backfillCardsForTalent(userId).catch((e) => console.error('[card-backfill] talentUser backfill failed', e));
+  } catch {}
+
   return data;
 }
 
@@ -113,6 +119,12 @@ export async function updateBasicProfile(userId: string, input: UpdateBasicProfi
   } catch (e) {
     console.error('[automation] syncOnboardingStage failed:', e);
   }
+
+  // Location/language changes can make new cards match — backfill
+  try {
+    const { backfillCardsForTalent } = await import('./card-backfill.service.js');
+    backfillCardsForTalent(userId).catch((e) => console.error('[card-backfill] basicProfile backfill failed', e));
+  } catch {}
 
   return data;
 }

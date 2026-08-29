@@ -11,6 +11,7 @@ import { notifyTalentSubscriptionCardReceived } from './talent-whatsapp.service.
 import { assertHiringContentValid, syncJobEntitiesForCard } from './jobs-ingest.service.js';
 import { onHiringCardAccepted, onHiringCardDeclined } from './jobs.service.js';
 import { phoneMatchSuffix } from '../lib/phone.js';
+import { fanoutCardToAgencies } from './card-backfill.service.js';
 import {
   businessAmountFromOffer,
   partnerAmountFromOffer,
@@ -840,6 +841,40 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
           }
         }
       }
+
+      // Agency fan-out on update/republish (mirrors talent logic — manual cards skip)
+      try {
+        const { findMatchingAgencies } = await import('./agency-matcher.service.js');
+        const freshAgencyIds = await findMatchingAgencies((input.match_rules ?? {}) as any);
+        const freshSet = new Set(freshAgencyIds);
+
+        // Insert new matching agencies not already present
+        const agencyMatched = await fanoutCardToAgencies(existing.id, (input.match_rules ?? {}) as any);
+        if (agencyMatched > 0) {
+          console.info('[subscription] fanned out to agencies', { card_id: existing.id, agencyMatched });
+        }
+
+        // Prune stale PENDING agency recipients no longer in the match set
+        const { data: agencyRows } = await supabaseAdmin
+          .from('agency_card_recipients')
+          .select('agency_user_id, status')
+          .eq('card_id', existing.id)
+          .is('cancelled_at', null);
+        const staleAgencyIds = (agencyRows ?? [])
+          .filter((r: any) => r.status === 'pending' && !freshSet.has(r.agency_user_id as string))
+          .map((r: any) => r.agency_user_id as string);
+        if (staleAgencyIds.length > 0) {
+          await supabaseAdmin
+            .from('agency_card_recipients')
+            .update({ cancelled_at: new Date().toISOString() })
+            .eq('card_id', existing.id)
+            .eq('status', 'pending')
+            .is('cancelled_at', null)
+            .in('agency_user_id', staleAgencyIds);
+        }
+      } catch (e) {
+        console.error('[subscription] agency fanout on update failed', e);
+      }
     }
 
     if (isRepublish || isFirstPublishFromSubmitted) {
@@ -936,6 +971,16 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
           });
         }
       }
+    }
+  }
+
+  // Agency fan-out for new cards (manual cards skip)
+  if (!skipAutoFanOut && insertStatus === 'active') {
+    try {
+      const agencyCount = await fanoutCardToAgencies(inserted.id, (input.match_rules ?? {}) as any);
+      if (agencyCount > 0) console.info('[subscription] fanned out new card to agencies', { card_id: inserted.id, agencyCount });
+    } catch (e) {
+      console.error('[subscription] agency fanout on insert failed', e);
     }
   }
 
@@ -1609,6 +1654,9 @@ export async function respond(
   recipientId: string,
   input: RespondToSubscriptionInput
 ) {
+  const { assertTalentCanRespond } = await import('./respond-gate.js');
+  await assertTalentCanRespond(talentUserId);
+
   const newStatus = input.action === 'accept' ? 'accepted' : 'rejected';
   const respondedAt = new Date().toISOString();
 

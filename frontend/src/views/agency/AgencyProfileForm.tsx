@@ -174,7 +174,7 @@ export default function AgencyProfileForm(){
       await agencyApi.updateProfile(profilePayload);
       await agencyApi.updateMe(userPayload).catch(()=>{});
     },
-    onSuccess:()=>{ qc.invalidateQueries({queryKey:['agencyProfile']}); qc.invalidateQueries({queryKey:['agencyMe']}); toast.success('Agency profile saved'); },
+    onSuccess:()=>{ qc.invalidateQueries({queryKey:['agencyProfile']}); qc.invalidateQueries({queryKey:['agencyMe']}); toast.success('Agency profile saved'); agencyApi.backfillCards().catch(()=>{}); },
     onError:(e:any)=>toast.error(e.message || e.response?.data?.message || 'Failed to save')
   });
 
