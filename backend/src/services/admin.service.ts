@@ -461,8 +461,113 @@ export async function bulkApproveProfiles(profileIds: string[], adminId: string)
 }
 
 // ---------------------------------------------------------------------------
-// User Approvals
+// User Approvals / Sign-ups
 // ---------------------------------------------------------------------------
+
+export interface SignupListFilters {
+  search?: string;
+  approval_status?: string;
+  page?: number;
+  limit?: number;
+}
+
+function isMissingColumn(err: unknown) {
+  const m = String((err as { message?: string })?.message || err || '').toLowerCase();
+  return m.includes('column') && m.includes('does not exist');
+}
+
+export async function getSignupStats() {
+  let data: { approval_status?: string; is_active?: boolean; suspended?: boolean }[] | null = null;
+  let error: { message?: string } | null = null;
+  ({ data, error } = await supabaseAdmin
+    .from('talent_users')
+    .select('approval_status, is_active, suspended'));
+  if (error && isMissingColumn(error)) {
+    ({ data, error } = await supabaseAdmin.from('talent_users').select('approval_status, is_active'));
+  }
+  if (error) throw new AppError(500, error.message ?? 'Failed to load signup stats');
+
+  const rows = data ?? [];
+  const byStatus: Record<string, number> = {};
+  let active = 0;
+  let suspended = 0;
+  for (const r of rows) {
+    const s = r.approval_status ?? 'pending';
+    byStatus[s] = (byStatus[s] ?? 0) + 1;
+    if (r.suspended) suspended += 1;
+    else if (r.is_active !== false) active += 1;
+  }
+  return {
+    total: rows.length,
+    by_status: byStatus,
+    pending: byStatus.pending ?? 0,
+    approved: byStatus.approved ?? 0,
+    rejected: byStatus.rejected ?? 0,
+    active,
+    suspended,
+  };
+}
+
+export async function listSignups(filters: SignupListFilters) {
+  const page = Math.max(1, filters.page ?? 1);
+  const limit = Math.min(100, Math.max(1, filters.limit ?? 20));
+  const offset = (page - 1) * limit;
+
+  let qb = supabaseAdmin
+    .from('talent_users')
+    .select(
+      'id, full_name, phone, current_location, approval_status, is_active, suspended, blacklisted, created_at, approved_at',
+      { count: 'exact' },
+    )
+    .order('created_at', { ascending: false });
+
+  const status = (filters.approval_status ?? '').trim().toLowerCase();
+  if (status && status !== 'all') qb = qb.eq('approval_status', status);
+
+  const search = filters.search?.trim();
+  if (search) {
+    const like = `%${search.replace(/[%_,]/g, (c) => `\\${c}`)}%`;
+    const digits = search.replace(/\D/g, '').slice(-10);
+    const orParts = [`full_name.ilike.${like}`];
+    if (digits.length >= 4) orParts.push(`phone.ilike.%${digits}%`);
+
+    const { data: emailHits } = await supabaseAdmin
+      .from('admin_talent_search')
+      .select('id')
+      .ilike('email', like)
+      .limit(200);
+    const emailIds = (emailHits ?? []).map((r: { id: string }) => r.id).filter(Boolean);
+    if (emailIds.length) orParts.push(`id.in.(${emailIds.join(',')})`);
+
+    qb = qb.or(orParts.join(','));
+  }
+
+  const { data, error, count } = await qb.range(offset, offset + limit - 1);
+  if (error) throw new AppError(500, error.message);
+
+  const rows = data ?? [];
+  const ids = rows.map((u: { id: string }) => u.id);
+  let emailMap = new Map<string, string | null>();
+  if (ids.length) {
+    const { data: emails } = await supabaseAdmin.rpc('get_auth_users_by_ids', { id_list: ids });
+    for (const row of (emails ?? []) as { id: string; email: string | null }[]) {
+      emailMap.set(row.id, row.email ?? null);
+    }
+  }
+
+  const users = rows.map((u: Record<string, unknown>) => ({
+    ...u,
+    email: emailMap.get(u.id as string) ?? null,
+  }));
+
+  return {
+    users,
+    total: count ?? 0,
+    page,
+    limit,
+    total_pages: Math.ceil((count ?? 0) / limit),
+  };
+}
 
 export async function getPendingApprovals() {
   const { data, error } = await supabaseAdmin
@@ -476,41 +581,68 @@ export async function getPendingApprovals() {
 }
 
 export async function approveUser(userId: string, adminId: string) {
-  const { data, error } = await supabaseAdmin
-    .from('talent_users')
-    .update({
+  for (const attempt of [true, false]) {
+    const patch: Record<string, unknown> = {
       approval_status: 'approved',
       approved_at: new Date().toISOString(),
       approved_by: adminId,
-    })
-    .eq('id', userId)
-    .eq('approval_status', 'pending')
-    .select()
-    .single();
-
-  if (error) throw new AppError(400, `Failed to approve user: ${error.message}`);
-  try {
-    const { backfillCardsForTalent } = await import('./card-backfill.service.js');
-    backfillCardsForTalent(userId).catch((e) => console.error('[card-backfill] approveUser backfill failed', e));
-  } catch {}
-  return data;
+      ...(attempt ? { rejected_at: null, rejection_reason: null } : {}),
+    };
+    const { data, error } = await supabaseAdmin
+      .from('talent_users')
+      .update(patch)
+      .eq('id', userId)
+      .eq('approval_status', 'pending')
+      .select()
+      .single();
+    if (!error && data) {
+      try {
+        const { backfillCardsForTalent } = await import('./card-backfill.service.js');
+        backfillCardsForTalent(userId).catch((e) =>
+          console.error('[card-backfill] approveUser backfill failed', e),
+        );
+      } catch {}
+      return data;
+    }
+    if (error && isMissingColumn(error) && attempt) continue;
+    throw new AppError(400, error?.message || 'User not found or not pending');
+  }
+  throw new AppError(400, 'User not found or not pending');
 }
 
-export async function rejectUser(userId: string, adminId: string) {
-  const { data, error } = await supabaseAdmin
-    .from('talent_users')
-    .update({
+export async function rejectUser(userId: string, adminId: string, reason?: string) {
+  const trimmed = reason?.trim() ?? '';
+  for (const attempt of [true, false]) {
+    const patch: Record<string, unknown> = {
       approval_status: 'rejected',
-      approved_at: new Date().toISOString(),
       approved_by: adminId,
-    })
-    .eq('id', userId)
-    .eq('approval_status', 'pending')
-    .select()
-    .single();
+      ...(attempt
+        ? { rejected_at: new Date().toISOString(), rejection_reason: trimmed || null }
+        : {}),
+    };
+    const { data, error } = await supabaseAdmin
+      .from('talent_users')
+      .update(patch)
+      .eq('id', userId)
+      .eq('approval_status', 'pending')
+      .select()
+      .single();
+    if (!error && data) return data;
+    if (error && isMissingColumn(error) && attempt) continue;
+    throw new AppError(400, error?.message || 'User not found or not pending');
+  }
+  throw new AppError(400, 'User not found or not pending');
+}
 
-  if (error) throw new AppError(400, `Failed to reject user: ${error.message}`);
-  return data;
+export async function bulkApproveUsers(ids: string[], adminId: string) {
+  const results = await Promise.all(
+    ids.map((id) =>
+      approveUser(id, adminId)
+        .then((data) => ({ id, success: true as const, data }))
+        .catch((e: Error) => ({ id, success: false as const, error: e.message })),
+    ),
+  );
+  return results;
 }
 
 // ---------------------------------------------------------------------------

@@ -216,10 +216,30 @@ export async function bulkApproveProfiles(req: Request, res: Response, next: Nex
 // User Approvals
 // ---------------------------------------------------------------------------
 
-export async function getPendingApprovals(_req: Request, res: Response, next: NextFunction) {
+export async function getSignupStats(_req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await adminService.getPendingApprovals();
-    res.json({ users: result });
+    res.json(await adminService.getSignupStats());
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getPendingApprovals(req: Request, res: Response, next: NextFunction) {
+  try {
+    const q = req.query;
+    const hasListParams =
+      q.page != null || q.search != null || q.approval_status != null || q.limit != null;
+    if (!hasListParams) {
+      const result = await adminService.getPendingApprovals();
+      return res.json({ users: result });
+    }
+    const result = await adminService.listSignups({
+      search: typeof q.search === 'string' ? q.search : undefined,
+      approval_status: typeof q.approval_status === 'string' ? q.approval_status : undefined,
+      page: q.page ? Number(q.page) : 1,
+      limit: q.limit ? Number(q.limit) : 20,
+    });
+    res.json(result);
   } catch (err) {
     next(err);
   }
@@ -236,8 +256,22 @@ export async function approveUser(req: Request, res: Response, next: NextFunctio
 
 export async function rejectUser(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await adminService.rejectUser(req.params.userId as string, req.user!.id);
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason : undefined;
+    const result = await adminService.rejectUser(req.params.userId as string, req.user!.id, reason);
     res.json({ user: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function bulkApproveUsers(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { ids } = req.body as { ids?: string[] };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({ message: 'ids array required' });
+      return;
+    }
+    res.json({ results: await adminService.bulkApproveUsers(ids, req.user!.id) });
   } catch (err) {
     next(err);
   }

@@ -31,6 +31,7 @@ export async function signupTalent(input: SignupTalentInput) {
 
   const userId = authData.user.id;
 
+  // Ops review flag only. Pending talent can sign in and use the app immediately.
   const autoApprove = (await getAdminSetting<boolean>('auto_approve_signups')) === true;
 
   // Insert into talent_users table

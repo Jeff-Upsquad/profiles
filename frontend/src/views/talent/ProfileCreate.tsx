@@ -15,7 +15,6 @@ import { SkeletonCard } from '@/components/ui/Skeleton';
 import { useAuth } from '@/context/AuthContext';
 import { coerceLeveledList } from '../../../../shared/src/types/talent';
 import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
-import ApprovalCelebration from '@/components/talent/ApprovalCelebration';
 import ProfileTrainingGate from '@/components/training/ProfileTrainingGate';
 import { useProfileGate } from '@/hooks/useTraining';
 import type { Category, CategoryField } from '@/types';
@@ -47,10 +46,9 @@ function tintFor(seed: string): string {
 
 export default function ProfileCreate() {
   const router = useRouter();
-  const { user, refetchUser } = useAuth();
-  const isApproved = user?.approval_status === 'approved';
-  const autoApproveActive = user?.auto_approve_signups === true;
-  const canSubmit = isApproved || autoApproveActive;
+  const { user } = useAuth();
+  const isRejected = user?.approval_status === 'rejected';
+  const canSubmit = !isRejected;
   const queryClient = useQueryClient();
   const { data: categories, isLoading: catLoading } = useTalentCreatableCategories();
   const { data: profiles } = useMyProfiles();
@@ -63,7 +61,6 @@ export default function ProfileCreate() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [values, setValues] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [celebrationPhase, setCelebrationPhase] = useState<'loading' | 'approved' | null>(null);
   const [draftProfileId, setDraftProfileId] = useState<string | null>(null);
   const [autoSaving, setAutoSaving] = useState(false);
   const autoSaveInFlight = useRef(false);
@@ -217,20 +214,13 @@ export default function ProfileCreate() {
   const handleSaveAndSubmit = async () => {
     if (!validate()) return;
     if (!selectedCategory) return;
-    const willAutoApprove = !isApproved && autoApproveActive;
     try {
-      if (willAutoApprove) setCelebrationPhase('loading');
       const id = await persistDraft(selectedCategory.id);
       try { await saveLanguages(); } catch { toast.error('Failed to save languages'); }
-      const submitted: any = await submitProfile.mutateAsync(id);
-      if (willAutoApprove && submitted?.auto_approved) {
-        await refetchUser();
-        setCelebrationPhase('approved');
-        await new Promise((r) => setTimeout(r, 1400));
-      }
+      await submitProfile.mutateAsync(id);
       router.push(`/talent/profiles/${id}`);
     } catch {
-      setCelebrationPhase(null);
+      // error handled in hook
     }
   };
 
@@ -253,7 +243,7 @@ export default function ProfileCreate() {
           </div>
         </section>
 
-        {!isApproved && <PendingApprovalBanner />}
+        <PendingApprovalBanner />
 
         {catLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -369,7 +359,7 @@ export default function ProfileCreate() {
         </div>
       </section>
 
-      {!isApproved && <PendingApprovalBanner />}
+      <PendingApprovalBanner />
 
       {gateLoading || fieldsLoading ? (
         <div className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-8 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -519,11 +509,9 @@ export default function ProfileCreate() {
       {!(profileGate?.locked && profileGate.chapter) && (
       <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E7E7EA] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
         <div className="text-xs text-[#737373] px-2">
-          {!isApproved && !autoApproveActive && 'Submission unlocks once your account is approved.'}
-          {!isApproved && autoApproveActive && (
-            <span className="text-[#0a0a0a]">Submitting will activate your account instantly.</span>
-          )}
-          {isApproved && 'Save as draft, or submit for review when ready.'}
+          {isRejected
+            ? 'Submitting is locked because this account was not approved.'
+            : 'Save as draft, or submit for review when ready.'}
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -546,7 +534,7 @@ export default function ProfileCreate() {
       </div>
       )}
 
-      {celebrationPhase && <ApprovalCelebration phase={celebrationPhase} />}
+
     </div>
   );
 }

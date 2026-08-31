@@ -87,8 +87,8 @@ export default function ApprovalsScreen() {
       }
       ListEmptyComponent={
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>No pending approvals</Text>
-          <Text style={styles.emptyBody}>New sign-ups will appear here.</Text>
+          <Text style={styles.emptyTitle}>No pending sign-ups</Text>
+          <Text style={styles.emptyBody}>New talent can already use the app. Review them here.</Text>
         </View>
       }
       renderItem={({ item }) => (

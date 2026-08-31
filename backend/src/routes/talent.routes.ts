@@ -60,7 +60,7 @@ router.get('/me/onboarding-progress', talentController.getMyOnboardingProgress);
 // and a Video Editor profile (see ghost-profile.service.ts).
 router.get('/profile-categories', talentController.getTalentCreatableCategories);
 
-// Talent profiles (approval gates submission, not creation)
+// Talent profiles (rejected accounts cannot submit; pending can)
 router.get('/profiles', talentController.getProfiles);
 router.post('/profiles', validate({ body: createProfileSchema }), talentController.createProfile);
 router.get('/profiles/:id', talentController.getProfile);

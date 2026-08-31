@@ -89,7 +89,7 @@ export default function TalentDashboard() {
   const router = useRouter();
   const { data: onboardingProgress } = useMyOnboardingProgress();
   const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
-  const isApproved = user?.approval_status === 'approved';
+  const isRejected = user?.approval_status === 'rejected';
   const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
   const [tab, setTab] = useState<TalentHomeTab>('subscriptions');
 
@@ -161,9 +161,9 @@ export default function TalentDashboard() {
           <div className="max-w-2xl">
             <div className="mb-2 inline-flex items-center gap-2 stagger-1">
               <span className="eyebrow-rainbow">
-                {isApproved ? 'Talent Workspace' : 'Pending Approval'}
+                {isRejected ? 'Account declined' : 'Talent Workspace'}
               </span>
-              {isApproved && user?.is_active !== false && (
+              {!isRejected && user?.is_active !== false && (
                 <span className="pill-live">Live</span>
               )}
               {user?.is_active === false && (

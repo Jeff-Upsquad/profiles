@@ -59,15 +59,16 @@ export default function UserApprovals() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">User Approvals</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Sign-ups</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Review and approve talent user accounts ({users.length} pending)
+          Review new talent accounts ({users.length} pending). They can already use the app —
+          this is a separate review, not a wait.
         </p>
       </div>
 
       {users.length === 0 ? (
         <div className="rounded-xl border border-gray-200 bg-white p-12 text-center shadow-sm">
-          <p className="text-gray-500">No pending approvals</p>
+          <p className="text-gray-500">No pending sign-ups</p>
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">

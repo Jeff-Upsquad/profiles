@@ -71,9 +71,12 @@ export interface TalentUser {
   current_location?: string;
   languages_spoken?: { language: string; proficiency: string }[];
   profile_photo_url?: string;
+  // Ops review of the account. Pending does not block login or profile submit.
   approval_status: ApprovalStatus;
   approved_at?: string;
   approved_by?: string;
+  rejection_reason?: string | null;
+  rejected_at?: string | null;
   is_active: boolean;
   skip_onboarding?: boolean;
   skip_onboarding_at?: string | null;

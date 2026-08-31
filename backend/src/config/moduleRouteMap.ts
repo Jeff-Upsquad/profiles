@@ -29,7 +29,7 @@ export const MODULE_ROUTE_RULES: ModuleRule[] = [
 
   { prefix: '/reviews', module: 'reviews' },
 
-  // Approvals = pending-signup approvals + auto-approve toggle
+  // Sign-ups = talent account review + auto-approve toggle
   { prefix: '/user-approvals', module: 'approvals' },
   { prefix: '/settings/auto-approve', module: 'approvals' },
 

@@ -46,7 +46,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const isApproved = user?.approval_status === 'approved';
+  const isRejected = user?.approval_status === 'rejected';
   const { data: profile, isLoading: profileLoading } = useProfile(profileId);
   const updateProfile = useUpdateProfile();
   const submitProfile = useSubmitProfile();
@@ -277,7 +277,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
         </div>
       </section>
 
-      {!isApproved && <PendingApprovalBanner />}
+      <PendingApprovalBanner />
 
       {profile.rejection_reason && (
         <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4">
@@ -444,8 +444,8 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
             <button
               type="button"
               onClick={handleSaveAndSubmit}
-              disabled={!isApproved || updateProfile.isPending || submitProfile.isPending}
-              title={!isApproved ? 'Available after account approval' : undefined}
+              disabled={isRejected || updateProfile.isPending || submitProfile.isPending}
+              title={isRejected ? 'Submitting is locked because this account was not approved' : undefined}
               className="btn-iridescent disabled:opacity-50"
             >
               {(updateProfile.isPending || submitProfile.isPending) ? 'Submitting…' : 'Save & Submit'}

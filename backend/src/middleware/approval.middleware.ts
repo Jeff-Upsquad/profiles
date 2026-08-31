@@ -1,13 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from './errorHandler.middleware.js';
-import { getAdminSetting } from '../services/admin.service.js';
 
 /**
- * Middleware that checks whether the talent user's account is approved.
- * Used to gate actions that make profiles visible to businesses (e.g. submitting
- * for review). Pending users can still create drafts and build out portfolios.
+ * Account review is a separate ops process from signup. Pending (and approved)
+ * talent can log in, build, and submit profiles. Only a rejected account is
+ * blocked from submitting for business review.
  */
+function assertNotRejected(status: string | null | undefined) {
+  if (status === 'rejected') {
+    throw new AppError(
+      403,
+      'Your account was not approved. You can still edit drafts, but you cannot submit a profile for review.',
+    );
+  }
+}
+
 export async function requireApproval(req: Request, _res: Response, next: NextFunction) {
   try {
     const userId = req.user?.id;
@@ -25,49 +33,12 @@ export async function requireApproval(req: Request, _res: Response, next: NextFu
       throw new AppError(404, 'Talent user not found');
     }
 
-    if (data.approval_status !== 'approved') {
-      throw new AppError(403, 'Your account is pending approval. You can build your profile and portfolio, but you cannot submit it for review until your account is approved.');
-    }
-
+    assertNotRejected(data.approval_status);
     next();
   } catch (err) {
     next(err);
   }
 }
 
-/**
- * Like requireApproval but lets pending users through when the
- * `auto_approve_signups` admin setting is on. The downstream service is
- * responsible for performing the actual approval transition.
- */
-export async function requireApprovalOrAutoApprove(req: Request, _res: Response, next: NextFunction) {
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new AppError(401, 'Authentication required');
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from('talent_users')
-      .select('approval_status')
-      .eq('id', userId)
-      .single();
-
-    if (error || !data) {
-      throw new AppError(404, 'Talent user not found');
-    }
-
-    if (data.approval_status === 'approved') {
-      return next();
-    }
-
-    if (data.approval_status === 'pending') {
-      const enabled = await getAdminSetting<boolean>('auto_approve_signups');
-      if (enabled === true) return next();
-    }
-
-    throw new AppError(403, 'Your account is pending approval. You can build your profile and portfolio, but you cannot submit it for review until your account is approved.');
-  } catch (err) {
-    next(err);
-  }
-}
+/** @deprecated Alias of requireApproval — signup no longer waits on approval. */
+export const requireApprovalOrAutoApprove = requireApproval;

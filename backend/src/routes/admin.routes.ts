@@ -211,9 +211,11 @@ router.patch('/reviews/:profileId/reject', adminController.rejectProfile);
 router.patch('/reviews/bulk-approve', adminController.bulkApproveProfiles);
 
 // ---------------------------------------------------------------------------
-// User Approvals
+// User Approvals / Sign-ups
 // ---------------------------------------------------------------------------
 
+router.get('/user-approvals/stats', adminController.getSignupStats);
+router.post('/user-approvals/bulk-approve', adminController.bulkApproveUsers);
 router.get('/user-approvals', adminController.getPendingApprovals);
 router.patch('/user-approvals/:userId/approve', adminController.approveUser);
 router.patch('/user-approvals/:userId/reject', adminController.rejectUser);

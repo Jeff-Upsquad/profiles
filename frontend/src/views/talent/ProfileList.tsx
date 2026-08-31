@@ -5,7 +5,6 @@ import {
   useReactivateProfile,
   useDeleteProfile,
 } from '@/hooks/useProfiles';
-import { useAuth } from '@/context/AuthContext';
 import Button from '@/components/ui/Button';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
 import { SkeletonCard } from '@/components/ui/Skeleton';
@@ -21,8 +20,6 @@ function tintFor(seed: string): string {
 }
 
 export default function ProfileList() {
-  const { user } = useAuth();
-  const isApproved = user?.approval_status === 'approved';
   const { data: profiles, isLoading } = useMyProfiles();
   const deactivate = useDeactivateProfile();
   const reactivate = useReactivateProfile();
@@ -84,7 +81,7 @@ export default function ProfileList() {
         </div>
       </section>
 
-      {!isApproved && <PendingApprovalBanner />}
+      <PendingApprovalBanner />
 
       {visibleProfiles.length === 0 ? (
         <div className="relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-6 py-16 text-center">

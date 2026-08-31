@@ -1,39 +1,15 @@
 import { useAuth } from '@/context/AuthContext';
 
+/** Shown only when ops declined the account. Pending no longer blocks the talent. */
 export default function PendingApprovalBanner() {
   const { user } = useAuth();
-  const autoApprove = user?.auto_approve_signups === true;
 
-  if (autoApprove) {
-    return (
-      <div className="flex items-start gap-3 rounded-[14px] border border-[#0a0a0a] bg-[#FFFAC2] p-4">
-        <svg
-          className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#0a0a0a]"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M13 10V3L4 14h7v7l9-11h-7z"
-          />
-        </svg>
-        <div className="text-sm">
-          <p className="font-semibold text-[#0a0a0a]">Auto-approval is on.</p>
-          <p className="mt-0.5 text-[#0a0a0a]">
-            Submitting your first profile will activate your account instantly.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (user?.approval_status !== 'rejected') return null;
 
   return (
-    <div className="flex items-start gap-3 rounded-[14px] border border-amber-200 bg-amber-50 p-4">
+    <div className="flex items-start gap-3 rounded-[14px] border border-red-200 bg-red-50 p-4">
       <svg
-        className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-500"
+        className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -46,10 +22,10 @@ export default function PendingApprovalBanner() {
         />
       </svg>
       <div className="text-sm">
-        <p className="font-semibold text-amber-900">Your account is pending approval.</p>
-        <p className="mt-0.5 text-amber-800">
-          You can create draft profiles and add portfolio items now. You&apos;ll be able to submit
-          for review once your account is approved.
+        <p className="font-semibold text-red-900">Your account was not approved.</p>
+        <p className="mt-0.5 text-red-800">
+          You can still edit drafts. Submitting a profile for review is locked until an admin
+          revisits your account.
         </p>
       </div>
     </div>
