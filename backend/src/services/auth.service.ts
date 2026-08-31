@@ -97,8 +97,16 @@ export async function signupTalent(input: SignupTalentInput) {
   }
 
   try {
-    const { onCandidateSignedUp } = await import('./automation.service.js');
+    const { onCandidateSignedUp, notifyCrmTalentSignedUp } = await import('./automation.service.js');
     await onCandidateSignedUp(userId, email, profileData.phone ?? null);
+    // Always tell SquadHire CRM — landing-page signups often have no
+    // lead_submission, so onCandidateSignedUp is a no-op for the kanban card.
+    await notifyCrmTalentSignedUp({
+      name: full_name,
+      email,
+      phone: profileData.phone ?? null,
+      talentUserId: userId,
+    });
   } catch (e) {
     console.error('[automation] onCandidateSignedUp failed:', e);
   }

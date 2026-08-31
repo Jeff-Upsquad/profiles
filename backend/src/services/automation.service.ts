@@ -485,6 +485,69 @@ export async function onLeadStatusChanged(
   });
 }
 
+/**
+ * Landing-page (and any other) talent signup with no Profiles candidate lead.
+ * Tells SquadHire CRM "this phone/email just signed up" so the WhatsApp card
+ * sitting on Share Landing Page hops to Signed Up in *that* pipeline.
+ *
+ * Safe to call even when onCandidateSignedUp already fired the mapped
+ * webhook — the CRM treats this as forward-only and no-ops if the card is
+ * already at or past Signed Up.
+ */
+export async function notifyCrmTalentSignedUp(input: {
+  name: string;
+  email: string;
+  phone: string | null;
+  talentUserId?: string;
+}): Promise<void> {
+  const phone = input.phone?.trim() || '';
+  const email = input.email?.trim().toLowerCase() || '';
+  if (!phone && !email) return;
+
+  const mapping = await getCrmStatusMapping();
+  let webhookUrl = mapping?.crm_webhook_url || '';
+  if (!webhookUrl) {
+    const { env } = await import('../config/env.js');
+    const explicit = (env.SQUADHIRE_CRM_API_URL || '').replace(/\/$/, '');
+    const derived = env.SQUADHIRE_CRM_SYSTEM_EVENTS_URL
+      ? new URL(env.SQUADHIRE_CRM_SYSTEM_EVENTS_URL).origin
+      : '';
+    const origin = explicit || derived;
+    if (origin) webhookUrl = `${origin}/integrations/profiles/leads`;
+  }
+  if (!webhookUrl) return;
+
+  let pipeline_stage = 'Signed Up';
+  if (mapping?.pipelines) {
+    const { resolveStageName } = await import('./crm-stage-mapping.js');
+    const preferred = mapping.pipelines.creative ?? Object.values(mapping.pipelines)[0];
+    const mapped = preferred ? resolveStageName(preferred, 'signed_up') : null;
+    if (mapped) pipeline_stage = mapped;
+  }
+
+  const result = await sendCrmWebhook(webhookUrl, {
+    event: 'signed_up',
+    status: 'signed_up',
+    lead: {
+      name: input.name,
+      email,
+      phone,
+    },
+    pipeline_stage,
+    timestamp: new Date().toISOString(),
+  });
+  await logEvent({
+    event_type: result.sent ? 'crm_signup_sync_sent' : 'crm_signup_sync_failed',
+    talent_user_id: input.talentUserId,
+    triggered_by: 'system',
+    metadata: {
+      pipeline_stage,
+      error: result.error,
+      has_phone: !!phone,
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Backfill: push existing leads (all form types) to CRM with their current stage
 // ---------------------------------------------------------------------------
