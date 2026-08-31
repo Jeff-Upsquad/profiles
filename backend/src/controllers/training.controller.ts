@@ -358,7 +358,7 @@ export async function getModuleAccess(req: Request, res: Response, next: NextFun
     const { data: profiles, error } = await supabaseAdmin
       .from('talent_profiles')
       .select('category_id')
-      .eq('user_id', userId);
+      .eq('talent_user_id', userId);
 
     if (error) throw new AppError(500, `Failed to fetch profiles: ${error.message}`);
 

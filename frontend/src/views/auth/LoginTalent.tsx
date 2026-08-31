@@ -46,8 +46,9 @@ export default function LoginTalent() {
   };
 
   // A token is present — a still-signed-in user reached this page (e.g. mobile
-  // swipe-back). Render nothing while the effect above redirects.
-  if (token) return null;
+  // swipe-back). Show a spinner while the effect above redirects, not a blank
+  // page (a blank flash is what users reported as "login failed").
+  if (token) return <RedirectingSplash />;
 
   return (
     <AuthShell
@@ -167,6 +168,14 @@ export default function LoginTalent() {
         </Link>
       </div>
     </AuthShell>
+  );
+}
+
+export function RedirectingSplash() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-cu-50">
+      <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-cu-900 border-t-transparent" />
+    </div>
   );
 }
 

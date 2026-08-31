@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import toast from 'react-hot-toast';
-import { AuthShell } from './LoginTalent';
+import { AuthShell, RedirectingSplash } from './LoginTalent';
 import { COUNTRY_CODES } from '@/constants/country-codes';
 
 type Identifier = 'email' | 'phone';
@@ -60,10 +60,10 @@ export default function LoginBusiness() {
     }
   };
 
-  // A token is present — a still-signed-in user reached this page (e.g. mobile)
-  // swipe-back). Render nothing while the effect above redirects, so the login
-  // form never flashes.
-  if (token) return null;
+  // A token is present — a still-signed-in user reached this page (e.g. mobile
+  // swipe-back). Show a spinner while the effect above redirects, so the login
+  // form never flashes and the page isn't a blank white screen.
+  if (token) return <RedirectingSplash />;
 
   return (
     <AuthShell switchHref="/login/talent" switchLabel="Talent Login" accent="business">

@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import axios from 'axios';
 import api from '@/services/api';
 import type { User, TalentSignupData, AgencySignupData } from '@/types';
 
@@ -60,6 +61,48 @@ function enterApp(path: string) {
   }
 }
 
+function persistAuthTokens(authToken: string, refreshToken?: string | null) {
+  localStorage.setItem('squadhire_token', authToken);
+  if (refreshToken) {
+    localStorage.setItem('squadhire_refresh', refreshToken);
+  } else {
+    // Business users have no refresh token — clear any stale value from a
+    // previous session of a different role on the same device.
+    localStorage.removeItem('squadhire_refresh');
+  }
+}
+
+// Write tokens to storage and hard-navigate WITHOUT updating React state.
+// setToken on the page we're leaving would fire /auth/me, which the browser
+// then aborts; the old catch-all treated that abort as a bad session and
+// wiped the token before the next page could read it.
+function persistAndEnterApp(
+  authToken: string,
+  refreshToken: string | null | undefined,
+  path: string,
+) {
+  persistAuthTokens(authToken, refreshToken);
+  enterApp(path);
+}
+
+function destinationForRole(role: string | undefined): string {
+  if (role === 'talent') return '/talent/dashboard';
+  if (role === 'agency') return '/agency/dashboard';
+  if (role === 'business') return '/business/hire';
+  return '/dashboard';
+}
+
+function isAbortedAuthRequest(err: unknown): boolean {
+  if (axios.isCancel(err)) return true;
+  if (typeof err === 'object' && err !== null) {
+    const e = err as { code?: string; name?: string };
+    if (e.code === 'ERR_CANCELED' || e.name === 'CanceledError' || e.name === 'AbortError') {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() => {
@@ -96,14 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const storeAuth = useCallback(
     (authToken: string, authUser: User, refreshToken?: string | null) => {
-      localStorage.setItem('squadhire_token', authToken);
-      if (refreshToken) {
-        localStorage.setItem('squadhire_refresh', refreshToken);
-      } else {
-        // Business users have no refresh token — clear any stale value from a
-        // previous session of a different role on the same device.
-        localStorage.removeItem('squadhire_refresh');
-      }
+      persistAuthTokens(authToken, refreshToken);
       setToken(authToken);
       setUser(authUser);
     },
@@ -143,22 +179,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // On mount (or token change), always fetch the latest user from the server.
   // This ensures approval_status and other fields stay current.
+  //
+  // A hard navigation (window.location.replace after login, mobile swipe-back
+  // off this page) aborts the in-flight /auth/me. Axios surfaces that as a
+  // CanceledError or a Network Error with no response. The previous catch-all
+  // treated every failure as a bad session and cleared localStorage — so a
+  // successful login on mobile bounced straight back to the login form.
   useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
     const verifyToken = async () => {
       if (!token) {
         setIsLoading(false);
         return;
       }
       try {
-        const { data } = await api.get('/auth/me');
+        const { data } = await api.get('/auth/me', { signal: controller.signal });
+        if (cancelled) return;
         setUser(data.user ?? data);
-      } catch {
+      } catch (err) {
+        if (cancelled || isAbortedAuthRequest(err)) return;
+        const axiosErr = err as { response?: unknown };
+        // Full-page unloads often report aborted XHRs as a generic Network
+        // Error (no response) while the document is already hidden. Do not
+        // wipe a token we just stored.
+        if (
+          !axiosErr.response &&
+          typeof document !== 'undefined' &&
+          document.visibilityState === 'hidden'
+        ) {
+          return;
+        }
         clearAuth();
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
     verifyToken();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [token, clearAuth]);
 
   // Force users flagged for password reset to the change-password page.
@@ -179,13 +241,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (email: string, password: string) => {
       const { data } = await api.post('/auth/login', { email, password });
-      storeAuth(data.access_token || data.token, data.user, data.refresh_token);
-      // Hard document replace (not a soft router.replace) so the outgoing login
-      // segment is fully torn down and can't linger above the app on mobile, and
-      // so the login page stays out of history (no swipe-back to it).
-      enterApp('/dashboard');
+      // Persist to localStorage only — do not set React state on this page.
+      // The next document reads the token on mount and verifies it there.
+      persistAndEnterApp(
+        data.access_token || data.token,
+        data.refresh_token,
+        destinationForRole(data.user?.role),
+      );
     },
-    [storeAuth]
+    []
   );
 
   const businessLogin = useCallback(
@@ -196,22 +260,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.status === 'needs_signup') {
         return { needsSignup: true };
       }
-      storeAuth(data.access_token || data.token, data.user, null);
-      enterApp(
+      persistAndEnterApp(
+        data.access_token || data.token,
+        null,
         data.must_change_password ? BUSINESS_CHANGE_PASSWORD_PATH : '/business/hire',
       );
       return { needsSignup: false };
     },
-    [storeAuth]
+    []
   );
 
   const businessSignup = useCallback(
     async (payload: BusinessSignupData) => {
       const { data } = await api.post('/auth/business/signup', payload);
-      storeAuth(data.access_token || data.token, data.user, null);
-      enterApp('/business/hire');
+      persistAndEnterApp(data.access_token || data.token, null, '/business/hire');
     },
-    [storeAuth]
+    []
   );
 
   // Finalize the self-serve WhatsApp password-reset: the wizard has already
@@ -226,10 +290,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refresh_token?: string | null;
       user: User;
     }) => {
-      storeAuth(data.access_token || data.token || '', data.user, data.refresh_token ?? null);
-      enterApp(data.user?.role === 'business' ? '/business/hire' : '/talent/dashboard');
+      persistAndEnterApp(
+        data.access_token || data.token || '',
+        data.refresh_token ?? null,
+        destinationForRole(data.user?.role),
+      );
     },
-    [storeAuth]
+    []
   );
 
   const signupTalent = useCallback(
@@ -248,10 +315,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await api.post('/auth/signup/agency', data);
       // auto-login via standard login (agency uses same Supabase auth)
       const { data: loginData } = await api.post('/auth/login', { email: data.email, password: data.password });
-      storeAuth(loginData.access_token || loginData.token, loginData.user, loginData.refresh_token);
-      enterApp('/agency/dashboard');
+      persistAndEnterApp(
+        loginData.access_token || loginData.token,
+        loginData.refresh_token,
+        '/agency/dashboard',
+      );
     },
-    [storeAuth]
+    []
   );
 
   const agencyLogin = useCallback(
@@ -260,10 +330,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.user?.role && data.user.role !== 'agency') {
         throw new Error('This account is not an agency account');
       }
-      storeAuth(data.access_token || data.token, data.user, data.refresh_token);
-      enterApp('/agency/dashboard');
+      persistAndEnterApp(
+        data.access_token || data.token,
+        data.refresh_token,
+        '/agency/dashboard',
+      );
     },
-    [storeAuth]
+    []
   );
 
   const logout = useCallback(
