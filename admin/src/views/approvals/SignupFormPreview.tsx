@@ -260,12 +260,6 @@ export default function SignupFormPreview() {
             <div className="space-y-4">
               {currentStepId === 'account' && (
                 <>
-                  <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-                    <p className="text-sm text-amber-800">
-                      Signup is by invitation only. Use the email address your
-                      invitation was sent to.
-                    </p>
-                  </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Input
                       label="Full Name"

@@ -8,11 +8,9 @@ import type { UserRole } from '../../../shared/src/types/auth.js';
 export async function signupTalent(input: SignupTalentInput) {
   const { email, password, full_name, country, state, current_district, ...profileData } = input;
 
-  // Gate: check for valid invitation
+  // Open self-serve signup for now — no invitation required. If a pending
+  // talent invite exists for this email, mark it accepted after create.
   const invitation = await checkInvitation(email, 'talent');
-  if (!invitation) {
-    throw new AppError(403, 'Signup requires an invitation. Please contact the administrator.');
-  }
 
   // Create auth user with role metadata
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -72,8 +70,9 @@ export async function signupTalent(input: SignupTalentInput) {
     }
   }
 
-  // Mark invitation as accepted
-  await markInvitationAccepted(invitation.id);
+  if (invitation) {
+    await markInvitationAccepted(invitation.id);
+  }
 
   // Best-effort: link any pre-existing lead_submissions
   const phoneDigits = (profileData.phone ?? '').replace(/\D/g, '');

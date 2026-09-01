@@ -162,7 +162,7 @@ export default function LoginTalent() {
       )}
 
       <div className="stagger-3 mt-6 border-t border-cu-200 pt-4 text-center font-ui text-xs text-cu-500">
-        Have an invitation?{' '}
+        Don't have an account?{' '}
         <Link href="/signup/talent" className="font-medium text-cu-900 underline underline-offset-4 hover:opacity-70">
           Sign up as Talent
         </Link>

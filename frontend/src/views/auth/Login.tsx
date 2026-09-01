@@ -160,7 +160,7 @@ export default function Login() {
 
           {mode === 'talent' && (
             <div className="mt-6 text-center text-sm text-gray-500">
-              Have an invitation?{' '}
+              Don't have an account?{' '}
               <Link href="/signup/talent" className="font-medium text-[#0a0a0a] hover:text-[#0a0a0a]">
                 Sign up as Talent
               </Link>
