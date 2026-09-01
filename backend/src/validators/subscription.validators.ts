@@ -200,11 +200,14 @@ export const cardSelectionUndoWebhookSchema = z.object({
 
 // Fired by SquadHub when admin clicks "Finalize" on a selected card. Flips the
 // talent's My Clients view for this card from "Selected (waiting admin
-// approval)" to "Assigned (active)". Idempotent — re-firing just rewrites
-// subscription_activated_at to the same value.
+// approval)" to "Assigned (active)" and provisions external talents in
+// SquadHub. The full flow is idempotent for retries.
 export const cardActivationWebhookSchema = z.object({
   type: z.literal('card_activation').optional(),
   card_id: z.string().min(1).max(200),
+  // Present only when SquadHub finalized an external SquadHire talent. Native
+  // SquadHub partner assignments still activate the card but need no account.
+  talent_user_id: z.string().uuid().optional(),
   activated_at: z.string().datetime({ offset: true }),
 });
 

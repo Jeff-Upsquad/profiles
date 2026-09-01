@@ -12,6 +12,7 @@ import { assertHiringContentValid, syncJobEntitiesForCard } from './jobs-ingest.
 import { onHiringCardAccepted, onHiringCardDeclined } from './jobs.service.js';
 import { phoneMatchSuffix } from '../lib/phone.js';
 import { fanoutCardToAgencies } from './card-backfill.service.js';
+import { provisionAssignedTalent } from './squadhub-talent-provision.service.js';
 import {
   businessAmountFromOffer,
   partnerAmountFromOffer,
@@ -2847,24 +2848,47 @@ export async function handleSelectionWebhook(
   }
 }
 
-// SquadHub admin clicked "Finalize" on a selected card. We just stamp
-// subscription_activated_at so the talent's My Clients tab moves this card
-// from Selected → Assigned. Idempotent: re-firing rewrites the same field.
+// SquadHub admin clicked "Finalize" on a selected card. Stamp activation so
+// My Clients moves from Selected → Assigned, then provision external talents
+// as SquadHub partners. Both legs are idempotent for webhook retries.
 export async function handleActivationWebhook(
   externalCardId: string,
   activatedAt: string,
+  talentUserIdFromSquadHub?: string,
 ): Promise<void> {
-  const { data: card } = await supabaseAdmin
+  const { data: card, error: cardError } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id')
+    .select('id, selected_talent_user_id, match_rules')
     .eq('external_id', externalCardId)
     .maybeSingle();
+  if (cardError) throw new AppError(500, cardError.message);
   if (!card) return;
 
-  await supabaseAdmin
+  const { error: updateError } = await supabaseAdmin
     .from('subscription_cards')
     .update({ subscription_activated_at: activatedAt })
     .eq('id', (card as any).id);
+  if (updateError) throw new AppError(500, updateError.message);
+
+  // Native SquadHub partners also finalize cards. They have no SquadHire
+  // talent_user_id and need only the activation stamp above.
+  if (!talentUserIdFromSquadHub) return;
+
+  const selectedTalentUserId = (card as any).selected_talent_user_id as string | null;
+  if (!selectedTalentUserId || selectedTalentUserId !== talentUserIdFromSquadHub) {
+    // Returning an error keeps SquadHub's activation notifier in its retry
+    // queue until the preceding selection webhook has supplied the assignee.
+    throw new AppError(409, 'Activated card does not yet have the expected selected talent');
+  }
+
+  // Do not acknowledge activation until SquadHub confirms the partner account,
+  // workspace membership, role, and assigned-client access. SquadHub retries
+  // this webhook after timeouts/partial failures, and provisioning is idempotent.
+  await provisionAssignedTalent({
+    cardId: externalCardId,
+    talentUserId: selectedTalentUserId,
+    categoryIds: extractCategoryIds((card as any).match_rules),
+  });
 }
 
 export async function handleSelectionUndoWebhook(

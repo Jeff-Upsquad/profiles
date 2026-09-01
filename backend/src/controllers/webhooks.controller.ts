@@ -101,8 +101,8 @@ export async function handleCardActivation(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { card_id, activated_at } = req.body;
-    await subscriptionService.handleActivationWebhook(card_id, activated_at);
+    const { card_id, activated_at, talent_user_id } = req.body;
+    await subscriptionService.handleActivationWebhook(card_id, activated_at, talent_user_id);
     res.json({ success: true });
   } catch (err) {
     next(err);
