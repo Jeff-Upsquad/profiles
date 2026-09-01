@@ -69,7 +69,7 @@ async function newestAssignedCard(
 }
 
 /** First category slug on the card — what SquadHub maps to a role. */
-async function resolveCategorySlug(categoryIds: string[]): Promise<string | null> {
+export async function resolveCategorySlug(categoryIds: string[]): Promise<string | null> {
   if (categoryIds.length === 0) return null;
   const { data } = await supabaseAdmin
     .from('categories')
