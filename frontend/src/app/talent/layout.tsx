@@ -13,8 +13,16 @@ import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { useConversationUnread } from '@/hooks/useConversations';
 import { useIncompleteTrainingCount, useModuleAccess } from '@/hooks/useTraining';
 import ModuleUnlockGate from '@/components/training/ModuleUnlockGate';
+import { useTalentHasAssignedCard } from '@/hooks/useMyClients';
 
-const ALWAYS_ACCESSIBLE = ['/talent/dashboard', '/talent/training', '/talent/contact-support', '/talent/messages', '/talent/more'];
+const ALWAYS_ACCESSIBLE = [
+  '/talent/dashboard',
+  '/talent/training',
+  '/talent/contact-support',
+  '/talent/messages',
+  '/talent/more',
+  '/talent/squadhub',
+];
 
 const ROUTE_TO_MODULE: Record<string, string> = {
   '/talent/basic-profile': 'basic-profile',
@@ -74,6 +82,7 @@ export default function TalentLayout({
   const { data: unreadNotifications = 0 } = useUnreadNotificationsCount({ enabled: isTalent });
   const { data: unreadMessages = 0 } = useConversationUnread('talent', { enabled: isTalent });
   const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
+  const { hasAssignedCard } = useTalentHasAssignedCard();
   // Badge = incomplete training assignments (courses + SOPs once assigned).
   // Completing the resource clears the linked notification and drops this count.
   const { data: incompleteTrainingCount = 0 } = useIncompleteTrainingCount({ enabled: isTalent });
@@ -200,6 +209,18 @@ export default function TalentLayout({
         </svg>
       ),
     },
+    ...(hasAssignedCard
+      ? [{
+          label: 'SquadHub',
+          to: '/talent/squadhub',
+          groupStart: true,
+          icon: (
+            <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h4v6H4V6zM14 4h4a2 2 0 012 2v4h-6V4zM4 12h6v6H6a2 2 0 01-2-2v-4zM14 12h6v4a2 2 0 01-2 2h-4v-6z" />
+            </svg>
+          ),
+        } satisfies SidebarItem]
+      : []),
     // Group: More — notifications, settings, training, support
     {
       label: 'Chatroom',

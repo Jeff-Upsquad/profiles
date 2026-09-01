@@ -462,6 +462,9 @@ export async function getMe(userId: string, role: UserRole) {
 
     return {
       ...data,
+      // The canonical talent email lives in Supabase Auth; talent_users has no
+      // email column. Include it so /auth/me refreshes do not blank Settings.
+      email: authUser?.user?.email ?? '',
       role,
       must_reset_password: mustResetPassword,
       auto_approve_signups: autoApproveSignups,
