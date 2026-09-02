@@ -71,6 +71,12 @@ router.post(
   integrationsController.verifyBusinessCredentials,
 );
 
+router.post(
+  '/squadhub/talent/verify-credentials',
+  verifySquadhubSecret,
+  integrationsController.verifyTalentCredentials,
+);
+
 // Auto-login hand-off: redeem the one-time code a business carried from the
 // SquadHire portal's SquadHub tab for their identity, so SquadHub can start
 // their session without asking for credentials it already provisioned around.

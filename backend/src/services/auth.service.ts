@@ -384,6 +384,46 @@ export async function login(input: LoginInput) {
   };
 }
 
+/**
+ * Verify a talent's existing SquadHire credentials for SquadHub's one-time
+ * password adoption. This never returns the Supabase session or either token;
+ * it only confirms identity to the signed server-to-server caller.
+ */
+export async function verifyTalentCredentials(input: { email: string; password: string }): Promise<
+  | { valid: false }
+  | {
+      valid: true;
+      talent_user_id: string;
+      email: string;
+      phone: string | null;
+      name: string | null;
+    }
+> {
+  const email = input.email.trim().toLowerCase();
+  if (!email || !input.password) return { valid: false };
+
+  const { data: authData, error: authError } = await supabaseAnon.auth.signInWithPassword({
+    email,
+    password: input.password,
+  });
+  if (authError || !authData.user) return { valid: false };
+
+  const { data: talent, error: talentError } = await supabaseAdmin
+    .from('talent_users')
+    .select('id, full_name, phone')
+    .eq('id', authData.user.id)
+    .maybeSingle();
+  if (talentError || !talent) return { valid: false };
+
+  return {
+    valid: true,
+    talent_user_id: talent.id as string,
+    email: (authData.user.email ?? email).toLowerCase(),
+    phone: (talent.phone as string | null) ?? null,
+    name: (talent.full_name as string | null) ?? null,
+  };
+}
+
 export async function refreshToken(refresh_token: string) {
   // Use anon client for session refresh
   const { data, error } = await supabaseAnon.auth.refreshSession({ refresh_token });

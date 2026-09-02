@@ -4,6 +4,7 @@ import * as integrationsService from '../services/integrations.service.js';
 import * as talentAccessService from '../services/talent-access.service.js';
 import * as businessProvisionService from '../services/business-provision.service.js';
 import * as businessAuthService from '../services/business-auth.service.js';
+import * as authService from '../services/auth.service.js';
 import * as squadhubBusinessSsoService from '../services/squadhub-business-sso.service.js';
 import * as squadhubTalentSsoService from '../services/squadhub-talent-sso.service.js';
 import * as subscriptionService from '../services/subscription.service.js';
@@ -401,6 +402,27 @@ export async function verifyBusinessCredentials(
   try {
     const body = verifyBusinessCredentialsSchema.parse(req.body);
     const result = await businessAuthService.verifyBusinessCredentials(body);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
+      return;
+    }
+    next(err);
+  }
+}
+
+// Talent twin of business credential verification. SquadHub uses this only
+// when an assigned partner first types their SquadHire password in its app.
+// The signed response contains identity, never a session or token.
+export async function verifyTalentCredentials(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = verifyBusinessCredentialsSchema.parse(req.body);
+    const result = await authService.verifyTalentCredentials(body);
     res.json({ success: true, data: result });
   } catch (err) {
     if (err instanceof z.ZodError) {

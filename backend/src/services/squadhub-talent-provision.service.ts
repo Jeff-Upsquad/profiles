@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import { env } from '../config/env.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
@@ -24,37 +23,9 @@ function squadhubBase(): string {
 }
 
 /**
- * Generate a random temporary password (16 chars, alphanumeric).
- */
-function generateTempPassword(): string {
-  return randomBytes(12).toString('base64url').slice(0, 16);
-}
-
-/**
- * Look up the email for a talent from their linked lead_submissions row.
- * Returns null if no linked lead with an email is found.
- */
-async function resolveEmailFromLead(talentUserId: string): Promise<string | null> {
-  const { data, error } = await supabaseAdmin
-    .from('lead_submissions')
-    .select('email')
-    .eq('linked_talent_user_id', talentUserId)
-    .not('email', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error || !data?.email) return null;
-  return (data.email as string).trim().toLowerCase();
-}
-
-/**
  * Create or reconcile the SquadHub partner account for an activated talent.
  * The endpoint is idempotent and independently verifies that this talent is
  * assigned to this card on SquadHub before creating anything.
- *
- * If the talent has no Supabase Auth account yet, one is auto-created using
- * the email from their linked lead. A temporary password is generated so the
- * talent can log in to the partner app immediately.
  */
 export async function provisionAssignedTalent(
   input: ProvisionAssignedTalentInput,
@@ -79,44 +50,9 @@ export async function provisionAssignedTalent(
   if (authResult.error) throw new AppError(500, authResult.error.message);
   if (!talentResult.data) throw new AppError(404, 'Assigned talent account not found');
 
-  let email = (authResult.data.user?.email ?? '').trim().toLowerCase();
-
-  // Auto-create Supabase Auth account if the talent has none yet.
-  // Pull the email from their linked lead_submissions row.
+  const email = (authResult.data.user?.email ?? '').trim().toLowerCase();
   if (!email) {
-    const leadEmail = await resolveEmailFromLead(input.talentUserId);
-    if (!leadEmail) {
-      throw new AppError(400, 'Assigned talent needs an email address for SquadHub access');
-    }
-
-    const tempPassword = generateTempPassword();
-    const { data: newAuth, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-      email: leadEmail,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: {
-        role: 'talent',
-        full_name: (talentResult.data.full_name as string | null) ?? null,
-        must_reset_password: true,
-      },
-    });
-    if (createErr) {
-      // 422 = user already exists (race condition) — re-fetch instead of failing
-      if (createErr.message?.includes('already')) {
-        const { data: retryAuth } = await supabaseAdmin.auth.admin.getUserById(input.talentUserId);
-        email = (retryAuth?.user?.email ?? '').trim().toLowerCase();
-        if (!email) {
-          throw new AppError(400, 'Assigned talent needs an email address for SquadHub access');
-        }
-      } else {
-        throw new AppError(500, `Failed to create auth account for talent: ${createErr.message}`);
-      }
-    } else {
-      email = leadEmail;
-      console.log(
-        `[squadhub-provision] Auto-created auth account for talent ${input.talentUserId} with email ${leadEmail}`,
-      );
-    }
+    throw new AppError(400, 'Assigned talent needs an email address for SquadHub access');
   }
 
   const controller = new AbortController();
