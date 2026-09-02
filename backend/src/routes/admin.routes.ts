@@ -215,10 +215,12 @@ router.patch('/reviews/bulk-approve', adminController.bulkApproveProfiles);
 // ---------------------------------------------------------------------------
 
 router.get('/user-approvals/stats', adminController.getSignupStats);
+router.get('/user-approvals/pipeline-stats', adminController.getPipelineStageStats);
 router.post('/user-approvals/bulk-approve', adminController.bulkApproveUsers);
 router.get('/user-approvals', adminController.getPendingApprovals);
 router.patch('/user-approvals/:userId/approve', adminController.approveUser);
 router.patch('/user-approvals/:userId/reject', adminController.rejectUser);
+router.patch('/user-approvals/:userId/pipeline-stage', adminController.updatePipelineStage);
 
 router.get('/settings/auto-approve', adminController.getAutoApproveSetting);
 router.patch('/settings/auto-approve', adminController.setAutoApproveSetting);

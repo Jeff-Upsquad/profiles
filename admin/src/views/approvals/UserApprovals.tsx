@@ -8,7 +8,7 @@ import api from '@/services/api';
 import toast from 'react-hot-toast';
 import { formatDate } from '@/lib/formatDate';
 
-type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected';
+type PipelineStage = 'all' | 'signed_up' | 'onboarding_course' | 'basic_profile' | 'job_profile' | 'final_review' | 'live' | 'no_response';
 
 interface SignupRow {
   id: string;
@@ -17,6 +17,7 @@ interface SignupRow {
   email?: string | null;
   current_location?: string | null;
   approval_status: string;
+  pipeline_stage?: string;
   is_active?: boolean;
   suspended?: boolean;
   blacklisted?: boolean;
@@ -31,44 +32,40 @@ interface Stats {
   rejected: number;
   active: number;
   suspended: number;
+  by_pipeline_stage?: Record<string, number>;
 }
 
 interface AutoApproveSetting {
   enabled: boolean;
 }
 
-function StatusBadge({
-  status,
-  isActive,
-  suspended,
-}: {
-  status: string;
-  isActive?: boolean;
-  suspended?: boolean;
-}) {
-  if (suspended) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
-        Suspended
-      </span>
-    );
-  }
-  if (isActive === false) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-        Inactive
-      </span>
-    );
-  }
-  const map: Record<string, string> = {
-    pending: 'bg-amber-100 text-amber-800 border border-amber-200',
-    approved: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    rejected: 'bg-red-100 text-red-700 border border-red-200',
-  };
-  const cls = map[status] ?? 'bg-gray-100 text-gray-700 border border-gray-200';
+const PIPELINE_STAGES: { value: PipelineStage; label: string; color: string; bgColor: string }[] = [
+  { value: 'signed_up', label: 'Signed up', color: 'text-purple-700', bgColor: 'bg-purple-50 border-purple-200' },
+  { value: 'onboarding_course', label: 'Onboarding course', color: 'text-amber-700', bgColor: 'bg-amber-50 border-amber-200' },
+  { value: 'basic_profile', label: 'Basic profile', color: 'text-orange-700', bgColor: 'bg-orange-50 border-orange-200' },
+  { value: 'job_profile', label: 'Job profile', color: 'text-teal-700', bgColor: 'bg-teal-50 border-teal-200' },
+  { value: 'final_review', label: 'Final review', color: 'text-violet-700', bgColor: 'bg-violet-50 border-violet-200' },
+  { value: 'live', label: 'Live', color: 'text-emerald-700', bgColor: 'bg-emerald-50 border-emerald-200' },
+  { value: 'no_response', label: 'No response / inactive', color: 'text-gray-600', bgColor: 'bg-gray-50 border-gray-200' },
+];
+
+const PIPELINE_STAGE_COLORS: Record<string, string> = {
+  signed_up: 'bg-purple-100 text-purple-700 border border-purple-200',
+  onboarding_course: 'bg-amber-100 text-amber-700 border border-amber-200',
+  basic_profile: 'bg-orange-100 text-orange-700 border border-orange-200',
+  job_profile: 'bg-teal-100 text-teal-700 border border-teal-200',
+  final_review: 'bg-violet-100 text-violet-700 border border-violet-200',
+  live: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+  no_response: 'bg-gray-100 text-gray-600 border border-gray-200',
+};
+
+function PipelineStageBadge({ stage }: { stage?: string }) {
+  if (!stage) return <span className="text-gray-400">—</span>;
+  const cls = PIPELINE_STAGE_COLORS[stage] ?? 'bg-gray-100 text-gray-600 border border-gray-200';
+  const label = PIPELINE_STAGES.find((s) => s.value === stage)?.label ?? stage;
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
-      {status}
+      {label}
     </span>
   );
 }
@@ -78,7 +75,7 @@ export default function UserApprovals() {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
-  const [status, setStatus] = useState<StatusFilter>('all');
+  const [pipelineStage, setPipelineStage] = useState<PipelineStage>('all');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -96,9 +93,9 @@ export default function UserApprovals() {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['signups', debounced, status, page],
+    queryKey: ['signups', debounced, pipelineStage, page],
     queryFn: async () => {
-      const params: Record<string, string | number> = { page, limit: 20, approval_status: status };
+      const params: Record<string, string | number> = { page, limit: 20, pipeline_stage: pipelineStage };
       if (debounced) params.search = debounced;
       const { data } = await api.get('/admin/user-approvals', { params });
       return data as { users: SignupRow[]; total: number; total_pages: number; page: number };
@@ -165,6 +162,17 @@ export default function UserApprovals() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Bulk approve failed'),
   });
 
+  const updatePipelineStageMut = useMutation({
+    mutationFn: async ({ userId, stage }: { userId: string; stage: string }) =>
+      (await api.patch(`/admin/user-approvals/${userId}/pipeline-stage`, { stage })).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['signups'] });
+      qc.invalidateQueries({ queryKey: ['signup-stats'] });
+      toast.success('Pipeline stage updated');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to update stage'),
+  });
+
   const users = data?.users ?? [];
   const totalPages = data?.total_pages ?? 1;
   const autoApproveEnabled = autoApprove?.enabled === true;
@@ -214,8 +222,7 @@ export default function UserApprovals() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Sign-ups</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Review talent accounts after they sign up. New talent can use the app immediately —
-            approval is a separate review, not a wait.
+            Track talent through the onboarding pipeline. Stages sync with Squad Hire CRM.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -274,89 +281,77 @@ export default function UserApprovals() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      {/* Pipeline Stage Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         <button
           type="button"
           onClick={() => {
-            setStatus('all');
+            setPipelineStage('all');
             setPage(1);
           }}
-          className={`rounded-xl border p-4 text-left shadow-sm transition ${
-            status === 'all' ? 'border-gray-400 bg-gray-50' : 'border-gray-200 bg-white hover:bg-gray-50'
+          className={`rounded-xl border p-3 text-left shadow-sm transition ${
+            pipelineStage === 'all' ? 'border-gray-400 bg-gray-50' : 'border-gray-200 bg-white hover:bg-gray-50'
           }`}
         >
           <div className="text-xs font-medium uppercase tracking-wider text-gray-500">Total</div>
           <div className="mt-1 text-2xl font-bold text-gray-900">{stats?.total ?? '-'}</div>
-          <div className="text-xs text-gray-500">{stats?.active ?? 0} active</div>
         </button>
-        <button
-          type="button"
-          onClick={() => {
-            setStatus('pending');
-            setPage(1);
-          }}
-          className={`rounded-xl border p-4 text-left shadow-sm transition ${
-            status === 'pending' ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white hover:bg-gray-50'
-          }`}
-        >
-          <div className="text-xs font-medium uppercase tracking-wider text-amber-700">Pending review</div>
-          <div className="mt-1 text-2xl font-bold text-amber-900">{stats?.pending ?? '-'}</div>
-          <div className="text-xs text-amber-700/70">Needs review</div>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setStatus('approved');
-            setPage(1);
-          }}
-          className={`rounded-xl border p-4 text-left shadow-sm transition ${
-            status === 'approved'
-              ? 'border-emerald-300 bg-emerald-50'
-              : 'border-gray-200 bg-white hover:bg-gray-50'
-          }`}
-        >
-          <div className="text-xs font-medium uppercase tracking-wider text-emerald-700">Approved</div>
-          <div className="mt-1 text-2xl font-bold text-emerald-800">{stats?.approved ?? '-'}</div>
-          <div className="text-xs text-emerald-700/70">Reviewed</div>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setStatus('rejected');
-            setPage(1);
-          }}
-          className={`rounded-xl border p-4 text-left shadow-sm transition ${
-            status === 'rejected' ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-white hover:bg-gray-50'
-          }`}
-        >
-          <div className="text-xs font-medium uppercase tracking-wider text-red-700">Rejected</div>
-          <div className="mt-1 text-2xl font-bold text-red-800">{stats?.rejected ?? '-'}</div>
-          <div className="text-xs text-red-700/70">Declined</div>
-        </button>
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="text-xs font-medium uppercase tracking-wider text-gray-500">Suspended</div>
-          <div className="mt-1 text-2xl font-bold text-gray-900">{stats?.suspended ?? '-'}</div>
-          <div className="text-xs text-gray-500">Blocked</div>
-        </div>
+        {PIPELINE_STAGES.map((stage) => (
+          <button
+            key={stage.value}
+            type="button"
+            onClick={() => {
+              setPipelineStage(stage.value);
+              setPage(1);
+            }}
+            className={`rounded-xl border p-3 text-left shadow-sm transition ${
+              pipelineStage === stage.value
+                ? `${stage.bgColor} border-2`
+                : 'border-gray-200 bg-white hover:bg-gray-50'
+            }`}
+          >
+            <div className={`text-xs font-medium uppercase tracking-wider ${stage.color}`}>
+              {stage.label}
+            </div>
+            <div className="mt-1 text-2xl font-bold text-gray-900">
+              {stats?.by_pipeline_stage?.[stage.value] ?? 0}
+            </div>
+          </button>
+        ))}
       </div>
 
+      {/* Pipeline Stage Filter Pills */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          {(['all', 'pending', 'approved', 'rejected'] as StatusFilter[]).map((s) => (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setPipelineStage('all');
+              setPage(1);
+            }}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+              pipelineStage === 'all'
+                ? 'bg-gray-900 text-white'
+                : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            All
+          </button>
+          {PIPELINE_STAGES.map((stage) => (
             <button
-              key={s}
+              key={stage.value}
               type="button"
               onClick={() => {
-                setStatus(s);
+                setPipelineStage(stage.value);
                 setPage(1);
               }}
               className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
-                status === s
-                  ? 'bg-gray-900 text-white'
+                pipelineStage === stage.value
+                  ? `${stage.bgColor} ${stage.color} ring-2 ring-offset-1 ring-gray-300`
                   : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
               }`}
             >
-              {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
+              {stage.label}
             </button>
           ))}
         </div>
@@ -429,6 +424,9 @@ export default function UserApprovals() {
                       Email / Phone
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Pipeline Stage
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Status
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -465,11 +463,24 @@ export default function UserApprovals() {
                         <div className="text-xs text-gray-500">{u.phone || '—'}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <StatusBadge
-                          status={u.approval_status}
-                          isActive={u.is_active}
-                          suspended={!!u.suspended}
-                        />
+                        <PipelineStageBadge stage={u.pipeline_stage} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            u.approval_status === 'approved'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : u.approval_status === 'rejected'
+                              ? 'bg-red-100 text-red-700'
+                              : u.suspended
+                              ? 'bg-red-100 text-red-700'
+                              : u.is_active === false
+                              ? 'bg-gray-100 text-gray-600'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {u.suspended ? 'Suspended' : u.is_active === false ? 'Inactive' : u.approval_status}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-500">{formatDate(u.created_at)}</td>
                       <td className="px-4 py-3">

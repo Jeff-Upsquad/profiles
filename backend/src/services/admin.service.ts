@@ -467,6 +467,7 @@ export async function bulkApproveProfiles(profileIds: string[], adminId: string)
 export interface SignupListFilters {
   search?: string;
   approval_status?: string;
+  pipeline_stage?: string;
   page?: number;
   limit?: number;
 }
@@ -477,29 +478,33 @@ function isMissingColumn(err: unknown) {
 }
 
 export async function getSignupStats() {
-  let data: { approval_status?: string; is_active?: boolean; suspended?: boolean }[] | null = null;
+  let data: { approval_status?: string; is_active?: boolean; suspended?: boolean; pipeline_stage?: string }[] | null = null;
   let error: { message?: string } | null = null;
   ({ data, error } = await supabaseAdmin
     .from('talent_users')
-    .select('approval_status, is_active, suspended'));
+    .select('approval_status, is_active, suspended, pipeline_stage'));
   if (error && isMissingColumn(error)) {
-    ({ data, error } = await supabaseAdmin.from('talent_users').select('approval_status, is_active'));
+    ({ data, error } = await supabaseAdmin.from('talent_users').select('approval_status, is_active, pipeline_stage'));
   }
   if (error) throw new AppError(500, error.message ?? 'Failed to load signup stats');
 
   const rows = data ?? [];
   const byStatus: Record<string, number> = {};
+  const byPipelineStage: Record<string, number> = {};
   let active = 0;
   let suspended = 0;
   for (const r of rows) {
     const s = r.approval_status ?? 'pending';
     byStatus[s] = (byStatus[s] ?? 0) + 1;
+    const stage = r.pipeline_stage ?? 'signed_up';
+    byPipelineStage[stage] = (byPipelineStage[stage] ?? 0) + 1;
     if (r.suspended) suspended += 1;
     else if (r.is_active !== false) active += 1;
   }
   return {
     total: rows.length,
     by_status: byStatus,
+    by_pipeline_stage: byPipelineStage,
     pending: byStatus.pending ?? 0,
     approved: byStatus.approved ?? 0,
     rejected: byStatus.rejected ?? 0,
@@ -516,13 +521,16 @@ export async function listSignups(filters: SignupListFilters) {
   let qb = supabaseAdmin
     .from('talent_users')
     .select(
-      'id, full_name, phone, current_location, approval_status, is_active, suspended, blacklisted, created_at, approved_at',
+      'id, full_name, phone, current_location, approval_status, is_active, suspended, blacklisted, created_at, approved_at, pipeline_stage',
       { count: 'exact' },
     )
     .order('created_at', { ascending: false });
 
   const status = (filters.approval_status ?? '').trim().toLowerCase();
   if (status && status !== 'all') qb = qb.eq('approval_status', status);
+
+  const pipelineStage = (filters.pipeline_stage ?? '').trim().toLowerCase();
+  if (pipelineStage && pipelineStage !== 'all') qb = qb.eq('pipeline_stage', pipelineStage);
 
   const search = filters.search?.trim();
   if (search) {
@@ -643,6 +651,82 @@ export async function bulkApproveUsers(ids: string[], adminId: string) {
     ),
   );
   return results;
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline Stage Management
+// ---------------------------------------------------------------------------
+
+const VALID_PIPELINE_STAGES = [
+  'signed_up',
+  'onboarding_course',
+  'basic_profile',
+  'job_profile',
+  'final_review',
+  'live',
+  'no_response',
+];
+
+export async function updatePipelineStage(userId: string, stage: string) {
+  if (!VALID_PIPELINE_STAGES.includes(stage)) {
+    throw new AppError(400, `Invalid pipeline stage: ${stage}`);
+  }
+
+  // Get user data before update for CRM notification
+  const { data: userData } = await supabaseAdmin
+    .from('talent_users')
+    .select('full_name, phone')
+    .eq('id', userId)
+    .single();
+
+  const { data, error } = await supabaseAdmin
+    .from('talent_users')
+    .update({ pipeline_stage: stage })
+    .eq('id', userId)
+    .select()
+    .single();
+
+  if (error) throw new AppError(500, error.message);
+  if (!data) throw new AppError(404, 'User not found');
+
+  // Get email from auth.users
+  const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
+  const email = authUser?.user?.email ?? null;
+
+  // Notify CRM of pipeline stage change
+  try {
+    const { notifyCrmPipelineStageChanged } = await import('./automation.service.js');
+    await notifyCrmPipelineStageChanged({
+      talentUserId: userId,
+      name: userData?.full_name ?? '',
+      email,
+      phone: userData?.phone ?? null,
+      newStage: stage,
+    });
+  } catch (err) {
+    console.error('[pipeline-stage] CRM sync failed:', err);
+  }
+
+  return data;
+}
+
+export async function getPipelineStageStats() {
+  const { data, error } = await supabaseAdmin
+    .from('talent_users')
+    .select('pipeline_stage');
+
+  if (error) throw new AppError(500, error.message);
+
+  const rows = data ?? [];
+  const byStage: Record<string, number> = {};
+  for (const r of rows) {
+    const stage = r.pipeline_stage ?? 'signed_up';
+    byStage[stage] = (byStage[stage] ?? 0) + 1;
+  }
+  return {
+    total: rows.length,
+    by_stage: byStage,
+  };
 }
 
 // ---------------------------------------------------------------------------

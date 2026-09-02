@@ -548,6 +548,76 @@ export async function notifyCrmTalentSignedUp(input: {
   });
 }
 
+/**
+ * Notify CRM when a talent's pipeline stage changes.
+ * This keeps Squad Hire CRM's candidates pipeline in sync with Profiles.
+ */
+export async function notifyCrmPipelineStageChanged(input: {
+  talentUserId: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  newStage: string;
+}): Promise<void> {
+  const phone = input.phone?.trim() || '';
+  const email = input.email?.trim().toLowerCase() || '';
+  if (!phone && !email) return;
+
+  const mapping = await getCrmStatusMapping();
+  let webhookUrl = mapping?.crm_webhook_url || '';
+  if (!webhookUrl) {
+    const { env } = await import('../config/env.js');
+    const explicit = (env.SQUADHIRE_CRM_API_URL || '').replace(/\/$/, '');
+    const derived = env.SQUADHIRE_CRM_SYSTEM_EVENTS_URL
+      ? new URL(env.SQUADHIRE_CRM_SYSTEM_EVENTS_URL).origin
+      : '';
+    const origin = explicit || derived;
+    if (origin) webhookUrl = `${origin}/integrations/profiles/leads`;
+  }
+  if (!webhookUrl) return;
+
+  // Map internal stage to CRM display name
+  const stageDisplayNames: Record<string, string> = {
+    signed_up: 'Signed Up',
+    onboarding_course: 'Onboarding Course',
+    basic_profile: 'Basic Profile',
+    job_profile: 'Job Profile',
+    final_review: 'Final Review',
+    live: 'Live',
+    no_response: 'No Response',
+  };
+
+  let pipeline_stage = stageDisplayNames[input.newStage] || input.newStage;
+  if (mapping?.pipelines) {
+    const { resolveStageName } = await import('./crm-stage-mapping.js');
+    const preferred = mapping.pipelines.creative ?? Object.values(mapping.pipelines)[0];
+    const mapped = preferred ? resolveStageName(preferred, input.newStage) : null;
+    if (mapped) pipeline_stage = mapped;
+  }
+
+  const result = await sendCrmWebhook(webhookUrl, {
+    event: 'pipeline_stage_changed',
+    status: input.newStage,
+    lead: {
+      name: input.name,
+      email,
+      phone,
+    },
+    pipeline_stage,
+    timestamp: new Date().toISOString(),
+  });
+  await logEvent({
+    event_type: result.sent ? 'crm_pipeline_stage_sync_sent' : 'crm_pipeline_stage_sync_failed',
+    talent_user_id: input.talentUserId,
+    triggered_by: 'system',
+    metadata: {
+      pipeline_stage: input.newStage,
+      crm_stage: pipeline_stage,
+      error: result.error,
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Backfill: push existing leads (all form types) to CRM with their current stage
 // ---------------------------------------------------------------------------

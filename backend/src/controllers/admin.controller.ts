@@ -228,7 +228,7 @@ export async function getPendingApprovals(req: Request, res: Response, next: Nex
   try {
     const q = req.query;
     const hasListParams =
-      q.page != null || q.search != null || q.approval_status != null || q.limit != null;
+      q.page != null || q.search != null || q.approval_status != null || q.pipeline_stage != null || q.limit != null;
     if (!hasListParams) {
       const result = await adminService.getPendingApprovals();
       return res.json({ users: result });
@@ -236,6 +236,7 @@ export async function getPendingApprovals(req: Request, res: Response, next: Nex
     const result = await adminService.listSignups({
       search: typeof q.search === 'string' ? q.search : undefined,
       approval_status: typeof q.approval_status === 'string' ? q.approval_status : undefined,
+      pipeline_stage: typeof q.pipeline_stage === 'string' ? q.pipeline_stage : undefined,
       page: q.page ? Number(q.page) : 1,
       limit: q.limit ? Number(q.limit) : 20,
     });
@@ -272,6 +273,32 @@ export async function bulkApproveUsers(req: Request, res: Response, next: NextFu
       return;
     }
     res.json({ results: await adminService.bulkApproveUsers(ids, req.user!.id) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline Stage Management
+// ---------------------------------------------------------------------------
+
+export async function getPipelineStageStats(_req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await adminService.getPipelineStageStats());
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updatePipelineStage(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { stage } = req.body as { stage?: string };
+    if (!stage) {
+      res.status(400).json({ message: 'stage required' });
+      return;
+    }
+    const result = await adminService.updatePipelineStage(req.params.userId as string, stage);
+    res.json({ user: result });
   } catch (err) {
     next(err);
   }
