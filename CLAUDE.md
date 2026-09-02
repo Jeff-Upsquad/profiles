@@ -1,5 +1,28 @@
 # Profiles — Agent instructions
 
+## WAT workflows
+
+This repository uses the Workflows, Agents, Tools (WAT) pattern for repeatable
+development operations. Before running a named workflow, read its complete SOP
+in `workflows/` and follow it in order. Prefer existing scripts in `scripts/`
+and `deploy/` over reimplementing their behavior in ad-hoc shell commands.
+
+The supported command shorthands are:
+
+| Command | Meaning |
+|---|---|
+| `CM` | Commit the scoped changes and merge the worktree branch into local `main`. |
+| `PD` | Push local `main` and deploy it to production. |
+| `CMPD` | Commit, merge, push, and deploy—the full release pipeline. |
+| `CU` | Clean up the merged worktree and branch after a successful CMPD. |
+| `push` | Commit, merge, and push without deploying. |
+| `deploy` | Deploy an already-pushed `main`. |
+| `rollback` | Revert a bad deployed commit and redeploy the revert. |
+
+Plain requests such as `cmpd`, `/cmpd`, `run cu`, and `push this` invoke the
+matching workflow. Deployment workflows must finish with the plain-language
+test handoff in `workflows/test-handoff.md`.
+
 ## Branching & worktrees
 
 The main repo at `/Users/jeffzeena/Profiles` stays on `main`. All feature work happens in **git worktrees**. The global PreToolUse hook `~/.claude/hooks/block-edits-on-main.sh` denies `Edit`/`Write`/`NotebookEdit` when the target file's repo is on `main` or `master` — so create a worktree (or feature branch) before editing.
@@ -20,8 +43,11 @@ git worktree add .claude/worktrees/<name> -b worktree-<name>
 
 ```sh
 git worktree remove .claude/worktrees/<name>
-git branch -D worktree-<name>
+git branch -d worktree-<name>
 ```
+
+Use the complete `CU` workflow for post-release cleanup. Do not force-remove a
+dirty worktree or force-delete an unmerged branch.
 
 ## Dev server ports
 
@@ -40,7 +66,7 @@ Reserve `+10` per worktree slot so multiple previews can run concurrently.
 > Run it with `cd admin && NEXT_PUBLIC_APP_MODE=staff npx next dev -p <port>`.
 > In prod it's a second PM2 process (`profiles-staff`, port 3007) off the same build dir.
 
-The four base entries (`admin`, `frontend`, `backend`, `admin-lite`) already exist in `.claude/launch.json`. When you create a worktree you need to preview, **append** a named entry to `.claude/launch.json` pointing at the worktree's subpackage on the reserved port — same style as `/Users/jeffzeena/squadhub/.claude/launch.json`:
+The four base entries (`admin`, `frontend`, `backend`, `admin-lite`) already exist in `.claude/launch.json`. When you create a worktree you need to preview, **append** a named entry to `.claude/launch.json` pointing at the worktree's subpackage on the reserved port — same style as `/Users/jeffzeena/squadhub web/.claude/launch.json`:
 
 ```jsonc
 {
