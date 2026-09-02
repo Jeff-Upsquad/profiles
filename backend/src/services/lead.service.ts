@@ -472,12 +472,23 @@ export async function updateLeadStatus(
   const talentId = (data as any)?.linked_talent_user_id as string | null;
   if (talentId) {
     try {
+      // Sync talent_users.is_active based on lead status
       await supabaseAdmin
         .from('talent_users')
         .update({ is_active: input.status === 'live' })
         .eq('id', talentId);
+
+      // Sync talent_users.pipeline_stage based on lead status
+      const { leadStatusToPipelineStage } = await import('../lib/pipelineStageMapping.js');
+      const pipelineStage = leadStatusToPipelineStage(input.status);
+      if (pipelineStage) {
+        await supabaseAdmin
+          .from('talent_users')
+          .update({ pipeline_stage: pipelineStage })
+          .eq('id', talentId);
+      }
     } catch (err) {
-      console.error('[lead] failed to sync talent_users.is_active:', err);
+      console.error('[lead] failed to sync talent_users:', err);
     }
   }
 
