@@ -283,19 +283,6 @@ export default function UserApprovals() {
 
       {/* Pipeline Stage Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-        <button
-          type="button"
-          onClick={() => {
-            setPipelineStage('all');
-            setPage(1);
-          }}
-          className={`rounded-xl border p-3 text-left shadow-sm transition ${
-            pipelineStage === 'all' ? 'border-gray-400 bg-gray-50' : 'border-gray-200 bg-white hover:bg-gray-50'
-          }`}
-        >
-          <div className="text-xs font-medium uppercase tracking-wider text-gray-500">Total</div>
-          <div className="mt-1 text-2xl font-bold text-gray-900">{stats?.total ?? '-'}</div>
-        </button>
         {PIPELINE_STAGES.map((stage) => (
           <button
             key={stage.value}
