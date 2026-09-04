@@ -95,6 +95,20 @@ router.post(
   integrationsController.redeemTalentSsoCode,
 );
 
+// Canonical opportunity feed for SquadHub's partner-only Discover surface.
+// SquadHub authenticates the person, then calls this signed server-to-server
+// endpoint with their verified email to resolve the matching talent account.
+router.get(
+  '/squadhub/talent/workspace/cards',
+  verifySquadhubSecret,
+  integrationsController.listSquadhubTalentWorkspaceCards,
+);
+router.patch(
+  '/squadhub/talent/workspace/cards/:recipientId/respond',
+  verifySquadhubSecret,
+  integrationsController.respondToSquadhubTalentWorkspaceCard,
+);
+
 // Batch talent availability (self-declared virtual office hours → weekly hours),
 // keyed by talent_user_id. Powers the "available hours" column in SquadHub's
 // Subscription Assignments per-user view.

@@ -8,6 +8,7 @@ import * as authService from '../services/auth.service.js';
 import * as squadhubBusinessSsoService from '../services/squadhub-business-sso.service.js';
 import * as squadhubTalentSsoService from '../services/squadhub-talent-sso.service.js';
 import * as subscriptionService from '../services/subscription.service.js';
+import * as jobsService from '../services/jobs.service.js';
 import {
   ingestPendingBriefSchema,
   squadcrmRoomGetSchema,
@@ -132,6 +133,144 @@ export async function lookupUsersByEmail(
     }
     next(err);
   }
+}
+
+const talentWorkspaceCardsQuerySchema = z.object({
+  email: z.string().email(),
+  status: z.enum(['pending', 'accepted', 'rejected', 'all']).default('pending'),
+  card_type: z.enum(['subscription', 'assignment', 'hiring']).default('subscription'),
+});
+
+const talentWorkspaceRespondSchema = z.object({
+  email: z.string().email(),
+  action: z.enum(['accept', 'reject']),
+});
+
+async function resolveWorkspaceTalentId(email: string): Promise<string> {
+  const matches = await integrationsService.lookupUsersByEmail([email]);
+  const match = matches.find((item) => item.email.toLowerCase() === email.toLowerCase());
+  if (!match) throw new AppError(404, 'SquadHire talent account not found');
+  return match.talent_user_id;
+}
+
+/** Canonical talent opportunity feed consumed by SquadHub's Discover surface. */
+export async function listSquadhubTalentWorkspaceCards(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const query = talentWorkspaceCardsQuerySchema.parse(req.query);
+    const talentUserId = await resolveWorkspaceTalentId(query.email);
+
+    if (query.card_type !== 'hiring') {
+      const items = await subscriptionService.listForTalent(talentUserId, {
+        status: query.status,
+        card_type: query.card_type,
+      });
+      res.json({ success: true, items });
+      return;
+    }
+
+    if (query.status === 'pending') {
+      const jobs = await jobsService.listJobsForTalent(talentUserId, 'new');
+      res.json({ success: true, items: jobs.map((job) => workspaceJobItem(job, 'pending')) });
+      return;
+    }
+
+    if (query.status === 'rejected') {
+      const jobs = await jobsService.listJobsForTalent(talentUserId, 'rejected');
+      res.json({ success: true, items: jobs.map((job) => workspaceJobItem(job, 'rejected')) });
+      return;
+    }
+
+    const acceptedTabs: jobsService.TalentJobsTab[] = [
+      'accepted',
+      'shortlisted',
+      'call_for_interview',
+      'interview',
+      'selected',
+      'offer',
+      'hired',
+      'placed',
+    ];
+    const groups = await Promise.all(
+      acceptedTabs.map((tab) => jobsService.listJobsForTalent(talentUserId, tab)),
+    );
+    const seen = new Set<string>();
+    const items = groups
+      .flat()
+      .filter((job) => {
+        const key = job.recipient_id || job.candidate_id || job.card?.id;
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((job) => workspaceJobItem(job, 'accepted'));
+
+    if (query.status === 'all') {
+      const [pending, rejected] = await Promise.all([
+        jobsService.listJobsForTalent(talentUserId, 'new'),
+        jobsService.listJobsForTalent(talentUserId, 'rejected'),
+      ]);
+      res.json({
+        success: true,
+        items: [
+          ...pending.map((job) => workspaceJobItem(job, 'pending')),
+          ...items,
+          ...rejected.map((job) => workspaceJobItem(job, 'rejected')),
+        ],
+      });
+      return;
+    }
+
+    res.json({ success: true, items });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
+      return;
+    }
+    next(err);
+  }
+}
+
+/** Apply an accept/decline from SquadHub to the canonical SquadHire recipient. */
+export async function respondToSquadhubTalentWorkspaceCard(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = talentWorkspaceRespondSchema.parse(req.body);
+    const talentUserId = await resolveWorkspaceTalentId(body.email);
+    const result = await subscriptionService.respond(
+      talentUserId,
+      req.params.recipientId as string,
+      { action: body.action },
+    );
+    res.json({ success: true, data: result });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
+      return;
+    }
+    next(err);
+  }
+}
+
+function workspaceJobItem(
+  job: jobsService.TalentJobFeedItem,
+  status: 'pending' | 'accepted' | 'rejected',
+) {
+  return {
+    id: job.recipient_id || job.candidate_id || job.card?.id,
+    status,
+    responded_at: job.stage_changed_at,
+    cancelled_at: null,
+    selected_at: status === 'accepted' ? job.stage_changed_at : null,
+    passed_over_at: null,
+    card: job.card ? { ...job.card, card_type: 'hiring' as const } : null,
+  };
 }
 
 const talentAvailabilitySchema = z.object({
