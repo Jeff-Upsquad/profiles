@@ -165,6 +165,27 @@ const ROLE_OPTIONS: {
 const VISIBLE_ROLE_OPTIONS = ROLE_OPTIONS.filter((o) => !o.hidden);
 const VISIBLE_ROLE_SLUGS = new Set(VISIBLE_ROLE_OPTIONS.map((o) => o.slug));
 
+const SERVICE_OPTIONS: Record<'designer' | 'editor', string[]> = {
+  designer: [
+    'Social media design',
+    'Logo design',
+    'Brand identity design',
+    'Presentation design',
+    'Website / UI design',
+    'Print design',
+    'Other design',
+  ],
+  editor: [
+    'Reel / short-form video edit',
+    'YouTube / long-form video edit',
+    'Ad / promotional video edit',
+    'Corporate video edit',
+    'Podcast video edit',
+    'Motion graphics',
+    'Other video edit',
+  ],
+};
+
 function rolesToServiceType(roles: RoleSlug[]): ServiceType | null {
   const hasDesigner = roles.includes('designer');
   const hasEditor = roles.includes('editor');
@@ -248,8 +269,11 @@ type RoleRequirement = {
   duration: string;
   startDate: string;
   deadline: string;
+  // Business services request: quote basis for this role.
+  scopeType: string;
+  quantity: string;
 };
-const EMPTY_ROLE_REQ: RoleRequirement = { note: '', tiers: [], plan: '', tierBudgets: {}, budget: '', duration: '', startDate: '', deadline: '' };
+const EMPTY_ROLE_REQ: RoleRequirement = { note: '', tiers: [], plan: '', tierBudgets: {}, budget: '', duration: '', startDate: '', deadline: '', scopeType: '', quantity: '1' };
 const emptyRoleRequirements: Record<RoleSlug, RoleRequirement> = {
   designer: { ...EMPTY_ROLE_REQ },
   editor: { ...EMPTY_ROLE_REQ },
@@ -269,8 +293,20 @@ export default function DesignerBriefForm({
 }: {
   product?: 'subscription' | 'assignment';
 }) {
+  const isOneOff = product === 'assignment';
+  const [assignmentMode, setAssignmentMode] = useState<'project' | 'service_request'>('project');
+  const isServiceRequest = product === 'assignment' && assignmentMode === 'service_request';
   const [step, setStep] = useState<1 | 2>(1);
   const [roles, setRoles] = useState<RoleSlug[]>([]);
+  // The "by work type" option only names the work types matching the
+  // categories picked in Step 1 — no video examples on a designer-only
+  // brief, and vice versa.
+  const serviceDesc =
+    roles.includes('designer') && roles.includes('editor')
+      ? 'Pick a design type (logo, social media, branding) or a video type (reels, YouTube, ads) and get prices for it.'
+      : roles.includes('editor')
+        ? 'Pick a video type (reels, YouTube, ads) and get prices for it.'
+        : 'Pick a design type (logo, social media, branding) and get prices for it.';
   const [form, setForm] = useState<FormData>(initialForm);
   const [roleRequirements, setRoleRequirements] =
     useState<Record<RoleSlug, RoleRequirement>>(emptyRoleRequirements);
@@ -340,6 +376,9 @@ export default function DesignerBriefForm({
         if (d.form) setForm((prev) => ({ ...prev, ...d.form }));
         if (d.roleRequirements) setRoleRequirements(d.roleRequirements);
         if (d.pricingMode) setPricingMode(d.pricingMode);
+        if (d.assignmentMode === 'project' || d.assignmentMode === 'service_request') {
+          setAssignmentMode(d.assignmentMode);
+        }
         if (d.step === 1 || d.step === 2) setStep(d.step);
       }
     } catch { /* ignore malformed draft */ }
@@ -378,10 +417,10 @@ export default function DesignerBriefForm({
     try {
       window.localStorage.setItem(
         draftKey,
-        JSON.stringify({ roles, form, roleRequirements, pricingMode, step }),
+        JSON.stringify({ roles, form, roleRequirements, pricingMode, assignmentMode, step }),
       );
     } catch { /* ignore quota errors */ }
-  }, [autosaveArmed, draftKey, roles, form, roleRequirements, pricingMode, step]);
+  }, [autosaveArmed, draftKey, roles, form, roleRequirements, pricingMode, assignmentMode, step]);
 
   const selectedCountryName = countries.find((c) => c.id === form.country_id)?.name || '';
   const stateOptions = STATES_BY_COUNTRY_NAME[selectedCountryName] || [];
@@ -439,7 +478,7 @@ export default function DesignerBriefForm({
 
   function updateRoleReq(
     slug: RoleSlug,
-    field: 'note' | 'plan' | 'budget' | 'duration' | 'startDate' | 'deadline',
+    field: 'note' | 'plan' | 'budget' | 'duration' | 'startDate' | 'deadline' | 'scopeType' | 'quantity',
     value: string,
   ) {
     setRoleRequirements((prev) => ({
@@ -501,12 +540,19 @@ export default function DesignerBriefForm({
       setError('Please pick at least one language.');
       return;
     }
-    if (product !== 'assignment' && form.working_days.length === 0) {
+    if (!isOneOff && form.working_days.length === 0) {
       setError('Please pick at least one working day.');
       return;
     }
+    if (isServiceRequest) {
+      const incompleteRole = roles.find((r) => !roleRequirements[r]?.scopeType.trim());
+      if (incompleteRole) {
+        setError('Please select a service type for each service.');
+        return;
+      }
+    }
     // Subscription briefs require a weekly plan per selected role.
-    if (product !== 'assignment') {
+    if (!isOneOff) {
       const missingPlan = roles.filter((r) => !roleRequirements[r]?.plan);
       if (missingPlan.length > 0) {
         setError(
@@ -518,8 +564,6 @@ export default function DesignerBriefForm({
       }
     }
 
-    const isAssignment = product === 'assignment';
-
     // Build the per-role payload from current selections only. Skips roles
     // the user ticked then un-ticked, and drops empty entries.
     const roleReqsPayload: Record<
@@ -528,6 +572,7 @@ export default function DesignerBriefForm({
         note?: string; tiers?: string[]; plan?: string;
         tier_budgets?: Record<string, number>;
         budget?: number; duration?: string; start_date?: string; deadline?: string;
+        scope_type?: string;
         pricing_mode?: 'priced' | 'unpriced';
         additional_requirements?: AdditionalRequirements;
       }
@@ -538,29 +583,44 @@ export default function DesignerBriefForm({
       const note = requirementNote.trim();
       const tiers = entry.tiers;
 
-      if (isAssignment) {
+      if (isOneOff) {
         // Assignment: levels + per-level project budgets + timeline.
+        // Invite-offers briefs carry no budget at all — talents quote instead,
+        // so stale draft values are dropped here as well as hidden in the UI.
         const tierBudgets: Record<string, number> = {};
-        for (const t of tiers) {
-          const raw = entry.tierBudgets[t]?.trim();
-          if (!raw) continue;
-          const n = Math.round(Number(raw));
-          if (Number.isFinite(n) && n > 0) tierBudgets[t] = n;
+        if (pricingMode === 'priced') {
+          for (const t of tiers) {
+            const raw = entry.tierBudgets[t]?.trim();
+            if (!raw) continue;
+            const n = Math.round(Number(raw));
+            if (Number.isFinite(n) && n > 0) tierBudgets[t] = n;
+          }
         }
         const budgetValues = Object.values(tierBudgets);
         const budget = budgetValues.length === 1 ? budgetValues[0] : undefined;
         const duration = entry.duration.trim();
         const startDate = entry.startDate;
         const deadline = entry.deadline;
-        if (note || tiers.length || budgetValues.length || duration || startDate || deadline) {
+        const scopeType = isServiceRequest ? entry.scopeType.trim() : '';
+        const serviceNote = isServiceRequest
+          ? [
+              `Business services quote request — ${scopeType}`,
+              note,
+              entry.note.trim(),
+            ].filter(Boolean).join('\n')
+          : [note, entry.note.trim()].filter(Boolean).join('\n');
+        if (serviceNote || tiers.length || budgetValues.length || duration || startDate || deadline || scopeType) {
           roleReqsPayload[roleToServiceTypeSlug(r)] = {
-            ...(note ? { note } : {}),
+            ...(serviceNote ? { note: serviceNote } : {}),
             ...(tiers.length ? { tiers } : {}),
             ...(budget !== undefined ? { budget } : {}),
             ...(Object.keys(tierBudgets).length ? { tier_budgets: tierBudgets } : {}),
             ...(duration ? { duration } : {}),
             ...(startDate ? { start_date: startDate } : {}),
             ...(deadline ? { deadline } : {}),
+            ...(scopeType
+              ? { scope_type: isServiceRequest ? `Business service · ${scopeType}` : scopeType }
+              : {}),
             pricing_mode: pricingMode,
           };
         }
@@ -630,9 +690,10 @@ export default function DesignerBriefForm({
           state_regions: form.country_id ? form.state_regions : [],
           languages: form.languages,
           ...(requirementVoiceUrl ? { requirement_voice_url: requirementVoiceUrl } : {}),
-          // Assignments don't use working days — send none.
-          working_days: product === 'assignment' ? [] : form.working_days,
-          card_type: product,
+          // One-off work doesn't use recurring working days. Business services
+          // travel through the assignment card pipeline so quote/offers work today.
+          working_days: isOneOff ? [] : form.working_days,
+          card_type: isOneOff ? 'assignment' : 'subscription',
           ...(Object.keys(roleReqsPayload).length > 0
             ? { role_requirements: roleReqsPayload }
             : {}),
@@ -937,6 +998,45 @@ export default function DesignerBriefForm({
               hint="Required — add at least one: record a voice note or type it out (or both). Your matched talent can listen to the voice note in their app."
             >
               <div className="space-y-4">
+                {product === 'assignment' && (
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-[#222]">What do you need?</label>
+                    <p className="mb-3 text-xs text-[#7A7568]">Pick one — this decides what we ask you next.</p>
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                      {([
+                        {
+                          value: 'project' as const,
+                          title: 'Fixed requirement',
+                          desc: 'Tell us exactly what you need done, and get prices for it.',
+                        },
+                        {
+                          value: 'service_request' as const,
+                          title: 'Prices by work type',
+                          desc: serviceDesc,
+                        },
+                      ]).map((option) => {
+                        const selected = assignmentMode === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => setAssignmentMode(option.value)}
+                            className={`flex items-start gap-3 rounded-xl border p-3.5 text-left transition ${selected ? 'border-[#0a0a0a] bg-[#F2FCBC]/60' : 'border-[#E0DCCE] bg-white hover:border-[#A8A395]'}`}
+                          >
+                            <span className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border ${selected ? 'border-[#0a0a0a] bg-[#FCF487]' : 'border-[#C9C4B5]'}`}>
+                              {selected && <span className="h-2 w-2 rounded-full bg-[#0a0a0a]" />}
+                            </span>
+                            <span>
+                              <span className="block text-sm font-semibold text-[#0a0a0a]">{option.title}</span>
+                              <span className="mt-0.5 block text-xs leading-relaxed text-[#7A7568]">{option.desc}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className="mb-1.5 flex items-baseline gap-2 text-sm font-medium text-[#222]">
                     <span>Voice note</span>
@@ -952,10 +1052,33 @@ export default function DesignerBriefForm({
                     rows={3}
                     value={requirementNote}
                     onChange={(e) => setRequirementNote(e.target.value)}
-                    placeholder="e.g. Weekly social media creatives, one brand video a month, occasional pitch decks…"
+                    placeholder={isServiceRequest
+                      ? 'e.g. Match our existing brand style, include source files, and create two initial concepts…'
+                      : 'e.g. Weekly social media creatives, one brand video a month, occasional pitch decks…'}
                     className="connect-input resize-none"
                   />
                 </Field>
+                {isServiceRequest && roles
+                  .filter((slug): slug is 'designer' | 'editor' => slug === 'designer' || slug === 'editor')
+                  .map((slug) => (
+                    <Field
+                      key={slug}
+                      label={slug === 'designer' ? 'Type of design' : 'Type of video edit'}
+                      required
+                    >
+                      <select
+                        required
+                        value={roleRequirements[slug].scopeType}
+                        onChange={(e) => updateRoleReq(slug, 'scopeType', e.target.value)}
+                        className="connect-input"
+                      >
+                        <option value="">Select a service</option>
+                        {SERVICE_OPTIONS[slug].map((service) => (
+                          <option key={service} value={service}>{service}</option>
+                        ))}
+                      </select>
+                    </Field>
+                  ))}
               </div>
             </Section>
 
@@ -965,7 +1088,9 @@ export default function DesignerBriefForm({
               title={product === 'assignment' ? 'Scope, budget & timeline' : 'Plan, levels & budget'}
               hint={
                 product === 'assignment'
-                  ? 'Pick the talent experience levels you want, set a project budget per level, and describe the timeline. All optional — we can finalize on the call.'
+                  ? isServiceRequest
+                    ? 'Choose the exact type of work below, then set a project budget per level and describe the timeline. All optional — we can finalize on the call.'
+                    : 'Pick the talent experience levels you want, set a project budget per level, and describe the timeline. All optional — we can finalize on the call.'
                   : 'Pick a weekly plan (required), then choose experience levels and a monthly budget for each if you know them.'
               }
             >
@@ -1009,7 +1134,9 @@ export default function DesignerBriefForm({
                       <span className="text-lg font-bold tracking-tight text-[#0a0a0a]">{opt.title}</span>
                     </div>
                     <div className="space-y-4">
-                      {product !== 'assignment' && (
+                      {/* Service-type picker lives in the requirement card above. */}
+
+                      {!isOneOff && (
                       <div>
                         <div className="mb-1 flex items-center justify-between gap-2">
                           <label className="flex items-baseline gap-2 text-sm font-medium text-[#222]">
@@ -1088,7 +1215,8 @@ export default function DesignerBriefForm({
                       </div>
                       )}
 
-                      {/* Experience levels + per-level budget. Descriptions
+                      {/* Experience levels + per-level budget — its own block,
+                          separate from the requirement fields above. Descriptions
                           mirror the pricing page so the client knows what each
                           level means. */}
                       <div>
@@ -1100,7 +1228,7 @@ export default function DesignerBriefForm({
                           Select one or more — we&apos;ll match talent across all chosen levels.
                           {product === 'assignment'
                             ? pricingMode === 'unpriced'
-                              ? ' For each level you pick, you can set an internal budget ceiling.'
+                              ? ' No price is shown — talents will send their offers.'
                               : ' For each level you pick, set a project budget.'
                             : ' For each level you pick, set a monthly budget.'}
                         </p>
@@ -1130,11 +1258,11 @@ export default function DesignerBriefForm({
                                     <span className="mt-0.5 block text-xs leading-relaxed text-[#7A7568]">{lvl.desc}</span>
                                   </span>
                                 </button>
-                                {on && (
+                                {on && pricingMode === 'priced' && (
                                   <div className="border-t border-[#E0DCCE] px-3.5 py-3 sm:pl-11">
                                     <label className="mb-1 block text-xs font-medium text-[#222]">
                                       {product === 'assignment'
-                                        ? (pricingMode === 'unpriced' ? `Budget ceiling for ${lvl.label}` : `Project budget for ${lvl.label}`)
+                                        ? `Project budget for ${lvl.label}`
                                         : `Monthly budget for ${lvl.label}`}
                                       {' '}
                                       <span className="font-normal text-[#9C9486]">(optional)</span>
@@ -1150,9 +1278,7 @@ export default function DesignerBriefForm({
                                     />
                                     <p className="mt-1 text-[11px] text-[#9C9486]">
                                       {product === 'assignment'
-                                        ? (pricingMode === 'unpriced'
-                                          ? `Internal maximum for this level — not shown to talents. In ${currencySymbol}.`
-                                          : `What you're willing to pay for this project at the ${lvl.label} level.`)
+                                        ? `What you're willing to pay for this project at the ${lvl.label} level.`
                                         : `What you're willing to pay per month for a ${lvl.label} on this plan.`}
                                     </p>
                                   </div>
@@ -1176,8 +1302,8 @@ export default function DesignerBriefForm({
                               <input type="date" value={req.deadline} onChange={(e) => updateRoleReq(opt.slug, 'deadline', e.target.value)} className="connect-input" />
                             </Field>
                           </div>
-                          <Field label="Scope & deliverables" optional>
-                            <textarea rows={2} value={req.note} onChange={(e) => updateRoleReq(opt.slug, 'note', e.target.value)} placeholder="Describe the project scope, deliverables, and any context." className="connect-input resize-none" />
+                          <Field label="Scope & deliverables" optional hint={isServiceRequest ? 'Add format, dimensions, duration, references, or source-file requirements.' : undefined}>
+                            <textarea rows={2} value={req.note} onChange={(e) => updateRoleReq(opt.slug, 'note', e.target.value)} placeholder={isServiceRequest ? (opt.slug === 'editor' ? 'e.g. 30–45 second vertical reels, captions included, 1080 × 1920…' : 'e.g. Instagram posts, 1080 × 1350, editable source files included…') : 'Describe the project scope, deliverables, and any context.'} className="connect-input resize-none" />
                           </Field>
                         </>
                       )}
@@ -1237,7 +1363,7 @@ export default function DesignerBriefForm({
                 selected={form.languages}
                 onToggle={(v) => toggle('languages', v)}
               />
-              {product !== 'assignment' && (
+              {!isOneOff && (
                 <WorkingDaysSelector
                   selected={form.working_days}
                   onToggle={(v) => toggle('working_days', v)}

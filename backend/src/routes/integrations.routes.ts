@@ -108,6 +108,21 @@ router.patch(
   verifySquadhubSecret,
   integrationsController.respondToSquadhubTalentWorkspaceCard,
 );
+router.get(
+  '/squadhub/talent/workspace/cards/:recipientId/offer',
+  verifySquadhubSecret,
+  integrationsController.getSquadhubTalentWorkspaceOffer,
+);
+router.post(
+  '/squadhub/talent/workspace/cards/:recipientId/offer',
+  verifySquadhubSecret,
+  integrationsController.submitSquadhubTalentWorkspaceOffer,
+);
+router.post(
+  '/squadhub/talent/workspace/cards/:recipientId/offer/respond',
+  verifySquadhubSecret,
+  integrationsController.respondToSquadhubTalentWorkspaceOffer,
+);
 
 // Batch talent availability (self-declared virtual office hours → weekly hours),
 // keyed by talent_user_id. Powers the "available hours" column in SquadHub's

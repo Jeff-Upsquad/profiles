@@ -9,6 +9,7 @@ import * as squadhubBusinessSsoService from '../services/squadhub-business-sso.s
 import * as squadhubTalentSsoService from '../services/squadhub-talent-sso.service.js';
 import * as subscriptionService from '../services/subscription.service.js';
 import * as jobsService from '../services/jobs.service.js';
+import * as assignmentOffersService from '../services/assignment-offers.service.js';
 import {
   ingestPendingBriefSchema,
   squadcrmRoomGetSchema,
@@ -146,6 +147,19 @@ const talentWorkspaceRespondSchema = z.object({
   action: z.enum(['accept', 'reject']),
 });
 
+const talentWorkspaceOfferSchema = z.object({
+  email: z.string().email(),
+  amount: z.record(z.unknown()),
+  terms: z.record(z.unknown()).optional(),
+  note: z.string().trim().max(2000).optional(),
+});
+
+const talentWorkspaceOfferRespondSchema = z.object({
+  email: z.string().email(),
+  action: z.enum(['accept', 'decline', 'withdraw']),
+  note: z.string().trim().max(2000).optional(),
+});
+
 async function resolveWorkspaceTalentId(email: string): Promise<string> {
   const matches = await integrationsService.lookupUsersByEmail([email]);
   const match = matches.find((item) => item.email.toLowerCase() === email.toLowerCase());
@@ -249,6 +263,81 @@ export async function respondToSquadhubTalentWorkspaceCard(
       { action: body.action },
     );
     res.json({ success: true, data: result });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
+      return;
+    }
+    next(err);
+  }
+}
+
+/** Live bid / counter-offer state for one canonical SquadHire card recipient. */
+export async function getSquadhubTalentWorkspaceOffer(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const email = z.string().email().parse(req.query.email);
+    const talentUserId = await resolveWorkspaceTalentId(email);
+    const data = await assignmentOffersService.getOfferForTalentRecipient(
+      talentUserId,
+      req.params.recipientId as string,
+    );
+    res.json({ success: true, ...data });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
+      return;
+    }
+    next(err);
+  }
+}
+
+/** Submit a first bid, revise it, or counter a business offer from SquadHub. */
+export async function submitSquadhubTalentWorkspaceOffer(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = talentWorkspaceOfferSchema.parse(req.body);
+    const talentUserId = await resolveWorkspaceTalentId(body.email);
+    const { assertTalentCanRespond } = await import('../services/respond-gate.js');
+    await assertTalentCanRespond(talentUserId);
+    const offer = await assignmentOffersService.talentSubmitOrCounter(
+      talentUserId,
+      req.params.recipientId as string,
+      { amount: body.amount, terms: body.terms, note: body.note },
+    );
+    res.json({ success: true, offer });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
+      return;
+    }
+    next(err);
+  }
+}
+
+/** Accept/decline a business counter-offer or withdraw the talent's own bid. */
+export async function respondToSquadhubTalentWorkspaceOffer(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = talentWorkspaceOfferRespondSchema.parse(req.body);
+    const talentUserId = await resolveWorkspaceTalentId(body.email);
+    const { assertTalentCanRespond } = await import('../services/respond-gate.js');
+    await assertTalentCanRespond(talentUserId);
+    const offer = await assignmentOffersService.talentRespondToOffer(
+      talentUserId,
+      req.params.recipientId as string,
+      { action: body.action, note: body.note },
+    );
+    res.json({ success: true, offer });
   } catch (err) {
     if (err instanceof z.ZodError) {
       next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
