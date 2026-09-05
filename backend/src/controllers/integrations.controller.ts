@@ -248,6 +248,31 @@ export async function listSquadhubTalentWorkspaceCards(
   }
 }
 
+/** Mint a SquadHire talent session for SquadHub's signed server-to-server calls
+ * (partner app in-app WebView). Same account, no second sign-in. */
+export async function mintSquadhubTalentAppSession(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = z.object({ email: z.string().email() }).parse(req.body);
+    const session = await authService.mintTalentAppSession(body.email);
+    res.json({
+      success: true,
+      token: session.access_token,
+      refresh_token: session.refresh_token,
+      user: session.user,
+    });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0]?.message ?? 'Invalid request'));
+      return;
+    }
+    next(err);
+  }
+}
+
 /** Apply an accept/decline from SquadHub to the canonical SquadHire recipient. */
 export async function respondToSquadhubTalentWorkspaceCard(
   req: Request,

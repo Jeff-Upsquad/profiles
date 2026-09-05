@@ -98,6 +98,11 @@ router.post(
 // Canonical opportunity feed for SquadHub's partner-only Discover surface.
 // SquadHub authenticates the person, then calls this signed server-to-server
 // endpoint with their verified email to resolve the matching talent account.
+router.post(
+  '/squadhub/talent/app-session',
+  verifySquadhubSecret,
+  integrationsController.mintSquadhubTalentAppSession,
+);
 router.get(
   '/squadhub/talent/workspace/cards',
   verifySquadhubSecret,

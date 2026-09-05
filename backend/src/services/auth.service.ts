@@ -425,6 +425,7 @@ export async function verifyTalentCredentials(input: { email: string; password: 
 }
 
 export async function refreshToken(refresh_token: string) {
+
   // Use anon client for session refresh
   const { data, error } = await supabaseAnon.auth.refreshSession({ refresh_token });
 
@@ -440,6 +441,72 @@ export async function refreshToken(refresh_token: string) {
     user: {
       id: data.user!.id,
       email: data.user!.email!,
+      role,
+    },
+  };
+}
+
+/**
+ * Mint a Supabase session for a talent WITHOUT their password — for SquadHub's
+ * signed server-to-server calls only (partner app in-app WebView). Same person,
+ * same account: the caller authenticates as the SquadHub user and passes their
+ * verified email; we confirm a talent account exists, then impersonate via a
+ * single-use admin magiclink redeemed immediately server-side. Nothing is
+ * emailed and the link never leaves this function.
+ */
+export async function mintTalentAppSession(emailRaw: string) {
+  const email = emailRaw.trim().toLowerCase();
+  if (!email) throw new AppError(400, 'Email is required');
+
+  // The email must already belong to a talent account. generateLink would
+  // otherwise AUTO-CREATE a fresh auth user for any address, so never call it
+  // before this check.
+  const { data: authRows, error: authErr } = await supabaseAdmin
+    .rpc('get_auth_users_by_emails', { email_list: [email] });
+  if (authErr) throw new AppError(500, authErr.message);
+  const authId = (authRows as any[])?.[0]?.id as string | undefined;
+  if (!authId) throw new AppError(404, 'No SquadHire talent account for this email.');
+  const { data: talentRow, error: talentErr } = await supabaseAdmin
+    .from('talent_users')
+    .select('id')
+    .eq('id', authId)
+    .maybeSingle();
+  if (talentErr) throw new AppError(500, talentErr.message);
+  if (!talentRow) throw new AppError(404, 'No SquadHire talent account for this email.');
+
+  const { data: linkData, error: linkError } =
+    await supabaseAdmin.auth.admin.generateLink({ type: 'magiclink', email });
+  if (linkError || !linkData?.properties) {
+    throw new AppError(404, 'No SquadHire talent account for this email.');
+  }
+  const props = linkData.properties as unknown as Record<string, unknown>;
+  let tokenHash =
+    typeof props.hashed_token === 'string' && props.hashed_token ? props.hashed_token : null;
+  if (!tokenHash && typeof props.action_link === 'string') {
+    try {
+      tokenHash = new URL(props.action_link as string).searchParams.get('token_hash');
+    } catch {
+      tokenHash = null;
+    }
+  }
+  if (!tokenHash) throw new AppError(500, 'Could not start the SquadHire session.');
+
+  const { data: sessionData, error: sessionError } = await supabaseAnon.auth.verifyOtp(
+    { token_hash: tokenHash, type: 'email' },
+  );
+  if (sessionError || !sessionData.session) {
+    throw new AppError(500, 'Could not start the SquadHire session.');
+  }
+
+  const role = (sessionData.user?.user_metadata?.role as UserRole) ?? 'talent';
+  if (role !== 'talent') throw new AppError(403, 'This SquadHire account is not a talent account.');
+
+  return {
+    access_token: sessionData.session.access_token,
+    refresh_token: sessionData.session.refresh_token,
+    user: {
+      id: sessionData.user!.id,
+      email: (sessionData.user!.email ?? email).toLowerCase(),
       role,
     },
   };
