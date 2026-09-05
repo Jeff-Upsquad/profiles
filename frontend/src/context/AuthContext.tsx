@@ -115,12 +115,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const appToken = params.get('app_token');
         const appRefresh = params.get('app_refresh');
         if (appToken) {
+          if (params.get('in_app') === '1') sessionStorage.setItem('squadhire_in_app', '1');
           localStorage.setItem('squadhire_token', appToken);
           if (appRefresh) localStorage.setItem('squadhire_refresh', appRefresh);
           else localStorage.removeItem('squadhire_refresh');
           params.delete('app_token');
           params.delete('app_refresh');
-          params.delete('in_app');
           const clean =
             params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
           window.history.replaceState({}, '', clean);
@@ -161,12 +161,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const appToken = params.get('app_token');
       if (appToken && appToken !== token) {
         const appRefresh = params.get('app_refresh');
+        if (params.get('in_app') === '1') sessionStorage.setItem('squadhire_in_app', '1');
         localStorage.setItem('squadhire_token', appToken);
         if (appRefresh) localStorage.setItem('squadhire_refresh', appRefresh);
         else localStorage.removeItem('squadhire_refresh');
         params.delete('app_token');
         params.delete('app_refresh');
-        params.delete('in_app');
         const clean =
           params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
         window.history.replaceState({}, '', clean);

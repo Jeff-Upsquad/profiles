@@ -62,14 +62,18 @@ export default function TalentLayout({
   const [isInApp, setIsInApp] = useState(() => {
     if (typeof window === 'undefined') return false;
     try {
-      return new URLSearchParams(window.location.search).get('in_app') === '1';
+      return new URLSearchParams(window.location.search).get('in_app') === '1'
+        || sessionStorage.getItem('squadhire_in_app') === '1';
     } catch {
       return false;
     }
   });
   useEffect(() => {
     try {
-      setIsInApp(new URLSearchParams(window.location.search).get('in_app') === '1');
+      setIsInApp(
+        new URLSearchParams(window.location.search).get('in_app') === '1'
+          || sessionStorage.getItem('squadhire_in_app') === '1',
+      );
     } catch {
       setIsInApp(false);
     }
@@ -325,9 +329,13 @@ export default function TalentLayout({
 
   if (isInApp) {
     // Minimal chrome for the in-app WebView: no sidebar, no app top bar.
-    // The page content is the sole scrollable surface; module gating still
-    // applies via `content` above.
-    return <div className="min-h-screen bg-[#F5F5F6]">{content}</div>;
+    // Preserve the same content width and gutters as the web dashboard while
+    // the native Partner shell owns the Work/Discover and bottom navigation.
+    return (
+      <main className="min-h-screen overflow-y-auto bg-[#F5F5F6] p-4 sm:p-6 lg:p-8">
+        <div className="mx-auto max-w-5xl">{content}</div>
+      </main>
+    );
   }
 
   return (
