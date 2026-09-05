@@ -15,6 +15,12 @@ import {
   useRespondAgencyOffer,
 } from '@/hooks/useAgencyCardActions';
 import type { SubscriptionCardContentShape } from '@/hooks/useSubscriptionCards';
+import {
+  assignmentOfferPeriod,
+  optionalAssignmentQuantity,
+  singularUnit,
+  type AssignmentPricingDetails,
+} from '@/lib/assignmentPricing';
 
 export interface AgencyCardItem {
   id: string;
@@ -54,11 +60,13 @@ const ACTION_LABELS: Record<string, string> = {
 
 export default function AgencyCardView({ item }: { item: AgencyCardItem }) {
   const content = (item.card.content ?? {}) as Record<string, unknown>;
-  const ad = (content.assignment_details ?? {}) as Record<string, unknown>;
+  const ad = (content.assignment_details ?? {}) as AssignmentPricingDetails;
   const cardType = item.card.card_type || (content.card_type as string) || 'subscription';
   const isAssignment = cardType === 'assignment';
   const pricingMode = isAssignment && ad.pricing_mode === 'unpriced' ? 'unpriced' : 'priced';
-  const period = isAssignment ? 'project' : 'per_month';
+  const period = isAssignment ? assignmentOfferPeriod(ad) : 'per_month';
+  const quantity = isAssignment ? optionalAssignmentQuantity(ad) ?? undefined : undefined;
+  const unit = isAssignment ? singularUnit(ad) ?? undefined : undefined;
 
   const isPending = item.status === 'pending';
   const isCancelled = item.cancelled_at != null;
@@ -215,6 +223,8 @@ export default function AgencyCardView({ item }: { item: AgencyCardItem }) {
         submitLabel={modal === 'submit' ? 'Submit offer' : 'Submit bid'}
         currency={(content.currency as string) || undefined}
         period={period}
+        quantity={quantity}
+        unit={unit}
         initialAmount={snapOfferAmount(standingAmount || 500)}
         referenceAmount={standingAmount || listPrice || 500}
         referenceLabel="List price"

@@ -271,9 +271,8 @@ type RoleRequirement = {
   deadline: string;
   // Business services request: quote basis for this role.
   scopeType: string;
-  quantity: string;
 };
-const EMPTY_ROLE_REQ: RoleRequirement = { note: '', tiers: [], plan: '', tierBudgets: {}, budget: '', duration: '', startDate: '', deadline: '', scopeType: '', quantity: '1' };
+const EMPTY_ROLE_REQ: RoleRequirement = { note: '', tiers: [], plan: '', tierBudgets: {}, budget: '', duration: '', startDate: '', deadline: '', scopeType: '' };
 const emptyRoleRequirements: Record<RoleSlug, RoleRequirement> = {
   designer: { ...EMPTY_ROLE_REQ },
   editor: { ...EMPTY_ROLE_REQ },
@@ -478,7 +477,7 @@ export default function DesignerBriefForm({
 
   function updateRoleReq(
     slug: RoleSlug,
-    field: 'note' | 'plan' | 'budget' | 'duration' | 'startDate' | 'deadline' | 'scopeType' | 'quantity',
+    field: 'note' | 'plan' | 'budget' | 'duration' | 'startDate' | 'deadline' | 'scopeType',
     value: string,
   ) {
     setRoleRequirements((prev) => ({
@@ -574,6 +573,11 @@ export default function DesignerBriefForm({
         budget?: number; duration?: string; start_date?: string; deadline?: string;
         scope_type?: string;
         pricing_mode?: 'priced' | 'unpriced';
+        request_type?: 'fixed' | 'business_service';
+        work_type?: string;
+        pricing_basis?: 'project' | 'per_unit';
+        unit?: 'design' | 'video';
+        quantity?: number;
         additional_requirements?: AdditionalRequirements;
       }
     > = {};
@@ -602,6 +606,7 @@ export default function DesignerBriefForm({
         const startDate = entry.startDate;
         const deadline = entry.deadline;
         const scopeType = isServiceRequest ? entry.scopeType.trim() : '';
+        const unit = r === 'editor' ? 'video' as const : 'design' as const;
         const serviceNote = isServiceRequest
           ? [
               `Business services quote request — ${scopeType}`,
@@ -622,6 +627,11 @@ export default function DesignerBriefForm({
               ? { scope_type: isServiceRequest ? `Business service · ${scopeType}` : scopeType }
               : {}),
             pricing_mode: pricingMode,
+            request_type: isServiceRequest ? 'business_service' : 'fixed',
+            pricing_basis: isServiceRequest ? 'per_unit' : 'project',
+            ...(isServiceRequest
+              ? { work_type: scopeType, unit }
+              : {}),
           };
         }
         continue;
@@ -1021,7 +1031,10 @@ export default function DesignerBriefForm({
                             key={option.value}
                             type="button"
                             aria-pressed={selected}
-                            onClick={() => setAssignmentMode(option.value)}
+                            onClick={() => {
+                              setAssignmentMode(option.value);
+                              if (option.value === 'service_request') setPricingMode('unpriced');
+                            }}
                             className={`flex items-start gap-3 rounded-xl border p-3.5 text-left transition ${selected ? 'border-[#0a0a0a] bg-[#F2FCBC]/60' : 'border-[#E0DCCE] bg-white hover:border-[#A8A395]'}`}
                           >
                             <span className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border ${selected ? 'border-[#0a0a0a] bg-[#FCF487]' : 'border-[#C9C4B5]'}`}>
@@ -1061,23 +1074,27 @@ export default function DesignerBriefForm({
                 {isServiceRequest && roles
                   .filter((slug): slug is 'designer' | 'editor' => slug === 'designer' || slug === 'editor')
                   .map((slug) => (
-                    <Field
-                      key={slug}
-                      label={slug === 'designer' ? 'Type of design' : 'Type of video edit'}
-                      required
-                    >
-                      <select
+                    <div key={slug}>
+                      <Field
+                        label={slug === 'designer' ? 'Type of design' : 'Type of video edit'}
                         required
-                        value={roleRequirements[slug].scopeType}
-                        onChange={(e) => updateRoleReq(slug, 'scopeType', e.target.value)}
-                        className="connect-input"
                       >
-                        <option value="">Select a service</option>
-                        {SERVICE_OPTIONS[slug].map((service) => (
-                          <option key={service} value={service}>{service}</option>
-                        ))}
-                      </select>
-                    </Field>
+                        <select
+                          required
+                          value={roleRequirements[slug].scopeType}
+                          onChange={(e) => updateRoleReq(slug, 'scopeType', e.target.value)}
+                          className="connect-input"
+                        >
+                          <option value="">Select a service</option>
+                          {SERVICE_OPTIONS[slug].map((service) => (
+                            <option key={service} value={service}>{service}</option>
+                          ))}
+                        </select>
+                      </Field>
+                      <p className="mt-2 text-xs text-[#7A7568]">
+                        Talents will quote a price per {slug === 'designer' ? 'design' : 'video'}.
+                      </p>
+                    </div>
                   ))}
               </div>
             </Section>
@@ -1089,7 +1106,7 @@ export default function DesignerBriefForm({
               hint={
                 product === 'assignment'
                   ? isServiceRequest
-                    ? 'Choose the exact type of work below, then set a project budget per level and describe the timeline. All optional — we can finalize on the call.'
+                    ? 'Choose the exact work type above. Talents will quote per design or per video; timeline details are optional.'
                     : 'Pick the talent experience levels you want, set a project budget per level, and describe the timeline. All optional — we can finalize on the call.'
                   : 'Pick a weekly plan (required), then choose experience levels and a monthly budget for each if you know them.'
               }
@@ -1262,7 +1279,9 @@ export default function DesignerBriefForm({
                                   <div className="border-t border-[#E0DCCE] px-3.5 py-3 sm:pl-11">
                                     <label className="mb-1 block text-xs font-medium text-[#222]">
                                       {product === 'assignment'
-                                        ? `Project budget for ${lvl.label}`
+                                        ? isServiceRequest
+                                          ? `Price per ${opt.slug === 'editor' ? 'video' : 'design'} for ${lvl.label}`
+                                          : `Project budget for ${lvl.label}`
                                         : `Monthly budget for ${lvl.label}`}
                                       {' '}
                                       <span className="font-normal text-[#9C9486]">(optional)</span>
@@ -1278,7 +1297,9 @@ export default function DesignerBriefForm({
                                     />
                                     <p className="mt-1 text-[11px] text-[#9C9486]">
                                       {product === 'assignment'
-                                        ? `What you're willing to pay for this project at the ${lvl.label} level.`
+                                        ? isServiceRequest
+                                          ? `What you're willing to pay per ${opt.slug === 'editor' ? 'video' : 'design'} at the ${lvl.label} level.`
+                                          : `What you're willing to pay for this project at the ${lvl.label} level.`
                                         : `What you're willing to pay per month for a ${lvl.label} on this plan.`}
                                     </p>
                                   </div>

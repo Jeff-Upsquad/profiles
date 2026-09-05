@@ -26,11 +26,22 @@ const roleRequirementSchema = z.object({
   deadline: z.string().trim().max(40).optional(),
   scope_type: z.string().trim().max(100).optional(),
   pricing_mode: z.enum(['priced', 'unpriced']).optional(),
+  request_type: z.enum(['fixed', 'business_service']).optional(),
+  work_type: z.string().trim().max(100).optional(),
+  pricing_basis: z.enum(['project', 'per_unit']).optional(),
+  unit: z.enum(['design', 'video']).optional(),
+  quantity: z.number().int().min(1).max(999).optional(),
   // Optional skills/tools the business would like the talent to have. Forwarded
   // verbatim to squadhub. Descriptive only — never used to match talent.
   additional_requirements: z
     .record(z.string().trim().min(1).max(40), z.array(z.string().trim().min(1).max(80)).max(40))
     .optional(),
+}).superRefine((value, ctx) => {
+  if (value.request_type !== 'business_service') return;
+  if (value.pricing_mode !== 'unpriced') ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['pricing_mode'], message: 'Business service requests must invite quotes.' });
+  if (!value.work_type) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['work_type'], message: 'Select a type of work.' });
+  if (value.pricing_basis !== 'per_unit') ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['pricing_basis'], message: 'Business services must be priced per unit.' });
+  if (!value.unit) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['unit'], message: 'Select a quote unit.' });
 });
 
 export const connectBriefSchema = z

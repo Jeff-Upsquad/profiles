@@ -4,6 +4,7 @@ import type { UpdateBusinessUserInput, DiscoverQueryInput, SendInterestInput } f
 import { getTalentTiersByUserIds } from './talent-tier.service.js';
 import { adminSelectRecipient, adminUndoSelection } from './subscription.service.js';
 import { businessAmountFromOffer } from './assignment-offers.service.js';
+import { offerMetadataForCard } from '../lib/assignment-pricing.js';
 import { cancelPaymentLink as cancelRazorpayPaymentLink } from './razorpay.service.js';
 import { cancelPaymentLink as cancelCashfreePaymentLink } from './cashfree.service.js';
 import { pushCrmIdentityNames } from '../lib/crm-identity-names.js';
@@ -226,7 +227,10 @@ export interface CardEngagementContext {
   /** Standing list / original price on the card. */
   list_price: number | null;
   currency: string | null;
-  period: 'per_month' | 'project';
+  period: 'per_month' | 'project' | 'per_design' | 'per_video';
+  pricing_basis?: 'per_unit';
+  unit?: 'design' | 'video';
+  quantity?: number;
   /**
    * - bid: talent submitted/countered a figure
    * - accepted_list: talent accepted the card's original price (no bid row)
@@ -254,8 +258,8 @@ async function resolveCardEngagement(
 
   const content = ((card as any).content ?? {}) as Record<string, unknown>;
   const cardType = ((card as any).card_type as string) || 'subscription';
-  const isAssignment = cardType === 'assignment';
-  const period: 'per_month' | 'project' = isAssignment ? 'project' : 'per_month';
+  const pricingMetadata = offerMetadataForCard(content, cardType);
+  const period = pricingMetadata.period as CardEngagementContext['period'];
   const listPrice =
     typeof content.customer_monthly_price === 'number'
       ? content.customer_monthly_price
@@ -338,6 +342,9 @@ async function resolveCardEngagement(
     list_price: listPrice,
     currency,
     period,
+    ...(pricingMetadata.pricing_basis ? { pricing_basis: pricingMetadata.pricing_basis } : {}),
+    ...(pricingMetadata.unit ? { unit: pricingMetadata.unit } : {}),
+    ...(pricingMetadata.quantity ? { quantity: pricingMetadata.quantity } : {}),
     kind,
     amount,
     offer_status: offerStatus,

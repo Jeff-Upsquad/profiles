@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
+import { offerMetadataForCard } from '../lib/assignment-pricing.js';
 
 /**
  * Agency bidding on requirement cards — mirror of assignment-offers.service
@@ -126,10 +127,10 @@ export async function agencySubmitOrCounter(
     agencyUserId,
     recipientId,
   );
-  const periodDefault = cardType === 'assignment' ? 'project' : 'per_month';
+  const metadata = offerMetadataForCard(content, cardType);
   const amount: Amount = {
     ...(input.amount ?? {}),
-    ...(input.amount?.period ? {} : { period: periodDefault }),
+    ...metadata,
   };
 
   const moves = await countAgencyMoves(cardId, agencyUserId);

@@ -5,6 +5,7 @@ import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import Textarea from '@/components/ui/Textarea';
 import type { OfferAmount } from '@/hooks/useAssignmentOffers';
+import { periodLabel, periodSuffix, pluralizeUnit } from '@/lib/assignmentPricing';
 
 export const OFFER_STEP = 500;
 
@@ -35,6 +36,8 @@ export default function OfferAmountStepperModal({
   onClose,
   onSubmit,
   hint,
+  quantity,
+  unit,
 }: {
   open: boolean;
   title: string;
@@ -54,6 +57,9 @@ export default function OfferAmountStepperModal({
   onClose: () => void;
   onSubmit: (amount: OfferAmount, note?: string) => void;
   hint?: string;
+  /** Per-work request metadata. Amount remains the unit rate; total is derived. */
+  quantity?: number | null;
+  unit?: 'design' | 'video';
 }) {
   const [amount, setAmount] = useState(() => snapOfferAmount(initialAmount));
   const [note, setNote] = useState('');
@@ -73,11 +79,24 @@ export default function OfferAmountStepperModal({
       : initialAmount;
   const refSnapped = snapOfferAmount(refRaw);
   const showOriginal = amount !== refSnapped;
+  const safeQuantity = Number.isInteger(quantity) && Number(quantity) > 0 ? Number(quantity) : null;
+  const isPerUnit = period === 'per_design' || period === 'per_video';
 
   const submit = () => {
     if (!valid) return;
     onSubmit(
-      { amount, currency: currency || 'INR', period: period || 'per_month' },
+      {
+        amount,
+        currency: currency || 'INR',
+        period: period || 'per_month',
+        ...(isPerUnit
+          ? {
+              pricing_basis: 'per_unit' as const,
+              unit: unit ?? (period === 'per_video' ? 'video' : 'design'),
+              ...(safeQuantity ? { quantity: safeQuantity } : {}),
+            }
+          : {}),
+      },
       note.trim() || undefined,
     );
   };
@@ -104,13 +123,13 @@ export default function OfferAmountStepperModal({
             {amount.toLocaleString()}
           </p>
           <p className="mt-0.5 text-[11px] text-[#a3a3a3]">
-            {period === 'project' ? 'for the project' : period === 'per_month' ? 'per month' : period?.replace(/_/g, ' ')}
+            {periodLabel(period)}
           </p>
           {showOriginal && (
             <p className="mt-1.5 text-[11px] font-medium text-[#737373]">
               {referenceLabel}: {cur}
               {refSnapped.toLocaleString()}
-              {period === 'project' ? '' : period === 'per_month' ? '/mo' : ''}
+              {periodSuffix(period)}
             </p>
           )}
         </div>
@@ -124,6 +143,16 @@ export default function OfferAmountStepperModal({
           +
         </button>
       </div>
+      {isPerUnit && safeQuantity && (
+        <div className="mt-3 rounded-xl bg-[#F5F5F6] px-3.5 py-3 text-sm text-[#525252]">
+          <div className="flex items-center justify-between gap-3">
+            <span>{safeQuantity} {pluralizeUnit(unit ?? (period === 'per_video' ? 'video' : 'design'), safeQuantity)}</span>
+            <span className="font-semibold text-[#0a0a0a]">
+              {cur}{(amount * safeQuantity).toLocaleString()} total
+            </span>
+          </div>
+        </div>
+      )}
       <div className="mt-3">
         <Textarea
           label="Note (optional)"

@@ -14,6 +14,12 @@ import {
 } from '@/hooks/useAssignmentOffers';
 import { useRespondToSubscriptionCard, type SubscriptionCardItem } from '@/hooks/useSubscriptionCards';
 import OfferAmountStepperModal, { snapOfferAmount } from './OfferAmountStepper';
+import {
+  assignmentOfferPeriod,
+  optionalAssignmentQuantity,
+  singularUnit,
+  type AssignmentPricingDetails,
+} from '@/lib/assignmentPricing';
 
 const OPEN = ['pending_business', 'pending_talent', 'accepted'];
 
@@ -43,12 +49,14 @@ export default function AssignmentOfferActions({
 }) {
   const recipientId = item.id;
   const content = item.card.content as Record<string, unknown>;
-  const ad = (content.assignment_details ?? {}) as Record<string, unknown>;
+  const ad = (content.assignment_details ?? {}) as AssignmentPricingDetails;
   const cardType =
     item.card.card_type || (content.card_type as string) || 'subscription';
   const isAssignment = cardType === 'assignment';
   const pricingMode = isAssignment && ad.pricing_mode === 'unpriced' ? 'unpriced' : 'priced';
-  const period = isAssignment ? 'project' : 'per_month';
+  const period = isAssignment ? assignmentOfferPeriod(ad) : 'per_month';
+  const quantity = isAssignment ? optionalAssignmentQuantity(ad) ?? undefined : undefined;
+  const unit = isAssignment ? singularUnit(ad) ?? undefined : undefined;
 
   // List / standing price for the stepper baseline.
   const listPrice =
@@ -280,6 +288,8 @@ export default function AssignmentOfferActions({
         }
         currency={currency}
         period={period}
+        quantity={quantity}
+        unit={unit}
         initialAmount={snapOfferAmount(standingAmount || 500)}
         referenceAmount={standingAmount || listPrice || 500}
         referenceLabel={
@@ -294,7 +304,7 @@ export default function AssignmentOfferActions({
         onSubmit={doSubmit}
         hint={
           bidLabel
-            ? 'Increase or decrease the set price in steps of ₹500, then submit your bid.'
+            ? `Increase or decrease the ${unit ? `price per ${unit}` : 'set price'} in steps of ₹500, then submit your bid.`
             : undefined
         }
       />

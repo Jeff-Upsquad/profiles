@@ -16,7 +16,10 @@ export const offerAmountSchema = z
         message: `Offer amount must be a positive multiple of ₹${OFFER_AMOUNT_STEP}`,
       }),
     currency: z.string().trim().max(10).optional(),
-    period: z.enum(['project', 'per_month', 'per_week', 'per_day', 'per_hour']).optional(),
+    period: z.enum(['project', 'per_month', 'per_week', 'per_day', 'per_hour', 'per_design', 'per_video']).optional(),
+    pricing_basis: z.enum(['project', 'per_unit']).optional(),
+    unit: z.enum(['design', 'video']).optional(),
+    quantity: z.number().int().min(1).max(999).optional(),
   })
   .passthrough();
 

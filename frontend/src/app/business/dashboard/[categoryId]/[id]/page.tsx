@@ -135,6 +135,8 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
       kind?: string | null;
       currency?: string | null;
       period?: string | null;
+      unit?: 'design' | 'video' | null;
+      quantity?: number | null;
     } | null;
     const bidOrAgreed =
       eng?.amount != null && Number.isFinite(eng.amount) && eng.amount > 0
@@ -159,7 +161,9 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
     return {
       amount,
       currency: eng?.currency || 'INR',
-      period: (eng?.period as 'per_month' | 'project' | undefined) || 'per_month',
+      period: (eng?.period as 'per_month' | 'project' | 'per_design' | 'per_video' | undefined) || 'per_month',
+      unit: eng?.unit === 'design' || eng?.unit === 'video' ? eng.unit : null,
+      quantity: Number.isInteger(eng?.quantity) && Number(eng?.quantity) > 0 ? Number(eng?.quantity) : null,
       referenceLabel,
     };
   }, [cardEngagement]);
@@ -173,6 +177,8 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
           submitLabel="Send offer"
           currency={acceptedFigure.currency}
           period={acceptedFigure.period}
+          unit={acceptedFigure.unit ?? undefined}
+          quantity={acceptedFigure.quantity}
           initialAmount={snapOfferAmount(acceptedFigure.amount)}
           referenceAmount={acceptedFigure.amount}
           referenceLabel={acceptedFigure.referenceLabel}

@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { periodLabel } from '@/lib/assignmentPricing';
 
 export interface OfferAmount {
   amount: number;
   currency?: string;
-  period?: 'project' | 'per_month' | 'per_week' | 'per_day' | 'per_hour';
+  period?: 'project' | 'per_month' | 'per_week' | 'per_day' | 'per_hour' | 'per_design' | 'per_video';
+  pricing_basis?: 'project' | 'per_unit';
+  unit?: 'design' | 'video';
+  quantity?: number;
   [key: string]: unknown;
 }
 
@@ -130,20 +134,19 @@ export function useTalentCardOffers(enabled = true) {
 
 // ─── Shared formatting ──────────────────────────────────────────────────────
 
-const PERIOD_LABELS: Record<string, string> = {
-  project: 'for the project',
-  per_month: '/month',
-  per_week: '/week',
-  per_day: '/day',
-  per_hour: '/hour',
-};
-
 /** Render an OfferAmount like "₹30,000 for the project". */
 export function formatOfferAmount(amount: unknown): string | null {
   if (amount == null || typeof amount !== 'object') return null;
   const a = amount as OfferAmount;
   if (typeof a.amount !== 'number') return null;
   const cur = a.currency && a.currency !== 'INR' ? a.currency + ' ' : '₹';
-  const period = a.period ? ' ' + (PERIOD_LABELS[a.period] ?? '') : '';
-  return `${cur}${a.amount.toLocaleString()}${period}`.trim();
+  const period = a.period ? ` ${periodLabel(a.period)}` : '';
+  const quantity = Number.isInteger(a.quantity) && (a.quantity ?? 0) > 1 ? a.quantity! : 1;
+  const total = a.period === 'per_design' || a.period === 'per_video'
+    ? a.amount * quantity
+    : null;
+  const totalLabel = total != null && quantity > 1
+    ? ` · ${quantity} ${a.period === 'per_video' ? 'videos' : 'designs'} · ${cur}${total.toLocaleString()} total`
+    : '';
+  return `${cur}${a.amount.toLocaleString()}${period}${totalLabel}`.trim();
 }

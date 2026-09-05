@@ -14,6 +14,8 @@ import { notifyAssignmentEvent } from './push.service.js';
 import { fireJobsCrmEvent } from './talent-whatsapp.service.js';
 import { deliverCallback } from './squadhub-callback.service.js';
 import { writeAcceptedTalentToDashboard } from './subscription.service.js';
+import { offerMetadataForCard } from '../lib/assignment-pricing.js';
+export { offerMetadataForCard } from '../lib/assignment-pricing.js';
 
 /**
  * Card offer / bid / counter-offer engine (00110 + generalization).
@@ -402,6 +404,14 @@ export function normalizeOfferAmount(
   };
 }
 
+function normalizeOfferAmountForCard(
+  amount: Record<string, unknown>,
+  refs: Pick<AssignmentCardRefs, 'content' | 'cardType'>,
+): Record<string, unknown> {
+  const metadata = offerMetadataForCard(refs.content, refs.cardType);
+  return normalizeOfferAmount({ ...amount, ...metadata }, { period: metadata.period });
+}
+
 interface AssignmentCardRefs {
   cardId: string;
   externalId: string | null;
@@ -728,10 +738,9 @@ export async function talentSubmitOrCounter(
   const { ctx, refs } = await loadTalentRecipient(talentUserId, recipientId);
   const actor: JobsActor = { type: 'talent', id: talentUserId };
   const existing = await getOpenOfferForRecipient(recipientId);
-  const periodDefault = refs.cardType === 'assignment' ? 'project' : 'per_month';
   // Talent enters partner pay; expand to dual so business sees customer figure.
   const amount = expandOfferAmount(
-    normalizeOfferAmount(input.amount, { period: periodDefault }),
+    normalizeOfferAmountForCard(input.amount, refs),
     'talent',
     refs.content,
   );
@@ -960,10 +969,9 @@ export async function businessCounter(
   const offer = await getOffer(offerId);
   if (offer.status !== 'pending_business') throw new AppError(409, 'It is not your turn to counter this offer');
   const refs = await getAssignmentCardRefs(offer.card_id);
-  const periodDefault = refs.cardType === 'assignment' ? 'project' : 'per_month';
   // Business enters customer pay; expand so talent sees partner figure.
   const amount = expandOfferAmount(
-    normalizeOfferAmount(input.amount, { period: periodDefault }),
+    normalizeOfferAmountForCard(input.amount, refs),
     'business',
     refs.content,
   );
@@ -1026,9 +1034,8 @@ export async function businessSendOffer(
   actor: JobsActor,
 ): Promise<AssignmentOfferRow> {
   const refs = await getAssignmentCardRefs(cardId);
-  const periodDefault = refs.cardType === 'assignment' ? 'project' : 'per_month';
   const amount = expandOfferAmount(
-    normalizeOfferAmount(input.amount, { period: periodDefault }),
+    normalizeOfferAmountForCard(input.amount, refs),
     'business',
     refs.content,
   );

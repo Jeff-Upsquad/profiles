@@ -15,6 +15,7 @@ import {
 import OfferAmountStepperModal, { snapOfferAmount } from './OfferAmountStepper';
 import BidActions from './BidActions';
 import OpenIntroRoomButton from '@/components/conversations/OpenIntroRoomButton';
+import { periodSuffix as offerPeriodSuffix, pluralizeUnit, type WorkPricingUnit } from '@/lib/assignmentPricing';
 
 const ACTION_LABELS: Record<string, string> = {
   submitted: 'submitted a bid',
@@ -39,7 +40,7 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
 function formatListPrice(amount: number | null | undefined, currency?: string | null, period?: string): string | null {
   if (amount == null || !Number.isFinite(amount)) return null;
   const cur = !currency || currency === 'INR' ? '₹' : `${currency} `;
-  const suffix = period === 'project' ? '' : '/mo';
+  const suffix = offerPeriodSuffix(period);
   return `${cur}${amount.toLocaleString()}${suffix}`;
 }
 
@@ -56,6 +57,8 @@ export default function BusinessAssignmentOffers({
   onSelect,
   sendOfferRecipientId,
   sendOfferTalentName,
+  quantity = null,
+  unit = null,
 }: {
   cardId: string;
   currency?: string | null;
@@ -65,6 +68,8 @@ export default function BusinessAssignmentOffers({
   onSelect?: (recipientId: string, talentName: string | null) => void;
   sendOfferRecipientId?: string | null;
   sendOfferTalentName?: string | null;
+  quantity?: number | null;
+  unit?: WorkPricingUnit | null;
 }) {
   const { data: offers, isLoading } = useBusinessAssignmentOffers(cardId);
   const { data: recipients } = useCardRecipients(cardId);
@@ -211,7 +216,17 @@ export default function BusinessAssignmentOffers({
             const isAgreed = o.status === 'accepted';
             const curSym =
               !currency || currency === 'INR' || o.list_currency === 'INR' ? '₹' : `${currency || o.list_currency} `;
-            const periodSuffix = period === 'project' ? '' : '/mo';
+            const currentPeriod = o.current_amount?.period ?? period;
+            const suffix = offerPeriodSuffix(currentPeriod);
+            const currentQuantity = Number.isInteger(o.current_amount?.quantity) && Number(o.current_amount?.quantity) > 0
+              ? Number(o.current_amount?.quantity)
+              : quantity;
+            const currentUnit = o.current_amount?.unit === 'video' || o.current_amount?.unit === 'design'
+              ? o.current_amount.unit
+              : unit;
+            const perUnitTotal = currentUnit && amountNum != null && currentQuantity != null && currentQuantity > 0
+              ? amountNum * currentQuantity
+              : null;
 
             const nameBlock = (
               <div className="flex min-w-0 items-center gap-3">
@@ -277,15 +292,20 @@ export default function BusinessAssignmentOffers({
                 <p className="mt-0.5 font-[family-name:var(--font-jakarta)] text-[15px] font-bold tabular-nums leading-tight text-[#0a0a0a] sm:text-base">
                   {curSym}
                   {amountNum.toLocaleString()}
-                  {periodSuffix && (
-                    <span className="ml-0.5 text-[11px] font-semibold text-[#737373]">{periodSuffix}</span>
+                  {suffix && (
+                    <span className="ml-0.5 text-[11px] font-semibold text-[#737373]">{suffix}</span>
                   )}
                 </p>
+                {perUnitTotal != null && currentQuantity != null && (
+                  <p className="mt-0.5 text-[10px] font-medium text-[#737373]">
+                    {currentQuantity} {pluralizeUnit(currentUnit, currentQuantity)} · {curSym}{perUnitTotal.toLocaleString()} total
+                  </p>
+                )}
                 {differsFromList && listNum != null && (
                   <p className="mt-0.5 text-[10px] font-medium text-[#a3a3a3]">
                     {amountNum > listNum ? '↑' : '↓'} from {curSym}
                     {listNum.toLocaleString()}
-                    {periodSuffix}
+                    {suffix}
                   </p>
                 )}
               </div>
@@ -340,6 +360,8 @@ export default function BusinessAssignmentOffers({
                       cardId={cardId}
                       currency={currency}
                       period={period}
+                      quantity={quantity}
+                      unit={unit}
                       listPrice={o.list_price ?? listPrice}
                       disabled={disabled}
                     />
@@ -409,6 +431,8 @@ export default function BusinessAssignmentOffers({
         submitLabel="Send offer"
         currency={currency || 'INR'}
         period={period}
+        quantity={quantity}
+        unit={unit ?? undefined}
         initialAmount={snapOfferAmount(sendInitial)}
         referenceAmount={sendInitial}
         referenceLabel={sendOfferStanding != null ? "Talent's bid" : 'List price'}

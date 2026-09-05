@@ -2,6 +2,15 @@
 
 import { formatDate as formatLongDate } from '@/lib/formatDate';
 import type { SubscriptionCardContentShape } from '@/hooks/useSubscriptionCards';
+import {
+  assignmentOfferPeriod,
+  optionalAssignmentQuantity,
+  isPerUnitAssignment,
+  periodSuffix,
+  pluralizeUnit,
+  singularUnit,
+  type AssignmentPricingDetails,
+} from '@/lib/assignmentPricing';
 
 // ────────────────────────────────────────────────────────────
 // Coercion helpers
@@ -325,10 +334,23 @@ export default function SubscriptionCardContent({ content }: Props) {
   // the Payment section and surface the timeline (plan/hours are absent on
   // these cards, so those sections self-hide).
   const isAssignment = asString(content.card_type).trim() === 'assignment';
-  const assignmentDetails = (content.assignment_details ?? {}) as Record<string, unknown>;
+  const assignmentDetails = (content.assignment_details ?? {}) as AssignmentPricingDetails;
   const assignmentDuration = asString(assignmentDetails.duration).trim();
   const assignmentStartDate = asString(assignmentDetails.start_date).trim();
   const assignmentDeadline = asString(assignmentDetails.deadline).trim();
+  const assignmentPerUnit = isPerUnitAssignment(assignmentDetails);
+  const assignmentPeriod = assignmentOfferPeriod(assignmentDetails);
+  const assignmentUnit = singularUnit(assignmentDetails);
+  const assignmentQty = optionalAssignmentQuantity(assignmentDetails);
+  const assignmentWorkType =
+    asString(assignmentDetails.work_type).trim() ||
+    (assignmentPerUnit
+      ? asString(assignmentDetails.scope_type).replace(/^Business service\s*[·:-]\s*/i, '').trim()
+      : '');
+  const assignmentPrice = asNumber(content.monthly_price);
+  const assignmentTotal = assignmentPerUnit && assignmentPrice && assignmentQty
+    ? assignmentPrice * assignmentQty
+    : 0;
 
   // Assignments don't use working days — drop them so the section self-hides.
   const workingDaysSorted = isAssignment
@@ -365,7 +387,7 @@ export default function SubscriptionCardContent({ content }: Props) {
   const hasStructured =
     hoursLabel || capacityLabel || deliverablesLabel ||
     deliverables.length > 0 || priceFormatted ||
-    workingDaysSorted.length > 0 || hasClientBrief || hasAboutClient ||
+    workingDaysSorted.length > 0 || hasClientBrief || hasAboutClient || assignmentWorkType ||
     countries.length > 0 || languages.length > 0 || hasAdditional || hasLocationLang;
   const showDescription = description && !hasStructured;
 
@@ -410,6 +432,27 @@ export default function SubscriptionCardContent({ content }: Props) {
         <p className="whitespace-pre-line text-sm text-[#525252] leading-relaxed">
           {description}
         </p>
+      )}
+
+      {isAssignment && assignmentPerUnit && (
+        <div>
+          <SectionLabel icon={IconClipboard} color="#5B4BC4">Work request</SectionLabel>
+          <div className="mt-2 rounded-xl bg-[#F4F1FF] p-3 text-sm text-[#332A78] ring-1 ring-inset ring-[#DDD6FE]">
+            {assignmentWorkType && (
+              <p className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#241B64]">
+                {assignmentWorkType}
+              </p>
+            )}
+            {assignmentQty && (
+              <p className={assignmentWorkType ? 'mt-0.5' : ''}>
+                {assignmentQty} {pluralizeUnit(assignmentUnit, assignmentQty)} requested
+              </p>
+            )}
+            <p className="mt-1 text-xs text-[#5B4BC4]">
+              Submit your quote as a price per {assignmentUnit}.
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Work commitment — Hours + Deliverables + Voice note (grouped) */}
@@ -510,16 +553,28 @@ export default function SubscriptionCardContent({ content }: Props) {
         );
       })()}
 
-      {/* Payment — green tint. Assignments show a one-off project budget. */}
+      {/* Payment — green tint. Assignments can be fixed-price or priced per unit. */}
       {priceFormatted && (
         <div>
-          <SectionLabel icon={IconMoney} color="#1F7E36">{isAssignment ? 'Project budget' : 'Payment'}</SectionLabel>
+          <SectionLabel icon={IconMoney} color="#1F7E36">
+            {isAssignment ? (assignmentPerUnit ? `Price per ${assignmentUnit}` : 'Project budget') : 'Payment'}
+          </SectionLabel>
           <p className="mt-1 font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#1F7E36]">
             {priceFormatted}
+            {isAssignment && assignmentPerUnit && (
+              <span className="font-[family-name:var(--font-inter)] text-xs font-normal text-[#1F7E36]/70">
+                {periodSuffix(assignmentPeriod)}
+              </span>
+            )}
             {!isAssignment && (
               <span className="font-[family-name:var(--font-inter)] text-xs font-normal text-[#1F7E36]/70"> /month</span>
             )}
           </p>
+          {assignmentTotal > 0 && (
+            <p className="mt-0.5 font-[family-name:var(--font-inter)] text-xs font-medium text-[#1F7E36]">
+              {assignmentQty} × {priceFormatted} = {formatPrice(assignmentTotal, content.currency)} total
+            </p>
+          )}
           {isAssignment && (assignmentDuration || assignmentStartDate || assignmentDeadline) && (
             <p className="mt-1 font-[family-name:var(--font-inter)] text-xs text-[#737373]">
               {[

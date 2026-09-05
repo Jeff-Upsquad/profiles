@@ -70,7 +70,7 @@ interface PaymentContext {
   amount: number;
   currency: string;
   period: 'per_month' | 'project';
-  lineItem: { name: string; description: string };
+  lineItem: { name: string; description: string; quantity?: number; rate?: number };
   talentUserId: string | null;
 }
 
@@ -160,7 +160,7 @@ async function resolvePaymentContext(
   }
 
   const offerAmount = recipient.offer_amount as
-    | { amount?: number; currency?: string; period?: string }
+    | { amount?: number; currency?: string; period?: string; unit?: string; quantity?: number; pricing_basis?: string }
     | null;
   const amount =
     offerAmount && typeof offerAmount.amount === 'number' && offerAmount.amount > 0
@@ -175,9 +175,34 @@ async function resolvePaymentContext(
   }
 
   const isAssignment = card.card_type === 'assignment';
+  const assignmentDetails = ((card as any).assignment_details ?? {}) as Record<string, unknown>;
+  const unit = offerAmount?.unit === 'design' || offerAmount?.unit === 'video'
+    ? offerAmount.unit
+    : assignmentDetails.unit === 'design' || assignmentDetails.unit === 'video'
+      ? assignmentDetails.unit
+      : null;
+  const rawQuantity = Number(offerAmount?.quantity ?? assignmentDetails.quantity);
+  const hasQuantity = Number.isInteger(rawQuantity) && rawQuantity > 0;
+  const quantity = hasQuantity ? rawQuantity : 1;
+  const isPerUnit = isAssignment && unit != null &&
+    (offerAmount?.pricing_basis === 'per_unit' || assignmentDetails.pricing_basis === 'per_unit');
   const period: 'per_month' | 'project' =
     isAssignment || offerAmount?.period === 'project' ? 'project' : 'per_month';
   const currency = (offerAmount?.currency || recipient.currency || card.currency || 'INR').toUpperCase();
+  const unitPrice = Math.round(amount * 100) / 100;
+  const totalAmount = isPerUnit ? Math.round(unitPrice * quantity * 100) / 100 : unitPrice;
+  const lineItem: PaymentContext['lineItem'] = buildLineItem(card, recipient.talent_name, period);
+  if (isPerUnit && unit) {
+    const workType = typeof assignmentDetails.work_type === 'string' && assignmentDetails.work_type.trim()
+      ? assignmentDetails.work_type.trim()
+      : `${unit[0].toUpperCase()}${unit.slice(1)} work`;
+    lineItem.name = `${workType} — freelance assignment`;
+    lineItem.description = hasQuantity
+      ? `${lineItem.description} · ${quantity} ${quantity === 1 ? unit : `${unit}s`} at ${currency} ${unitPrice.toLocaleString()} per ${unit}`
+      : `${lineItem.description} · Quoted at ${currency} ${unitPrice.toLocaleString()} per ${unit}`;
+    if (hasQuantity) lineItem.quantity = quantity;
+    lineItem.rate = unitPrice;
+  }
 
   return {
     card,
@@ -186,10 +211,10 @@ async function resolvePaymentContext(
       talent_name: recipient.talent_name,
       tier: recipient.tier,
     },
-    amount: Math.round(amount * 100) / 100,
+    amount: totalAmount,
     currency,
     period,
-    lineItem: buildLineItem(card, recipient.talent_name, period),
+    lineItem,
     talentUserId: recipient.talent_user_id ?? null,
   };
 }
@@ -599,7 +624,7 @@ export async function syncCardPaymentInvoice(paymentId: string): Promise<void> {
     .eq('id', row.business_user_id as string)
     .maybeSingle();
 
-  const line = (row.line_item ?? {}) as { name?: string; description?: string };
+  const line = (row.line_item ?? {}) as { name?: string; description?: string; quantity?: number; rate?: number };
   const biz = (business ?? {}) as Record<string, string | null>;
   const displayName = biz.company_name || biz.contact_person_name || 'Client';
 
@@ -615,8 +640,8 @@ export async function syncCardPaymentInvoice(paymentId: string): Promise<void> {
     lineItem: {
       name: line.name || 'Talent subscription',
       description: line.description,
-      quantity: 1,
-      rate: Number(row.amount),
+      quantity: Number.isInteger(line.quantity) && Number(line.quantity) > 0 ? Number(line.quantity) : 1,
+      rate: typeof line.rate === 'number' && line.rate > 0 ? line.rate : Number(row.amount),
     },
     amount: Number(row.amount),
     currency: (row.currency as string) || 'INR',

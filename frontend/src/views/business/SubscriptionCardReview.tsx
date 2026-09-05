@@ -20,6 +20,16 @@ import OpenIntroRoomButton from '@/components/conversations/OpenIntroRoomButton'
 import { isOpenBusinessOffer, useBusinessAssignmentOffers, type BusinessAssignmentOffer } from '@/hooks/useBusinessAssignmentOffers';
 import { useCardPayments, useStartCardPayment, type CardPayment, type CardGateway } from '@/hooks/useCardPayments';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
+import {
+  assignmentOfferPeriod,
+  optionalAssignmentQuantity,
+  isPerUnitAssignment,
+  periodSuffix as offerPeriodSuffix,
+  pluralizeUnit,
+  singularUnit,
+  type AssignmentPricingDetails,
+  type WorkPricingUnit,
+} from '@/lib/assignmentPricing';
 
 const TINTS = ['tint-purple', 'tint-blue', 'tint-orange', 'tint-green', 'tint-pink', 'tint-amber'] as const;
 
@@ -286,6 +296,15 @@ export default function SubscriptionCardReview({
     return isAssignment && p ? p.replace(/\/mo$/, '') : p;
   };
   const timeline = card.assignment_details ?? null;
+  const assignmentPricing = (card.assignment_details ?? null) as AssignmentPricingDetails | null;
+  const perUnitAssignment = isAssignment && isPerUnitAssignment(assignmentPricing);
+  const offerPeriod = isAssignment ? assignmentOfferPeriod(assignmentPricing) : 'per_month';
+  const workQuantity = optionalAssignmentQuantity(assignmentPricing);
+  const workUnit = singularUnit(assignmentPricing);
+  const workType = assignmentPricing?.work_type?.trim() ||
+    (perUnitAssignment
+      ? (assignmentPricing?.scope_type ?? '').replace(/^Business service\s*[·:-]\s*/i, '').trim()
+      : '');
   // Assignment is per tier sibling (grouped briefs assign each tier
   // independently), so read activation per selected recipient — their own tier
   // card's subscription_activated_at — not the fetched card's. Activated =
@@ -361,7 +380,7 @@ export default function SubscriptionCardReview({
         {/* === Plan & levels === one price per experience level (the budgets
             the client set) instead of a single headline budget figure. */}
         {levelPrices.length > 0 && (
-          <Section title={isAssignment ? 'Levels & budget' : 'Plan & levels'}>
+          <Section title={perUnitAssignment && workUnit ? `Levels & price per ${workUnit}` : isAssignment ? 'Levels & budget' : 'Plan & levels'}>
             <ul className="space-y-1.5">
               {levelPrices.map((l) => (
                 <li key={l.tier} className="flex items-baseline justify-between gap-3 text-sm">
@@ -372,6 +391,16 @@ export default function SubscriptionCardReview({
                 </li>
               ))}
             </ul>
+          </Section>
+        )}
+
+        {perUnitAssignment && workUnit && (
+          <Section title="Work request">
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+              {workType && <DetailRow label="Type of work">{workType}</DetailRow>}
+              {workQuantity && <DetailRow label="Quantity">{workQuantity} {pluralizeUnit(workUnit, workQuantity)}</DetailRow>}
+              <DetailRow label="Pricing">Talent quotes per {workUnit}</DetailRow>
+            </dl>
           </Section>
         )}
 
@@ -477,7 +506,9 @@ export default function SubscriptionCardReview({
       <BusinessAssignmentOffers
         cardId={cardId}
         currency={card.currency}
-        period={isAssignment ? 'project' : 'per_month'}
+        period={offerPeriod}
+        quantity={workQuantity}
+        unit={workUnit}
         listPrice={card.customer_monthly_price}
         disabled={isClosed || isSubmitted || hasSelection}
         onSelect={(recipientId, talentName) => {
@@ -529,6 +560,8 @@ export default function SubscriptionCardReview({
                 variant="assigned"
                 listPrice={card.customer_monthly_price}
                 isAssignment={isAssignment}
+                quantity={workQuantity}
+                unit={workUnit}
                 cardId={cardId}
                 payment={cardPayments?.payments[r.recipient_id] ?? null}
                 gateway={cardPayments?.gateway ?? null}
@@ -561,6 +594,8 @@ export default function SubscriptionCardReview({
                 variant="selected"
                 listPrice={card.customer_monthly_price}
                 isAssignment={isAssignment}
+                quantity={workQuantity}
+                unit={workUnit}
                 cardId={cardId}
                 payment={cardPayments?.payments[r.recipient_id] ?? null}
                 gateway={cardPayments?.gateway ?? null}
@@ -636,6 +671,8 @@ export default function SubscriptionCardReview({
                           recipient={r}
                           listPrice={card.customer_monthly_price}
                           isAssignment={isAssignment}
+                          quantity={workQuantity}
+                          unit={workUnit}
                         />
                         <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:flex-wrap sm:items-center">
                           <OpenIntroRoomButton
@@ -651,7 +688,9 @@ export default function SubscriptionCardReview({
                             offer={offerByRecipientId.get(r.recipient_id) ?? null}
                             cardId={cardId}
                             currency={card.currency}
-                            period={isAssignment ? 'project' : 'per_month'}
+                            period={offerPeriod}
+                            quantity={workQuantity}
+                            unit={workUnit}
                             listPrice={card.customer_monthly_price}
                             disabled={isClosed || isSubmitted || hasSelection}
                           />
@@ -727,6 +766,8 @@ export default function SubscriptionCardReview({
                           recipient={r}
                           listPrice={card.customer_monthly_price}
                           isAssignment={isAssignment}
+                          quantity={workQuantity}
+                          unit={workUnit}
                         />
                         <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center">
                           <button
@@ -911,19 +952,24 @@ function RecipientPrice({
   recipient: r,
   listPrice,
   isAssignment = false,
+  quantity = null,
+  unit = null,
 }: {
   recipient: CardRecipientForBusiness;
   listPrice?: number | null;
   isAssignment?: boolean;
+  quantity?: number | null;
+  unit?: WorkPricingUnit | null;
 }) {
   const resolved = resolveRecipientPrice(r);
   if (!resolved) return null;
 
   const cur =
     resolved.currency === 'INR' || !resolved.currency ? '₹' : `${resolved.currency} `;
-  const isProject =
-    isAssignment || resolved.period === 'project';
-  const periodSuffix = isProject ? '' : '/mo';
+  const effectivePeriod = unit && !resolved.fromBid ? `per_${unit}` : resolved.period;
+  const suffix = offerPeriodSuffix(effectivePeriod ?? (isAssignment ? 'project' : 'per_month'));
+  const perUnit = unit && (effectivePeriod === 'per_design' || effectivePeriod === 'per_video');
+  const total = perUnit && quantity ? resolved.amount * quantity : null;
   const label = priceLabelForOffer(resolved.offerStatus, resolved.fromBid);
   const differsFromList =
     listPrice != null &&
@@ -945,7 +991,7 @@ function RecipientPrice({
       }`}
       title={
         differsFromList && listPrice != null
-          ? `${label} · list was ${cur}${listPrice.toLocaleString()}${periodSuffix}`
+          ? `${label} · list was ${cur}${listPrice.toLocaleString()}${suffix}`
           : label
       }
     >
@@ -971,15 +1017,20 @@ function RecipientPrice({
       >
         {cur}
         {resolved.amount.toLocaleString()}
-        {periodSuffix && (
-          <span className="ml-0.5 text-[11px] font-semibold text-[#737373]">{periodSuffix}</span>
+        {suffix && (
+          <span className="ml-0.5 text-[11px] font-semibold text-[#737373]">{suffix}</span>
         )}
       </p>
+      {quantity && total != null && (
+        <p className="mt-0.5 text-[10px] font-medium text-[#737373]">
+          {quantity} {pluralizeUnit(unit, quantity)} · {cur}{total.toLocaleString()} total
+        </p>
+      )}
       {differsFromList && listPrice != null && (
         <p className="mt-0.5 text-[10px] font-medium text-[#a3a3a3]">
           {resolved.amount > listPrice ? '↑' : '↓'} from {cur}
           {listPrice.toLocaleString()}
-          {periodSuffix}
+          {suffix}
         </p>
       )}
     </div>
@@ -1137,6 +1188,8 @@ function RecipientRow({
   variant,
   listPrice,
   isAssignment = false,
+  quantity = null,
+  unit = null,
   cardId,
   payment,
   gateway,
@@ -1148,6 +1201,8 @@ function RecipientRow({
   variant: 'selected' | 'assigned';
   listPrice?: number | null;
   isAssignment?: boolean;
+  quantity?: number | null;
+  unit?: WorkPricingUnit | null;
   cardId?: string;
   payment?: CardPayment | null;
   /** Gateway new payments will open (null when payments are switched off). */
@@ -1168,7 +1223,7 @@ function RecipientRow({
           <RecipientInfo recipient={r} />
         </RecipientLink>
         <div className="flex flex-col gap-2.5 sm:ml-auto sm:flex-row sm:items-center">
-          <RecipientPrice recipient={r} listPrice={listPrice} isAssignment={isAssignment} />
+          <RecipientPrice recipient={r} listPrice={listPrice} isAssignment={isAssignment} quantity={quantity} unit={unit} />
           <div className="flex flex-wrap items-center gap-2">
             {!isAssigned && r.talent_user_id && (r.card_id || cardId) && (
               <OpenIntroRoomButton cardId={r.card_id ?? cardId ?? ''} talentUserId={r.talent_user_id} />
@@ -1201,6 +1256,8 @@ function RecipientRow({
           onPay={onPay}
           paying={paying}
           isAssignment={isAssignment}
+          quantity={quantity}
+          unit={unit}
         />
       )}
     </div>
@@ -1226,6 +1283,8 @@ function MakePaymentSection({
   onPay,
   paying,
   isAssignment,
+  quantity,
+  unit,
 }: {
   recipient: CardRecipientForBusiness;
   payment: CardPayment | null;
@@ -1233,9 +1292,12 @@ function MakePaymentSection({
   onPay: () => void;
   paying: boolean;
   isAssignment: boolean;
+  quantity: number | null;
+  unit: WorkPricingUnit | null;
 }) {
   const resolved = resolveRecipientPrice(r);
-  const amount = payment?.amount ?? resolved?.amount ?? null;
+  const quoteAmount = resolved?.amount ?? null;
+  const amount = payment?.amount ?? (unit && quantity && quoteAmount != null ? quoteAmount * quantity : quoteAmount);
   const currencyCode = payment?.currency ?? resolved?.currency ?? null;
   const isPaid = payment?.status === 'paid';
   // An existing payment knows which gateway owns its checkout; before one
@@ -1248,6 +1310,9 @@ function MakePaymentSection({
   const cur = currencyCode === 'INR' || !currencyCode ? '₹' : `${currencyCode} `;
   const isProject = isAssignment || (payment?.period ?? resolved?.period) === 'project';
   const amountLabel = `${cur}${amount.toLocaleString()}${isProject ? '' : '/mo'}`;
+  const quoteExplanation = !payment && unit && quantity && quoteAmount != null
+    ? `${quantity} ${pluralizeUnit(unit, quantity)} × ${cur}${quoteAmount.toLocaleString()}/${unit}`
+    : null;
 
   if (isPaid) {
     return (
@@ -1297,6 +1362,7 @@ function MakePaymentSection({
               ? 'You have a payment in progress — pick up where you left off.'
               : `Pay ${amountLabel} to confirm ${r.talent_name || 'this talent'}. Your invoice follows on WhatsApp.`}
           </p>
+          {quoteExplanation && <p className="mt-0.5 text-[10.5px] font-medium text-[#525252]">{quoteExplanation}</p>}
         </div>
         <button
           type="button"

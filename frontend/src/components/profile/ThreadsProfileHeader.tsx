@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { Profile, CategoryField, CategoryWithFields } from '@/types';
 import TierBadge from '@/components/ui/TierBadge';
+import { periodSuffix } from '@/lib/assignmentPricing';
 
 interface TalentUser {
   full_name: string;
@@ -24,6 +25,8 @@ export interface CardEngagementDisplay {
   list_price?: number | null;
   currency?: string | null;
   period?: 'per_month' | 'project' | string | null;
+  unit?: 'design' | 'video' | null;
+  quantity?: number | null;
   kind: 'bid' | 'accepted_list' | 'business_offer' | 'agreed' | 'none' | string;
   amount?: number | null;
   offer_status?: string | null;
@@ -60,7 +63,7 @@ function formatEngagementAmount(
 ): string | null {
   if (amount == null || !Number.isFinite(amount)) return null;
   const cur = !currency || currency === 'INR' ? '₹' : `${currency} `;
-  const suffix = period === 'project' ? '' : '/mo';
+  const suffix = periodSuffix(period);
   return `${cur}${amount.toLocaleString()}${suffix}`;
 }
 

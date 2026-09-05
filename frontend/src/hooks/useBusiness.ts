@@ -220,6 +220,12 @@ export interface BusinessSubscriptionCardDetail {
   expires_at: string | null;
   card_type?: 'subscription' | 'assignment' | 'hiring';
   assignment_details?: {
+    request_type?: 'fixed' | 'business_service' | null;
+    work_type?: string | null;
+    pricing_basis?: 'project' | 'per_unit' | null;
+    unit?: 'design' | 'video' | null;
+    quantity?: number | null;
+    pricing_mode?: string | null;
     duration?: string | null;
     start_date?: string | null;
     deadline?: string | null;
@@ -300,7 +306,14 @@ export interface CardRecipientForBusiness {
   /** Live bid / offer (when present). Prefer over proposed_price for display. */
   offer_id?: string | null;
   offer_status?: string | null;
-  offer_amount?: { amount?: number; currency?: string; period?: string } | null;
+  offer_amount?: {
+    amount?: number;
+    currency?: string;
+    period?: string;
+    pricing_basis?: string;
+    unit?: 'design' | 'video';
+    quantity?: number;
+  } | null;
   last_actor_side?: string | null;
   business_review_status: 'shortlisted' | 'rejected' | null;
   business_reviewed_at: string | null;

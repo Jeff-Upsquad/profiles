@@ -9,6 +9,7 @@ import {
 } from '@/hooks/useBusinessAssignmentOffers';
 import type { OfferAmount } from '@/hooks/useAssignmentOffers';
 import OfferAmountStepperModal, { snapOfferAmount } from './OfferAmountStepper';
+import type { WorkPricingUnit } from '@/lib/assignmentPricing';
 
 /**
  * Decline / Counter / Accept for one live bid, plus the counter-offer modal.
@@ -28,6 +29,8 @@ export default function BidActions({
   period = 'per_month',
   listPrice,
   disabled = false,
+  quantity = null,
+  unit = null,
   buttonClassName = 'rounded-lg border border-[#E7E7EA] px-2 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:py-1.5',
 }: {
   offer: BusinessAssignmentOffer | null | undefined;
@@ -36,6 +39,8 @@ export default function BidActions({
   period?: OfferAmount['period'];
   listPrice?: number | null;
   disabled?: boolean;
+  quantity?: number | null;
+  unit?: WorkPricingUnit | null;
   buttonClassName?: string;
 }) {
   const counter = useBusinessCounterOffer(cardId);
@@ -87,6 +92,8 @@ export default function BidActions({
         submitLabel="Send counter"
         currency={currency || 'INR'}
         period={period}
+        quantity={quantity}
+        unit={unit ?? undefined}
         initialAmount={snapOfferAmount(current || 500)}
         referenceAmount={current}
         referenceLabel="Talent's bid"
