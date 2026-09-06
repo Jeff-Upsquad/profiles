@@ -103,7 +103,7 @@ export default function TalentOpportunityDetail({
           </dl>
         </header>
         <div className="bg-white p-4 sm:p-5">
-          <SubscriptionCardContent content={content} hideIdentity detailLayout />
+          <SubscriptionCardContent content={content} hideIdentity polishedSections />
         </div>
       </article>
 

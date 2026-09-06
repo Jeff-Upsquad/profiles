@@ -305,11 +305,11 @@ interface Props {
   content: SubscriptionCardContentShape;
   /** The parent detail page already presents the brand, role, and plan. */
   hideIdentity?: boolean;
-  /** Use paired overview tiles on the dedicated opportunity detail page. */
-  detailLayout?: boolean;
+  /** Stronger, vertically stacked section styling for the detail page. */
+  polishedSections?: boolean;
 }
 
-export default function SubscriptionCardContent({ content, hideIdentity = false, detailLayout = false }: Props) {
+export default function SubscriptionCardContent({ content, hideIdentity = false, polishedSections = false }: Props) {
   const title = asString(content.title).trim();
   const imageUrl = asString(content.imageUrl).trim();
   const description = asString(content.description).trim();
@@ -469,20 +469,20 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
         return (
           <div>
             <SectionLabel icon={IconBriefcase} color="#0a0a0a">
-              {detailLayout ? 'Engagement details' : 'Work commitment'}
+              {polishedSections ? 'Engagement details' : 'Work commitment'}
             </SectionLabel>
-            <div className={`mt-2 grid gap-2 ${detailLayout ? 'grid-cols-2' : ''}`}>
+            <div className="mt-2 grid grid-cols-1 gap-3">
               {/* Hours sub-card — hidden for assignments (no hourly-commitment concept) */}
               {!isAssignment && (
-              <div className="tint-blue rounded-xl p-3" style={{ color: 'var(--tint-icon)' }}>
+              <div className={`tint-blue border border-[#DDEAF8] ${polishedSections ? 'rounded-2xl p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]' : 'rounded-xl p-3'}`} style={{ color: 'var(--tint-icon)' }}>
                 <p className="flex items-center gap-1.5 font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-wider opacity-70">
                   <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">{IconClock}</span>
-                  {detailLayout ? 'Work commitment' : 'Hours'}
+                  {polishedSections ? 'Work commitment' : 'Hours'}
                 </p>
                 {hasHours ? (
                   <>
                     {hoursLabel && (
-                      <p className={`mt-1 font-[family-name:var(--font-jakarta)] font-semibold ${detailLayout ? 'text-sm leading-snug' : 'text-base'}`} style={{ color: 'var(--tint-text)' }}>
+                      <p className="mt-1 font-[family-name:var(--font-jakarta)] text-base font-semibold" style={{ color: 'var(--tint-text)' }}>
                         {hoursLabel}
                       </p>
                     )}
@@ -499,7 +499,7 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
               {/* Deliverables sub-card — subscriptions always show it (placeholder
                   when empty); assignments only when there's real content. */}
               {(!isAssignment || hasDeliverables) && (
-              <div className="tint-blue rounded-xl p-3" style={{ color: 'var(--tint-icon)' }}>
+              <div className={`tint-purple border border-[#E5DEFA] ${polishedSections ? 'rounded-2xl p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]' : 'rounded-xl p-3'}`} style={{ color: 'var(--tint-icon)' }}>
                 <p className="flex items-center gap-1.5 font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-wider opacity-70">
                   <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">{IconClipboard}</span>
                   Deliverables
@@ -517,7 +517,7 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
                           <li key={i} className="flex items-baseline gap-2">
                             <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ backgroundColor: 'var(--tint-icon)' }} />
                             <div className="flex flex-wrap items-baseline gap-x-1.5">
-                              <span className={`font-[family-name:var(--font-jakarta)] font-semibold ${detailLayout ? 'text-sm' : 'text-base'}`} style={{ color: 'var(--tint-text)' }}>
+                              <span className="font-[family-name:var(--font-jakarta)] text-base font-semibold" style={{ color: 'var(--tint-text)' }}>
                                 {d.label}
                               </span>
                               {d.description && (
@@ -538,7 +538,7 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
               {/* Voice note from the client — its own prominent block so it's
                   unmistakably playable. Shows for subscriptions and assignments. */}
               {hasVoice && (
-                <div className={`tint-amber rounded-xl p-3 ${detailLayout ? 'col-span-2' : ''}`} style={{ color: 'var(--tint-icon)' }}>
+                <div className={`tint-amber border border-[#F3E9B5] ${polishedSections ? 'rounded-2xl p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]' : 'rounded-xl p-3'}`} style={{ color: 'var(--tint-icon)' }}>
                   <p className="flex items-center gap-1.5 font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-wider opacity-70">
                     <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5">
@@ -561,7 +561,7 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
 
       {/* Payment — green tint. Assignments can be fixed-price or priced per unit. */}
       {priceFormatted && (
-        <div>
+        <div className={polishedSections ? 'tint-green rounded-2xl border border-[#D9EDDE] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]' : ''}>
           <SectionLabel icon={IconMoney} color="#1F7E36">
             {isAssignment ? (assignmentPerUnit ? `Price per ${assignmentUnit}` : 'Project budget') : 'Payment'}
           </SectionLabel>
