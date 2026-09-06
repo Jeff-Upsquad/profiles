@@ -41,11 +41,14 @@ export default function AssignmentOfferActions({
   bidLabel = false,
   /** Hide the current-figure summary (e.g. Bidding cards already show it on top). */
   hideAmountSummary = false,
+  /** Keep detail-page actions in one compact horizontal row. */
+  compactActions = false,
 }: {
   item: SubscriptionCardItem;
   currency?: string;
   bidLabel?: boolean;
   hideAmountSummary?: boolean;
+  compactActions?: boolean;
 }) {
   const recipientId = item.id;
   const content = item.card.content as Record<string, unknown>;
@@ -127,7 +130,9 @@ export default function AssignmentOfferActions({
       )}
 
       {/* Action row */}
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className={compactActions
+        ? 'flex flex-nowrap items-center justify-end gap-1.5 [&>button]:min-w-0 [&>button]:flex-1 [&>button]:whitespace-nowrap [&>button]:px-2 [&>button]:text-[12px]'
+        : 'flex flex-wrap items-center justify-end gap-2'}>
         {offer && !OPEN.includes(offer.status) && (
           <span className="mr-auto text-xs text-[#737373]">
             {offer.status === 'declined'

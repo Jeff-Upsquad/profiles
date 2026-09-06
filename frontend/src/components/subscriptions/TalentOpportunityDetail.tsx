@@ -73,7 +73,12 @@ export default function TalentOpportunityDetail({
           {inactive ? (
             <p className="text-center text-sm font-medium text-[#737373]">Your profile is inactive. Contact support to respond.</p>
           ) : (
-            <AssignmentOfferActions item={item} currency={typeof content.currency === 'string' ? content.currency : undefined} bidLabel={type === 'subscription'} />
+            <AssignmentOfferActions
+              item={item}
+              currency={typeof content.currency === 'string' ? content.currency : undefined}
+              bidLabel={type === 'subscription'}
+              compactActions
+            />
           )}
         </div>
       )}

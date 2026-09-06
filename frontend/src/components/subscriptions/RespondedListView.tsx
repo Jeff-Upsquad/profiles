@@ -90,24 +90,19 @@ function price(item: SubscriptionCardItem): string {
 function commitment(item: SubscriptionCardItem): string {
   const content = item.card.content;
   const details = (content.assignment_details ?? {}) as Record<string, unknown>;
-  const hoursParts = stringValue(content.hours_label).split('·').map((part) => part.trim()).filter(Boolean);
+  const subscriptionCommitment = [stringValue(content.capacity_label), stringValue(content.hours_label)]
+    .filter(Boolean)
+    .join(' · ');
   return (
-    stringValue(content.capacity_label) ||
     stringValue(details.work_type) ||
     stringValue(details.scope_type) ||
-    hoursParts[0] ||
+    subscriptionCommitment ||
     '—'
   );
 }
 
-function hours(item: SubscriptionCardItem): string {
-  const value = stringValue(item.card.content.hours_label);
-  const parts = value.split('·').map((part) => part.trim()).filter(Boolean);
-  return parts.length > 1 ? parts.slice(1).join(' · ') : value || '—';
-}
-
 function StatusBadge({ item, mode }: { item: SubscriptionCardItem; mode: Props['mode'] }) {
-  if (mode === 'pending') return <Badge variant="yellow">New</Badge>;
+  if (mode === 'pending') return null;
   if (item.status === 'accepted') return <Badge variant="green">Accepted</Badge>;
   if (item.status === 'rejected') return <Badge variant="red">Declined</Badge>;
   if (item.cancelled_at) return <Badge variant="gray">Cancelled</Badge>;
@@ -163,14 +158,10 @@ export default function RespondedListView({ items, initialOpenId = null, mode = 
                       <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.06 10 7.23 6.29a.75.75 0 111.04-1.08l4.39 4.25a.75.75 0 010 1.08l-4.39 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
                     </svg>
                   </div>
-                  <dl className="grid grid-cols-3 border-t border-[#E7E7EA] bg-[#FAFAFA]">
+                  <dl className="grid grid-cols-2 border-t border-[#E7E7EA] bg-[#FAFAFA]">
                     <div className="min-w-0 px-3 py-2.5">
                       <dt className="text-[9px] font-semibold uppercase tracking-wide text-[#a3a3a3]">Commitment</dt>
-                      <dd className="mt-0.5 truncate text-[11px] font-semibold text-[#404040]">{commitment(item)}</dd>
-                    </div>
-                    <div className="min-w-0 border-l border-[#E7E7EA] px-3 py-2.5">
-                      <dt className="text-[9px] font-semibold uppercase tracking-wide text-[#a3a3a3]">Hours</dt>
-                      <dd className="mt-0.5 truncate text-[11px] font-semibold text-[#404040]">{hours(item)}</dd>
+                      <dd className="mt-0.5 line-clamp-2 text-[11px] font-semibold leading-snug text-[#404040]">{commitment(item)}</dd>
                     </div>
                     <div className="min-w-0 border-l border-[#E7E7EA] px-3 py-2.5">
                       <dt className="text-[9px] font-semibold uppercase tracking-wide text-[#a3a3a3]">Price</dt>
