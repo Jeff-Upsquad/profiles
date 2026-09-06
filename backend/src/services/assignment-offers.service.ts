@@ -533,11 +533,14 @@ interface TalentRecipientCtx {
   recipientStatus: string;
 }
 
-/** Load + validate a recipient row owned by the talent on a LIVE offerable card. */
+/** Load + validate a recipient row owned by the talent on an offerable card.
+ *  Writes require a LIVE card; reads (`forRead`) tolerate dead cards so history
+ *  stays viewable — `live` tells the caller whether the negotiation can still move. */
 async function loadTalentRecipient(
   talentUserId: string,
   recipientId: string,
-): Promise<{ ctx: TalentRecipientCtx; refs: AssignmentCardRefs }> {
+  opts: { forRead?: boolean } = {},
+): Promise<{ ctx: TalentRecipientCtx; refs: AssignmentCardRefs; live: boolean }> {
   const { data, error } = await supabaseAdmin
     .from('subscription_card_recipients')
     .select('id, card_id, talent_user_id, status, cancelled_at, subscription_cards!inner(status, card_type)')
@@ -550,8 +553,11 @@ async function loadTalentRecipient(
   if (!card?.card_type || !OFFERABLE_CARD_TYPES.has(card.card_type)) {
     throw new AppError(400, 'Offers are not available on this card type');
   }
-  if (card?.status !== 'active') throw new AppError(409, 'This card is no longer available');
-  if ((data as any).cancelled_at) throw new AppError(409, 'This offer has been cancelled');
+  const live = card?.status === 'active' && !(data as any).cancelled_at;
+  if (!opts.forRead) {
+    if (!live && card?.status !== 'active') throw new AppError(409, 'This card is no longer available');
+    if (!live) throw new AppError(409, 'This offer has been cancelled');
+  }
   const refs = await getAssignmentCardRefs((data as any).card_id as string);
   return {
     ctx: {
@@ -561,7 +567,26 @@ async function loadTalentRecipient(
       recipientStatus: (data as any).status as string,
     },
     refs,
+    live,
   };
+}
+
+/**
+ * System-expire a still-pending negotiation whose card died or application was
+ * cancelled (compare-and-set — a concurrent business move wins). Lets stale
+ * rows settle under Closed instead of failing every read/action.
+ */
+async function expireStaleOpenOffer(offer: AssignmentOfferRow, reason: string): Promise<AssignmentOfferRow> {
+  const { data } = await supabaseAdmin
+    .from('assignment_offers')
+    .update({ status: 'expired' })
+    .eq('id', offer.id)
+    .in('status', PENDING_STATUSES)
+    .select(OFFER_FIELDS)
+    .maybeSingle();
+  if (!data) return offer;
+  await logEvent({ offerId: offer.id, actor: { type: 'system' }, action: 'expired', note: reason });
+  return data as unknown as AssignmentOfferRow;
 }
 
 /** Optimistic status transition (compare-and-set on the previous status). */
@@ -926,8 +951,14 @@ function projectAmountForTalent(
 
 /** Talent's live offer + thread for one recipient (null when none yet). */
 export async function getOfferForTalentRecipient(talentUserId: string, recipientId: string) {
-  const { ctx, refs } = await loadTalentRecipient(talentUserId, recipientId);
-  const offer = (await getOpenOfferForRecipient(recipientId)) ?? (await getLatestOfferForRecipient(recipientId));
+  const { ctx, refs, live } = await loadTalentRecipient(talentUserId, recipientId, { forRead: true });
+  let offer = (await getOpenOfferForRecipient(recipientId)) ?? (await getLatestOfferForRecipient(recipientId));
+  // A pending negotiation on a dead card / cancelled application can never
+  // move again — settle it as expired so reads (and the Bidding list) show
+  // Closed history instead of failing. Writes keep failing with a clear 409.
+  if (offer && (PENDING_STATUSES as string[]).includes(offer.status) && !live) {
+    offer = await expireStaleOpenOffer(offer, 'Card is no longer available');
+  }
   const { talentMoves, businessMoves } = await countMovesForCardTalent(ctx.cardId, talentUserId);
   const limits = {
     max_talent_bids: MAX_TALENT_BIDS,
@@ -1512,6 +1543,24 @@ export async function listOffersForTalent(talentUserId: string): Promise<TalentO
     .in('id', cardIds);
   const cardById = new Map<string, any>();
   for (const c of cards ?? []) cardById.set((c as any).id, c);
+
+  // Recipient cancel flags — an open negotiation on a dead card / cancelled
+  // application can never move again, so settle it as expired here and let it
+  // surface under Closed instead of failing every read/action.
+  const recipientIds = [...new Set(offers.map((o) => o.recipient_id))];
+  const { data: recipients } = await supabaseAdmin
+    .from('subscription_card_recipients')
+    .select('id, cancelled_at')
+    .in('id', recipientIds);
+  const cancelledByRecipient = new Map<string, boolean>();
+  for (const r of recipients ?? []) cancelledByRecipient.set((r as any).id, !!(r as any).cancelled_at);
+  for (const o of offers) {
+    if (!(PENDING_STATUSES as string[]).includes(o.status)) continue;
+    const card = cardById.get(o.card_id);
+    if (card?.status === 'active' && !cancelledByRecipient.get(o.recipient_id)) continue;
+    const healed = await expireStaleOpenOffer(o, 'Card is no longer available');
+    o.status = healed.status;
+  }
 
   // Talent's own match signals (tick/cross on the card), fetched once.
   const matchSignals = await getTalentMatchSignals(talentUserId);
