@@ -303,9 +303,11 @@ const IconSparkles = (
 
 interface Props {
   content: SubscriptionCardContentShape;
+  /** The parent detail page already presents the brand, role, and plan. */
+  hideIdentity?: boolean;
 }
 
-export default function SubscriptionCardContent({ content }: Props) {
+export default function SubscriptionCardContent({ content, hideIdentity = false }: Props) {
   const title = asString(content.title).trim();
   const imageUrl = asString(content.imageUrl).trim();
   const description = asString(content.description).trim();
@@ -399,7 +401,7 @@ export default function SubscriptionCardContent({ content }: Props) {
 
   return (
     <div className="relative flex flex-col gap-4">
-      {isPopular && (
+      {isPopular && !hideIdentity && (
         <span className="absolute -top-2 right-0 z-10 rounded-full bg-rainbow px-2.5 py-0.5 font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-wider text-white shadow-[0_4px_12px_rgba(210,77,255,0.35)]">
           Popular
         </span>
@@ -415,7 +417,7 @@ export default function SubscriptionCardContent({ content }: Props) {
       )}
 
       {/* Header */}
-      {(title || planLine) && (
+      {!hideIdentity && (title || planLine) && (
         <div>
           {title && (
             <h3 className="font-[family-name:var(--font-jakarta)] text-[15px] font-semibold leading-tight tracking-[-0.01em] text-[#0a0a0a]">
@@ -615,7 +617,7 @@ export default function SubscriptionCardContent({ content }: Props) {
           )}
 
           {/* Client brief = engagement identity only. Requirement lives in Deliverables. */}
-          {hasClientBrief && (
+          {hasClientBrief && !hideIdentity && (
             <div>
               <SectionLabel icon={IconBriefcase}>Client Brief</SectionLabel>
               <div className="mt-1 space-y-0.5 text-sm">

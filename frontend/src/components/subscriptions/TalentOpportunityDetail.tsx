@@ -8,6 +8,17 @@ import SubscriptionCardContent from '@/components/subscriptions/SubscriptionCard
 import { useMySubscriptionCards } from '@/hooks/useSubscriptionCards';
 import { useAuth } from '@/context/AuthContext';
 
+const TINTS = ['tint-purple', 'tint-blue', 'tint-orange', 'tint-green', 'tint-pink', 'tint-amber'] as const;
+function tintFor(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash << 5) - hash + seed.charCodeAt(i);
+  return TINTS[Math.abs(hash) % TINTS.length];
+}
+
+function text(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 export default function TalentOpportunityDetail({
   recipientId,
   type,
@@ -41,12 +52,16 @@ export default function TalentOpportunityDetail({
   }
 
   const content = item.card.content;
-  const brand = typeof content.brand_name === 'string' && content.brand_name.trim() ? content.brand_name.trim() : 'Opportunity';
+  const brand = text(content.brand_name) || 'Opportunity';
+  const role = text(content.subscription_name);
+  const plan = text(content.plan_name);
+  const identityLine = [role, plan].filter(Boolean).join(' · ');
+  const tint = tintFor(brand);
   const pending = item.status === 'pending' && !item.cancelled_at;
   const inactive = user?.is_active === false;
 
   return (
-    <div className={pending ? 'space-y-4 pb-28' : 'space-y-4'}>
+    <div className={pending ? 'space-y-4 pb-48' : 'space-y-4'}>
       <button type="button" onClick={() => router.back()} className="inline-flex items-center gap-1 text-sm font-medium text-[#737373] hover:text-[#0a0a0a]">
         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -54,18 +69,33 @@ export default function TalentOpportunityDetail({
         Back to opportunities
       </button>
 
-      <article className="overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <header className="flex items-start justify-between gap-3 border-b border-[#E7E7EA] px-5 py-4">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#737373]">{type}</p>
-            <h1 className="mt-1 truncate font-[family-name:var(--font-jakarta)] text-xl font-semibold text-[#0a0a0a]">{brand}</h1>
+      <article className="overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_4px_18px_-8px_rgba(0,0,0,0.12)]">
+        <header className={`${tint} relative overflow-hidden px-5 py-5`}>
+          <div className="absolute -right-10 -top-12 h-36 w-36 rounded-full bg-white/45 blur-3xl" />
+          <div className="relative flex items-start gap-3.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/80 shadow-sm backdrop-blur-sm" style={{ color: 'var(--tint-icon)' }}>
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: 'var(--tint-icon)' }}>{type}</p>
+                <div className="shrink-0">
+                  {item.status === 'accepted' && <Badge variant="green">Accepted</Badge>}
+                  {item.status === 'rejected' && <Badge variant="red">Declined</Badge>}
+                  {item.cancelled_at && <Badge variant="gray">Cancelled</Badge>}
+                  {pending && <Badge variant="yellow">Pending</Badge>}
+                </div>
+              </div>
+              <h1 className="mt-1 truncate font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">{brand}</h1>
+              {identityLine && <p className="mt-1 text-sm leading-snug text-[#525252]">{identityLine}</p>}
+            </div>
           </div>
-          {item.status === 'accepted' && <Badge variant="green">Accepted</Badge>}
-          {item.status === 'rejected' && <Badge variant="red">Declined</Badge>}
-          {item.cancelled_at && <Badge variant="gray">Cancelled</Badge>}
-          {pending && <Badge variant="yellow">Pending</Badge>}
         </header>
-        <div className="p-5"><SubscriptionCardContent content={content} /></div>
+        <div className="bg-white p-4 sm:p-5">
+          <SubscriptionCardContent content={content} hideIdentity />
+        </div>
       </article>
 
       {pending && (
@@ -77,6 +107,7 @@ export default function TalentOpportunityDetail({
               item={item}
               currency={typeof content.currency === 'string' ? content.currency : undefined}
               bidLabel={type === 'subscription'}
+              hideAmountSummary
               compactActions
             />
           )}
