@@ -14,9 +14,11 @@ const TABS: { key: TalentHomeTab; label: string }[] = [
 export default function TalentHomeTabs({
   active,
   onChange,
+  tabs = TABS.map((tab) => tab.key),
 }: {
   active: TalentHomeTab;
   onChange: (tab: TalentHomeTab) => void;
+  tabs?: TalentHomeTab[];
 }) {
   const { data: unreadSubs = 0 } = useUnreadSubscriptionCount();
   const { data: unreadAssignments = 0 } = useUnreadAssignmentCount();
@@ -30,7 +32,7 @@ export default function TalentHomeTabs({
 
   return (
     <div className="flex w-full items-center gap-1 rounded-xl border border-[#E7E7EA] bg-[#F5F5F6] p-1.5" role="tablist" aria-label="Home sections">
-      {TABS.map((t) => {
+      {TABS.filter((tab) => tabs.includes(tab.key)).map((t) => {
         const isActive = active === t.key;
         const count = badgeFor(t.key);
         return (

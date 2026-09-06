@@ -80,10 +80,6 @@ const TAB_LABEL: Record<TalentHomeTab, string> = {
   jobs: 'Job Openings',
 };
 
-function isHomeTab(v: string | null): v is TalentHomeTab {
-  return v === 'subscriptions' || v === 'assignments' || v === 'jobs';
-}
-
 export default function TalentDashboard() {
   const { user } = useAuth();
   const router = useRouter();
@@ -91,17 +87,17 @@ export default function TalentDashboard() {
   const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
   const isRejected = user?.approval_status === 'rejected';
   const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
-  const [tab, setTab] = useState<TalentHomeTab>('subscriptions');
+  const [tab, setTab] = useState<TalentHomeTab>('assignments');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const q = new URLSearchParams(window.location.search).get('tab');
-    if (isHomeTab(q)) setTab(q);
+    if (q === 'assignments' || q === 'jobs') setTab(q);
   }, []);
 
   const handleTab = (next: TalentHomeTab) => {
     setTab(next);
-    const url = next === 'subscriptions' ? '/talent/dashboard' : `/talent/dashboard?tab=${next}`;
+    const url = next === 'assignments' ? '/talent/dashboard' : `/talent/dashboard?tab=${next}`;
     router.replace(url, { scroll: false });
   };
 
@@ -175,7 +171,7 @@ export default function TalentDashboard() {
               Welcome back{firstName ? <>, <span className="text-rainbow">{firstName}</span></> : ''}.
             </h1>
             <p className="mt-1 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
-              Subscriptions, assignments, and job openings in one place.
+              Assignments and job openings in one place.
             </p>
           </div>
         </div>
@@ -200,7 +196,7 @@ export default function TalentDashboard() {
       )}
 
       <div className="sticky top-[56px] z-20 -mx-4 bg-[#F5F5F6]/95 px-4 py-2 backdrop-blur-sm md:static md:mx-0 md:bg-transparent md:px-0 md:py-0">
-        <TalentHomeTabs active={tab} onChange={handleTab} />
+        <TalentHomeTabs active={tab} onChange={handleTab} tabs={['assignments', 'jobs']} />
       </div>
 
       {tabLocked && activeLock ? (
@@ -218,7 +214,7 @@ export default function TalentDashboard() {
       ) : tab === 'jobs' ? (
         <TalentJobsView embedded />
       ) : (
-        <TalentOffersView variant={tab === 'assignments' ? 'assignment' : 'subscription'} embedded />
+        <TalentOffersView variant="assignment" embedded />
       )}
     </div>
   );

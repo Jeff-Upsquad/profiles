@@ -247,14 +247,13 @@ function WhatsAppUpdatesToggle() {
   };
 
   return (
-    <div className="flex items-start justify-between gap-4 rounded-2xl border border-[#E7E7EA] bg-white px-5 py-4">
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E7E7EA] bg-white px-4 py-2.5">
       <div className="min-w-0">
-        <h3 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
+        <h3 className="font-[family-name:var(--font-jakarta)] text-[13px] font-semibold leading-tight text-[#0a0a0a]">
           WhatsApp updates
         </h3>
-        <p className="mt-0.5 text-xs text-[#737373]">
-          Get a WhatsApp message when a new opportunity arrives. Throttled so you
-          won&apos;t be spammed if several arrive at once.
+        <p className="mt-0.5 truncate text-[11px] leading-tight text-[#737373]">
+          Get an alert when a new opportunity arrives.
         </p>
       </div>
       <button
@@ -263,13 +262,13 @@ function WhatsAppUpdatesToggle() {
         aria-checked={enabled}
         onClick={handleToggle}
         disabled={update.isPending}
-        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
           enabled ? 'bg-emerald-500' : 'bg-[#D4D4D4]'
         }`}
       >
         <span
-          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-            enabled ? 'translate-x-5' : 'translate-x-0.5'
+          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            enabled ? 'translate-x-[18px]' : 'translate-x-0.5'
           }`}
         />
       </button>

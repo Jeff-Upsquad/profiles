@@ -201,20 +201,6 @@ export default function TalentNotifications() {
     },
   });
 
-  const markAllRead = useMutation({
-    mutationFn: async () => {
-      await api.post('/talent/notifications/mark-all-read');
-    },
-    onSuccess: () => {
-      qc.setQueryData<Notification[]>(['talent-notifications'], (old) =>
-        (old ?? []).map((n) =>
-          n.read ? n : { ...n, read: true, read_at: new Date().toISOString() },
-        ),
-      );
-      qc.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
-    },
-  });
-
   // Clicking a linked notification marks it read, then opens the thing it's about.
   // External URLs open in a new tab; app paths route internally.
   const openNotification = (n: Notification) => {
@@ -235,35 +221,6 @@ export default function TalentNotifications() {
 
   return (
     <div className="space-y-6">
-      {/* Compact Hero */}
-      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-6 sm:px-7 sm:py-7">
-        <div className="hero-content flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="mb-2.5 stagger-1">
-              <span className="eyebrow-rainbow">
-                {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
-              </span>
-            </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
-              <span className="text-rainbow">Notifications</span>.
-            </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
-              Announcements and profile updates from UpSquad.
-            </p>
-          </div>
-          {unreadCount > 0 && (
-            <button
-              type="button"
-              onClick={() => markAllRead.mutate()}
-              disabled={markAllRead.isPending}
-              className="self-start sm:self-end inline-flex items-center rounded-full border border-[#E7E7EA] bg-white px-3 py-1.5 text-xs font-medium text-[#0a0a0a] hover:bg-[#F5F5F6] disabled:opacity-50"
-            >
-              Mark all read
-            </button>
-          )}
-        </div>
-      </section>
-
       {/* Tabs */}
       <div className="flex items-center gap-1 rounded-xl border border-[#E7E7EA] bg-white p-1">
         {([
