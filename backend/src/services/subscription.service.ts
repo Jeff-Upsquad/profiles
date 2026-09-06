@@ -2491,6 +2491,23 @@ export async function adminSelectRecipient(
     throw new AppError(400, 'Recipient must have accepted before they can be selected');
   }
 
+  // Selecting must never silently accept a live negotiation. A talent's bid
+  // awaiting the business must be explicitly accepted first; likewise, a
+  // business counter-offer must be accepted by the talent before selection.
+  const { data: unresolvedOffers, error: unresolvedOfferErr } = await supabaseAdmin
+    .from('assignment_offers')
+    .select('id, status')
+    .eq('recipient_id', recipientId)
+    .in('status', ['pending_business', 'pending_talent']);
+  if (unresolvedOfferErr) throw new AppError(500, unresolvedOfferErr.message);
+  const waitingOnBusiness = (unresolvedOffers ?? []).some((offer: any) => offer.status === 'pending_business');
+  if (waitingOnBusiness) {
+    throw new AppError(409, "Accept the talent's bid before selecting this talent");
+  }
+  if ((unresolvedOffers ?? []).length > 0) {
+    throw new AppError(409, 'The talent must accept the current offer before selection');
+  }
+
   const now = new Date().toISOString();
   const talentUserId = (recipient as any).talent_user_id as string;
 

@@ -317,6 +317,7 @@ export default function SubscriptionCardReview({
   }
 
   function handleSelect(recipient: CardRecipientForBusiness) {
+    if (recipient.offer_status === 'pending_business' || recipient.offer_status === 'pending_talent') return;
     setConfirmSelect(recipient);
   }
 
@@ -704,11 +705,16 @@ export default function SubscriptionCardReview({
                           </button>
                           <button
                             type="button"
-                            disabled={selectMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
+                            disabled={selectMutation.isPending || hasSelection || isClosed || !!r.passed_over_at || r.offer_status === 'pending_business' || r.offer_status === 'pending_talent'}
+                            title={r.offer_status === 'pending_business'
+                              ? "Accept this talent's bid before selecting"
+                              : r.offer_status === 'pending_talent'
+                                ? 'The talent must accept your offer before selection'
+                                : undefined}
                             onClick={() => handleSelect(r)}
                             className="rounded-lg bg-[#0a0a0a] px-2 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:py-1.5"
                           >
-                            Select
+                            {r.offer_status === 'pending_business' ? 'Accept bid first' : 'Select'}
                           </button>
                         </div>
                       </div>
