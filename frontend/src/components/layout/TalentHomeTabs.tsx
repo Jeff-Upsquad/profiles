@@ -31,7 +31,7 @@ export default function TalentHomeTabs({
   };
 
   return (
-    <div className="flex w-full items-center gap-1 rounded-xl border border-[#E7E7EA] bg-[#F5F5F6] p-1.5" role="tablist" aria-label="Home sections">
+    <div className="flex w-full flex-nowrap items-center gap-1.5 overflow-x-auto rounded-xl border border-[#E7E7EA] bg-[#F5F5F6] p-1.5" role="tablist" aria-label="Home sections">
       {TABS.filter((tab) => tabs.includes(tab.key)).map((t) => {
         const isActive = active === t.key;
         const count = badgeFor(t.key);
@@ -42,13 +42,13 @@ export default function TalentHomeTabs({
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(t.key)}
-            className={`font-[family-name:var(--font-inter)] flex min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 py-2 text-[12px] font-semibold transition-all duration-200 md:gap-1.5 md:px-3 md:text-[13px] ${
+            className={`font-[family-name:var(--font-inter)] flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2.5 text-[13px] font-semibold transition-all duration-200 md:px-5 md:text-[14px] ${
               isActive
                 ? 'bg-white text-[#0a0a0a] shadow-[0_1px_3px_0_rgba(0,0,0,0.1),0_1px_2px_-1px_rgba(0,0,0,0.1)]'
                 : 'text-[#525252] hover:text-[#0a0a0a]'
             }`}
           >
-            <span className="min-w-0 truncate">{t.label}</span>
+            <span>{t.label}</span>
             {count > 0 && (
               <span
                 className={`inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-semibold md:h-5 md:min-w-5 md:px-1.5 md:text-[11px] ${

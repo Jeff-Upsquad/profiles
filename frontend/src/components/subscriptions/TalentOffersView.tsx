@@ -115,7 +115,7 @@ export default function TalentOffersView({
       {showWhatsAppUpdates && <WhatsAppUpdatesToggle />}
 
       {/* V5 Tab Control — Pending → Bidding → Responded → Expired */}
-      <div className="flex w-full flex-nowrap items-center gap-1 overflow-x-auto rounded-xl border border-[#E7E7EA] bg-[#F5F5F6] p-1.5">
+      <div className="flex w-full flex-nowrap items-center gap-0.5 overflow-x-auto rounded-lg border border-[#E7E7EA] bg-[#F5F5F6] p-1">
         {TABS.map((t) => {
           const isActive = tab === t.key;
           const count =
@@ -124,7 +124,7 @@ export default function TalentOffersView({
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`font-[family-name:var(--font-inter)] inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition-all duration-200 ${
+              className={`font-[family-name:var(--font-inter)] inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2.5 py-1 text-[12px] font-semibold transition-all duration-200 ${
                 isActive
                   ? 'bg-white text-[#0a0a0a] shadow-[0_1px_3px_0_rgba(0,0,0,0.1),0_1px_2px_-1px_rgba(0,0,0,0.1)]'
                   : 'text-[#525252] hover:text-[#0a0a0a]'
@@ -132,7 +132,7 @@ export default function TalentOffersView({
             >
               {t.label}
               {count !== null && count > 0 && (
-                <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${
+                <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold ${
                   isActive ? 'bg-[#FFFAC2] text-[#0a0a0a]' : 'bg-[#E7E7EA] text-[#525252]'
                 }`}>
                   {count}
