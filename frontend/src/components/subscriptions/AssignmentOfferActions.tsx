@@ -51,6 +51,10 @@ export default function AssignmentOfferActions({
   compactActions = false,
   /** Hide card-level Decline/Accept (e.g. Bidding rows are already-responded cards where only offer actions are valid). */
   hideCardResponse = false,
+  /** Bidding-list card: original price + latest bid with by-whom pill, and a
+   *  single Bid button (plus Accept when the business countered). No
+   *  Withdraw/Decline — a standing own bid can only be revised. */
+  layout = 'default',
 }: {
   item: SubscriptionCardItem;
   currency?: string;
@@ -58,6 +62,7 @@ export default function AssignmentOfferActions({
   hideAmountSummary?: boolean;
   compactActions?: boolean;
   hideCardResponse?: boolean;
+  layout?: 'default' | 'bidding-card';
 }) {
   const recipientId = item.id;
   const content = item.card.content as Record<string, unknown>;
@@ -107,6 +112,183 @@ export default function AssignmentOfferActions({
 
   const bidOrCounterLabel = bidLabel ? 'Bid' : 'Counter-offer';
   const reviseLabel = bidLabel ? 'Revise bid' : 'Revise offer';
+
+  const isBiddingCard = layout === 'bidding-card';
+  const isBusinessCounter = openOffer?.status === 'pending_talent';
+  const isYourBid = openOffer?.status === 'pending_business';
+  const originalPriceLabel =
+    listPrice > 0
+      ? (formatOfferAmount({ amount: listPrice, currency: currency || 'INR', period }) ?? '—')
+      : '—';
+  const latestBidLabel = offer ? (formatOfferAmount(offer.current_amount) ?? '—') : null;
+  const openBidModal = () => setModal(pricingMode === 'priced' ? 'counter' : 'submit');
+  const bidButtonLabel = `${pricingMode === 'priced' ? (bidLabel ? 'Bid' : 'Counter') : 'Bid'}${canBid ? ` (${bidsLeft} left)` : ''}`;
+
+  if (isBiddingCard) {
+    return (
+      <div>
+        {offerLoading ? (
+          <div aria-label="Loading bidding details">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="h-3 w-24 animate-pulse rounded bg-[#f0f0f0]" />
+              <span className="h-4 w-28 animate-pulse rounded bg-[#f0f0f0]" />
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2 border-t border-[#E7E7EA] pt-2">
+              <span className="h-5 w-28 animate-pulse rounded-full bg-[#f0f0f0]" />
+              <span className="h-4 w-28 animate-pulse rounded bg-[#f0f0f0]" />
+            </div>
+            <div className="mt-2 flex justify-end gap-2">
+              <span className="h-8 w-24 animate-pulse rounded-lg bg-[#f0f0f0]" />
+            </div>
+          </div>
+        ) : offerFailed ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-red-600">Offer status couldn&apos;t be loaded.</p>
+            <button
+              type="button"
+              onClick={() => refetchOffer()}
+              className="rounded-lg border border-[#E7E7EA] px-3 py-1.5 text-xs font-semibold text-[#0a0a0a]"
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-xs text-[#737373]">Original price</span>
+              <strong className="text-sm font-semibold text-[#0a0a0a]">{originalPriceLabel}</strong>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2 border-t border-[#E7E7EA] pt-2.5">
+              <span className="min-w-0">
+                {openOffer?.status === 'accepted' ? (
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Agreed</span>
+                ) : isBusinessCounter ? (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">Business counter — review</span>
+                ) : isYourBid ? (
+                  <span className="rounded-full bg-[#ECECFE] px-2 py-0.5 text-[10px] font-bold text-[#5B5BF2]">Your bid — waiting on business</span>
+                ) : offer ? (
+                  <span className="text-xs text-[#737373]">
+                    {offer.status === 'declined'
+                      ? 'Previous offer declined — you can try again.'
+                      : offer.status === 'withdrawn'
+                        ? 'Offer withdrawn.'
+                        : 'Previous offer closed.'}
+                  </span>
+                ) : (
+                  <span className="text-xs text-[#737373]">No bids yet</span>
+                )}
+              </span>
+              {latestBidLabel && <strong className="shrink-0 text-sm font-semibold text-[#0a0a0a]">{latestBidLabel}</strong>}
+            </div>
+            <p className="mt-1.5 text-[11px] text-[#a3a3a3]">Bids left on this card: {bidsLeft}/3</p>
+            <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+              {events.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowThread((s) => !s)}
+                  className="mr-auto text-xs font-semibold text-[#525252] underline underline-offset-2 hover:text-[#0a0a0a]"
+                >
+                  {showThread ? 'Hide' : 'View'} activity ({events.length})
+                </button>
+              )}
+              {openOffer?.status === 'accepted' ? (
+                <Badge variant="green">Accepted</Badge>
+              ) : (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy || !canBid}
+                    title={!canBid ? 'No bids remaining on this card' : undefined}
+                    onClick={openBidModal}
+                  >
+                    {bidButtonLabel}
+                  </Button>
+                  {isBusinessCounter && (
+                    <Button
+                      size="sm"
+                      disabled={busy}
+                      loading={respondOffer.isPending && respondOffer.variables?.action === 'accept'}
+                      onClick={() => respondOffer.mutate({ action: 'accept' })}
+                    >
+                      Accept
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+          </>
+        )}
+
+        {(respondCard.isError || submitOffer.isError || respondOffer.isError) && (
+          <p className="mt-2 text-xs text-red-600">{mutationError ?? 'Could not save. Please try again.'}</p>
+        )}
+
+        {showThread && events.length > 0 && (
+          <ul className="mt-3 divide-y divide-[#E7E7EA] rounded-xl border border-[#E7E7EA]">
+            {events.map((e: AssignmentOfferEvent) => {
+              const amt = formatOfferAmount(e.amount);
+              const who = e.actor_type === 'talent' ? 'You' : e.actor_type === 'business' ? 'Business' : e.actor_type === 'admin' ? 'UpSquad' : 'System';
+              return (
+                <li key={e.id} className="px-3.5 py-2.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-xs text-[#0a0a0a]">
+                      <span className="font-semibold">{who}</span>{' '}
+                      <span className="text-[#525252]">{ACTION_LABELS[e.action] ?? e.action.replace(/_/g, ' ')}</span>
+                    </p>
+                    <span className="shrink-0 text-[10px] text-[#a3a3a3]">{fmtDateTime(e.created_at)}</span>
+                  </div>
+                  {amt && (
+                    <p className="mt-0.5 text-[11px] text-[#525252]">
+                      Figure: <span className="font-semibold">{amt}</span>
+                    </p>
+                  )}
+                  {e.note && (
+                    <p className="mt-1 whitespace-pre-line rounded-lg bg-[#F5F5F6] px-2.5 py-1.5 text-[11px] text-[#525252]">{e.note}</p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <OfferAmountStepperModal
+          open={modal !== null}
+          title={
+            modal === 'submit'
+              ? 'Submit your offer'
+              : bidLabel
+                ? 'Place your bid'
+                : 'Send a counter-offer'
+          }
+          submitLabel={
+            modal === 'submit' ? 'Submit offer' : bidLabel ? 'Submit bid' : 'Send counter'
+          }
+          currency={currency}
+          period={period}
+          quantity={quantity}
+          unit={unit}
+          initialAmount={snapOfferAmount(standingAmount || 500)}
+          referenceAmount={standingAmount || listPrice || 500}
+          referenceLabel={
+            openOffer
+              ? openOffer.last_actor_side === 'business' || openOffer.last_actor_side === 'admin'
+                ? 'Business offer'
+                : 'Your last bid'
+              : 'List price'
+          }
+          pending={submitOffer.isPending}
+          onClose={() => setModal(null)}
+          onSubmit={doSubmit}
+          hint={
+            bidLabel
+              ? `Increase or decrease the ${unit ? `price per ${unit}` : 'set price'} in steps of ₹500, then submit your bid.`
+              : undefined
+          }
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={hideAmountSummary ? '' : 'mt-auto border-t border-[#E7E7EA] pt-4'}>

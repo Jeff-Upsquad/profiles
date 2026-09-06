@@ -86,10 +86,31 @@ function itemFromOffer(o: TalentCardOffer): SubscriptionCardItem {
   };
 }
 
-function bidLabelFor(status: string): string {
-  if (status === 'pending_talent') return 'They offered';
-  if (status === 'pending_business') return 'Your bid';
-  return 'Latest';
+function contentOf(o: TalentCardOffer): Record<string, unknown> {
+  return (o.card_content ?? {}) as Record<string, unknown>;
+}
+
+function stringField(record: Record<string, unknown>, key: string): string {
+  return typeof record[key] === 'string' ? (record[key] as string).trim() : '';
+}
+
+/** Same Commitment cell as the Pending card. */
+function commitmentFor(o: TalentCardOffer): string {
+  const content = contentOf(o);
+  const details = (content.assignment_details ?? {}) as Record<string, unknown>;
+  const hours = stringField(content, 'hours_label').split('·')[0]?.trim() ?? '';
+  return stringField(details, 'work_type') || stringField(details, 'scope_type') || hours || '—';
+}
+
+/** List/original price for the card — the baseline every bid negotiates against. */
+function originalPriceFor(o: TalentCardOffer, cardType: 'subscription' | 'assignment'): string {
+  const content = contentOf(o);
+  const label = stringField(content, 'price_label');
+  if (label) return label;
+  const raw = content.monthly_price ?? content.customer_monthly_price ?? content.proposed_price;
+  if (typeof raw !== 'number') return '—';
+  const currency = stringField(content, 'currency') || 'INR';
+  return formatOfferAmount({ amount: raw, currency, period: cardType === 'assignment' ? 'project' : 'per_month' }) ?? '—';
 }
 
 function BiddingRow({
@@ -110,7 +131,6 @@ function BiddingRow({
   const tint = tintFor(name);
   const meta = STATUS[offer.status] ?? { label: offer.status, variant: 'gray' as const };
   const item = itemFromOffer(offer);
-  const amount = formatOfferAmount(offer.current_amount) ?? '—';
   const isAssignment = cardType === 'assignment';
   const currency =
     (typeof offer.current_amount?.currency === 'string' && offer.current_amount.currency) ||
@@ -118,7 +138,7 @@ function BiddingRow({
 
   return (
     <li className={emphasize ? 'bg-indigo-50/40' : undefined}>
-      {/* Compact list header */}
+      {/* Compact list header — same card as the Pending section */}
       <button
         type="button"
         onClick={onToggle}
@@ -144,10 +164,6 @@ function BiddingRow({
               {sub}
             </p>
           )}
-          <p className="mt-1 text-sm text-[#0a0a0a]">
-            <span className="text-[#737373]">{bidLabelFor(offer.status)}:</span>{' '}
-            <span className="font-semibold">{amount}</span>
-          </p>
         </div>
         <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[#525252]">
           {isOpen ? 'Hide card' : 'Card details'}
@@ -162,9 +178,21 @@ function BiddingRow({
         </span>
       </button>
 
-      {/* Bid actions always visible in the list (withdraw / revise / accept / activity) */}
+      {/* Pending-style fact grid: commitment + original price */}
+      <dl className="grid grid-cols-2 border-t border-[#E7E7EA] bg-[#FAFAFA]">
+        <div className="min-w-0 px-5 py-2.5">
+          <dt className="text-[9px] font-semibold uppercase tracking-wide text-[#a3a3a3]">Commitment</dt>
+          <dd className="mt-0.5 line-clamp-2 text-[11px] font-semibold leading-snug text-[#404040]">{commitmentFor(offer)}</dd>
+        </div>
+        <div className="min-w-0 border-l border-[#E7E7EA] px-5 py-2.5">
+          <dt className="text-[9px] font-semibold uppercase tracking-wide text-[#a3a3a3]">Original price</dt>
+          <dd className="mt-0.5 truncate text-[11px] font-semibold text-[#1F7E36]">{originalPriceFor(offer, cardType)}</dd>
+        </div>
+      </dl>
+
+      {/* Bidding details: latest figure with by-whom pill + actions */}
       <div
-        className="border-t border-[#E7E7EA] px-5 pb-4"
+        className="border-t border-[#E7E7EA] px-5 pb-4 pt-3"
         // Stop row-toggle clicks when using action buttons
         onClick={(e) => e.stopPropagation()}
       >
@@ -175,6 +203,7 @@ function BiddingRow({
             bidLabel={!isAssignment}
             hideAmountSummary
             hideCardResponse
+            layout="bidding-card"
           />
         </div>
       </div>
