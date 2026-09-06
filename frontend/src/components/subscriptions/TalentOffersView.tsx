@@ -35,13 +35,35 @@ export default function TalentOffersView({
   const isAssignment = variant === 'assignment';
   const heading = isAssignment ? 'Assignments' : 'Subscriptions';
   const [tab, setTab] = useState<TabKey>('pending');
+  const [targetRecipientId, setTargetRecipientId] = useState<string | null>(null);
 
   // Honor ?tab=bidding (e.g. redirects from the old /talent/bidding route).
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const q = new URLSearchParams(window.location.search).get('tab');
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('tab');
     if (isTabKey(q)) setTab(q);
+    setTargetRecipientId(params.get('recipientId'));
   }, []);
+
+  // A native push carries the recipient row id. Resolve it across every card
+  // status first, then switch to the tab that actually contains it. This keeps
+  // shortlist/selection taps from falling back to the default Pending list.
+  const { data: targetCards } = useMySubscriptionCards('all', variant, {
+    enabled: !!targetRecipientId,
+  });
+  useEffect(() => {
+    if (!targetRecipientId || !targetCards) return;
+    const target = targetCards.find((item) => item.id === targetRecipientId);
+    if (!target) return;
+    const expired =
+      target.status === 'pending' &&
+      (target.cancelled_at != null ||
+        target.passed_over_at != null ||
+        target.card.status !== 'active' ||
+        (!!target.card.expires_at && new Date(target.card.expires_at).getTime() <= Date.now()));
+    setTab(expired ? 'expired' : target.status === 'pending' ? 'pending' : 'responded');
+  }, [targetCards, targetRecipientId]);
 
   // Card-list tabs share one query; bidding is a separate offers feed.
   const cardFilter: SubscriptionListFilter = tab === 'bidding' ? 'pending' : tab;
@@ -51,6 +73,17 @@ export default function TalentOffersView({
 
   const pendingNum = (pendingCount ?? []).length;
   const showCardQuery = tab !== 'bidding';
+
+  useEffect(() => {
+    if (!targetRecipientId || isLoading || !data?.some((item) => item.id === targetRecipientId)) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`recipient-${targetRecipientId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [data, isLoading, tab, targetRecipientId]);
 
   return (
     <div className="space-y-6">
@@ -172,7 +205,11 @@ export default function TalentOffersView({
       {showCardQuery && !isLoading && !isError && (data?.length ?? 0) > 0 && tab === 'pending' && (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {data!.map((item, i) => (
-            <div key={item.id} className={`stagger-${Math.min(i + 1, 6)}`}>
+            <div
+              key={item.id}
+              id={`recipient-${item.id}`}
+              className={`stagger-${Math.min(i + 1, 6)} rounded-2xl ${item.id === targetRecipientId ? 'ring-2 ring-[#0a0a0a] ring-offset-2' : ''}`}
+            >
               <SubscriptionCardView item={item} />
             </div>
           ))}
@@ -180,7 +217,7 @@ export default function TalentOffersView({
       )}
 
       {showCardQuery && !isLoading && !isError && (data?.length ?? 0) > 0 && tab !== 'pending' && (
-        <RespondedListView items={data!} />
+        <RespondedListView items={data!} initialOpenId={targetRecipientId} />
       )}
     </div>
   );

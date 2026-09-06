@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Badge from '@/components/ui/Badge';
 import SubscriptionCardContent from './SubscriptionCardContent';
 import { formatDate } from '@/lib/formatDate';
@@ -8,6 +8,7 @@ import type { SubscriptionCardItem } from '@/hooks/useSubscriptionCards';
 
 interface Props {
   items: SubscriptionCardItem[];
+  initialOpenId?: string | null;
 }
 
 interface DateGroup {
@@ -82,9 +83,14 @@ function tintFor(seed: string): string {
   return TINTS[Math.abs(hash) % TINTS.length];
 }
 
-export default function RespondedListView({ items }: Props) {
+export default function RespondedListView({ items, initialOpenId = null }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
   const groups = groupByDay(items);
+
+  useEffect(() => {
+    if (!initialOpenId || !items.some((item) => item.id === initialOpenId)) return;
+    setOpenId(initialOpenId);
+  }, [initialOpenId, items]);
 
   return (
     <div className="space-y-6">
@@ -104,7 +110,11 @@ export default function RespondedListView({ items }: Props) {
                 const heading = rowHeading(item);
                 const tint = tintFor(heading);
                 return (
-                  <li key={item.id}>
+                  <li
+                    key={item.id}
+                    id={`recipient-${item.id}`}
+                    className={item.id === initialOpenId ? 'ring-2 ring-inset ring-[#0a0a0a]' : ''}
+                  >
                     <button
                       type="button"
                       onClick={() => setOpenId(isOpen ? null : item.id)}
