@@ -344,6 +344,7 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
   const hoursLabel = asString(content.hours_label).trim();
   const capacityLabel = asString(content.capacity_label).trim();
   const parsedCommitment = commitmentParts(hoursLabel);
+  const hasCommitmentTotals = Boolean(parsedCommitment.weekly || parsedCommitment.monthly);
 
   // Prefer deliverables_label (SquadHub maps requirement_note here). Fall back
   // to requirement_note if a consumer sent it only under that key.
@@ -498,7 +499,7 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
             <div className="mt-2 grid grid-cols-1 gap-3">
               {/* Hours sub-card — hidden for assignments (no hourly-commitment concept) */}
               {!isAssignment && (
-              <div className={`tint-blue border border-[#DDEAF8] ${polishedSections ? 'rounded-2xl p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]' : 'rounded-xl p-3'}`} style={{ color: 'var(--tint-icon)' }}>
+              <div className={`tint-blue border border-[#DDEAF8] ${polishedSections ? 'rounded-2xl p-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)]' : 'rounded-xl p-3'}`} style={{ color: 'var(--tint-icon)' }}>
                 <p className="flex items-center gap-1.5 font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-wider opacity-70">
                   <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 items-center justify-center">{IconClock}</span>
                   {polishedSections ? 'Work commitment' : 'Hours'}
@@ -507,29 +508,33 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
                   <>
                     {hoursLabel && (
                       polishedSections ? (
-                        <div className="mt-3 flex flex-col gap-2">
-                          <div className="rounded-xl bg-white/80 px-4 py-3 ring-1 ring-black/[0.04]">
-                            <p className="font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-[0.12em] text-[#8A8A8F]">
+                        <div className={`mt-1.5 grid overflow-hidden rounded-lg bg-white/70 ring-1 ring-black/[0.04] ${hasCommitmentTotals ? 'grid-cols-[1.08fr_0.92fr]' : 'grid-cols-1'}`}>
+                          <div className={`flex flex-col justify-center px-3 py-2 ${hasCommitmentTotals ? 'border-r border-black/[0.06]' : ''}`}>
+                            <p className="font-[family-name:var(--font-inter)] text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8A8A8F]">
                               Daily commitment
                             </p>
-                            <p className="mt-1 font-[family-name:var(--font-jakarta)] text-[22px] font-semibold leading-tight text-[#242426]">
+                            <p className="mt-0.5 font-[family-name:var(--font-jakarta)] text-lg font-semibold leading-tight text-[#242426]">
                               {parsedCommitment.daily || parsedCommitment.other[0] || hoursLabel}
                             </p>
                           </div>
-                          {parsedCommitment.weekly && (
-                            <div className="flex flex-col rounded-xl bg-white/55 px-4 py-2.5 ring-1 ring-black/[0.035]">
-                              <span className="font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-[0.12em] text-[#929297]">Weekly total</span>
-                              <span className="mt-0.5 font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#505055]">{parsedCommitment.weekly}</span>
-                            </div>
-                          )}
-                          {parsedCommitment.monthly && (
-                            <div className="flex flex-col rounded-xl bg-white/55 px-4 py-2.5 ring-1 ring-black/[0.035]">
-                              <span className="font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-[0.12em] text-[#929297]">Monthly total</span>
-                              <span className="mt-0.5 font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#505055]">{parsedCommitment.monthly}</span>
+                          {hasCommitmentTotals && (
+                            <div className="flex min-w-0 flex-col">
+                              {parsedCommitment.weekly && (
+                                <div className="flex flex-1 flex-col justify-center px-3 py-1.5">
+                                  <span className="font-[family-name:var(--font-inter)] text-[9px] font-semibold uppercase tracking-[0.12em] text-[#929297]">Weekly total</span>
+                                  <span className="font-[family-name:var(--font-jakarta)] text-[13px] font-semibold leading-tight text-[#505055]">{parsedCommitment.weekly}</span>
+                                </div>
+                              )}
+                              {parsedCommitment.monthly && (
+                                <div className={`flex flex-1 flex-col justify-center px-3 py-1.5 ${parsedCommitment.weekly ? 'border-t border-black/[0.06]' : ''}`}>
+                                  <span className="font-[family-name:var(--font-inter)] text-[9px] font-semibold uppercase tracking-[0.12em] text-[#929297]">Monthly total</span>
+                                  <span className="font-[family-name:var(--font-jakarta)] text-[13px] font-semibold leading-tight text-[#505055]">{parsedCommitment.monthly}</span>
+                                </div>
+                              )}
                             </div>
                           )}
                           {parsedCommitment.other.slice(parsedCommitment.daily ? 0 : 1).map((part) => (
-                            <p key={part} className="px-1 text-sm font-medium text-[#626267]">{part}</p>
+                            <p key={part} className="col-span-full border-t border-black/[0.06] px-3 py-1.5 text-xs font-medium text-[#626267]">{part}</p>
                           ))}
                         </div>
                       ) : (
