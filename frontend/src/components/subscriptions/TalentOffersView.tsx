@@ -247,15 +247,10 @@ function WhatsAppUpdatesToggle() {
   };
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E7E7EA] bg-white px-4 py-2.5">
-      <div className="min-w-0">
-        <h3 className="font-[family-name:var(--font-jakarta)] text-[13px] font-semibold leading-tight text-[#0a0a0a]">
-          WhatsApp updates
-        </h3>
-        <p className="mt-0.5 truncate text-[11px] leading-tight text-[#737373]">
-          Get an alert when a new opportunity arrives.
-        </p>
-      </div>
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-[#E7E7EA] bg-white px-3 py-2">
+      <h3 className="font-[family-name:var(--font-jakarta)] text-[13px] font-semibold leading-none text-[#0a0a0a]">
+        WhatsApp updates
+      </h3>
       <button
         type="button"
         role="switch"
