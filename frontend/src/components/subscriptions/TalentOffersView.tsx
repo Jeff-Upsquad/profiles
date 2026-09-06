@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import SubscriptionCardView from '@/components/subscriptions/SubscriptionCardView';
 import RespondedListView from '@/components/subscriptions/RespondedListView';
 import BiddingListView, { useBiddingCount } from '@/components/subscriptions/BiddingListView';
 import {
@@ -205,22 +204,12 @@ export default function TalentOffersView({
         </div>
       )}
 
-      {showCardQuery && !isLoading && !isError && (data?.length ?? 0) > 0 && tab === 'pending' && (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          {data!.map((item, i) => (
-            <div
-              key={item.id}
-              id={`recipient-${item.id}`}
-              className={`stagger-${Math.min(i + 1, 6)} rounded-2xl ${item.id === targetRecipientId ? 'ring-2 ring-[#0a0a0a] ring-offset-2' : ''}`}
-            >
-              <SubscriptionCardView item={item} />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {showCardQuery && !isLoading && !isError && (data?.length ?? 0) > 0 && tab !== 'pending' && (
-        <RespondedListView items={data!} initialOpenId={targetRecipientId} />
+      {showCardQuery && !isLoading && !isError && (data?.length ?? 0) > 0 && (
+        <RespondedListView
+          items={data!}
+          initialOpenId={targetRecipientId}
+          mode={tab === 'pending' ? 'pending' : tab === 'expired' ? 'expired' : 'responded'}
+        />
       )}
     </div>
   );

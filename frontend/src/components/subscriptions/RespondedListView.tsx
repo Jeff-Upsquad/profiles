@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import Badge from '@/components/ui/Badge';
-import SubscriptionCardContent from './SubscriptionCardContent';
 import { formatDate } from '@/lib/formatDate';
 import type { SubscriptionCardItem } from '@/hooks/useSubscriptionCards';
 
 interface Props {
   items: SubscriptionCardItem[];
   initialOpenId?: string | null;
+  mode?: 'pending' | 'responded' | 'expired';
 }
 
 interface DateGroup {
@@ -17,20 +17,20 @@ interface DateGroup {
   items: SubscriptionCardItem[];
 }
 
-const timeFormatter = new Intl.DateTimeFormat(undefined, {
-  hour: 'numeric',
-  minute: '2-digit',
-});
-
-function dayKey(iso: string | null): string {
-  if (!iso) return 'unknown';
-  const d = new Date(iso);
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${m}-${day}`;
+function itemDate(item: SubscriptionCardItem, mode: Props['mode']): string {
+  if (mode === 'pending') return item.card.published_at ?? '';
+  return item.responded_at ?? item.cancelled_at ?? item.card.published_at ?? '';
 }
 
-function dayLabel(iso: string | null): string {
+function dayKey(iso: string): string {
+  if (!iso) return 'unknown';
+  const d = new Date(iso);
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${month}-${day}`;
+}
+
+function dayLabel(iso: string): string {
   if (!iso) return 'Unknown date';
   const d = new Date(iso);
   const today = new Date();
@@ -41,39 +41,78 @@ function dayLabel(iso: string | null): string {
   return formatDate(d);
 }
 
-function groupByDay(items: SubscriptionCardItem[]): DateGroup[] {
+function groupByDay(items: SubscriptionCardItem[], mode: Props['mode']): DateGroup[] {
   const groups = new Map<string, DateGroup>();
   for (const item of items) {
-    // Expired rows were never responded to (responded_at/cancelled_at null), so
-    // fall back to when the card was published to keep them sensibly dated.
-    const sortKey = item.responded_at ?? item.cancelled_at ?? item.card.published_at ?? '';
-    const key = dayKey(sortKey);
-    if (!groups.has(key)) {
-      groups.set(key, { key, label: dayLabel(sortKey), items: [] });
-    }
+    const date = itemDate(item, mode);
+    const key = dayKey(date);
+    if (!groups.has(key)) groups.set(key, { key, label: dayLabel(date), items: [] });
     groups.get(key)!.items.push(item);
   }
-  for (const g of groups.values()) {
-    g.items.sort((a, b) => {
-      const at = (a.responded_at ?? a.cancelled_at ?? a.card.published_at ?? '') || '';
-      const bt = (b.responded_at ?? b.cancelled_at ?? b.card.published_at ?? '') || '';
-      return bt.localeCompare(at);
-    });
+  for (const group of groups.values()) {
+    group.items.sort((a, b) => itemDate(b, mode).localeCompare(itemDate(a, mode)));
   }
   return Array.from(groups.values()).sort((a, b) => b.key.localeCompare(a.key));
 }
 
-function rowHeading(item: SubscriptionCardItem): string {
-  const c = item.card.content;
-  const brand = typeof c.brand_name === 'string' ? c.brand_name.trim() : '';
-  return brand || 'Subscription';
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
 }
 
-function rowSubheading(item: SubscriptionCardItem): string {
-  const c = item.card.content;
-  const sub = typeof c.subscription_name === 'string' ? c.subscription_name.trim() : '';
-  const plan = typeof c.plan_name === 'string' ? c.plan_name.trim() : '';
-  return [sub, plan].filter(Boolean).join(' · ');
+function heading(item: SubscriptionCardItem): string {
+  const content = item.card.content;
+  return stringValue(content.brand_name) || stringValue(content.title) || 'Opportunity';
+}
+
+function subheading(item: SubscriptionCardItem): string {
+  const content = item.card.content;
+  return [stringValue(content.subscription_name), stringValue(content.plan_name)]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+function price(item: SubscriptionCardItem): string {
+  const content = item.card.content;
+  const label = stringValue(content.price_label);
+  if (label) return label;
+  if (typeof content.monthly_price !== 'number') return '—';
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: stringValue(content.currency) || 'INR',
+      maximumFractionDigits: 0,
+    }).format(content.monthly_price);
+  } catch {
+    return `${stringValue(content.currency) || 'INR'} ${content.monthly_price.toLocaleString()}`;
+  }
+}
+
+function commitment(item: SubscriptionCardItem): string {
+  const content = item.card.content;
+  const details = (content.assignment_details ?? {}) as Record<string, unknown>;
+  const hoursParts = stringValue(content.hours_label).split('·').map((part) => part.trim()).filter(Boolean);
+  return (
+    stringValue(content.capacity_label) ||
+    stringValue(details.work_type) ||
+    stringValue(details.scope_type) ||
+    hoursParts[0] ||
+    '—'
+  );
+}
+
+function hours(item: SubscriptionCardItem): string {
+  const value = stringValue(item.card.content.hours_label);
+  const parts = value.split('·').map((part) => part.trim()).filter(Boolean);
+  return parts.length > 1 ? parts.slice(1).join(' · ') : value || '—';
+}
+
+function StatusBadge({ item, mode }: { item: SubscriptionCardItem; mode: Props['mode'] }) {
+  if (mode === 'pending') return <Badge variant="yellow">New</Badge>;
+  if (item.status === 'accepted') return <Badge variant="green">Accepted</Badge>;
+  if (item.status === 'rejected') return <Badge variant="red">Declined</Badge>;
+  if (item.cancelled_at) return <Badge variant="gray">Cancelled</Badge>;
+  if (mode === 'expired') return <Badge variant="gray">Expired</Badge>;
+  return null;
 }
 
 const TINTS = ['tint-purple', 'tint-blue', 'tint-orange', 'tint-green', 'tint-pink', 'tint-amber'] as const;
@@ -83,14 +122,8 @@ function tintFor(seed: string): string {
   return TINTS[Math.abs(hash) % TINTS.length];
 }
 
-export default function RespondedListView({ items, initialOpenId = null }: Props) {
-  const [openId, setOpenId] = useState<string | null>(null);
-  const groups = groupByDay(items);
-
-  useEffect(() => {
-    if (!initialOpenId || !items.some((item) => item.id === initialOpenId)) return;
-    setOpenId(initialOpenId);
-  }, [initialOpenId, items]);
+export default function RespondedListView({ items, initialOpenId = null, mode = 'responded' }: Props) {
+  const groups = groupByDay(items, mode);
 
   return (
     <div className="space-y-6">
@@ -99,77 +132,54 @@ export default function RespondedListView({ items, initialOpenId = null }: Props
           <h2 className="mb-3 font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
             {group.label}
           </h2>
-          <div className="overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <ul className="divide-y divide-[#E7E7EA]">
-              {group.items.map((item) => {
-                const isOpen = openId === item.id;
-                const cancelled = item.cancelled_at != null;
-                const time = item.responded_at
-                  ? timeFormatter.format(new Date(item.responded_at))
-                  : '';
-                const heading = rowHeading(item);
-                const tint = tintFor(heading);
-                return (
-                  <li
-                    key={item.id}
-                    id={`recipient-${item.id}`}
-                    className={item.id === initialOpenId ? 'ring-2 ring-inset ring-[#0a0a0a]' : ''}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setOpenId(isOpen ? null : item.id)}
-                      className="group flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-[#F5F5F6]"
+          <div className="space-y-3">
+            {group.items.map((item) => {
+              const title = heading(item);
+              const type = item.card.card_type === 'assignment' ? 'assignment' : 'subscription';
+              return (
+                <Link
+                  key={item.id}
+                  id={`recipient-${item.id}`}
+                  href={`/talent/opportunities/${item.id}?type=${type}`}
+                  className={`block overflow-hidden rounded-2xl border bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] ${
+                    item.id === initialOpenId ? 'border-[#0a0a0a] ring-1 ring-[#0a0a0a]' : 'border-[#E7E7EA]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 px-4 py-3.5">
+                    <div
+                      className={`${tintFor(title)} flex h-10 w-10 shrink-0 items-center justify-center rounded-xl`}
+                      style={{ color: 'var(--tint-icon)' }}
                     >
-                      <div
-                        className={`${tint} flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${cancelled ? 'opacity-60' : ''}`}
-                        style={{ color: 'var(--tint-icon)' }}
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                        </svg>
-                      </div>
-                      <div className={`min-w-0 flex-1 ${cancelled ? 'opacity-60' : ''}`}>
-                        <div className="font-[family-name:var(--font-jakarta)] truncate text-[14px] font-semibold text-[#0a0a0a]">
-                          {heading}
-                        </div>
-                        <div className="mt-0.5 truncate font-[family-name:var(--font-inter)] text-xs text-[#737373]">
-                          {rowSubheading(item) || '—'}
-                        </div>
-                      </div>
-                      <div className="flex flex-shrink-0 items-center gap-2">
-                        {item.card.card_type === 'assignment' && <Badge variant="yellow">Assignment</Badge>}
-                        {item.status === 'accepted' && <Badge variant="green">Accepted</Badge>}
-                        {item.status === 'rejected' && <Badge variant="red">Declined</Badge>}
-                        {/* Expired tab: never-responded rows whose card went to
-                            someone else. Read-only, like the other terminal states. */}
-                        {item.status === 'pending' && !cancelled && <Badge variant="gray">Expired</Badge>}
-                        {cancelled && <Badge variant="gray">Cancelled</Badge>}
-                        {item.selected_at && <Badge variant="blue">Selected</Badge>}
-                        {item.passed_over_at && !item.selected_at && (
-                          <Badge variant="gray">
-                            {item.card.status === 'assigned' ? 'Closed' : 'Not selected'}
-                          </Badge>
-                        )}
-                        <span className="hidden w-16 text-right font-[family-name:var(--font-inter)] text-xs text-[#a3a3a3] sm:inline">
-                          {time}
-                        </span>
-                        <svg
-                          className={`h-4 w-4 text-[#a3a3a3] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-                          viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"
-                        >
-                          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                    </button>
-                    {isOpen && (
-                      <div className={`border-t border-[#E7E7EA] bg-[#F5F5F6] px-5 py-5 ${cancelled ? 'opacity-60' : ''}`}>
-                        <SubscriptionCardContent content={item.card.content} />
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-[family-name:var(--font-jakarta)] text-[14px] font-semibold text-[#0a0a0a]">{title}</p>
+                      <p className="mt-0.5 truncate text-xs text-[#737373]">{subheading(item) || (type === 'assignment' ? 'Assignment' : 'Subscription')}</p>
+                    </div>
+                    <StatusBadge item={item} mode={mode} />
+                    <svg className="h-4 w-4 shrink-0 text-[#a3a3a3]" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.06 10 7.23 6.29a.75.75 0 111.04-1.08l4.39 4.25a.75.75 0 010 1.08l-4.39 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <dl className="grid grid-cols-3 border-t border-[#E7E7EA] bg-[#FAFAFA]">
+                    <div className="min-w-0 px-3 py-2.5">
+                      <dt className="text-[9px] font-semibold uppercase tracking-wide text-[#a3a3a3]">Commitment</dt>
+                      <dd className="mt-0.5 truncate text-[11px] font-semibold text-[#404040]">{commitment(item)}</dd>
+                    </div>
+                    <div className="min-w-0 border-l border-[#E7E7EA] px-3 py-2.5">
+                      <dt className="text-[9px] font-semibold uppercase tracking-wide text-[#a3a3a3]">Hours</dt>
+                      <dd className="mt-0.5 truncate text-[11px] font-semibold text-[#404040]">{hours(item)}</dd>
+                    </div>
+                    <div className="min-w-0 border-l border-[#E7E7EA] px-3 py-2.5">
+                      <dt className="text-[9px] font-semibold uppercase tracking-wide text-[#a3a3a3]">Price</dt>
+                      <dd className="mt-0.5 truncate text-[11px] font-semibold text-[#1F7E36]">{price(item)}</dd>
+                    </div>
+                  </dl>
+                </Link>
+              );
+            })}
           </div>
         </section>
       ))}
