@@ -148,6 +148,29 @@ function asNumber(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : 0;
 }
 
+function commitmentParts(label: string): {
+  daily?: string;
+  weekly?: string;
+  monthly?: string;
+  other: string[];
+} {
+  const result: {
+    daily?: string;
+    weekly?: string;
+    monthly?: string;
+    other: string[];
+  } = { other: [] };
+
+  for (const part of label.split(/\s*[·•|]\s*/).map((value) => value.trim()).filter(Boolean)) {
+    if (/\/(?:day|daily)\b/i.test(part)) result.daily = part;
+    else if (/\/(?:week|weekly)\b/i.test(part)) result.weekly = part;
+    else if (/\/(?:month|monthly)\b/i.test(part)) result.monthly = part;
+    else result.other.push(part);
+  }
+
+  return result;
+}
+
 function formatItemCadence(d: Record<string, unknown>): string {
   const perDay = asNumber(d.per_day);
   const perWeek = asNumber(d.per_week);
@@ -320,6 +343,7 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
 
   const hoursLabel = asString(content.hours_label).trim();
   const capacityLabel = asString(content.capacity_label).trim();
+  const parsedCommitment = commitmentParts(hoursLabel);
 
   // Prefer deliverables_label (SquadHub maps requirement_note here). Fall back
   // to requirement_note if a consumer sent it only under that key.
@@ -482,9 +506,37 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
                 {hasHours ? (
                   <>
                     {hoursLabel && (
-                      <p className="mt-1 font-[family-name:var(--font-jakarta)] text-base font-semibold" style={{ color: 'var(--tint-text)' }}>
-                        {hoursLabel}
-                      </p>
+                      polishedSections ? (
+                        <div className="mt-3 flex flex-col gap-2">
+                          <div className="rounded-xl bg-white/80 px-4 py-3 ring-1 ring-black/[0.04]">
+                            <p className="font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-[0.12em] text-[#8A8A8F]">
+                              Daily commitment
+                            </p>
+                            <p className="mt-1 font-[family-name:var(--font-jakarta)] text-[22px] font-semibold leading-tight text-[#242426]">
+                              {parsedCommitment.daily || parsedCommitment.other[0] || hoursLabel}
+                            </p>
+                          </div>
+                          {parsedCommitment.weekly && (
+                            <div className="flex flex-col rounded-xl bg-white/55 px-4 py-2.5 ring-1 ring-black/[0.035]">
+                              <span className="font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-[0.12em] text-[#929297]">Weekly total</span>
+                              <span className="mt-0.5 font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#505055]">{parsedCommitment.weekly}</span>
+                            </div>
+                          )}
+                          {parsedCommitment.monthly && (
+                            <div className="flex flex-col rounded-xl bg-white/55 px-4 py-2.5 ring-1 ring-black/[0.035]">
+                              <span className="font-[family-name:var(--font-inter)] text-[10px] font-semibold uppercase tracking-[0.12em] text-[#929297]">Monthly total</span>
+                              <span className="mt-0.5 font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#505055]">{parsedCommitment.monthly}</span>
+                            </div>
+                          )}
+                          {parsedCommitment.other.slice(parsedCommitment.daily ? 0 : 1).map((part) => (
+                            <p key={part} className="px-1 text-sm font-medium text-[#626267]">{part}</p>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-1 font-[family-name:var(--font-jakarta)] text-base font-semibold" style={{ color: 'var(--tint-text)' }}>
+                          {hoursLabel}
+                        </p>
+                      )
                     )}
                     {capacityLabel && (
                       <p className="text-xs opacity-70">{capacityLabel}</p>
