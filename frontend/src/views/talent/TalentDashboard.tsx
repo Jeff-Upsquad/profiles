@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useMyOnboardingProgress, type OnboardingProgress } from '@/hooks/useOnboardingProgress';
 import { useModuleAccess } from '@/hooks/useTraining';
 import TalentHomeTabs, { type TalentHomeTab } from '@/components/layout/TalentHomeTabs';
-import TalentOffersView from '@/components/subscriptions/TalentOffersView';
+import TalentOffersView, { WhatsAppUpdatesToggle } from '@/components/subscriptions/TalentOffersView';
 import TalentJobsView from '@/components/jobs/talent/TalentJobsView';
 import ModuleUnlockGate from '@/components/training/ModuleUnlockGate';
 
@@ -151,6 +151,8 @@ export default function TalentDashboard() {
 
   return (
     <div className="space-y-6">
+      <WhatsAppUpdatesToggle />
+
       {showOnboardingStrip && onboardingProgress && (
         <section className="rounded-2xl border border-[#E7E7EA] bg-white px-5 py-5 sm:px-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -188,7 +190,11 @@ export default function TalentDashboard() {
       ) : tab === 'jobs' ? (
         <TalentJobsView embedded />
       ) : (
-        <TalentOffersView variant={tab === 'assignments' ? 'assignment' : 'subscription'} embedded />
+        <TalentOffersView
+          variant={tab === 'assignments' ? 'assignment' : 'subscription'}
+          embedded
+          showWhatsAppUpdates={false}
+        />
       )}
     </div>
   );

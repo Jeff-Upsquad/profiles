@@ -27,10 +27,13 @@ function isTabKey(v: string | null): v is TabKey {
 export default function TalentOffersView({
   variant = 'subscription',
   embedded = false,
+  showWhatsAppUpdates = true,
 }: {
   variant?: 'subscription' | 'assignment';
   /** Hide the page hero when rendered as a Home tab. */
   embedded?: boolean;
+  /** Dashboard renders this control above its onboarding content. */
+  showWhatsAppUpdates?: boolean;
 }) {
   const isAssignment = variant === 'assignment';
   const heading = isAssignment ? 'Assignments' : 'Subscriptions';
@@ -109,10 +112,10 @@ export default function TalentOffersView({
         </section>
       )}
 
-      <WhatsAppUpdatesToggle />
+      {showWhatsAppUpdates && <WhatsAppUpdatesToggle />}
 
       {/* V5 Tab Control — Pending → Bidding → Responded → Expired */}
-      <div className="inline-flex flex-wrap items-center gap-1 rounded-xl bg-[#F5F5F6] p-1.5 border border-[#E7E7EA]">
+      <div className="flex w-full flex-nowrap items-center gap-1 overflow-x-auto rounded-xl border border-[#E7E7EA] bg-[#F5F5F6] p-1.5">
         {TABS.map((t) => {
           const isActive = tab === t.key;
           const count =
@@ -121,7 +124,7 @@ export default function TalentOffersView({
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`font-[family-name:var(--font-inter)] inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition-all duration-200 ${
+              className={`font-[family-name:var(--font-inter)] inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition-all duration-200 ${
                 isActive
                   ? 'bg-white text-[#0a0a0a] shadow-[0_1px_3px_0_rgba(0,0,0,0.1),0_1px_2px_-1px_rgba(0,0,0,0.1)]'
                   : 'text-[#525252] hover:text-[#0a0a0a]'
@@ -223,7 +226,7 @@ export default function TalentOffersView({
   );
 }
 
-function WhatsAppUpdatesToggle() {
+export function WhatsAppUpdatesToggle() {
   const { data: me, isLoading } = useTalentMe();
   const update = useUpdateTalentMe();
 
@@ -247,10 +250,15 @@ function WhatsAppUpdatesToggle() {
   };
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-[#E7E7EA] bg-white px-3 py-2">
-      <h3 className="font-[family-name:var(--font-jakarta)] text-[13px] font-semibold leading-none text-[#0a0a0a]">
-        WhatsApp updates
-      </h3>
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E7E7EA] bg-white px-4 py-2.5">
+      <div className="min-w-0">
+        <h3 className="font-[family-name:var(--font-jakarta)] text-[13px] font-semibold leading-tight text-[#0a0a0a]">
+          WhatsApp updates
+        </h3>
+        <p className="mt-0.5 text-[11px] leading-tight text-[#737373]">
+          Get an alert when a new opportunity arrives.
+        </p>
+      </div>
       <button
         type="button"
         role="switch"
