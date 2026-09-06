@@ -174,6 +174,7 @@ function BiddingRow({
             currency={currency}
             bidLabel={!isAssignment}
             hideAmountSummary
+            hideCardResponse
           />
         </div>
       </div>

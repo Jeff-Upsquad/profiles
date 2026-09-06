@@ -23,8 +23,14 @@ import {
 
 const OPEN = ['pending_business', 'pending_talent', 'accepted'];
 
-const ACTION_LABELS: Record<string, string> = {
-  submitted: 'submitted an offer',
+/** Prefer the backend's rejection reason over a generic save error. */
+function serverError(error: unknown): string | null {
+  const data = (error as { response?: { data?: { error?: unknown; message?: unknown } } })?.response?.data;
+  const message = data?.error ?? data?.message;
+  return typeof message === 'string' && message.trim() ? message : null;
+}
+
+const ACTION_LABELS: Record<string, string> = {  submitted: 'submitted an offer',
   countered: 'sent a counter-offer',
   accepted: 'accepted the offer',
   declined: 'declined the offer',
@@ -43,12 +49,15 @@ export default function AssignmentOfferActions({
   hideAmountSummary = false,
   /** Keep detail-page actions in one compact horizontal row. */
   compactActions = false,
+  /** Hide card-level Decline/Accept (e.g. Bidding rows are already-responded cards where only offer actions are valid). */
+  hideCardResponse = false,
 }: {
   item: SubscriptionCardItem;
   currency?: string;
   bidLabel?: boolean;
   hideAmountSummary?: boolean;
   compactActions?: boolean;
+  hideCardResponse?: boolean;
 }) {
   const recipientId = item.id;
   const content = item.card.content as Record<string, unknown>;
@@ -71,7 +80,7 @@ export default function AssignmentOfferActions({
           ? content.proposed_price
           : 0;
 
-  const { data } = useAssignmentOffer(recipientId);
+  const { data, isLoading: offerLoading, isError: offerFailed, refetch: refetchOffer } = useAssignmentOffer(recipientId);
   const offer = data?.offer ?? null;
   const events = data?.events ?? [];
   const openOffer = offer && OPEN.includes(offer.status) ? offer : null;
@@ -86,6 +95,8 @@ export default function AssignmentOfferActions({
   const [showThread, setShowThread] = useState(false);
 
   const busy = respondCard.isPending || submitOffer.isPending || respondOffer.isPending;
+  const mutationError =
+    serverError(respondOffer.error) ?? serverError(submitOffer.error) ?? serverError(respondCard.error);
 
   const standingAmount =
     (typeof openOffer?.current_amount?.amount === 'number' ? openOffer.current_amount.amount : null) ??
@@ -129,7 +140,27 @@ export default function AssignmentOfferActions({
         <p className="mb-2 text-[11px] text-[#a3a3a3]">Bids left on this card: {bidsLeft}/3</p>
       )}
 
-      {/* Action row */}
+      {/* Action row — gated on the live offer snapshot so a stale/loading
+          state can never show card-level Decline/Accept for an already-open
+          (or already-responded) negotiation. */}
+      {offerLoading ? (
+        <div className="flex flex-wrap items-center justify-end gap-2" aria-label="Loading actions">
+          <span className="h-8 w-20 animate-pulse rounded-lg bg-[#f0f0f0]" />
+          <span className="h-8 w-24 animate-pulse rounded-lg bg-[#f0f0f0]" />
+          <span className="h-8 w-20 animate-pulse rounded-lg bg-[#f0f0f0]" />
+        </div>
+      ) : offerFailed ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-red-600">Offer status couldn&apos;t be loaded.</p>
+          <button
+            type="button"
+            onClick={() => refetchOffer()}
+            className="rounded-lg border border-[#E7E7EA] px-3 py-1.5 text-xs font-semibold text-[#0a0a0a]"
+          >
+            Retry
+          </button>
+        </div>
+      ) : (
       <div className={compactActions
         ? 'flex flex-nowrap items-center justify-end gap-1.5 [&>button]:min-w-0 [&>button]:flex-1 [&>button]:whitespace-nowrap [&>button]:px-2 [&>button]:text-[12px]'
         : 'flex flex-wrap items-center justify-end gap-2'}>
@@ -208,6 +239,7 @@ export default function AssignmentOfferActions({
         ) : (
           // No open offer — the initial state.
           <>
+            {!hideCardResponse && (
             <Button
               variant="ghost"
               size="sm"
@@ -217,6 +249,7 @@ export default function AssignmentOfferActions({
             >
               Decline
             </Button>
+            )}
             {pricingMode === 'priced' ? (
               <>
                 <Button
@@ -228,6 +261,7 @@ export default function AssignmentOfferActions({
                 >
                   {bidOrCounterLabel}{canBid ? ` (${bidsLeft} left)` : ''}
                 </Button>
+                {!hideCardResponse && (
                 <Button
                   size="sm"
                   disabled={busy}
@@ -236,6 +270,7 @@ export default function AssignmentOfferActions({
                 >
                   Accept
                 </Button>
+                )}
               </>
             ) : (
               <Button size="sm" disabled={busy || !canBid} onClick={() => setModal('submit')}>
@@ -245,9 +280,10 @@ export default function AssignmentOfferActions({
           </>
         )}
       </div>
+      )}
 
       {(respondCard.isError || submitOffer.isError || respondOffer.isError) && (
-        <p className="mt-2 text-xs text-red-600">Could not save. Please try again.</p>
+        <p className="mt-2 text-xs text-red-600">{mutationError ?? 'Could not save. Please try again.'}</p>
       )}
 
       {/* Activity thread */}
