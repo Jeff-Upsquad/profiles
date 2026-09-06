@@ -90,13 +90,13 @@ function price(item: SubscriptionCardItem): string {
 function commitment(item: SubscriptionCardItem): string {
   const content = item.card.content;
   const details = (content.assignment_details ?? {}) as Record<string, unknown>;
-  const subscriptionCommitment = [stringValue(content.capacity_label), stringValue(content.hours_label)]
-    .filter(Boolean)
-    .join(' · ');
+  const dailyCommitment = stringValue(content.hours_label)
+    .split('·')[0]
+    ?.trim();
   return (
     stringValue(details.work_type) ||
     stringValue(details.scope_type) ||
-    subscriptionCommitment ||
+    dailyCommitment ||
     '—'
   );
 }
