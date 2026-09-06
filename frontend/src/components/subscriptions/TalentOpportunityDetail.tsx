@@ -55,7 +55,7 @@ export default function TalentOpportunityDetail({
   const brand = text(content.brand_name) || 'Opportunity';
   const role = text(content.subscription_name);
   const plan = text(content.plan_name);
-  const identityLine = [role, plan].filter(Boolean).join(' · ');
+  const serviceType = role || (type === 'assignment' ? 'Assignment' : 'Subscription');
   const tint = tintFor(brand);
   const pending = item.status === 'pending' && !item.cancelled_at;
   const inactive = user?.is_active === false;
@@ -89,12 +89,21 @@ export default function TalentOpportunityDetail({
                 </div>
               </div>
               <h1 className="mt-1 truncate font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#0a0a0a]">{brand}</h1>
-              {identityLine && <p className="mt-1 text-sm leading-snug text-[#525252]">{identityLine}</p>}
             </div>
           </div>
+          <dl className="relative mt-4 grid grid-cols-2 overflow-hidden rounded-xl border border-white/70 bg-white/65 backdrop-blur-sm">
+            <div className="min-w-0 px-3.5 py-3">
+              <dt className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#737373]">Type</dt>
+              <dd className="mt-1 text-sm font-semibold leading-snug text-[#0a0a0a]">{serviceType}</dd>
+            </div>
+            <div className="min-w-0 border-l border-white px-3.5 py-3">
+              <dt className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#737373]">Plan name</dt>
+              <dd className="mt-1 text-sm font-semibold leading-snug text-[#0a0a0a]">{plan || '—'}</dd>
+            </div>
+          </dl>
         </header>
         <div className="bg-white p-4 sm:p-5">
-          <SubscriptionCardContent content={content} hideIdentity />
+          <SubscriptionCardContent content={content} hideIdentity detailLayout />
         </div>
       </article>
 
