@@ -629,13 +629,18 @@ export default function BasicProfileForm() {
   }, [isLoading]);
 
   // Keep the active tab visible in the horizontal scroller when the section
-  // changes (tap, Previous/Next, deep link).
+  // changes (tap, Previous/Next, deep link). Scrolls the chip strip
+  // horizontally only — scrollIntoView() would also yank the page (and any
+  // parent iframe) vertically, which fights the user's own swipe.
+  const tabStripRef = useRef<HTMLDivElement | null>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   useEffect(() => {
-    tabRefs.current[activeSection]?.scrollIntoView({
+    const strip = tabStripRef.current;
+    const el = tabRefs.current[activeSection];
+    if (!strip || !el) return;
+    strip.scrollTo({
+      left: el.offsetLeft - strip.clientWidth / 2 + el.clientWidth / 2,
       behavior: 'smooth',
-      block: 'nearest',
-      inline: 'center',
     });
   }, [activeSection]);
 
@@ -740,13 +745,14 @@ export default function BasicProfileForm() {
         </div>
       </section>
 
-      {/* ── Section tabs (horizontal, scrollable) — mobile ── */}
-      <div
-        role="tablist"
-        aria-label="Profile sections"
-        className="scrollbar-hide -mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 lg:hidden"
-      >
-        <nav className="flex min-w-max gap-1.5">
+      {/* ── Section steps (horizontal, scrollable) — mobile ── */}
+      <div className="-mx-4 px-4 sm:mx-0 sm:px-0 lg:hidden">
+        <div
+          ref={tabStripRef}
+          role="tablist"
+          aria-label="Profile sections"
+          className="flex w-full flex-nowrap items-center gap-1.5 overflow-x-auto overscroll-x-contain scroll-smooth py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           {sections.map((section, i) => {
             const isActive = activeSection === i;
             const isComplete = completion[section.id];
@@ -768,39 +774,45 @@ export default function BasicProfileForm() {
                         ? 'Optional'
                         : 'Not started'
                 }
-                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 font-[family-name:var(--font-inter)] text-[13px] font-semibold transition-all duration-200 ${
+                className={`flex shrink-0 items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 font-[family-name:var(--font-inter)] text-[12px] font-semibold whitespace-nowrap transition-all duration-200 ${
                   section.disabled
-                    ? 'cursor-not-allowed border-[#E7E7EA] bg-white text-[#a3a3a3] opacity-50'
+                    ? 'cursor-not-allowed border-[#E7E7EA] bg-[#F5F5F6] text-[#a3a3a3] opacity-70'
                     : isActive
                       ? 'border-[#0a0a0a] bg-[#0a0a0a] text-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.25)]'
                       : isComplete
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300'
-                        : 'border-[#E7E7EA] bg-white text-[#525252] hover:border-[#a3a3a3]'
+                        ? 'border-[#BBE5CD] bg-[#EFFAF3] text-[#147A44]'
+                        : 'border-[#E7E7EA] bg-white text-[#525252]'
                 }`}
               >
-                {isComplete ? (
-                  <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : (
-                  <svg
-                    className={`h-3 w-3 shrink-0 ${isActive ? 'text-red-400' : 'text-red-500'}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={3}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                )}
-                <span className="whitespace-nowrap">{section.name}</span>
+                <span
+                  className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                    section.disabled
+                      ? 'bg-[#E7E7EA] text-[#a3a3a3]'
+                      : isActive
+                        ? isComplete
+                          ? 'bg-emerald-400 text-[#0a0a0a]'
+                          : 'bg-white/25 text-white'
+                        : isComplete
+                          ? 'bg-[#147A44] text-white'
+                          : 'bg-[#EFEFEF] text-[#737373]'
+                  }`}
+                >
+                  {isComplete ? (
+                    <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    i + 1
+                  )}
+                </span>
+                {section.name}
                 {!isComplete && !isActive && section.optional && (
-                  <span className="text-[10px] font-medium text-[#a3a3a3]">Optional</span>
+                  <span className="text-[10px] font-medium opacity-60">· Optional</span>
                 )}
               </button>
             );
           })}
-        </nav>
+        </div>
       </div>
 
       <div className="lg:grid lg:grid-cols-[280px_1fr] lg:gap-6">
