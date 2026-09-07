@@ -1,16 +1,12 @@
 import { Router } from 'express';
 import * as talentController from '../controllers/talent.controller.js';
-import { authenticate } from '../middleware/auth.middleware.js';
 import { supabaseAdmin } from '../config/supabase.js';
 
 const router = Router();
 
-// ---------------------------------------------------------------------------
-// Authenticated public routes (no specific role)
-// ---------------------------------------------------------------------------
-
-router.use(authenticate);
-
+// Template catalogs are the shared source for talent job-profile creation and
+// business brief forms. They are configuration, not user data, so they stay
+// readable without a session — preview pages and future forms can load them.
 router.get('/categories', talentController.getCategories);
 router.get('/categories/:slug', talentController.getCategoryBySlug);
 

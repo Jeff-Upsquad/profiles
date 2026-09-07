@@ -40,7 +40,11 @@ api.interceptors.request.use((config) => {
 function clearAuthAndRedirect() {
   localStorage.removeItem(ACCESS_KEY);
   localStorage.removeItem(REFRESH_KEY);
-  if (typeof window !== 'undefined' && !PUBLIC_PATHS.includes(window.location.pathname)) {
+  if (
+    typeof window !== 'undefined' &&
+    !PUBLIC_PATHS.includes(window.location.pathname) &&
+    !window.location.pathname.startsWith('/preview')
+  ) {
     window.location.href = '/login';
   }
 }

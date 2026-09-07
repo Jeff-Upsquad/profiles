@@ -34,7 +34,7 @@ const roleRequirementSchema = z.object({
   // Optional skills/tools the business would like the talent to have. Forwarded
   // verbatim to squadhub. Descriptive only — never used to match talent.
   additional_requirements: z
-    .record(z.string().trim().min(1).max(40), z.array(z.string().trim().min(1).max(80)).max(40))
+    .record(z.string().trim().min(1).max(40), z.array(z.string().trim().min(1).max(80)).max(80))
     .optional(),
 }).superRefine((value, ctx) => {
   if (value.request_type !== 'business_service') return;

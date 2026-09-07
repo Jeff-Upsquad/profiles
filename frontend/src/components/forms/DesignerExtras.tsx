@@ -1,5 +1,3 @@
-import { useQuery } from '@tanstack/react-query';
-import api from '@/services/api';
 import MultiSelectSearch from '@/components/ui/MultiSelectSearch';
 import IndustryExperiencePicker, {
   type IndustryExperienceEntry,
@@ -8,6 +6,7 @@ import {
   ACCOUNTING_SOFTWARE_PRIMARY,
   ACCOUNTING_SOFTWARE_OTHER,
 } from '@/constants/lead-form-options';
+import { useCategoryTemplateGroups } from '@/hooks/useCategories';
 import type { LeveledItem } from '../../../../shared/src/types/talent';
 
 interface Grouped {
@@ -230,41 +229,20 @@ export default function DesignerExtras({
   const categoriesHelp = isDesigner
     ? 'Pick the categories and skills you specialize in and rate your proficiency (1-5) — your portfolio uploads are organized by these.'
     : 'Pick the genres you specialize in and rate your proficiency (1-5) — your portfolio uploads are organized by these.';
-  const { data: availableSkills = [] } = useQuery<SkillItem[]>({
-    queryKey: ['templateSkills', categoryId],
-    queryFn: async () => {
-      const { data } = await api.get(`/public/categories/${categoryId}/skills`);
-      return data.skills ?? data;
-    },
-  });
-
-  const { data: availableTools = [] } = useQuery<ToolItem[]>({
-    queryKey: ['templateTools', categoryId, showAccountingSoftware],
-    queryFn: async () => {
-      const { data } = await api.get(`/public/categories/${categoryId}/tools`);
-      const tools: ToolItem[] = data.tools ?? data;
-      return showAccountingSoftware
-        ? tools.filter((t) => t.group !== 'Accounting Software')
-        : tools;
-    },
-  });
-
-  const { data: availableAiTools = [] } = useQuery<SkillItem[]>({
-    queryKey: ['templateAiTools', categoryId],
-    queryFn: async () => {
-      const { data } = await api.get(`/public/categories/${categoryId}/ai-tools`);
-      return data.ai_tools ?? data;
-    },
-  });
-
-  const { data: availableCategories = [] } = useQuery<SkillItem[]>({
-    queryKey: ['templateCategories', categoryId],
-    queryFn: async () => {
-      const { data } = await api.get(`/public/categories/${categoryId}/portfolio-categories`);
-      return data.portfolio_categories ?? data;
-    },
-    enabled: Boolean(onCategoriesChange),
-  });
+  const {
+    skills: catalogSkills,
+    tools: catalogTools,
+    aiTools: catalogAiTools,
+    categories: catalogCategories,
+  } = useCategoryTemplateGroups(categoryId);
+  const availableSkills = catalogSkills as SkillItem[];
+  const availableTools = (
+    showAccountingSoftware
+      ? catalogTools.filter((t) => t.group !== 'Accounting Software')
+      : catalogTools
+  ) as ToolItem[];
+  const availableAiTools = catalogAiTools as SkillItem[];
+  const availableCategories = catalogCategories as SkillItem[];
 
   const toggleCategory = (name: string) => {
     if (!onCategoriesChange) return;

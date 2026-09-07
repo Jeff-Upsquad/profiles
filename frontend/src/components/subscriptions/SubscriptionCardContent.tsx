@@ -44,6 +44,7 @@ function asStringArray(v: unknown): string[] {
 // of group key → labels. Display labels for the common groups; unknown keys are
 // title-cased so future SquadHub groups still render sensibly.
 const AR_GROUP_LABELS: Record<string, string> = {
+  categories: 'Categories',
   skills: 'Skill sets',
   tools: 'Tools',
   software: 'Software',

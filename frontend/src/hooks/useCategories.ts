@@ -43,7 +43,7 @@ export function useCategoryWithFields(slug: string | undefined) {
   });
 }
 
-interface TemplateItem {
+export interface TemplateItem {
   id: string;
   name: string;
   group?: string | null;
@@ -51,13 +51,40 @@ interface TemplateItem {
 }
 
 /**
- * Fetches the per-category template skills/tools/AI-tools and exposes a
- * name → group lookup for each. Categories whose templates carry no group
- * value return empty maps, so callers can fall back to flat rendering.
+ * Maps a connect-brief service-type slug to the talent category slug whose
+ * template tables (categories / skill sets / tools / AI tools) back both the
+ * job-profile form and the brief form. Unknown future roles fall back to
+ * replacing underscores with hyphens (`ads_specialist` → `ads-specialist`).
+ */
+export function categorySlugForRole(roleSlug: string): string {
+  const explicit: Record<string, string> = {
+    designer: 'designer',
+    video_editor: 'video-editor',
+    designer_video_editor: 'designer-editor',
+    accountant: 'accountant',
+    ads_specialist: 'ads-specialist',
+  };
+  return explicit[roleSlug] ?? roleSlug.replace(/_/g, '-');
+}
+
+/**
+ * Fetches the per-category template categories/skills/tools/AI-tools and
+ * exposes a name → group lookup for each. Categories whose templates carry
+ * no group value return empty maps, so callers can fall back to flat rendering.
  *
- * Uses the same query keys as `DesignerExtras` so cache is shared.
+ * Shared by the talent job-profile form and the business brief form so a
+ * catalog change in admin appears in both.
  */
 export function useCategoryTemplateGroups(categoryId: string | undefined) {
+  const categoriesQ = useQuery<TemplateItem[]>({
+    queryKey: ['templateCategories', categoryId],
+    queryFn: async () => {
+      const { data } = await api.get(`/public/categories/${categoryId}/portfolio-categories`);
+      return data.portfolio_categories ?? data;
+    },
+    enabled: !!categoryId,
+  });
+
   const skillsQ = useQuery<TemplateItem[]>({
     queryKey: ['templateSkills', categoryId],
     queryFn: async () => {
@@ -85,6 +112,7 @@ export function useCategoryTemplateGroups(categoryId: string | undefined) {
     enabled: !!categoryId,
   });
 
+  const categories = categoriesQ.data ?? [];
   const skills = skillsQ.data ?? [];
   const tools = toolsQ.data ?? [];
   const aiTools = aiToolsQ.data ?? [];
@@ -107,7 +135,12 @@ export function useCategoryTemplateGroups(categoryId: string | undefined) {
   // Designer + Editor category).
   const skillGroupOrder = useMemo(() => uniq(skills.map((s) => s.group || '')), [skills]);
 
+  const isLoading =
+    !!categoryId &&
+    (categoriesQ.isLoading || skillsQ.isLoading || toolsQ.isLoading || aiToolsQ.isLoading);
+
   return {
+    categories,
     skills,
     tools,
     aiTools,
@@ -115,6 +148,25 @@ export function useCategoryTemplateGroups(categoryId: string | undefined) {
     toolGroups,
     aiToolGroups,
     skillGroupOrder,
+    isLoading,
+  };
+}
+
+/**
+ * Resolves a brief-form role slug to the matching talent category, then loads
+ * that category's template catalog. Used by the connect-brief additional-
+ * requirements picker so it stays in lockstep with job-profile creation.
+ */
+export function useRoleTemplateCatalog(roleSlug: string) {
+  const { data: allCategories = [], isLoading: categoriesLoading } = useCategories();
+  const categorySlug = categorySlugForRole(roleSlug);
+  const category = allCategories.find((c) => c.slug === categorySlug);
+  const templates = useCategoryTemplateGroups(category?.id);
+
+  return {
+    category,
+    ...templates,
+    isLoading: categoriesLoading || (!!category && templates.isLoading),
   };
 }
 

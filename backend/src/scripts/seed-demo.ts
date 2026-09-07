@@ -348,7 +348,7 @@ async function main() {
       { name: 'After Effects', group: '' },
     ],
     ['Gemini - nana banana', 'Freepik', 'Midjourney'],
-    ['Branding', 'Logo Design', 'UI Designs', 'UX Designs', 'Visual Identity Design', 'Social Media Creatives', 'Product & Print Design', 'Motion & Advanced Design'],
+    ['Branding', 'Logo Design', 'UI Designs', 'UX Designs', 'Visual Identity Design', 'Social Media Creatives', 'Product & Print Design', 'Motion & Advanced Design', 'Events', 'Wedding'],
   );
   await seedTemplate(
     videoEditorId,
