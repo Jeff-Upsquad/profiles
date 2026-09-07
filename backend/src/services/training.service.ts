@@ -775,14 +775,20 @@ export async function markLessonIncomplete(userId: string, lessonId: string) {
 
 /**
  * Resolve the set of chapter ids linked to any of the given categories — both
- * directly (training_chapter_categories) and via a course-level category link
- * (training_course_categories → chapters of non-deleted courses). Shared by
- * module-access and profile-creation gating.
+ * directly (training_chapter_categories, standalone chapters only) and via a
+ * course-level category link (training_course_categories → chapters of live
+ * courses). Shared by module-access and profile-creation gating.
+ *
+ * Inactive (`is_active = false`) and archived (`deleted_at`) courses are
+ * excluded so turning a course off does not keep its `linked_module` chapters
+ * locking modules the talent can no longer train against.
  */
 async function resolveChapterIdsForCategories(categoryIds: string[]): Promise<string[]> {
   if (categoryIds.length === 0) return [];
 
-  // Find chapters via legacy training_chapter_categories link (chapters without a course)
+  // Legacy join: chapters without a course. Course-owned chapters must come
+  // through the course path below so an inactive parent course cannot keep
+  // gating via a leftover chapter-category row.
   const { data: chapterJoinRows, error: jErr } = await supabaseAdmin
     .from('training_chapter_categories')
     .select('chapter_id')
@@ -790,12 +796,26 @@ async function resolveChapterIdsForCategories(categoryIds: string[]): Promise<st
 
   if (jErr) throw new AppError(500, `Failed to fetch chapter categories: ${jErr.message}`);
 
-  // Find chapters via course-level category link (course → chapters)
+  const legacyJoinIds = [...new Set((chapterJoinRows ?? []).map((r: any) => r.chapter_id))];
+  let standaloneChapterIds: string[] = [];
+  if (legacyJoinIds.length > 0) {
+    const { data: standalone, error: stErr } = await supabaseAdmin
+      .from('training_chapters')
+      .select('id')
+      .in('id', legacyJoinIds)
+      .is('course_id', null)
+      .eq('is_active', true);
+    if (stErr) throw new AppError(500, `Failed to fetch standalone chapters: ${stErr.message}`);
+    standaloneChapterIds = (standalone ?? []).map((c: any) => c.id);
+  }
+
+  // Course → chapters. Match Training Program visibility: live, not archived.
   const { data: courseJoinRows, error: cjErr } = await supabaseAdmin
     .from('training_course_categories')
-    .select('course_id, training_courses!inner(deleted_at)')
+    .select('course_id, training_courses!inner(deleted_at, is_active)')
     .in('category_id', categoryIds)
-    .is('training_courses.deleted_at', null);
+    .is('training_courses.deleted_at', null)
+    .eq('training_courses.is_active', true);
 
   if (cjErr) throw new AppError(500, `Failed to fetch course categories: ${cjErr.message}`);
 
@@ -810,12 +830,7 @@ async function resolveChapterIdsForCategories(categoryIds: string[]): Promise<st
     courseChapterIds = (courseChapters ?? []).map((c: any) => c.id);
   }
 
-  return [
-    ...new Set([
-      ...(chapterJoinRows ?? []).map((r: any) => r.chapter_id),
-      ...courseChapterIds,
-    ]),
-  ];
+  return [...new Set([...standaloneChapterIds, ...courseChapterIds])];
 }
 
 export async function getModuleAccess(userId: string, categoryIds: string[]) {
