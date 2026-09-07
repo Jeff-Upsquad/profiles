@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type FormEvent, type ReactNode } from 'react';
+import { useState, useEffect, useRef, useCallback, type FormEvent, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
@@ -629,11 +629,33 @@ export default function BasicProfileForm() {
   }, [isLoading]);
 
   // Keep the active tab visible in the horizontal scroller when the section
-  // changes (tap, Previous/Next, deep link). Scrolls the chip strip
-  // horizontally only — scrollIntoView() would also yank the page (and any
-  // parent iframe) vertically, which fights the user's own swipe.
+  // changes (tap, Previous/Next, deep link). We scroll the strip itself only —
+  // scrollIntoView() would also yank the page/iframe vertically.
   const tabStripRef = useRef<HTMLDivElement | null>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Track whether more steps exist off either edge so we can show scroll
+  // affordances (edge fade + arrow) — and hide them when there's nothing left.
+  const [scrollState, setScrollState] = useState({ left: false, right: false });
+  const updateScrollState = useCallback(() => {
+    const s = tabStripRef.current;
+    if (!s) return;
+    const maxLeft = s.scrollWidth - s.clientWidth;
+    setScrollState({
+      left: s.scrollLeft > 4,
+      right: s.scrollLeft < maxLeft - 4,
+    });
+  }, []);
+  useEffect(() => {
+    updateScrollState();
+    const onResize = () => updateScrollState();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [updateScrollState]);
+
+  // Keep the active tab visible in the horizontal scroller when the section
+  // changes (tap, Previous/Next, deep link). We scroll the strip itself only —
+  // scrollIntoView() would also yank the page/iframe vertically.
   useEffect(() => {
     const strip = tabStripRef.current;
     const el = tabRefs.current[activeSection];
@@ -642,7 +664,50 @@ export default function BasicProfileForm() {
       left: el.offsetLeft - strip.clientWidth / 2 + el.clientWidth / 2,
       behavior: 'smooth',
     });
-  }, [activeSection]);
+    updateScrollState();
+  }, [activeSection, updateScrollState]);
+
+  const scrollStrip = (dir: 1 | -1) => {
+    const s = tabStripRef.current;
+    if (!s) return;
+    s.scrollBy({ left: dir * Math.min(240, Math.round(s.clientWidth * 0.55)), behavior: 'smooth' });
+  };
+
+  // Drag-to-scroll fallback. Some WebView/iframe shells swallow native
+  // horizontal swipes; explicitly moving scrollLeft in JS always works, and
+  // touch-action: pan-y makes the browser leave horizontal to us.
+  const drag = useRef<{ pointerId: number; startX: number; startLeft: number; moved: boolean } | null>(null);
+  const onStripPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    drag.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startLeft: e.currentTarget.scrollLeft,
+      moved: false,
+    };
+  };
+  const onStripPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    const s = e.currentTarget;
+    if (!d || d.pointerId !== e.pointerId) return;
+    const dx = e.clientX - d.startX;
+    if (!d.moved && Math.abs(dx) > 5) d.moved = true;
+    if (d.moved) {
+      s.scrollLeft = d.startLeft - dx;
+      updateScrollState();
+    }
+  };
+  const onStripPointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (drag.current?.pointerId === e.pointerId) drag.current = null;
+  };
+  // Suppress a chip activation if the gesture turned into a drag.
+  const onStripClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (drag.current?.moved) {
+      e.preventDefault();
+      e.stopPropagation();
+      drag.current = null;
+    }
+  };
 
   // Progress counts only mandatory (enabled, non-optional) sections, so 100%
   // means every required field is done. Optional sections never block it.
@@ -746,12 +811,31 @@ export default function BasicProfileForm() {
       </section>
 
       {/* ── Section steps (horizontal, scrollable) — mobile ── */}
-      <div className="-mx-4 px-4 sm:mx-0 sm:px-0 lg:hidden">
+      <div className="relative -mx-4 px-4 sm:mx-0 sm:px-0 lg:hidden">
+        {scrollState.left && (
+          <>
+            <div className="pointer-events-none absolute inset-y-0 left-2 z-10 w-9 bg-gradient-to-r from-[#F5F5F6] to-transparent" />
+            <button
+              type="button"
+              onClick={() => scrollStrip(-1)}
+              aria-label="Scroll sections left"
+              className="absolute left-1 top-1/2 z-20 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-[#E7E7EA] bg-white text-[#3F3F46] shadow-[0_1px_3px_rgba(0,0,0,0.15)] transition-transform active:scale-90"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+            </button>
+          </>
+        )}
         <div
           ref={tabStripRef}
           role="tablist"
           aria-label="Profile sections"
-          className="flex w-full flex-nowrap items-center gap-1.5 overflow-x-auto overscroll-x-contain scroll-smooth py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          onScroll={updateScrollState}
+          onPointerDown={onStripPointerDown}
+          onPointerMove={onStripPointerMove}
+          onPointerUp={onStripPointerEnd}
+          onPointerCancel={onStripPointerEnd}
+          onClickCapture={onStripClickCapture}
+          className="flex w-full flex-nowrap items-center gap-1.5 touch-pan-y overflow-x-auto overscroll-x-contain py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {sections.map((section, i) => {
             const isActive = activeSection === i;
@@ -813,6 +897,19 @@ export default function BasicProfileForm() {
             );
           })}
         </div>
+        {scrollState.right && (
+          <>
+            <button
+              type="button"
+              onClick={() => scrollStrip(1)}
+              aria-label="Scroll sections right"
+              className="absolute right-1 top-1/2 z-20 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-[#E7E7EA] bg-white text-[#3F3F46] shadow-[0_1px_3px_rgba(0,0,0,0.15)] transition-transform active:scale-90"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+            </button>
+            <div className="pointer-events-none absolute inset-y-0 right-2 z-10 w-9 bg-gradient-to-l from-[#F5F5F6] to-transparent" />
+          </>
+        )}
       </div>
 
       <div className="lg:grid lg:grid-cols-[280px_1fr] lg:gap-6">
