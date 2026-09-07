@@ -579,7 +579,8 @@ export async function notifyCrmPipelineStageChanged(input: {
   // Map internal stage to CRM display name
   const stageDisplayNames: Record<string, string> = {
     signed_up: 'Signed Up',
-    onboarding_course: 'Onboarding Course',
+    onboarding_course: 'Onboarding Training',
+    onboarding_training: 'Onboarding Training',
     basic_profile: 'Basic Profile',
     job_profile: 'Job Profile',
     final_review: 'Final Review',
@@ -587,11 +588,14 @@ export async function notifyCrmPipelineStageChanged(input: {
     no_response: 'No Response',
   };
 
+  const { pipelineStageToLeadStatus } = await import('../lib/pipelineStageMapping.js');
+  const mappingKey = pipelineStageToLeadStatus(input.newStage) ?? input.newStage;
+
   let pipeline_stage = stageDisplayNames[input.newStage] || input.newStage;
   if (mapping?.pipelines) {
     const { resolveStageName } = await import('./crm-stage-mapping.js');
     const preferred = mapping.pipelines.creative ?? Object.values(mapping.pipelines)[0];
-    const mapped = preferred ? resolveStageName(preferred, input.newStage) : null;
+    const mapped = preferred ? resolveStageName(preferred, mappingKey) : null;
     if (mapped) pipeline_stage = mapped;
   }
 

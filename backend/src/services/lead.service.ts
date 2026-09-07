@@ -469,7 +469,15 @@ export async function updateLeadStatus(
 
   if (error) throw new AppError(500, `Failed to update lead: ${error.message}`);
 
-  const talentId = (data as any)?.linked_talent_user_id as string | null;
+  let talentId = (data as any)?.linked_talent_user_id as string | null;
+  if (!talentId) {
+    try {
+      const { findTalentUserIdByPhone } = await import('../lib/talent-pipeline-sync.js');
+      talentId = await findTalentUserIdByPhone((data as any)?.phone as string | null);
+    } catch (err) {
+      console.error('[lead] talent phone lookup failed:', err);
+    }
+  }
   if (talentId) {
     try {
       // Sync talent_users.is_active based on lead status
@@ -479,14 +487,8 @@ export async function updateLeadStatus(
         .eq('id', talentId);
 
       // Sync talent_users.pipeline_stage based on lead status
-      const { leadStatusToPipelineStage } = await import('../lib/pipelineStageMapping.js');
-      const pipelineStage = leadStatusToPipelineStage(input.status);
-      if (pipelineStage) {
-        await supabaseAdmin
-          .from('talent_users')
-          .update({ pipeline_stage: pipelineStage })
-          .eq('id', talentId);
-      }
+      const { applyLeadStatusToTalentUser } = await import('../lib/talent-pipeline-sync.js');
+      await applyLeadStatusToTalentUser(talentId, input.status);
     } catch (err) {
       console.error('[lead] failed to sync talent_users:', err);
     }

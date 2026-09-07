@@ -4,6 +4,10 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import * as leadService from '../services/lead.service.js';
 import {
+  applyLeadStatusToTalentUser,
+  findTalentUserIdByPhone,
+} from '../lib/talent-pipeline-sync.js';
+import {
   LEAD_STATUS_VALUES,
   type UpdateLeadStatusInput,
 } from '../validators/lead.validators.js';
@@ -20,12 +24,15 @@ const CRM_STAGE_TO_STATUS: Record<string, (typeof LEAD_STATUS_VALUES)[number]> =
   'shortlisted': 'shortlisted',
   'signed up': 'signed_up',
   'onboarding training': 'onboarding_training',
+  'onboarding course': 'onboarding_training',
   'basic profile': 'basic_profile',
   'job profile': 'job_profile',
   'portfolio updation': 'portfolio_updation',
   'final review': 'final_review',
   'live': 'live',
   'no response / in active': 'no_response',
+  'no response / inactive': 'no_response',
+  'no response': 'no_response',
 };
 
 function normalizeStage(label: string): string {
@@ -81,6 +88,43 @@ async function findLead(
   return null;
 }
 
+async function resolveInternalStatus(
+  formType: string | null,
+  stageName: string,
+  stageId: string | undefined,
+): Promise<{
+  internalStatus: (typeof LEAD_STATUS_VALUES)[number] | undefined;
+  validForType: ReadonlySet<string> | null;
+}> {
+  let internalStatus: (typeof LEAD_STATUS_VALUES)[number] | undefined;
+  let validForType: ReadonlySet<string> | null = null;
+  try {
+    const { getAdminSetting } = await import('../services/admin.service.js');
+    const { buildReverseLookup, validStatusesForFormType } = await import(
+      '../services/crm-stage-mapping.js'
+    );
+    // Talent-only cards (landing-page / WhatsApp signup, no lead_submission)
+    // still belong to the creative onboarding funnel.
+    const typeForLookup = formType || 'creative';
+    validForType = validStatusesForFormType(typeForLookup);
+    const mapping = await getAdminSetting<any>('crm_status_mapping');
+    const pipeline = mapping?.pipelines?.[typeForLookup];
+    const { byId, byName } = buildReverseLookup(pipeline, { prefer: validForType });
+    const hit =
+      (stageId ? byId[stageId] : undefined) ?? byName[normalizeStage(stageName)];
+    if (hit && (LEAD_STATUS_VALUES as readonly string[]).includes(hit)) {
+      internalStatus = hit as (typeof LEAD_STATUS_VALUES)[number];
+    }
+  } catch (err) {
+    console.error('[crm-webhook] snapshot reverse-lookup failed:', err);
+  }
+
+  if (!internalStatus) {
+    internalStatus = CRM_STAGE_TO_STATUS[normalizeStage(stageName)];
+  }
+  return { internalStatus, validForType };
+}
+
 export async function handleLeadStageChanged(
   req: Request,
   res: Response,
@@ -94,42 +138,11 @@ export async function handleLeadStageChanged(
     const { external_lead_id, phone, stage_name, stage_id } = parsed.data;
 
     const lead = await findLead(external_lead_id ?? null, phone ?? null);
-    if (!lead) {
-      res.json({ ok: true, skipped: 'lead_not_found' });
-      return;
-    }
-
-    // Primary path: reverse-map via the admin's crm_status_mapping snapshot for
-    // this lead's pipeline. Matching by stage id (when the CRM sends it) is
-    // rename-proof; matching by the current stage name works after a refresh.
-    let internalStatus: (typeof LEAD_STATUS_VALUES)[number] | undefined;
-    // Statuses this lead's pipeline may legitimately hold (creative has a fixed
-    // vocabulary; mixed pipelines like "sales" return null → no restriction).
-    let validForType: ReadonlySet<string> | null = null;
-    try {
-      const { getAdminSetting } = await import('../services/admin.service.js');
-      const { buildReverseLookup, validStatusesForFormType } = await import(
-        '../services/crm-stage-mapping.js'
-      );
-      validForType = validStatusesForFormType(lead.form_type);
-      const mapping = await getAdminSetting<any>('crm_status_mapping');
-      const pipeline = lead.form_type ? mapping?.pipelines?.[lead.form_type] : undefined;
-      // Pass the valid set so a non-injective mapping resolves to this pipeline's
-      // own status instead of an arbitrary object-order winner.
-      const { byId, byName } = buildReverseLookup(pipeline, { prefer: validForType });
-      const hit =
-        (stage_id ? byId[stage_id] : undefined) ?? byName[normalizeStage(stage_name)];
-      if (hit && (LEAD_STATUS_VALUES as readonly string[]).includes(hit)) {
-        internalStatus = hit as (typeof LEAD_STATUS_VALUES)[number];
-      }
-    } catch (err) {
-      console.error('[crm-webhook] snapshot reverse-lookup failed:', err);
-    }
-
-    // Fallback: global hardcoded name table (unconfigured pipeline / no snapshot).
-    if (!internalStatus) {
-      internalStatus = CRM_STAGE_TO_STATUS[normalizeStage(stage_name)];
-    }
+    const { internalStatus, validForType } = await resolveInternalStatus(
+      lead?.form_type ?? null,
+      stage_name,
+      stage_id,
+    );
 
     if (!internalStatus) {
       // Stage isn't in the synced pipeline (e.g. a custom CRM column). Ack
@@ -138,40 +151,86 @@ export async function handleLeadStageChanged(
       return;
     }
 
-    // Safety net for the duplicate-stage-id defect: never let an inbound CRM
-    // stage move a lead to a status outside its pipeline's vocabulary. This is
-    // what once translated CRM "Live" → `onboard_completed` for creative leads,
-    // silently flipping live talents inactive. Ack 200 (no CRM retry) but skip.
-    if (validForType && !validForType.has(internalStatus)) {
-      console.warn(
-        `[crm-webhook] blocked cross-pipeline status "${internalStatus}" for ` +
-          `${lead.form_type} lead ${lead.id} (CRM stage "${stage_name}")`,
-      );
-      await supabaseAdmin
-        .from('automation_events')
-        .insert({
-          event_type: 'crm_status_sync_blocked',
-          lead_id: lead.id,
-          triggered_by: 'system',
-          metadata: {
-            form_type: lead.form_type,
-            stage_name,
-            stage_id: stage_id ?? null,
-            resolved: internalStatus,
-          },
-        })
-        .then(
-          () => {},
-          () => {},
+    if (lead) {
+      // Safety net for the duplicate-stage-id defect: never let an inbound CRM
+      // stage move a lead to a status outside its pipeline's vocabulary. This is
+      // what once translated CRM "Live" → `onboard_completed` for creative leads,
+      // silently flipping live talents inactive. Ack 200 (no CRM retry) but skip.
+      if (validForType && !validForType.has(internalStatus)) {
+        console.warn(
+          `[crm-webhook] blocked cross-pipeline status "${internalStatus}" for ` +
+            `${lead.form_type} lead ${lead.id} (CRM stage "${stage_name}")`,
         );
-      res.json({ ok: true, skipped: 'cross_pipeline_status', resolved: internalStatus });
+        await supabaseAdmin
+          .from('automation_events')
+          .insert({
+            event_type: 'crm_status_sync_blocked',
+            lead_id: lead.id,
+            triggered_by: 'system',
+            metadata: {
+              form_type: lead.form_type,
+              stage_name,
+              stage_id: stage_id ?? null,
+              resolved: internalStatus,
+            },
+          })
+          .then(
+            () => {},
+            () => {},
+          );
+        res.json({ ok: true, skipped: 'cross_pipeline_status', resolved: internalStatus });
+        return;
+      }
+
+      const input: UpdateLeadStatusInput = { status: internalStatus };
+      await leadService.updateLeadStatus(lead.id, input, null, { source: 'crm_webhook' });
+      res.json({ ok: true, leadId: lead.id, status: internalStatus });
       return;
     }
 
-    const input: UpdateLeadStatusInput = { status: internalStatus };
-    await leadService.updateLeadStatus(lead.id, input, null, { source: 'crm_webhook' });
+    // No lead_submission — still sync Sign-ups if this phone has a talent account
+    // (WhatsApp CRM cards that signed up without filling the apply form).
+    const talentUserId = await findTalentUserIdByPhone(phone ?? null);
+    if (!talentUserId) {
+      res.json({ ok: true, skipped: 'lead_not_found' });
+      return;
+    }
 
-    res.json({ ok: true, leadId: lead.id, status: internalStatus });
+    const pipelineStage = await applyLeadStatusToTalentUser(talentUserId, internalStatus);
+    if (!pipelineStage) {
+      res.json({
+        ok: true,
+        skipped: 'unmapped_signup_stage',
+        status: internalStatus,
+        talentUserId,
+      });
+      return;
+    }
+
+    await supabaseAdmin
+      .from('automation_events')
+      .insert({
+        event_type: 'crm_talent_stage_sync',
+        talent_user_id: talentUserId,
+        triggered_by: 'system',
+        metadata: {
+          stage_name,
+          stage_id: stage_id ?? null,
+          status: internalStatus,
+          pipeline_stage: pipelineStage,
+        },
+      })
+      .then(
+        () => {},
+        () => {},
+      );
+
+    res.json({
+      ok: true,
+      talentUserId,
+      status: internalStatus,
+      pipeline_stage: pipelineStage,
+    });
   } catch (err) {
     next(err);
   }

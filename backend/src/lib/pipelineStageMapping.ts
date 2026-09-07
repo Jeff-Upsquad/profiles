@@ -11,6 +11,16 @@ const LEAD_STATUS_TO_PIPELINE_STAGE: Record<string, string> = {
   no_response: 'no_response',
 };
 
+const PIPELINE_STAGE_TO_LEAD_STATUS: Record<string, string> = {
+  signed_up: 'signed_up',
+  onboarding_course: 'onboarding_training',
+  basic_profile: 'basic_profile',
+  job_profile: 'job_profile',
+  final_review: 'final_review',
+  live: 'live',
+  no_response: 'no_response',
+};
+
 const VALID_PIPELINE_STAGES = new Set([
   'signed_up',
   'onboarding_course',
@@ -29,4 +39,13 @@ export function leadStatusToPipelineStage(leadStatus: string): string | null {
   const stage = LEAD_STATUS_TO_PIPELINE_STAGE[leadStatus];
   if (stage && VALID_PIPELINE_STAGES.has(stage)) return stage;
   return null;
+}
+
+/**
+ * Inverse of leadStatusToPipelineStage, for Sign-ups → CRM.
+ * `onboarding_course` is a Sign-ups-only key; CRM mappings are keyed by
+ * `onboarding_training`.
+ */
+export function pipelineStageToLeadStatus(pipelineStage: string): string | null {
+  return PIPELINE_STAGE_TO_LEAD_STATUS[pipelineStage] ?? null;
 }
