@@ -548,6 +548,7 @@ export default function BusinessHireHub({
         open={briefOpen}
         onClose={() => setBriefOpen(false)}
         product={briefProduct}
+        preview={preview}
       />
 
       {/* Job post create — placeholder until job brief form exists */}

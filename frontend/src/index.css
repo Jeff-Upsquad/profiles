@@ -12,6 +12,26 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Form control used by the public workflow previews. */
+.preview-input {
+  width: 100%;
+  border: 1px solid #E7E7EA;
+  border-radius: 0.75rem;
+  background: #FFFFFF;
+  padding: 0.7rem 0.875rem;
+  color: #0a0a0a;
+  font-family: var(--font-jakarta), 'Helvetica Neue', system-ui, sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.preview-input:focus {
+  border-color: #0a0a0a;
+  box-shadow: 0 0 0 3px rgba(255, 255, 153, 0.8);
+}
+
 @source "../src/**/*.{js,ts,jsx,tsx,mdx}";
 
 @theme {

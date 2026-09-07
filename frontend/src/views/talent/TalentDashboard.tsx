@@ -171,7 +171,7 @@ export default function TalentDashboard() {
         </section>
       )}
 
-      <div className="sticky top-[56px] z-20 -mx-4 bg-[#F5F5F6]/95 px-4 py-2 backdrop-blur-sm md:static md:mx-0 md:bg-transparent md:px-0 md:py-0">
+      <div className="-mx-4 bg-transparent px-4 py-2 md:mx-0 md:px-0 md:py-0">
         <TalentHomeTabs active={tab} onChange={handleTab} />
       </div>
 

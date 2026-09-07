@@ -10,6 +10,7 @@ const SERVICE_TYPE = z.enum([
   'video_editor',
   'designer_video_editor',
   'accountant',
+  'ads_specialist',
 ]);
 
 const roleRequirementSchema = z.object({
@@ -21,6 +22,7 @@ const roleRequirementSchema = z.object({
   plan: z.string().trim().max(50).optional(),
   tier_budgets: z.record(z.string(), z.number().int().nonnegative()).optional(),
   budget: z.number().int().nonnegative().optional(),
+  currency: z.enum(['INR', 'USD', 'EUR', 'GBP', 'AED', 'AUD', 'CAD', 'SGD']).optional(),
   duration: z.string().trim().max(200).optional(),
   start_date: z.string().trim().max(40).optional(),
   deadline: z.string().trim().max(40).optional(),

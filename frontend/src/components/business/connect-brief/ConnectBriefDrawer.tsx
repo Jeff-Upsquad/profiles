@@ -4,14 +4,15 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import DesignerBriefForm from './DesignerBriefForm';
 import AccountantBriefForm from './AccountantBriefForm';
+import AdsSpecialistBriefForm from './AdsSpecialistBriefForm';
 
 type Product = 'subscription' | 'assignment';
-type CategoryId = 'designer_editor' | 'accountant';
+export type ConnectBriefCategoryId = 'designer_editor' | 'accountant' | 'ads_specialist';
 
 // Extensible category list. Add an entry (+ a matching form branch below) to
 // offer a new service vertical. Field-level drafts are auto-saved per category.
 const CATEGORIES: {
-  id: CategoryId;
+  id: ConnectBriefCategoryId;
   label: string;
   description: string;
   iconPath: string;
@@ -30,27 +31,38 @@ const CATEGORIES: {
     iconPath:
       'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z',
   },
+  {
+    id: 'ads_specialist',
+    label: 'Ads Specialist',
+    description: 'Paid acquisition, campaign optimisation, tracking and reporting.',
+    iconPath:
+      'M11 5L5 9H3v6h2l6 4V5zm0 4c4.5 0 7-2 9-4v14c-2-2-4.5-4-9-4M5 15l1.5 5h3L8 16',
+  },
 ];
 
 export default function ConnectBriefDrawer({
   open,
   onClose,
   product,
+  initialCategory,
+  preview = false,
 }: {
   open: boolean;
   onClose: () => void;
   product: Product;
+  initialCategory?: ConnectBriefCategoryId;
+  preview?: boolean;
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const [category, setCategory] = useState<CategoryId | null>(null);
+  const [category, setCategory] = useState<ConnectBriefCategoryId | null>(initialCategory ?? null);
 
   // Reset to the category picker each time the drawer is opened. Field data is
   // still restored from the auto-saved draft once a category is re-picked.
   useEffect(() => {
-    if (open) setCategory(null);
-  }, [open]);
+    if (open) setCategory(initialCategory ?? null);
+  }, [initialCategory, open]);
 
   // Escape to close + lock body scroll while open.
   useEffect(() => {
@@ -151,8 +163,10 @@ export default function ConnectBriefDrawer({
             </div>
           ) : category === 'designer_editor' ? (
             <DesignerBriefForm product={product} />
-          ) : (
+          ) : category === 'accountant' ? (
             <AccountantBriefForm product={product} />
+          ) : (
+            <AdsSpecialistBriefForm product={product} preview={preview} />
           )}
         </div>
       </div>
