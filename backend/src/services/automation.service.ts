@@ -320,23 +320,23 @@ export async function onCandidateSignedUp(
 // ---------------------------------------------------------------------------
 
 // Ordered pipeline stages per form_type — a mirror of
-// admin/src/constants/leadStages.ts (CREATIVE_STAGES / DEFAULT_STAGES). Keep the
-// two in sync. Used to (a) skip a step whose target stage isn't in a pipeline
-// and (b) rank stages so we only ever advance forward.
+// admin/src/constants/leadStages.ts (CREATIVE_STAGES / ACCOUNTANT_STAGES /
+// DEFAULT_STAGES). Keep in sync. Used to (a) skip a step whose target stage
+// isn't in a pipeline and (b) rank stages so we only ever advance forward.
 const CREATIVE_STAGE_ORDER = [
   'new', 'share_form', 'form_filled', 'shortlisted', 'signed_up',
   'onboarding_training', 'basic_profile', 'job_profile', 'portfolio_updation',
   'final_review', 'live', 'no_response',
 ];
+const ACCOUNTANT_STAGE_ORDER = CREATIVE_STAGE_ORDER.filter((s) => s !== 'portfolio_updation');
 const DEFAULT_STAGE_ORDER = [
   'new', 'under_review', 'shortlisted', 'partner_onboarding', 'onboard_completed', 'archived',
 ];
 
-function orderedStagesForFormType(formType: string | null | undefined): string[] {
-  // creative + sales share the talent-funnel stage order (see leadStages.ts).
-  return formType === 'creative' || formType === 'sales'
-    ? CREATIVE_STAGE_ORDER
-    : DEFAULT_STAGE_ORDER;
+export function orderedStagesForFormType(formType: string | null | undefined): string[] {
+  if (formType === 'creative' || formType === 'sales') return CREATIVE_STAGE_ORDER;
+  if (formType === 'accountant') return ACCOUNTANT_STAGE_ORDER;
+  return DEFAULT_STAGE_ORDER;
 }
 
 // Onboarding-progress key → target pipeline stage, in ascending order.
@@ -376,11 +376,10 @@ export async function syncOnboardingStage(talentUserId: string) {
     .is('deleted_at', null)
     .neq('status', 'archived');
 
-  if (!leads || leads.length === 0) return;
-
   const { updateLeadStatus } = await import('./lead.service.js');
+  let advancedAny = false;
 
-  for (const lead of leads as Array<{ id: string; status: string; form_type: string | null }>) {
+  for (const lead of (leads ?? []) as Array<{ id: string; status: string; form_type: string | null }>) {
     const stages = orderedStagesForFormType(lead.form_type);
     const targetRank = stages.indexOf(target);
     if (targetRank === -1) continue; // target stage not part of this pipeline
@@ -391,6 +390,7 @@ export async function syncOnboardingStage(talentUserId: string) {
 
     try {
       await updateLeadStatus(lead.id, { status: target } as any, null);
+      advancedAny = true;
       await logEvent({
         event_type: 'lead_stage_auto_advanced',
         lead_id: lead.id,
@@ -401,6 +401,31 @@ export async function syncOnboardingStage(talentUserId: string) {
     } catch (err) {
       console.error('[automation] syncOnboardingStage advance failed:', err);
     }
+  }
+
+  // No linked candidate card (or none in this funnel) — still move Sign-ups
+  // and the CRM WhatsApp card from talent progress.
+  if (advancedAny) return;
+  try {
+    const { applyLeadStatusToTalentUser } = await import('../lib/talent-pipeline-sync.js');
+    const { data: talent } = await supabaseAdmin
+      .from('talent_users')
+      .select('full_name, phone, pipeline_stage')
+      .eq('id', talentUserId)
+      .maybeSingle();
+    const pipelineStage = await applyLeadStatusToTalentUser(talentUserId, target);
+    if (!pipelineStage || pipelineStage === (talent?.pipeline_stage ?? 'signed_up')) return;
+
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(talentUserId);
+    await notifyCrmPipelineStageChanged({
+      talentUserId,
+      name: talent?.full_name ?? '',
+      email: authUser?.user?.email ?? null,
+      phone: talent?.phone ?? null,
+      newStage: pipelineStage,
+    });
+  } catch (err) {
+    console.error('[automation] syncOnboardingStage talent/CRM sync failed:', err);
   }
 }
 
@@ -518,11 +543,23 @@ export async function notifyCrmTalentSignedUp(input: {
   if (!webhookUrl) return;
 
   let pipeline_stage = 'Signed Up';
+  let pipeline_name: string | undefined;
   if (mapping?.pipelines) {
     const { resolveStageName } = await import('./crm-stage-mapping.js');
-    const preferred = mapping.pipelines.creative ?? Object.values(mapping.pipelines)[0];
+    const { formTypesForTalent } = await import('../lib/signup-category.js');
+    let formTypes: string[] = [];
+    if (input.talentUserId) {
+      try {
+        formTypes = await formTypesForTalent(input.talentUserId);
+      } catch {}
+    }
+    const preferredKey =
+      formTypes.find((ft) => mapping.pipelines[ft]) ??
+      (mapping.pipelines.creative ? 'creative' : Object.keys(mapping.pipelines)[0]);
+    const preferred = preferredKey ? mapping.pipelines[preferredKey] : undefined;
     const mapped = preferred ? resolveStageName(preferred, 'signed_up') : null;
     if (mapped) pipeline_stage = mapped;
+    if (preferred?.pipeline_name) pipeline_name = preferred.pipeline_name;
   }
 
   const result = await sendCrmWebhook(webhookUrl, {
@@ -533,6 +570,7 @@ export async function notifyCrmTalentSignedUp(input: {
       email,
       phone,
     },
+    ...(pipeline_name ? { pipeline_name } : {}),
     pipeline_stage,
     timestamp: new Date().toISOString(),
   });
@@ -558,6 +596,7 @@ export async function notifyCrmPipelineStageChanged(input: {
   email: string | null;
   phone: string | null;
   newStage: string;
+  formType?: string | null;
 }): Promise<void> {
   const phone = input.phone?.trim() || '';
   const email = input.email?.trim().toLowerCase() || '';
@@ -592,11 +631,24 @@ export async function notifyCrmPipelineStageChanged(input: {
   const mappingKey = pipelineStageToLeadStatus(input.newStage) ?? input.newStage;
 
   let pipeline_stage = stageDisplayNames[input.newStage] || input.newStage;
+  let pipeline_name: string | undefined;
   if (mapping?.pipelines) {
     const { resolveStageName } = await import('./crm-stage-mapping.js');
-    const preferred = mapping.pipelines.creative ?? Object.values(mapping.pipelines)[0];
+    let formType = input.formType ?? null;
+    if (!formType) {
+      try {
+        const { formTypesForTalent } = await import('../lib/signup-category.js');
+        const types = await formTypesForTalent(input.talentUserId);
+        formType = types.find((ft) => mapping.pipelines[ft]) ?? types[0] ?? null;
+      } catch {}
+    }
+    const preferred =
+      (formType ? mapping.pipelines[formType] : undefined) ??
+      mapping.pipelines.creative ??
+      Object.values(mapping.pipelines)[0];
     const mapped = preferred ? resolveStageName(preferred, mappingKey) : null;
     if (mapped) pipeline_stage = mapped;
+    if (preferred?.pipeline_name) pipeline_name = preferred.pipeline_name;
   }
 
   const result = await sendCrmWebhook(webhookUrl, {
@@ -607,6 +659,7 @@ export async function notifyCrmPipelineStageChanged(input: {
       email,
       phone,
     },
+    ...(pipeline_name ? { pipeline_name } : {}),
     pipeline_stage,
     timestamp: new Date().toISOString(),
   });

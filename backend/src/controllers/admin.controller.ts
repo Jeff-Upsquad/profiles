@@ -216,9 +216,10 @@ export async function bulkApproveProfiles(req: Request, res: Response, next: Nex
 // User Approvals
 // ---------------------------------------------------------------------------
 
-export async function getSignupStats(_req: Request, res: Response, next: NextFunction) {
+export async function getSignupStats(req: Request, res: Response, next: NextFunction) {
   try {
-    res.json(await adminService.getSignupStats());
+    const category = typeof req.query.category === 'string' ? req.query.category : undefined;
+    res.json(await adminService.getSignupStats(category));
   } catch (err) {
     next(err);
   }
@@ -228,7 +229,12 @@ export async function getPendingApprovals(req: Request, res: Response, next: Nex
   try {
     const q = req.query;
     const hasListParams =
-      q.page != null || q.search != null || q.approval_status != null || q.pipeline_stage != null || q.limit != null;
+      q.page != null ||
+      q.search != null ||
+      q.approval_status != null ||
+      q.pipeline_stage != null ||
+      q.category != null ||
+      q.limit != null;
     if (!hasListParams) {
       const result = await adminService.getPendingApprovals();
       return res.json({ users: result });
@@ -237,6 +243,7 @@ export async function getPendingApprovals(req: Request, res: Response, next: Nex
       search: typeof q.search === 'string' ? q.search : undefined,
       approval_status: typeof q.approval_status === 'string' ? q.approval_status : undefined,
       pipeline_stage: typeof q.pipeline_stage === 'string' ? q.pipeline_stage : undefined,
+      category: typeof q.category === 'string' ? q.category : undefined,
       page: q.page ? Number(q.page) : 1,
       limit: q.limit ? Number(q.limit) : 20,
     });
@@ -282,9 +289,10 @@ export async function bulkApproveUsers(req: Request, res: Response, next: NextFu
 // Pipeline Stage Management
 // ---------------------------------------------------------------------------
 
-export async function getPipelineStageStats(_req: Request, res: Response, next: NextFunction) {
+export async function getPipelineStageStats(req: Request, res: Response, next: NextFunction) {
   try {
-    res.json(await adminService.getPipelineStageStats());
+    const category = typeof req.query.category === 'string' ? req.query.category : undefined;
+    res.json(await adminService.getPipelineStageStats(category));
   } catch (err) {
     next(err);
   }

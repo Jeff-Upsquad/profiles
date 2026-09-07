@@ -23,6 +23,7 @@ interface SignupRow {
   blacklisted?: boolean;
   created_at: string;
   rejection_reason?: string | null;
+  categories?: string[];
 }
 
 interface Stats {
@@ -48,6 +49,20 @@ const PIPELINE_STAGES: { value: PipelineStage; label: string; color: string; bgC
   { value: 'live', label: 'Live', color: 'text-emerald-700', bgColor: 'bg-emerald-50 border-emerald-200' },
   { value: 'no_response', label: 'No response / inactive', color: 'text-gray-600', bgColor: 'bg-gray-50 border-gray-200' },
 ];
+
+type SignupCategory = 'all' | 'creative' | 'accountant';
+
+const CATEGORY_TABS: { value: SignupCategory; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'creative', label: 'Designer / Editor' },
+  { value: 'accountant', label: 'Accountant' },
+];
+
+const CATEGORY_BADGE: Record<string, { label: string; cls: string }> = {
+  creative: { label: 'Designer / Editor', cls: 'bg-indigo-50 text-indigo-700 border border-indigo-200' },
+  accountant: { label: 'Accountant', cls: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
+  sales: { label: 'Sales', cls: 'bg-sky-50 text-sky-700 border border-sky-200' },
+};
 
 const PIPELINE_STAGE_COLORS: Record<string, string> = {
   signed_up: 'bg-purple-100 text-purple-700 border border-purple-200',
@@ -76,6 +91,7 @@ export default function UserApprovals() {
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [pipelineStage, setPipelineStage] = useState<PipelineStage>('all');
+  const [category, setCategory] = useState<SignupCategory>('all');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -88,14 +104,20 @@ export default function UserApprovals() {
   }, [search]);
 
   const { data: stats } = useQuery<Stats>({
-    queryKey: ['signup-stats'],
-    queryFn: async () => (await api.get('/admin/user-approvals/stats')).data,
+    queryKey: ['signup-stats', category],
+    queryFn: async () =>
+      (await api.get('/admin/user-approvals/stats', { params: { category } })).data,
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['signups', debounced, pipelineStage, page],
+    queryKey: ['signups', debounced, pipelineStage, category, page],
     queryFn: async () => {
-      const params: Record<string, string | number> = { page, limit: 20, pipeline_stage: pipelineStage };
+      const params: Record<string, string | number> = {
+        page,
+        limit: 20,
+        pipeline_stage: pipelineStage,
+        category,
+      };
       if (debounced) params.search = debounced;
       const { data } = await api.get('/admin/user-approvals', { params });
       return data as { users: SignupRow[]; total: number; total_pages: number; page: number };
@@ -224,6 +246,26 @@ export default function UserApprovals() {
           <p className="mt-1 text-sm text-gray-500">
             Track talent through the onboarding pipeline. Stages sync with Squad Hire CRM.
           </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {CATEGORY_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => {
+                  setCategory(tab.value);
+                  setPage(1);
+                  setSelected(new Set());
+                }}
+                className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+                  category === tab.value
+                    ? 'bg-gray-900 text-white'
+                    : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {selected.size > 0 && (
@@ -441,9 +483,23 @@ export default function UserApprovals() {
                         onClick={() => router.push(`/users/${u.id}`)}
                       >
                         <div className="text-sm font-medium text-gray-900">{u.full_name}</div>
-                        {u.current_location && (
-                          <div className="text-xs text-gray-400">{u.current_location}</div>
-                        )}
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                          {u.current_location && (
+                            <span className="text-xs text-gray-400">{u.current_location}</span>
+                          )}
+                          {(u.categories ?? []).map((c) => {
+                            const badge = CATEGORY_BADGE[c];
+                            if (!badge) return null;
+                            return (
+                              <span
+                                key={c}
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.cls}`}
+                              >
+                                {badge.label}
+                              </span>
+                            );
+                          })}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="max-w-[220px] truncate text-sm text-gray-700">{u.email || '—'}</div>

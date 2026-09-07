@@ -46,6 +46,8 @@ const CREATIVE_STAGES: StageDef[] = [
   { value: 'no_response', label: 'No Response / In Active', color: 'bg-gray-50 text-gray-700 border-gray-200' },
 ];
 
+const ACCOUNTANT_STAGES: StageDef[] = CREATIVE_STAGES.filter((s) => s.value !== 'portfolio_updation');
+
 const DEFAULT_STAGES: StageDef[] = [
   { value: 'new', label: 'New', color: 'bg-blue-50 text-blue-700 border-blue-200' },
   { value: 'under_review', label: 'Under Review', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
@@ -74,7 +76,12 @@ export default function StageTabs({ leadId, leadName, currentStage, formType }: 
   const [archiveOpen, setArchiveOpen] = useState(false);
   const { labelFor } = useStageLabels();
 
-  const stages = formType === 'creative' ? CREATIVE_STAGES : DEFAULT_STAGES;
+  const stages =
+    formType === 'creative' || formType === 'sales'
+      ? CREATIVE_STAGES
+      : formType === 'accountant'
+        ? ACCOUNTANT_STAGES
+        : DEFAULT_STAGES;
 
   const updateStage = useMutation({
     mutationFn: async (payload: {

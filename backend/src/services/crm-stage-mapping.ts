@@ -48,18 +48,21 @@ export const CREATIVE_STATUSES: readonly string[] = [
   'final_review', 'live', 'no_response',
 ];
 
+export const ACCOUNTANT_STATUSES: readonly string[] = CREATIVE_STATUSES.filter(
+  (s) => s !== 'portfolio_updation',
+);
+
 /**
  * The statuses a given form_type's leads may legitimately hold, when that
  * vocabulary is well-defined. Returns null for pipelines with a mixed /
- * unconstrained vocabulary (e.g. "sales"), signalling callers not to restrict.
+ * unconstrained vocabulary, signalling callers not to restrict.
  */
 export function validStatusesForFormType(
   formType: string | null | undefined,
 ): ReadonlySet<string> | null {
-  // creative + sales are talent-onboarding funnels sharing this vocabulary.
-  return formType === 'creative' || formType === 'sales'
-    ? new Set(CREATIVE_STATUSES)
-    : null;
+  if (formType === 'creative' || formType === 'sales') return new Set(CREATIVE_STATUSES);
+  if (formType === 'accountant') return new Set(ACCOUNTANT_STATUSES);
+  return null;
 }
 
 /**

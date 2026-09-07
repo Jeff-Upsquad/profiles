@@ -468,6 +468,7 @@ export interface SignupListFilters {
   search?: string;
   approval_status?: string;
   pipeline_stage?: string;
+  category?: string;
   page?: number;
   limit?: number;
 }
@@ -477,14 +478,36 @@ function isMissingColumn(err: unknown) {
   return m.includes('column') && m.includes('does not exist');
 }
 
-export async function getSignupStats() {
+export async function getSignupStats(category?: string) {
+  const { parseSignupCategory, talentIdsForSignupCategory } = await import(
+    '../lib/signup-category.js'
+  );
+  const cat = parseSignupCategory(category);
+  const categoryIds = await talentIdsForSignupCategory(cat);
+  if (categoryIds && categoryIds.length === 0) {
+    return {
+      total: 0,
+      by_status: {},
+      by_pipeline_stage: {},
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      active: 0,
+      suspended: 0,
+    };
+  }
+
   let data: { approval_status?: string; is_active?: boolean; suspended?: boolean; pipeline_stage?: string }[] | null = null;
   let error: { message?: string } | null = null;
-  ({ data, error } = await supabaseAdmin
+  let qb = supabaseAdmin
     .from('talent_users')
-    .select('approval_status, is_active, suspended, pipeline_stage'));
+    .select('approval_status, is_active, suspended, pipeline_stage');
+  if (categoryIds) qb = qb.in('id', categoryIds);
+  ({ data, error } = await qb);
   if (error && isMissingColumn(error)) {
-    ({ data, error } = await supabaseAdmin.from('talent_users').select('approval_status, is_active, pipeline_stage'));
+    let qb2 = supabaseAdmin.from('talent_users').select('approval_status, is_active, pipeline_stage');
+    if (categoryIds) qb2 = qb2.in('id', categoryIds);
+    ({ data, error } = await qb2);
   }
   if (error) throw new AppError(500, error.message ?? 'Failed to load signup stats');
 
@@ -532,6 +555,15 @@ export async function listSignups(filters: SignupListFilters) {
   const pipelineStage = (filters.pipeline_stage ?? '').trim().toLowerCase();
   if (pipelineStage && pipelineStage !== 'all') qb = qb.eq('pipeline_stage', pipelineStage);
 
+  const { parseSignupCategory, talentIdsForSignupCategory, signupCategoriesByTalentIds } =
+    await import('../lib/signup-category.js');
+  const cat = parseSignupCategory(filters.category);
+  const categoryIds = await talentIdsForSignupCategory(cat);
+  if (categoryIds && categoryIds.length === 0) {
+    return { users: [], total: 0, page, limit, total_pages: 0 };
+  }
+  if (categoryIds) qb = qb.in('id', categoryIds);
+
   const search = filters.search?.trim();
   if (search) {
     const like = `%${search.replace(/[%_,]/g, (c) => `\\${c}`)}%`;
@@ -563,9 +595,11 @@ export async function listSignups(filters: SignupListFilters) {
     }
   }
 
+  const catMap = await signupCategoriesByTalentIds(ids);
   const users = rows.map((u: Record<string, unknown>) => ({
     ...u,
     email: emailMap.get(u.id as string) ?? null,
+    categories: catMap.get(u.id as string) ?? [],
   }));
 
   return {
@@ -693,27 +727,64 @@ export async function updatePipelineStage(userId: string, stage: string) {
   const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
   const email = authUser?.user?.email ?? null;
 
-  // Notify CRM of pipeline stage change
+  // Push the matching candidate lead(s) so Candidates + CRM stay in lockstep.
+  // updateLeadStatus already fires the mapped CRM webhook per form_type.
+  let advancedLead = false;
   try {
-    const { notifyCrmPipelineStageChanged } = await import('./automation.service.js');
-    await notifyCrmPipelineStageChanged({
-      talentUserId: userId,
-      name: userData?.full_name ?? '',
-      email,
-      phone: userData?.phone ?? null,
-      newStage: stage,
-    });
+    const { pipelineStageToLeadStatus } = await import('../lib/pipelineStageMapping.js');
+    const { orderedStagesForFormType, notifyCrmPipelineStageChanged } = await import(
+      './automation.service.js'
+    );
+    const leadStatus = pipelineStageToLeadStatus(stage);
+    if (leadStatus) {
+      const { data: leads } = await supabaseAdmin
+        .from('lead_submissions')
+        .select('id, form_type, status')
+        .eq('linked_talent_user_id', userId)
+        .is('deleted_at', null)
+        .neq('status', 'archived');
+      const { updateLeadStatus } = await import('./lead.service.js');
+      for (const lead of (leads ?? []) as Array<{ id: string; form_type: string | null; status: string }>) {
+        const stages = orderedStagesForFormType(lead.form_type);
+        if (!stages.includes(leadStatus)) continue;
+        if (lead.status === leadStatus) {
+          advancedLead = true;
+          continue;
+        }
+        await updateLeadStatus(lead.id, { status: leadStatus } as any, null);
+        advancedLead = true;
+      }
+    }
+
+    if (!advancedLead) {
+      await notifyCrmPipelineStageChanged({
+        talentUserId: userId,
+        name: userData?.full_name ?? '',
+        email,
+        phone: userData?.phone ?? null,
+        newStage: stage,
+      });
+    }
   } catch (err) {
-    console.error('[pipeline-stage] CRM sync failed:', err);
+    console.error('[pipeline-stage] CRM/lead sync failed:', err);
   }
 
   return data;
 }
 
-export async function getPipelineStageStats() {
-  const { data, error } = await supabaseAdmin
-    .from('talent_users')
-    .select('pipeline_stage');
+export async function getPipelineStageStats(category?: string) {
+  const { parseSignupCategory, talentIdsForSignupCategory } = await import(
+    '../lib/signup-category.js'
+  );
+  const cat = parseSignupCategory(category);
+  const categoryIds = await talentIdsForSignupCategory(cat);
+  if (categoryIds && categoryIds.length === 0) {
+    return { total: 0, by_stage: {} };
+  }
+
+  let qb = supabaseAdmin.from('talent_users').select('pipeline_stage');
+  if (categoryIds) qb = qb.in('id', categoryIds);
+  const { data, error } = await qb;
 
   if (error) throw new AppError(500, error.message);
 

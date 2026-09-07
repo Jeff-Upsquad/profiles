@@ -43,6 +43,12 @@ export const CREATIVE_STAGES: StageDef[] = [
   { value: 'no_response', label: 'No Response / In Active', color: 'bg-gray-50 text-gray-700 border-gray-200' },
 ];
 
+// Accountants share the talent-onboarding funnel with creatives, minus
+// portfolio (they don't submit a design/editor portfolio).
+export const ACCOUNTANT_STAGES: StageDef[] = CREATIVE_STAGES.filter(
+  (s) => s.value !== 'portfolio_updation',
+);
+
 export const DEFAULT_STAGES: StageDef[] = [
   { value: 'new', label: 'New', color: 'bg-blue-50 text-blue-700 border-blue-200' },
   { value: 'under_review', label: 'Under Review', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
@@ -54,7 +60,9 @@ export const DEFAULT_STAGES: StageDef[] = [
 
 // The candidate stages for a given category. Mirrors the Leads board exactly.
 // `creative` and `sales` are talent-onboarding funnels sharing the rich stage
-// set; other form types (e.g. `accountant`) keep the generic default stages.
+// set; `accountant` is the same funnel without portfolio.
 export function stagesForFormType(formType?: string): StageDef[] {
-  return formType === 'creative' || formType === 'sales' ? CREATIVE_STAGES : DEFAULT_STAGES;
+  if (formType === 'creative' || formType === 'sales') return CREATIVE_STAGES;
+  if (formType === 'accountant') return ACCOUNTANT_STAGES;
+  return DEFAULT_STAGES;
 }

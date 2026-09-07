@@ -403,7 +403,11 @@ function PipelineCard({
             value={config.pipeline_name}
             onChange={(e) => onPipelineNameChange(e.target.value)}
             placeholder={
-              formType === 'creative' ? 'Designers and Editors' : 'e.g. Sales content'
+              formType === 'creative'
+                ? 'Designers and Editors'
+                : formType === 'accountant'
+                  ? 'Accountants'
+                  : 'e.g. Sales content'
             }
           />
           <div className="mt-2 flex items-center gap-3">
