@@ -29,9 +29,15 @@ export default function ProfileList() {
     (p) => !p.is_ghost || p.status === 'approved',
   );
 
+  // Live = approved AND active. Admin can pause via is_active alone
+  // (status stays 'approved'), so status-only checks show a false Live
+  // and the talent misses broadcasts they think they're getting.
+  const isProfileLive = (p: { status: string; is_active?: boolean }) =>
+    p.status === 'approved' && p.is_active !== false;
+
   const stats = {
     total: visibleProfiles.length,
-    approved: visibleProfiles.filter((p) => p.status === 'approved').length,
+    approved: visibleProfiles.filter(isProfileLive).length,
     pending: visibleProfiles.filter((p) => p.status === 'pending_review').length,
   };
 
@@ -112,7 +118,8 @@ export default function ProfileList() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visibleProfiles.map((profile, i) => {
             const tint = tintFor(profile.category?.name ?? profile.id);
-            const isLive = profile.status === 'approved';
+            const isLive = isProfileLive(profile);
+            const isPaused = profile.is_active === false || profile.status === 'inactive';
             return (
               <article
                 key={profile.id}
@@ -144,8 +151,8 @@ export default function ProfileList() {
                       {profile.category?.name ?? 'Profile'}
                     </h3>
                     {!isLive && (
-                      <Badge variant={statusToBadgeVariant(profile.status)}>
-                        {profile.status.replace('_', ' ')}
+                      <Badge variant={isPaused ? 'gray' : statusToBadgeVariant(profile.status)}>
+                        {isPaused ? 'Paused' : profile.status.replace('_', ' ')}
                       </Badge>
                     )}
                   </div>
@@ -179,7 +186,7 @@ export default function ProfileList() {
                         </Button>
                       </Link>
                     )}
-                    {!profile.is_ghost && profile.status === 'approved' && (
+                    {!profile.is_ghost && isLive && (
                       <Button
                         variant="secondary" size="sm"
                         loading={deactivate.isPending}
@@ -188,7 +195,7 @@ export default function ProfileList() {
                         Pause
                       </Button>
                     )}
-                    {!profile.is_ghost && profile.status === 'inactive' && (
+                    {!profile.is_ghost && isPaused && (
                       <Button
                         variant="secondary" size="sm"
                         loading={reactivate.isPending}
@@ -202,7 +209,7 @@ export default function ProfileList() {
                         type="button"
                         disabled={deleteProfile.isPending}
                         onClick={() => {
-                          const isLiveProfile = profile.status === 'approved' || profile.status === 'pending_review';
+                          const isLiveProfile = isLive || profile.status === 'pending_review';
                           const msg = isLiveProfile
                             ? 'This profile is currently live. Deleting it will remove it from public view and move it to the archive. Are you sure?'
                             : 'Are you sure you want to delete this profile?';

@@ -93,6 +93,7 @@ export interface Profile {
   category_id: string;
   category?: Category;
   status: ProfileStatus;
+  is_active?: boolean;
   field_data: Record<string, any>;
   rejection_reason?: string;
   submitted_at?: string;

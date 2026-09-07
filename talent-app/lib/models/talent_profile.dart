@@ -22,6 +22,7 @@ class TalentProfile {
   final String? categoryId;
   final ProfileCategory? category;
   final String status; // draft | pending | approved | rejected | inactive
+  final bool? isActive;
   final Map<String, dynamic> fieldData;
   final String? rejectionReason;
   final String? submittedAt;
@@ -36,6 +37,7 @@ class TalentProfile {
     this.categoryId,
     this.category,
     required this.status,
+    this.isActive,
     this.fieldData = const {},
     this.rejectionReason,
     this.submittedAt,
@@ -54,6 +56,7 @@ class TalentProfile {
             : null,
         status: asString(json['status']) ?? 'draft',
         fieldData: asObject(json['field_data']),
+        isActive: json['is_active'] is bool ? json['is_active'] as bool : null,
         rejectionReason: asString(json['rejection_reason']),
         submittedAt: asString(json['submitted_at']),
         reviewedAt: asString(json['reviewed_at']),
@@ -71,4 +74,10 @@ class TalentProfile {
   bool get isDraft => status == 'draft';
   bool get isRejected => status == 'rejected';
   bool get isInactive => status == 'inactive' || status == 'paused';
+
+  /// Paused = self-paused (status inactive) OR admin-paused (status stays
+  /// 'approved' with is_active=false — setProfileActive touches only that
+  /// flag). The broadcast matcher skips both, so neither is "live".
+  bool get isPaused => isInactive || (isApproved && isActive == false);
+  bool get isLive => isApproved && isActive != false;
 }

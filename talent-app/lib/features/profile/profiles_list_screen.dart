@@ -64,10 +64,10 @@ class _ProfileCard extends ConsumerWidget {
   const _ProfileCard({required this.profile});
 
   ({String label, BadgeVariant variant}) get _status {
-    if (profile.isApproved) return (label: 'Live', variant: BadgeVariant.green);
+    if (profile.isLive) return (label: 'Live', variant: BadgeVariant.green);
+    if (profile.isPaused) return (label: 'Paused', variant: BadgeVariant.gray);
     if (profile.isPending) return (label: 'In review', variant: BadgeVariant.yellow);
     if (profile.isRejected) return (label: 'Changes needed', variant: BadgeVariant.red);
-    if (profile.isInactive) return (label: 'Paused', variant: BadgeVariant.gray);
     return (label: 'Draft', variant: BadgeVariant.gray);
   }
 
@@ -143,9 +143,9 @@ class _ProfileCard extends ConsumerWidget {
                       onSelected: (a) => _act(context, ref, a),
                       itemBuilder: (_) => [
                         const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                        if (profile.isApproved)
+                        if (profile.isLive)
                           const PopupMenuItem(value: 'pause', child: Text('Pause')),
-                        if (profile.isInactive)
+                        if (profile.isPaused)
                           const PopupMenuItem(value: 'reactivate', child: Text('Reactivate')),
                         const PopupMenuItem(value: 'delete', child: Text('Delete')),
                       ],

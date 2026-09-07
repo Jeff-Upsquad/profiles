@@ -661,13 +661,23 @@ export async function reactivateProfile(profileId: string, userId: string) {
 
   if (fetchErr || !profile) throw new AppError(404, 'Profile not found');
 
-  if (profile.status !== 'inactive') {
+  // Same paused state, two write paths: talent self-pause sets status=inactive,
+  // admin pause (setProfileActive) sets only is_active=false and keeps
+  // status=approved. Both mean paused — accept either here so a talent
+  // admin-paused under them isn't told they aren't paused.
+  const paused = profile.status === 'inactive' || profile.is_active === false;
+  if (!paused) {
     throw new AppError(400, 'Only inactive profiles can be reactivated');
   }
 
+  // Admin-paused rows were approved when paused, so restore them straight to
+  // approved — forcing them back through review would re-hide a profile the
+  // admin already vetted. Talent self-paused rows keep the status they had.
+  const nextStatus = profile.status === 'approved' ? 'approved' : 'pending_review';
+
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')
-    .update({ status: 'pending_review', is_active: true })
+    .update({ status: nextStatus, is_active: true })
     .eq('id', profileId)
     .select('*')
     .single();
