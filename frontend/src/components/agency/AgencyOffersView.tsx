@@ -165,7 +165,7 @@ export default function AgencyOffersView({
     return variant === 'assignment' ? type === 'assignment' : type !== 'assignment';
   });
 
-  const pendingCount = cards.filter((c) => c.status === 'pending' && !c.cancelled_at).length;
+  const pendingCount = filteredCards.filter((c) => c.status === 'pending' && !c.cancelled_at).length;
   const allOffers = (offerData?.offers ?? []).filter((o: any) => {
     const t = o.card_type === 'assignment' ? 'assignment' : 'subscription';
     return variant === 'assignment' ? t === 'assignment' : t !== 'assignment';
