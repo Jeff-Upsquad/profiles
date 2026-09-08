@@ -20,6 +20,7 @@ import {
   singularUnit,
   type AssignmentPricingDetails,
 } from '@/lib/assignmentPricing';
+import { resolveCardPricingMode } from '@/lib/cardPricingMode';
 
 const OPEN = ['pending_business', 'pending_talent', 'accepted'];
 
@@ -70,7 +71,8 @@ export default function AssignmentOfferActions({
   const cardType =
     item.card.card_type || (content.card_type as string) || 'subscription';
   const isAssignment = cardType === 'assignment';
-  const pricingMode = isAssignment && ad.pricing_mode === 'unpriced' ? 'unpriced' : 'priced';
+  const pricingMode = resolveCardPricingMode(cardType, content);
+  const isRequestQuote = cardType === 'subscription' && pricingMode === 'unpriced';
   const period = isAssignment ? assignmentOfferPeriod(ad) : 'per_month';
   const quantity = isAssignment ? optionalAssignmentQuantity(ad) ?? undefined : undefined;
   const unit = isAssignment ? singularUnit(ad) ?? undefined : undefined;
@@ -256,13 +258,15 @@ export default function AssignmentOfferActions({
           open={modal !== null}
           title={
             modal === 'submit'
-              ? 'Submit your offer'
+              ? isRequestQuote ? 'Submit your quote' : 'Submit your offer'
               : bidLabel
                 ? 'Place your bid'
                 : 'Send a counter-offer'
           }
           submitLabel={
-            modal === 'submit' ? 'Submit offer' : bidLabel ? 'Submit bid' : 'Send counter'
+            modal === 'submit'
+              ? isRequestQuote ? 'Submit quote' : 'Submit offer'
+              : bidLabel ? 'Submit bid' : 'Send counter'
           }
           currency={currency}
           period={period}
@@ -456,7 +460,7 @@ export default function AssignmentOfferActions({
               </>
             ) : (
               <Button size="sm" disabled={busy || !canBid} onClick={() => setModal('submit')}>
-                Submit an offer{canBid ? ` (${bidsLeft} left)` : ''}
+                Submit a quote{canBid ? ` (${bidsLeft} left)` : ''}
               </Button>
             )}
           </>
@@ -499,15 +503,17 @@ export default function AssignmentOfferActions({
 
       <OfferAmountStepperModal
         open={modal !== null}
-        title={
-          modal === 'submit'
-            ? 'Submit your offer'
+          title={
+            modal === 'submit'
+              ? isRequestQuote ? 'Submit your quote' : 'Submit your offer'
             : bidLabel
               ? 'Place your bid'
               : 'Send a counter-offer'
         }
-        submitLabel={
-          modal === 'submit' ? 'Submit offer' : bidLabel ? 'Submit bid' : 'Send counter'
+          submitLabel={
+            modal === 'submit'
+              ? isRequestQuote ? 'Submit quote' : 'Submit offer'
+              : bidLabel ? 'Submit bid' : 'Send counter'
         }
         currency={currency}
         period={period}

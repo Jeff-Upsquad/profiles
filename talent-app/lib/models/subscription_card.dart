@@ -75,6 +75,28 @@ class SubscriptionCard {
   String? get ctaLabel => content['cta_label'] as String?;
   String? get currency => content['currency'] as String?;
 
+  /// Price-less subscriptions are request-for-quote cards. Explicit flags are
+  /// preferred, while the missing-price fallback supports older broadcasts.
+  bool get isRequestQuote {
+    if (!isAssignment &&
+        (content['pricing_mode'] == 'unpriced' || content['request_quote'] == true)) {
+      return true;
+    }
+    if (isAssignment ||
+        content['pricing_mode'] == 'priced' ||
+        content['request_quote'] == false) {
+      return false;
+    }
+    final amounts = [
+      content['monthly_price'],
+      content['customer_monthly_price'],
+      content['proposed_price'],
+    ];
+    if (amounts.any((value) => value is num && value > 0)) return false;
+    final label = content['price_label'];
+    return label is! String || label.trim().isEmpty;
+  }
+
   /// Partner (talent) price. If margin fields are present, compute from the
   /// business budget so the talent always sees their actual pay, regardless of
   /// what was stamped into `monthly_price` by the upstream system.

@@ -11,6 +11,7 @@ import {
   singularUnit,
   type AssignmentPricingDetails,
 } from '@/lib/assignmentPricing';
+import { isSubscriptionRequestQuote } from '@/lib/cardPricingMode';
 
 // ────────────────────────────────────────────────────────────
 // Coercion helpers
@@ -364,6 +365,10 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
   // the Payment section and surface the timeline (plan/hours are absent on
   // these cards, so those sections self-hide).
   const isAssignment = asString(content.card_type).trim() === 'assignment';
+  const requestQuote = isSubscriptionRequestQuote(
+    isAssignment ? 'assignment' : 'subscription',
+    content as Record<string, unknown>,
+  );
   const assignmentDetails = (content.assignment_details ?? {}) as AssignmentPricingDetails;
   const assignmentDuration = asString(assignmentDetails.duration).trim();
   const assignmentStartDate = asString(assignmentDetails.start_date).trim();
@@ -416,7 +421,7 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
   const hasAboutClient = Boolean(businessNature || customerLocation || notes);
   const hasStructured =
     hoursLabel || capacityLabel || deliverablesLabel ||
-    deliverables.length > 0 || priceFormatted ||
+    deliverables.length > 0 || priceFormatted || requestQuote ||
     workingDaysSorted.length > 0 || hasClientBrief || hasAboutClient || assignmentWorkType ||
     countries.length > 0 || languages.length > 0 || hasAdditional || hasLocationLang;
   const showDescription = description && !hasStructured;
@@ -618,22 +623,27 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
       })()}
 
       {/* Payment — green tint. Assignments can be fixed-price or priced per unit. */}
-      {priceFormatted && (
+      {(priceFormatted || requestQuote) && (
         <div className={polishedSections ? 'tint-green rounded-2xl border border-[#D9EDDE] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]' : ''}>
           <SectionLabel icon={IconMoney} color="#1F7E36">
             {isAssignment ? (assignmentPerUnit ? `Price per ${assignmentUnit}` : 'Project budget') : 'Payment'}
           </SectionLabel>
           <p className="mt-1 font-[family-name:var(--font-jakarta)] text-xl font-semibold tracking-[-0.02em] text-[#1F7E36]">
-            {priceFormatted}
+            {requestQuote ? 'Request quote' : priceFormatted}
             {isAssignment && assignmentPerUnit && (
               <span className="font-[family-name:var(--font-inter)] text-xs font-normal text-[#1F7E36]/70">
                 {periodSuffix(assignmentPeriod)}
               </span>
             )}
-            {!isAssignment && (
+            {!isAssignment && !requestQuote && (
               <span className="font-[family-name:var(--font-inter)] text-xs font-normal text-[#1F7E36]/70"> /month</span>
             )}
           </p>
+          {requestQuote && (
+            <p className="mt-1 text-xs text-[#1F7E36]/80">
+              No fixed price has been set. Submit your monthly quote to express interest.
+            </p>
+          )}
           {assignmentTotal > 0 && (
             <p className="mt-0.5 font-[family-name:var(--font-inter)] text-xs font-medium text-[#1F7E36]">
               {assignmentQty} × {priceFormatted} = {formatPrice(assignmentTotal, content.currency)} total

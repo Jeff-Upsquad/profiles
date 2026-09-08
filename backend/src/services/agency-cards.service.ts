@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
+import { isSubscriptionRequestQuote } from '../lib/card-pricing-mode.js';
 
 export async function listForAgency(
   agencyUserId: string,
@@ -74,12 +75,18 @@ export async function respondCard(
   // Block responses to a card that's no longer live.
   const { data: cardRow } = await supabaseAdmin
     .from('agency_card_recipients')
-    .select('subscription_cards!inner(status)')
+    .select('subscription_cards!inner(status, card_type, content)')
     .eq('id', recipientId)
     .eq('agency_user_id', agencyUserId)
     .maybeSingle();
-  if (cardRow && (cardRow as any).subscription_cards?.status !== 'active') {
+  const responseCard = (cardRow as any)?.subscription_cards as
+    | { status?: string; card_type?: string | null; content?: Record<string, unknown> | null }
+    | undefined;
+  if (responseCard && responseCard.status !== 'active') {
     throw new AppError(409, 'This offer is no longer available');
+  }
+  if (action === 'accept' && isSubscriptionRequestQuote(responseCard?.card_type, responseCard?.content)) {
+    throw new AppError(409, 'This card requires a price. Submit a quote instead of accepting it.');
   }
 
   const { data: updated, error } = await supabaseAdmin

@@ -60,6 +60,8 @@ export interface SubscriptionCardContentShape {
   monthly_price?: number;            // 20000
   currency?: string;                 // "INR"
   price_label?: string;              // pre-formatted "₹20,000/month" (optional; overrides monthly_price+currency)
+  pricing_mode?: 'priced' | 'unpriced';
+  request_quote?: boolean;
   is_popular?: boolean;              // adds a POPULAR ribbon
   [key: string]: unknown;
 }

@@ -13,6 +13,7 @@ import { onHiringCardAccepted, onHiringCardDeclined } from './jobs.service.js';
 import { phoneMatchSuffix } from '../lib/phone.js';
 import { fanoutCardToAgencies } from './card-backfill.service.js';
 import { provisionAssignedTalent } from './squadhub-talent-provision.service.js';
+import { isSubscriptionRequestQuote } from '../lib/card-pricing-mode.js';
 import {
   businessAmountFromOffer,
   partnerAmountFromOffer,
@@ -1669,12 +1670,21 @@ export async function respond(
   // slot.
   const { data: cardRow } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('subscription_cards!inner(status)')
+    .select('subscription_cards!inner(status, card_type, content)')
     .eq('id', recipientId)
     .eq('talent_user_id', talentUserId)
     .maybeSingle();
-  if (cardRow && (cardRow as any).subscription_cards?.status !== 'active') {
+  const responseCard = (cardRow as any)?.subscription_cards as
+    | { status?: string; card_type?: string | null; content?: Record<string, unknown> | null }
+    | undefined;
+  if (responseCard && responseCard.status !== 'active') {
     throw new AppError(409, 'This offer is no longer available');
+  }
+  if (
+    input.action === 'accept' &&
+    isSubscriptionRequestQuote(responseCard?.card_type, responseCard?.content)
+  ) {
+    throw new AppError(409, 'This card requires a price. Submit a quote instead of accepting it.');
   }
 
   // The `status = 'pending'` + `cancelled_at IS NULL` guards prevent both

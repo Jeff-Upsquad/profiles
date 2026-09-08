@@ -271,7 +271,7 @@ class SubscriptionDetailContent extends StatelessWidget {
     }
 
     // Payment
-    if (_priceFormatted != null) {
+    if (_priceFormatted != null || card.isRequestQuote) {
       children.add(_payment(context));
       children.add(const SizedBox(height: 16));
     }
@@ -545,14 +545,14 @@ class SubscriptionDetailContent extends StatelessWidget {
         const SizedBox(height: 6),
         RichText(
           text: TextSpan(
-            text: _priceFormatted,
+            text: card.isRequestQuote ? 'Request quote' : _priceFormatted,
             style: const TextStyle(
               color: kPaymentColor,
               fontSize: 22,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.5,
             ),
-            children: card.isAssignment
+            children: card.isAssignment || card.isRequestQuote
                 ? const <TextSpan>[]
                 : [
                     TextSpan(
@@ -566,6 +566,17 @@ class SubscriptionDetailContent extends StatelessWidget {
                   ],
           ),
         ),
+        if (card.isRequestQuote) ...[
+          const SizedBox(height: 4),
+          Text(
+            'No fixed price has been set. Submit your monthly quote to express interest.',
+            style: TextStyle(
+              color: kPaymentColor.withValues(alpha: 0.75),
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
         if (card.isAssignment &&
             ((card.assignmentDuration ?? '').trim().isNotEmpty ||
                 (card.assignmentStartDate ?? '').trim().isNotEmpty ||

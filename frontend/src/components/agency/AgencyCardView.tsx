@@ -21,6 +21,7 @@ import {
   singularUnit,
   type AssignmentPricingDetails,
 } from '@/lib/assignmentPricing';
+import { resolveCardPricingMode } from '@/lib/cardPricingMode';
 
 export interface AgencyCardItem {
   id: string;
@@ -63,7 +64,8 @@ export default function AgencyCardView({ item }: { item: AgencyCardItem }) {
   const ad = (content.assignment_details ?? {}) as AssignmentPricingDetails;
   const cardType = item.card.card_type || (content.card_type as string) || 'subscription';
   const isAssignment = cardType === 'assignment';
-  const pricingMode = isAssignment && ad.pricing_mode === 'unpriced' ? 'unpriced' : 'priced';
+  const pricingMode = resolveCardPricingMode(cardType, content);
+  const isRequestQuote = cardType === 'subscription' && pricingMode === 'unpriced';
   const period = isAssignment ? assignmentOfferPeriod(ad) : 'per_month';
   const quantity = isAssignment ? optionalAssignmentQuantity(ad) ?? undefined : undefined;
   const unit = isAssignment ? singularUnit(ad) ?? undefined : undefined;
@@ -172,7 +174,7 @@ export default function AgencyCardView({ item }: { item: AgencyCardItem }) {
                   <Button size="sm" disabled={busy} onClick={() => respondCard.mutate({ recipientId: item.id, action: 'accept' })}>Accept</Button>
                 </>
               ) : (
-                <Button size="sm" disabled={busy || bidsLeft <= 0} onClick={() => setModal('submit')}>Submit an offer{bidsLeft > 0 ? ` (${bidsLeft} left)` : ''}</Button>
+                <Button size="sm" disabled={busy || bidsLeft <= 0} onClick={() => setModal('submit')}>Submit a quote{bidsLeft > 0 ? ` (${bidsLeft} left)` : ''}</Button>
               )}
             </div>
           </>
@@ -219,8 +221,8 @@ export default function AgencyCardView({ item }: { item: AgencyCardItem }) {
 
       <OfferAmountStepperModal
         open={modal !== null}
-        title={modal === 'submit' ? 'Submit your offer' : 'Place your bid'}
-        submitLabel={modal === 'submit' ? 'Submit offer' : 'Submit bid'}
+        title={modal === 'submit' ? (isRequestQuote ? 'Submit your quote' : 'Submit your offer') : 'Place your bid'}
+        submitLabel={modal === 'submit' ? (isRequestQuote ? 'Submit quote' : 'Submit offer') : 'Submit bid'}
         currency={(content.currency as string) || undefined}
         period={period}
         quantity={quantity}

@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { offerMetadataForCard } from '../lib/assignment-pricing.js';
+import { resolveCardPricingMode } from '../lib/card-pricing-mode.js';
 
 /**
  * Agency bidding on requirement cards — mirror of assignment-offers.service
@@ -57,9 +58,7 @@ async function loadAgencyRecipient(agencyUserId: string, recipientId: string) {
   } | null;
   const content = (card?.content ?? {}) as Record<string, unknown>;
   const cardType = (card?.card_type ?? 'subscription') as string;
-  const ad = (content.assignment_details ?? {}) as Record<string, unknown>;
-  const pricingMode =
-    cardType === 'assignment' && ad.pricing_mode === 'unpriced' ? 'unpriced' : 'priced';
+  const pricingMode = resolveCardPricingMode(cardType, content);
   return {
     cardId: card?.id as string,
     externalId: card?.external_id ?? null,

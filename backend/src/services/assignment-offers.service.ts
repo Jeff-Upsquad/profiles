@@ -15,6 +15,7 @@ import { fireJobsCrmEvent } from './talent-whatsapp.service.js';
 import { deliverCallback } from './squadhub-callback.service.js';
 import { writeAcceptedTalentToDashboard } from './subscription.service.js';
 import { offerMetadataForCard } from '../lib/assignment-pricing.js';
+import { resolveCardPricingMode } from '../lib/card-pricing-mode.js';
 export { offerMetadataForCard } from '../lib/assignment-pricing.js';
 
 /**
@@ -435,10 +436,9 @@ async function getAssignmentCardRefs(cardId: string): Promise<AssignmentCardRefs
   // On Profiles the assignment details ride inside content JSONB (SquadHub sends
   // content.assignment_details) — there is NO assignment_details column here.
   const content = ((data as any).content ?? {}) as Record<string, unknown>;
-  const ad = (content.assignment_details ?? {}) as Record<string, unknown>;
-  // Subscriptions are always priced (list monthly price). Assignments may be unpriced.
-  const pricingMode: 'priced' | 'unpriced' =
-    cardType === 'assignment' && ad.pricing_mode === 'unpriced' ? 'unpriced' : 'priced';
+  // Price-less subscription tiers are request-for-quote cards. Treat them like
+  // unpriced assignments so the first talent response must carry an amount.
+  const pricingMode = resolveCardPricingMode(cardType, content);
   return {
     cardId,
     externalId: ((data as any).external_id as string | null) ?? null,

@@ -89,6 +89,7 @@ class _SubscriptionDetailScreenState
         : ((base / _offerStep).round() * _offerStep).clamp(_offerStep, 1 << 30);
     var amount = snapped;
     final isAssignment = card?.isAssignment ?? false;
+    final isRequestQuote = card?.isRequestQuote ?? false;
     final period = isAssignment ? 'project' : 'per_month';
 
     final submitted = await showModalBottomSheet<int>(
@@ -111,7 +112,11 @@ class _SubscriptionDetailScreenState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    isAssignment ? 'Counter-offer' : 'Place your bid',
+                    isRequestQuote
+                        ? 'Submit your quote'
+                        : isAssignment
+                            ? 'Counter-offer'
+                            : 'Place your bid',
                     style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
@@ -156,7 +161,11 @@ class _SubscriptionDetailScreenState
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () => Navigator.of(ctx).pop(amount),
-                      child: Text(isAssignment ? 'Submit offer' : 'Submit bid'),
+                      child: Text(isRequestQuote
+                          ? 'Submit quote'
+                          : isAssignment
+                              ? 'Submit offer'
+                              : 'Submit bid'),
                     ),
                   ),
                 ],
@@ -179,7 +188,7 @@ class _SubscriptionDetailScreenState
       ref.invalidate(subscriptionListProvider);
       ref.invalidate(offerDetailProvider(recipient.id));
       if (!mounted) return;
-      _snack('Bid submitted', AppColors.success);
+      _snack(isRequestQuote ? 'Quote submitted' : 'Bid submitted', AppColors.success);
       context.pop();
     } catch (e) {
       if (!mounted) return;
@@ -359,6 +368,7 @@ class _SubscriptionDetailScreenState
     final ctaLabel = (recipient.card?.ctaLabel ?? '').trim().isNotEmpty
         ? recipient.card!.ctaLabel!.trim()
         : 'Accept';
+    final isRequestQuote = recipient.card?.isRequestQuote ?? false;
 
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(16, 10, 16, 12),
@@ -376,40 +386,50 @@ class _SubscriptionDetailScreenState
             ),
           ),
           const SizedBox(width: 10),
-          Expanded(
-            child: OutlinedButton(
-              onPressed: _loading ? null : _openBidSheet,
-              style: _actionButtonStyle(),
-              child: Text(
-                (recipient.card?.isAssignment ?? false) ? 'Counter' : 'Bid',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+          if (isRequestQuote)
+            Expanded(
+              flex: 2,
+              child: ElevatedButton(
+                onPressed: _loading ? null : _openBidSheet,
+                child: const Text('Submit quote'),
+              ),
+            )
+          else ...[
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _loading ? null : _openBidSheet,
+                style: _actionButtonStyle(),
+                child: Text(
+                  (recipient.card?.isAssignment ?? false) ? 'Counter' : 'Bid',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed: _loading ? null : () => _respond('accept'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(0, 46),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: ElevatedButton(
+                onPressed: _loading ? null : () => _respond('accept'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(0, 46),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                ),
+                child: _loading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text(
+                        ctaLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
               ),
-              child: _loading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : Text(
-                      ctaLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
             ),
-          ),
+          ],
         ],
       ),
     );
