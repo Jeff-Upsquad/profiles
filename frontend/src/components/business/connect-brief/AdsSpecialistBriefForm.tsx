@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
@@ -107,6 +107,8 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [countries, setCountries] = useState<Country[]>(() => preview ? PREVIEW_COUNTRIES : []);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const audioBlobRef = useRef<Blob | null>(null);
 
   useEffect(() => {
     api.get('/business/connect-brief/countries')
@@ -161,9 +163,10 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
     if (form.channels.length === 0 || form.objectives.length === 0 || form.tiers.length === 0) return setError('Choose at least one channel, objective, and specialist level.');
     if (!isAssignment && (!form.plan || form.workingDays.length === 0)) return setError('Choose a monthly plan and working days.');
     if (form.languages.length === 0) return setError('Choose at least one language.');
-    const missingTierBudget = form.tiers.find((tier) => !form.tierBudgets[tier]?.trim() || Number(form.tierBudgets[tier]) <= 0);
-    if (missingTierBudget) return setError(`Enter a budget for the selected ${missingTierBudget} level.`);
-    const tierBudgets = Object.fromEntries(form.tiers.map((tier) => [tier, Math.round(Number(form.tierBudgets[tier]))]));
+    const tierBudgets = Object.fromEntries(form.tiers.flatMap((tier) => {
+      const amount = Number(form.tierBudgets[tier]);
+      return Number.isFinite(amount) && amount > 0 ? [[tier, Math.round(amount)]] : [];
+    }));
     const tierBudgetValues = Object.values(tierBudgets);
     const legacyBudget = tierBudgetValues.length === 1 || tierBudgetValues.every((value) => value === tierBudgetValues[0]) ? tierBudgetValues[0] : undefined;
     const specificRequirements = form.additionalRequirements.ads_specialist ?? {};
@@ -176,12 +179,23 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
 
     setSubmitting(true);
     try {
+      let requirementVoiceUrl = '';
+      if (audioBlobRef.current) {
+        try {
+          requirementVoiceUrl = await uploadVoiceNote(audioBlobRef.current);
+        } catch (uploadError) {
+          console.error('voice note upload failed', uploadError);
+          setError('Your voice note couldn’t be uploaded. Check your connection and try again, or remove it to submit without audio.');
+          return;
+        }
+      }
       await api.post('/business/connect-brief', {
         service_types: ['ads_specialist'],
         brand_name: form.brandName.trim(),
         business_nature: form.businessNature.trim(),
         business_note: form.businessNote.trim(),
         contact_name: form.contactName.trim(), email: form.email.trim(), phone: form.phone.trim(),
+        ...(requirementVoiceUrl ? { requirement_voice_url: requirementVoiceUrl } : {}),
         languages: form.languages,
         working_days: isAssignment ? [] : form.workingDays,
         ...(form.countryId ? { country_id: form.countryId } : {}),
@@ -191,8 +205,8 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
           ads_specialist: {
             note: form.requirement.trim(), tiers: form.tiers,
             ...(isAssignment
-              ? { ...(legacyBudget ? { budget: legacyBudget } : {}), tier_budgets: tierBudgets, currency: form.currency, duration: form.duration, start_date: form.startDate, deadline: form.deadline }
-              : { plan: form.plan, ...(legacyBudget ? { budget: legacyBudget } : {}), tier_budgets: tierBudgets, currency: form.currency }),
+              ? { ...(legacyBudget ? { budget: legacyBudget } : {}), ...(Object.keys(tierBudgets).length ? { tier_budgets: tierBudgets } : {}), currency: form.currency, duration: form.duration, start_date: form.startDate, deadline: form.deadline }
+              : { plan: form.plan, ...(legacyBudget ? { budget: legacyBudget } : {}), ...(Object.keys(tierBudgets).length ? { tier_budgets: tierBudgets } : {}), currency: form.currency }),
             additional_requirements: {
               channels: form.channels,
               objectives: form.objectives,
@@ -241,7 +255,13 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
           <GroupHeader index={2} title="Ads requirement" subtitle="The outcome, channels, and ownership you need." />
           <Section eyebrow="Requirement" title="What should your Ads Specialist own?" hint="Be specific about the commercial outcome and day-to-day responsibility.">
             <Field label="Describe your requirement" required><textarea className="ads-input min-h-32 resize-y" value={form.requirement} onChange={(e) => update('requirement', e.target.value)} placeholder="e.g. Own our Meta and Google acquisition, improve qualified leads, and report weekly on CAC and revenue." /></Field>
-            <button type="button" className="ads-voice"><MicIcon /> Record a voice note <span>Optional</span></button>
+            <AudioNote
+              audioUrl={audioUrl}
+              onChange={(blob, url) => {
+                audioBlobRef.current = blob;
+                setAudioUrl(url);
+              }}
+            />
             <ChipField label="Advertising channels" options={CHANNELS} selected={form.channels} onToggle={(value) => toggle('channels', value)} />
             <ChipField label="Primary objectives" options={OBJECTIVES} selected={form.objectives} onToggle={(value) => toggle('objectives', value)} />
             <Field label="Current monthly ad spend" required><select className="ads-input" value={form.mediaSpend} onChange={(e) => update('mediaSpend', e.target.value)}><option>Under ₹2 lakh / month</option><option>₹2–5 lakh / month</option><option>₹5–8 lakh / month</option><option>₹8–15 lakh / month</option><option>₹15 lakh+ / month</option></select></Field>
@@ -249,9 +269,8 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
 
           <Section eyebrow={isAssignment ? 'Assignment' : 'Subscription'} title={isAssignment ? 'Budget & timeline' : 'Plan, level & budget'} hint={isAssignment ? 'Set a clear project finish line.' : 'Choose how much specialist capacity you need each month.'}>
             {!isAssignment && <Field label="Monthly plan" required><div className="grid grid-cols-2 gap-2 sm:grid-cols-5">{PLANS.map((plan) => { const selected = form.plan === plan.name; return <button key={plan.name} type="button" aria-pressed={selected} onClick={() => update('plan', plan.name)} className={`ads-choice ${selected ? 'ads-choice-on' : ''}`}><strong>{plan.name}</strong><span className="ads-choice-daily">{plan.dailyHours} / day</span><span className="ads-choice-cap">{plan.weeklyMax} weekly max</span><span className="ads-choice-cap">{plan.monthlyMax} monthly max</span>{plan.recommended && <em>Popular</em>}</button>; })}</div><div className="ads-plan-note"><InfoIcon /><p><strong>Daily hours come first.</strong> Weekly and monthly figures are maximum caps, not saved-up balances. Unused time doesn&apos;t roll over.</p></div></Field>}
-            <TierSelector selected={form.tiers} onToggle={(value) => toggle('tiers', value)} />
             <Field label="Budget currency" required><select aria-label="Budget currency" className="ads-input" value={form.currency} onChange={(e) => update('currency', e.target.value)}>{CURRENCIES.map((currency) => <option key={currency.code} value={currency.code}>{currency.label}</option>)}</select></Field>
-            <TierBudgetFields product={product} selected={form.tiers} values={form.tierBudgets} onChange={updateTierBudget} />
+            <TierSelector product={product} currency={form.currency} selected={form.tiers} values={form.tierBudgets} onToggle={(value) => toggle('tiers', value)} onBudgetChange={updateTierBudget} />
             {isAssignment && <Field label="Duration"><input className="ads-input" value={form.duration} onChange={(e) => update('duration', e.target.value)} /></Field>}
             {isAssignment && <div className="grid gap-4 sm:grid-cols-2"><Field label="Start date"><input type="date" className="ads-input" value={form.startDate} onChange={(e) => update('startDate', e.target.value)} /></Field><Field label="Deadline"><input type="date" className="ads-input" value={form.deadline} onChange={(e) => update('deadline', e.target.value)} /></Field></div>}
           </Section>
@@ -286,18 +305,135 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
   );
 }
 
+async function uploadVoiceNote(blob: Blob): Promise<string> {
+  const contentType = (blob.type || 'audio/webm').split(';')[0].trim() || 'audio/webm';
+  const ext = contentType.includes('mp4') ? 'mp4' : contentType.includes('ogg') ? 'ogg' : contentType.includes('wav') ? 'wav' : 'webm';
+  const { data } = await api.post('/business/connect-brief/voice-upload-url', {
+    filename: `voice-note.${ext}`,
+    content_type: contentType,
+  });
+  if (!data?.success || !data.data?.upload_url) throw new Error('Voice upload could not be prepared.');
+  const upload = await fetch(data.data.upload_url, {
+    method: 'PUT',
+    headers: { 'Content-Type': contentType },
+    body: blob,
+  });
+  if (!upload.ok) throw new Error('Voice upload failed.');
+  return data.data.public_url as string;
+}
+
+function AudioNote({ audioUrl, onChange }: {
+  audioUrl: string | null;
+  onChange: (blob: Blob | null, url: string | null) => void;
+}) {
+  const [recording, setRecording] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [error, setError] = useState('');
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const canRecord = typeof navigator !== 'undefined' && typeof MediaRecorder !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && window.isSecureContext;
+
+  function stopTimer() {
+    if (timerRef.current !== null) window.clearInterval(timerRef.current);
+    timerRef.current = null;
+  }
+
+  function pickFile() {
+    setError('');
+    fileInputRef.current?.click();
+  }
+
+  function useAudioFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('audio/')) return setError('Please choose an audio recording.');
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    setError('');
+    onChange(file, URL.createObjectURL(file));
+  }
+
+  async function start() {
+    setError('');
+    if (!canRecord) return pickFile();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const preferredTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+      const mimeType = preferredTypes.find((type) => MediaRecorder.isTypeSupported?.(type));
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      streamRef.current = stream;
+      chunksRef.current = [];
+      recorder.ondataavailable = (event) => { if (event.data.size > 0) chunksRef.current.push(event.data); };
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        if (audioUrl) URL.revokeObjectURL(audioUrl);
+        onChange(blob, URL.createObjectURL(blob));
+        stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      };
+      recorder.start();
+      recorderRef.current = recorder;
+      setRecording(true);
+      setElapsed(0);
+      timerRef.current = window.setInterval(() => setElapsed((value) => value + 1), 1000);
+    } catch (caught) {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      const name = (caught as { name?: string })?.name;
+      setError(name === 'NotAllowedError' || name === 'SecurityError'
+        ? 'Microphone permission is blocked. Allow microphone access in Chrome, or tap Upload audio to use your phone recorder.'
+        : 'Recording could not start. Tap Upload audio to use your phone recorder instead.');
+    }
+  }
+
+  function stop() {
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+    recorderRef.current = null;
+    setRecording(false);
+    stopTimer();
+  }
+
+  function clear() {
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    onChange(null, null);
+    setElapsed(0);
+    setError('');
+  }
+
+  useEffect(() => () => {
+    stopTimer();
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+  }, []);
+
+  const formattedTime = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`;
+  return <div className="ads-audio-note">
+    <input ref={fileInputRef} type="file" accept="audio/*" capture="user" className="hidden" onChange={useAudioFile} />
+    {!audioUrl && !recording && <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={start} className="ads-audio-primary"><MicIcon /> Record a voice note <span>Optional</span></button><button type="button" onClick={pickFile} className="ads-audio-secondary">Upload audio</button></div>}
+    {recording && <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-sm font-semibold"><i className="ads-recording-dot" />Recording… {formattedTime}</span><button type="button" onClick={stop} className="ads-audio-stop">■ Stop</button></div>}
+    {audioUrl && !recording && <div className="space-y-3"><audio controls src={audioUrl} className="h-10 w-full" /><div className="flex gap-2"><button type="button" onClick={start} className="ads-audio-secondary">Re-record</button><button type="button" onClick={clear} className="ads-audio-secondary ads-audio-danger">Remove</button></div></div>}
+    {error && <p className="mt-2 text-xs font-medium leading-relaxed text-[#8B3A1A]">{error}</p>}
+  </div>;
+}
+
 function CategoryBanner({ product }: { product: Product }) { return <div className="ads-category"><div><p>{product} brief · category</p><span>✓ &nbsp;Ads Specialist</span></div><button type="button">Change</button></div>; }
 function GroupHeader({ index, title, subtitle }: { index: number; title: string; subtitle: string }) { return <div className="flex items-start gap-3 pt-2"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[#0a0a0a] bg-[#FCF487] text-base font-bold shadow-[2px_2px_0_#0a0a0a]">{index}</span><div><h2 className="text-lg font-bold text-[#0a0a0a]">{title}</h2><p className="text-sm text-[#7A7568]">{subtitle}</p></div></div>; }
 function Section({ eyebrow, title, hint, children }: { eyebrow: string; title: string; hint: string; children: React.ReactNode }) { return <section className="ads-section"><p className="ads-eyebrow">{eyebrow}</p><h3>{title}</h3><p className="ads-hint">{hint}</p><div className="mt-5 space-y-4">{children}</div></section>; }
 function Field({ label, required, optional, children }: { label: string; required?: boolean; optional?: boolean; children: React.ReactNode }) { return <label className="block"><span className="mb-1.5 block text-sm font-medium text-[#222]">{label}{required && <b className="text-[#D04A2C]">*</b>}{optional && <small className="ml-1 font-normal text-[#9C9486]">(optional)</small>}</span>{children}</label>; }
 function Readonly({ value }: { value: string }) { return <div className="ads-readonly">{value || '—'}</div>; }
 function ChipField({ label, options, selected, onToggle, required = true, hint }: { label: string; options: string[]; selected: string[]; onToggle: (value: string) => void; required?: boolean; hint?: string }) { return <div><p className="mb-1 text-sm font-medium text-[#222]">{label}{required ? <b className="text-[#D04A2C]">*</b> : <small className="ml-1 font-normal text-[#9C9486]">(optional)</small>}</p>{hint && <p className="mb-2 text-xs leading-relaxed text-[#7A7568]">{hint}</p>}<div className="flex flex-wrap gap-2">{options.map((option) => { const on = selected.includes(option); return <button key={option} type="button" aria-pressed={on} className={`ads-chip ${on ? 'ads-chip-on' : ''}`} onClick={() => onToggle(option)}>{on ? `✓ ${option}` : option}</button>; })}</div></div>; }
-function TierSelector({ selected, onToggle }: { selected: string[]; onToggle: (value: string) => void }) {
-  return <div><p className="mb-1 text-sm font-medium text-[#222]">Specialist level<b className="text-[#D04A2C]">*</b></p><p className="mb-3 text-xs leading-relaxed text-[#7A7568]">Select one or more levels and set a budget for each selected level.</p><div className="grid gap-2 sm:grid-cols-2">{TIER_OPTIONS.map((tier) => { const on = selected.includes(tier.value); return <button key={tier.value} type="button" aria-pressed={on} onClick={() => onToggle(tier.value)} className={`ads-tier-card ${on ? 'ads-tier-card-on' : ''}`}><span className="ads-tier-card-top"><span className="ads-tier-kicker">{tier.value === 'Top Talents' ? 'Premium' : tier.value === 'Agencies' ? 'Team' : tier.label.replace(/s$/, '')}</span><span className="ads-tier-check">{on ? '✓' : ''}</span></span><strong>{tier.label}</strong><small>{tier.desc}</small></button>; })}</div></div>;
-}
-function TierBudgetFields({ product, selected, values, onChange }: { product: Product; selected: string[]; values: Record<string, string>; onChange: (tier: string, value: string) => void }) {
-  const label = product === 'assignment' ? 'Project budget' : 'Monthly budget';
-  return <div className="space-y-3"><div><p className="mb-1 text-sm font-medium text-[#222]">Budget by specialist level<b className="text-[#D04A2C]">*</b></p><p className="text-xs leading-relaxed text-[#7A7568]">Add a budget for every level you selected.</p></div>{selected.length === 0 ? <p className="rounded-lg border border-dashed border-[#D9D5C7] bg-[#FBFAF6] px-3 py-2 text-xs text-[#7A7568]">Select at least one specialist level to add its budget.</p> : selected.map((tier) => { const displayLabel = TIER_OPTIONS.find((option) => option.value === tier)?.label ?? tier; return <label key={tier} className="block"><span className="mb-1.5 block text-xs font-semibold text-[#3A3A3A]">{label} for {displayLabel}<b className="text-[#D04A2C]">*</b></span><input aria-label={`${label} for ${displayLabel}`} className="ads-input" inputMode="numeric" placeholder="Enter amount" value={values[tier] ?? ''} onChange={(e) => onChange(tier, e.target.value)} /><span className="mt-1 block text-[11px] text-[#9C9486]">Required for this selected level.</span></label>; })}</div>;
+function TierSelector({ product, currency, selected, values, onToggle, onBudgetChange }: {
+  product: Product;
+  currency: string;
+  selected: string[];
+  values: Record<string, string>;
+  onToggle: (value: string) => void;
+  onBudgetChange: (tier: string, value: string) => void;
+}) {
+  const budgetLabel = product === 'assignment' ? 'Project budget amount' : 'Monthly budget amount';
+  return <div><p className="mb-1 text-sm font-medium text-[#222]">Specialist level<b className="text-[#D04A2C]">*</b></p><p className="mb-3 text-xs leading-relaxed text-[#7A7568]">Select one or more levels. Each selected card opens an optional budget amount field.</p><div className="grid items-start gap-2 sm:grid-cols-2">{TIER_OPTIONS.map((tier) => { const on = selected.includes(tier.value); return <div key={tier.value} className={`ads-tier-card ${on ? 'ads-tier-card-on' : ''}`}><button type="button" aria-pressed={on} onClick={() => onToggle(tier.value)} className="ads-tier-select"><span className="ads-tier-card-top"><span className="ads-tier-kicker">{tier.value === 'Top Talents' ? 'Premium' : tier.value === 'Agencies' ? 'Team' : tier.label.replace(/s$/, '')}</span><span className="ads-tier-check">{on ? '✓' : ''}</span></span><strong>{tier.label}</strong><small>{tier.desc}</small></button>{on && <label className="ads-tier-budget"><span>{budgetLabel} <em>Optional</em></span><span className="ads-budget-input"><b>{currency}</b><input aria-label={`${budgetLabel} for ${tier.label}`} inputMode="numeric" placeholder="Enter amount" value={values[tier.value] ?? ''} onChange={(e) => onBudgetChange(tier.value, e.target.value)} /></span><small>Leave blank if you want our team to recommend a budget.</small></label>}</div>; })}</div></div>;
 }
 function WorkingDays({ selected, onToggle }: { selected: string[]; onToggle: (value: string) => void }) {
   const weekendCount = selected.filter((day) => day === 'Sat' || day === 'Sun').length;
@@ -326,11 +462,11 @@ const styles = `
 .ads-input{width:100%;border:1px solid #D9D5C7;border-radius:11px;background:#fff;padding:11px 13px;font:inherit;font-size:14px;color:#222;outline:none}.ads-input:focus{border-color:#0a0a0a;box-shadow:0 0 0 3px rgba(252,244,135,.65)}
 .ads-readonly{min-height:46px;border:1px solid #E2DFD3;border-radius:11px;background:#F1EFE7;padding:12px 13px;font-size:14px;color:#5C5C5C}.ads-help{margin-top:5px;font-size:11px;color:#9C9486}
 .ads-chip{border:1px solid #D9D5C7;border-radius:999px;background:#fff;padding:7px 12px;font-size:12px;font-weight:600;color:#5C5C5C;transition:.15s}.ads-chip-on{border-color:#0a0a0a;background:#F2FCBC;color:#0a0a0a;box-shadow:1px 1px 0 #0a0a0a}
-.ads-tier-card{display:block;width:100%;min-height:126px;border:1px solid #D9D5C7;border-radius:15px;background:#fff;padding:13px;text-align:left;color:#222;transition:.15s}.ads-tier-card:hover{border-color:#0a0a0a;transform:translateY(-1px)}.ads-tier-card-on{border:2px solid #0a0a0a;background:#F9FDEB;box-shadow:3px 3px 0 #C6F24E}.ads-tier-card-top{display:flex;align-items:center;justify-content:space-between}.ads-tier-kicker{border-radius:999px;background:#F3F0E7;padding:3px 7px;color:#7A7568;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.ads-tier-card-on .ads-tier-kicker{background:#FCF487;color:#222}.ads-tier-check{display:flex;height:21px;width:21px;align-items:center;justify-content:center;border:1.5px solid #C9C3B5;border-radius:999px;background:#fff;font-size:11px;font-weight:800}.ads-tier-card-on .ads-tier-check{border-color:#0a0a0a;background:#FCF487}.ads-tier-card strong,.ads-tier-card small{display:block}.ads-tier-card strong{margin-top:11px;font-size:14px}.ads-tier-card small{margin-top:4px;font-size:11px;line-height:1.45;color:#7A7568}
+.ads-tier-card{width:100%;overflow:hidden;border:1px solid #D9D5C7;border-radius:15px;background:#fff;text-align:left;color:#222;transition:.18s}.ads-tier-card:hover{border-color:#0a0a0a}.ads-tier-card-on{border:2px solid #0a0a0a;background:#F9FDEB;box-shadow:3px 3px 0 #C6F24E}.ads-tier-select{display:block;width:100%;min-height:126px;padding:13px;text-align:left}.ads-tier-card-top{display:flex;align-items:center;justify-content:space-between}.ads-tier-kicker{border-radius:999px;background:#F3F0E7;padding:3px 7px;color:#7A7568;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.ads-tier-card-on .ads-tier-kicker{background:#FCF487;color:#222}.ads-tier-check{display:flex;height:21px;width:21px;align-items:center;justify-content:center;border:1.5px solid #C9C3B5;border-radius:999px;background:#fff;font-size:11px;font-weight:800}.ads-tier-card-on .ads-tier-check{border-color:#0a0a0a;background:#FCF487}.ads-tier-select strong,.ads-tier-select small{display:block}.ads-tier-select strong{margin-top:11px;font-size:14px}.ads-tier-select small{margin-top:4px;font-size:11px;line-height:1.45;color:#7A7568}.ads-tier-budget{display:block;border-top:1px solid #E0DCCE;padding:13px;background:rgba(255,255,255,.68)}.ads-tier-budget>span:first-child{display:block;margin-bottom:7px;font-size:11px;font-weight:700;color:#3A3A3A}.ads-tier-budget em{margin-left:5px;border-radius:999px;background:#EFECE3;padding:2px 6px;font-size:8px;font-style:normal;text-transform:uppercase;color:#7A7568}.ads-tier-budget>small{display:block;margin-top:6px;font-size:10px;line-height:1.4;color:#8B8374}.ads-budget-input{display:flex;align-items:stretch;overflow:hidden;border:1px solid #C9C3B5;border-radius:10px;background:#fff}.ads-budget-input:focus-within{border-color:#0a0a0a;box-shadow:0 0 0 3px rgba(252,244,135,.65)}.ads-budget-input b{display:flex;align-items:center;border-right:1px solid #E0DCCE;background:#F3F0E7;padding:0 10px;font-size:11px;color:#5C5C5C}.ads-budget-input input{min-width:0;flex:1;background:transparent;padding:10px 11px;font:inherit;font-size:14px;outline:none}
 .ads-choice{position:relative;min-height:108px;border:1px solid #D9D5C7;border-radius:11px;background:white;padding:11px;text-align:left}.ads-choice strong,.ads-choice span{display:block}.ads-choice strong{font-size:13px}.ads-choice span{margin-top:3px;font-size:10px;color:#7A7568}.ads-choice .ads-choice-daily{margin-top:8px;border-top:1px solid #E8E5DD;padding-top:6px;color:#222;font-size:12px;font-weight:700}.ads-choice .ads-choice-cap{margin-top:5px;font-size:9px;color:#7A7568}.ads-choice em{position:absolute;right:6px;top:6px;border-radius:999px;background:#FCF487;padding:2px 5px;font-size:8px;font-style:normal;font-weight:700;text-transform:uppercase}.ads-choice-on{border:2px solid #0a0a0a;background:#F9FDEB;box-shadow:2px 2px 0 #0a0a0a}
 .ads-plan-note{display:flex;align-items:flex-start;gap:8px;margin-top:10px;border:1px solid #E8E5DD;border-radius:10px;background:#FBFAF6;padding:10px 12px;color:#7A7568;font-size:11px;line-height:1.5}.ads-plan-note strong{color:#3A3A3A}
 .ads-currency{width:146px;flex:none;padding-right:30px}
-.ads-voice{display:flex;align-items:center;gap:7px;border:1px dashed #9C9486;border-radius:10px;background:#FBFAF6;padding:9px 12px;font-size:12px;font-weight:600;color:#5C5C5C}.ads-voice span{margin-left:auto;border-radius:999px;background:#EFECE3;padding:2px 7px;font-size:9px;text-transform:uppercase}
+.ads-audio-note{border:1px solid #E0DCCE;border-radius:12px;background:#FBFAF6;padding:12px}.ads-audio-primary,.ads-audio-secondary,.ads-audio-stop{display:flex;align-items:center;gap:7px;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:700}.ads-audio-primary{flex:1;border:1px dashed #9C9486;background:#fff;color:#3A3A3A}.ads-audio-primary span{margin-left:auto;border-radius:999px;background:#EFECE3;padding:2px 7px;font-size:9px;text-transform:uppercase}.ads-audio-secondary{border:1px solid #D9D5C7;background:#fff;color:#5C5C5C}.ads-audio-danger{color:#9B3D29}.ads-audio-stop{border:1px solid #0a0a0a;background:#0a0a0a;color:#fff}.ads-recording-dot{height:10px;width:10px;border-radius:999px;background:#D1573B;box-shadow:0 0 0 4px rgba(209,87,59,.16);animation:ads-pulse 1.15s ease-in-out infinite}@keyframes ads-pulse{50%{opacity:.4;transform:scale(.82)}}
 .ads-submit-wrap{position:sticky;bottom:0;z-index:5;background:linear-gradient(transparent,#F7F4EC 28%);padding-top:22px}.ads-submit{width:100%;border:2px solid #0a0a0a;border-radius:11px;background:#0a0a0a;padding:12px 18px;font-size:14px;font-weight:700;color:white;box-shadow:3px 3px 0 #C6F24E}.ads-submit:hover{background:#252525}.ads-submit:disabled{opacity:.55}
 @media(max-width:640px){.ads-section{padding:19px}.ads-category{padding:14px}.ads-category button{padding:7px 10px}}
 `;
