@@ -89,9 +89,9 @@ const PLAN_OPTIONS: {
   recommended?: boolean;
 }[] = [
   { name: 'Starter', dailyHours: 1, weeklyHours: 5, monthlyHours: 20, pct: '10%', capacity: 'Light-touch finance support', perDay: '~1 hour per day', perWeek: '~5 hours per week', bestFor: 'Small businesses & startups', tagline: 'For businesses that are just getting started.' },
-  { name: 'Basic', dailyHours: 2, weeklyHours: 10, monthlyHours: 40, pct: '25%', capacity: 'Quarter of a full-time accountant', perDay: '2–3 hours per day', perWeek: '10 hours per week', bestFor: 'Active businesses', tagline: 'Our standard and most affordable plan.' },
-  { name: 'Plus', dailyHours: 4, weeklyHours: 20, monthlyHours: 80, pct: '50%', capacity: 'Half a full-time accountant', perDay: '4–5 hours per day', perWeek: '20 hours per week', bestFor: 'High-volume teams & firms', tagline: 'Get your books done faster with elevated priority.', recommended: true },
-  { name: 'Pro', dailyHours: 6, weeklyHours: 30, monthlyHours: 120, pct: '80%', capacity: 'Nearly a full-time accountant', perDay: '6–7 hours per day', perWeek: '30 hours per week', bestFor: 'Growing businesses', tagline: 'Highest throughput and fastest response time.' },
+  { name: 'Basic', dailyHours: 2, weeklyHours: 10, monthlyHours: 40, pct: '25%', capacity: 'Quarter of a full-time accountant', perDay: '2 hours per day', perWeek: '10 hours per week', bestFor: 'Active businesses', tagline: 'Our standard and most affordable plan.' },
+  { name: 'Plus', dailyHours: 4, weeklyHours: 20, monthlyHours: 80, pct: '50%', capacity: 'Half a full-time accountant', perDay: '4 hours per day', perWeek: '20 hours per week', bestFor: 'High-volume teams & firms', tagline: 'Get your books done faster with elevated priority.', recommended: true },
+  { name: 'Pro', dailyHours: 6, weeklyHours: 30, monthlyHours: 120, pct: '80%', capacity: 'Nearly a full-time accountant', perDay: '6 hours per day', perWeek: '30 hours per week', bestFor: 'Growing businesses', tagline: 'Highest throughput and fastest response time.' },
   { name: 'Personal', dailyHours: 8, weeklyHours: 40, monthlyHours: 160, pct: '100%', capacity: 'Dedicated full-time equivalent', perDay: '~8 hours per day', perWeek: '~40 hours per week', bestFor: 'Founders wanting close collaboration', tagline: 'Your own personal accountant, like an in-house finance partner.' },
 ];
 
@@ -232,8 +232,10 @@ const initialSubscription: Subscription = {
 
 export default function AccountantBriefForm({
   product = 'subscription',
+  preview = false,
 }: {
   product?: 'subscription' | 'assignment';
+  preview?: boolean;
 }) {
   const isAssignment = product === 'assignment';
   const [step, setStep] = useState<1 | 2>(1);
@@ -267,6 +269,10 @@ export default function AccountantBriefForm({
   // fields and dismisses the banner.
   const [prefilledFromLead, setPrefilledFromLead] = useState(false);
   const prefilledBrandRef = useRef<string | null>(null);
+  const [contactAutoFilled, setContactAutoFilled] = useState(preview);
+  const [brandAutoFilled, setBrandAutoFilled] = useState(preview);
+  const [editingContact, setEditingContact] = useState(!preview);
+  const [editingBrand, setEditingBrand] = useState(!preview);
 
   // Fetch country list once. Default to India (matching the upsquad onboard
   // form's behavior) but let the user pick any country we serve.
@@ -332,8 +338,46 @@ export default function AccountantBriefForm({
     }));
   }, [draftReady, user]);
 
+  useEffect(() => {
+    if (!preview) return;
+    setForm((prev) => ({
+      ...prev,
+      email: 'hello@northstarlearning.com',
+      country_code: '+91',
+      phone: '9876543210',
+      contact_name: 'Aarav Mehta',
+      brand_name: 'Northstar Learning',
+      business_nature: 'Online education and professional upskilling',
+      business_note: 'Career-focused online courses for working professionals across India.',
+      business_location: 'Bengaluru, Karnataka',
+    }));
+  }, [preview]);
+
   const emailLocked = Boolean((user?.contact_email || user?.email || '').trim());
   const phoneLocked = Boolean((user?.contact_phone || '').trim());
+
+  useEffect(() => {
+    if (!draftReady || !user) return;
+    const savedContactComplete = Boolean(
+      (user.contact_email || user.email || '').trim()
+      && (user.contact_phone || '').trim()
+      && (user.contact_person_name || user.full_name || '').trim(),
+    );
+    const savedBrandComplete = Boolean(
+      (user.company_name || '').trim()
+      && (user.industry || '').trim()
+      && (user.business_note || '').trim()
+      && (user.business_location || '').trim(),
+    );
+    if (savedContactComplete) {
+      setContactAutoFilled(true);
+      setEditingContact(false);
+    }
+    if (savedBrandComplete) {
+      setBrandAutoFilled(true);
+      setEditingBrand(false);
+    }
+  }, [draftReady, user]);
 
   // Auto-save every change once armed.
   useEffect(() => {
@@ -713,9 +757,12 @@ export default function AccountantBriefForm({
 
             {/* Section: Contact — locked when on account; editable when missing */}
             <Section
-              eyebrow="Customer"
-              title="Your contact"
-              hint="How we'll reach you to confirm and schedule the kickoff call."
+              eyebrow=""
+              title="Customer details"
+              hint=""
+              compact={contactAutoFilled && !editingContact}
+              action={contactAutoFilled ? { label: editingContact ? 'Done' : 'Edit', onClick: () => setEditingContact((value) => !value) } : undefined}
+              summary={<CompactSummary title={`Contact person: ${form.contact_name || '—'}`} details={[`Email: ${form.email || '—'}`, `Phone: ${form.phone ? `${form.country_code} ${form.phone}`.trim() : '—'}`]} />}
             >
               <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -801,9 +848,12 @@ export default function AccountantBriefForm({
 
             {/* Section: Brand */}
             <Section
-              eyebrow="Client brief"
-              title="About your brand"
-              hint="Helps your accountant understand your business and the books they'll be working with."
+              eyebrow=""
+              title="Brand details"
+              hint=""
+              compact={brandAutoFilled && !editingBrand}
+              action={brandAutoFilled ? { label: editingBrand ? 'Done' : 'Edit', onClick: () => setEditingBrand((value) => !value) } : undefined}
+              summary={<CompactSummary title={`Brand name: ${form.brand_name || '—'}`} details={[`Nature of business: ${form.business_nature || '—'}`, `Location: ${form.business_location || '—'}`, `About the brand: ${form.business_note || '—'}`]} />}
             >
               <Field label="Brand Name" required>
                 <input
@@ -853,13 +903,22 @@ export default function AccountantBriefForm({
             {/* Requirement description — voice note + typed note together. */}
             <Section
               eyebrow="Requirement"
-              title="Describe your requirement"
-              hint="Required — add at least one: record a voice note or type it out (or both). Your matched accountant can listen to the voice note in their app."
+              title="What should your accountant own?"
+              hint="Be specific about the financial outcome, recurring work, and reporting responsibility. Add a written brief, a voice note, or both."
             >
               <div className="space-y-4">
-                <div>
+                <Field label="Describe your requirement" optional hint="Explain the kind of accounting work you're looking to get done.">
+                  <textarea
+                    rows={4}
+                    value={subscription.note}
+                    onChange={(e) => updateSub('note', e.target.value)}
+                    placeholder="e.g. Own monthly bookkeeping, GST filing, payroll, and close the books by the fifth working day…"
+                    className="connect-input resize-none"
+                  />
+                </Field>
+                <div className="rounded-xl border border-[#E0DCCE] bg-[#FBFAF6] p-3">
                   <label className="mb-1.5 flex items-baseline gap-2 text-sm font-medium text-[#222]">
-                    <span>Voice note</span>
+                    <span>Record a voice note</span>
                     <span className="text-xs font-normal text-[#9C9486]">(optional)</span>
                   </label>
                   <AudioNote
@@ -867,15 +926,6 @@ export default function AccountantBriefForm({
                     onChange={(blob, url) => { audioBlobRef.current = blob; setAudioUrl(url); }}
                   />
                 </div>
-                <Field label="Requirement note" optional hint="Explain the kind of accounting work you're looking to get done.">
-                  <textarea
-                    rows={3}
-                    value={subscription.note}
-                    onChange={(e) => updateSub('note', e.target.value)}
-                    placeholder="e.g. Monthly bookkeeping, GST filing, year-end accounts, payroll…"
-                    className="connect-input resize-none"
-                  />
-                </Field>
               </div>
             </Section>
 
@@ -948,51 +998,25 @@ export default function AccountantBriefForm({
                     <p className="mb-3 text-xs text-[#7A7568]">
                       Plans differ by availability — how much of an accountant you get each week.
                     </p>
-                    <div className="overflow-hidden rounded-xl border border-[#D9D5C7]">
-                      <table className="w-full border-collapse text-left text-sm">
-                        <thead>
-                          <tr className="bg-[#F4F1E8] text-[11px] font-semibold uppercase tracking-wide text-[#7A7568]">
-                            <th className="px-2 py-2 sm:px-3">Plan</th>
-                            <th className="px-2 py-2 text-right text-[#0a0a0a] sm:px-3">Per day</th>
-                            <th className="px-2 py-2 text-right sm:px-3">Weekly max</th>
-                            <th className="px-2 py-2 text-right sm:px-3">Monthly max</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {PLAN_OPTIONS.map((p) => {
-                            const on = subscription.plan === p.name;
-                            return (
-                              <tr
-                                key={p.name}
-                                role="button"
-                                aria-pressed={on}
-                                onClick={() => updateSub('plan', on ? '' : p.name)}
-                                className={`cursor-pointer border-t border-[#E8E5DD] transition ${on ? 'bg-[#F2FCBC]' : 'bg-white hover:bg-[#FBFAF6]'}`}
-                              >
-                                <td className="px-2 py-2.5 font-semibold text-[#0a0a0a] sm:px-3">
-                                  <span className="flex items-center gap-2">
-                                    <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border ${on ? 'border-[#0a0a0a] bg-[#FCF487]' : 'border-[#C9C4B5]'}`}>
-                                      {on && (
-                                        <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}>
-                                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                      )}
-                                    </span>
-                                    {p.name}
-                                  </span>
-                                </td>
-                                <td className="px-2 py-2.5 text-right sm:px-3">
-                                  <span className="text-[15px] font-bold leading-none text-[#0a0a0a]">{p.dailyHours}</span>
-                                  <span className="text-[11px] font-semibold text-[#0a0a0a]"> hr{p.dailyHours > 1 ? 's' : ''}</span>
-                                  <span className="mt-0.5 block text-[10px] font-medium uppercase tracking-wide text-[#9C9486]">per day</span>
-                                </td>
-                                <td className="px-2 py-2.5 text-right text-xs text-[#7A7568] sm:px-3">{p.weeklyHours} hrs</td>
-                                <td className="px-2 py-2.5 text-right text-xs text-[#7A7568] sm:px-3">{p.monthlyHours} hrs</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                      {PLAN_OPTIONS.map((p) => {
+                        const on = subscription.plan === p.name;
+                        return (
+                          <button
+                            key={p.name}
+                            type="button"
+                            aria-pressed={on}
+                            onClick={() => updateSub('plan', p.name)}
+                            className={`relative min-h-[108px] rounded-xl border p-3 text-left transition ${on ? 'border-2 border-[#0a0a0a] bg-[#F9FDEB] shadow-[2px_2px_0_#0a0a0a]' : 'border-[#D9D5C7] bg-white hover:border-[#0a0a0a]'}`}
+                          >
+                            <strong className="block text-sm text-[#222]">{p.name}</strong>
+                            {p.recommended && <span className="absolute right-1.5 top-1.5 rounded-full bg-[#FCF487] px-1.5 py-0.5 text-[8px] font-bold uppercase">Popular</span>}
+                            <span className="mt-2 block border-t border-[#E8E5DD] pt-1.5 text-xs font-bold text-[#222]">{p.dailyHours} hr{p.dailyHours > 1 ? 's' : ''} / day</span>
+                            <span className="mt-1 block text-[9px] text-[#7A7568]">{p.weeklyHours} hrs weekly max</span>
+                            <span className="mt-1 block text-[9px] text-[#7A7568]">{p.monthlyHours} hrs monthly max</span>
+                          </button>
+                        );
+                      })}
                     </div>
                     <div className="mt-2.5 flex items-start gap-2 rounded-lg border border-[#E8E5DD] bg-[#FBFAF6] px-3 py-2.5">
                       <svg className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[#9C9486]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1018,34 +1042,33 @@ export default function AccountantBriefForm({
                           : ' For each level you pick, set a project budget.'
                         : ' For each level you pick, set a monthly budget.'}
                     </p>
-                    <div className="space-y-2.5">
+                    <div className="grid items-start gap-2 sm:grid-cols-2">
                       {EXPERIENCE_LEVELS.map((lvl) => {
                         const on = subscription.tiers.includes(lvl.value);
                         return (
                           <div
                             key={lvl.value}
-                            className={`overflow-hidden rounded-xl border transition ${on ? 'border-[#0a0a0a] bg-[#F2FCBC]/50' : 'border-[#E0DCCE] bg-white'}`}
+                            className={`overflow-hidden rounded-2xl border transition ${on ? 'border-2 border-[#0a0a0a] bg-[#F9FDEB] shadow-[3px_3px_0_#C6F24E]' : 'border-[#D9D5C7] bg-white hover:border-[#0a0a0a]'}`}
                           >
                             <button
                               type="button"
                               onClick={() => toggleSubTier(lvl.value)}
                               aria-pressed={on}
-                              className="flex w-full items-start gap-3 p-3.5 text-left"
+                              className="block min-h-[126px] w-full p-3.5 text-left"
                             >
-                              <span className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border ${on ? 'border-[#0a0a0a] bg-[#FCF487]' : 'border-[#C9C4B5] bg-white'}`}>
-                                {on && (
-                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                  </svg>
-                                )}
+                              <span className="flex items-center justify-between">
+                                <span className={`rounded-full px-2 py-1 text-[9px] font-extrabold uppercase tracking-wider ${on ? 'bg-[#FCF487] text-[#222]' : 'bg-[#F3F0E7] text-[#7A7568]'}`}>
+                                  {lvl.value === 'Top Talents' ? 'Premium' : lvl.value === 'Agencies' ? 'Team' : lvl.label.replace(/s$/, '')}
+                                </span>
+                                <span className={`flex h-6 w-6 items-center justify-center rounded-full border-2 text-xs font-bold ${on ? 'border-[#0a0a0a] bg-[#FCF487]' : 'border-[#C9C4B5] bg-white'}`}>
+                                  {on ? '✓' : ''}
+                                </span>
                               </span>
-                              <span className="min-w-0">
-                                <span className="block text-sm font-semibold text-[#0a0a0a]">{lvl.label}</span>
-                                <span className="mt-0.5 block text-xs leading-relaxed text-[#7A7568]">{lvl.desc}</span>
-                              </span>
+                              <strong className="mt-3 block text-sm text-[#0a0a0a]">{lvl.label}</strong>
+                              <small className="mt-1 block text-[11px] leading-relaxed text-[#7A7568]">{lvl.desc}</small>
                             </button>
                             {on && (
-                              <div className="border-t border-[#E0DCCE] px-3.5 py-3 sm:pl-11">
+                              <div className="border-t border-[#E0DCCE] bg-white/70 px-3.5 py-3">
                                 <label className="mb-1 block text-xs font-medium text-[#222]">
                                   {isAssignment
                                     ? (pricingMode === 'unpriced' ? `Budget ceiling for ${lvl.label}` : `Project budget for ${lvl.label}`)
@@ -1577,15 +1600,45 @@ function AudioNote({
 }
 
 function Section({
-  eyebrow, title, hint, children,
-}: { eyebrow: string; title: string; hint: string; children: React.ReactNode }) {
+  eyebrow, title, hint, children, compact = false, action, summary,
+}: {
+  eyebrow: string;
+  title: string;
+  hint: string;
+  children: React.ReactNode;
+  compact?: boolean;
+  action?: { label: string; onClick: () => void };
+  summary?: React.ReactNode;
+}) {
   return (
-    <section className="rounded-2xl bg-white border border-[#E8E5DD] p-5 sm:p-6 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#7A7568]">{eyebrow}</p>
-      <h2 className="mt-1 text-lg font-semibold text-[#222]">{title}</h2>
-      <p className="mt-1 text-sm text-[#5C5C5C]">{hint}</p>
-      <div className="mt-4 space-y-4">{children}</div>
+    <section className={`rounded-2xl bg-white border border-[#E8E5DD] shadow-sm ${compact ? 'p-4 sm:px-5' : 'p-5 sm:p-6'}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          {eyebrow && <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#7A7568]">{eyebrow}</p>}
+          {title && <h2 className="mt-1 text-lg font-semibold text-[#222]">{title}</h2>}
+          {hint && <p className="mt-1 text-sm text-[#5C5C5C]">{hint}</p>}
+        </div>
+        {action && (
+          <button type="button" onClick={action.onClick} className="shrink-0 rounded-lg border-2 border-[#0a0a0a] bg-white px-3 py-1.5 text-xs font-bold text-[#222] shadow-[2px_2px_0_#FCF487]">
+            {action.label}
+          </button>
+        )}
+      </div>
+      {compact ? (
+        <div className="mt-3 border-t border-[#E8E5DD] pt-3">{summary}</div>
+      ) : (
+        <div className="mt-4 space-y-4">{children}</div>
+      )}
     </section>
+  );
+}
+
+function CompactSummary({ title, details }: { title: string; details: string[] }) {
+  return (
+    <div>
+      <strong className="block text-sm text-[#222]">{title}</strong>
+      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[#7A7568]">{details.filter(Boolean).join(' · ')}</p>
+    </div>
   );
 }
 
@@ -1638,7 +1691,7 @@ function WorkingDaysSelector({
     weekendCount > 0 && (allWeekdaysSelected || selected.length > 5);
 
   return (
-    <div>
+    <div className="rounded-xl border border-[#E0DCCE] bg-[#FBFAF6] p-4">
       <label className="mb-1 flex items-baseline gap-2 text-sm font-medium text-[#222]">
         <span>Working Days<span className="text-[#C13515]">*</span></span>
       </label>
@@ -2018,9 +2071,9 @@ const globalStyles = `
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
-  border-radius: 10px;
-  font-size: 14px;
+  min-height: 56px;
+  border-radius: 12px;
+  font-size: 12px;
   font-weight: 700;
   background: #fff;
   color: #3A3A3A;
@@ -2034,10 +2087,10 @@ const globalStyles = `
   color: #7A7568;
 }
 .connect-day-on {
-  background: #F2FCBC;
+  background: #FCF487;
   color: #0a0a0a;
-  border-color: #0a0a0a;
+  border: 2px solid #0a0a0a;
   border-style: solid;
-  box-shadow: inset 0 0 0 1px #0a0a0a;
+  box-shadow: 2px 2px 0 #0a0a0a;
 }
 `;

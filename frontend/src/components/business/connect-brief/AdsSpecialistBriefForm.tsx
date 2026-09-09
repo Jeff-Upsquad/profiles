@@ -62,11 +62,11 @@ const TIER_OPTIONS = [
   { value: 'Agencies', label: 'Agencies', desc: 'Specialized paid-media teams that can manage multiple channels and deliverables.' },
 ];
 const PLANS = [
-  { name: 'Starter', dailyHours: '1 hr', weeklyMax: '5 hrs', monthlyMax: '20 hrs' },
-  { name: 'Basic', dailyHours: '2 hrs', weeklyMax: '10 hrs', monthlyMax: '40 hrs' },
-  { name: 'Plus', dailyHours: '4 hrs', weeklyMax: '20 hrs', monthlyMax: '80 hrs', recommended: true },
-  { name: 'Pro', dailyHours: '6 hrs', weeklyMax: '30 hrs', monthlyMax: '120 hrs' },
-  { name: 'Personal', dailyHours: '8 hrs', weeklyMax: '40 hrs', monthlyMax: '160 hrs' },
+  { name: 'Starter', dailyHours: '1 hr', weeklyMax: '5 hrs', monthlyMax: '20 hrs', pct: '10%', capacity: 'Light-touch campaign support', tagline: 'For brands starting paid acquisition.', bestFor: 'Small brands & startups' },
+  { name: 'Basic', dailyHours: '2 hrs', weeklyMax: '10 hrs', monthlyMax: '40 hrs', pct: '25%', capacity: 'Quarter of a full-time specialist', tagline: 'Consistent support at an affordable level.', bestFor: 'Active brands' },
+  { name: 'Plus', dailyHours: '4 hrs', weeklyMax: '20 hrs', monthlyMax: '80 hrs', pct: '50%', capacity: 'Half specialist capacity', tagline: 'Faster execution with elevated priority.', bestFor: 'Scaling acquisition teams', recommended: true },
+  { name: 'Pro', dailyHours: '6 hrs', weeklyMax: '30 hrs', monthlyMax: '120 hrs', pct: '80%', capacity: 'Nearly full-time specialist', tagline: 'High-volume execution and optimisation.', bestFor: 'Growing businesses' },
+  { name: 'Personal', dailyHours: '8 hrs', weeklyMax: '40 hrs', monthlyMax: '160 hrs', pct: '100%', capacity: 'Dedicated full-time equivalent', tagline: 'Your own dedicated ads specialist.', bestFor: 'Performance-led organisations' },
 ];
 const CURRENCIES = [
   { code: 'INR', label: 'INR — Indian Rupee' },
@@ -114,6 +114,7 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
   const [brandAutoFilled, setBrandAutoFilled] = useState(preview);
   const [editingContact, setEditingContact] = useState(!preview);
   const [editingBrand, setEditingBrand] = useState(!preview);
+  const [comparePlanOpen, setComparePlanOpen] = useState(false);
   const audioBlobRef = useRef<Blob | null>(null);
 
   useEffect(() => {
@@ -265,23 +266,23 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
 
           <GroupHeader index={1} title="Business details" subtitle="Who you are and how we reach you." />
           <Section
-            eyebrow="Customer"
-            title="Your contact"
-            hint="How we'll reach you to confirm and schedule the kickoff call."
+            eyebrow=""
+            title="Customer details"
+            hint=""
             compact={contactAutoFilled && contactComplete && !editingContact}
             action={contactAutoFilled && contactComplete ? { label: editingContact ? 'Done' : 'Edit', onClick: () => setEditingContact((value) => !value) } : undefined}
-            summary={<CompactSummary title={form.contactName} details={[form.email, form.phone]} />}
+            summary={<CompactSummary title={`Contact person: ${form.contactName}`} details={[`Email: ${form.email}`, `Phone: ${form.phone}`]} />}
           >
             <div className="grid gap-4 sm:grid-cols-2"><Field label="Email"><Readonly value={form.email} /><p className="shb-help">Edit in <span className="underline">account details</span></p></Field><Field label="Phone"><Readonly value={form.phone} /><p className="shb-help">Edit in <span className="underline">account details</span></p></Field></div>
             <Field label="Contact Person Name" required><input className="shb-input" value={form.contactName} onChange={(e) => update('contactName', e.target.value)} /></Field>
           </Section>
           <Section
-            eyebrow="Client brief"
-            title="About your brand"
-            hint="Helps the specialist understand your space and recommend ideas that fit."
+            eyebrow=""
+            title="Brand details"
+            hint=""
             compact={brandAutoFilled && brandComplete && !editingBrand}
             action={brandAutoFilled && brandComplete ? { label: editingBrand ? 'Done' : 'Edit', onClick: () => setEditingBrand((value) => !value) } : undefined}
-            summary={<CompactSummary title={form.brandName} details={[form.businessNature, form.businessNote]} />}
+            summary={<CompactSummary title={`Brand name: ${form.brandName}`} details={[`Nature of business: ${form.businessNature}`, `About the brand: ${form.businessNote}`]} />}
           >
             <Field label="Brand Name" required><input className="shb-input" value={form.brandName} onChange={(e) => update('brandName', e.target.value)} placeholder="e.g. Northstar Learning" /></Field>
             <Field label="What does your business do?" required><input className="shb-input" value={form.businessNature} onChange={(e) => update('businessNature', e.target.value)} placeholder="e.g. Online education and professional upskilling" /></Field>
@@ -312,7 +313,7 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
           </Section>
 
           <Section eyebrow={isAssignment ? 'Assignment' : 'Subscription'} title={isAssignment ? 'Budget & timeline' : 'Plan, level & budget'} hint={isAssignment ? 'Set a clear project finish line.' : 'Choose how much specialist capacity you need each month.'}>
-            {!isAssignment && <Field label="Monthly plan" required><div className="grid grid-cols-2 gap-2 sm:grid-cols-5">{PLANS.map((plan) => { const selected = form.plan === plan.name; return <button key={plan.name} type="button" aria-pressed={selected} onClick={() => update('plan', plan.name)} className={`shb-choice ${selected ? 'shb-choice-on' : ''}`}><strong>{plan.name}</strong><span className="shb-choice-daily">{plan.dailyHours} / day</span><span className="shb-choice-cap">{plan.weeklyMax} weekly max</span><span className="shb-choice-cap">{plan.monthlyMax} monthly max</span>{plan.recommended && <em>Popular</em>}</button>; })}</div><div className="shb-plan-note"><InfoIcon /><p><strong>Daily hours come first.</strong> Weekly and monthly figures are maximum caps, not saved-up balances. Unused time doesn&apos;t roll over.</p></div></Field>}
+            {!isAssignment && <div><div className="mb-2 flex items-center justify-between gap-3"><p className="text-sm font-medium text-[#222]">Monthly plan<b className="text-[#D04A2C]">*</b></p><button type="button" onClick={() => setComparePlanOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border-2 border-[#0a0a0a] bg-[#F2FCBC] px-3 py-1.5 text-xs font-bold text-[#0a0a0a] shadow-[2px_2px_0_#0a0a0a]"><CompareIcon />Compare all plans</button></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-5">{PLANS.map((plan) => { const selected = form.plan === plan.name; return <button key={plan.name} type="button" aria-pressed={selected} onClick={() => update('plan', plan.name)} className={`shb-choice ${selected ? 'shb-choice-on' : ''}`}><strong>{plan.name}</strong><span className="shb-choice-daily">{plan.dailyHours} / day</span><span className="shb-choice-cap">{plan.weeklyMax} weekly max</span><span className="shb-choice-cap">{plan.monthlyMax} monthly max</span>{plan.recommended && <em>Popular</em>}</button>; })}</div><div className="shb-plan-note"><InfoIcon /><p><strong>Daily hours come first.</strong> Weekly and monthly figures are maximum caps, not saved-up balances. Unused time doesn&apos;t roll over.</p></div></div>}
             <Field label="Budget currency" required><select aria-label="Budget currency" className="shb-input" value={form.currency} onChange={(e) => update('currency', e.target.value)}>{CURRENCIES.map((currency) => <option key={currency.code} value={currency.code}>{currency.label}</option>)}</select></Field>
             <TierSelector product={product} currency={form.currency} selected={form.tiers} values={form.tierBudgets} onToggle={(value) => toggle('tiers', value)} onBudgetChange={updateTierBudget} />
             {isAssignment && <Field label="Duration"><input className="shb-input" value={form.duration} onChange={(e) => update('duration', e.target.value)} /></Field>}
@@ -344,6 +345,7 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
           <div className="shb-submit-wrap"><button type="submit" disabled={submitting} className="shb-submit">{submitting ? 'Submitting…' : `Submit ${product} brief`}</button></div>
         </form>
       </div>
+      {comparePlanOpen && <PlanCompareModal selectedPlan={form.plan} onSelect={(name) => update('plan', name)} onClose={() => setComparePlanOpen(false)} />}
       <style jsx global>{styles}</style>
     </div>
   );
@@ -472,7 +474,7 @@ function Section({ eyebrow, title, hint, children, compact = false, action, summ
   compact?: boolean;
   action?: { label: string; onClick: () => void };
   summary?: React.ReactNode;
-}) { return <section className={`shb-section ${compact ? 'shb-section-compact' : ''}`}><div className="flex items-start justify-between gap-4"><div><p className="shb-eyebrow">{eyebrow}</p><h3>{title}</h3><p className="shb-hint">{hint}</p></div>{action && <button type="button" onClick={action.onClick} className="shb-edit-button">{action.label}</button>}</div>{compact ? <div className="shb-compact-summary">{summary}</div> : <div className="mt-5 space-y-4">{children}</div>}</section>; }
+}) { return <section className={`shb-section ${compact ? 'shb-section-compact' : ''}`}><div className="flex items-start justify-between gap-4"><div>{eyebrow && <p className="shb-eyebrow">{eyebrow}</p>}{title && <h3>{title}</h3>}{hint && <p className="shb-hint">{hint}</p>}</div>{action && <button type="button" onClick={action.onClick} className="shb-edit-button">{action.label}</button>}</div>{compact ? <div className="shb-compact-summary">{summary}</div> : <div className="mt-5 space-y-4">{children}</div>}</section>; }
 function CompactSummary({ title, details }: { title: string; details: string[] }) { return <div><strong>{title}</strong><p>{details.filter(Boolean).join(' · ')}</p></div>; }
 function Field({ label, required, optional, children }: { label: string; required?: boolean; optional?: boolean; children: React.ReactNode }) { return <label className="block"><span className="mb-1.5 block text-sm font-medium text-[#222]">{label}{required && <b className="text-[#D04A2C]">*</b>}{optional && <small className="ml-1 font-normal text-[#9C9486]">(optional)</small>}</span>{children}</label>; }
 function Readonly({ value }: { value: string }) { return <div className="shb-readonly">{value || '—'}</div>; }
@@ -488,6 +490,54 @@ function TierSelector({ product, currency, selected, values, onToggle, onBudgetC
   const budgetLabel = product === 'assignment' ? 'Project budget amount' : 'Monthly budget amount';
   return <div><p className="mb-1 text-sm font-medium text-[#222]">Specialist level<b className="text-[#D04A2C]">*</b></p><p className="mb-3 text-xs leading-relaxed text-[#7A7568]">Select one or more levels. Each selected card opens an optional budget amount field.</p><div className="grid items-start gap-2 sm:grid-cols-2">{TIER_OPTIONS.map((tier) => { const on = selected.includes(tier.value); return <div key={tier.value} className={`shb-tier-card ${on ? 'shb-tier-card-on' : ''}`}><button type="button" aria-pressed={on} onClick={() => onToggle(tier.value)} className="shb-tier-select"><span className="shb-tier-card-top"><span className="shb-tier-kicker">{tier.value === 'Top Talents' ? 'Premium' : tier.value === 'Agencies' ? 'Team' : tier.label.replace(/s$/, '')}</span><span className="shb-tier-check">{on ? '✓' : ''}</span></span><strong>{tier.label}</strong><small>{tier.desc}</small></button>{on && <label className="shb-tier-budget"><span>{budgetLabel} <em>Optional</em></span><span className="shb-budget-input"><b>{currency}</b><input aria-label={`${budgetLabel} for ${tier.label}`} inputMode="numeric" placeholder="Enter amount" value={formatMoneyInput(values[tier.value] ?? '', currency)} onChange={(e) => onBudgetChange(tier.value, e.target.value)} /></span><small>Leave blank if you want our team to recommend a budget.</small></label>}</div>; })}</div></div>;
 }
+
+function PlanCompareModal({ selectedPlan, onSelect, onClose }: {
+  selectedPlan: string;
+  onSelect: (name: string) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const cellClass = (plan: (typeof PLANS)[number], extra = '') =>
+    `${plan.recommended ? 'border-x-2 border-[#C6F24E]' : ''} ${selectedPlan === plan.name ? 'bg-[#FCFBE8]' : 'bg-white'} ${extra}`;
+  const features = [
+    { label: 'Unlimited work requests', values: [true, true, true, true, true] },
+    { label: 'Squad Manager', values: [true, true, true, true, true] },
+    { label: 'Urgent campaign work', values: [false, false, true, true, true] },
+    { label: 'Meetings', values: ['By request', 'By request', 'By request', 'By request', 'Instant access'] },
+    { label: 'Live collaboration', values: ['No', 'No', 'No', 'No', 'Yes'] },
+    { label: 'Resource type', values: ['Shared', 'Shared', 'Shared', 'High priority', 'Dedicated'] },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm sm:p-6" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label="Compare plans — Ads Specialist" className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border-2 border-[#0a0a0a] bg-white shadow-[8px_8px_0_rgba(10,10,10,.22)]" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center gap-3 border-b-2 border-[#0a0a0a] bg-[#F4F1E8] px-4 py-2.5">
+          <div className="flex shrink-0 items-center gap-1.5"><span className="h-3 w-3 rounded-full border border-[#0a0a0a] bg-[#FF5F57]" /><span className="h-3 w-3 rounded-full border border-[#0a0a0a] bg-[#FEBC2E]" /><span className="h-3 w-3 rounded-full border border-[#0a0a0a] bg-[#28C840]" /></div>
+          <h3 className="min-w-0 flex-1 truncate text-center text-sm font-bold">Compare plans — Ads Specialist</h3>
+          <button type="button" onClick={onClose} aria-label="Close" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border-2 border-[#0a0a0a] bg-white text-lg font-bold shadow-[1px_1px_0_#0a0a0a] hover:bg-[#FCF487]">×</button>
+        </div>
+        <div className="border-b border-[#E8E5DD] px-5 py-2.5 text-[11px] leading-relaxed text-[#7A7568]"><strong className="text-[#0a0a0a]">Pick the availability that fits.</strong> Daily hours are your allocation; weekly and monthly figures are maximum caps, and unused daily time does not roll over.</div>
+        <div className="overflow-auto">
+          <table className="w-full min-w-[820px] border-collapse text-sm">
+            <thead><tr><th className="sticky left-0 z-20 bg-white px-4 py-4" />{PLANS.map((plan) => <th key={plan.name} className={cellClass(plan, `px-4 pb-4 pt-5 text-center align-top ${plan.recommended ? 'border-t-2' : ''}`)}>{plan.recommended && <span className="mb-2 inline-block rounded-full border border-[#0a0a0a] bg-[#C6F24E] px-2.5 py-0.5 text-[10px] font-bold uppercase">Most popular</span>}<div className="text-base font-extrabold">{plan.name}</div><p className="mx-auto mt-1 max-w-[150px] text-[11px] font-normal leading-snug text-[#7A7568]">{plan.tagline}</p></th>)}</tr></thead>
+            <tbody>
+              <tr className="border-t border-[#EFECE3]"><td className="sticky left-0 z-20 bg-white px-4 py-4 font-semibold text-[#3A3A3A]">Availability</td>{PLANS.map((plan) => <td key={plan.name} className={cellClass(plan, 'px-4 py-4 text-center align-top')}><div className="text-2xl font-extrabold">{plan.pct}</div><div className="mt-1 text-[11px] text-[#7A7568]">{plan.capacity}</div><div className="mt-2 text-[11px] text-[#3A3A3A]">{plan.dailyHours} per day</div><div className="text-[11px] italic text-[#7A7568]">{plan.weeklyMax} per week</div><div className="text-[11px] italic text-[#7A7568]">{plan.monthlyMax} per month</div></td>)}</tr>
+              {features.map((feature) => <tr key={feature.label} className="border-t border-[#EFECE3]"><td className="sticky left-0 z-20 bg-white px-4 py-3 font-medium text-[#3A3A3A]">{feature.label}</td>{feature.values.map((value, index) => <td key={`${feature.label}-${PLANS[index].name}`} className={cellClass(PLANS[index], 'px-4 py-3 text-center')}>{typeof value === 'boolean' ? <span className={`font-bold ${value ? 'text-[#1FA85A]' : 'text-[#D1573B]'}`}>{value ? '✓' : '×'}</span> : <span className="text-xs text-[#3A3A3A]">{value}</span>}</td>)}</tr>)}
+              <tr className="border-t border-[#EFECE3]"><td className="sticky left-0 z-20 bg-white px-4 py-3 font-medium text-[#3A3A3A]">Best for</td>{PLANS.map((plan) => <td key={plan.name} className={cellClass(plan, 'px-4 py-3 text-center text-xs text-[#3A3A3A]')}>{plan.bestFor}</td>)}</tr>
+            </tbody>
+            <tfoot><tr className="border-t border-[#EFECE3]"><td className="sticky left-0 z-20 bg-white px-4 py-4" />{PLANS.map((plan) => { const on = selectedPlan === plan.name; return <td key={plan.name} className={cellClass(plan, `px-3 py-4 text-center ${plan.recommended ? 'border-b-2' : ''}`)}><button type="button" aria-pressed={on} onClick={() => onSelect(plan.name)} className={`w-full rounded-lg border-2 border-[#0a0a0a] px-2 py-2 text-xs font-bold shadow-[2px_2px_0_#0a0a0a] ${on ? 'bg-[#C6F24E]' : 'bg-white hover:bg-[#F2FCBC]'}`}>{on ? 'Selected ✓' : 'Select plan'}</button></td>; })}</tr></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function formatMoneyInput(value: string, currency: string) {
   if (!value) return '';
   const amount = Number(value);
@@ -499,11 +549,11 @@ function WorkingDays({ selected, onToggle }: { selected: string[]; onToggle: (va
   const allWeekdaysSelected = DAYS.slice(0, 5).every((day) => selected.includes(day));
   const showWeekendWarning = weekendCount > 0 && (allWeekdaysSelected || selected.length > 5);
 
-  return <div>
+  return <div className="rounded-xl border border-[#E0DCCE] bg-[#FBFAF6] p-4">
     <p className="mb-1 text-sm font-medium text-[#222]">Working days<b className="text-[#D04A2C]">*</b></p>
     <p className="mb-2 text-xs leading-relaxed text-[#7A7568]">Days you need the specialist to be available — we'll match people whose schedule fits yours.</p>
     <p className="mb-3 text-xs leading-relaxed text-[#7A7568]">Mon–Fri are included by default. Add <strong className="text-[#3A3A3A]">Sat</strong> and/or <strong className="text-[#3A3A3A]">Sun</strong> if you need weekend coverage{weekendCount > 0 && <span className="text-[#5C5C5C]"> — currently {weekendCount} weekend day{weekendCount > 1 ? 's' : ''} added</span>}.</p>
-    <div className="grid grid-cols-7 gap-1.5">{DAYS.map((day) => { const isOn = selected.includes(day); const optional = day === 'Sat' || day === 'Sun'; return <button key={day} type="button" onClick={() => onToggle(day)} aria-pressed={isOn} title={optional ? `${day} (optional)` : day} className={`relative flex min-h-10 flex-col items-center justify-center rounded-lg border py-2 text-xs font-semibold ${isOn ? 'border-[#0a0a0a] bg-[#FCF487] text-[#0a0a0a]' : optional ? 'border-dashed border-[#C9C3B5] bg-[#FBFAF6] text-[#7A7568]' : 'border-[#D9D5C7] bg-white text-[#7A7568]'}`}><span>{day}</span>{optional && !isOn && <span className="mt-0.5 text-[8px] font-medium uppercase tracking-wider text-[#9C9486]">opt</span>}{isOn && <svg className="absolute right-1 top-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}</button>; })}</div>
+    <div className="grid grid-cols-7 gap-1.5 sm:gap-2">{DAYS.map((day) => { const isOn = selected.includes(day); const optional = day === 'Sat' || day === 'Sun'; return <button key={day} type="button" onClick={() => onToggle(day)} aria-pressed={isOn} title={optional ? `${day} (optional)` : day} className={`relative flex min-h-14 flex-col items-center justify-center rounded-xl border py-2 text-xs font-bold transition ${isOn ? 'border-2 border-[#0a0a0a] bg-[#FCF487] text-[#0a0a0a] shadow-[2px_2px_0_#0a0a0a]' : optional ? 'border-dashed border-[#C9C3B5] bg-white text-[#7A7568]' : 'border-[#D9D5C7] bg-white text-[#3A3A3A] hover:border-[#0a0a0a]'}`}><span>{day}</span>{optional && !isOn && <span className="mt-0.5 text-[8px] font-medium uppercase tracking-wider text-[#9C9486]">opt</span>}{isOn && <svg className="absolute right-1 top-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}</button>; })}</div>
     {showWeekendWarning && <div className="mt-3 flex items-start gap-2 rounded-lg border border-[#E0B7A2] bg-[#FBEFE9] p-3"><svg className="mt-0.5 h-4 w-4 shrink-0 text-[#C97744]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg><span className="text-xs font-medium leading-relaxed text-[#8B3A1A]">Less chance of talent accepting the request if weekends are selected.</span></div>}
   </div>;
 }
@@ -511,6 +561,7 @@ function BackIcon() { return <svg className="h-4 w-4" fill="none" viewBox="0 0 2
 function MicIcon() { return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="9" y="3" width="6" height="11" rx="3" /><path strokeLinecap="round" d="M6 11a6 6 0 0012 0M12 17v4m-3 0h6" /></svg>; }
 function CheckIcon() { return <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>; }
 function InfoIcon() { return <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M12 11v5m0-8h.01" /></svg>; }
+function CompareIcon() { return <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="4" width="18" height="16" rx="1.5" /><path d="M9 4v16M15 4v16" /></svg>; }
 
 const styles = `
 .shb-connect-bg{background:#F7F4EC;color:#222;font-family:var(--font-jakarta),sans-serif}

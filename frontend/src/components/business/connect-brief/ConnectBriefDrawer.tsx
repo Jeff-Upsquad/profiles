@@ -162,9 +162,9 @@ export default function ConnectBriefDrawer({
               </div>
             </div>
           ) : category === 'designer_editor' ? (
-            <DesignerBriefForm product={product} />
+            <DesignerBriefForm product={product} preview={preview} />
           ) : category === 'accountant' ? (
-            <AccountantBriefForm product={product} />
+            <AccountantBriefForm product={product} preview={preview} />
           ) : (
             <AdsSpecialistBriefForm product={product} preview={preview} />
           )}
