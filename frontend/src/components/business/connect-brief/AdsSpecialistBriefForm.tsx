@@ -32,6 +32,7 @@ type FormState = {
   tierBudgets: Record<string, string>;
   currency: string;
   mediaSpend: string;
+  mediaSpendCurrency: string;
   duration: string;
   startDate: string;
   deadline: string;
@@ -83,7 +84,7 @@ const LANGUAGES = ['English', 'Hindi', 'Tamil', 'Telugu', 'Malayalam', 'Kannada'
 const emptyForm: FormState = {
   contactName: '', email: '', phone: '', brandName: '', businessNature: '', businessNote: '',
   requirement: '', channels: ['Meta Ads', 'Google Ads'], objectives: ['Lead generation'],
-  tiers: ['Pro'], plan: 'Plus', tierBudgets: {}, currency: 'INR', mediaSpend: '₹8–15 lakh / month',
+  tiers: ['Pro'], plan: 'Plus', tierBudgets: {}, currency: 'INR', mediaSpend: '', mediaSpendCurrency: 'INR',
   duration: '6 weeks', startDate: '2026-09-14', deadline: '2026-10-25',
   countryId: '', stateRegions: [], workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], languages: ['English'],
   additionalRequirements: {},
@@ -95,6 +96,7 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
   const [form, setForm] = useState<FormState>(() => preview ? {
     ...emptyForm,
     contactName: 'Jeff', email: 'jeff@tagconnects.in', phone: '+91 9645545553',
+    mediaSpend: '800000',
     tierBudgets: { Pro: '85000' },
     additionalRequirements: { ads_specialist: { skills: ['Paid media strategy'], tools: ['GA4', 'Google Tag Manager', 'Looker Studio'] } },
     brandName: 'Northstar Learning', businessNature: 'Online education and professional upskilling',
@@ -108,6 +110,10 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
   const [submitted, setSubmitted] = useState(false);
   const [countries, setCountries] = useState<Country[]>(() => preview ? PREVIEW_COUNTRIES : []);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [contactAutoFilled, setContactAutoFilled] = useState(preview);
+  const [brandAutoFilled, setBrandAutoFilled] = useState(preview);
+  const [editingContact, setEditingContact] = useState(!preview);
+  const [editingBrand, setEditingBrand] = useState(!preview);
   const audioBlobRef = useRef<Blob | null>(null);
 
   useEffect(() => {
@@ -121,14 +127,26 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
 
   useEffect(() => {
     if (!user || preview) return;
+    const savedContactName = user.contact_person_name || user.full_name || '';
+    const savedEmail = user.contact_email || user.email || '';
+    const savedPhone = user.contact_phone || '';
+    const savedBrandName = user.company_name || '';
+    const savedBusinessNature = user.industry || '';
+    const savedBusinessNote = user.business_note || '';
+    const hasContact = Boolean(savedContactName.trim() && savedEmail.trim() && savedPhone.trim());
+    const hasBrand = Boolean(savedBrandName.trim() && savedBusinessNature.trim() && savedBusinessNote.trim());
+    setContactAutoFilled(hasContact);
+    setBrandAutoFilled(hasBrand);
+    setEditingContact(!hasContact);
+    setEditingBrand(!hasBrand);
     setForm((current) => ({
       ...current,
-      contactName: current.contactName || user.contact_person_name || user.full_name || '',
-      email: current.email || user.contact_email || user.email || '',
-      phone: current.phone || user.contact_phone || '',
-      brandName: current.brandName || user.company_name || '',
-      businessNature: current.businessNature || user.industry || '',
-      businessNote: current.businessNote || user.business_note || '',
+      contactName: current.contactName || savedContactName,
+      email: current.email || savedEmail,
+      phone: current.phone || savedPhone,
+      brandName: current.brandName || savedBrandName,
+      businessNature: current.businessNature || savedBusinessNature,
+      businessNote: current.businessNote || savedBusinessNote,
     }));
   }, [preview, user]);
 
@@ -149,6 +167,8 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
 
   const selectedCountryName = countries.find((country) => country.id === form.countryId)?.name ?? '';
   const stateOptions = STATES_BY_COUNTRY[selectedCountryName] ?? [];
+  const contactComplete = Boolean(form.contactName.trim() && form.email.trim() && form.phone.trim());
+  const brandComplete = Boolean(form.brandName.trim() && form.businessNature.trim() && form.businessNote.trim());
 
   function updateTierBudget(tier: string, value: string) {
     setForm((current) => ({ ...current, tierBudgets: { ...current.tierBudgets, [tier]: value.replace(/[^0-9]/g, '') } }));
@@ -160,6 +180,8 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
     if (!form.contactName.trim() || !form.email.trim() || !form.phone.trim()) return setError('Add your contact name, email, and phone number.');
     if (!form.brandName.trim() || !form.businessNature.trim() || !form.businessNote.trim()) return setError('Complete the brand details before submitting.');
     if (!form.requirement.trim()) return setError('Describe what you need the Ads Specialist to own.');
+    const mediaSpendAmount = Number(form.mediaSpend);
+    if (!Number.isFinite(mediaSpendAmount) || mediaSpendAmount <= 0) return setError('Enter your current monthly ad spend.');
     if (form.channels.length === 0 || form.objectives.length === 0 || form.tiers.length === 0) return setError('Choose at least one channel, objective, and specialist level.');
     if (!isAssignment && (!form.plan || form.workingDays.length === 0)) return setError('Choose a monthly plan and working days.');
     if (form.languages.length === 0) return setError('Choose at least one language.');
@@ -210,7 +232,7 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
             additional_requirements: {
               channels: form.channels,
               objectives: form.objectives,
-              media_spend: [form.mediaSpend],
+              media_spend: [`${form.mediaSpendCurrency} ${Math.round(mediaSpendAmount)} / month`],
               ...specificRequirements,
             },
           },
@@ -242,11 +264,25 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
           {error && <div className="rounded-xl border border-[#E0B7A2] bg-[#FBEFE9] px-4 py-3 text-sm text-[#8B3A1A]">{error}</div>}
 
           <GroupHeader index={1} title="Business details" subtitle="Who you are and how we reach you." />
-          <Section eyebrow="Customer" title="Your contact" hint="How we'll reach you to confirm and schedule the kickoff call.">
+          <Section
+            eyebrow="Customer"
+            title="Your contact"
+            hint="How we'll reach you to confirm and schedule the kickoff call."
+            compact={contactAutoFilled && contactComplete && !editingContact}
+            action={contactAutoFilled && contactComplete ? { label: editingContact ? 'Done' : 'Edit', onClick: () => setEditingContact((value) => !value) } : undefined}
+            summary={<CompactSummary title={form.contactName} details={[form.email, form.phone]} />}
+          >
             <div className="grid gap-4 sm:grid-cols-2"><Field label="Email"><Readonly value={form.email} /><p className="shb-help">Edit in <span className="underline">account details</span></p></Field><Field label="Phone"><Readonly value={form.phone} /><p className="shb-help">Edit in <span className="underline">account details</span></p></Field></div>
             <Field label="Contact Person Name" required><input className="shb-input" value={form.contactName} onChange={(e) => update('contactName', e.target.value)} /></Field>
           </Section>
-          <Section eyebrow="Client brief" title="About your brand" hint="Helps the specialist understand your space and recommend ideas that fit.">
+          <Section
+            eyebrow="Client brief"
+            title="About your brand"
+            hint="Helps the specialist understand your space and recommend ideas that fit."
+            compact={brandAutoFilled && brandComplete && !editingBrand}
+            action={brandAutoFilled && brandComplete ? { label: editingBrand ? 'Done' : 'Edit', onClick: () => setEditingBrand((value) => !value) } : undefined}
+            summary={<CompactSummary title={form.brandName} details={[form.businessNature, form.businessNote]} />}
+          >
             <Field label="Brand Name" required><input className="shb-input" value={form.brandName} onChange={(e) => update('brandName', e.target.value)} placeholder="e.g. Northstar Learning" /></Field>
             <Field label="What does your business do?" required><input className="shb-input" value={form.businessNature} onChange={(e) => update('businessNature', e.target.value)} placeholder="e.g. Online education and professional upskilling" /></Field>
             <Field label="About the brand" required><textarea className="shb-input min-h-24 resize-y" value={form.businessNote} onChange={(e) => update('businessNote', e.target.value)} placeholder="Products, audience, positioning, and anything useful to know." /></Field>
@@ -264,7 +300,15 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
             />
             <ChipField label="Advertising channels" options={CHANNELS} selected={form.channels} onToggle={(value) => toggle('channels', value)} />
             <ChipField label="Primary objectives" options={OBJECTIVES} selected={form.objectives} onToggle={(value) => toggle('objectives', value)} />
-            <Field label="Current monthly ad spend" required><select className="shb-input" value={form.mediaSpend} onChange={(e) => update('mediaSpend', e.target.value)}><option>Under ₹2 lakh / month</option><option>₹2–5 lakh / month</option><option>₹5–8 lakh / month</option><option>₹8–15 lakh / month</option><option>₹15 lakh+ / month</option></select></Field>
+            <div>
+              <p className="mb-1.5 text-sm font-medium text-[#222]">Current monthly ad spend<b className="text-[#D04A2C]">*</b></p>
+              <div className="grid grid-cols-[9rem_minmax(0,1fr)] gap-2">
+                <select aria-label="Ad spend currency" className="shb-input" value={form.mediaSpendCurrency} onChange={(e) => update('mediaSpendCurrency', e.target.value)}>
+                  {CURRENCIES.map((currency) => <option key={currency.code} value={currency.code}>{currency.code}</option>)}
+                </select>
+                <input aria-label="Current monthly ad spend amount" className="shb-input" inputMode="numeric" placeholder="Enter monthly amount" value={formatMoneyInput(form.mediaSpend, form.mediaSpendCurrency)} onChange={(e) => update('mediaSpend', e.target.value.replace(/[^0-9]/g, ''))} />
+              </div>
+            </div>
           </Section>
 
           <Section eyebrow={isAssignment ? 'Assignment' : 'Subscription'} title={isAssignment ? 'Budget & timeline' : 'Plan, level & budget'} hint={isAssignment ? 'Set a clear project finish line.' : 'Choose how much specialist capacity you need each month.'}>
@@ -420,7 +464,16 @@ function AudioNote({ audioUrl, onChange }: {
 
 function CategoryBanner({ product }: { product: Product }) { return <div className="shb-category"><div><p>{product} brief · category</p><span>✓ &nbsp;Ads Specialist</span></div><button type="button">Change</button></div>; }
 function GroupHeader({ index, title, subtitle }: { index: number; title: string; subtitle: string }) { return <div className="flex items-start gap-3 pt-2"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[#0a0a0a] bg-[#FCF487] text-base font-bold shadow-[2px_2px_0_#0a0a0a]">{index}</span><div><h2 className="text-lg font-bold text-[#0a0a0a]">{title}</h2><p className="text-sm text-[#7A7568]">{subtitle}</p></div></div>; }
-function Section({ eyebrow, title, hint, children }: { eyebrow: string; title: string; hint: string; children: React.ReactNode }) { return <section className="shb-section"><p className="shb-eyebrow">{eyebrow}</p><h3>{title}</h3><p className="shb-hint">{hint}</p><div className="mt-5 space-y-4">{children}</div></section>; }
+function Section({ eyebrow, title, hint, children, compact = false, action, summary }: {
+  eyebrow: string;
+  title: string;
+  hint: string;
+  children: React.ReactNode;
+  compact?: boolean;
+  action?: { label: string; onClick: () => void };
+  summary?: React.ReactNode;
+}) { return <section className={`shb-section ${compact ? 'shb-section-compact' : ''}`}><div className="flex items-start justify-between gap-4"><div><p className="shb-eyebrow">{eyebrow}</p><h3>{title}</h3><p className="shb-hint">{hint}</p></div>{action && <button type="button" onClick={action.onClick} className="shb-edit-button">{action.label}</button>}</div>{compact ? <div className="shb-compact-summary">{summary}</div> : <div className="mt-5 space-y-4">{children}</div>}</section>; }
+function CompactSummary({ title, details }: { title: string; details: string[] }) { return <div><strong>{title}</strong><p>{details.filter(Boolean).join(' · ')}</p></div>; }
 function Field({ label, required, optional, children }: { label: string; required?: boolean; optional?: boolean; children: React.ReactNode }) { return <label className="block"><span className="mb-1.5 block text-sm font-medium text-[#222]">{label}{required && <b className="text-[#D04A2C]">*</b>}{optional && <small className="ml-1 font-normal text-[#9C9486]">(optional)</small>}</span>{children}</label>; }
 function Readonly({ value }: { value: string }) { return <div className="shb-readonly">{value || '—'}</div>; }
 function ChipField({ label, options, selected, onToggle, required = true, hint }: { label: string; options: string[]; selected: string[]; onToggle: (value: string) => void; required?: boolean; hint?: string }) { return <div><p className="mb-1 text-sm font-medium text-[#222]">{label}{required ? <b className="text-[#D04A2C]">*</b> : <small className="ml-1 font-normal text-[#9C9486]">(optional)</small>}</p>{hint && <p className="mb-2 text-xs leading-relaxed text-[#7A7568]">{hint}</p>}<div className="flex flex-wrap gap-2">{options.map((option) => { const on = selected.includes(option); return <button key={option} type="button" aria-pressed={on} className={`shb-chip ${on ? 'shb-chip-on' : ''}`} onClick={() => onToggle(option)}>{on ? `✓ ${option}` : option}</button>; })}</div></div>; }
@@ -433,7 +486,13 @@ function TierSelector({ product, currency, selected, values, onToggle, onBudgetC
   onBudgetChange: (tier: string, value: string) => void;
 }) {
   const budgetLabel = product === 'assignment' ? 'Project budget amount' : 'Monthly budget amount';
-  return <div><p className="mb-1 text-sm font-medium text-[#222]">Specialist level<b className="text-[#D04A2C]">*</b></p><p className="mb-3 text-xs leading-relaxed text-[#7A7568]">Select one or more levels. Each selected card opens an optional budget amount field.</p><div className="grid items-start gap-2 sm:grid-cols-2">{TIER_OPTIONS.map((tier) => { const on = selected.includes(tier.value); return <div key={tier.value} className={`shb-tier-card ${on ? 'shb-tier-card-on' : ''}`}><button type="button" aria-pressed={on} onClick={() => onToggle(tier.value)} className="shb-tier-select"><span className="shb-tier-card-top"><span className="shb-tier-kicker">{tier.value === 'Top Talents' ? 'Premium' : tier.value === 'Agencies' ? 'Team' : tier.label.replace(/s$/, '')}</span><span className="shb-tier-check">{on ? '✓' : ''}</span></span><strong>{tier.label}</strong><small>{tier.desc}</small></button>{on && <label className="shb-tier-budget"><span>{budgetLabel} <em>Optional</em></span><span className="shb-budget-input"><b>{currency}</b><input aria-label={`${budgetLabel} for ${tier.label}`} inputMode="numeric" placeholder="Enter amount" value={values[tier.value] ?? ''} onChange={(e) => onBudgetChange(tier.value, e.target.value)} /></span><small>Leave blank if you want our team to recommend a budget.</small></label>}</div>; })}</div></div>;
+  return <div><p className="mb-1 text-sm font-medium text-[#222]">Specialist level<b className="text-[#D04A2C]">*</b></p><p className="mb-3 text-xs leading-relaxed text-[#7A7568]">Select one or more levels. Each selected card opens an optional budget amount field.</p><div className="grid items-start gap-2 sm:grid-cols-2">{TIER_OPTIONS.map((tier) => { const on = selected.includes(tier.value); return <div key={tier.value} className={`shb-tier-card ${on ? 'shb-tier-card-on' : ''}`}><button type="button" aria-pressed={on} onClick={() => onToggle(tier.value)} className="shb-tier-select"><span className="shb-tier-card-top"><span className="shb-tier-kicker">{tier.value === 'Top Talents' ? 'Premium' : tier.value === 'Agencies' ? 'Team' : tier.label.replace(/s$/, '')}</span><span className="shb-tier-check">{on ? '✓' : ''}</span></span><strong>{tier.label}</strong><small>{tier.desc}</small></button>{on && <label className="shb-tier-budget"><span>{budgetLabel} <em>Optional</em></span><span className="shb-budget-input"><b>{currency}</b><input aria-label={`${budgetLabel} for ${tier.label}`} inputMode="numeric" placeholder="Enter amount" value={formatMoneyInput(values[tier.value] ?? '', currency)} onChange={(e) => onBudgetChange(tier.value, e.target.value)} /></span><small>Leave blank if you want our team to recommend a budget.</small></label>}</div>; })}</div></div>;
+}
+function formatMoneyInput(value: string, currency: string) {
+  if (!value) return '';
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return value;
+  return amount.toLocaleString(currency === 'INR' ? 'en-IN' : 'en-US', { maximumFractionDigits: 0 });
 }
 function WorkingDays({ selected, onToggle }: { selected: string[]; onToggle: (value: string) => void }) {
   const weekendCount = selected.filter((day) => day === 'Sat' || day === 'Sun').length;
@@ -459,6 +518,7 @@ const styles = `
 .shb-category p{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#7A7568;font-weight:700;margin:0 0 7px}.shb-category span{display:inline-flex;border:1.5px solid #0a0a0a;border-radius:999px;background:#F2FCBC;padding:4px 11px;font-size:14px;font-weight:700}.shb-category button{border:2px solid #0a0a0a;border-radius:9px;background:white;padding:8px 14px;font-size:13px;font-weight:700;box-shadow:2px 2px 0 #0a0a0a}
 .shb-section{border:1px solid #E8E5DD;border-radius:18px;background:white;padding:24px;box-shadow:0 2px 5px rgba(41,38,31,.08)}
 .shb-eyebrow{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#8B8374}.shb-section h3{margin-top:4px;font-size:19px;font-weight:700;color:#222}.shb-hint{margin-top:3px;font-size:13px;line-height:1.5;color:#7A7568}
+.shb-section-compact{padding:18px 20px}.shb-edit-button{flex:none;border:1.5px solid #0a0a0a;border-radius:9px;background:#fff;padding:7px 13px;font-size:12px;font-weight:700;color:#222;box-shadow:2px 2px 0 #FCF487}.shb-edit-button:hover{background:#F9FDEB}.shb-compact-summary{margin-top:13px;border-top:1px solid #E8E5DD;padding-top:12px}.shb-compact-summary strong{display:block;font-size:14px;color:#222}.shb-compact-summary p{display:-webkit-box;overflow:hidden;margin-top:3px;color:#7A7568;font-size:12px;line-height:1.5;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .shb-input{width:100%;border:1px solid #D9D5C7;border-radius:11px;background:#fff;padding:11px 13px;font:inherit;font-size:14px;color:#222;outline:none}.shb-input:focus{border-color:#0a0a0a;box-shadow:0 0 0 3px rgba(252,244,135,.65)}
 .shb-readonly{min-height:46px;border:1px solid #E2DFD3;border-radius:11px;background:#F1EFE7;padding:12px 13px;font-size:14px;color:#5C5C5C}.shb-help{margin-top:5px;font-size:11px;color:#9C9486}
 .shb-chip{border:1px solid #D9D5C7;border-radius:999px;background:#fff;padding:7px 12px;font-size:12px;font-weight:600;color:#5C5C5C;transition:.15s}.shb-chip-on{border-color:#0a0a0a;background:#F2FCBC;color:#0a0a0a;box-shadow:1px 1px 0 #0a0a0a}
