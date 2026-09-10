@@ -50,12 +50,13 @@ const PIPELINE_STAGES: { value: PipelineStage; label: string; color: string; bgC
   { value: 'no_response', label: 'No response / inactive', color: 'text-gray-600', bgColor: 'bg-gray-50 border-gray-200' },
 ];
 
-type SignupCategory = 'all' | 'creative' | 'accountant';
+type SignupCategory = 'all' | 'creative' | 'accountant' | 'sales';
 
 const CATEGORY_TABS: { value: SignupCategory; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'creative', label: 'Designer / Editor' },
   { value: 'accountant', label: 'Accountant' },
+  { value: 'sales', label: 'Sales' },
 ];
 
 const CATEGORY_BADGE: Record<string, { label: string; cls: string }> = {

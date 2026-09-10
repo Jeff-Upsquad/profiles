@@ -1,11 +1,13 @@
 import { supabaseAdmin } from '../config/supabase.js';
 
-export type SignupCategory = 'all' | 'creative' | 'accountant';
+export type SignupCategory = 'all' | 'creative' | 'accountant' | 'sales';
 
 const CREATIVE_FORM_TYPES = ['creative'];
 const ACCOUNTANT_FORM_TYPES = ['accountant'];
+const SALES_FORM_TYPES = ['sales'];
 const CREATIVE_SLUGS = ['designer', 'designer-editor', 'video-editor'];
 const ACCOUNTANT_SLUGS = ['accountant'];
+const SALES_SLUGS = ['sales'];
 
 const SLUG_TO_FORM_TYPE: Record<string, string> = {
   designer: 'creative',
@@ -18,18 +20,20 @@ const SLUG_TO_FORM_TYPE: Record<string, string> = {
 function formTypesForCategory(category: SignupCategory): string[] | null {
   if (category === 'creative') return CREATIVE_FORM_TYPES;
   if (category === 'accountant') return ACCOUNTANT_FORM_TYPES;
+  if (category === 'sales') return SALES_FORM_TYPES;
   return null;
 }
 
 function slugsForCategory(category: SignupCategory): string[] | null {
   if (category === 'creative') return CREATIVE_SLUGS;
   if (category === 'accountant') return ACCOUNTANT_SLUGS;
+  if (category === 'sales') return SALES_SLUGS;
   return null;
 }
 
 export function parseSignupCategory(raw: string | undefined | null): SignupCategory {
   const v = (raw ?? '').trim().toLowerCase();
-  if (v === 'creative' || v === 'accountant') return v;
+  if (v === 'creative' || v === 'accountant' || v === 'sales') return v;
   return 'all';
 }
 
