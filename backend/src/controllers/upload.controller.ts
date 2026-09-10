@@ -28,6 +28,16 @@ export async function uploadFile(req: Request, res: Response, next: NextFunction
       return;
     }
 
+    // express.raw() only parses the content types listed on the route; anything
+    // else falls through with req.body as {}. Without this guard that would be
+    // written to R2 as a zero-byte object and reported back as a success.
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      res.status(400).json({
+        message: `Request body is empty or content type "${contentType}" is not accepted by this endpoint.`,
+      });
+      return;
+    }
+
     const result = await storageService.uploadFile({
       userId: req.user!.id,
       fileName,

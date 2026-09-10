@@ -18,7 +18,13 @@ router.post(
 // Direct file upload (avoids CORS with R2)
 router.post(
   '/file',
-  express.raw({ type: ['image/*', 'application/pdf', 'video/*'], limit: '50mb' }),
+  // Keep in sync with ALLOWED_CONTENT_TYPES in services/storage.service.ts.
+  // A type missing here isn't rejected — express.raw() just skips parsing and
+  // leaves req.body as {}, which uploadFile turns into a 400.
+  express.raw({
+    type: ['image/*', 'application/pdf', 'video/*', 'audio/*'],
+    limit: '50mb',
+  }),
   uploadController.uploadFile
 );
 
