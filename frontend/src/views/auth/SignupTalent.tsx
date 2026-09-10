@@ -21,6 +21,41 @@ import toast from 'react-hot-toast';
 const SUPPORT_PHONE_DIGITS = '919995266342';
 const WHATSAPP_URL = `https://wa.me/${SUPPORT_PHONE_DIGITS}`;
 
+// Which programme page sent this person here. Captured once on first load and
+// kept for the whole session: the partner-program pages live on the marketing
+// site, so `document.referrer` is the only signal when the link carries no
+// ?role= — and it is gone the moment they navigate anywhere inside the app.
+const SIGNUP_ORIGIN_KEY = 'upsquad:signup-origin';
+
+function captureSignupOrigin(): { role?: string; ref?: string } {
+  if (typeof window === 'undefined') return {};
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const role = params.get('role') || params.get('programme') || params.get('program') || '';
+    // Only an EXTERNAL referrer says anything about where they came from. An
+    // in-app one is just the previous screen, and internal paths contain words
+    // like "editor" that would resolve to a confident wrong programme.
+    let external = '';
+    try {
+      const r = document.referrer;
+      if (r && new URL(r).origin !== window.location.origin) external = r;
+    } catch {
+      /* malformed referrer — ignore */
+    }
+    const ref = params.get('utm_campaign') || external;
+    const stored = window.sessionStorage.getItem(SIGNUP_ORIGIN_KEY);
+    // First capture wins — a later in-app navigation must not overwrite the
+    // landing page they actually arrived from.
+    if (stored) return JSON.parse(stored) as { role?: string; ref?: string };
+    if (!role && !ref) return {};
+    const origin = { ...(role ? { role } : {}), ...(ref ? { ref } : {}) };
+    window.sessionStorage.setItem(SIGNUP_ORIGIN_KEY, JSON.stringify(origin));
+    return origin;
+  } catch {
+    return {};
+  }
+}
+
 type ViewState = 'form' | 'success';
 
 interface CandidateSubmission {
@@ -60,6 +95,7 @@ export default function SignupTalent() {
   const [checkLoading, setCheckLoading] = useState(false);
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
   const prefilledRef = useRef(false);
+  const [signupOrigin, setSignupOrigin] = useState<{ role?: string; ref?: string }>({});
 
   const [countryCode, setCountryCode] = useState('+91');
 
@@ -73,6 +109,10 @@ export default function SignupTalent() {
     state: '',
     current_district: '',
   });
+
+  useEffect(() => {
+    setSignupOrigin(captureSignupOrigin());
+  }, []);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -182,6 +222,8 @@ export default function SignupTalent() {
         country: form.country || undefined,
         state: form.state || undefined,
         current_district: form.current_district || undefined,
+        signup_role: signupOrigin.role || undefined,
+        signup_ref: signupOrigin.ref || undefined,
       });
       setView('success');
       setTimeout(() => router.push('/login'), 3000);

@@ -3,10 +3,24 @@ import { AppError } from '../middleware/errorHandler.middleware.js';
 import { checkInvitation, markInvitationAccepted } from './invite.service.js';
 import { getAdminSetting } from './admin.service.js';
 import type { SignupTalentInput, SignupAgencyInput, LoginInput } from '../validators/auth.validators.js';
+import { formTypeFromSignupHint } from '../lib/signup-category.js';
 import type { UserRole } from '../../../shared/src/types/auth.js';
 
 export async function signupTalent(input: SignupTalentInput) {
-  const { email, password, full_name, country, state, current_district, ...profileData } = input;
+  const {
+    email, password, full_name, country, state, current_district,
+    signup_role, signup_ref, ...profileData
+  } = input;
+
+  // Resolve where they came from. An explicit ?role= on the signup link beats
+  // the referrer, which is only a guess. Both are recorded: signupFormType
+  // drives the Sign-ups category filter and the CRM pipeline choice, while
+  // signupSource is kept verbatim so a human can audit a wrong classification.
+  const signupFormType =
+    formTypeFromSignupHint(signup_role) ?? formTypeFromSignupHint(signup_ref);
+  const signupSource = signupFormType
+    ? (signup_role ? `landing:${signup_role}` : `referrer:${signup_ref}`).slice(0, 500)
+    : null;
 
   // Open self-serve signup for now — no invitation required. If a pending
   // talent invite exists for this email, mark it accepted after create.
@@ -44,6 +58,9 @@ export async function signupTalent(input: SignupTalentInput) {
       native_place: profileData.native_place ?? null,
       current_location: profileData.current_location ?? null,
       languages_spoken: profileData.languages_spoken ?? [],
+      ...(signupFormType
+        ? { signup_form_type: signupFormType, signup_source: signupSource }
+        : {}),
       ...(autoApprove
         ? { approval_status: 'approved' as const, approved_at: new Date().toISOString() }
         : {}),

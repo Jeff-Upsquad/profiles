@@ -13,6 +13,12 @@ export const signupTalentSchema = z.object({
   native_place: z.string().max(200).optional(),
   current_location: z.string().max(200).optional(),
   languages_spoken: z.array(z.object({ language: z.string(), proficiency: z.string() })).optional(),
+  // Where this signup came from. `signup_role` is an explicit ?role= slug on
+  // the signup link; `signup_ref` is a fallback (referrer URL / campaign) used
+  // only when no explicit role is present. Both are hints — the server resolves
+  // them and stores nothing it can't map.
+  signup_role: z.string().max(120).optional(),
+  signup_ref: z.string().max(500).optional(),
 });
 
 export const checkCandidateStatusSchema = z.object({
