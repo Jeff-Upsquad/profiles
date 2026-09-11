@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import AdditionalRequirementsField, { type AdditionalRequirements } from './AdditionalRequirementsField';
@@ -254,13 +253,11 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
   }
 
   return (
-    <div className="shb-connect-bg min-h-full px-4 py-7 sm:py-9">
+    <div className="shb-connect-bg min-h-full px-4 py-5 sm:py-7">
       <div className="mx-auto max-w-[44rem]">
-        {preview && <div className="mb-4 flex justify-center"><div className="inline-flex rounded-full border border-[#D9D5C7] bg-white p-1 text-xs font-semibold"><Link href="/preview/ad-specialist-requirements/subscription" className={`rounded-full px-3 py-1.5 ${!isAssignment ? 'bg-[#0a0a0a] text-white' : 'text-[#7A7568]'}`}>Subscription</Link><Link href="/preview/ad-specialist-requirements/assignment" className={`rounded-full px-3 py-1.5 ${isAssignment ? 'bg-[#0a0a0a] text-white' : 'text-[#7A7568]'}`}>Assignment</Link></div></div>}
-        <header className="mb-7 text-center"><h1 className="text-[25px] font-semibold tracking-tight text-[#222] sm:text-[29px]">Tell us about your brand</h1><p className="mt-1.5 text-sm text-[#5C5C5C] sm:text-base">A few quick details so we can match you with the right Ads Specialist.</p></header>
+        <header className="mb-4 text-center"><h1 className="text-[18px] font-semibold tracking-tight text-[#222] sm:text-[20px]">Tell us about your brand</h1><p className="mt-1 text-[13px] text-[#5C5C5C]">A few quick details so we can match you with the right Ads Specialist.</p></header>
 
-        <form onSubmit={handleSubmit} className="space-y-6 pb-8">
-          <button type="button" className="-ml-1 flex items-center gap-1 text-sm text-[#5C5C5C]"><BackIcon /> Back</button>
+        <form onSubmit={handleSubmit} className="space-y-5 pb-8">
           <CategoryBanner product={product} />
           {error && <div className="rounded-xl border border-[#E0B7A2] bg-[#FBEFE9] px-4 py-3 text-sm text-[#8B3A1A]">{error}</div>}
 
@@ -557,7 +554,6 @@ function WorkingDays({ selected, onToggle }: { selected: string[]; onToggle: (va
     {showWeekendWarning && <div className="mt-3 flex items-start gap-2 rounded-lg border border-[#E0B7A2] bg-[#FBEFE9] p-3"><svg className="mt-0.5 h-4 w-4 shrink-0 text-[#C97744]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg><span className="text-xs font-medium leading-relaxed text-[#8B3A1A]">Less chance of talent accepting the request if weekends are selected.</span></div>}
   </div>;
 }
-function BackIcon() { return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>; }
 function MicIcon() { return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="9" y="3" width="6" height="11" rx="3" /><path strokeLinecap="round" d="M6 11a6 6 0 0012 0M12 17v4m-3 0h6" /></svg>; }
 function CheckIcon() { return <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>; }
 function InfoIcon() { return <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M12 11v5m0-8h.01" /></svg>; }
@@ -569,7 +565,7 @@ const styles = `
 .shb-category p{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#7A7568;font-weight:700;margin:0 0 7px}.shb-category span{display:inline-flex;border:1.5px solid #0a0a0a;border-radius:999px;background:#F2FCBC;padding:4px 11px;font-size:14px;font-weight:700}.shb-category button{border:2px solid #0a0a0a;border-radius:9px;background:white;padding:8px 14px;font-size:13px;font-weight:700;box-shadow:2px 2px 0 #0a0a0a}
 .shb-section{border:1px solid #E8E5DD;border-radius:18px;background:white;padding:24px;box-shadow:0 2px 5px rgba(41,38,31,.08)}
 .shb-eyebrow{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#8B8374}.shb-section h3{margin-top:4px;font-size:19px;font-weight:700;color:#222}.shb-hint{margin-top:3px;font-size:13px;line-height:1.5;color:#7A7568}
-.shb-section-compact{padding:18px 20px}.shb-edit-button{flex:none;border:1.5px solid #0a0a0a;border-radius:9px;background:#fff;padding:7px 13px;font-size:12px;font-weight:700;color:#222;box-shadow:2px 2px 0 #FCF487}.shb-edit-button:hover{background:#F9FDEB}.shb-compact-summary{margin-top:13px;border-top:1px solid #E8E5DD;padding-top:12px}.shb-compact-summary strong{display:block;font-size:14px;color:#222}.shb-compact-summary p{display:-webkit-box;overflow:hidden;margin-top:3px;color:#7A7568;font-size:12px;line-height:1.5;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.shb-section-compact{padding:14px 18px}.shb-section-compact h3{margin-top:2px;font-size:15px}.shb-edit-button{flex:none;border:1.5px solid #0a0a0a;border-radius:9px;background:#fff;padding:7px 13px;font-size:12px;font-weight:700;color:#222;box-shadow:2px 2px 0 #FCF487}.shb-edit-button:hover{background:#F9FDEB}.shb-compact-summary{margin-top:9px;border-top:1px solid #E8E5DD;padding-top:9px}.shb-compact-summary strong{display:block;font-size:14px;color:#222}.shb-compact-summary p{display:-webkit-box;overflow:hidden;margin-top:3px;color:#7A7568;font-size:12px;line-height:1.5;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .shb-input{width:100%;border:1px solid #D9D5C7;border-radius:11px;background:#fff;padding:11px 13px;font:inherit;font-size:14px;color:#222;outline:none}.shb-input:focus{border-color:#0a0a0a;box-shadow:0 0 0 3px rgba(252,244,135,.65)}
 .shb-readonly{min-height:46px;border:1px solid #E2DFD3;border-radius:11px;background:#F1EFE7;padding:12px 13px;font-size:14px;color:#5C5C5C}.shb-help{margin-top:5px;font-size:11px;color:#9C9486}
 .shb-chip{border:1px solid #D9D5C7;border-radius:999px;background:#fff;padding:7px 12px;font-size:12px;font-weight:600;color:#5C5C5C;transition:.15s}.shb-chip-on{border-color:#0a0a0a;background:#F2FCBC;color:#0a0a0a;box-shadow:1px 1px 0 #0a0a0a}

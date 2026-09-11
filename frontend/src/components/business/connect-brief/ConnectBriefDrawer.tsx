@@ -5,40 +5,12 @@ import { createPortal } from 'react-dom';
 import DesignerBriefForm from './DesignerBriefForm';
 import AccountantBriefForm from './AccountantBriefForm';
 import AdsSpecialistBriefForm from './AdsSpecialistBriefForm';
+import SquadCategoryPicker, { type PickedCategory } from './SquadCategoryPicker';
+import { SERVICE_SQUADS } from '@/data/serviceSquads';
+import type { ConnectBriefCategoryId } from './categories';
 
 type Product = 'subscription' | 'assignment';
-export type ConnectBriefCategoryId = 'designer_editor' | 'accountant' | 'ads_specialist';
-
-// Extensible category list. Add an entry (+ a matching form branch below) to
-// offer a new service vertical. Field-level drafts are auto-saved per category.
-const CATEGORIES: {
-  id: ConnectBriefCategoryId;
-  label: string;
-  description: string;
-  iconPath: string;
-}[] = [
-  {
-    id: 'designer_editor',
-    label: 'Designer / Editor',
-    description: 'Graphic design, video editing, or both.',
-    iconPath:
-      'M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z',
-  },
-  {
-    id: 'accountant',
-    label: 'Accountant',
-    description: 'Bookkeeping, taxation, compliance and financial reporting.',
-    iconPath:
-      'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z',
-  },
-  {
-    id: 'ads_specialist',
-    label: 'Ads Specialist',
-    description: 'Paid acquisition, campaign optimisation, tracking and reporting.',
-    iconPath:
-      'M11 5L5 9H3v6h2l6 4V5zm0 4c4.5 0 7-2 9-4v14c-2-2-4.5-4-9-4M5 15l1.5 5h3L8 16',
-  },
-];
+export type { ConnectBriefCategoryId };
 
 export default function ConnectBriefDrawer({
   open,
@@ -56,12 +28,13 @@ export default function ConnectBriefDrawer({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const [category, setCategory] = useState<ConnectBriefCategoryId | null>(initialCategory ?? null);
+  const [picked, setPicked] = useState<PickedCategory | null>(null);
+  const category = picked?.brief ?? null;
 
-  // Reset to the category picker each time the drawer is opened. Field data is
+  // Reset to the category browser each time the drawer is opened. Field data is
   // still restored from the auto-saved draft once a category is re-picked.
   useEffect(() => {
-    if (open) setCategory(initialCategory ?? null);
+    if (open) setPicked(initialCategory ? seedFromCategory(initialCategory) : null);
   }, [initialCategory, open]);
 
   // Escape to close + lock body scroll while open.
@@ -81,6 +54,7 @@ export default function ConnectBriefDrawer({
   if (!mounted) return null;
 
   const createLabel = product === 'assignment' ? 'Create an assignment' : 'Create a subscription';
+  const pickedItem = picked ? findItem(picked) : null;
 
   return createPortal(
     <div className={`fixed inset-0 z-50 ${open ? '' : 'pointer-events-none'}`} aria-hidden={!open}>
@@ -101,13 +75,18 @@ export default function ConnectBriefDrawer({
           {category ? (
             <button
               type="button"
-              onClick={() => setCategory(null)}
-              className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-[#525252] transition-colors hover:bg-[#f4f4f5] hover:text-[#0a0a0a]"
+              onClick={() => setPicked(null)}
+              className="inline-flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-[#525252] transition-colors hover:bg-[#f4f4f5] hover:text-[#0a0a0a]"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
-              Categories
+              <span className="truncate">
+                Categories
+                {pickedItem && (
+                  <span className="text-[#a3a3a3]"> · {pickedItem.name}</span>
+                )}
+              </span>
             </button>
           ) : (
             <span className="px-1 text-sm font-semibold text-[#0a0a0a]">
@@ -126,45 +105,15 @@ export default function ConnectBriefDrawer({
           </button>
         </div>
 
-        {/* Body */}
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* Body — the picker owns its own scrolling (sticky squad rail), so the
+            outer scroll is only used by the brief forms. */}
+        <div className={`min-h-0 flex-1 ${category ? 'overflow-y-auto' : 'overflow-hidden'}`}>
           {!open ? null : !category ? (
-            <div className="px-5 py-6">
-              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
-                What would you like to create?
-              </h2>
-              <p className="mt-1 text-sm text-[#737373]">
-                Pick a category to start your {product} brief. You can add more categories over time.
-              </p>
-              <div className="mt-5 grid grid-cols-1 gap-3">
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setCategory(cat.id)}
-                    className="group flex items-start gap-3 rounded-xl border border-[#E7E7EA] bg-white p-4 text-left transition-all hover:border-[#0a0a0a] hover:shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
-                  >
-                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#FFFAC2] text-[#0a0a0a]">
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d={cat.iconPath} />
-                      </svg>
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
-                        {cat.label}
-                      </span>
-                      <span className="mt-0.5 block text-xs leading-relaxed text-[#737373]">
-                        {cat.description}
-                      </span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <SquadCategoryPicker product={product} onPick={setPicked} />
           ) : category === 'designer_editor' ? (
-            <DesignerBriefForm product={product} preview={preview} />
+            <DesignerBriefForm product={product} preview={preview} initialRole={picked?.briefRole} />
           ) : category === 'accountant' ? (
-            <AccountantBriefForm product={product} preview={preview} />
+            <AccountantBriefForm product={product} preview={preview} skipRolePicker />
           ) : (
             <AdsSpecialistBriefForm product={product} preview={preview} />
           )}
@@ -172,5 +121,23 @@ export default function ConnectBriefDrawer({
       </div>
     </div>,
     document.body,
+  );
+}
+
+/** Deep-link support: open straight into a form without going via the picker. */
+function seedFromCategory(brief: ConnectBriefCategoryId): PickedCategory {
+  for (const squad of SERVICE_SQUADS) {
+    const item = squad.items.find((i) => i.brief === brief);
+    if (item) {
+      return { brief, briefRole: item.briefRole, itemId: item.id, squadId: squad.id };
+    }
+  }
+  return { brief, itemId: brief, squadId: '' };
+}
+
+function findItem(picked: PickedCategory) {
+  return (
+    SERVICE_SQUADS.find((s) => s.id === picked.squadId)?.items.find((i) => i.id === picked.itemId) ??
+    null
   );
 }

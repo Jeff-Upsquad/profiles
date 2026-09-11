@@ -233,9 +233,12 @@ const initialSubscription: Subscription = {
 export default function AccountantBriefForm({
   product = 'subscription',
   preview = false,
+  skipRolePicker = false,
 }: {
   product?: 'subscription' | 'assignment';
   preview?: boolean;
+  /** Opened from the category browser — Step 1 is already answered. */
+  skipRolePicker?: boolean;
 }) {
   const isAssignment = product === 'assignment';
   const [step, setStep] = useState<1 | 2>(1);
@@ -313,9 +316,13 @@ export default function AccountantBriefForm({
         if (d.step === 1 || d.step === 2) setStep(d.step);
       }
     } catch { /* ignore malformed draft */ }
+    // "Accountants" in the category browser is the only option Step 1 offers,
+    // so skip straight to the brief. "Change" on the category banner still
+    // reopens Step 1.
+    if (skipRolePicker) setStep(2);
     setDraftReady(true);
     setAutosaveArmed(true);
-  }, [draftKey]);
+  }, [draftKey, skipRolePicker]);
 
   // Account-backed fields: locked contact always wins; brand/nature/note/location
   // (and unlocked contact) fill only when the current form value is empty so a
@@ -646,13 +653,13 @@ export default function AccountantBriefForm({
   }
 
   return (
-    <div className="connect-bg min-h-full px-4 py-6 sm:py-8">
+    <div className="connect-bg min-h-full px-4 py-5 sm:py-7">
       <div className="mx-auto max-w-[44rem]">
-        <header className="mb-6 sm:mb-8 text-center">
-          <h1 className="text-[24px] sm:text-[28px] font-semibold tracking-tight text-[#222]">
+        <header className="mb-4 text-center">
+          <h1 className="text-[18px] sm:text-[20px] font-semibold tracking-tight text-[#222]">
             Tell us about your business
           </h1>
-          <p className="mt-1.5 text-sm sm:text-base text-[#5C5C5C]">
+          <p className="mt-1 text-[13px] text-[#5C5C5C]">
             A few quick details so we can match you with the right accountant.
           </p>
         </header>
@@ -721,16 +728,21 @@ export default function AccountantBriefForm({
 
         {step === 2 && (
           <form onSubmit={handleSubmit} className="space-y-5 pb-8">
-            <button
-              type="button"
-              onClick={() => setStep(1)}
-              className="-ml-1 mb-2 flex items-center gap-1 text-sm text-[#5C5C5C] hover:text-[#222]"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-              Back
-            </button>
+            {/* Step 1 is bypassed when the brief was opened from the category
+                browser — the drawer's own back control returns to categories,
+                and "Change" on the banner reopens the picker. */}
+            {!skipRolePicker && (
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="-ml-1 mb-2 flex items-center gap-1 text-sm text-[#5C5C5C] hover:text-[#222]"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+                Back
+              </button>
+            )}
 
             {prefilledFromLead && (
               <div className="rounded-lg border border-[#0a0a0a] bg-[#F2FCBC] px-4 py-3 text-sm text-[#0a0a0a]">
@@ -1611,11 +1623,12 @@ function Section({
   summary?: React.ReactNode;
 }) {
   return (
-    <section className={`rounded-2xl bg-white border border-[#E8E5DD] shadow-sm ${compact ? 'p-4 sm:px-5' : 'p-5 sm:p-6'}`}>
+    <section className={`rounded-2xl bg-white border border-[#E8E5DD] shadow-sm ${compact ? 'px-4 py-3.5 sm:px-5' : 'p-5 sm:p-6'}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
           {eyebrow && <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#7A7568]">{eyebrow}</p>}
-          {title && <h2 className="mt-1 text-lg font-semibold text-[#222]">{title}</h2>}
+          {/* Collapsed cards run smaller so a filled-in brief shows more at once. */}
+          {title && <h2 className={`mt-1 font-semibold text-[#222] ${compact ? 'text-[15px]' : 'text-lg'}`}>{title}</h2>}
           {hint && <p className="mt-1 text-sm text-[#5C5C5C]">{hint}</p>}
         </div>
         {action && (
@@ -1625,7 +1638,7 @@ function Section({
         )}
       </div>
       {compact ? (
-        <div className="mt-3 border-t border-[#E8E5DD] pt-3">{summary}</div>
+        <div className="mt-2.5 border-t border-[#E8E5DD] pt-2.5">{summary}</div>
       ) : (
         <div className="mt-4 space-y-4">{children}</div>
       )}
