@@ -114,16 +114,19 @@ const lessonVideoSchema = z.object({
     .refine(isSupportedVideoUrl, 'Must be a valid Loom or SquadClips share URL'),
 });
 
+// Videos are optional: a lesson may be video-only (the original shape), a
+// blocks-only document (SOP-style), or both. An empty array clears the videos.
 export const createLessonSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200),
   description: z.string().max(1000).optional(),
   videos: z
     .array(lessonVideoSchema)
-    .min(1, 'At least one language video is required')
     .refine(
       (videos) => new Set(videos.map((v) => v.language)).size === videos.length,
       'Each language can only appear once',
-    ),
+    )
+    .optional()
+    .default([]),
   sort_order: z.number().int().min(0).optional(),
   is_active: z.boolean().optional(),
 });
@@ -133,7 +136,6 @@ export const updateLessonSchema = z.object({
   description: z.string().max(1000).optional(),
   videos: z
     .array(lessonVideoSchema)
-    .min(1, 'At least one language video is required')
     .refine(
       (videos) => new Set(videos.map((v) => v.language)).size === videos.length,
       'Each language can only appear once',
@@ -141,6 +143,35 @@ export const updateLessonSchema = z.object({
     .optional(),
   sort_order: z.number().int().min(0).optional(),
   is_active: z.boolean().optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Lesson content blocks (SOP-style rich content)
+// ---------------------------------------------------------------------------
+
+export const createLessonBlockSchema = z.object({
+  type: z.enum(['text', 'image', 'video_upload', 'video_embed', 'audio', 'pdf']),
+  position: z.number().int().min(0).optional(),
+  text_content: z.unknown().optional(),
+  file_url: z.string().nullable().optional(),
+  file_name: z.string().nullable().optional(),
+  file_size: z.number().int().nullable().optional(),
+  mime_type: z.string().nullable().optional(),
+  embed_url: z.string().nullable().optional(),
+  embed_provider: z.string().nullable().optional(),
+  caption: z.string().nullable().optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+export const updateLessonBlockSchema = createLessonBlockSchema.partial();
+
+export const reorderLessonBlocksSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string().uuid(),
+      position: z.number().int().min(0),
+    }),
+  ),
 });
 
 // ---------------------------------------------------------------------------
@@ -179,6 +210,8 @@ export type CreateChapterInput = z.infer<typeof createChapterSchema>;
 export type UpdateChapterInput = z.infer<typeof updateChapterSchema>;
 export type CreateLessonInput = z.infer<typeof createLessonSchema>;
 export type UpdateLessonInput = z.infer<typeof updateLessonSchema>;
+export type CreateLessonBlockInput = z.infer<typeof createLessonBlockSchema>;
+export type UpdateLessonBlockInput = z.infer<typeof updateLessonBlockSchema>;
 export type ShareCourseInput = z.infer<typeof shareCourseSchema>;
 
 // ---------------------------------------------------------------------------

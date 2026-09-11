@@ -44,6 +44,9 @@ import {
   updateChapterSchema,
   createLessonSchema,
   updateLessonSchema,
+  createLessonBlockSchema,
+  updateLessonBlockSchema,
+  reorderLessonBlocksSchema,
   shareCourseSchema,
   previewShareAudienceSchema,
   createSopSchema,
@@ -698,6 +701,25 @@ router.post('/training/chapters/:chapterId/lessons', validate({ body: createLess
 router.put('/training/lessons/:lessonId', validate({ body: updateLessonSchema }), trainingController.updateLesson);
 router.delete('/training/lessons/:lessonId', trainingController.deleteLesson);
 router.patch('/training/lessons/reorder', validate({ body: reorderSchema }), trainingController.reorderLessons);
+
+// Lesson content blocks (SOP-style rich content on a lesson)
+router.get('/training/lessons/:lessonId/blocks', trainingController.listLessonBlocks);
+router.post(
+  '/training/lessons/:lessonId/blocks',
+  validate({ body: createLessonBlockSchema }),
+  trainingController.createLessonBlock,
+);
+router.patch(
+  '/training/lessons/:lessonId/blocks/reorder',
+  validate({ body: reorderLessonBlocksSchema }),
+  trainingController.reorderLessonBlocks,
+);
+router.put(
+  '/training/lesson-blocks/:blockId',
+  validate({ body: updateLessonBlockSchema }),
+  trainingController.updateLessonBlock,
+);
+router.delete('/training/lesson-blocks/:blockId', trainingController.deleteLessonBlock);
 
 // SOPs (Systems & Procedures)
 router.get('/training/sops', trainingSopController.listSops);

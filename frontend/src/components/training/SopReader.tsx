@@ -1,79 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import {
-  useCompleteSop,
-  useSopDetail,
-  type SopBlock,
-  type SopPage,
-} from '@/hooks/useTraining';
-
-function videoEmbedUrl(shareUrl: string): string {
-  return shareUrl.replace('/share/', '/embed/');
-}
-
-function blockText(block: SopBlock): string {
-  const tc = block.text_content;
-  if (typeof tc === 'string') return tc;
-  try {
-    const doc = tc as any;
-    if (doc?.content) {
-      return doc.content
-        .map((p: any) => (p.content ?? []).map((c: any) => c.text ?? '').join(''))
-        .join('\n\n');
-    }
-    if (doc?.text) return String(doc.text);
-  } catch {
-    /* ignore */
-  }
-  return '';
-}
-
-function BlockView({ block }: { block: SopBlock }) {
-  if (block.type === 'text') {
-    const text = blockText(block);
-    return (
-      <div className="prose prose-sm max-w-none whitespace-pre-wrap text-[#0a0a0a]">
-        {text || <span className="text-[#a3a3a3]">Empty section</span>}
-      </div>
-    );
-  }
-  if (block.type === 'video_embed' && block.embed_url) {
-    return (
-      <div className="aspect-video overflow-hidden rounded-xl bg-[#09090B]">
-        <iframe
-          src={videoEmbedUrl(block.embed_url)}
-          className="h-full w-full"
-          allowFullScreen
-          allow="autoplay; fullscreen; picture-in-picture"
-        />
-      </div>
-    );
-  }
-  if (block.type === 'image' && block.file_url) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={block.file_url}
-        alt={block.caption ?? ''}
-        className="max-h-[480px] w-full rounded-xl border border-[#E7E7EA] object-contain bg-white"
-      />
-    );
-  }
-  if (block.type === 'pdf' && block.file_url) {
-    return (
-      <a
-        href={block.file_url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-2 rounded-lg border border-[#E7E7EA] bg-white px-4 py-3 text-sm font-medium text-[#0a0a0a] hover:bg-[#F5F5F6]"
-      >
-        Open PDF{block.file_name ? `: ${block.file_name}` : ''}
-      </a>
-    );
-  }
-  return null;
-}
+import { useCompleteSop, useSopDetail, type SopPage } from '@/hooks/useTraining';
+import ContentBlocks from './ContentBlocks';
 
 type TreeNode = SopPage & { children: TreeNode[] };
 
@@ -197,14 +126,10 @@ export default function SopReader({
               <h3 className="font-[family-name:var(--font-jakarta)] mb-4 text-base font-semibold text-[#0a0a0a]">
                 {page?.title}
               </h3>
-              <div className="space-y-5">
-                {(page?.blocks ?? []).map((b) => (
-                  <BlockView key={b.id} block={b} />
-                ))}
-                {(page?.blocks ?? []).length === 0 && (
-                  <p className="text-sm text-[#737373]">No content on this page yet.</p>
-                )}
-              </div>
+              <ContentBlocks blocks={page?.blocks} />
+              {(page?.blocks ?? []).length === 0 && (
+                <p className="text-sm text-[#737373]">No content on this page yet.</p>
+              )}
             </main>
           </div>
         )}

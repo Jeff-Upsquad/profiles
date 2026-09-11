@@ -245,6 +245,52 @@ export async function reorderLessons(req: Request, res: Response, next: NextFunc
 }
 
 // ---------------------------------------------------------------------------
+// Admin — Lesson content blocks
+// ---------------------------------------------------------------------------
+
+export async function listLessonBlocks(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await trainingService.listLessonBlocks(req.params.lessonId as string));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createLessonBlock(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.status(201).json(
+      await trainingService.createLessonBlock(req.params.lessonId as string, req.body),
+    );
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateLessonBlock(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await trainingService.updateLessonBlock(req.params.blockId as string, req.body));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteLessonBlock(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await trainingService.deleteLessonBlock(req.params.blockId as string));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function reorderLessonBlocks(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await trainingService.reorderLessonBlocks(req.body.items));
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Talent — Training
 // ---------------------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
   useMyTraining,
@@ -25,6 +25,7 @@ import {
 } from '@/hooks/useTraining';
 import CourseStartPopup from './CourseStartPopup';
 import SopReader from '@/components/training/SopReader';
+import ContentBlocks, { collectHeadings, type OutlineHeading } from '@/components/training/ContentBlocks';
 
 // Both supported providers (Loom and SquadClips / clips.squadhub.in) expose a
 // chrome-free player at the same token under `/embed/` instead of `/share/`.
@@ -676,8 +677,634 @@ function courseProgressPct(course: TrainingCourse): number {
   return Math.min(100, Math.round((100 * course.completed_count) / course.total_count));
 }
 
+/**
+ * Reader width (not viewport width) at which the on-this-page rail is pinned
+ * beside the lesson. Must stay in step with the `@[1000px]:` container-query
+ * classes in CourseReader.
+ */
+const OUTLINE_PIN_WIDTH = 1000;
+
+/* ================================================================== */
+/* Course reader — the SOP document shell from SquadHub's              */
+/* LearningItemView: a slim top bar, then three columns —              */
+/*   left   chapter / lesson rail (own scroll)                         */
+/*   middle the active lesson body (own scroll)                        */
+/*   right  on-this-page heading outline (own scroll)                  */
+/* It fills the viewport: DashboardLayout gives /talent/training/<id>  */
+/* the same full-bleed treatment as a message thread, so the rails get */
+/* real width instead of being squeezed inside max-w-5xl.              */
+/* ================================================================== */
+
+/** Right rail — jump list built from the lesson's heading blocks. */
+function OnThisPage({
+  headings,
+  scrollRef,
+  scanKey,
+}: {
+  headings: OutlineHeading[];
+  scrollRef: React.RefObject<HTMLElement | null>;
+  scanKey: string;
+}) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  // Scroll-spy against the lesson column (not the window — each column
+  // scrolls independently in this shell).
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root || headings.length === 0) {
+      setActiveId(null);
+      return;
+    }
+    const onScroll = () => {
+      const rootTop = root.getBoundingClientRect().top;
+      let current = headings[0].id;
+      for (const heading of headings) {
+        const el = document.getElementById(heading.id);
+        if (!el) continue;
+        if (el.getBoundingClientRect().top - rootTop <= 88) current = heading.id;
+        else break;
+      }
+      setActiveId(current);
+    };
+    onScroll();
+    root.addEventListener('scroll', onScroll, { passive: true });
+    return () => root.removeEventListener('scroll', onScroll);
+  }, [scrollRef, headings, scanKey]);
+
+  const jumpTo = (id: string) => {
+    const root = scrollRef.current;
+    const el = document.getElementById(id);
+    if (!root || !el) return;
+    const top =
+      el.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop - 16;
+    root.scrollTo({ top, behavior: 'smooth' });
+    setActiveId(id);
+  };
+
+  return (
+    <div className="px-3 py-4">
+      <div className="px-1.5 pb-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#a3a3a3]">
+        On this page
+      </div>
+      {headings.length === 0 ? (
+        <p className="px-1.5 py-2 text-[11.5px] leading-snug text-[#a3a3a3]">
+          No sections on this page.
+        </p>
+      ) : (
+        <ul className="border-l border-[#E7E7EA]">
+          {headings.map((heading) => {
+            const isActive = activeId === heading.id;
+            return (
+              <li key={heading.id}>
+                <button
+                  type="button"
+                  onClick={() => jumpTo(heading.id)}
+                  style={{ paddingLeft: `${(heading.level - 1) * 12 + 12}px` }}
+                  className={`-ml-px block w-full border-l py-2 pr-2 text-left text-[12px] leading-snug transition ${
+                    isActive
+                      ? 'border-[#0a0a0a] font-semibold text-[#0a0a0a]'
+                      : 'border-transparent text-[#737373] hover:border-[#E7E7EA] hover:text-[#0a0a0a]'
+                  }`}
+                >
+                  {heading.text}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Left rail — chapters with their lessons, lock state and progress. */
+function ChapterRail({
+  course,
+  lockedReasons,
+  activeLessonId,
+  onPick,
+  pct,
+}: {
+  course: TrainingCourse;
+  lockedReasons: (string | null)[];
+  activeLessonId: string | null;
+  onPick: (lessonId: string) => void;
+  pct: number;
+}) {
+  return (
+    <div className="px-3 py-4">
+      <div className="flex items-center justify-between px-1.5 pb-2">
+        <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#a3a3a3]">
+          Chapters
+        </span>
+        <span className="text-[10.5px] tabular-nums text-[#a3a3a3]">
+          {course.completed_count}/{course.total_count}
+        </span>
+      </div>
+      <div className="mx-1.5 mb-3 h-1 overflow-hidden rounded-full bg-[#E7E7EA]">
+        <div
+          className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-500' : 'bg-[#0a0a0a]'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      {course.chapters.map((chapter, ci) => {
+        const lockedReason = lockedReasons[ci];
+        const doneCount = chapter.lessons.filter((l) => l.completed).length;
+        const chapterDone = chapter.total_count > 0 && doneCount >= chapter.total_count;
+        return (
+          <div key={chapter.id} className="mb-3 last:mb-0">
+            <div className="flex items-center gap-2 px-2 pb-1">
+              <span
+                className={`grid h-5 w-5 shrink-0 place-items-center rounded-md text-[10px] font-semibold ${
+                  lockedReason
+                    ? 'bg-[#E7E7EA] text-[#a3a3a3]'
+                    : chapterDone
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-[#0a0a0a] text-white'
+                }`}
+              >
+                {lockedReason ? (
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                ) : chapterDone ? (
+                  '✓'
+                ) : (
+                  ci + 1
+                )}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-[#0a0a0a]">
+                {chapter.title}
+              </span>
+              <span className="shrink-0 text-[10px] tabular-nums text-[#a3a3a3]">
+                {doneCount}/{chapter.total_count}
+              </span>
+            </div>
+            <ul title={lockedReason ?? undefined}>
+              {chapter.lessons.map((lesson) => {
+                const isActive = lesson.id === activeLessonId;
+                return (
+                  <li key={lesson.id}>
+                    <button
+                      type="button"
+                      onClick={() => onPick(lesson.id)}
+                      disabled={!!lockedReason}
+                      title={lockedReason ?? lesson.title}
+                      className={`flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left transition ${
+                        isActive
+                          ? 'bg-[#0a0a0a] text-white'
+                          : lockedReason
+                            ? 'cursor-not-allowed text-[#a3a3a3]'
+                            : 'text-[#0a0a0a] hover:bg-[#F0F0F0]'
+                      }`}
+                    >
+                      <span
+                        className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full text-[9px] font-semibold ${
+                          lesson.completed
+                            ? 'bg-emerald-500 text-white'
+                            : isActive
+                              ? 'bg-white text-[#0a0a0a]'
+                              : 'bg-[#E7E7EA] text-[#525252]'
+                        }`}
+                      >
+                        {lesson.completed ? '✓' : '•'}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[12.5px] leading-snug">
+                        {lesson.title}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            {lockedReason && (
+              <p className="px-2 pb-1 pt-0.5 text-[10.5px] leading-snug text-amber-700">
+                {lockedReason}
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CourseReader({
+  course,
+  enforceSequential,
+  onBack,
+}: {
+  course: TrainingCourse;
+  enforceSequential: boolean;
+  onBack: () => void;
+}) {
+  const availableLanguages = getCourseLanguages(course);
+  const [language, setLanguage, hasSelectedLanguage] = useCourseLanguage(course.id, availableLanguages);
+  const needsLanguageSelection = availableLanguages.length > 1 && !hasSelectedLanguage;
+  const [popupDismissed, setPopupDismissed] = useState(false);
+  const markComplete = useMarkLessonComplete();
+  const markIncomplete = useMarkLessonIncomplete();
+  const contentRef = useRef<HTMLElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
+
+  const needsStart = course.countdown_enabled && !course.started_at && !course.expired;
+  const showPopup = needsStart && !popupDismissed;
+
+  // Same lock rules as CourseSection: deadline > not-started > sequential.
+  const lockedReasons = useMemo(
+    () =>
+      course.chapters.map((chapter, i) => {
+        if (course.expired)
+          return "This course's deadline has passed. Use the request above to reopen.";
+        if (needsStart) return 'Click Start to begin this course';
+        if (enforceSequential && chapter.unlocked === false) {
+          const previousTitle = i > 0 ? course.chapters[i - 1].title : null;
+          return previousTitle
+            ? `Complete "${previousTitle}" to unlock`
+            : 'Complete the previous chapter to unlock';
+        }
+        return null;
+      }),
+    [course, enforceSequential, needsStart],
+  );
+
+  const flat = useMemo(
+    () =>
+      course.chapters.flatMap((chapter, chapterIndex) =>
+        chapter.lessons.map((lesson) => ({ lesson, chapter, chapterIndex })),
+      ),
+    [course],
+  );
+
+  const defaultLessonId = useMemo(() => {
+    const unlocked = flat.filter((entry) => !lockedReasons[entry.chapterIndex]);
+    return (
+      (unlocked.find((entry) => !entry.lesson.completed) ?? unlocked[0] ?? flat[0])
+        ?.lesson.id ?? null
+    );
+  }, [flat, lockedReasons]);
+
+  const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
+  // Outline rail visibility. 'auto' is CSS-only: in-flow beside the lesson at
+  // >=xl, absent below that (there isn't room for three columns). 'open' is an
+  // explicit request, which below xl floats the rail over the lesson instead of
+  // squeezing it. Tri-state rather than a boolean + matchMedia so the server
+  // and client render the same thing.
+  const [outlinePref, setOutlinePref] = useState<'auto' | 'open' | 'closed'>('auto');
+  const resolvedId = activeLessonId ?? defaultLessonId;
+  const activeIndex = flat.findIndex((entry) => entry.lesson.id === resolvedId);
+  const active = activeIndex >= 0 ? flat[activeIndex] : null;
+
+  const pct = courseProgressPct(course);
+  const catLabel = course.categories?.[0]?.name;
+  const showCountdown = course.countdown_enabled && course.started_at && !course.expired;
+
+  // Watch-gate for the active lesson (mirrors LessonCard's 60s cooldown). It
+  // only applies to lessons with a video — a blocks-only document has nothing
+  // to watch, so it can be marked complete as soon as it is read.
+  const videoUrl = active ? pickLessonUrl(active.lesson, language) : '';
+  const blocks = useMemo(() => active?.lesson.blocks ?? [], [active?.lesson.blocks]);
+  const hasVideo = !!videoUrl;
+  const hasContent = hasVideo || blocks.length > 0;
+  const [secondsLeft, setSecondsLeft] = useState(WATCH_COOLDOWN_SECONDS);
+  useEffect(() => {
+    setSecondsLeft(!videoUrl || active?.lesson.completed ? 0 : WATCH_COOLDOWN_SECONDS);
+  }, [videoUrl, active?.lesson.completed]);
+  useEffect(() => {
+    if (!active || active.lesson.completed || !videoUrl) return;
+    const interval = setInterval(() => {
+      setSecondsLeft((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [active, videoUrl]);
+  const cooldownActive = !!active && !active.lesson.completed && hasVideo && secondsLeft > 0;
+  const togglePending = markComplete.isPending || markIncomplete.isPending;
+  const outline = useMemo(() => collectHeadings(blocks), [blocks]);
+  const showOutline = outlinePref !== 'closed';
+  const outlineOverlay = outlinePref === 'open';
+
+  // Whether the READER is wide enough for the rail to sit beside the lesson.
+  // Measured on the reader itself rather than the viewport: the dashboard
+  // sidebar eats 240px, so a viewport-width breakpoint fires ~240px later than
+  // the layout actually needs — that gap is why a 1274px window showed no rail
+  // at an `xl` (1280px) threshold. The CSS uses the matching @container query,
+  // so the rail's visibility never flashes; this observer only backs the
+  // toggle's label and pressed state, which CSS cannot express.
+  const [wideEnough, setWideEnough] = useState<boolean | null>(null);
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setWideEnough(entry.contentRect.width >= OUTLINE_PIN_WIDTH);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const outlineVisible =
+    outlinePref === 'open' || (outlinePref === 'auto' && wideEnough === true);
+
+  // One button, the obvious meaning at both sizes: when the rail is already
+  // pinned beside the lesson the button closes it; when it isn't shown, the
+  // button opens it as an overlay. Measured fresh on click rather than read
+  // from `wideEnough`, so the action stays correct even if the observer above
+  // never delivered a callback.
+  const toggleOutline = () =>
+    setOutlinePref((pref) => {
+      if (pref === 'open') return 'closed';
+      if (pref === 'closed') return 'open';
+      const width = shellRef.current?.getBoundingClientRect().width ?? 0;
+      return width >= OUTLINE_PIN_WIDTH ? 'closed' : 'open';
+    });
+
+  // Switching lessons should start the new one at the top of its own column.
+  useEffect(() => {
+    contentRef.current?.scrollTo({ top: 0 });
+  }, [resolvedId]);
+
+  const goTo = (index: number) => {
+    const entry = flat[index];
+    if (!entry || lockedReasons[entry.chapterIndex]) return;
+    setActiveLessonId(entry.lesson.id);
+  };
+
+  const toggleComplete = () => {
+    if (!active || cooldownActive || togglePending) return;
+    if (active.lesson.completed) markIncomplete.mutate(active.lesson.id);
+    else markComplete.mutate(active.lesson.id);
+  };
+
+  const banners = (
+    <>
+      {showCountdown && (
+        <div className="border-b border-[#E7E7EA] bg-white px-4 py-2.5 md:px-5">
+          <CountdownChips courses={[course]} />
+        </div>
+      )}
+      {course.expired && (
+        <div className="border-b border-[#E7E7EA] bg-white px-4 py-2.5 md:px-5">
+          <ReopenRequestBanner courseId={course.id} />
+        </div>
+      )}
+      {needsStart && !showPopup && (
+        <div className="border-b border-[#E7E7EA] bg-[#F5F5F6] px-4 py-2.5 text-sm text-[#525252] md:px-5">
+          Click{' '}
+          <button
+            onClick={() => setPopupDismissed(false)}
+            className="font-medium text-[#0a0a0a] underline-offset-2 hover:underline"
+          >
+            Start course
+          </button>{' '}
+          to begin.
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <div ref={shellRef} className="@container flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+      {showPopup && <CourseStartPopup course={course} onDismiss={() => setPopupDismissed(true)} />}
+
+      {/* Top bar */}
+      <div className="flex min-h-[52px] shrink-0 items-center gap-2 border-b border-[#E7E7EA] bg-white px-4 py-2.5 md:px-5">
+        <button
+          type="button"
+          onClick={onBack}
+          className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-md text-[#525252] transition hover:bg-[#F5F5F6] hover:text-[#0a0a0a]"
+          aria-label="Back to Training"
+          title="Back to Training"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <span className="text-[15px] leading-none">{course.is_onboarding ? '🚀' : '📚'}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] font-semibold text-[#0a0a0a]">
+            {course.title}
+          </span>
+          <span className="hidden truncate text-[10.5px] text-[#a3a3a3] sm:block">
+            {course.is_onboarding ? 'Onboarding' : 'Course'}
+            {catLabel ? ` · ${catLabel}` : ''}
+            {course.description ? ` · ${course.description}` : ''}
+          </span>
+        </span>
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          <span className="hidden items-center gap-2 sm:flex">
+            <span className="text-[11px] tabular-nums text-[#525252]">{pct}%</span>
+            <span className="h-1 w-24 overflow-hidden rounded-full bg-[#E7E7EA]">
+              <span
+                className={`block h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-500' : 'bg-[#0a0a0a]'}`}
+                style={{ width: `${pct}%` }}
+              />
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={toggleOutline}
+            aria-pressed={outlineVisible}
+            title={outlineVisible ? 'Hide page outline' : 'Show page outline'}
+            className={`hidden items-center gap-1.5 rounded-md border px-2 py-1 text-[11.5px] font-medium transition sm:inline-flex ${
+              outlinePref === 'open'
+                ? 'border-[#0a0a0a] bg-[#0a0a0a] text-white'
+                : outlinePref === 'auto'
+                  ? 'border-[#E7E7EA] bg-white text-[#525252] hover:bg-[#F5F5F6] hover:text-[#0a0a0a] @[1000px]:border-[#0a0a0a] @[1000px]:bg-[#0a0a0a] @[1000px]:text-white'
+                  : 'border-[#E7E7EA] bg-white text-[#525252] hover:bg-[#F5F5F6] hover:text-[#0a0a0a]'
+            }`}
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M4 6h10M4 12h16M4 18h7" />
+            </svg>
+            Outline
+          </button>
+          <LanguagePicker language={language} available={availableLanguages} onChange={setLanguage} />
+        </span>
+      </div>
+
+      {banners}
+
+      {needsLanguageSelection ? (
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+          <LanguageSelectionPrompt />
+        </div>
+      ) : course.chapters.length === 0 || flat.length === 0 ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center px-6 text-sm text-[#737373]">
+          No lessons yet.
+        </div>
+      ) : (
+        <>
+          {/* Mobile lesson picker — stands in for the left rail below md */}
+          <div className="shrink-0 border-b border-[#E7E7EA] bg-[#FAFAFA] px-3 py-2 @[680px]:hidden">
+            <label className="sr-only" htmlFor="course-lesson-picker">Lesson</label>
+            <select
+              id="course-lesson-picker"
+              value={resolvedId ?? ''}
+              onChange={(e) => setActiveLessonId(e.target.value)}
+              className="w-full rounded-lg border border-[#E7E7EA] bg-white px-3 py-2 text-[13px] font-medium text-[#0a0a0a] focus:border-[#0a0a0a] focus:outline-none"
+            >
+              {course.chapters.map((chapter, ci) => (
+                <optgroup key={chapter.id} label={chapter.title}>
+                  {chapter.lessons.map((lesson) => (
+                    <option key={lesson.id} value={lesson.id} disabled={!!lockedReasons[ci]}>
+                      {lesson.completed ? '✓ ' : ''}{lesson.title}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
+          {/* left rail | lesson | on-this-page */}
+          <div className="grid min-h-0 flex-1 grid-cols-1 @[680px]:grid-cols-[248px_minmax(0,1fr)] @[1000px]:grid-cols-[264px_minmax(0,1fr)]">
+            <aside className="hidden min-h-0 overflow-y-auto border-r border-[#E7E7EA] bg-[#FAFAFA] @[680px]:block">
+              <ChapterRail
+                course={course}
+                lockedReasons={lockedReasons}
+                activeLessonId={resolvedId}
+                onPick={setActiveLessonId}
+                pct={pct}
+              />
+            </aside>
+
+            <div
+              className={`relative grid min-h-0 min-w-0 grid-cols-1 ${
+                showOutline ? '@[1000px]:grid-cols-[minmax(0,1fr)_264px]' : ''
+              }`}
+            >
+              <main ref={contentRef} className="min-h-0 min-w-0 overflow-y-auto scroll-smooth bg-white">
+                {!active ? (
+                  <div className="flex h-full items-center justify-center px-6 py-16 text-sm text-[#737373]">
+                    Select a lesson to begin.
+                  </div>
+                ) : (
+                  <article className="mx-auto w-full max-w-3xl px-5 py-6 sm:px-8 sm:py-8">
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3]">
+                      {course.title} › {active.chapter.title}
+                    </p>
+                    <p className="mt-2 text-[12px] font-medium uppercase tracking-wider text-[#525252]">
+                      Lesson {activeIndex + 1} of {flat.length}
+                    </p>
+                    <h1 className="font-[family-name:var(--font-jakarta)] mt-1 text-[24px] font-semibold leading-tight tracking-[-0.015em] text-[#0a0a0a] sm:text-[28px]">
+                      {active.lesson.title}
+                    </h1>
+                    {active.lesson.description && (
+                      <p className="mt-2 text-sm leading-relaxed text-[#525252]">
+                        {active.lesson.description}
+                      </p>
+                    )}
+
+                    {hasVideo && (
+                      <div className="mt-5 aspect-video overflow-hidden rounded-xl bg-[#09090B]">
+                        <iframe
+                          src={videoEmbedUrl(videoUrl)}
+                          className="h-full w-full"
+                          allowFullScreen
+                          allow="autoplay; fullscreen; picture-in-picture"
+                        />
+                      </div>
+                    )}
+
+                    {blocks.length > 0 && (
+                      <ContentBlocks blocks={blocks} className={hasVideo ? 'mt-6 space-y-5' : 'mt-5 space-y-5'} />
+                    )}
+
+                    {!hasContent && (
+                      <div className="mt-5 rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA] px-4 py-10 text-center text-sm text-[#a3a3a3]">
+                        This lesson has no content yet.
+                      </div>
+                    )}
+
+                    <div className="mt-10 flex items-center justify-between gap-3 border-t border-[#E7E7EA] pt-6">
+                      <button
+                        type="button"
+                        onClick={() => goTo(activeIndex - 1)}
+                        disabled={activeIndex <= 0}
+                        className="rounded-lg border border-[#E7E7EA] bg-white px-3 py-2 text-sm font-medium text-[#0a0a0a] transition hover:bg-[#F5F5F6] disabled:opacity-30"
+                      >
+                        ← Previous
+                      </button>
+                      <button
+                        type="button"
+                        onClick={toggleComplete}
+                        disabled={togglePending || cooldownActive}
+                        title={cooldownActive ? `Watch the video before marking complete (${secondsLeft}s)` : undefined}
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition-all active:scale-[0.97] ${
+                          active.lesson.completed
+                            ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100'
+                            : 'bg-[#0a0a0a] text-white hover:bg-[#0a0a0a]/85'
+                        } disabled:cursor-not-allowed disabled:opacity-50`}
+                      >
+                        {active.lesson.completed ? (
+                          <>✓ Completed</>
+                        ) : cooldownActive ? (
+                          <>Watch first ({secondsLeft}s)</>
+                        ) : togglePending ? (
+                          <>Saving…</>
+                        ) : (
+                          <>Mark lesson complete</>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => goTo(activeIndex + 1)}
+                        disabled={
+                          activeIndex >= flat.length - 1 ||
+                          !!lockedReasons[flat[activeIndex + 1]?.chapterIndex]
+                        }
+                        className="rounded-lg border border-[#E7E7EA] bg-white px-3 py-2 text-sm font-medium text-[#0a0a0a] transition hover:bg-[#F5F5F6] disabled:opacity-30"
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  </article>
+                )}
+              </main>
+
+              {/* Right rail. Pinned beside the lesson at >=xl; below that the
+                  same panel floats over the lesson so a narrow window can still
+                  reach it without squeezing the text column. */}
+              {showOutline && (
+                <aside
+                  className={`${
+                    outlineOverlay
+                      ? 'absolute inset-y-0 right-0 z-20 w-[264px] max-w-[85%] shadow-[-8px_0_24px_-12px_rgba(0,0,0,0.18)]'
+                      : 'hidden'
+                  } min-h-0 overflow-y-auto border-l border-[#E7E7EA] bg-[#FAFAFA] @[1000px]:static @[1000px]:z-auto @[1000px]:block @[1000px]:w-auto @[1000px]:max-w-none @[1000px]:shadow-none`}
+                >
+                  <div className="flex items-center justify-end px-2 pt-2 @[1000px]:hidden">
+                    <button
+                      type="button"
+                      onClick={() => setOutlinePref('closed')}
+                      aria-label="Hide page outline"
+                      className="grid h-6 w-6 place-items-center rounded-md text-[#737373] transition hover:bg-[#E7E7EA] hover:text-[#0a0a0a]"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                        <path d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <OnThisPage
+                    headings={outline}
+                    scrollRef={contentRef}
+                    scanKey={resolvedId ?? ''}
+                  />
+                </aside>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+
 function FullTrainingProgram() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  // Present when mounted on /talent/training/<courseId> — the full-bleed
+  // reader route. On the plain /talent/training list it is undefined.
+  const routeCourseId = (useParams()?.courseId as string | undefined) ?? null;
   const { data, isLoading } = useMyTraining();
   const courses = data?.courses ?? [];
   const legacyChapters = data?.chapters ?? [];
@@ -686,23 +1313,23 @@ function FullTrainingProgram() {
 
   const [query, setQuery] = useState('');
   const [openSopId, setOpenSopId] = useState<string | null>(null);
-  const [viewingCourseId, setViewingCourseId] = useState<string | null>(null);
   const [viewingLegacy, setViewingLegacy] = useState(false);
+  const viewingCourseId = routeCourseId;
 
-  // Deep link: /talent/training?resource=sop:<id> | course:<id>
+  // Legacy deep link: /talent/training?resource=sop:<id> | course:<id>.
+  // Courses now have their own route, so forward those and keep SOPs inline.
   useEffect(() => {
     const resource = searchParams.get('resource');
     if (!resource) return;
     if (resource.startsWith('sop:')) {
       setOpenSopId(resource.slice(4));
-      setViewingCourseId(null);
       setViewingLegacy(false);
     } else if (resource.startsWith('course:')) {
-      setViewingCourseId(resource.slice(7));
       setOpenSopId(null);
       setViewingLegacy(false);
+      router.replace(`/talent/training/${resource.slice(7)}`);
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   const q = query.trim().toLowerCase();
 
@@ -784,28 +1411,42 @@ function FullTrainingProgram() {
   const isEmpty = courses.length === 0 && legacyChapters.length === 0 && sops.length === 0;
   const viewingCourse = courses.find((c) => c.id === viewingCourseId) ?? null;
 
-  // Drill into a course — keep full chapter/lesson player
+  // Drill into a course — the SOP-style reader (left rail | lesson | outline).
+  // The parent shell is a flex column here, so the reader claims the remaining
+  // height rather than sitting in the list page's spacing.
   if (viewingCourse) {
     return (
-      <div className="space-y-5">
-        <button
-          type="button"
-          onClick={() => setViewingCourseId(null)}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#525252] hover:text-[#0a0a0a]"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Training
-        </button>
-        {activeCountdowns.some((c) => c.id === viewingCourse.id) && (
-          <CountdownChips courses={activeCountdowns.filter((c) => c.id === viewingCourse.id)} />
+      <CourseReader
+        course={viewingCourse}
+        enforceSequential={viewingCourse.is_onboarding}
+        onBack={() => router.push('/talent/training')}
+      />
+    );
+  }
+
+  // Still on the reader route but the course isn't in the payload — either the
+  // training list is still loading, or the id is stale/not visible to this
+  // talent. Never fall through to the list here: the full-bleed shell has no
+  // padding and the list would render edge-to-edge.
+  if (routeCourseId) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-white px-6 text-center">
+        {isLoading ? (
+          <div className="h-24 w-full max-w-md animate-pulse rounded-2xl bg-[#f0f0f0]" />
+        ) : (
+          <>
+            <p className="text-sm text-[#525252]">
+              This course isn&apos;t available on your account.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push('/talent/training')}
+              className="rounded-lg bg-[#0a0a0a] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0a0a0a]/85"
+            >
+              Back to Training
+            </button>
+          </>
         )}
-        <CourseSection
-          course={viewingCourse}
-          enforceSequential={viewingCourse.is_onboarding}
-          defaultOpenFirst
-        />
       </div>
     );
   }
@@ -951,7 +1592,7 @@ function FullTrainingProgram() {
                   <CatalogCourseCard
                     key={course.id}
                     course={course}
-                    onOpen={() => setViewingCourseId(course.id)}
+                    onOpen={() => router.push(`/talent/training/${course.id}`)}
                   />
                 ))}
             </CatalogSection>
@@ -1020,7 +1661,7 @@ function FullTrainingProgram() {
                   <CatalogCourseCard
                     key={course.id}
                     course={course}
-                    onOpen={() => setViewingCourseId(course.id)}
+                    onOpen={() => router.push(`/talent/training/${course.id}`)}
                   />
                 ))}
               {filteredSops

@@ -88,14 +88,15 @@ export default function TrainingChapterDetail({ chapterId }: Props) {
         ) : !lessons?.length ? (
           <div className="p-12 text-center text-gray-500">
             <p className="text-lg font-medium">No lessons yet</p>
-            <p className="text-sm mt-1">Add lessons with Loom video links.</p>
+            <p className="text-sm mt-1">Add a lesson with a video, a written document, or both.</p>
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Title</th>
-                <th className="text-left px-6 py-3 font-medium text-gray-500">Loom URL</th>
+                <th className="text-left px-6 py-3 font-medium text-gray-500">Video</th>
+                <th className="text-left px-6 py-3 font-medium text-gray-500">Content</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Status</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Sort</th>
                 <th className="text-right px-6 py-3 font-medium text-gray-500">Actions</th>
@@ -106,14 +107,27 @@ export default function TrainingChapterDetail({ chapterId }: Props) {
                 <tr key={lesson.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 font-medium text-gray-900">{lesson.title}</td>
                   <td className="px-6 py-4 text-gray-500 max-w-xs truncate">
-                    <a
-                      href={lesson.loom_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-indigo-600 hover:underline"
-                    >
-                      {lesson.loom_url}
-                    </a>
+                    {lesson.loom_url ? (
+                      <a
+                        href={lesson.loom_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-600 hover:underline"
+                      >
+                        {lesson.loom_url}
+                      </a>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {lesson.blocks?.length ? (
+                      <Badge variant="blue">
+                        {lesson.blocks.length} block{lesson.blocks.length === 1 ? '' : 's'}
+                      </Badge>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     <Badge variant={lesson.is_active ? 'green' : 'gray'}>
@@ -123,6 +137,12 @@ export default function TrainingChapterDetail({ chapterId }: Props) {
                   <td className="px-6 py-4 text-gray-500">{lesson.sort_order}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
+                      <Link
+                        href={`/training/${chapterId}/lessons/${lesson.id}`}
+                        className="rounded-lg px-3 py-1.5 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50"
+                      >
+                        Content
+                      </Link>
                       <Button variant="ghost" size="sm" onClick={() => openEdit(lesson)}>
                         Edit
                       </Button>

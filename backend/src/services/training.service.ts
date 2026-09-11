@@ -7,6 +7,8 @@ import type {
   UpdateChapterInput,
   CreateLessonInput,
   UpdateLessonInput,
+  CreateLessonBlockInput,
+  UpdateLessonBlockInput,
 } from '../validators/training.validators.js';
 import type { ReorderInput } from '../validators/admin.validators.js';
 
@@ -460,7 +462,7 @@ export async function getLessons(chapterId: string) {
     .order('sort_order', { ascending: true });
 
   if (error) throw new AppError(500, `Failed to fetch lessons: ${error.message}`);
-  return attachVideos(data ?? []);
+  return attachLessonBlocks(await attachVideos(data ?? []));
 }
 
 export async function createLesson(chapterId: string, input: CreateLessonInput) {
@@ -545,6 +547,122 @@ export async function reorderLessons(input: ReorderInput) {
 }
 
 // ---------------------------------------------------------------------------
+// Admin — Lesson content blocks (SOP-style rich content)
+// ---------------------------------------------------------------------------
+//
+// A lesson used to be a title + one video per language. Blocks let a lesson be
+// a full document — the same content model as `training_sop_blocks` — so a
+// course lesson reads like a Systems & Procedures page. The legacy per-language
+// video still renders above the blocks when a lesson has one, so nothing that
+// exists today changes.
+
+/** Columns the talent reader needs — `file_size`/`mime_type` are admin-only. */
+const LESSON_BLOCK_TALENT_COLUMNS =
+  'id, lesson_id, type, position, text_content, file_url, file_name, embed_url, embed_provider, caption, metadata';
+
+/**
+ * Attach ordered content blocks to a set of lessons. One query for the whole
+ * batch — never call this per lesson inside a loop.
+ */
+async function attachLessonBlocks(lessons: any[]) {
+  if (lessons.length === 0) return lessons;
+  const lessonIds = lessons.map((l) => l.id);
+  const { data: blocks, error } = await supabaseAdmin
+    .from('training_lesson_blocks')
+    .select(LESSON_BLOCK_TALENT_COLUMNS)
+    .in('lesson_id', lessonIds)
+    .order('position', { ascending: true });
+
+  if (error) throw new AppError(500, `Failed to fetch lesson blocks: ${error.message}`);
+
+  const byLesson: Record<string, any[]> = {};
+  for (const b of blocks ?? []) {
+    if (!byLesson[b.lesson_id]) byLesson[b.lesson_id] = [];
+    byLesson[b.lesson_id].push(b);
+  }
+
+  return lessons.map((l) => ({ ...l, blocks: byLesson[l.id] ?? [] }));
+}
+
+export async function listLessonBlocks(lessonId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('training_lesson_blocks')
+    .select('*')
+    .eq('lesson_id', lessonId)
+    .order('position', { ascending: true });
+  if (error) throw new AppError(500, `Failed to list lesson blocks: ${error.message}`);
+  return data ?? [];
+}
+
+export async function createLessonBlock(lessonId: string, input: CreateLessonBlockInput) {
+  const { data: lesson } = await supabaseAdmin
+    .from('training_lessons')
+    .select('id')
+    .eq('id', lessonId)
+    .maybeSingle();
+  if (!lesson) throw new AppError(404, 'Lesson not found');
+
+  const { data, error } = await supabaseAdmin
+    .from('training_lesson_blocks')
+    .insert({
+      lesson_id: lessonId,
+      type: input.type,
+      position: input.position ?? 0,
+      text_content: input.text_content ?? null,
+      file_url: input.file_url ?? null,
+      file_name: input.file_name ?? null,
+      file_size: input.file_size ?? null,
+      mime_type: input.mime_type ?? null,
+      embed_url: input.embed_url ?? null,
+      embed_provider: input.embed_provider ?? null,
+      caption: input.caption ?? null,
+      metadata: input.metadata ?? {},
+    })
+    .select()
+    .single();
+  if (error) throw new AppError(500, `Failed to create lesson block: ${error.message}`);
+  return data;
+}
+
+export async function updateLessonBlock(blockId: string, input: UpdateLessonBlockInput) {
+  const patch: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(input)) {
+    if (v !== undefined) patch[k] = v;
+  }
+  const { data, error } = await supabaseAdmin
+    .from('training_lesson_blocks')
+    .update(patch)
+    .eq('id', blockId)
+    .select()
+    .single();
+  if (error) {
+    if (error.code === 'PGRST116') throw new AppError(404, 'Block not found');
+    throw new AppError(500, `Failed to update lesson block: ${error.message}`);
+  }
+  return data;
+}
+
+export async function deleteLessonBlock(blockId: string) {
+  const { error } = await supabaseAdmin
+    .from('training_lesson_blocks')
+    .delete()
+    .eq('id', blockId);
+  if (error) throw new AppError(500, `Failed to delete lesson block: ${error.message}`);
+  return { message: 'Block deleted' };
+}
+
+export async function reorderLessonBlocks(items: { id: string; position: number }[]) {
+  for (const item of items) {
+    const { error } = await supabaseAdmin
+      .from('training_lesson_blocks')
+      .update({ position: item.position })
+      .eq('id', item.id);
+    if (error) throw new AppError(500, `Failed to reorder lesson blocks: ${error.message}`);
+  }
+  return { message: 'Blocks reordered' };
+}
+
+// ---------------------------------------------------------------------------
 // Talent — Training + Progress
 // ---------------------------------------------------------------------------
 
@@ -580,7 +698,7 @@ export async function getTrainingForCategories(categoryIds: string[]) {
 
   if (lErr) throw new AppError(500, `Failed to fetch lessons: ${lErr.message}`);
 
-  const lessonsWithVideos = await attachVideos(lessons ?? []);
+  const lessonsWithVideos = await attachLessonBlocks(await attachVideos(lessons ?? []));
 
   const lessonsByChapter: Record<string, any[]> = {};
   for (const l of lessonsWithVideos) {
@@ -1171,7 +1289,7 @@ async function buildCoursePayloads(
         .in('lesson_id', [] as string[]), // populated below if lessons exist
     ]);
     if (lessonsRes.error) throw new AppError(500, `Failed to fetch lessons: ${lessonsRes.error.message}`);
-    lessons = await attachVideos(lessonsRes.data ?? []);
+    lessons = await attachLessonBlocks(await attachVideos(lessonsRes.data ?? []));
     if (lessons.length > 0) {
       const lessonIds = lessons.map((l: any) => l.id);
       const { data: progress, error: pErr } = await supabaseAdmin
@@ -1355,7 +1473,7 @@ export async function getOnboardingChapter() {
 
   if (lErr) throw new AppError(500, `Failed to fetch onboarding lessons: ${lErr.message}`);
 
-  return { ...chapter, lessons: await attachVideos(lessons ?? []) };
+  return { ...chapter, lessons: await attachLessonBlocks(await attachVideos(lessons ?? [])) };
 }
 
 /**

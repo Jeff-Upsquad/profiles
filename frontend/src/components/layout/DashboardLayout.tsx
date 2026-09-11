@@ -30,6 +30,12 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
   const isMessagesList = pathname === '/business/messages' || pathname === '/talent/messages';
   const isMessagesThread = /^\/(business|talent)\/messages\/[^/]+/.test(pathname);
   const isMessages = isMessagesList || isMessagesThread;
+  // The course reader is a three-column document shell (chapter rail | lesson |
+  // on-this-page). It needs the full content width and its own scroll per
+  // column, so it gets the same full-bleed treatment as a message thread —
+  // the centered max-w-5xl wrapper would leave no room for the side rails.
+  const isCourseReader = /^\/talent\/training\/[^/]+/.test(pathname);
+  const isFullBleed = isMessagesThread || isCourseReader;
 
   const isActive = (href: string) => {
     return pathname === href || pathname.startsWith(href + '/');
@@ -111,7 +117,7 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
         {/* Main content */}
         <main
           className={`flex-1 bg-[#F5F5F6] ${
-            isMessagesThread
+            isFullBleed
               ? 'flex min-h-0 flex-col overflow-hidden p-0'
               : isMessages
                 ? 'overflow-y-auto p-0'
@@ -120,8 +126,8 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
         >
           <div
             className={
-              isMessages
-                ? `flex min-h-0 flex-1 flex-col ${isMessagesThread ? 'h-full' : ''}`
+              isMessages || isCourseReader
+                ? `flex min-h-0 flex-1 flex-col ${isFullBleed ? 'h-full' : ''}`
                 : 'mx-auto max-w-5xl'
             }
           >
@@ -132,7 +138,7 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
                 on the drawer keep the labeled button (more discoverable
                 than the corner FAB it replaced). Hidden on a chat thread so
                 the conversation can use the full height. */}
-            {!hideMobileSidebar && !isMessagesThread && (
+            {!hideMobileSidebar && !isFullBleed && (
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="mb-3 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 active:scale-[0.98] md:hidden"

@@ -34,7 +34,9 @@ export default function LessonForm({ chapterId, lesson, onClose }: LessonFormPro
     ? lesson.videos
     : lesson?.loom_url
       ? [{ language: 'en', loom_url: lesson.loom_url }]
-      : [{ language: 'en', loom_url: '' }];
+      : lesson
+        ? []
+        : [{ language: 'en', loom_url: '' }];
   const [videos, setVideos] = useState<LessonVideo[]>(initialVideos);
   const [sortOrder, setSortOrder] = useState(lesson?.sort_order ?? 0);
   const [isActive, setIsActive] = useState(lesson?.is_active ?? true);
@@ -60,17 +62,20 @@ export default function LessonForm({ chapterId, lesson, onClose }: LessonFormPro
     setVideos((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const hasValidVideos = videos.length > 0 && videos.every((v) => v.language && v.loom_url);
-  const hasDuplicateLanguages = new Set(videos.map((v) => v.language)).size !== videos.length;
+  // Videos are optional: a lesson can be a written document with no video at
+  // all. Blank rows are dropped rather than blocking the save.
+  const filledVideos = videos.filter((v) => v.language && v.loom_url.trim());
+  const hasDuplicateLanguages =
+    new Set(filledVideos.map((v) => v.language)).size !== filledVideos.length;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!hasValidVideos || hasDuplicateLanguages) return;
+    if (hasDuplicateLanguages) return;
 
     const payload = {
       title,
       description: description || undefined,
-      videos,
+      videos: filledVideos,
       sort_order: sortOrder,
       is_active: isActive,
     };
@@ -117,7 +122,7 @@ export default function LessonForm({ chapterId, lesson, onClose }: LessonFormPro
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="block text-sm font-medium text-gray-700">
-            Videos by Language <span className="ml-0.5 text-red-500">*</span>
+            Videos by Language <span className="ml-1 text-xs font-normal text-gray-400">(optional)</span>
           </label>
           <button
             type="button"
@@ -152,28 +157,33 @@ export default function LessonForm({ chapterId, lesson, onClose }: LessonFormPro
                 onChange={(e) => updateVideo(index, 'loom_url', e.target.value)}
                 placeholder="Loom or SquadClips share URL"
                 className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                required
               />
-              {videos.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeVideo(index)}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors flex-shrink-0"
-                  aria-label="Remove language"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
-                  </svg>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => removeVideo(index)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors flex-shrink-0"
+                aria-label="Remove language"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+                </svg>
+              </button>
             </div>
           ))}
+          {videos.length === 0 && (
+            <p className="rounded-lg border border-dashed border-gray-300 px-3 py-2.5 text-sm text-gray-500">
+              No video — this lesson is a written document. Build it on the lesson&apos;s{' '}
+              <span className="font-medium text-gray-700">Content</span> page.
+            </p>
+          )}
         </div>
         {hasDuplicateLanguages && (
           <p className="mt-1 text-sm text-red-600">Each language can only appear once</p>
         )}
         <p className="mt-1 text-xs text-gray-500">
-          Add a Loom or SquadClips (clips.squadhub.in) share link for each language you want to support. The talent user picks their language when starting the training.
+          Add a Loom or SquadClips (clips.squadhub.in) share link for each language you want to
+          support. The talent user picks their language when starting the training. Leave this empty
+          for a document-only lesson.
         </p>
       </div>
 
@@ -201,11 +211,7 @@ export default function LessonForm({ chapterId, lesson, onClose }: LessonFormPro
         <Button type="button" variant="secondary" onClick={onClose}>
           Cancel
         </Button>
-        <Button
-          type="submit"
-          loading={isPending}
-          disabled={!hasValidVideos || hasDuplicateLanguages}
-        >
+        <Button type="submit" loading={isPending} disabled={hasDuplicateLanguages}>
           {isEditing ? 'Update' : 'Create'} Lesson
         </Button>
       </div>

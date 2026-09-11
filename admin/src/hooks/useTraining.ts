@@ -48,8 +48,11 @@ export interface TrainingLesson {
   chapter_id: string;
   title: string;
   description?: string;
+  /** Empty when the lesson is a document rather than a video. */
   loom_url: string;
   videos: LessonVideo[];
+  /** SOP-style content blocks; edited on the lesson's Content page. */
+  blocks?: { id: string; type: string; position: number }[];
   sort_order: number;
   is_active: boolean;
   created_at: string;

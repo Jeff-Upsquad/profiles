@@ -2,19 +2,29 @@ import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
+import type { ContentBlock } from '@/components/training/ContentBlocks';
 
 export interface LessonVideo {
   language: string;
   loom_url: string;
 }
 
+/**
+ * Ordered rich content on a lesson (`training_lesson_blocks`) — the same shape
+ * SOP pages use, so both render through `components/training/ContentBlocks`.
+ */
+export type LessonBlock = ContentBlock;
+
 export interface TrainingLesson {
   id: string;
   chapter_id: string;
   title: string;
-  description?: string;
+  /** Empty when the lesson is a blocks-only document. */
   loom_url: string;
+  description?: string;
   videos: LessonVideo[];
+  /** Absent on older payloads; empty for a plain video lesson. */
+  blocks?: LessonBlock[];
   sort_order: number;
   completed: boolean;
 }
@@ -122,18 +132,7 @@ export interface TrainingSopSummary {
   completed: boolean;
 }
 
-export interface SopBlock {
-  id: string;
-  page_id: string;
-  type: 'text' | 'image' | 'video_embed' | 'pdf';
-  position: number;
-  text_content?: unknown;
-  file_url?: string | null;
-  file_name?: string | null;
-  embed_url?: string | null;
-  caption?: string | null;
-  metadata?: Record<string, unknown>;
-}
+export type SopBlock = ContentBlock & { page_id: string };
 
 export interface SopPage {
   id: string;
