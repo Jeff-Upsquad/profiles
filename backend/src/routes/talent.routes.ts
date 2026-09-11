@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import * as talentController from '../controllers/talent.controller.js';
 import * as trainingController from '../controllers/training.controller.js';
-import * as trainingSopController from '../controllers/training-sop.controller.js';
 import * as notificationsController from '../controllers/notifications.controller.js';
 import * as appInstallController from '../controllers/app-install.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
@@ -15,6 +14,7 @@ import {
 } from '../validators/talent.validators.js';
 import { requireApprovalOrAutoApprove } from '../middleware/approval.middleware.js';
 import { requestCourseReopenSchema } from '../validators/access-requests.validators.js';
+import { submitQuizSchema } from '../validators/training.validators.js';
 import { appCheckinSchema } from '../validators/app-install.validators.js';
 import * as conversationsController from '../controllers/conversations.controller.js';
 import {
@@ -77,25 +77,43 @@ router.delete('/profiles/:id/portfolio/:itemId', talentController.deletePortfoli
 router.patch('/profiles/:id/portfolio/reorder', talentController.reorderPortfolioItems);
 router.patch('/profiles/:id/portfolio/:itemId', talentController.updatePortfolioItem);
 
-// Training program
+// Training program. Courses and SOPs are two tracks of the same synced
+// content, so both are served from the item endpoints; /training/sops stays
+// as its own route because the talent UI lists them separately.
+router.get('/training', trainingController.getMyTraining);
+router.get('/training/incomplete-count', trainingController.getIncompleteTrainingCount);
 router.get('/training/onboarding', trainingController.getOnboardingTraining);
 router.get('/training/onboarding-courses', trainingController.getMyOnboardingCourses);
 router.get('/training/module-access', trainingController.getModuleAccess);
 router.get('/training/profile-gate/:categoryId', trainingController.getProfileGate);
 router.post('/training/complete-onboarding', trainingController.completeOnboarding);
+
+router.get('/training/courses/:id', trainingController.getCourseForTalent);
+// SOPs are items on the 'sop' track; these aliases keep the talent UI's
+// existing SOP paths working against the same handlers.
+router.get('/training/sops/:id', trainingController.getCourseForTalent);
+router.post('/training/sops/:id/complete', trainingController.completeItem);
+router.post('/training/courses/:id/complete', trainingController.completeItem);
 router.post('/training/courses/:id/start', trainingController.startCourse);
 router.post(
   '/training/courses/:id/request-reopen',
   validate({ body: requestCourseReopenSchema }),
   trainingController.requestCourseReopen,
 );
-router.get('/training', trainingController.getMyTraining);
-router.get('/training/incomplete-count', trainingController.getIncompleteTrainingCount);
-router.get('/training/sops', trainingSopController.getMySops);
-router.get('/training/sops/:id', trainingSopController.getSopForTalent);
-router.post('/training/sops/:id/complete', trainingSopController.completeSop);
-router.post('/training/lessons/:lessonId/complete', trainingController.markComplete);
-router.delete('/training/lessons/:lessonId/complete', trainingController.markIncomplete);
+
+// Progress is recorded per page. The old /lessons/:lessonId routes are kept as
+// aliases because a page id IS the lesson id it was migrated from, so an app
+// build still on the old path keeps working.
+router.post('/training/pages/:pageId/complete', trainingController.markComplete);
+router.delete('/training/pages/:pageId/complete', trainingController.markIncomplete);
+router.post('/training/lessons/:pageId/complete', trainingController.markComplete);
+router.delete('/training/lessons/:pageId/complete', trainingController.markIncomplete);
+
+router.post(
+  '/training/blocks/:blockId/quiz',
+  validate({ body: submitQuizSchema }),
+  trainingController.submitQuiz,
+);
 
 // Notifications
 router.get('/notifications', notificationsController.listTalent);

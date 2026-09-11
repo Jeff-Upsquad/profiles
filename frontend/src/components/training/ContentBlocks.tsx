@@ -1,19 +1,39 @@
 'use client';
 
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
+import api from '@/services/api';
 
 /**
- * Shared renderer for training content blocks.
+ * Shared renderer for training content blocks (`training_blocks`).
  *
- * Both `training_sop_blocks` (Systems & Procedures pages) and
- * `training_lesson_blocks` (course lessons) store the same shape, so the SOP
- * reader and the course reader render through this one component. SOPs only
- * ever use the text/image/video_embed/pdf subset; lessons can also carry
- * uploaded video and audio.
+ * Every page of a course or an SOP is a list of these, authored in SquadHub's
+ * Resources module and synced down, so one renderer serves both.
  */
+export interface BlockVideo {
+  language: string;
+  embed_url?: string | null;
+  embed_provider?: string | null;
+  file_url?: string | null;
+}
+
+export interface QuizQuestion {
+  id: string;
+  position: number;
+  prompt: string;
+  options: { id: string; text: string }[];
+}
+
+export interface QuizResult {
+  question_id: string;
+  given_option_id: string | null;
+  correct_option_id: string;
+  correct: boolean;
+  explanation: string | null;
+}
+
 export interface ContentBlock {
   id: string;
-  type: 'text' | 'image' | 'video_upload' | 'video_embed' | 'audio' | 'pdf';
+  type: 'text' | 'image' | 'video_upload' | 'video_embed' | 'audio' | 'pdf' | 'quiz';
   position: number;
   text_content?: unknown;
   file_url?: string | null;
@@ -22,6 +42,35 @@ export interface ContentBlock {
   embed_provider?: string | null;
   caption?: string | null;
   metadata?: Record<string, unknown>;
+  /** Per-language alternates on a video block. */
+  videos?: BlockVideo[];
+  /** Questions on a quiz block. Correct answers are never sent to the client. */
+  quiz_questions?: QuizQuestion[];
+}
+
+/**
+ * The video source for a block in the reader's chosen language.
+ *
+ * Falls back to the block's own URL — what a single-language video has — and
+ * never silently substitutes a different language, matching how the course
+ * language picker behaves.
+ */
+export function resolveBlockVideo(
+  block: ContentBlock,
+  language?: string | null,
+): { embed_url: string | null; file_url: string | null } {
+  const match = language ? (block.videos ?? []).find((v) => v.language === language) : undefined;
+  if (match) return { embed_url: match.embed_url ?? null, file_url: match.file_url ?? null };
+  return { embed_url: block.embed_url ?? null, file_url: block.file_url ?? null };
+}
+
+/** Languages a page offers, gathered across its video blocks. */
+export function blockLanguages(blocks: ContentBlock[] | undefined): string[] {
+  const langs = new Set<string>();
+  for (const b of blocks ?? []) {
+    for (const v of b.videos ?? []) langs.add(v.language);
+  }
+  return [...langs];
 }
 
 // Both supported providers (Loom and SquadClips / clips.squadhub.in) expose a
@@ -261,7 +310,7 @@ function Missing({ children }: { children: ReactNode }) {
   );
 }
 
-export function ContentBlockView({ block }: { block: ContentBlock }) {
+export function ContentBlockView({ block, language }: { block: ContentBlock; language?: string | null }) {
   switch (block.type) {
     case 'text':
       return <RichText content={block.text_content} blockId={block.id} />;
@@ -283,7 +332,7 @@ export function ContentBlockView({ block }: { block: ContentBlock }) {
     }
 
     case 'video_embed': {
-      const src = safeUrl(block.embed_url);
+      const src = safeUrl(resolveBlockVideo(block, language).embed_url);
       if (!src) return <Missing>Missing video link</Missing>;
       return (
         <figure>
@@ -301,7 +350,10 @@ export function ContentBlockView({ block }: { block: ContentBlock }) {
     }
 
     case 'video_upload': {
-      const src = safeUrl(block.file_url);
+      // A language alternate may be an embed rather than an upload; falling
+      // back to the block's own file keeps the player from going blank.
+      const resolved = resolveBlockVideo(block, language);
+      const src = safeUrl(resolved.file_url ?? block.file_url);
       if (!src) return <Missing>Missing video</Missing>;
       return (
         <figure>
@@ -356,9 +408,141 @@ export function ContentBlockView({ block }: { block: ContentBlock }) {
       );
     }
 
+    case 'quiz':
+      return <QuizBlock block={block} />;
+
     default:
       return null;
   }
+}
+
+/**
+ * A quiz. Answers are graded server-side — the questions arrive without their
+ * correct options — so the result only appears after submitting, and the
+ * explanation with it.
+ */
+function QuizBlock({ block }: { block: ContentBlock }) {
+  const questions = [...(block.quiz_questions ?? [])].sort((a, b) => a.position - b.position);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [results, setResults] = useState<QuizResult[] | null>(null);
+  const [score, setScore] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (questions.length === 0) return <Missing>This quiz has no questions yet</Missing>;
+
+  const answered = questions.every((q) => answers[q.id]);
+  const resultFor = (questionId: string) => results?.find((r) => r.question_id === questionId);
+
+  async function submit() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const { data } = await api.post(`/talent/training/blocks/${block.id}/quiz`, { answers });
+      setResults(data.results ?? []);
+      setScore(data.score_percent ?? 0);
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        'Could not submit your answers. Please try again.';
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h4 className="text-[13px] font-semibold text-[#0a0a0a]">
+          {block.caption || 'Check your understanding'}
+        </h4>
+        {score !== null && (
+          <span
+            className={`rounded-full px-2 py-0.5 text-[11.5px] font-medium ${
+              score === 100 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+            }`}
+          >
+            {score}% correct
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-4">
+        {questions.map((q, i) => {
+          const result = resultFor(q.id);
+          return (
+            <fieldset key={q.id} className="space-y-1.5">
+              <legend className="mb-1 text-[13px] font-medium text-[#0a0a0a]">
+                {i + 1}. {q.prompt}
+              </legend>
+              {(q.options ?? []).map((opt) => {
+                const selected = answers[q.id] === opt.id;
+                const isCorrect = result && opt.id === result.correct_option_id;
+                const isWrongPick = result && selected && !result.correct;
+                return (
+                  <label
+                    key={opt.id}
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-[13px] transition ${
+                      isCorrect
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                        : isWrongPick
+                          ? 'border-red-300 bg-red-50 text-red-900'
+                          : selected
+                            ? 'border-[#0a0a0a] bg-white'
+                            : 'border-[#E7E7EA] bg-white hover:bg-[#F5F5F6]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name={q.id}
+                      value={opt.id}
+                      checked={selected}
+                      disabled={!!results}
+                      onChange={() => setAnswers((a) => ({ ...a, [q.id]: opt.id }))}
+                      className="accent-[#0a0a0a]"
+                    />
+                    <span>{opt.text}</span>
+                  </label>
+                );
+              })}
+              {result?.explanation && (
+                <p className="pt-0.5 text-[12px] text-[#737373]">{result.explanation}</p>
+              )}
+            </fieldset>
+          );
+        })}
+      </div>
+
+      {error && <p className="mt-3 text-[12.5px] text-red-600">{error}</p>}
+
+      <div className="mt-4 flex items-center gap-2">
+        {!results ? (
+          <button
+            onClick={submit}
+            disabled={!answered || submitting}
+            className="rounded-lg bg-[#0a0a0a] px-3 py-1.5 text-[12.5px] font-medium text-white transition disabled:opacity-40"
+          >
+            {submitting ? 'Checking…' : 'Check answers'}
+          </button>
+        ) : (
+          <button
+            onClick={() => {
+              setResults(null);
+              setScore(null);
+              setAnswers({});
+            }}
+            className="rounded-lg border border-[#E7E7EA] bg-white px-3 py-1.5 text-[12.5px] font-medium text-[#525252] transition hover:bg-[#F5F5F6]"
+          >
+            Try again
+          </button>
+        )}
+        {!results && !answered && (
+          <span className="text-[12px] text-[#a3a3a3]">Answer every question to check.</span>
+        )}
+      </div>
+    </section>
+  );
 }
 
 export interface OutlineHeading {
@@ -403,9 +587,12 @@ function nodeText(node: TiptapNode): string {
 export default function ContentBlocks({
   blocks,
   className = 'space-y-5',
+  language,
 }: {
   blocks: ContentBlock[] | undefined;
   className?: string;
+  /** Preferred video language; blocks without that alternate use their default. */
+  language?: string | null;
 }) {
   if (!blocks || blocks.length === 0) return null;
   return (
@@ -413,7 +600,7 @@ export default function ContentBlocks({
       {[...blocks]
         .sort((a, b) => a.position - b.position)
         .map((block) => (
-          <ContentBlockView key={block.id} block={block} />
+          <ContentBlockView key={block.id} block={block} language={language} />
         ))}
     </div>
   );

@@ -1205,7 +1205,7 @@ function CourseReader({
                     )}
 
                     {blocks.length > 0 && (
-                      <ContentBlocks blocks={blocks} className={hasVideo ? 'mt-6 space-y-5' : 'mt-5 space-y-5'} />
+                      <ContentBlocks blocks={blocks} language={language} className={hasVideo ? 'mt-6 space-y-5' : 'mt-5 space-y-5'} />
                     )}
 
                     {!hasContent && (
@@ -1307,7 +1307,6 @@ function FullTrainingProgram() {
   const routeCourseId = (useParams()?.courseId as string | undefined) ?? null;
   const { data, isLoading } = useMyTraining();
   const courses = data?.courses ?? [];
-  const legacyChapters = data?.chapters ?? [];
   const sops = data?.sops ?? [];
   const activeCountdowns = getActiveCountdowns(courses);
 
@@ -1358,13 +1357,13 @@ function FullTrainingProgram() {
 
   const filteredLegacy = useMemo(
     () =>
-      legacyChapters.filter(
+      ([] as TrainingChapter[]).filter(
         (ch) =>
           !q ||
           ch.title.toLowerCase().includes(q) ||
           (ch.description ?? '').toLowerCase().includes(q),
       ),
-    [legacyChapters, q],
+    [q],
   );
 
   const stats = useMemo(() => {
@@ -1392,7 +1391,7 @@ function FullTrainingProgram() {
       completed += course.completed_count;
       total += course.total_count;
     }
-    for (const ch of legacyChapters) {
+    for (const ch of [] as TrainingChapter[]) {
       completed += ch.completed_count;
       total += ch.total_count;
     }
@@ -1401,14 +1400,14 @@ function FullTrainingProgram() {
       if (sop.completed) completed += 1;
     }
     return { completed, total };
-  }, [courses, legacyChapters, sops]);
+  }, [courses, sops]);
 
   const overallPct =
     lessonTotals.total > 0
       ? Math.round((lessonTotals.completed / lessonTotals.total) * 100)
       : 0;
 
-  const isEmpty = courses.length === 0 && legacyChapters.length === 0 && sops.length === 0;
+  const isEmpty = courses.length === 0 && sops.length === 0;
   const viewingCourse = courses.find((c) => c.id === viewingCourseId) ?? null;
 
   // Drill into a course — the SOP-style reader (left rail | lesson | outline).
@@ -1469,9 +1468,6 @@ function FullTrainingProgram() {
           Other chapters
         </h2>
         <div className="space-y-4">
-          {legacyChapters.map((chapter) => (
-            <ChapterAccordion key={chapter.id} chapter={chapter} language="en" />
-          ))}
         </div>
       </div>
     );

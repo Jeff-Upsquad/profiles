@@ -56,10 +56,12 @@ export async function listPendingRequests(): Promise<PendingRequestsResponse> {
   // Course: pending course_reopen_requests joined with talent + course info.
   const { data: courseRows, error: courseErr } = await supabaseAdmin
     .from('course_reopen_requests')
+    // course_id is looked up separately rather than embedded: its FK still
+    // points at the retired training_courses table, and the course lives in
+    // training_items now (same id).
     .select(
       'id, talent_user_id, course_id, reason, requested_at, ' +
-        'talent_users!inner(id, full_name), ' +
-        'training_courses!inner(id, title, countdown_hours)'
+        'talent_users!inner(id, full_name)'
     )
     .eq('status', 'pending')
     .order('requested_at', { ascending: false });
@@ -67,6 +69,22 @@ export async function listPendingRequests(): Promise<PendingRequestsResponse> {
   if (courseErr) throw new AppError(500, courseErr.message);
 
   const talentIds = [...new Set((courseRows ?? []).map((r: any) => r.talent_user_id))];
+
+  const courseIds = [...new Set((courseRows ?? []).map((r: any) => r.course_id))];
+  const itemsById = new Map<string, { title: string; countdown_hours: number | null }>();
+  if (courseIds.length > 0) {
+    const { data: items, error: itemsErr } = await supabaseAdmin
+      .from('training_items')
+      .select('id, title, countdown_hours')
+      .in('id', courseIds);
+    if (itemsErr) throw new AppError(500, itemsErr.message);
+    for (const i of items ?? []) {
+      itemsById.set(i.id as string, {
+        title: i.title as string,
+        countdown_hours: (i.countdown_hours as number | null) ?? null,
+      });
+    }
+  }
 
   // Map talent emails (auth.users) and started_at for each (talent, course)
   const talentEmails = new Map<string, string | null>();
@@ -96,7 +114,8 @@ export async function listPendingRequests(): Promise<PendingRequestsResponse> {
 
   const course: CourseAccessRequest[] = (courseRows ?? []).map((r: any) => {
     const startedAt = startsMap.get(startsKey(r.talent_user_id, r.course_id));
-    const hours = r.training_courses?.countdown_hours as number | null;
+    const item = itemsById.get(r.course_id as string);
+    const hours = item?.countdown_hours ?? null;
     const currentExpiresAt =
       startedAt && hours
         ? new Date(new Date(startedAt).getTime() + hours * 60 * 60 * 1000).toISOString()
@@ -109,7 +128,7 @@ export async function listPendingRequests(): Promise<PendingRequestsResponse> {
       talent_name: r.talent_users?.full_name ?? null,
       talent_email: talentEmails.get(r.talent_user_id) ?? null,
       course_id: r.course_id,
-      course_title: r.training_courses?.title ?? 'Unknown course',
+      course_title: item?.title ?? 'Unknown course',
       countdown_hours: hours,
       current_expires_at: currentExpiresAt,
       reason: r.reason ?? null,
@@ -140,7 +159,7 @@ export async function grantCourseReopen(requestId: string, adminUserId: string) 
   }
 
   // Reset the countdown — talent will start fresh on next press of Start
-  await trainingService.reopenCourse(
+  await trainingService.reopenItem(
     request.talent_user_id as string,
     request.course_id as string,
   );

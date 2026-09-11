@@ -30,15 +30,15 @@ export default function ModuleUnlockGate({
 }) {
   const { data: training, isLoading } = useMyTraining();
 
-  // The gating chapter lives in the talent's training payload — either inside
-  // a course or among the legacy top-level chapters.
+  // The gating section lives in the talent's training payload. Every page now
+  // belongs to an item, so there is no separate top-level list to search.
   const chapter: TrainingChapter | undefined = (() => {
     if (!training) return undefined;
     for (const course of training.courses) {
-      const hit = course.chapters.find((c) => c.id === chapterId);
+      const hit = course.chapters.find((c: TrainingChapter) => c.id === chapterId);
       if (hit) return hit;
     }
-    return training.chapters.find((c) => c.id === chapterId);
+    return undefined;
   })();
 
   const available = getAvailableLanguages(chapter);

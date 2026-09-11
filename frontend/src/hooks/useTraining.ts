@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
 import type { ContentBlock } from '@/components/training/ContentBlocks';
+import { blockLanguages } from '@/components/training/ContentBlocks';
 
 export interface LessonVideo {
   language: string;
@@ -15,6 +16,153 @@ export interface LessonVideo {
  */
 export type LessonBlock = ContentBlock;
 
+/* ==================================================================== */
+/* Synced content model                                                  */
+/* ==================================================================== */
+
+/**
+ * What the API now returns: an item (course or SOP) holding a freely nested
+ * tree of pages, each a list of content blocks. This mirrors SquadHub's
+ * Resources model exactly, so a course syncs down without being flattened.
+ *
+ * A page counts toward progress only if it carries content — a page with no
+ * blocks is a container (what used to be a "chapter").
+ */
+export interface TalentPage {
+  id: string;
+  item_id: string;
+  parent_page_id: string | null;
+  title: string;
+  summary: string | null;
+  icon: string | null;
+  position: number;
+  depth: number;
+  linked_module: string | null;
+  gates_profile_creation: boolean;
+  completable: boolean;
+  completed: boolean;
+  unlocked: boolean;
+  blocks: ContentBlock[];
+  children: TalentPage[];
+  total_count: number;
+  completed_count: number;
+}
+
+export interface TalentItem {
+  id: string;
+  kind: string;
+  track: string;
+  title: string;
+  summary: string | null;
+  icon: string | null;
+  cover_image_url: string | null;
+  sort_order: number;
+  is_onboarding: boolean;
+  countdown_enabled: boolean;
+  countdown_hours: number | null;
+  started_at: string | null;
+  expires_at: string | null;
+  expired: boolean;
+  categories: { id: string; name: string; slug: string }[];
+  pages: TalentPage[];
+  completed_count: number;
+  total_count: number;
+}
+
+/**
+ * Adapt the page tree to the reader's two-level shape.
+ *
+ * The reader presents a rail of sections, each holding a flat list of entries.
+ * Arbitrary nesting still survives the trip: a section is a top-level page, its
+ * entries are every content-bearing page beneath it in reading order, and each
+ * entry keeps its `depth` so the rail can indent it. Nothing is dropped — only
+ * the *navigation* is flattened, never the content.
+ *
+ * A top-level page that carries content of its own becomes the first entry in
+ * its own section, so a one-page section still has something to open.
+ */
+function pageToLesson(page: TalentPage, chapterId: string): TrainingLesson {
+  // The legacy language picker reads `videos` off the lesson. Build it from the
+  // page's video blocks so per-language variants keep driving that control.
+  const videos: LessonVideo[] = [];
+  for (const block of page.blocks ?? []) {
+    for (const v of block.videos ?? []) {
+      if (!videos.some((existing) => existing.language === v.language)) {
+        videos.push({ language: v.language, loom_url: v.embed_url ?? v.file_url ?? '' });
+      }
+    }
+  }
+  const firstVideo = (page.blocks ?? []).find(
+    (b) => b.type === 'video_embed' || b.type === 'video_upload',
+  );
+
+  return {
+    id: page.id,
+    chapter_id: chapterId,
+    title: page.title,
+    loom_url: firstVideo?.embed_url ?? firstVideo?.file_url ?? '',
+    description: page.summary ?? undefined,
+    videos,
+    blocks: page.blocks ?? [],
+    sort_order: page.position,
+    depth: page.depth,
+    completed: page.completed,
+  };
+}
+
+/** Content-bearing pages in a subtree, in reading order. */
+function collectEntries(page: TalentPage): TalentPage[] {
+  const out: TalentPage[] = [];
+  const walk = (node: TalentPage) => {
+    if (node.completable) out.push(node);
+    for (const child of node.children ?? []) walk(child);
+  };
+  walk(page);
+  return out;
+}
+
+export function itemToCourse(item: TalentItem): TrainingCourse {
+  const chapters: TrainingChapter[] = (item.pages ?? []).map((section) => ({
+    id: section.id,
+    title: section.title,
+    description: section.summary ?? undefined,
+    sort_order: section.position,
+    lessons: collectEntries(section).map((p) => pageToLesson(p, section.id)),
+    completed_count: section.completed_count,
+    total_count: section.total_count,
+    unlocked: section.unlocked,
+    linked_module: section.linked_module,
+  }));
+
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.summary ?? undefined,
+    sort_order: item.sort_order,
+    is_onboarding: item.is_onboarding,
+    countdown_enabled: item.countdown_enabled,
+    countdown_hours: item.countdown_hours,
+    started_at: item.started_at,
+    expires_at: item.expires_at,
+    expired: item.expired,
+    categories: item.categories ?? [],
+    chapters,
+    completed_count: item.completed_count,
+    total_count: item.total_count,
+  };
+}
+
+/** Languages offered anywhere in an item, for the course-level picker. */
+export function itemLanguages(item: TalentItem): string[] {
+  const langs = new Set<string>();
+  const walk = (page: TalentPage) => {
+    for (const l of blockLanguages(page.blocks)) langs.add(l);
+    for (const child of page.children ?? []) walk(child);
+  };
+  for (const p of item.pages ?? []) walk(p);
+  return [...langs];
+}
+
 export interface TrainingLesson {
   id: string;
   chapter_id: string;
@@ -26,6 +174,8 @@ export interface TrainingLesson {
   /** Absent on older payloads; empty for a plain video lesson. */
   blocks?: LessonBlock[];
   sort_order: number;
+  /** Nesting depth of the source page — the rail indents by this. */
+  depth?: number;
   completed: boolean;
 }
 
@@ -141,7 +291,10 @@ export interface SopPage {
   title: string;
   icon?: string | null;
   position: number;
+  depth: number;
   is_active: boolean;
+  /** True once the talent has read this page. Container pages are never true. */
+  completed: boolean;
   blocks: SopBlock[];
 }
 
@@ -151,22 +304,77 @@ export interface TrainingSopDetail {
   summary?: string | null;
   icon?: string | null;
   pages: SopPage[];
-  assignment: {
-    id: string;
-    status: string;
-    progress_percent: number;
-    completed_at: string | null;
+  languages: string[];
+}
+
+/**
+ * Flatten an SOP item's page tree for the reader's page list. The reader shows
+ * one page at a time from a flat sidebar, so nesting is carried as `depth` for
+ * indentation rather than as structure.
+ */
+function itemToSopDetail(item: TalentItem): TrainingSopDetail {
+  const pages: SopPage[] = [];
+  const walk = (page: TalentPage) => {
+    pages.push({
+      id: page.id,
+      sop_id: item.id,
+      parent_page_id: page.parent_page_id,
+      title: page.title,
+      icon: page.icon,
+      position: page.position,
+      depth: page.depth,
+      is_active: true,
+      completed: page.completed,
+      blocks: (page.blocks ?? []) as SopBlock[],
+    });
+    for (const child of page.children ?? []) walk(child);
+  };
+  for (const p of item.pages ?? []) walk(p);
+
+  return {
+    id: item.id,
+    title: item.title,
+    summary: item.summary,
+    icon: item.icon,
+    pages,
+    languages: itemLanguages(item),
   };
 }
 
 export interface MyTrainingResponse {
   courses: TrainingCourse[];
-  /** Legacy chapters not yet assigned to a course */
-  chapters: TrainingChapter[];
-  sops?: TrainingSopSummary[];
+  /** Raw items, kept alongside the adapted courses for the language picker. */
+  items: TalentItem[];
+  sops: TrainingSopSummary[];
   assignments?: TrainingAssignment[];
   /** Incomplete training_assignments count (sidebar badge) */
   incomplete_count?: number;
+}
+
+/**
+ * Summarise an SOP item for the catalog card. SOPs are items on the 'sop'
+ * track, so their progress comes from the same page counts as a course.
+ */
+function itemToSopSummary(
+  item: TalentItem,
+  assignments: TrainingAssignment[],
+): TrainingSopSummary {
+  const assignment = assignments.find((a) => a.resource_id === item.id);
+  const complete = item.total_count > 0 && item.completed_count === item.total_count;
+  return {
+    id: item.id,
+    title: item.title,
+    summary: item.summary,
+    icon: item.icon,
+    cover_image_url: item.cover_image_url,
+    assignment_id: assignment?.id ?? '',
+    assignment_status: assignment?.status ?? (complete ? 'completed' : 'not_started'),
+    progress_percent:
+      item.total_count > 0 ? Math.round((100 * item.completed_count) / item.total_count) : 0,
+    assigned_at: assignment?.assigned_at ?? '',
+    completed_at: assignment?.completed_at ?? null,
+    completed: complete,
+  };
 }
 
 export function useMyTraining() {
@@ -174,11 +382,14 @@ export function useMyTraining() {
     queryKey: ['myTraining'],
     queryFn: async () => {
       const { data } = await api.get('/talent/training');
+      const items: TalentItem[] = data.courses ?? [];
+      const sopItems: TalentItem[] = data.sops ?? [];
+      const assignments: TrainingAssignment[] = data.assignments ?? [];
       return {
-        courses: data.courses ?? [],
-        chapters: data.chapters ?? [],
-        sops: data.sops ?? [],
-        assignments: data.assignments ?? [],
+        courses: items.map(itemToCourse),
+        items,
+        sops: sopItems.map((i) => itemToSopSummary(i, assignments)),
+        assignments,
         incomplete_count: data.incomplete_count ?? 0,
       };
     },
@@ -190,7 +401,7 @@ export function useSopDetail(sopId: string | null) {
     queryKey: ['myTraining', 'sop', sopId],
     queryFn: async () => {
       const { data } = await api.get(`/talent/training/sops/${sopId}`);
-      return data;
+      return itemToSopDetail(data);
     },
     enabled: !!sopId,
   });

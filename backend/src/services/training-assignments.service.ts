@@ -144,36 +144,43 @@ async function markNotificationReadForTalent(
 // Course progress helpers
 // ---------------------------------------------------------------------------
 
-async function getCourseLessonStats(
-  courseId: string,
+/**
+ * Progress over an item, counted in COMPLETABLE pages — pages that carry at
+ * least one content block. Container pages (headings with no content of their
+ * own) are excluded, which keeps these numbers identical to the chapter/lesson
+ * counts they replace.
+ */
+async function getItemPageStats(
+  itemId: string,
   talentUserId: string,
 ): Promise<{ total: number; done: number }> {
-  const { data: chapters, error: chErr } = await supabaseAdmin
-    .from('training_chapters')
+  const { data: pages, error: pErr } = await supabaseAdmin
+    .from('training_pages')
     .select('id')
-    .eq('course_id', courseId)
+    .eq('item_id', itemId)
     .eq('is_active', true);
-  if (chErr) throw new AppError(500, `Failed to fetch chapters: ${chErr.message}`);
-  const chapterIds = (chapters ?? []).map((c) => c.id as string);
-  if (chapterIds.length === 0) return { total: 0, done: 0 };
+  if (pErr) throw new AppError(500, `Failed to fetch pages: ${pErr.message}`);
 
-  const { data: lessons, error: lErr } = await supabaseAdmin
-    .from('training_lessons')
-    .select('id')
-    .in('chapter_id', chapterIds)
-    .eq('is_active', true);
-  if (lErr) throw new AppError(500, `Failed to fetch lessons: ${lErr.message}`);
-  const lessonIds = (lessons ?? []).map((l) => l.id as string);
-  if (lessonIds.length === 0) return { total: 0, done: 0 };
+  const pageIds = (pages ?? []).map((p) => p.id as string);
+  if (pageIds.length === 0) return { total: 0, done: 0 };
 
-  const { data: progress, error: pErr } = await supabaseAdmin
-    .from('training_lesson_progress')
-    .select('lesson_id')
+  const { data: blocks, error: bErr } = await supabaseAdmin
+    .from('training_blocks')
+    .select('page_id')
+    .in('page_id', pageIds);
+  if (bErr) throw new AppError(500, `Failed to fetch blocks: ${bErr.message}`);
+
+  const completable = new Set((blocks ?? []).map((b: any) => b.page_id as string));
+  if (completable.size === 0) return { total: 0, done: 0 };
+
+  const { data: progress, error: prErr } = await supabaseAdmin
+    .from('training_page_progress')
+    .select('page_id')
     .eq('talent_user_id', talentUserId)
-    .in('lesson_id', lessonIds);
-  if (pErr) throw new AppError(500, `Failed to fetch progress: ${pErr.message}`);
+    .in('page_id', [...completable]);
+  if (prErr) throw new AppError(500, `Failed to fetch progress: ${prErr.message}`);
 
-  return { total: lessonIds.length, done: (progress ?? []).length };
+  return { total: completable.size, done: (progress ?? []).length };
 }
 
 function progressFromStats(total: number, done: number): {
@@ -196,7 +203,7 @@ export async function shareCourse(
   input: ShareCourseInput,
 ): Promise<{ recipient_count: number; notified: number; reopened: number }> {
   const { data: course, error } = await supabaseAdmin
-    .from('training_courses')
+    .from('training_items')
     .select('id, title, is_onboarding, available_to_all, deleted_at, is_active')
     .eq('id', courseId)
     .single();
@@ -340,28 +347,30 @@ export async function shareCourse(
  * Recompute assignment progress for the course that owns this lesson.
  * When complete, marks linked notification as read.
  */
-export async function syncCourseAssignmentForLesson(
+/**
+ * Entry point from progress changes: resolve the page's item and resync that
+ * assignment. Ids were preserved in the move to the page model, so an
+ * assignment's `resource_id` is still the same value it always was.
+ */
+export async function syncItemAssignmentForPage(
   talentUserId: string,
-  lessonId: string,
+  pageId: string,
 ): Promise<void> {
-  const { data: lesson, error } = await supabaseAdmin
-    .from('training_lessons')
-    .select('chapter_id, training_chapters!inner(course_id)')
-    .eq('id', lessonId)
-    .single();
-  if (error || !lesson) return;
+  const { data: page, error } = await supabaseAdmin
+    .from('training_pages')
+    .select('item_id')
+    .eq('id', pageId)
+    .maybeSingle();
+  if (error || !page?.item_id) return;
 
-  const courseId = (lesson as any).training_chapters?.course_id as string | null;
-  if (!courseId) return;
-
-  await syncCourseAssignment(talentUserId, courseId);
+  await syncCourseAssignment(talentUserId, page.item_id as string);
 }
 
 export async function syncCourseAssignment(
   talentUserId: string,
   courseId: string,
 ): Promise<void> {
-  const stats = await getCourseLessonStats(courseId, talentUserId);
+  const stats = await getItemPageStats(courseId, talentUserId);
   const prog = progressFromStats(stats.total, stats.done);
   const now = new Date().toISOString();
 
@@ -443,44 +452,20 @@ export async function getIncompleteAssignmentCount(talentUserId: string): Promis
   if (error) throw new AppError(500, `Failed to count assignments: ${error.message}`);
   if (!rows?.length) return 0;
 
-  const courseIds = rows.filter((r) => r.resource_type === 'course').map((r) => r.resource_id);
-  const sopIds = rows.filter((r) => r.resource_type === 'sop').map((r) => r.resource_id);
+  // Courses and SOPs are both training_items now, so one query settles which
+  // of the assigned resources are still live.
+  const resourceIds = [...new Set(rows.map((r) => r.resource_id as string))];
+  const { data: items, error: iErr } = await supabaseAdmin
+    .from('training_items')
+    .select('id')
+    .in('id', resourceIds)
+    .eq('is_active', true)
+    .eq('status', 'published')
+    .is('deleted_at', null);
+  if (iErr) throw new AppError(500, `Failed to filter training items: ${iErr.message}`);
 
-  let activeCourseIds = new Set<string>();
-  if (courseIds.length > 0) {
-    const { data: courses, error: cErr } = await supabaseAdmin
-      .from('training_courses')
-      .select('id')
-      .in('id', courseIds)
-      .eq('is_active', true)
-      .is('deleted_at', null);
-    if (cErr) throw new AppError(500, `Failed to filter courses: ${cErr.message}`);
-    activeCourseIds = new Set((courses ?? []).map((c) => c.id as string));
-  }
-
-  let activeSopIds = new Set<string>();
-  if (sopIds.length > 0) {
-    // SOPs table lands in a later migration; ignore if missing.
-    try {
-      const { data: sops, error: sErr } = await supabaseAdmin
-        .from('training_sops')
-        .select('id')
-        .in('id', sopIds)
-        .eq('status', 'published')
-        .is('deleted_at', null);
-      if (!sErr && sops) {
-        activeSopIds = new Set(sops.map((s) => s.id as string));
-      }
-    } catch {
-      // table may not exist yet
-    }
-  }
-
-  return rows.filter((r) => {
-    if (r.resource_type === 'course') return activeCourseIds.has(r.resource_id as string);
-    if (r.resource_type === 'sop') return activeSopIds.has(r.resource_id as string);
-    return false;
-  }).length;
+  const liveIds = new Set((items ?? []).map((i) => i.id as string));
+  return rows.filter((r) => liveIds.has(r.resource_id as string)).length;
 }
 
 export async function getMyAssignments(talentUserId: string) {

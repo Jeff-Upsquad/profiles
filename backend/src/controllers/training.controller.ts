@@ -1,297 +1,147 @@
 import { Request, Response, NextFunction } from 'express';
 import * as trainingService from '../services/training.service.js';
 import * as trainingAssignments from '../services/training-assignments.service.js';
-import * as trainingSopService from '../services/training-sop.service.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 
+/**
+ * Training endpoints.
+ *
+ * Admin routes here configure gating and targeting only — content is authored
+ * in SquadHub. Talent routes read the synced content and record progress.
+ *
+ * The admin-facing names keep saying "course" because that is what the admin
+ * UI and its URLs call them; underneath, a course is a training_item.
+ */
+
 // ---------------------------------------------------------------------------
-// Admin — Courses
+// Admin — courses (items)
 // ---------------------------------------------------------------------------
 
 export async function getCourses(_req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await trainingService.getCourses();
-    res.json(data);
-  } catch (err) { next(err); }
+    res.json(await trainingService.getItems());
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function getArchivedCourses(_req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await trainingService.getArchivedCourses();
-    res.json(data);
-  } catch (err) { next(err); }
+    res.json(await trainingService.getArchivedItems());
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function getCourse(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await trainingService.getCourse(req.params.id as string);
-    res.json(data);
-  } catch (err) { next(err); }
-}
-
-export async function createCourse(req: Request, res: Response, next: NextFunction) {
-  try {
-    const data = await trainingService.createCourse(req.body);
-    res.status(201).json(data);
-  } catch (err) { next(err); }
+    res.json(await trainingService.getItem(req.params.id as string));
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function updateCourse(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await trainingService.updateCourse(req.params.id as string, req.body);
-    res.json(data);
-  } catch (err) { next(err); }
+    res.json(await trainingService.updateItem(req.params.id as string, req.body));
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function archiveCourse(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await trainingService.archiveCourse(req.params.id as string);
-    res.json(data);
-  } catch (err) { next(err); }
+    res.json(await trainingService.archiveItem(req.params.id as string));
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function restoreCourse(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await trainingService.restoreCourse(req.params.id as string);
-    res.json(data);
-  } catch (err) { next(err); }
+    res.json(await trainingService.restoreItem(req.params.id as string));
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function reorderCourses(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await trainingService.reorderCourses(req.body);
-    res.json(data);
-  } catch (err) { next(err); }
+    res.json(await trainingService.reorderItems(req.body));
+  } catch (err) {
+    next(err);
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Admin — Course enrollment management
+// Admin — page gating
+// ---------------------------------------------------------------------------
+
+export async function getCoursePages(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await trainingService.getItemPages(req.params.id as string));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updatePageConfig(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await trainingService.updatePageConfig(req.params.pageId as string, req.body));
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Admin — enrolment / sharing
 // ---------------------------------------------------------------------------
 
 export async function getUserCourseEnrollments(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await trainingService.getUserCourseEnrollments(req.params.userId as string);
-    res.json({ enrollments: data });
-  } catch (err) { next(err); }
+    res.json(await trainingService.getUserItemEnrollments(req.params.userId as string));
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function reopenCourse(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await trainingService.reopenCourse(req.params.userId as string, req.params.courseId as string);
-    res.json(data);
-  } catch (err) { next(err); }
+    res.json(
+      await trainingService.reopenItem(req.params.userId as string, req.params.courseId as string),
+    );
+  } catch (err) {
+    next(err);
+  }
 }
-
-// ---------------------------------------------------------------------------
-// Admin — Share course by job profile
-// ---------------------------------------------------------------------------
 
 export async function previewShareAudience(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await trainingAssignments.previewShareAudience(req.body);
-    res.json(data);
-  } catch (err) { next(err); }
+    res.json(await trainingAssignments.previewShareAudience(req.body));
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function shareCourse(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await trainingAssignments.shareCourse(req.params.id as string, req.body);
-    res.json(data);
-  } catch (err) { next(err); }
+    res.json(await trainingAssignments.shareCourse(req.params.id as string, req.body));
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function getCourseShareStats(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await trainingAssignments.getCourseShareStats(req.params.id as string);
-    res.json(data);
-  } catch (err) { next(err); }
-}
-
-// ---------------------------------------------------------------------------
-// Talent — Course start (countdown)
-// ---------------------------------------------------------------------------
-
-export async function startCourse(req: Request, res: Response, next: NextFunction) {
-  try {
-    const userId = req.user!.id;
-    const data = await trainingService.startCourse(userId, req.params.id as string);
-    res.json(data);
-  } catch (err) { next(err); }
-}
-
-export async function requestCourseReopen(req: Request, res: Response, next: NextFunction) {
-  try {
-    const userId = req.user!.id;
-    const data = await trainingService.requestCourseReopen(
-      userId,
-      req.params.id as string,
-      req.body?.reason,
-    );
-    res.status(data.already ? 200 : 201).json(data);
-  } catch (err) { next(err); }
-}
-
-// ---------------------------------------------------------------------------
-// Admin — Chapters
-// ---------------------------------------------------------------------------
-
-export async function getChapters(req: Request, res: Response, next: NextFunction) {
-  try {
-    const courseQuery = req.query.course_id;
-    let courseId: string | null | undefined = undefined;
-    if (typeof courseQuery === 'string') {
-      courseId = courseQuery === 'null' ? null : courseQuery;
-    }
-    const data = await trainingService.getChapters(courseId);
-    res.json(data);
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function getChapter(req: Request, res: Response, next: NextFunction) {
-  try {
-    const data = await trainingService.getChapter(req.params.id as string);
-    res.json(data);
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function createChapter(req: Request, res: Response, next: NextFunction) {
-  try {
-    const data = await trainingService.createChapter(req.body);
-    res.status(201).json(data);
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function updateChapter(req: Request, res: Response, next: NextFunction) {
-  try {
-    const data = await trainingService.updateChapter(req.params.id as string, req.body);
-    res.json(data);
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function deleteChapter(req: Request, res: Response, next: NextFunction) {
-  try {
-    const data = await trainingService.deleteChapter(req.params.id as string);
-    res.json(data);
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function reorderChapters(req: Request, res: Response, next: NextFunction) {
-  try {
-    const data = await trainingService.reorderChapters(req.body);
-    res.json(data);
+    res.json(await trainingAssignments.getCourseShareStats(req.params.id as string));
   } catch (err) {
     next(err);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Admin — Lessons
-// ---------------------------------------------------------------------------
-
-export async function getLessons(req: Request, res: Response, next: NextFunction) {
-  try {
-    const data = await trainingService.getLessons(req.params.chapterId as string);
-    res.json(data);
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function createLesson(req: Request, res: Response, next: NextFunction) {
-  try {
-    const data = await trainingService.createLesson(req.params.chapterId as string, req.body);
-    res.status(201).json(data);
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function updateLesson(req: Request, res: Response, next: NextFunction) {
-  try {
-    const data = await trainingService.updateLesson(req.params.lessonId as string, req.body);
-    res.json(data);
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function deleteLesson(req: Request, res: Response, next: NextFunction) {
-  try {
-    const data = await trainingService.deleteLesson(req.params.lessonId as string);
-    res.json(data);
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function reorderLessons(req: Request, res: Response, next: NextFunction) {
-  try {
-    const data = await trainingService.reorderLessons(req.body);
-    res.json(data);
-  } catch (err) {
-    next(err);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Admin — Lesson content blocks
-// ---------------------------------------------------------------------------
-
-export async function listLessonBlocks(req: Request, res: Response, next: NextFunction) {
-  try {
-    res.json(await trainingService.listLessonBlocks(req.params.lessonId as string));
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function createLessonBlock(req: Request, res: Response, next: NextFunction) {
-  try {
-    res.status(201).json(
-      await trainingService.createLessonBlock(req.params.lessonId as string, req.body),
-    );
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function updateLessonBlock(req: Request, res: Response, next: NextFunction) {
-  try {
-    res.json(await trainingService.updateLessonBlock(req.params.blockId as string, req.body));
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function deleteLessonBlock(req: Request, res: Response, next: NextFunction) {
-  try {
-    res.json(await trainingService.deleteLessonBlock(req.params.blockId as string));
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function reorderLessonBlocks(req: Request, res: Response, next: NextFunction) {
-  try {
-    res.json(await trainingService.reorderLessonBlocks(req.body.items));
-  } catch (err) {
-    next(err);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Talent — Training
+// Talent
 // ---------------------------------------------------------------------------
 
 async function fetchUserCategoryIds(userId: string): Promise<string[]> {
@@ -303,50 +153,36 @@ async function fetchUserCategoryIds(userId: string): Promise<string[]> {
   return [...new Set((profiles ?? []).map((p: any) => p.category_id))];
 }
 
+/**
+ * The categories a talent should see training for: those they hold a profile
+ * in, plus any whose profile gate they have started. The second half keeps a
+ * gate course listed while they are working through it, before the profile
+ * it unlocks exists.
+ */
+async function trainingCategoryIds(userId: string): Promise<string[]> {
+  const [profileCategoryIds, gateCategoryIds] = await Promise.all([
+    fetchUserCategoryIds(userId),
+    trainingService.getStartedGateCategoryIds(userId),
+  ]);
+  return [...new Set([...profileCategoryIds, ...gateCategoryIds])];
+}
+
 export async function getMyTraining(req: Request, res: Response, next: NextFunction) {
   try {
     const userId = req.user!.id;
-    // Categories the talent has a profile in, plus any whose profile-gate lesson
-    // they've completed — so a gate course stays listed in the Training Program
-    // (rewatchable) even before they finish building that profile.
-    const [profileCategoryIds, gateCategoryIds] = await Promise.all([
-      fetchUserCategoryIds(userId),
-      trainingService.getStartedGateCategoryIds(userId),
-    ]);
-    const categoryIds = [...new Set([...profileCategoryIds, ...gateCategoryIds])];
+    const categoryIds = await trainingCategoryIds(userId);
 
-    const [courses, chapters, progress] = await Promise.all([
-      trainingService.getMyCourses(userId, categoryIds),
-      trainingService.getTrainingForCategories(categoryIds),
-      trainingService.getLessonProgress(userId),
-    ]);
-
-    const completedSet = new Set(progress.map((p: any) => p.lesson_id));
-
-    // Legacy chapter shape for backward compat (chapters not yet in a course)
-    const chaptersWithProgress = chapters.map((ch: any) => {
-      const lessons = (ch.lessons ?? []).map((l: any) => ({
-        ...l,
-        completed: completedSet.has(l.id),
-      }));
-      return {
-        ...ch,
-        lessons,
-        completed_count: lessons.filter((l: any) => l.completed).length,
-        total_count: lessons.length,
-      };
-    });
-
-    const [assignments, incompleteCount, sops] = await Promise.all([
+    const [items, assignments, incompleteCount] = await Promise.all([
+      trainingService.getMyItems(userId, categoryIds),
       trainingAssignments.getMyAssignments(userId),
       trainingAssignments.getIncompleteAssignmentCount(userId),
-      trainingSopService.getMySops(userId).catch(() => []),
     ]);
 
+    // `courses` and `sops` are the two tracks of one item list. They stay as
+    // separate keys because the talent UI presents them as separate sections.
     res.json({
-      courses,
-      chapters: chaptersWithProgress,
-      sops,
+      courses: items.filter((i) => i.track !== 'sop'),
+      sops: items.filter((i) => i.track === 'sop'),
       assignments,
       incomplete_count: incompleteCount,
     });
@@ -368,8 +204,19 @@ export async function getMyOnboardingCourses(req: Request, res: Response, next: 
   try {
     const userId = req.user!.id;
     const categoryIds = await fetchUserCategoryIds(userId);
-    const courses = await trainingService.getOnboardingCourses(userId, categoryIds);
-    res.json({ courses });
+    res.json({ courses: await trainingService.getOnboardingItems(userId, categoryIds) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getCourseForTalent(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.id;
+    const categoryIds = await trainingCategoryIds(userId);
+    const item = await trainingService.getItemForTalent(userId, req.params.id as string, categoryIds);
+    if (!item) throw new AppError(404, 'Course not found');
+    res.json(item);
   } catch (err) {
     next(err);
   }
@@ -377,8 +224,7 @@ export async function getMyOnboardingCourses(req: Request, res: Response, next: 
 
 export async function markComplete(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await trainingService.markLessonComplete(req.user!.id, req.params.lessonId as string);
-    res.json(data);
+    res.json(await trainingService.markPageComplete(req.user!.id, req.params.pageId as string));
   } catch (err) {
     next(err);
   }
@@ -386,78 +232,90 @@ export async function markComplete(req: Request, res: Response, next: NextFuncti
 
 export async function markIncomplete(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = await trainingService.markLessonIncomplete(req.user!.id, req.params.lessonId as string);
-    res.json(data);
+    res.json(await trainingService.markPageIncomplete(req.user!.id, req.params.pageId as string));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function startCourse(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await trainingService.startItem(req.user!.id, req.params.id as string));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function requestCourseReopen(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(
+      await trainingService.requestItemReopen(
+        req.user!.id,
+        req.params.id as string,
+        req.body?.reason,
+      ),
+    );
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function completeItem(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await trainingService.completeItem(req.user!.id, req.params.id as string));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function submitQuiz(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(
+      await trainingService.submitQuiz(req.user!.id, req.params.blockId as string, req.body.answers),
+    );
   } catch (err) {
     next(err);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Talent — Module access
+// Talent — gating
 // ---------------------------------------------------------------------------
 
 export async function getModuleAccess(req: Request, res: Response, next: NextFunction) {
   try {
     const userId = req.user!.id;
-
-    const { data: profiles, error } = await supabaseAdmin
-      .from('talent_profiles')
-      .select('category_id')
-      .eq('talent_user_id', userId);
-
-    if (error) throw new AppError(500, `Failed to fetch profiles: ${error.message}`);
-
-    const categoryIds = [...new Set((profiles ?? []).map((p: any) => p.category_id))];
-    const access = await trainingService.getModuleAccess(userId, categoryIds);
-    res.json(access);
+    const categoryIds = await fetchUserCategoryIds(userId);
+    res.json(await trainingService.getModuleAccess(userId, categoryIds));
   } catch (err) {
     next(err);
   }
 }
 
-// Profile-creation gate for a single category (the one being built). Returns
-// { locked, chapter } — the chapter (with lessons) that must be completed
-// before the talent can create a job profile in that category.
+/**
+ * Profile-creation gate for one category. Returns { locked, page, item } — the
+ * page that must be completed before a job profile can be built there.
+ */
 export async function getProfileGate(req: Request, res: Response, next: NextFunction) {
   try {
-    const userId = req.user!.id;
-    const categoryId = req.params.categoryId as string;
-    const gate = await trainingService.getProfileGate(userId, categoryId);
-    res.json(gate);
+    res.json(
+      await trainingService.getProfileGate(req.user!.id, req.params.categoryId as string),
+    );
   } catch (err) {
     next(err);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Talent — Onboarding
+// Talent — onboarding
 // ---------------------------------------------------------------------------
 
 export async function getOnboardingTraining(req: Request, res: Response, next: NextFunction) {
   try {
-    const chapter = await trainingService.getOnboardingChapter();
-    if (!chapter) {
-      res.json({ chapter: null });
-      return;
-    }
-
-    const progress = await trainingService.getLessonProgress(req.user!.id);
-    const completedSet = new Set(progress.map((p: any) => p.lesson_id));
-
-    const lessons = (chapter.lessons ?? []).map((l: any) => ({
-      ...l,
-      completed: completedSet.has(l.id),
-    }));
-
-    res.json({
-      chapter: {
-        ...chapter,
-        lessons,
-        completed_count: lessons.filter((l: any) => l.completed).length,
-        total_count: lessons.length,
-      },
-    });
+    const userId = req.user!.id;
+    const categoryIds = await fetchUserCategoryIds(userId);
+    const items = await trainingService.getOnboardingItems(userId, categoryIds);
+    res.json({ items });
   } catch (err) {
     next(err);
   }
@@ -467,8 +325,7 @@ export async function completeOnboarding(req: Request, res: Response, next: Next
   try {
     const userId = req.user!.id;
     const categoryIds = await fetchUserCategoryIds(userId);
-    const data = await trainingService.completeOnboarding(userId, categoryIds);
-    res.json(data);
+    res.json(await trainingService.completeOnboarding(userId, categoryIds));
   } catch (err) {
     next(err);
   }

@@ -2,20 +2,19 @@ import { useState, type FormEvent } from 'react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { useCategories } from '@/hooks/useCategories';
-import {
-  useCreateCourse,
-  useUpdateCourse,
-  type TrainingCourse,
-} from '@/hooks/useTraining';
+import { useUpdateCourse, type TrainingItem } from '@/hooks/useTraining';
 
 interface CourseFormProps {
-  course?: TrainingCourse | null;
+  course: TrainingItem;
   onClose: () => void;
 }
 
+/**
+ * Course settings. Title, description and all content come from SquadHub and
+ * are shown read-only here — this form only edits what SquadHire owns:
+ * visibility, targeting, onboarding behaviour and the completion deadline.
+ */
 export default function CourseForm({ course, onClose }: CourseFormProps) {
-  const [title, setTitle] = useState(course?.title ?? '');
-  const [description, setDescription] = useState(course?.description ?? '');
   const [sortOrder, setSortOrder] = useState(course?.sort_order ?? 0);
   const [isActive, setIsActive] = useState(course?.is_active ?? true);
   const [isOnboarding, setIsOnboarding] = useState(course?.is_onboarding ?? false);
@@ -34,10 +33,8 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
   );
 
   const { data: categories } = useCategories();
-  const createMutation = useCreateCourse();
   const updateMutation = useUpdateCourse();
-  const isEditing = !!course;
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  const isPending = updateMutation.isPending;
 
   const toggleCategory = (id: string) => {
     setSelectedCategoryIds((prev) =>
@@ -61,8 +58,6 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
       : null;
 
     const payload = {
-      title,
-      description: description || undefined,
       sort_order: sortOrder,
       is_active: isActive,
       is_onboarding: isOnboarding,
@@ -73,11 +68,7 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
     };
 
     try {
-      if (isEditing) {
-        await updateMutation.mutateAsync({ id: course.id, ...payload });
-      } else {
-        await createMutation.mutateAsync(payload);
-      }
+      await updateMutation.mutateAsync({ id: course.id, ...payload });
       onClose();
     } catch {
       // Error handled by mutation onError
@@ -86,23 +77,18 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <Input
-        label="Title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="e.g. Designer Onboarding"
-        required
-      />
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          placeholder="Brief description of this course"
-        />
+      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Content</p>
+        <p className="mt-0.5 text-sm font-medium text-gray-900">{course.title}</p>
+        {course.summary && <p className="mt-0.5 text-sm text-gray-600">{course.summary}</p>}
+        <a
+          href={course.squadhub_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1.5 inline-block text-xs font-medium text-indigo-600 hover:underline"
+        >
+          Edit in SquadHub ↗
+        </a>
       </div>
 
       <Input
@@ -137,7 +123,7 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
       </div>
       {isOnboarding && (
         <p className="text-xs text-amber-700 -mt-2">
-          Onboarding courses enforce sequential chapter unlocking and are required for new talents in the selected categories. Each category may belong to only one onboarding course.
+          Onboarding courses unlock their sections in order and are required for new talents in the selected job profiles. Each job profile may belong to only one onboarding course.
         </p>
       )}
 
@@ -157,7 +143,7 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
       )}
       {isOnboarding && availableToAll && (
         <p className="text-xs text-amber-700 -mt-2">
-          This course will be visible to all users, including existing approved talents who may not match the selected categories. Chapters will remain unlocked for approved users.
+          This course will be visible to all users, including existing approved talents who may not match the selected job profiles. Sections remain unlocked for approved users.
         </p>
       )}
 
@@ -236,7 +222,7 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
       <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
         <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
         <Button type="submit" loading={isPending} disabled={categoryError || countdownError}>
-          {isEditing ? 'Update' : 'Create'} Course
+          Save settings
         </Button>
       </div>
     </form>

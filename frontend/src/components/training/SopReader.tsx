@@ -80,7 +80,10 @@ export default function SopReader({
   }, [flatPages, pageId]);
 
   const page = flatPages.find((p) => p.id === pageId) ?? flatPages[0];
-  const completed = sop?.assignment?.status === 'completed';
+  // Every content page read means the SOP is done. Pages with no blocks are
+  // headings and don't count, matching how progress is tracked server-side.
+  const contentPages = flatPages.filter((p) => (p.blocks ?? []).length > 0);
+  const completed = contentPages.length > 0 && contentPages.every((p) => p.completed);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-6">

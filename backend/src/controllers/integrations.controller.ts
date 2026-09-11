@@ -817,3 +817,87 @@ export async function sendSquadcrmRoomMessage(
     next(err);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Training content sync (SquadHub Resources → SquadHire training)
+// ---------------------------------------------------------------------------
+
+const syncBlockVideoSchema = z.object({
+  language: z.string().min(1).max(10),
+  embed_url: z.string().nullable().optional(),
+  embed_provider: z.string().nullable().optional(),
+  file_url: z.string().nullable().optional(),
+  file_name: z.string().nullable().optional(),
+  file_size: z.number().nullable().optional(),
+  mime_type: z.string().nullable().optional(),
+});
+
+const syncQuizQuestionSchema = z.object({
+  id: z.string().min(1),
+  position: z.number().int().min(0),
+  prompt: z.string().min(1),
+  options: z.any(),
+  correct_option_id: z.string().min(1),
+  explanation: z.string().nullable().optional(),
+});
+
+const syncBlockSchema = z.object({
+  id: z.string().min(1),
+  type: z.string().min(1),
+  position: z.number().int().min(0),
+  text_content: z.any().optional(),
+  file_url: z.string().nullable().optional(),
+  file_name: z.string().nullable().optional(),
+  file_size: z.number().nullable().optional(),
+  mime_type: z.string().nullable().optional(),
+  embed_url: z.string().nullable().optional(),
+  embed_provider: z.string().nullable().optional(),
+  caption: z.string().nullable().optional(),
+  metadata: z.record(z.string(), z.any()).nullable().optional(),
+  videos: z.array(syncBlockVideoSchema).optional(),
+  quiz_questions: z.array(syncQuizQuestionSchema).optional(),
+});
+
+const syncPageSchema = z.object({
+  id: z.string().min(1),
+  parent_id: z.string().nullable(),
+  title: z.string().min(1).max(300),
+  summary: z.string().nullable().optional(),
+  icon: z.string().nullable().optional(),
+  position: z.number().int().min(0),
+  blocks: z.array(syncBlockSchema).default([]),
+});
+
+const syncItemSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(['course', 'post']).default('course'),
+  track: z.enum(['learning', 'sop']).default('learning'),
+  title: z.string().min(1).max(300),
+  summary: z.string().nullable().optional(),
+  icon: z.string().nullable().optional(),
+  cover_image_url: z.string().nullable().optional(),
+  visible: z.boolean(),
+  pages: z.array(syncPageSchema).max(500).default([]),
+});
+
+/**
+ * Receive one published Resources item from SquadHub.
+ *
+ * Content-only: the gating an admin set on our side (locks, targeting,
+ * onboarding, countdown) is never written from here, so a republish can't
+ * un-gate a module or silently publish a course to talents.
+ */
+export async function syncTrainingItem(req: Request, res: Response, next: NextFunction) {
+  try {
+    const payload = syncItemSchema.parse(req.body);
+    const { syncItem } = await import('../services/training-sync.service.js');
+    const result = await syncItem(payload);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, err.errors[0]?.message ?? 'Invalid sync payload'));
+      return;
+    }
+    next(err);
+  }
+}

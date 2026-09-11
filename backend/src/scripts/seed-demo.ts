@@ -113,8 +113,8 @@ async function wipe() {
   await supabaseAdmin.from('talent_access_grants').delete().like('notes', '[DEMO]%');
   await supabaseAdmin.from('invitations').delete().like('email', `%@${DEMO_DOMAIN}`);
   await supabaseAdmin.from('notifications').delete().like('title', '[DEMO]%');
-  await supabaseAdmin.from('training_chapters').delete().like('title', '[DEMO]%');
-  await supabaseAdmin.from('training_courses').delete().like('title', '[DEMO]%');
+  await supabaseAdmin.from('training_pages').delete().like('title', '[DEMO]%');
+  await supabaseAdmin.from('training_items').delete().like('title', '[DEMO]%');
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -593,40 +593,59 @@ async function main() {
   });
   await ins('talent_access_grant_categories', { grant_id: grantId, category_id: accountantId });
 
-  // Training (onboarding course + chapter + lesson) so the talent training page is non-empty
+  // Training: an onboarding item with one container page and one content page,
+  // so the talent training screen has something real to render. Mirrors what
+  // the SquadHub sync produces — a video block carrying its language variants
+  // rather than a video column on the page.
   log('Seeding training content…');
-  const courseId = uuid();
-  await ins('training_courses', {
-    id: courseId,
+  const itemId = uuid();
+  await ins('training_items', {
+    id: itemId,
+    kind: 'course',
+    track: 'learning',
     title: '[DEMO] Onboarding 101',
-    description: 'Welcome to SquadHire! Everything you need to get started as a talent.',
+    summary: 'Welcome to SquadHire! Everything you need to get started as a talent.',
+    status: 'published',
     is_onboarding: true,
     is_active: true,
     available_to_all: true,
     sort_order: 0,
   });
-  const chapterId = uuid();
-  await ins('training_chapters', {
-    id: chapterId,
+  const sectionId = uuid();
+  await ins('training_pages', {
+    id: sectionId,
+    item_id: itemId,
+    parent_page_id: null,
     title: '[DEMO] Getting Started',
-    description: 'Set up your profile and learn how briefs work.',
-    course_id: courseId,
-    is_onboarding: true,
+    summary: 'Set up your profile and learn how briefs work.',
     language: 'en',
     is_active: true,
-    sort_order: 0,
+    position: 0,
   });
-  const lessonId = uuid();
-  await ins('training_lessons', {
-    id: lessonId,
-    chapter_id: chapterId,
+  const pageId = uuid();
+  await ins('training_pages', {
+    id: pageId,
+    item_id: itemId,
+    parent_page_id: sectionId,
     title: '[DEMO] Welcome & platform tour',
-    description: 'A quick tour of the talent dashboard.',
-    loom_url: DEMO_LOOM,
+    summary: 'A quick tour of the talent dashboard.',
     is_active: true,
-    sort_order: 0,
+    position: 0,
   });
-  await ups('training_lesson_videos', { lesson_id: lessonId, language: 'en', loom_url: DEMO_LOOM }, 'lesson_id,language');
+  const blockId = uuid();
+  await ins('training_blocks', {
+    id: blockId,
+    page_id: pageId,
+    type: 'video_embed',
+    position: 0,
+    embed_url: DEMO_LOOM,
+    embed_provider: 'loom',
+  });
+  await ups(
+    'training_block_videos',
+    { block_id: blockId, language: 'en', embed_url: DEMO_LOOM, embed_provider: 'loom' },
+    'block_id,language',
+  );
 
   // How-it-works video (language-keyed, shared by talent + business)
   await ups('how_it_works_videos', { language: 'en', loom_url: DEMO_LOOM, is_active: true }, 'language');

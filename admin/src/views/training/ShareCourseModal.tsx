@@ -7,11 +7,11 @@ import {
   useCourseShareStats,
   usePreviewShareAudience,
   useShareCourse,
-  type TrainingCourse,
+  type TrainingItem,
 } from '@/hooks/useTraining';
 
 interface ShareCourseModalProps {
-  course: TrainingCourse;
+  course: TrainingItem;
   onClose: () => void;
 }
 
@@ -23,7 +23,7 @@ export default function ShareCourseModal({ course, onClose }: ShareCourseModalPr
 
   const [availableToAll, setAvailableToAll] = useState(course.available_to_all ?? false);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
-    course.categories?.map((c) => c.id) ?? [],
+    course.categories?.map((c: { id: string }) => c.id) ?? [],
   );
   const [notify, setNotify] = useState(true);
   const [reack, setReack] = useState(false);

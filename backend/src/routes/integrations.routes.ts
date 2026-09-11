@@ -232,4 +232,13 @@ router.post(
   integrationsController.sendSquadcrmRoomMessage,
 );
 
+// Training content published from SquadHub's Resources module. Same shared
+// secret as the rest of /squadhub/*; the handler writes content only and never
+// the gating SquadHire owns.
+router.post(
+  '/squadhub/training/sync',
+  verifySquadhubSecret,
+  integrationsController.syncTrainingItem,
+);
+
 export default router;
