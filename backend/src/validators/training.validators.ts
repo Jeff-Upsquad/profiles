@@ -31,6 +31,16 @@ export const updateItemSchema = z
 
 export type UpdateItemInput = z.infer<typeof updateItemSchema>;
 
+/**
+ * Point an existing course at the SquadHub Resources item that should own its
+ * content from now on. Null unlinks it again.
+ */
+export const linkSquadhubItemSchema = z.object({
+  squadhub_item_id: z.string().uuid('Enter the SquadHub item id or its editor link').nullable(),
+});
+
+export type LinkSquadhubItemInput = z.infer<typeof linkSquadhubItemSchema>;
+
 // ---------------------------------------------------------------------------
 // Page gating
 // ---------------------------------------------------------------------------

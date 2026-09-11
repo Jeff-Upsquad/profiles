@@ -39,6 +39,7 @@ import { updateBasicProfileSchema } from '../validators/talent.validators.js';
 import {
   updateItemSchema,
   updatePageConfigSchema,
+  linkSquadhubItemSchema,
   shareCourseSchema,
   previewShareAudienceSchema,
 } from '../validators/training.validators.js';
@@ -658,6 +659,12 @@ router.get('/training/courses/archived', trainingController.getArchivedCourses);
 router.patch('/training/courses/reorder', validate({ body: reorderSchema }), trainingController.reorderCourses);
 router.get('/training/courses/:id', trainingController.getCourse);
 router.put('/training/courses/:id', validate({ body: updateItemSchema }), trainingController.updateCourse);
+// Point a pre-sync course at the SquadHub item that should author it.
+router.put(
+  '/training/courses/:id/squadhub-link',
+  validate({ body: linkSquadhubItemSchema }),
+  trainingController.linkCourseToSquadhub,
+);
 router.delete('/training/courses/:id', trainingController.archiveCourse);
 router.post('/training/courses/:id/restore', trainingController.restoreCourse);
 router.get('/training/courses/:id/share-stats', trainingController.getCourseShareStats);

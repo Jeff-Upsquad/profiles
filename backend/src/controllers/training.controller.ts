@@ -50,6 +50,19 @@ export async function updateCourse(req: Request, res: Response, next: NextFuncti
   }
 }
 
+export async function linkCourseToSquadhub(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(
+      await trainingService.linkSquadhubItem(
+        req.params.id as string,
+        req.body.squadhub_item_id ?? null,
+      ),
+    );
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function archiveCourse(req: Request, res: Response, next: NextFunction) {
   try {
     res.json(await trainingService.archiveItem(req.params.id as string));

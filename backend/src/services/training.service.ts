@@ -206,6 +206,47 @@ export async function updateItem(id: string, input: UpdateItemInput) {
   return loadItem(id);
 }
 
+/**
+ * Link a course to the SquadHub Resources item that will author it, or unlink
+ * it again with null.
+ *
+ * Courses that predate the sync carry no SquadHub id, which leaves them with
+ * no editor anywhere: SquadHire no longer authors content and SquadHub has
+ * nothing to match them to. Linking closes that gap without rebuilding them —
+ * on the next publish from SquadHub the sync pairs the existing pages with the
+ * incoming ones by title, so ids, progress and gating all survive.
+ *
+ * Unlinking only forgets the pairing; pages and content stay exactly as they
+ * are, and re-linking to the same item picks up where it left off.
+ */
+export async function linkSquadhubItem(id: string, squadhubItemId: string | null) {
+  await loadItem(id); // 404s on an unknown course before we touch anything
+
+  if (squadhubItemId) {
+    const { data: clash, error: clashErr } = await supabaseAdmin
+      .from('training_items')
+      .select('id, title')
+      .eq('squadhub_item_id', squadhubItemId)
+      .neq('id', id)
+      .maybeSingle();
+    if (clashErr) throw new AppError(500, `Failed to check the link: ${clashErr.message}`);
+    if (clash) {
+      throw new AppError(
+        400,
+        `That SquadHub item is already linked to the course "${(clash as any).title}"`,
+      );
+    }
+  }
+
+  const { error } = await supabaseAdmin
+    .from('training_items')
+    .update({ squadhub_item_id: squadhubItemId })
+    .eq('id', id);
+  if (error) throw new AppError(500, `Failed to link item: ${error.message}`);
+
+  return loadItem(id);
+}
+
 export async function archiveItem(id: string) {
   const { error } = await supabaseAdmin
     .from('training_items')

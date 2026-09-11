@@ -130,6 +130,30 @@ export function useUpdateCourse() {
   });
 }
 
+/**
+ * Point a course at the SquadHub item that should author it (or unlink it with
+ * null). Courses that predate the sync have no link, which is what leaves them
+ * uneditable; linking lets the next publish from SquadHub land on the pages
+ * talents are already working through.
+ */
+export function useLinkCourseToSquadhub(id: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (squadhubItemId: string | null) => {
+      const { data } = await api.put(`/admin/training/courses/${id}/squadhub-link`, {
+        squadhub_item_id: squadhubItemId,
+      });
+      return data;
+    },
+    onSuccess: (_data, squadhubItemId) => {
+      qc.invalidateQueries({ queryKey: itemsKey });
+      toast.success(squadhubItemId ? 'Linked to SquadHub' : 'Link removed');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.message || err?.response?.data?.error || 'Failed to link'),
+  });
+}
+
 export function useArchiveCourse() {
   const qc = useQueryClient();
   return useMutation({

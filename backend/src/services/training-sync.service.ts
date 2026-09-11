@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
+import { adoptLegacyPages } from '../lib/training-page-adoption.js';
 
 /**
  * Ingest for training content published from SquadHub's Resources module.
@@ -117,7 +118,7 @@ export async function syncItem(payload: SyncItemPayload) {
     return { item_id: itemId, pages: 0, blocks: 0, unpublished: true };
   }
 
-  const pageIdByRemote = await upsertPages(itemId, payload.pages ?? []);
+  const { idByRemote: pageIdByRemote, adopted } = await upsertPages(itemId, payload.pages ?? []);
   const blockCount = await upsertBlocks(payload.pages ?? [], pageIdByRemote);
 
   const { error: stampErr } = await supabaseAdmin
@@ -130,6 +131,8 @@ export async function syncItem(payload: SyncItemPayload) {
     item_id: itemId,
     pages: pageIdByRemote.size,
     blocks: blockCount,
+    /** Pre-sync pages paired with an incoming one on this run, keeping progress. */
+    adopted,
     unpublished: false,
   };
 }
@@ -186,16 +189,40 @@ async function upsertItem(payload: SyncItemPayload): Promise<string> {
  * Parents are resolved in a second pass because a payload may list a child
  * before its parent, and a page we haven't inserted yet has no id to point at.
  */
-async function upsertPages(itemId: string, pages: SyncPage[]): Promise<Map<string, string>> {
+async function upsertPages(
+  itemId: string,
+  pages: SyncPage[],
+): Promise<{ idByRemote: Map<string, string>; adopted: number }> {
   const { data: existingRows, error: exErr } = await supabaseAdmin
     .from('training_pages')
-    .select('id, squadhub_page_id')
+    .select('id, squadhub_page_id, parent_page_id, title')
     .eq('item_id', itemId);
   if (exErr) throw new AppError(500, `Failed to load pages: ${exErr.message}`);
 
   const existingByRemote = new Map<string, string>();
+  const legacyRows: { id: string; parent_page_id: string | null; title: string }[] = [];
   for (const row of existingRows ?? []) {
-    if (row.squadhub_page_id) existingByRemote.set(row.squadhub_page_id as string, row.id as string);
+    if (row.squadhub_page_id) {
+      existingByRemote.set(row.squadhub_page_id as string, row.id as string);
+    } else {
+      legacyRows.push({
+        id: row.id as string,
+        parent_page_id: (row.parent_page_id as string | null) ?? null,
+        title: (row.title as string) ?? '',
+      });
+    }
+  }
+
+  // Pages adopted on this run keep their id — and therefore every talent's
+  // progress — but their old blocks belong to the content SquadHub now owns.
+  const adoptedIds = adoptLegacyPages(pages, legacyRows, existingByRemote);
+  if (adoptedIds.length > 0) {
+    const { error } = await supabaseAdmin
+      .from('training_blocks')
+      .delete()
+      .in('page_id', adoptedIds)
+      .is('squadhub_block_id', null);
+    if (error) throw new AppError(500, `Failed to clear adopted content: ${error.message}`);
   }
 
   const idByRemote = new Map<string, string>();
@@ -210,7 +237,12 @@ async function upsertPages(itemId: string, pages: SyncPage[]): Promise<Map<strin
     };
     const known = existingByRemote.get(page.id);
     if (known) {
-      const { error } = await supabaseAdmin.from('training_pages').update(content).eq('id', known);
+      // squadhub_page_id is written on every pass: for a page adopted just
+      // above, this is the write that makes the link stick.
+      const { error } = await supabaseAdmin
+        .from('training_pages')
+        .update({ ...content, squadhub_page_id: page.id })
+        .eq('id', known);
       if (error) throw new AppError(500, `Failed to update page: ${error.message}`);
       idByRemote.set(page.id, known);
     } else {
@@ -247,7 +279,7 @@ async function upsertPages(itemId: string, pages: SyncPage[]): Promise<Map<strin
     if (error) throw new AppError(500, `Failed to remove pages: ${error.message}`);
   }
 
-  return idByRemote;
+  return { idByRemote, adopted: adoptedIds.length };
 }
 
 /** Reconcile every page's blocks, with their video variants and quiz questions. */

@@ -4,9 +4,11 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import { formatDateTime } from '@/lib/formatDate';
 import {
   useCourse,
   useItemPages,
+  useLinkCourseToSquadhub,
   useUpdatePageConfig,
   LINKED_MODULES,
   type TrainingPageNode,
@@ -24,7 +26,20 @@ import {
  *                          be created in the course's job profiles
  *   • Visible            — hide a synced page from talents without touching
  *                          SquadHub
+ *
+ * A course that predates the sync has no SquadHub item behind it, so nothing
+ * can edit its content. The link panel fixes that in place: pointing it at a
+ * SquadHub item makes the next publish update these very pages instead of
+ * creating a second copy, so progress and locks carry over.
  */
+
+/** Accepts a bare id or a SquadHub editor link and returns the id in it. */
+function extractItemId(input: string): string | null {
+  const match = input
+    .trim()
+    .match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  return match ? match[0].toLowerCase() : null;
+}
 
 interface TreeNode extends TrainingPageNode {
   depth: number;
@@ -64,9 +79,22 @@ export default function CoursePageGating({ courseId }: { courseId: string }) {
   const { data: course, isLoading: courseLoading } = useCourse(courseId);
   const { data: pages, isLoading: pagesLoading } = useItemPages(courseId);
   const update = useUpdatePageConfig(courseId);
+  const link = useLinkCourseToSquadhub(courseId);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [linkInput, setLinkInput] = useState('');
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   const rows = useMemo(() => toOrderedRows(pages ?? []), [pages]);
+
+  const submitLink = () => {
+    const id = extractItemId(linkInput);
+    if (!id) {
+      setLinkError('That does not look like a SquadHub item id or editor link');
+      return;
+    }
+    setLinkError(null);
+    link.mutate(id, { onSuccess: () => setLinkInput('') });
+  };
 
   const save = (pageId: string, patch: Record<string, unknown>) => {
     setSavingId(pageId);
@@ -111,6 +139,58 @@ export default function CoursePageGating({ courseId }: { courseId: string }) {
         Pages, videos and quizzes are written in SquadHub&rsquo;s Resources module and sync here
         automatically. This screen controls what each page <strong>unlocks</strong> for talents.
       </div>
+
+      {course && !course.squadhub_item_id && (
+        <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm text-amber-900">
+          <p className="font-semibold">This course isn&rsquo;t linked to SquadHub yet</p>
+          <p className="mt-1 text-amber-800">
+            It was built before content moved to SquadHub, so nothing can edit it right now. Open the
+            matching item in SquadHub Resources, copy its editor link, and paste it here. On its next
+            publish the pages below are <strong>updated in place</strong> — talents keep their
+            progress and your locks stay put.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <input
+              value={linkInput}
+              onChange={(e) => {
+                setLinkInput(e.target.value);
+                setLinkError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submitLink();
+              }}
+              placeholder="Paste the SquadHub editor link or item id"
+              className="min-w-[22rem] flex-1 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-amber-500 focus:outline-none"
+            />
+            <Button onClick={submitLink} disabled={link.isPending || !linkInput.trim()}>
+              {link.isPending ? 'Linking…' : 'Link'}
+            </Button>
+          </div>
+          {linkError && <p className="mt-1.5 text-xs font-medium text-red-700">{linkError}</p>}
+        </div>
+      )}
+
+      {course?.squadhub_item_id && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          <span>
+            Linked to SquadHub item <code className="text-gray-900">{course.squadhub_item_id}</code>
+            {course.synced_at
+              ? ` · last synced ${formatDateTime(course.synced_at)}`
+              : ' · waiting for its first publish from SquadHub'}
+          </span>
+          <button
+            onClick={() => {
+              if (confirm('Unlink this course from SquadHub? Its pages and content stay as they are, but SquadHub will stop updating them.')) {
+                link.mutate(null);
+              }
+            }}
+            disabled={link.isPending}
+            className="text-xs font-medium text-gray-500 underline hover:text-gray-900 disabled:opacity-60"
+          >
+            Unlink
+          </button>
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <div className="rounded-xl border border-gray-200 bg-white p-12 text-center text-gray-500">
