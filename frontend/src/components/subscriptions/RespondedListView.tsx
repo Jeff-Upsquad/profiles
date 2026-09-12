@@ -71,11 +71,11 @@ function subheading(item: SubscriptionCardItem): string {
     .join(' · ');
 }
 
-function price(item: SubscriptionCardItem): string {
+function price(item: SubscriptionCardItem): string | null {
   const content = item.card.content;
   const label = stringValue(content.price_label);
   if (label) return label;
-  if (typeof content.monthly_price !== 'number') return '—';
+  if (typeof content.monthly_price !== 'number') return null;
   try {
     return new Intl.NumberFormat(undefined, {
       style: 'currency',
@@ -85,20 +85,6 @@ function price(item: SubscriptionCardItem): string {
   } catch {
     return `${stringValue(content.currency) || 'INR'} ${content.monthly_price.toLocaleString()}`;
   }
-}
-
-function commitment(item: SubscriptionCardItem): string {
-  const content = item.card.content;
-  const details = (content.assignment_details ?? {}) as Record<string, unknown>;
-  const dailyCommitment = stringValue(content.hours_label)
-    .split('·')[0]
-    ?.trim();
-  return (
-    stringValue(details.work_type) ||
-    stringValue(details.scope_type) ||
-    dailyCommitment ||
-    '—'
-  );
 }
 
 function StatusBadge({ item, mode }: { item: SubscriptionCardItem; mode: Props['mode'] }) {
@@ -131,12 +117,14 @@ export default function RespondedListView({ items, initialOpenId = null, mode = 
             {group.items.map((item) => {
               const title = heading(item);
               const type = item.card.card_type === 'assignment' ? 'assignment' : 'subscription';
+              const priceLabel = price(item);
+              const canSubmitQuote = mode === 'pending' && priceLabel === null;
               return (
                 <Link
                   key={item.id}
                   id={`recipient-${item.id}`}
                   href={`/talent/opportunities/${item.id}?type=${type}`}
-                  className={`block overflow-hidden rounded-2xl border bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] ${
+                  className={`group block overflow-hidden rounded-2xl border bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] ${
                     item.id === initialOpenId ? 'border-[#0a0a0a] ring-1 ring-[#0a0a0a]' : 'border-[#E7E7EA]'
                   }`}
                 >
@@ -158,16 +146,19 @@ export default function RespondedListView({ items, initialOpenId = null, mode = 
                       <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.06 10 7.23 6.29a.75.75 0 111.04-1.08l4.39 4.25a.75.75 0 010 1.08l-4.39 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
                     </svg>
                   </div>
-                  <dl className="grid grid-cols-2 border-t border-[#E7E7EA] bg-[#FAFAFA]">
-                    <div className="min-w-0 px-3 py-2.5">
-                      <dt className="text-[9px] font-semibold uppercase tracking-wide text-[#a3a3a3]">Commitment</dt>
-                      <dd className="mt-0.5 line-clamp-2 text-[11px] font-semibold leading-snug text-[#404040]">{commitment(item)}</dd>
+                  <div className="flex min-h-[52px] items-center justify-between gap-3 border-t border-[#E7E7EA] bg-[#FAFAFA] px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-semibold uppercase tracking-wide text-[#a3a3a3]">Price</p>
+                      <p className={`mt-0.5 truncate text-[11px] font-semibold ${priceLabel ? 'text-[#1F7E36]' : 'text-[#737373]'}`}>
+                        {priceLabel ?? 'Open to quotes'}
+                      </p>
                     </div>
-                    <div className="min-w-0 border-l border-[#E7E7EA] px-3 py-2.5">
-                      <dt className="text-[9px] font-semibold uppercase tracking-wide text-[#a3a3a3]">Price</dt>
-                      <dd className="mt-0.5 truncate text-[11px] font-semibold text-[#1F7E36]">{price(item)}</dd>
-                    </div>
-                  </dl>
+                    {canSubmitQuote && (
+                      <span className="shrink-0 rounded-lg bg-[#0a0a0a] px-3 py-2 font-[family-name:var(--font-inter)] text-[11px] font-semibold text-white shadow-sm transition-colors group-hover:bg-[#262626]">
+                        Submit Quote
+                      </span>
+                    )}
+                  </div>
                 </Link>
               );
             })}
