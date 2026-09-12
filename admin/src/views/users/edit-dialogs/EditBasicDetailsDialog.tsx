@@ -34,11 +34,12 @@ function joinName(first: string, middle: string, last: string) {
   return [first, middle, last].map((s) => s.trim()).filter(Boolean).join(' ');
 }
 
-const EMPLOYMENT_OPTIONS = [
-  { value: 'salary', label: 'Salary' },
-  { value: 'freelance', label: 'Freelance' },
-  { value: 'partner_program', label: 'Partner Program' },
+const PARTNER_PROGRAM_OPTIONS = [
+  { value: 'partner_program', label: 'Subscriptions' },
+  { value: 'freelance', label: 'Assignments' },
 ];
+
+const JOB_OPTIONS = [{ value: 'salary', label: 'Looking for jobs' }];
 
 export default function EditBasicDetailsDialog({
   open,
@@ -122,12 +123,39 @@ export default function EditBasicDetailsDialog({
           onChange={(e) => setPhoneVal(e.target.value)}
           placeholder="+91…"
         />
-        <ChipGroup
-          label="Work Preference"
-          options={EMPLOYMENT_OPTIONS}
-          value={employment}
-          onChange={setEmployment}
-        />
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <ChipGroup
+            label="Partner Program"
+            options={PARTNER_PROGRAM_OPTIONS}
+            value={employment.filter((value) => value !== 'salary')}
+            multi={false}
+            onChange={(partnerOptions) =>
+              setEmployment([
+                ...partnerOptions,
+                ...(employment.includes('salary') ? ['salary'] : []),
+              ])
+            }
+          />
+          <p className="mt-2 text-xs text-gray-500">
+            A talent can choose either Subscriptions or Assignments.
+          </p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <ChipGroup
+            label="Jobs"
+            options={JOB_OPTIONS}
+            value={employment.filter((value) => value === 'salary')}
+            onChange={(jobOptions) =>
+              setEmployment([
+                ...employment.filter((value) => value !== 'salary'),
+                ...jobOptions,
+              ])
+            }
+          />
+          <p className="mt-2 text-xs text-gray-500">
+            Jobs can be selected independently or alongside the Partner Program.
+          </p>
+        </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="secondary" onClick={onClose} disabled={saving}>
             Cancel

@@ -10,9 +10,9 @@ interface EditFreelanceDialogProps {
   available: boolean | null | undefined;
 }
 
-// Mirrors the talent Basic Profile "Freelance Preference" step — a single
-// "Available to take freelance work" toggle. The office-hours / daily-hours
-// scheduling lives in the separate Partner Program Preference section.
+// Mirrors the talent Basic Profile "Assignment Preference" step — a single
+// availability toggle. Subscription scheduling lives in the separate
+// Subscription Preference section.
 export default function EditFreelanceDialog({
   open,
   onClose,
@@ -38,7 +38,7 @@ export default function EditFreelanceDialog({
   };
 
   return (
-    <Modal isOpen={open} onClose={onClose} title="Edit Freelance Preference" size="lg">
+    <Modal isOpen={open} onClose={onClose} title="Edit Assignment Preference" size="lg">
       <div className="space-y-4">
         <label className="group flex cursor-pointer items-start gap-3 rounded-xl border border-[#E7E7EA] px-4 py-3 text-sm transition-all duration-200 has-[:checked]:border-[#0a0a0a] has-[:checked]:bg-[#FFFAC2] hover:border-[#a3a3a3] has-[:checked]:hover:border-[#0a0a0a]">
           <input
@@ -48,8 +48,8 @@ export default function EditFreelanceDialog({
             onChange={(e) => setChecked(e.target.checked)}
           />
           <div className="flex flex-col gap-0.5">
-            <span className="text-[14px] font-medium text-[#0a0a0a]">Available to take freelance work</span>
-            <span className="text-[13px] leading-snug text-[#525252]">Let brands know you can pick up one-off freelance projects.</span>
+            <span className="text-[14px] font-medium text-[#0a0a0a]">Available to take assignments</span>
+            <span className="text-[13px] leading-snug text-[#525252]">Let clients know this talent can take one-time or pay-per-project work.</span>
           </div>
         </label>
         <div className="flex items-start gap-3 rounded-xl bg-[#FDF6E7] p-4">

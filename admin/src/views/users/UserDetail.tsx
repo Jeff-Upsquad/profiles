@@ -319,6 +319,11 @@ function FileLink({ url, label = 'View file' }: { url?: string | null; label?: s
 
 function Tags({ items }: { items?: string[] | null }) {
   if (!items || items.length === 0) return PLACEHOLDER;
+  const labels: Record<string, string> = {
+    partner_program: 'Partner Program · Subscriptions',
+    freelance: 'Partner Program · Assignments',
+    salary: 'Jobs',
+  };
   return (
     <div className="flex flex-wrap gap-1.5">
       {items.map((it) => (
@@ -326,7 +331,7 @@ function Tags({ items }: { items?: string[] | null }) {
           key={it}
           className="rounded-full border border-[#0a0a0a] bg-[#FFFAC2] px-2.5 py-0.5 text-xs font-medium text-[#0a0a0a]"
         >
-          {TITLE_CASE(it)}
+          {labels[it] ?? TITLE_CASE(it)}
         </span>
       ))}
     </div>
@@ -891,7 +896,7 @@ export default function UserDetail({ userId }: { userId: string }) {
     },
     {
       key: 'jobPref',
-      name: 'Job Preference',
+      name: 'Jobs Preference',
       description: 'Salary expectations and job type',
       tint: 'tint-green',
       iconPath: ICON.jobPref,
@@ -910,8 +915,8 @@ export default function UserDetail({ userId }: { userId: string }) {
     },
     {
       key: 'freelance',
-      name: 'Freelance Preference',
-      description: 'Availability for freelance projects',
+      name: 'Assignment Preference',
+      description: 'Availability for one-time assignments',
       tint: 'tint-pink',
       iconPath: ICON.freelance,
       disabled: !wantsFreelance,
@@ -934,11 +939,11 @@ export default function UserDetail({ userId }: { userId: string }) {
             </svg>
           </span>
           <div className="flex flex-col gap-0.5">
-            <span className="text-[14px] font-medium text-[#0a0a0a]">Available to take freelance work</span>
+            <span className="text-[14px] font-medium text-[#0a0a0a]">Available to take assignments</span>
             <span className="text-[13px] leading-snug text-[#525252]">
               {basic?.freelance_available
-                ? 'This talent can pick up one-off freelance projects.'
-                : 'Not currently available for freelance work.'}
+                ? 'This talent can take one-time or pay-per-project work.'
+                : 'Not currently available for assignments.'}
             </span>
           </div>
         </div>
@@ -946,7 +951,7 @@ export default function UserDetail({ userId }: { userId: string }) {
     },
     {
       key: 'partner',
-      name: 'Partner Program Preference',
+      name: 'Subscription Preference',
       description: 'Virtual office hours and daily availability',
       tint: 'tint-green',
       iconPath: ICON.partner,

@@ -13,7 +13,7 @@ interface EditPartnerProgramDialogProps {
   dailyAvailable: { day: string; hours: number }[] | null | undefined;
 }
 
-// Mirrors the talent Basic Profile "Partner Program Preference" step — the
+// Mirrors the talent Basic Profile "Subscription Preference" step — the
 // Virtual Office Hours window slider + per-day committed hours. Same component,
 // same data model (virtual_office_hours + daily_available_hours).
 export default function EditPartnerProgramDialog({
@@ -49,7 +49,7 @@ export default function EditPartnerProgramDialog({
   };
 
   return (
-    <Modal isOpen={open} onClose={onClose} title="Edit Partner Program Preference" size="lg">
+    <Modal isOpen={open} onClose={onClose} title="Edit Subscription Preference" size="lg">
       <div className="space-y-6">
         <PartnerProgramPreference
           officeHours={hours}

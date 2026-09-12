@@ -15,16 +15,16 @@ export type EmploymentScope = 'partner_program' | 'freelance' | 'salary';
 
 const SCOPE_CONFIG: Record<EmploymentScope, { title: string; description: string }> = {
   partner_program: {
-    title: 'UpSquad Partner Program',
-    description: 'Talents on a regular monthly commitment, paid per client.',
+    title: 'Subscriptions',
+    description: 'Partner Program talents available for ongoing monthly client subscriptions.',
   },
   freelance: {
-    title: 'Freelance',
-    description: 'Talents open to one-time or pay-per-job assignments.',
+    title: 'Assignments',
+    description: 'Partner Program talents available for one-time or pay-per-project assignments.',
   },
   salary: {
     title: 'Jobs',
-    description: 'Talents looking for regular salaried employment.',
+    description: 'Talents looking for jobs, including members of the Partner Program.',
   },
 };
 

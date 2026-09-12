@@ -20,11 +20,14 @@ function moduleForPathname(pathname: string | null): string | null {
   let bestLen = -1;
   for (const section of NAV_SECTIONS) {
     for (const item of section.items) {
-      const base = item.href.split('?')[0];
-      if (base === '/') continue;
-      if ((pathname === base || pathname.startsWith(base + '/')) && base.length > bestLen) {
-        best = item.module;
-        bestLen = base.length;
+      const links = 'children' in item ? item.children : [item];
+      for (const link of links) {
+        const base = link.href.split('?')[0];
+        if (base === '/') continue;
+        if ((pathname === base || pathname.startsWith(base + '/')) && base.length > bestLen) {
+          best = link.module;
+          bestLen = base.length;
+        }
       }
     }
   }
@@ -73,18 +76,49 @@ function SidebarNav() {
           </div>
           <div className="space-y-1">
             {section.items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isNavItemActive(item.href)
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                }`}
-              >
-                {item.icon}
-                {item.label}
-              </Link>
+              'children' in item ? (
+                <div key={item.label}>
+                  <div
+                    className={`flex items-center gap-3 px-3 py-2 text-sm font-semibold ${
+                      item.children.some((child) => isNavItemActive(child.href))
+                        ? 'text-white'
+                        : 'text-gray-300'
+                    }`}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </div>
+                  <div className="ml-5 space-y-1 border-l border-gray-700 pl-2">
+                    {item.children.map((child) => (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                          isNavItemActive(child.href)
+                            ? 'bg-indigo-600 text-white'
+                            : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                        }`}
+                      >
+                        {child.icon}
+                        {child.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isNavItemActive(item.href)
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                  }`}
+                >
+                  {item.icon}
+                  {item.label}
+                </Link>
+              )
             ))}
           </div>
         </div>

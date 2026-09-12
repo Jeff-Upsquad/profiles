@@ -249,8 +249,8 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
     _p.pinCode = _p.permanentPinCode;
   }
 
-  /// Sections in form order; the freelance tab only appears when freelance
-  /// work is selected (mirrors the old stacked layout). Completion checks
+  /// Sections in form order; the assignment tab only appears when Assignments
+  /// is selected. Completion checks
   /// mirror the web's BasicProfileForm heuristics.
   List<_SectionSpec> get _sections => [
         _SectionSpec(
@@ -289,15 +289,16 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
           done: () => _p.experience
               .any((e) => e.companyName.isNotEmpty && e.designation.isNotEmpty),
         ),
-        _SectionSpec(
-          label: 'Job preference',
-          icon: Icons.tune,
-          build: _jobPreferenceSection,
-          done: () => _p.availability.isNotEmpty && _p.jobType.isNotEmpty,
-        ),
+        if (_p.employmentType.contains('salary'))
+          _SectionSpec(
+            label: 'Jobs preference',
+            icon: Icons.tune,
+            build: _jobPreferenceSection,
+            done: () => _p.availability.isNotEmpty && _p.jobType.isNotEmpty,
+          ),
         if (_p.employmentType.contains('freelance'))
           _SectionSpec(
-            label: 'Freelance',
+            label: 'Assignments',
             icon: Icons.handshake_outlined,
             build: _freelanceSection,
             done: () => _p.freelanceAvailable,
@@ -616,18 +617,68 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
           ),
           const SizedBox(height: 16),
           const SectionLabel('Work preference'),
+          Text(
+            'Partner Program',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Choose either Subscriptions or Assignments.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 10),
           MultiSelectChips(
             options: const [
-              (value: 'salary', label: 'Salaried job'),
-              (value: 'freelance', label: 'Freelance'),
-              (value: 'partner_program', label: 'Partner program'),
+              (value: 'partner_program', label: 'Subscriptions'),
+              (value: 'freelance', label: 'Assignments'),
             ],
-            selected: _p.employmentType,
+            selected: _p.employmentType
+                .where((value) => value == 'partner_program' || value == 'freelance')
+                .toList(),
             onChanged: (v) => setState(() {
-              // Partner program implies freelance (mirrors the web).
-              final next = {...v};
-              if (next.contains('partner_program')) next.add('freelance');
-              if (!next.contains('freelance')) next.remove('partner_program');
+              final currentPartner = _p.employmentType
+                  .where((value) => value == 'partner_program' || value == 'freelance')
+                  .toSet();
+              final newlySelected = v
+                  .where((value) => !currentPartner.contains(value))
+                  .toList();
+              final next = <String>{};
+              if (newlySelected.isNotEmpty) {
+                next.add(newlySelected.first);
+              } else if (v.length == 1) {
+                next.add(v.first);
+              }
+              if (_p.employmentType.contains('salary')) next.add('salary');
+              _p.employmentType = next.toList();
+            }),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Jobs',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'You can look for a job with or without joining the Partner Program.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 10),
+          MultiSelectChips(
+            options: const [
+              (value: 'salary', label: 'Looking for jobs'),
+            ],
+            selected: _p.employmentType
+                .where((value) => value == 'salary')
+                .toList(),
+            onChanged: (v) => setState(() {
+              final next = _p.employmentType
+                  .where((value) => value != 'salary')
+                  .toSet();
+              next.addAll(v);
               _p.employmentType = next.toList();
             }),
           ),
@@ -923,13 +974,13 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
 
   Widget _freelanceSection() {
     return TitledCard(
-      title: 'Freelance preference',
+      title: 'Assignment preference',
       icon: Icons.handshake_outlined,
       child: SwitchListTile(
         value: _p.freelanceAvailable,
         onChanged: (v) => setState(() => _p.freelanceAvailable = v),
         contentPadding: EdgeInsets.zero,
-        title: const Text('Available to take freelance work', style: TextStyle(fontSize: 14)),
+        title: const Text('Available to take assignments', style: TextStyle(fontSize: 14)),
       ),
     );
   }

@@ -82,7 +82,9 @@ class ExperienceEntry {
 
 class BasicProfile {
   // Work type
-  List<String> employmentType; // salary | freelance | partner_program
+  // salary = Jobs; freelance = Partner Program Assignments;
+  // partner_program = Partner Program Subscriptions.
+  List<String> employmentType;
   // Official (permanent) address
   String permanentAddress;
   String permanentCountry;
@@ -103,7 +105,7 @@ class BasicProfile {
   int? expectedSalaryFullTime;
   int? expectedSalaryPartTime;
   int? expectedSalaryMonthly;
-  // Freelance
+  // Partner Program Assignments
   bool freelanceAvailable;
   // Education / experience
   List<EducationEntry> educationCourses;

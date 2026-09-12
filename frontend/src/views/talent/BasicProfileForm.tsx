@@ -85,21 +85,39 @@ const AVAILABILITY_JOB_TYPE_LABEL: Record<string, string> = {
   part_time: 'Part-time',
 };
 
-const WORK_PREFERENCE_OPTIONS: { value: 'salary' | 'freelance' | 'partner_program'; label: string; description: string }[] = [
+type WorkPreferenceValue = 'salary' | 'freelance' | 'partner_program';
+
+const WORK_PREFERENCE_GROUPS: {
+  title: string;
+  description: string;
+  options: { value: WorkPreferenceValue; label: string; description: string }[];
+}[] = [
   {
-    value: 'salary',
-    label: "I'm looking for a job (Salary Based)",
-    description: 'Regular employment with one company. Monthly salary.',
+    title: 'Partner Program',
+    description: 'Choose how you want to work with UpSquad clients.',
+    options: [
+      {
+        value: 'partner_program',
+        label: 'Subscriptions',
+        description: 'Ongoing client work with a regular monthly commitment and payment.',
+      },
+      {
+        value: 'freelance',
+        label: 'Assignments',
+        description: 'One-time or pay-per-project work with its own scope, deadline and payment.',
+      },
+    ],
   },
   {
-    value: 'freelance',
-    label: 'Freelance work',
-    description: 'One-time projects or pay-per-job assignments from different clients.',
-  },
-  {
-    value: 'partner_program',
-    label: 'UpSquad Partner Program',
-    description: "Regular commitment with monthly payments — paid per client you handle. You'll also get first preference for freelance work (option 2 above is auto-included).",
+    title: 'Jobs',
+    description: 'You can look for a job whether or not you join the Partner Program.',
+    options: [
+      {
+        value: 'salary',
+        label: "I'm looking for a job",
+        description: 'Regular employment with one company, with a monthly salary.',
+      },
+    ],
   },
 ];
 
@@ -347,18 +365,16 @@ export default function BasicProfileForm() {
     });
   };
 
-  const toggleWorkPreference = (value: 'salary' | 'freelance' | 'partner_program') => {
+  const toggleWorkPreference = (value: WorkPreferenceValue) => {
     setForm((prev) => {
       const arr = prev.employment_type || [];
       const isOn = arr.includes(value);
-      let next = isOn ? arr.filter((v) => v !== value) : [...arr, value];
-      // Partner Program gives first preference for freelance work — keep freelance in sync.
-      if (value === 'partner_program' && !isOn && !next.includes('freelance')) {
-        next = [...next, 'freelance'];
-      }
-      if (value === 'freelance' && isOn && next.includes('partner_program')) {
-        next = next.filter((v) => v !== 'partner_program');
-      }
+      const partnerOptions: WorkPreferenceValue[] = ['partner_program', 'freelance'];
+      const next = isOn
+        ? arr.filter((v) => v !== value)
+        : partnerOptions.includes(value)
+          ? [...arr.filter((v) => !partnerOptions.includes(v as WorkPreferenceValue)), value]
+          : [...arr, value];
       return { ...prev, employment_type: next };
     });
   };
@@ -547,7 +563,7 @@ export default function BasicProfileForm() {
     },
     {
       id: 'job_preference',
-      name: 'Job Preference',
+      name: 'Jobs Preference',
       description: 'Salary expectations and job type',
       tint: 'tint-green',
       disabled: !wantsSalary,
@@ -555,15 +571,15 @@ export default function BasicProfileForm() {
     },
     {
       id: 'freelance_preference',
-      name: 'Freelance Preference',
-      description: 'Your availability for freelance projects',
+      name: 'Assignment Preference',
+      description: 'Your availability for one-time assignments',
       tint: 'tint-pink',
       disabled: !wantsFreelance,
       icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
     },
     {
       id: 'partner_program_preference',
-      name: 'Partner Program Preference',
+      name: 'Subscription Preference',
       description: 'Virtual office hours and daily availability',
       tint: 'tint-green',
       disabled: !wantsPartner,
@@ -1025,21 +1041,29 @@ export default function BasicProfileForm() {
 
                 <div className="border-t border-[#E7E7EA] pt-6">
                   <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Work Preference</h3>
-                  <p className="mb-3 mt-0.5 text-sm text-[#737373]">What type of work are you looking for? You can select more than one.</p>
-                  <div className="flex flex-col gap-2.5">
-                    {WORK_PREFERENCE_OPTIONS.map((opt) => (
-                      <label key={opt.value} className="group flex cursor-pointer items-start gap-3 rounded-xl border border-[#E7E7EA] px-4 py-3 text-sm transition-all duration-200 has-[:checked]:border-[#0a0a0a] has-[:checked]:bg-[#FFFAC2] hover:border-[#a3a3a3] has-[:checked]:hover:border-[#0a0a0a]">
-                        <input
-                          type="checkbox"
-                          className="mt-0.5 h-4 w-4 rounded border-[#E7E7EA] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
-                          checked={(form.employment_type || []).includes(opt.value)}
-                          onChange={() => toggleWorkPreference(opt.value)}
-                        />
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-[family-name:var(--font-inter)] text-[14px] font-medium text-[#0a0a0a]">{opt.label}</span>
-                          <span className="font-[family-name:var(--font-inter)] text-[13px] leading-snug text-[#525252]">{opt.description}</span>
+                  <p className="mb-4 mt-0.5 text-sm text-[#737373]">Choose one Partner Program track. Jobs can be selected separately.</p>
+                  <div className="space-y-4">
+                    {WORK_PREFERENCE_GROUPS.map((group) => (
+                      <div key={group.title} className="rounded-xl border border-[#E7E7EA] bg-[#F5F5F6] p-4">
+                        <h4 className="font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">{group.title}</h4>
+                        <p className="mb-3 mt-0.5 text-[13px] leading-snug text-[#737373]">{group.description}</p>
+                        <div className="flex flex-col gap-2.5">
+                          {group.options.map((opt) => (
+                            <label key={opt.value} className="group flex cursor-pointer items-start gap-3 rounded-xl border border-[#E7E7EA] bg-white px-4 py-3 text-sm transition-all duration-200 has-[:checked]:border-[#0a0a0a] has-[:checked]:bg-[#FFFAC2] hover:border-[#a3a3a3] has-[:checked]:hover:border-[#0a0a0a]">
+                              <input
+                                type="checkbox"
+                                className="mt-0.5 h-4 w-4 rounded border-[#E7E7EA] text-[#0a0a0a] focus:ring-[#0a0a0a]/30"
+                                checked={(form.employment_type || []).includes(opt.value)}
+                                onChange={() => toggleWorkPreference(opt.value)}
+                              />
+                              <div className="flex flex-col gap-0.5">
+                                <span className="font-[family-name:var(--font-inter)] text-[14px] font-medium text-[#0a0a0a]">{opt.label}</span>
+                                <span className="font-[family-name:var(--font-inter)] text-[13px] leading-snug text-[#525252]">{opt.description}</span>
+                              </div>
+                            </label>
+                          ))}
                         </div>
-                      </label>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -1297,7 +1321,7 @@ export default function BasicProfileForm() {
               </div>
             )}
 
-            {/* Freelance Preference */}
+            {/* Assignment Preference */}
             {activeId === 'freelance_preference' && (
               <div className="space-y-4">
                 <label className="group flex cursor-pointer items-start gap-3 rounded-xl border border-[#E7E7EA] px-4 py-3 text-sm transition-all duration-200 has-[:checked]:border-[#0a0a0a] has-[:checked]:bg-[#FFFAC2] hover:border-[#a3a3a3] has-[:checked]:hover:border-[#0a0a0a]">
@@ -1308,8 +1332,8 @@ export default function BasicProfileForm() {
                     onChange={(e) => setForm((prev) => ({ ...prev, freelance_available: e.target.checked }))}
                   />
                   <div className="flex flex-col gap-0.5">
-                    <span className="font-[family-name:var(--font-inter)] text-[14px] font-medium text-[#0a0a0a]">Available to take freelance work</span>
-                    <span className="font-[family-name:var(--font-inter)] text-[13px] leading-snug text-[#525252]">Let brands know you can pick up one-off freelance projects.</span>
+                    <span className="font-[family-name:var(--font-inter)] text-[14px] font-medium text-[#0a0a0a]">Available to take assignments</span>
+                    <span className="font-[family-name:var(--font-inter)] text-[13px] leading-snug text-[#525252]">Let clients know you can take one-time or pay-per-project work.</span>
                   </div>
                 </label>
                 <div className="flex items-start gap-3 rounded-xl bg-[#FDF6E7] p-4">
@@ -1321,7 +1345,7 @@ export default function BasicProfileForm() {
               </div>
             )}
 
-            {/* Partner Program Preference */}
+            {/* Subscription Preference */}
             {activeId === 'partner_program_preference' && (
               <PartnerProgramPreference
                 officeHours={form.virtual_office_hours || []}
