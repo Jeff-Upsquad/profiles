@@ -1636,7 +1636,41 @@ export async function deleteTemplateCategory(id: string) {
 // Talents Module (browse approved profiles by category)
 // ---------------------------------------------------------------------------
 
-export async function getTalentCategories(employmentType?: string) {
+type PartnerProgramTrack = 'both' | 'subscriptions_only' | 'assignments_only';
+
+function employmentTypesOf(value: unknown): Set<string> {
+  return new Set(Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []);
+}
+
+function matchesEmploymentScope(value: unknown, employmentType?: string, track?: PartnerProgramTrack) {
+  if (!employmentType) return true;
+  const types = employmentTypesOf(value);
+  if (employmentType === 'salary') return types.has('salary');
+  if (employmentType === 'freelance') return types.has('freelance');
+  if (employmentType !== 'partner_program') return false;
+
+  const subscription = types.has('partner_program');
+  const assignment = types.has('freelance');
+  if (track === 'both') return subscription && assignment;
+  if (track === 'subscriptions_only') return subscription && !assignment;
+  if (track === 'assignments_only') return assignment && !subscription;
+  return subscription || assignment;
+}
+
+function partnerProgramCounts(value: unknown) {
+  const types = employmentTypesOf(value);
+  const subscription = types.has('partner_program');
+  const assignment = types.has('freelance');
+  return {
+    subscription: subscription ? 1 : 0,
+    assignment: assignment ? 1 : 0,
+    both: subscription && assignment ? 1 : 0,
+    subscriptions_only: subscription && !assignment ? 1 : 0,
+    assignments_only: assignment && !subscription ? 1 : 0,
+  };
+}
+
+export async function getTalentCategories(employmentType?: string, track?: PartnerProgramTrack) {
   const { data: categories, error: catErr } = await supabaseAdmin
     .from('categories')
     .select('*')
@@ -1646,15 +1680,31 @@ export async function getTalentCategories(employmentType?: string) {
   if (catErr) throw new AppError(500, catErr.message);
 
   let userIdsFilter: string[] | null = null;
+  const employmentByUser = new Map<string, unknown>();
   if (employmentType) {
     const { data: basicRows, error: basicErr } = await supabaseAdmin
       .from('talent_profiles_basic')
-      .select('talent_user_id')
-      .contains('employment_type', [employmentType]);
+      .select('talent_user_id, employment_type');
     if (basicErr) throw new AppError(500, basicErr.message);
-    userIdsFilter = (basicRows ?? []).map((r) => (r as any).talent_user_id).filter(Boolean);
+    userIdsFilter = (basicRows ?? [])
+      .filter((r) => matchesEmploymentScope((r as any).employment_type, employmentType, track))
+      .map((r) => {
+        const id = (r as any).talent_user_id as string;
+        employmentByUser.set(id, (r as any).employment_type);
+        return id;
+      })
+      .filter(Boolean);
     if (userIdsFilter.length === 0) {
-      return (categories ?? []).map((cat) => ({ ...cat, profile_count: 0, approved_count: 0 }));
+      return (categories ?? []).map((cat) => ({
+        ...cat,
+        profile_count: 0,
+        approved_count: 0,
+        subscription_count: 0,
+        assignment_count: 0,
+        both_count: 0,
+        subscriptions_only_count: 0,
+        assignments_only_count: 0,
+      }));
     }
   }
 
@@ -1669,29 +1719,63 @@ export async function getTalentCategories(employmentType?: string) {
 
   if (profErr) throw new AppError(500, profErr.message);
 
-  const countMap: Record<string, { total: number; approved: number }> = {};
+  const countMap: Record<string, {
+    total: number;
+    approved: number;
+    subscription: number;
+    assignment: number;
+    both: number;
+    subscriptions_only: number;
+    assignments_only: number;
+  }> = {};
   for (const p of profiles ?? []) {
-    if (!countMap[p.category_id]) countMap[p.category_id] = { total: 0, approved: 0 };
-    countMap[p.category_id].total++;
-    if (p.status === 'approved') countMap[p.category_id].approved++;
+    if (!countMap[p.category_id]) {
+      countMap[p.category_id] = {
+        total: 0,
+        approved: 0,
+        subscription: 0,
+        assignment: 0,
+        both: 0,
+        subscriptions_only: 0,
+        assignments_only: 0,
+      };
+    }
+    const counts = countMap[p.category_id];
+    counts.total++;
+    if (p.status === 'approved') counts.approved++;
+    if (employmentType === 'partner_program') {
+      const trackCounts = partnerProgramCounts(employmentByUser.get(p.talent_user_id));
+      counts.subscription += trackCounts.subscription;
+      counts.assignment += trackCounts.assignment;
+      counts.both += trackCounts.both;
+      counts.subscriptions_only += trackCounts.subscriptions_only;
+      counts.assignments_only += trackCounts.assignments_only;
+    }
   }
 
   return (categories ?? []).map((cat) => ({
     ...cat,
     profile_count: countMap[cat.id]?.total ?? 0,
     approved_count: countMap[cat.id]?.approved ?? 0,
+    subscription_count: countMap[cat.id]?.subscription ?? 0,
+    assignment_count: countMap[cat.id]?.assignment ?? 0,
+    both_count: countMap[cat.id]?.both ?? 0,
+    subscriptions_only_count: countMap[cat.id]?.subscriptions_only ?? 0,
+    assignments_only_count: countMap[cat.id]?.assignments_only ?? 0,
   }));
 }
 
-export async function getTalentProfilesByCategory(categoryId: string, search?: string, employmentType?: string) {
+export async function getTalentProfilesByCategory(categoryId: string, search?: string, employmentType?: string, track?: PartnerProgramTrack) {
   let userIdsFilter: string[] | null = null;
   if (employmentType) {
     const { data: basicRows, error: basicErr } = await supabaseAdmin
       .from('talent_profiles_basic')
-      .select('talent_user_id')
-      .contains('employment_type', [employmentType]);
+      .select('talent_user_id, employment_type');
     if (basicErr) throw new AppError(500, basicErr.message);
-    userIdsFilter = (basicRows ?? []).map((r) => (r as any).talent_user_id).filter(Boolean);
+    userIdsFilter = (basicRows ?? [])
+      .filter((r) => matchesEmploymentScope((r as any).employment_type, employmentType, track))
+      .map((r) => (r as any).talent_user_id)
+      .filter(Boolean);
     if (userIdsFilter.length === 0) return [];
   }
 
@@ -1720,17 +1804,18 @@ export async function getTalentProfilesByCategory(categoryId: string, search?: s
   // Geography filter / breakdown reads structured location from
   // talent_profiles_basic (country/state). Fold those into each row so the
   // admin UI can prefer them over parsing the freeform current_location.
-  const basicMap = new Map<string, { country: string | null; state: string | null }>();
+  const basicMap = new Map<string, { country: string | null; state: string | null; employment_type: unknown }>();
   if (userIds.length > 0) {
     const { data: basicRows, error: basicErr } = await supabaseAdmin
       .from('talent_profiles_basic')
-      .select('talent_user_id, country, state')
+      .select('talent_user_id, country, state, employment_type')
       .in('talent_user_id', userIds);
     if (basicErr) throw new AppError(500, basicErr.message);
     for (const b of basicRows ?? []) {
       basicMap.set((b as any).talent_user_id, {
         country: ((b as any).country as string | null) ?? null,
         state: ((b as any).state as string | null) ?? null,
+        employment_type: (b as any).employment_type,
       });
     }
   }
@@ -1743,6 +1828,7 @@ export async function getTalentProfilesByCategory(categoryId: string, search?: s
       tier_custom: tiers[r.talent_user_id]?.tier_custom ?? null,
       basic_country: basic?.country ?? null,
       basic_state: basic?.state ?? null,
+      employment_type: basic?.employment_type ?? null,
     };
   });
 }

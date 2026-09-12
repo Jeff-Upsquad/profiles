@@ -80,8 +80,9 @@ function tierKeyOf(profile: TalentProfile): TierKey {
 }
 
 export type EmploymentScope = 'partner_program' | 'freelance' | 'salary';
+export type PartnerProgramTrack = 'both' | 'subscriptions_only' | 'assignments_only';
 
-export default function TalentProfileList({ categoryId, stateName, employmentType }: { categoryId: string; stateName?: string; employmentType?: EmploymentScope }) {
+export default function TalentProfileList({ categoryId, stateName, employmentType, employmentTrack }: { categoryId: string; stateName?: string; employmentType?: EmploymentScope; employmentTrack?: PartnerProgramTrack }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -95,14 +96,17 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectingProfileId, setRejectingProfileId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
-  const linkQuery = employmentType ? `?type=${employmentType}` : '';
+  const linkQuery = employmentType
+    ? `?type=${employmentType}${employmentTrack ? `&track=${employmentTrack}` : ''}`
+    : '?type=partner_program';
 
   const { data: profiles, isLoading } = useQuery<TalentProfile[]>({
-    queryKey: ['talent-profiles', categoryId, search, employmentType ?? 'all'],
+    queryKey: ['talent-profiles', categoryId, search, employmentType ?? 'all', employmentTrack ?? 'all'],
     queryFn: async () => {
       const qs = new URLSearchParams();
       if (search) qs.set('search', search);
       if (employmentType) qs.set('employment_type', employmentType);
+      if (employmentTrack) qs.set('track', employmentTrack);
       const params = qs.toString() ? `?${qs.toString()}` : '';
       const { data } = await api.get(`/admin/talents/categories/${categoryId}/profiles${params}`);
       return data.profiles ?? data;
@@ -310,6 +314,17 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
   const decodedStateName = stateName ? decodeURIComponent(stateName) : null;
   const total = scopedProfiles.filter((p) => p.is_active).length;
   const hasPendingInView = pendingInView.length > 0;
+  const trackLabel = employmentTrack === 'both'
+    ? 'Both Subscriptions & Assignments'
+    : employmentTrack === 'subscriptions_only'
+      ? 'Subscriptions only'
+      : employmentTrack === 'assignments_only'
+        ? 'Assignments only'
+        : employmentType === 'partner_program'
+          ? 'Partner Program'
+          : employmentType === 'salary'
+            ? 'Jobs'
+            : null;
 
   return (
     <div className="space-y-5">
@@ -325,9 +340,8 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
           {decodedStateName ? `${decodedStateName} — ${categoryName} Profiles` : `${categoryName} Profiles`}
         </h1>
         <p className="mt-1 text-sm text-gray-500">
-          {filteredProfiles.length === total
-            ? `${total} profiles`
-            : `${filteredProfiles.length} of ${total} profiles`}
+          {trackLabel ? `${trackLabel} · ` : ''}
+          {filteredProfiles.length === total ? `${total} profiles` : `${filteredProfiles.length} of ${total} profiles`}
         </p>
       </div>
 

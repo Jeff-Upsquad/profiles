@@ -9,15 +9,19 @@ interface CategoryWithCount {
   description?: string;
   profile_count: number;
   approved_count: number;
+  both_count?: number;
+  subscriptions_only_count?: number;
+  assignments_only_count?: number;
 }
 
 export type EmploymentScope = 'partner_program' | 'freelance' | 'salary';
 
 const SCOPE_CONFIG: Record<EmploymentScope, { title: string; description: string }> = {
   partner_program: {
-    title: 'Subscriptions',
-    description: 'Partner Program talents available for ongoing monthly client subscriptions.',
+    title: 'Partner Program',
+    description: 'Browse Partner Program talents by category and work preference.',
   },
+  // Kept for old links/bookmarks; the sidebar now has one Partner Program view.
   freelance: {
     title: 'Assignments',
     description: 'Partner Program talents available for one-time or pay-per-project assignments.',
@@ -28,16 +32,23 @@ const SCOPE_CONFIG: Record<EmploymentScope, { title: string; description: string
   },
 };
 
+const TRACKS = [
+  { key: 'both', label: 'Both' },
+  { key: 'subscriptions_only', label: 'Subscriptions only' },
+  { key: 'assignments_only', label: 'Assignments only' },
+] as const;
+
 export default function TalentCategories({ employmentType }: { employmentType?: EmploymentScope } = {}) {
-  const config = employmentType ? SCOPE_CONFIG[employmentType] : null;
-  const title = config?.title ?? 'Talents';
-  const description = config?.description ?? 'Browse talent profiles by category';
-  const linkQuery = employmentType ? `?type=${employmentType}` : '';
+  const scope = employmentType ?? 'partner_program';
+  const config = SCOPE_CONFIG[scope];
+  const title = config.title;
+  const description = config.description;
+  const linkQuery = `?type=${scope}`;
 
   const { data: categories, isLoading } = useQuery<CategoryWithCount[]>({
-    queryKey: ['talent-categories', employmentType ?? 'all'],
+    queryKey: ['talent-categories', scope],
     queryFn: async () => {
-      const params = employmentType ? `?employment_type=${employmentType}` : '';
+      const params = `?employment_type=${scope}`;
       const { data } = await api.get(`/admin/talents/categories${params}`);
       return data.categories ?? data;
     },
@@ -53,7 +64,7 @@ export default function TalentCategories({ employmentType }: { employmentType?: 
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-32 animate-pulse rounded-xl bg-gray-200" />
+            <div key={i} className="h-40 animate-pulse rounded-xl bg-gray-200" />
           ))}
         </div>
       ) : (categories ?? []).length === 0 ? (
@@ -63,8 +74,8 @@ export default function TalentCategories({ employmentType }: { employmentType?: 
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {(categories ?? []).map((cat) => (
-            <Link key={cat.id} href={`/talents/${cat.id}${linkQuery}`}>
-              <div className="cursor-pointer rounded-xl border border-gray-200 bg-white p-6 transition-all hover:border-indigo-300 hover:shadow-md">
+            <div key={cat.id} className="rounded-xl border border-gray-200 bg-white p-6 transition-all hover:border-indigo-300 hover:shadow-md">
+              <Link href={`/talents/${cat.id}${linkQuery}`} className="block">
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -82,8 +93,26 @@ export default function TalentCategories({ employmentType }: { employmentType?: 
                     <span className="font-semibold text-green-600">{cat.approved_count}</span> approved
                   </span>
                 </div>
-              </div>
-            </Link>
+              </Link>
+
+              {scope === 'partner_program' && (
+                <div className="mt-4 grid grid-cols-3 gap-2 border-t border-gray-100 pt-4">
+                  {TRACKS.map((track) => {
+                    const countKey = `${track.key}_count` as 'both_count' | 'subscriptions_only_count' | 'assignments_only_count';
+                    return (
+                      <Link
+                        key={track.key}
+                        href={`/talents/${cat.id}${linkQuery}&track=${track.key}`}
+                        className="rounded-lg bg-gray-50 px-2 py-2 text-center transition hover:bg-indigo-50"
+                      >
+                        <span className="block text-lg font-semibold text-gray-900">{cat[countKey] ?? 0}</span>
+                        <span className="block text-[11px] leading-tight text-gray-500">{track.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}

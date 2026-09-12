@@ -525,9 +525,14 @@ function pickEmploymentType(req: Request): string | undefined {
   return raw && VALID_EMPLOYMENT_TYPES.has(raw) ? raw : undefined;
 }
 
+function pickPartnerProgramTrack(req: Request): 'both' | 'subscriptions_only' | 'assignments_only' | undefined {
+  const raw = req.query.track as string | undefined;
+  return raw === 'both' || raw === 'subscriptions_only' || raw === 'assignments_only' ? raw : undefined;
+}
+
 export async function getTalentCategories(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await adminService.getTalentCategories(pickEmploymentType(req));
+    const result = await adminService.getTalentCategories(pickEmploymentType(req), pickPartnerProgramTrack(req));
     res.json({ categories: result });
   } catch (err) {
     next(err);
@@ -541,6 +546,7 @@ export async function getTalentProfilesByCategory(req: Request, res: Response, n
       req.params.categoryId as string,
       search,
       pickEmploymentType(req),
+      pickPartnerProgramTrack(req),
     );
     res.json({ profiles: result });
   } catch (err) {
