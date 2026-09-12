@@ -164,7 +164,6 @@ export default function AgencyProfileForm(){
       const userPayload:any = {
         agency_name: form.agency_name?.trim(),
         agency_short_name: form.agency_short_name?.trim()||null,
-        short_form: form.agency_short_name?.trim()||null,
         contact_person: form.contact_person||null,
         contact_email: form.contact_email||null,
         whatsapp_number: form.whatsapp_number||null,
@@ -172,10 +171,10 @@ export default function AgencyProfileForm(){
         logo_url: form.logo_url||null,
       };
       await agencyApi.updateProfile(profilePayload);
-      await agencyApi.updateMe(userPayload).catch(()=>{});
+      await agencyApi.updateMe(userPayload);
     },
     onSuccess:()=>{ qc.invalidateQueries({queryKey:['agencyProfile']}); qc.invalidateQueries({queryKey:['agencyMe']}); toast.success('Agency profile saved'); agencyApi.backfillCards().catch(()=>{}); },
-    onError:(e:any)=>toast.error(e.message || e.response?.data?.message || 'Failed to save')
+    onError:(e:any)=>toast.error(e.response?.data?.message || e.message || 'Failed to save')
   });
 
   const districtOptions = form.location_state ? (DISTRICTS_BY_STATE[form.location_state] || []).map(d=>({label:d,value:d})) : [];

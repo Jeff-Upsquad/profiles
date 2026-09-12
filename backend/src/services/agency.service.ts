@@ -12,7 +12,10 @@ export const memPortfolioItems: any[] = [];
 export function isMissingTable(err: any) {
   const raw = String(err?.message || '') + ' ' + String(err?.code || '') + ' ' + JSON.stringify(err || {});
   const msg = raw.toLowerCase();
-  return msg.includes('does not exist') || msg.includes('could not find the table') || msg.includes('could not find') || msg.includes('schema cache') || msg.includes('pgrst205') || msg.includes('42p01');
+  return (msg.includes('relation') && msg.includes('does not exist'))
+    || msg.includes('could not find the table')
+    || msg.includes('pgrst205')
+    || msg.includes('42p01');
 }
 
 // ---------------------------------------------------------------------------
@@ -31,23 +34,16 @@ export async function getAgencyUser(userId: string) {
 }
 
 export async function updateAgencyUser(userId: string, patch: Record<string, any>) {
-  // keep in-memory cache in sync even when DB succeeds (for new columns not yet migrated)
-  const curMem = memAgencies.get(userId) || {};
-  memAgencies.set(userId, { ...curMem, ...patch, id: userId });
   try {
     const { data, error } = await supabaseAdmin.from('agency_users').update(patch).eq('id', userId).select('*').single();
     if (error) throw error;
-    const mem = memAgencies.get(userId);
-    return mem ? { ...data, ...mem } : data;
+    return data;
   } catch (e: any) {
     if (isMissingTable(e)) {
       const cur = memAgencies.get(userId) || { id: userId, agency_name: 'Agency' };
-      return cur;
-    }
-    // column missing also falls back to memory (already cached)
-    const raw = String((e as any)?.message || '').toLowerCase();
-    if (raw.includes('column') || raw.includes('schema cache')) {
-      return memAgencies.get(userId) || { id: userId, ...patch };
+      const next = { ...cur, ...patch, id: userId };
+      memAgencies.set(userId, next);
+      return next;
     }
     throw new AppError(500, e.message);
   }
@@ -71,8 +67,6 @@ export async function getAgencyProfile(userId: string) {
 }
 
 export async function upsertAgencyProfile(userId: string, patch: Record<string, any>) {
-  const curMem = memProfiles.get(userId) || { agency_user_id: userId };
-  memProfiles.set(userId, { ...curMem, ...patch });
   try {
     const { data, error } = await supabaseAdmin.from('agency_profiles').upsert({ agency_user_id: userId, ...patch }, { onConflict: 'agency_user_id' }).select('*').single();
     if (error) throw error;
@@ -81,15 +75,13 @@ export async function upsertAgencyProfile(userId: string, patch: Record<string, 
       const { backfillCardsForAgency } = await import('./card-backfill.service.js');
       backfillCardsForAgency(userId).catch((e) => console.error('[card-backfill] agency profile backfill failed', e));
     } catch {}
-    const mem = memProfiles.get(userId);
-    return mem ? { ...data, ...mem } : data;
+    return data;
   } catch (e: any) {
     if (isMissingTable(e)) {
-      return memProfiles.get(userId) || { agency_user_id: userId, ...patch };
-    }
-    const raw = String((e as any)?.message || '').toLowerCase();
-    if (raw.includes('column') || raw.includes('schema cache')) {
-      return memProfiles.get(userId) || { agency_user_id: userId, ...patch };
+      const cur = memProfiles.get(userId) || { agency_user_id: userId };
+      const next = { ...cur, ...patch };
+      memProfiles.set(userId, next);
+      return next;
     }
     throw new AppError(500, e.message);
   }

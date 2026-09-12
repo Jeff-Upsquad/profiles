@@ -3,7 +3,6 @@ import { z } from 'zod';
 export const updateAgencyUserSchema = z.object({
   agency_name: z.string().min(1).max(300).optional(),
   agency_short_name: z.string().max(20).nullable().optional(),
-  short_form: z.string().max(20).nullable().optional(),
   contact_person: z.string().max(200).nullable().optional(),
   contact_email: z.string().email().nullable().optional().or(z.literal('')),
   whatsapp_number: z.string().max(20).nullable().optional(),
@@ -12,6 +11,28 @@ export const updateAgencyUserSchema = z.object({
   website: z.string().max(500).nullable().optional(),
   location: z.string().max(300).nullable().optional(),
   logo_url: z.string().url().nullable().optional(),
+});
+
+const agencySkillSchema = z.object({
+  skill: z.string().min(1).max(200),
+  level: z.number().int().min(1).max(5),
+});
+
+const agencyLeveledItemSchema = z.object({
+  name: z.string().min(1).max(200),
+  level: z.number().int().min(1).max(5),
+});
+
+const agencyCategorySchema = z.object({
+  category: z.string().min(1).max(200),
+  level: z.number().int().min(1).max(5),
+});
+
+const agencyIndustryExperienceSchema = z.object({
+  industry: z.string().min(1).max(200),
+  from: z.string().max(7),
+  to: z.string().max(7),
+  current: z.boolean().optional(),
 });
 
 export const updateAgencyProfileSchema = z.object({
@@ -28,9 +49,12 @@ export const updateAgencyProfileSchema = z.object({
   location_city: z.string().max(200).nullable().optional(),
   address: z.string().max(500).nullable().optional(),
   pincode: z.string().regex(/^\d{6}$/, 'Pincode must be 6 digits').nullable().optional().or(z.literal('')),
-  logo_url: z.string().url().nullable().optional(),
   agency_short_name: z.string().max(20).nullable().optional(),
-  short_form: z.string().max(20).nullable().optional(),
+  skills: z.array(agencySkillSchema).max(200).nullable().optional(),
+  tools: z.array(agencyLeveledItemSchema).max(200).nullable().optional(),
+  ai_tools: z.array(agencyLeveledItemSchema).max(200).nullable().optional(),
+  categories: z.array(agencyCategorySchema).max(200).nullable().optional(),
+  industry_experience: z.array(agencyIndustryExperienceSchema).max(100).nullable().optional(),
 });
 
 export const createSquadMemberSchema = z.object({
