@@ -1,11 +1,13 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { agencyApi } from '@/services/agency-api';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import Modal from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
 import { COUNTRIES, INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-locations';
 import { useUpload } from '@/hooks/useUpload';
@@ -35,11 +37,19 @@ const AGENCY_LANGUAGES = [
 
 export default function AgencyProfileForm(){
   const qc=useQueryClient();
+  const router=useRouter();
   const { data: agencyProfile } = useQuery({ queryKey:['agencyProfile'], queryFn: agencyApi.getProfile });
   const { data: me } = useQuery({ queryKey:['agencyMe'], queryFn: agencyApi.me });
   const { data: categories=[] } = useQuery({ queryKey:['agencyCategories'], queryFn: async()=>{ const {data}=await api.get('/public/categories'); return data as any[]; }});
   const { uploadFile, uploading } = useUpload();
   const [languageSelect, setLanguageSelect] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
+  const initialForm = useRef<string>('');
+  const hasInitialized = useRef(false);
+  const pendingNav = useRef<{ url: string } | { back: true } | null>(null);
+  const formRef = useRef<any>(null);
+  const dirtyRef = useRef(false);
   const [form,setForm]=useState<any>({
     agency_name:'', agency_short_name:'', tagline:'', about:'', team_size:'', services:[] as string[],
     languages:[] as string[],
@@ -62,35 +72,111 @@ export default function AgencyProfileForm(){
   };
 
   useEffect(()=>{
-    if(me || agencyProfile){
-      setForm((prev:any)=>({
-        ...prev,
-        agency_name: (me as any)?.agency_name || prev.agency_name || '',
-        agency_short_name: (me as any)?.agency_short_name || (me as any)?.short_form || (agencyProfile as any)?.agency_short_name || (agencyProfile as any)?.short_form || prev.agency_short_name || '',
-        contact_person: (me as any)?.contact_person || prev.contact_person || '',
-        contact_email: (me as any)?.contact_email || (me as any)?.email || prev.contact_email || '',
-        whatsapp_number: (me as any)?.whatsapp_number || (me as any)?.phone || prev.whatsapp_number || '',
-        tagline: (agencyProfile as any)?.tagline||prev.tagline||'',
-        about: (agencyProfile as any)?.about||prev.about||'',
-        team_size: (agencyProfile as any)?.team_size||prev.team_size||'',
-        services: Array.isArray((agencyProfile as any)?.services)? (agencyProfile as any).services: prev.services||[],
-        languages: normalizeLanguages((agencyProfile as any)?.languages ?? (agencyProfile as any)?.languages_spoken) .length ? normalizeLanguages((agencyProfile as any)?.languages ?? (agencyProfile as any)?.languages_spoken) : prev.languages||[],
-        location_country: (agencyProfile as any)?.location_country||prev.location_country||'India',
-        location_state: (agencyProfile as any)?.location_state||prev.location_state||'',
-        location_district: (agencyProfile as any)?.location_district||prev.location_district||'',
-        location_city: (agencyProfile as any)?.location_city||prev.location_city||'',
-        address: (agencyProfile as any)?.address||prev.address||'',
-        pincode: (agencyProfile as any)?.pincode||prev.pincode||'',
-        founded_year: (agencyProfile as any)?.founded_year?String((agencyProfile as any).founded_year):prev.founded_year||'',
-        logo_url: (agencyProfile as any)?.logo_url || (me as any)?.logo_url || prev.logo_url || '',
-        skills: Array.isArray((agencyProfile as any)?.skills)? (agencyProfile as any).skills: prev.skills||[],
-        tools: Array.isArray((agencyProfile as any)?.tools)? (agencyProfile as any).tools: prev.tools||[],
-        ai_tools: Array.isArray((agencyProfile as any)?.ai_tools)? (agencyProfile as any).ai_tools: prev.ai_tools||[],
-        categories: Array.isArray((agencyProfile as any)?.categories)? (agencyProfile as any).categories: prev.categories||[],
-        industry_experience: Array.isArray((agencyProfile as any)?.industry_experience)? (agencyProfile as any).industry_experience: prev.industry_experience||[]
-      }));
+    if(!me && !agencyProfile) return;
+    // Don't clobber user edits on background refetches.
+    if(hasInitialized.current && dirtyRef.current) return;
+    const prev: any = formRef.current ?? {};
+    const next = {
+      ...prev,
+      agency_name: (me as any)?.agency_name || prev.agency_name || '',
+      agency_short_name: (me as any)?.agency_short_name || (me as any)?.short_form || (agencyProfile as any)?.agency_short_name || (agencyProfile as any)?.short_form || prev.agency_short_name || '',
+      contact_person: (me as any)?.contact_person || prev.contact_person || '',
+      contact_email: (me as any)?.contact_email || (me as any)?.email || prev.contact_email || '',
+      whatsapp_number: (me as any)?.whatsapp_number || (me as any)?.phone || prev.whatsapp_number || '',
+      tagline: (agencyProfile as any)?.tagline||prev.tagline||'',
+      about: (agencyProfile as any)?.about||prev.about||'',
+      team_size: (agencyProfile as any)?.team_size||prev.team_size||'',
+      services: Array.isArray((agencyProfile as any)?.services)? (agencyProfile as any).services: prev.services||[],
+      languages: normalizeLanguages((agencyProfile as any)?.languages ?? (agencyProfile as any)?.languages_spoken) .length ? normalizeLanguages((agencyProfile as any)?.languages ?? (agencyProfile as any)?.languages_spoken) : prev.languages||[],
+      location_country: (agencyProfile as any)?.location_country||prev.location_country||'India',
+      location_state: (agencyProfile as any)?.location_state||prev.location_state||'',
+      location_district: (agencyProfile as any)?.location_district||prev.location_district||'',
+      location_city: (agencyProfile as any)?.location_city||prev.location_city||'',
+      address: (agencyProfile as any)?.address||prev.address||'',
+      pincode: (agencyProfile as any)?.pincode||prev.pincode||'',
+      founded_year: (agencyProfile as any)?.founded_year?String((agencyProfile as any).founded_year):prev.founded_year||'',
+      logo_url: (agencyProfile as any)?.logo_url || (me as any)?.logo_url || prev.logo_url || '',
+      skills: Array.isArray((agencyProfile as any)?.skills)? (agencyProfile as any).skills: prev.skills||[],
+      tools: Array.isArray((agencyProfile as any)?.tools)? (agencyProfile as any).tools: prev.tools||[],
+      ai_tools: Array.isArray((agencyProfile as any)?.ai_tools)? (agencyProfile as any).ai_tools: prev.ai_tools||[],
+      categories: Array.isArray((agencyProfile as any)?.categories)? (agencyProfile as any).categories: prev.categories||[],
+      industry_experience: Array.isArray((agencyProfile as any)?.industry_experience)? (agencyProfile as any).industry_experience: prev.industry_experience||[]
+    };
+    // Re-baseline while the user hasn't made edits, so staged server
+    // loads (me → profile) don't falsely read as dirty.
+    if(!hasInitialized.current || !dirtyRef.current){
+      initialForm.current = JSON.stringify(next);
+      hasInitialized.current = true;
     }
+    setForm(next);
   },[agencyProfile, me]);
+
+  useEffect(()=>{ formRef.current = form; },[form]);
+
+  useEffect(()=>{
+    if(!hasInitialized.current){ setDirty(false); dirtyRef.current=false; return; }
+    const isDirty = JSON.stringify(form) !== initialForm.current;
+    setDirty(isDirty);
+    dirtyRef.current = isDirty;
+  },[form]);
+
+  // Browser refresh / tab close — native prompt
+  useEffect(()=>{
+    const handler = (e: BeforeUnloadEvent)=>{ if(dirtyRef.current) e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return ()=>window.removeEventListener('beforeunload', handler);
+  },[]);
+
+  const navigatePending = useCallback(()=>{
+    const pending = pendingNav.current;
+    pendingNav.current = null;
+    setShowExitModal(false);
+    // Clear dirty so guards don't re-fire during navigation
+    dirtyRef.current = false;
+    setDirty(false);
+    if(!pending) return;
+    if('back' in pending) { window.history.back(); }
+    else { router.push(pending.url); }
+  },[router]);
+
+  // Browser back / forward button — show popup instead of leaving silently
+  useEffect(()=>{
+    if(!dirty) return;
+    window.history.pushState(null, '', window.location.href);
+    const onPopState = ()=>{
+      window.history.pushState(null, '', window.location.href);
+      pendingNav.current = { back: true };
+      setShowExitModal(true);
+    };
+    window.addEventListener('popstate', onPopState);
+    return ()=>window.removeEventListener('popstate', onPopState);
+  },[dirty]);
+
+  // In-app navigation (sidebar / topbar / links) — intercept and show popup
+  useEffect(()=>{
+    const onClick = (e: MouseEvent)=>{
+      if(!dirtyRef.current || showExitModal) return;
+      const target = e.target as HTMLElement | null;
+      const anchor = target?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if(!anchor) return;
+      if(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      if(anchor.target === '_blank') return;
+      const href = anchor.getAttribute('href');
+      if(!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+      let url: URL;
+      try{ url = new URL(href, window.location.origin); }catch{ return; }
+      if(url.origin !== window.location.origin) return;
+      const nextPath = url.pathname + url.search + url.hash;
+      const curPath = window.location.pathname + window.location.search + window.location.hash;
+      if(nextPath === curPath) return;
+      e.preventDefault();
+      e.stopPropagation();
+      pendingNav.current = { url: nextPath };
+      setShowExitModal(true);
+    };
+    document.addEventListener('click', onClick, true);
+    return ()=>document.removeEventListener('click', onClick, true);
+  },[showExitModal]);
 
   const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>)=>{
     const v=e.target.value;
@@ -139,43 +225,59 @@ export default function AgencyProfileForm(){
 
   const save=useMutation({
     mutationFn: async()=>{
-      if(!form.agency_name?.trim()) throw new Error('Agency name is required');
-      if(form.pincode && !/^\d{6}$/.test(form.pincode)) throw new Error('Pincode must be 6 digits');
-      if(form.whatsapp_number && !/^\+?\d{8,15}$/.test(form.whatsapp_number.replace(/[\s-]/g,''))) throw new Error('Enter a valid WhatsApp number');
+      const current = formRef.current ?? form;
+      if(!current.agency_name?.trim()) throw new Error('Agency name is required');
+      if(current.pincode && !/^\d{6}$/.test(current.pincode)) throw new Error('Pincode must be 6 digits');
+      if(current.whatsapp_number && !/^\+?\d{8,15}$/.test(current.whatsapp_number.replace(/[\s-]/g,''))) throw new Error('Enter a valid WhatsApp number');
       const profilePayload:any = {
-        tagline: form.tagline||null,
-        about: form.about||null,
-        team_size: form.team_size||null,
-        services: form.services?.length? form.services:null,
-        languages: form.languages?.length? form.languages:null,
-        location_country: form.location_country||null,
-        location_state: form.location_state||null,
-        location_district: form.location_district||null,
-        location_city: form.location_city||null,
-        address: form.address||null,
-        pincode: form.pincode||null,
-        founded_year: form.founded_year? Number(form.founded_year):null,
-        skills: form.skills?.length? form.skills:null,
-        tools: form.tools?.length? form.tools:null,
-        ai_tools: form.ai_tools?.length? form.ai_tools:null,
-        categories: form.categories?.length? form.categories:null,
-        industry_experience: form.industry_experience?.length? form.industry_experience:null,
+        tagline: current.tagline||null,
+        about: current.about||null,
+        team_size: current.team_size||null,
+        services: current.services?.length? current.services:null,
+        languages: current.languages?.length? current.languages:null,
+        location_country: current.location_country||null,
+        location_state: current.location_state||null,
+        location_district: current.location_district||null,
+        location_city: current.location_city||null,
+        address: current.address||null,
+        pincode: current.pincode||null,
+        founded_year: current.founded_year? Number(current.founded_year):null,
+        skills: current.skills?.length? current.skills:null,
+        tools: current.tools?.length? current.tools:null,
+        ai_tools: current.ai_tools?.length? current.ai_tools:null,
+        categories: current.categories?.length? current.categories:null,
+        industry_experience: current.industry_experience?.length? current.industry_experience:null,
       };
       const userPayload:any = {
-        agency_name: form.agency_name?.trim(),
-        agency_short_name: form.agency_short_name?.trim()||null,
-        contact_person: form.contact_person||null,
-        contact_email: form.contact_email||null,
-        whatsapp_number: form.whatsapp_number||null,
-        phone: form.whatsapp_number||null,
-        logo_url: form.logo_url||null,
+        agency_name: current.agency_name?.trim(),
+        agency_short_name: current.agency_short_name?.trim()||null,
+        contact_person: current.contact_person||null,
+        contact_email: current.contact_email||null,
+        whatsapp_number: current.whatsapp_number||null,
+        phone: current.whatsapp_number||null,
+        logo_url: current.logo_url||null,
       };
       await agencyApi.updateProfile(profilePayload);
       await agencyApi.updateMe(userPayload);
     },
-    onSuccess:()=>{ qc.invalidateQueries({queryKey:['agencyProfile']}); qc.invalidateQueries({queryKey:['agencyMe']}); toast.success('Agency profile saved'); agencyApi.backfillCards().catch(()=>{}); },
+    onSuccess:()=>{ initialForm.current = JSON.stringify(formRef.current ?? form); setDirty(false); dirtyRef.current=false; qc.invalidateQueries({queryKey:['agencyProfile']}); qc.invalidateQueries({queryKey:['agencyMe']}); toast.success('Agency profile saved'); agencyApi.backfillCards().catch(()=>{}); },
     onError:(e:any)=>toast.error(e.response?.data?.message || e.message || 'Failed to save')
   });
+
+  const handleSaveAndExit = ()=>{
+    save.mutate(undefined, {
+      onSuccess: ()=>{
+        const pending = pendingNav.current;
+        pendingNav.current = null;
+        setShowExitModal(false);
+        dirtyRef.current = false;
+        setDirty(false);
+        if(!pending) return;
+        if('back' in pending) { window.history.back(); }
+        else { router.push(pending.url); }
+      },
+    });
+  };
 
   const districtOptions = form.location_state ? (DISTRICTS_BY_STATE[form.location_state] || []).map(d=>({label:d,value:d})) : [];
   const cityOptions = districtOptions;
@@ -379,10 +481,30 @@ export default function AgencyProfileForm(){
           <label className="mb-1.5 block text-[13px] font-medium text-[#3F3F46]">About Agency</label>
           <textarea className="block w-full rounded-lg border border-[#E7E7EA] bg-white px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-[#a3a3a3] focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/12" rows={4} value={form.about} onChange={e=>setForm((p:any)=>({...p, about:e.target.value}))} placeholder="Tell clients about your agency, strengths, and clients served..." />
         </div>
-        <div className="mt-6 flex justify-end">
-          <Button onClick={()=>save.mutate()} loading={save.isPending}>Save Agency Profile</Button>
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-xs text-[#737373]">
+            {dirty ? 'You have unsaved changes' : 'No changes yet'}
+          </div>
+          <div className="flex items-center gap-2">
+            {dirty && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                Unsaved changes
+              </span>
+            )}
+            <Button onClick={()=>save.mutate()} loading={save.isPending}>Save Agency Profile</Button>
+          </div>
         </div>
       </Card>
+      <Modal open={showExitModal} onClose={()=>{ pendingNav.current=null; setShowExitModal(false); }} title="Unsaved changes">
+        <p className="text-sm text-[#525252]">You have unsaved changes. If you leave now, your edits to the agency profile will be lost.</p>
+        <p className="mt-1 text-sm font-medium text-[#0a0a0a]">Leave without saving?</p>
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button variant="outline" onClick={()=>{ pendingNav.current=null; setShowExitModal(false); }}>Keep Editing</Button>
+          <Button variant="outline" onClick={navigatePending}>Discard Changes</Button>
+          <Button onClick={handleSaveAndExit} loading={save.isPending}>Save & Exit</Button>
+        </div>
+      </Modal>
     </div>
   );
 }
