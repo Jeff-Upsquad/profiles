@@ -41,8 +41,12 @@ Future<void> _ensureInitialized() async {
     onDidReceiveNotificationResponse: (response) {
       var route = response.payload;
       if (route != null && route.isNotEmpty) {
-        if (response.actionId == 'group_meet_accept' || response.actionId == 'group_meet_decline') {
-          final action = response.actionId == 'group_meet_accept' ? 'accept' : 'decline';
+        if (response.actionId == 'group_meet_accept' || response.actionId == 'group_meet_decline' || response.actionId == 'group_meet_join') {
+          final action = response.actionId == 'group_meet_accept'
+              ? 'accept'
+              : response.actionId == 'group_meet_decline'
+                ? 'decline'
+                : 'join';
           route = '$route${route.contains('?') ? '&' : '?'}action=$action';
           if (response.id != null) _plugin.cancel(id: response.id!);
         }
@@ -105,6 +109,7 @@ Future<void> showLocalNotification(RemoteMessage message) async {
   final type = data['type']?.toString() ?? '';
   final actionRequired = data['action_required']?.toString() == 'true' &&
       (type == 'group_meet_invite' || type == 'group_meet_rescheduled');
+  final joinNow = type == 'group_meet_join';
   try {
     await _plugin.show(
       id: id,
@@ -123,6 +128,8 @@ Future<void> showLocalNotification(RemoteMessage message) async {
           actions: actionRequired ? const [
             AndroidNotificationAction('group_meet_decline', 'Decline', showsUserInterface: true),
             AndroidNotificationAction('group_meet_accept', 'Accept', showsUserInterface: true),
+          ] : joinNow ? const [
+            AndroidNotificationAction('group_meet_join', 'Join', showsUserInterface: true),
           ] : const [],
         ),
       ),

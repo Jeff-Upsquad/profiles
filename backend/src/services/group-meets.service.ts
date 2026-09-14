@@ -26,21 +26,29 @@ function roomName(meetingId: string) {
   return `group-meet-${meetingId.replace(/-/g, '')}-${randomUUID().slice(0, 8)}`;
 }
 
+type GroupMeetNoticeKind = 'invite' | 'rescheduled' | 'cancelled' | 'join';
+
+function noticeType(kind: GroupMeetNoticeKind) {
+  if (kind === 'invite') return 'group_meet_invite';
+  if (kind === 'rescheduled') return 'group_meet_rescheduled';
+  if (kind === 'join') return 'group_meet_join';
+  return 'group_meet_cancelled';
+}
+
 function fanOutGroupMeetNotice(
   talentUserIds: string[],
   input: {
-    kind: 'invite' | 'rescheduled' | 'cancelled';
+    kind: GroupMeetNoticeKind;
     title: string;
     body: string;
     cardId: string;
     meetingId: string;
   },
 ) {
-  const type = input.kind === 'invite'
-    ? 'group_meet_invite'
-    : input.kind === 'rescheduled'
-      ? 'group_meet_rescheduled'
-      : 'group_meet_cancelled';
+  const type = noticeType(input.kind);
+  const route = input.kind === 'join'
+    ? `/group-meet/${input.meetingId}?action=join`
+    : `/group-meet/${input.meetingId}`;
   void notifyGroupMeet(talentUserIds, input).catch((err) =>
     console.error(`[group-meet] ${input.kind} push failed`, err),
   );
@@ -49,7 +57,7 @@ function fanOutGroupMeetNotice(
     type,
     input.title,
     input.body,
-    `/group-meet/${input.meetingId}`,
+    route,
   ).catch((err) => console.error(`[group-meet] ${input.kind} in-app notify failed`, err));
   void notifySquadHubGroupMeet(talentUserIds, input).catch((err) =>
     console.error(`[group-meet] ${input.kind} partner-app push failed`, err),
@@ -66,7 +74,7 @@ function squadHubApiBase(): string {
 async function notifySquadHubGroupMeet(
   talentUserIds: string[],
   input: {
-    kind: 'invite' | 'rescheduled' | 'cancelled';
+    kind: GroupMeetNoticeKind;
     title: string;
     body: string;
     cardId: string;
@@ -276,6 +284,7 @@ export async function reschedule(businessUserId: string, meetingId: string, inpu
     room_name: nextRoomName,
     room_started_at: null,
     room_ended_at: null,
+    join_notified_at: null,
     status: 'rescheduled',
     revision: current.revision + 1,
     created_by_type: actor.type,
@@ -330,6 +339,47 @@ export async function getForTalent(talentUserId: string, meetingId: string): Pro
   return { ...await serialize(meeting), self_rsvp: membership.rsvp };
 }
 
+async function acceptedTalentIds(meetingId: string): Promise<string[]> {
+  const { data } = await supabaseAdmin.from('group_meet_members')
+    .select('participant_id')
+    .eq('group_meet_id', meetingId)
+    .eq('participant_type', 'talent')
+    .eq('rsvp', 'accepted');
+  return (data ?? []).map((row: any) => row.participant_id as string).filter(Boolean);
+}
+
+function joinNotice(meeting: { id: string; card_id: string; title?: string | null }) {
+  return {
+    kind: 'join' as const,
+    title: 'Join Group Meet',
+    body: `${meeting.title || 'Your Group Meet'} is starting. Tap Join to enter SquadUp.`,
+    cardId: meeting.card_id,
+    meetingId: meeting.id,
+  };
+}
+
+function meetingIsJoinable(meeting: { status: string; starts_at: string; room_started_at?: string | null }) {
+  if (!['scheduled', 'rescheduled'].includes(meeting.status)) return false;
+  if (meeting.room_started_at) return true;
+  return new Date(meeting.starts_at).getTime() <= Date.now();
+}
+
+async function claimJoinNotified(meetingId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin.from('group_meets')
+    .update({ join_notified_at: new Date().toISOString() })
+    .eq('id', meetingId)
+    .is('join_notified_at', null)
+    .in('status', ['scheduled', 'rescheduled'])
+    .select('id');
+  return !!data?.length;
+}
+
+function notifyJoinTo(meeting: { id: string; card_id: string; title?: string | null }, talentUserIds: string[]) {
+  const ids = [...new Set(talentUserIds)].filter(Boolean);
+  if (ids.length === 0) return;
+  fanOutGroupMeetNotice(ids, joinNotice(meeting));
+}
+
 export async function respond(talentUserId: string, meetingId: string, action: 'accept' | 'decline') {
   await getForTalent(talentUserId, meetingId);
   const now = new Date().toISOString();
@@ -337,7 +387,11 @@ export async function respond(talentUserId: string, meetingId: string, action: '
     rsvp: action === 'accept' ? 'accepted' : 'declined', rsvp_at: now,
   }).eq('group_meet_id', meetingId).eq('participant_type', 'talent').eq('participant_id', talentUserId);
   if (error) throw new AppError(500, error.message);
-  return getForTalent(talentUserId, meetingId);
+  const meeting = await getForTalent(talentUserId, meetingId);
+  if (action === 'accept' && meetingIsJoinable(meeting)) {
+    notifyJoinTo(meeting, [talentUserId]);
+  }
+  return meeting;
 }
 
 async function joinMeeting(
@@ -375,6 +429,14 @@ async function joinMeeting(
   if (presenceError) throw new AppError(500, presenceError.message);
   if (!meeting.room_started_at) {
     await supabaseAdmin.from('group_meets').update({ room_started_at: now }).eq('id', meeting.id).is('room_started_at', null);
+    void claimJoinNotified(meeting.id).then(async (claimed) => {
+      if (!claimed) return;
+      const ids = await acceptedTalentIds(meeting.id);
+      notifyJoinTo(
+        meeting,
+        actor.type === 'talent' ? ids.filter((id) => id !== actor.id) : ids,
+      );
+    }).catch((err) => console.error('[group-meet] join notice on room start failed', err));
   }
   const current = actor.type === 'talent'
     ? await getForTalent(actor.id, meeting.id)
@@ -417,4 +479,26 @@ export async function sendMessage(meetingId: string, actor: { type: GroupMeetAct
   }).select('*').single();
   if (error) throw new AppError(500, error.message);
   return data;
+}
+
+/** At start time, ping accepted talents with the Join notice (once per meeting). */
+export async function sweepGroupMeetJoinNotices(): Promise<void> {
+  const { data: meetings, error } = await supabaseAdmin.from('group_meets')
+    .select('id, card_id, title, starts_at')
+    .in('status', ['scheduled', 'rescheduled'])
+    .is('join_notified_at', null)
+    .lte('starts_at', new Date().toISOString())
+    .limit(50);
+  if (error) {
+    console.error('[group-meet] join sweep query failed', error.message);
+    return;
+  }
+  for (const meeting of meetings ?? []) {
+    try {
+      if (!(await claimJoinNotified(meeting.id))) continue;
+      notifyJoinTo(meeting, await acceptedTalentIds(meeting.id));
+    } catch (err) {
+      console.error('[group-meet] join sweep failed for', meeting.id, err);
+    }
+  }
 }

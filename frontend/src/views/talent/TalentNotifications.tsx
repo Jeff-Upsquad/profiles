@@ -101,10 +101,10 @@ function iconForNotification(n: Notification): { tint: string; node: React.React
       ),
     };
   }
-  if (n.system_type === 'group_meet_invite' || n.system_type === 'group_meet_rescheduled' || n.system_type === 'group_meet_cancelled') {
+  if (n.system_type === 'group_meet_invite' || n.system_type === 'group_meet_rescheduled' || n.system_type === 'group_meet_cancelled' || n.system_type === 'group_meet_join') {
     return {
       tint: 'tint-purple',
-      label: n.system_type === 'group_meet_cancelled' ? 'Cancelled' : n.system_type === 'group_meet_rescheduled' ? 'Rescheduled' : 'Group Meet',
+      label: n.system_type === 'group_meet_cancelled' ? 'Cancelled' : n.system_type === 'group_meet_rescheduled' ? 'Rescheduled' : n.system_type === 'group_meet_join' ? 'Join now' : 'Group Meet',
       node: (
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
           <rect x="3" y="6" width="12" height="12" rx="3" />
@@ -132,10 +132,11 @@ function groupMeetIdFrom(notification: Notification): string | null {
 function GroupMeetActions({ notification, onRead }: { notification: Notification; onRead: () => void }) {
   const router = useRouter();
   const qc = useQueryClient();
-  const [busy, setBusy] = useState<'accept' | 'decline' | null>(null);
+  const [busy, setBusy] = useState<'accept' | 'decline' | 'join' | null>(null);
   const meetingId = groupMeetIdFrom(notification);
   const needsResponse = notification.system_type === 'group_meet_invite' || notification.system_type === 'group_meet_rescheduled';
-  if (!meetingId || !needsResponse) return null;
+  const canJoin = notification.system_type === 'group_meet_join';
+  if (!meetingId || (!needsResponse && !canJoin)) return null;
 
   const respond = async (action: 'accept' | 'decline') => {
     if (busy) return;
@@ -145,7 +146,7 @@ function GroupMeetActions({ notification, onRead }: { notification: Notification
       onRead();
       qc.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
       if (action === 'accept') {
-        toast.success('Invite accepted');
+        toast.success('Invite accepted. We’ll notify you when it’s time to join.');
         router.push(`/group-meet/${meetingId}`);
       } else {
         toast.success('Invite declined');
@@ -156,6 +157,21 @@ function GroupMeetActions({ notification, onRead }: { notification: Notification
       setBusy(null);
     }
   };
+
+  if (canJoin) {
+    return (
+      <div className="mt-3 flex flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>
+        <button
+          type="button"
+          disabled={!!busy}
+          onClick={() => { onRead(); router.push(`/group-meet/${meetingId}?action=join`); }}
+          className="rounded-lg bg-[#171717] px-3 py-1.5 text-xs font-semibold text-white hover:bg-black disabled:opacity-40"
+        >
+          Join SquadUp
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-3 flex flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>

@@ -57,6 +57,7 @@ class _GroupMeetScreenState extends ConsumerState<GroupMeetScreen> with SingleTi
         final myRsvp = meet.selfRsvp;
         final action = widget.initialAction;
         if (!_actedFromPush && myRsvp == 'invited' && (action == 'accept' || action == 'decline')) { _actedFromPush = true; WidgetsBinding.instance.addPostFrameCallback((_) => _respond(action!)); }
+        if (!_actedFromPush && myRsvp == 'accepted' && action == 'join') { _actedFromPush = true; WidgetsBinding.instance.addPostFrameCallback((_) => _join(meet)); }
         final needsResponse = myRsvp == 'invited' && meet.status != 'cancelled';
         return PopScope(
           canPop: !needsResponse,

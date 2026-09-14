@@ -32,8 +32,10 @@ export default function GroupMeetRoom({ meetingId }: { meetingId: string }) {
   const [room, setRoom] = useState<Room | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [invite, setInvite] = useState<GroupMeet | null>(null);
+  const [lobby, setLobby] = useState<GroupMeet | null>(null);
   const [inviteBusy, setInviteBusy] = useState(false);
   const [joinNonce, setJoinNonce] = useState(0);
+  const [wantJoin, setWantJoin] = useState(false);
 
   useEffect(() => {
     if (isLoading) return;
@@ -58,21 +60,28 @@ export default function GroupMeetRoom({ meetingId }: { meetingId: string }) {
         const pushAction = new URLSearchParams(window.location.search).get('action');
         if (meeting.self_rsvp !== 'accepted') {
           if (pushAction === 'accept' || pushAction === 'decline') {
-            await respondToGroupMeet(meetingId, pushAction);
+            const updated = await respondToGroupMeet(meetingId, pushAction);
             if (!active) return;
             if (pushAction === 'decline') {
               setError('You declined this Group Meet.');
               return;
             }
-          } else {
-            setInvite(meeting);
+            setLobby(updated);
             return;
           }
+          setInvite(meeting);
+          return;
+        }
+        // Accept confirms attendance only. Join is a later notice / button.
+        if (pushAction !== 'join' && !wantJoin) {
+          setLobby(meeting);
+          return;
         }
       }
       const next = await joinGroupMeet(meetingId, role);
       if (!active) return;
       setInvite(null);
+      setLobby(null);
       setCredentials(next);
       setRoom(liveRoom);
       liveRoom.on(RoomEvent.Disconnected, () => {
@@ -89,25 +98,31 @@ export default function GroupMeetRoom({ meetingId }: { meetingId: string }) {
       active = false;
       liveRoom.disconnect().catch(() => undefined);
     };
-  }, [isLoading, joinNonce, meetingId, role, router, token, user?.role]);
+  }, [isLoading, joinNonce, meetingId, role, router, token, user?.role, wantJoin]);
 
   const respond = async (action: 'accept' | 'decline') => {
     if (inviteBusy) return;
     setInviteBusy(true);
     try {
-      await respondToGroupMeet(meetingId, action);
+      const updated = await respondToGroupMeet(meetingId, action);
       if (action === 'decline') {
         setInvite(null);
         setError('You declined this Group Meet.');
         return;
       }
       setInvite(null);
-      setJoinNonce((value) => value + 1);
+      setLobby(updated);
     } catch (reason: any) {
       toast.error(reason.response?.data?.message || 'Could not update your response');
     } finally {
       setInviteBusy(false);
     }
+  };
+
+  const joinFromLobby = () => {
+    setLobby(null);
+    setWantJoin(true);
+    setJoinNonce((value) => value + 1);
   };
 
   const leave = useCallback(async () => {
@@ -119,6 +134,7 @@ export default function GroupMeetRoom({ meetingId }: { meetingId: string }) {
 
   if (error) return <RoomError message={error} onBack={() => router.back()} />;
   if (invite) return <TalentInvite meeting={invite} busy={inviteBusy} onAccept={() => respond('accept')} onDecline={() => respond('decline')} />;
+  if (lobby) return <TalentLobby meeting={lobby} busy={inviteBusy} onJoin={joinFromLobby} />;
   if (!credentials || !room || !role) return <RoomLoading />;
   return <ConnectedRoom room={room} initialMeeting={credentials.meeting} role={role} onLeave={leave} />;
 }
@@ -243,11 +259,26 @@ function TalentInvite({ meeting, busy, onAccept, onDecline }: { meeting: GroupMe
         <h1 className="mt-3 text-2xl font-semibold">{meeting.title}</h1>
         <p className="mt-3 text-sm text-white/80">{when}</p>
         <p className="mt-1 text-xs text-white/50">{meeting.timezone} · {meeting.invited_count} talents invited</p>
-        <p className="mt-5 text-sm leading-5 text-white/65">Please respond before joining SquadUp.</p>
+        <p className="mt-5 text-sm leading-5 text-white/65">Confirm you can attend. You’ll get a separate notification when it’s time to join SquadUp.</p>
         <div className="mt-6 grid grid-cols-2 gap-3">
           <button type="button" disabled={busy} onClick={onDecline} className="rounded-xl border border-white/15 px-4 py-3 text-sm font-semibold text-white/80 hover:bg-white/5 disabled:opacity-40">Decline</button>
           <button type="button" disabled={busy} onClick={onAccept} className="rounded-xl bg-[#FFFF99] px-4 py-3 text-sm font-semibold text-[#0A0A0A] disabled:opacity-40">{busy ? 'Updating…' : 'Accept invite'}</button>
         </div>
+      </div>
+    </main>
+  );
+}
+function TalentLobby({ meeting, busy, onJoin }: { meeting: GroupMeet; busy: boolean; onJoin: () => void }) {
+  const when = formatGroupMeetWhen(meeting.starts_at, meeting.timezone);
+  return (
+    <main className="grid min-h-screen place-items-center bg-[#111214] p-6 text-white">
+      <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#1A1B20] p-6">
+        <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#FFFF99]">You’re confirmed</p>
+        <h1 className="mt-3 text-2xl font-semibold">{meeting.title}</h1>
+        <p className="mt-3 text-sm text-white/80">{when}</p>
+        <p className="mt-1 text-xs text-white/50">{meeting.timezone}</p>
+        <p className="mt-5 text-sm leading-5 text-white/65">Thanks — we’ll notify you when it’s time to join SquadUp. You can also join from here once the meeting is open.</p>
+        <button type="button" disabled={busy} onClick={onJoin} className="mt-6 w-full rounded-xl bg-[#FFFF99] px-4 py-3 text-sm font-semibold text-[#0A0A0A] disabled:opacity-40">{busy ? 'Joining…' : 'Join SquadUp'}</button>
       </div>
     </main>
   );

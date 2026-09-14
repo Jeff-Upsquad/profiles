@@ -22,6 +22,7 @@ interface PushPayload {
     | 'group_meet_invite'
     | 'group_meet_rescheduled'
     | 'group_meet_cancelled'
+    | 'group_meet_join'
     | 'broadcast'
     | JobPushType;
   title: string;
@@ -232,7 +233,7 @@ export async function notifyBroadcast(
 export async function notifyGroupMeet(
   talentUserIds: string[],
   input: {
-    kind: 'invite' | 'rescheduled' | 'cancelled';
+    kind: 'invite' | 'rescheduled' | 'cancelled' | 'join';
     title: string;
     body: string;
     cardId: string;
@@ -243,14 +244,17 @@ export async function notifyGroupMeet(
     ? 'group_meet_invite'
     : input.kind === 'rescheduled'
       ? 'group_meet_rescheduled'
-      : 'group_meet_cancelled';
+      : input.kind === 'join'
+        ? 'group_meet_join'
+        : 'group_meet_cancelled';
+  const needsRsvp = input.kind === 'invite' || input.kind === 'rescheduled';
   await sendToUsers(talentUserIds, {
     type,
     title: input.title,
     body: input.body,
     card_id: input.cardId,
     meeting_id: input.meetingId,
-    route: `/group-meet/${input.meetingId}`,
-    action_required: input.kind === 'cancelled' ? 'false' : 'true',
+    route: input.kind === 'join' ? `/group-meet/${input.meetingId}?action=join` : `/group-meet/${input.meetingId}`,
+    action_required: needsRsvp ? 'true' : 'false',
   });
 }

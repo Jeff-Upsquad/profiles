@@ -10,6 +10,7 @@ import {
 } from './jobs.service.js';
 import { expireOverdueOffers } from './offers.service.js';
 import { sweepMeetingReminders } from './conversations.service.js';
+import { sweepGroupMeetJoinNotices } from './group-meets.service.js';
 
 /**
  * Interview-day orchestration cron (60s tick):
@@ -259,6 +260,7 @@ export function startInterviewSweeper(): NodeJS.Timeout {
       await sweepAutoComplete(now);
       await expireOverdueOffers();
       await sweepMeetingReminders();
+      await sweepGroupMeetJoinNotices();
     } catch (err) {
       console.error('[jobs-sweeper] tick errored', err);
     }
