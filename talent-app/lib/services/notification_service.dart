@@ -39,8 +39,15 @@ Future<void> _ensureInitialized() async {
   await _plugin.initialize(
     settings: const InitializationSettings(android: androidInit),
     onDidReceiveNotificationResponse: (response) {
-      final route = response.payload;
-      if (route != null && route.isNotEmpty) _onTap?.call(route);
+      var route = response.payload;
+      if (route != null && route.isNotEmpty) {
+        if (response.actionId == 'group_meet_accept' || response.actionId == 'group_meet_decline') {
+          final action = response.actionId == 'group_meet_accept' ? 'accept' : 'decline';
+          route = '$route${route.contains('?') ? '&' : '?'}action=$action';
+          if (response.id != null) _plugin.cancel(id: response.id!);
+        }
+        _onTap?.call(route);
+      }
     },
   );
   await _plugin
@@ -95,12 +102,15 @@ Future<void> showLocalNotification(RemoteMessage message) async {
   final id = message.messageId?.hashCode ??
       DateTime.now().millisecondsSinceEpoch.remainder(1 << 31);
 
+  final type = data['type']?.toString() ?? '';
+  final actionRequired = data['action_required']?.toString() == 'true' &&
+      (type == 'group_meet_invite' || type == 'group_meet_rescheduled');
   try {
     await _plugin.show(
       id: id,
       title: title,
       body: body,
-      notificationDetails: const NotificationDetails(
+      notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,
           _channelName,
@@ -108,6 +118,12 @@ Future<void> showLocalNotification(RemoteMessage message) async {
           importance: Importance.high,
           priority: Priority.high,
           icon: 'ic_stat_notify',
+          ongoing: actionRequired,
+          autoCancel: !actionRequired,
+          actions: actionRequired ? const [
+            AndroidNotificationAction('group_meet_decline', 'Decline', showsUserInterface: true),
+            AndroidNotificationAction('group_meet_accept', 'Accept', showsUserInterface: true),
+          ] : const [],
         ),
       ),
       payload: route,

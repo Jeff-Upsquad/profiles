@@ -19,6 +19,9 @@ interface PushPayload {
     | 'cancelled'
     | 'unassigned'
     | 'assignment_offer'
+    | 'group_meet_invite'
+    | 'group_meet_rescheduled'
+    | 'group_meet_cancelled'
     | 'broadcast'
     | JobPushType;
   title: string;
@@ -75,7 +78,11 @@ async function sendToUsers(userIds: string[], payload: PushPayload): Promise<voi
         // Motorola/Xiaomi). `data` is still carried for tap-routing and the
         // foreground path. channelId must match the app's channel so it lands
         // on the high-importance "Offers & Updates" channel (heads-up + sound).
-        notification: { title: payload.title, body: payload.body },
+        // Group Meet is data-only so the mobile app can render Accept / Decline
+        // actions itself. Ordinary events retain the OS-rendered fallback.
+        ...(payload.action_required === 'true'
+          ? {}
+          : { notification: { title: payload.title, body: payload.body } }),
         data: dataStrings,
         android: {
           priority: 'high',
@@ -219,5 +226,31 @@ export async function notifyBroadcast(
     body: input.body ?? '',
     card_id: '',
     route: input.route?.trim() || '/notifications',
+  });
+}
+
+export async function notifyGroupMeet(
+  talentUserIds: string[],
+  input: {
+    kind: 'invite' | 'rescheduled' | 'cancelled';
+    title: string;
+    body: string;
+    cardId: string;
+    meetingId: string;
+  },
+): Promise<void> {
+  const type = input.kind === 'invite'
+    ? 'group_meet_invite'
+    : input.kind === 'rescheduled'
+      ? 'group_meet_rescheduled'
+      : 'group_meet_cancelled';
+  await sendToUsers(talentUserIds, {
+    type,
+    title: input.title,
+    body: input.body,
+    card_id: input.cardId,
+    meeting_id: input.meetingId,
+    route: `/group-meet/${input.meetingId}`,
+    action_required: input.kind === 'cancelled' ? 'false' : 'true',
   });
 }

@@ -181,6 +181,12 @@ const envSchema = z.object({
   // Firebase Cloud Messaging (push notifications for talent app)
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional(),
 
+  // SquadUp / Group Meet media. All three are required to join a room; the
+  // scheduling and RSVP features remain available when media is unconfigured.
+  LIVEKIT_URL: z.string().optional(),
+  LIVEKIT_API_KEY: z.string().optional(),
+  LIVEKIT_API_SECRET: z.string().optional(),
+
   // Talent app distribution
   TALENT_APP_MIN_VERSION: z.string().default('1.0.0'),
   TALENT_APP_DOWNLOAD_URL: z.string().optional(),

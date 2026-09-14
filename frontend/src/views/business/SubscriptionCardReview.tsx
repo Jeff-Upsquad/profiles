@@ -17,6 +17,7 @@ import { FirstItemTip } from '@/components/ui/FirstItemTip';
 import BusinessAssignmentOffers from '@/components/subscriptions/BusinessAssignmentOffers';
 import BidActions from '@/components/subscriptions/BidActions';
 import OpenIntroRoomButton from '@/components/conversations/OpenIntroRoomButton';
+import GroupMeetPanel from '@/components/group-meet/GroupMeetPanel';
 import { isOpenBusinessOffer, useBusinessAssignmentOffers, type BusinessAssignmentOffer } from '@/hooks/useBusinessAssignmentOffers';
 import { useCardPayments, useStartCardPayment, type CardPayment, type CardGateway } from '@/hooks/useCardPayments';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
@@ -227,6 +228,15 @@ export default function SubscriptionCardReview({
 
   const shortlisted = useMemo(
     () => uniqueByTalent.filter((x) => x.section === 'shortlisted').map((x) => x.r),
+    [uniqueByTalent],
+  );
+
+  // Group Meet audience is the union requested by product: explicitly
+  // shortlisted talents plus anyone in an active bidding thread.
+  const groupMeetCandidates = useMemo(
+    () => uniqueByTalent
+      .filter((x) => x.section === 'shortlisted' || x.section === 'bidding')
+      .map((x) => x.r),
     [uniqueByTalent],
   );
 
@@ -501,6 +511,18 @@ export default function SubscriptionCardReview({
           Awaiting team review — this brief has been submitted and will appear with candidates once published.
         </div>
       )}
+
+      <GroupMeetPanel
+        cardId={cardId}
+        cardTitle={title}
+        candidates={groupMeetCandidates}
+        offerByRecipientId={offerByRecipientId}
+        currency={card.currency}
+        period={offerPeriod}
+        quantity={workQuantity}
+        unit={workUnit}
+        disabled={isClosed || isSubmitted || hasSelection}
+      />
 
       {/* Bidding — talent bids + business offers (subscription + assignment).
           Accept locks the figure; Select is a separate action below. */}

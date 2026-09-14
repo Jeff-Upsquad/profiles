@@ -12,6 +12,7 @@ import 'providers/providers.dart';
 import 'providers/jobs_providers.dart';
 import 'providers/talent_providers.dart';
 import 'providers/conversations_providers.dart';
+import 'providers/group_meet_providers.dart';
 import 'services/notification_service.dart';
 import 'services/update_controller.dart';
 
@@ -147,6 +148,9 @@ class _TalentAppState extends ConsumerState<TalentApp> {
     ref.invalidate(unreadNotificationsProvider);
     ref.invalidate(conversationsListProvider);
     ref.invalidate(conversationsUnreadProvider);
+    // A reschedule resets the RSVP, so always fetch the Group Meet again when
+    // its push lands. Family instances reached by a route refresh on open.
+    ref.invalidate(groupMeetProvider);
   }
 
   /// Navigate to a notification's target (a web link_url or an app route), or

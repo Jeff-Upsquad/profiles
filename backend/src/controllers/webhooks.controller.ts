@@ -298,3 +298,25 @@ export async function handleClientViewPaymentLink(
     next(err);
   }
 }
+
+export async function handleClientViewGroupMeetGet(req: Request, res: Response, next: NextFunction) {
+  try { res.json({ success: true, ...await clientView.getGroupMeet(req.body) }); } catch (error) { next(error); }
+}
+export async function handleClientViewGroupMeetSchedule(req: Request, res: Response, next: NextFunction) {
+  try { res.status(201).json({ success: true, ...await clientView.scheduleGroupMeet(req.body) }); } catch (error) { next(error); }
+}
+export async function handleClientViewGroupMeetReschedule(req: Request, res: Response, next: NextFunction) {
+  try { res.json({ success: true, ...await clientView.rescheduleGroupMeet(req.body) }); } catch (error) { next(error); }
+}
+export async function handleClientViewGroupMeetCancel(req: Request, res: Response, next: NextFunction) {
+  try { res.json({ success: true, ...await clientView.cancelGroupMeet(req.body) }); } catch (error) { next(error); }
+}
+export async function handleClientViewGroupMeetMessage(req: Request, res: Response, next: NextFunction) {
+  try { res.status(201).json({ success: true, ...await clientView.sendGroupMeetMessage(req.body) }); } catch (error) { next(error); }
+}
+export async function handleClientViewGroupMeetJoin(req: Request, res: Response, next: NextFunction) {
+  try { res.json({ success: true, ...await clientView.joinGroupMeet(req.body) }); } catch (error) { next(error); }
+}
+export async function handleClientViewGroupMeetLeave(req: Request, res: Response, next: NextFunction) {
+  try { res.json({ success: true, ...await clientView.leaveGroupMeet(req.body) }); } catch (error) { next(error); }
+}

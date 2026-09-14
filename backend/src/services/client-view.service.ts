@@ -3,6 +3,7 @@ import { AppError } from '../middleware/errorHandler.middleware.js';
 import * as businessService from './business.service.js';
 import * as cardPayments from './card-payments.service.js';
 import * as conversations from './conversations.service.js';
+import * as groupMeets from './group-meets.service.js';
 import type { ConversationActor } from './conversations.service.js';
 import type { IntroConversationDetail, IntroMessage } from '../../../shared/src/types/conversations.js';
 
@@ -297,4 +298,84 @@ export async function createCardPaymentLink(input: { external_id: string; recipi
     input.recipient_id,
   );
   return result;
+}
+
+function asGroupMeetActor(actor: ConversationActor, displayName: string): groupMeets.GroupMeetActor {
+  const type = actor.type === 'staff' || actor.type === 'admin'
+    ? actor.type
+    : 'admin';
+  return { type, id: actor.id, name: displayName };
+}
+
+async function groupMeetContext(meetingId: string, actorInput?: ClientViewActorInput) {
+  const { data: meeting, error } = await supabaseAdmin.from('group_meets')
+    .select('id, business_user_id').eq('id', meetingId).maybeSingle();
+  if (error) throw new AppError(500, error.message);
+  if (!meeting) throw new AppError(404, 'Group Meet not found');
+  const { actor, displayName } = await actorForClientView(actorInput);
+  return { meeting, actor: asGroupMeetActor(actor, displayName) };
+}
+
+export async function getGroupMeet(input: { external_id: string }) {
+  const card = await loadCardByExternalId(input.external_id);
+  const businessUserId = requireBusinessUserId(card);
+  return { meeting: await groupMeets.getForBusiness(businessUserId, card.id) };
+}
+
+export async function scheduleGroupMeet(input: {
+  external_id: string;
+  actor?: ClientViewActorInput;
+  title?: string;
+  starts_at: string;
+  ends_at: string;
+  timezone: string;
+}) {
+  const card = await loadCardByExternalId(input.external_id);
+  const businessUserId = requireBusinessUserId(card);
+  const { actor, displayName } = await actorForClientView(input.actor);
+  return { meeting: await groupMeets.schedule(businessUserId, card.id, input, asGroupMeetActor(actor, displayName)) };
+}
+
+export async function rescheduleGroupMeet(input: any) {
+  const context = await groupMeetContext(input.meeting_id, input.actor);
+  return { meeting: await groupMeets.reschedule(context.meeting.business_user_id, input.meeting_id, input, context.actor) };
+}
+
+export async function cancelGroupMeet(input: { meeting_id: string; actor?: ClientViewActorInput }) {
+  const context = await groupMeetContext(input.meeting_id, input.actor);
+  return { meeting: await groupMeets.cancel(context.meeting.business_user_id, input.meeting_id, context.actor) };
+}
+
+export async function sendGroupMeetMessage(input: { meeting_id: string; body: string; actor?: ClientViewActorInput }) {
+  const context = await groupMeetContext(input.meeting_id, input.actor);
+  await supabaseAdmin.from('group_meet_members').upsert({
+    group_meet_id: input.meeting_id,
+    participant_type: context.actor.type,
+    participant_id: context.actor.id,
+    display_name: context.actor.name,
+    role: 'team',
+    rsvp: 'accepted',
+    rsvp_at: new Date().toISOString(),
+  }, { onConflict: 'group_meet_id,participant_type,participant_id' });
+  return { message: await groupMeets.sendMessage(input.meeting_id, context.actor, input.body) };
+}
+
+export async function joinGroupMeet(input: { meeting_id: string; actor?: ClientViewActorInput }) {
+  const context = await groupMeetContext(input.meeting_id, input.actor);
+  await supabaseAdmin.from('group_meet_members').upsert({
+    group_meet_id: input.meeting_id,
+    participant_type: context.actor.type,
+    participant_id: context.actor.id,
+    display_name: context.actor.name,
+    role: 'team',
+    rsvp: 'accepted',
+    rsvp_at: new Date().toISOString(),
+  }, { onConflict: 'group_meet_id,participant_type,participant_id' });
+  return { credentials: await groupMeets.joinForBusiness(context.meeting.business_user_id, input.meeting_id, context.actor) };
+}
+
+export async function leaveGroupMeet(input: { meeting_id: string; actor?: ClientViewActorInput }) {
+  const context = await groupMeetContext(input.meeting_id, input.actor);
+  await groupMeets.leave(input.meeting_id, { type: context.actor.type, id: context.actor.id });
+  return { ok: true };
 }

@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import api from '@/services/api';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { formatDate } from '@/lib/formatDate';
+import { respondToGroupMeet } from '@/hooks/useGroupMeet';
 
 type MediaItem =
   | { type: 'image'; url: string; name?: string }
@@ -99,6 +101,18 @@ function iconForNotification(n: Notification): { tint: string; node: React.React
       ),
     };
   }
+  if (n.system_type === 'group_meet_invite' || n.system_type === 'group_meet_rescheduled' || n.system_type === 'group_meet_cancelled') {
+    return {
+      tint: 'tint-purple',
+      label: n.system_type === 'group_meet_cancelled' ? 'Cancelled' : n.system_type === 'group_meet_rescheduled' ? 'Rescheduled' : 'Group Meet',
+      node: (
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+          <rect x="3" y="6" width="12" height="12" rx="3" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="m15 10 5-3v10l-5-3" />
+        </svg>
+      ),
+    };
+  }
   return {
     tint: 'tint-purple',
     label: 'Announcement',
@@ -108,6 +122,61 @@ function iconForNotification(n: Notification): { tint: string; node: React.React
       </svg>
     ),
   };
+}
+
+function groupMeetIdFrom(notification: Notification): string | null {
+  if (!notification.system_type?.startsWith('group_meet_')) return null;
+  return notification.link_url?.match(/\/group-meet\/([0-9a-f-]{36})/i)?.[1] ?? null;
+}
+
+function GroupMeetActions({ notification, onRead }: { notification: Notification; onRead: () => void }) {
+  const router = useRouter();
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState<'accept' | 'decline' | null>(null);
+  const meetingId = groupMeetIdFrom(notification);
+  const needsResponse = notification.system_type === 'group_meet_invite' || notification.system_type === 'group_meet_rescheduled';
+  if (!meetingId || !needsResponse) return null;
+
+  const respond = async (action: 'accept' | 'decline') => {
+    if (busy) return;
+    setBusy(action);
+    try {
+      await respondToGroupMeet(meetingId, action);
+      onRead();
+      qc.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
+      if (action === 'accept') {
+        toast.success('Invite accepted');
+        router.push(`/group-meet/${meetingId}`);
+      } else {
+        toast.success('Invite declined');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Could not update your response');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>
+      <button
+        type="button"
+        disabled={!!busy}
+        onClick={() => respond('decline')}
+        className="rounded-lg border border-[#E1E1E5] px-3 py-1.5 text-xs font-semibold text-[#525252] hover:bg-[#F5F5F6] disabled:opacity-40"
+      >
+        {busy === 'decline' ? 'Updating…' : 'Decline'}
+      </button>
+      <button
+        type="button"
+        disabled={!!busy}
+        onClick={() => respond('accept')}
+        className="rounded-lg bg-[#171717] px-3 py-1.5 text-xs font-semibold text-white hover:bg-black disabled:opacity-40"
+      >
+        {busy === 'accept' ? 'Updating…' : 'Accept invite'}
+      </button>
+    </div>
+  );
 }
 
 function NotificationMedia({ media }: { media: MediaItem[] }) {
@@ -337,6 +406,7 @@ export default function TalentNotifications() {
                       </p>
                     )}
                     {hasMedia && <NotificationMedia media={notif.media} />}
+                    <GroupMeetActions notification={notif} onRead={() => markRead.mutate(notif.id)} />
                   </div>
                 </div>
               </article>

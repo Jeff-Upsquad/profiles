@@ -7,3 +7,4 @@ export * from './admin.js';
 export * from './lead.js';
 export * from './subscription.js';
 export * from './conversations.js';
+export * from './group-meet.js';

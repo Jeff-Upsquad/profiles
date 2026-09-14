@@ -17,6 +17,12 @@ import { requestCourseReopenSchema } from '../validators/access-requests.validat
 import { submitQuizSchema } from '../validators/training.validators.js';
 import { appCheckinSchema } from '../validators/app-install.validators.js';
 import * as conversationsController from '../controllers/conversations.controller.js';
+import * as groupMeetsController from '../controllers/group-meets.controller.js';
+import {
+  groupMeetIdParamSchema,
+  groupMeetMessageSchema,
+  groupMeetRespondSchema,
+} from '../validators/group-meets.validators.js';
 import {
   conversationIdParamSchema,
   conversationMeetingIdParamSchema,
@@ -120,6 +126,14 @@ router.get('/notifications', notificationsController.listTalent);
 router.get('/notifications/unread-count', notificationsController.unreadCountTalent);
 router.post('/notifications/mark-all-read', notificationsController.markAllReadTalent);
 router.post('/notifications/:id/read', notificationsController.markReadTalent);
+
+// Group Meet invites are action-required: the push deep-links here and the
+// talent must accept or decline before the room becomes dismissible.
+router.get('/group-meets/:meetingId', validate({ params: groupMeetIdParamSchema }), groupMeetsController.talentGet);
+router.post('/group-meets/:meetingId/respond', validate({ params: groupMeetIdParamSchema, body: groupMeetRespondSchema }), groupMeetsController.talentRespond);
+router.post('/group-meets/:meetingId/messages', validate({ params: groupMeetIdParamSchema, body: groupMeetMessageSchema }), groupMeetsController.talentMessage);
+router.post('/group-meets/:meetingId/join', validate({ params: groupMeetIdParamSchema }), groupMeetsController.talentJoin);
+router.post('/group-meets/:meetingId/leave', validate({ params: groupMeetIdParamSchema }), groupMeetsController.talentLeave);
 
 // Intro rooms
 router.get('/conversations', conversationsController.talentList);

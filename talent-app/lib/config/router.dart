@@ -28,6 +28,7 @@ import '../features/more/contact_support_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/settings/change_password_screen.dart';
 import '../features/subscriptions/subscription_detail_screen.dart';
+import '../features/group_meet/group_meet_screen.dart';
 import '../widgets/app_bottom_nav.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -119,6 +120,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       _rootRoute('/more/training', (_) => const TrainingScreen()),
       _rootRoute('/messages/:id',
           (s) => ConversationScreen(conversationId: s.pathParameters['id']!)),
+      _rootRoute('/group-meet/:id', (s) => GroupMeetScreen(
+        meetingId: s.pathParameters['id']!,
+        initialAction: s.uri.queryParameters['action'],
+      )),
       _rootRoute('/subscription-detail', (state) {
         final recipient = state.extra as SubscriptionCardRecipient?;
         if (recipient == null) {

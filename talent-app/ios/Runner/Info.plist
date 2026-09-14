@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>SquadHire uses your camera when you join a SquadUp Group Meet.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>SquadHire uses your microphone when you join a SquadUp Group Meet.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

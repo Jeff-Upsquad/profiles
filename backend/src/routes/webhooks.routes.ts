@@ -46,6 +46,13 @@ import {
   jobsSnapshotWebhookSchema,
   jobsStageWebhookSchema,
 } from '../validators/jobs.validators.js';
+import {
+  clientViewGroupMeetActionSchema,
+  clientViewGroupMeetGetSchema,
+  clientViewGroupMeetMessageSchema,
+  clientViewGroupMeetScheduleSchema,
+  clientViewGroupMeetUpdateSchema,
+} from '../validators/group-meets.validators.js';
 
 const router = Router();
 
@@ -316,6 +323,14 @@ router.post(
   validate({ body: clientViewPaymentLinkSchema }),
   webhooksController.handleClientViewPaymentLink,
 );
+
+router.post('/squadhub/cards/client-view/group-meet', verifySquadhubSecret, validate({ body: clientViewGroupMeetGetSchema }), webhooksController.handleClientViewGroupMeetGet);
+router.post('/squadhub/cards/client-view/group-meet/schedule', verifySquadhubSecret, validate({ body: clientViewGroupMeetScheduleSchema }), webhooksController.handleClientViewGroupMeetSchedule);
+router.post('/squadhub/cards/client-view/group-meet/reschedule', verifySquadhubSecret, validate({ body: clientViewGroupMeetUpdateSchema }), webhooksController.handleClientViewGroupMeetReschedule);
+router.post('/squadhub/cards/client-view/group-meet/cancel', verifySquadhubSecret, validate({ body: clientViewGroupMeetActionSchema }), webhooksController.handleClientViewGroupMeetCancel);
+router.post('/squadhub/cards/client-view/group-meet/messages', verifySquadhubSecret, validate({ body: clientViewGroupMeetMessageSchema }), webhooksController.handleClientViewGroupMeetMessage);
+router.post('/squadhub/cards/client-view/group-meet/join', verifySquadhubSecret, validate({ body: clientViewGroupMeetActionSchema }), webhooksController.handleClientViewGroupMeetJoin);
+router.post('/squadhub/cards/client-view/group-meet/leave', verifySquadhubSecret, validate({ body: clientViewGroupMeetActionSchema }), webhooksController.handleClientViewGroupMeetLeave);
 
 // SquadHire CRM (shcrm) reports a Kanban card move so we can mirror the new
 // stage onto lead_submissions.status. Pairs with the outbound webhook in

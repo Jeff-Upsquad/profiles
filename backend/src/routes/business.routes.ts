@@ -31,6 +31,13 @@ import {
 } from '../validators/jobs.validators.js';
 import { connectBriefSchema } from '../validators/connect-brief.validators.js';
 import * as conversationsController from '../controllers/conversations.controller.js';
+import * as groupMeetsController from '../controllers/group-meets.controller.js';
+import {
+  groupMeetCardParamSchema,
+  groupMeetIdParamSchema,
+  groupMeetMessageSchema,
+  groupMeetScheduleSchema,
+} from '../validators/group-meets.validators.js';
 import {
   conversationIdParamSchema,
   conversationMeetingIdParamSchema,
@@ -167,6 +174,16 @@ function registerCardOfferRoutes(prefix: string) {
 }
 registerCardOfferRoutes('/my-subscription-cards');
 registerCardOfferRoutes('/my-assignment-cards');
+
+// Card-level Group Meet — shortlist + active bidding audience share one invite,
+// attendance panel and chat thread.
+router.get('/my-subscription-cards/:cardId/group-meet', validate({ params: groupMeetCardParamSchema }), groupMeetsController.businessGet);
+router.post('/my-subscription-cards/:cardId/group-meet', validate({ params: groupMeetCardParamSchema, body: groupMeetScheduleSchema }), groupMeetsController.businessSchedule);
+router.put('/group-meets/:meetingId', validate({ params: groupMeetIdParamSchema, body: groupMeetScheduleSchema }), groupMeetsController.businessReschedule);
+router.post('/group-meets/:meetingId/cancel', validate({ params: groupMeetIdParamSchema }), groupMeetsController.businessCancel);
+router.post('/group-meets/:meetingId/messages', validate({ params: groupMeetIdParamSchema, body: groupMeetMessageSchema }), groupMeetsController.businessMessage);
+router.post('/group-meets/:meetingId/join', validate({ params: groupMeetIdParamSchema }), groupMeetsController.businessJoin);
+router.post('/group-meets/:meetingId/leave', validate({ params: groupMeetIdParamSchema }), groupMeetsController.businessLeave);
 
 // Talent Access browsing (bridged via business user email)
 router.get('/talent-access/status', businessController.getTalentAccessStatus);
