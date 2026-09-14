@@ -55,9 +55,19 @@ export default function GroupMeetRoom({ meetingId }: { meetingId: string }) {
           setError('You declined this Group Meet.');
           return;
         }
+        const pushAction = new URLSearchParams(window.location.search).get('action');
         if (meeting.self_rsvp !== 'accepted') {
-          setInvite(meeting);
-          return;
+          if (pushAction === 'accept' || pushAction === 'decline') {
+            await respondToGroupMeet(meetingId, pushAction);
+            if (!active) return;
+            if (pushAction === 'decline') {
+              setError('You declined this Group Meet.');
+              return;
+            }
+          } else {
+            setInvite(meeting);
+            return;
+          }
         }
       }
       const next = await joinGroupMeet(meetingId, role);

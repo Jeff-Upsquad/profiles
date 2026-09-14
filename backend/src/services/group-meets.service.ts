@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabase.js';
+import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { getBusinessUser, getCardRecipientsForReview } from './business.service.js';
 import { notifyGroupMeet } from './push.service.js';
@@ -50,6 +51,69 @@ function fanOutGroupMeetNotice(
     input.body,
     `/group-meet/${input.meetingId}`,
   ).catch((err) => console.error(`[group-meet] ${input.kind} in-app notify failed`, err));
+  void notifySquadHubGroupMeet(talentUserIds, input).catch((err) =>
+    console.error(`[group-meet] ${input.kind} partner-app push failed`, err),
+  );
+}
+
+function squadHubApiBase(): string {
+  if (env.SQUADHUB_API_URL) return env.SQUADHUB_API_URL.replace(/\/$/, '');
+  if (env.SQUADHUB_CALLBACK_URL) return new URL(env.SQUADHUB_CALLBACK_URL).origin;
+  return '';
+}
+
+/** Fan the Group Meet notice into SquadHub so the partner app can FCM it. */
+async function notifySquadHubGroupMeet(
+  talentUserIds: string[],
+  input: {
+    kind: 'invite' | 'rescheduled' | 'cancelled';
+    title: string;
+    body: string;
+    cardId: string;
+    meetingId: string;
+  },
+): Promise<void> {
+  const base = squadHubApiBase();
+  const secret = env.SQUADHUB_CALLBACK_SECRET;
+  if (!base || !secret) return;
+  const ids = [...new Set(talentUserIds)].filter(Boolean);
+  if (ids.length === 0) return;
+
+  const talents: { talent_user_id: string; email: string }[] = [];
+  await Promise.all(ids.map(async (id) => {
+    const { data, error } = await supabaseAdmin.auth.admin.getUserById(id);
+    const email = (data.user?.email ?? '').trim().toLowerCase();
+    if (error || !email) return;
+    talents.push({ talent_user_id: id, email });
+  }));
+  if (talents.length === 0) return;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5_000);
+  try {
+    const res = await fetch(`${base}/integrations/squadhire/talent/group-meet-notice`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-SquadHub-Signature': secret,
+      },
+      body: JSON.stringify({
+        kind: input.kind,
+        title: input.title,
+        body: input.body,
+        card_id: input.cardId,
+        meeting_id: input.meetingId,
+        talents,
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.error(`[group-meet] partner-app push HTTP ${res.status}`, text.slice(0, 300));
+    }
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function serialize(meeting: any): Promise<GroupMeet> {
