@@ -87,7 +87,8 @@ export default function HowItWorksVideoManager() {
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">How it works — Videos</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Manage the Loom videos shown to business users on the &ldquo;How it works&rdquo; page.
+            Manage the videos shown to business users on the &ldquo;How it works&rdquo; page. YouTube, Vimeo, Loom,
+            SquadClips, or direct video file URLs are supported.
           </p>
         </div>
         <Button onClick={openCreate} disabled={availableLanguages.length === 0}>
@@ -108,7 +109,7 @@ export default function HowItWorksVideoManager() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <h3 className="mt-3 text-sm font-semibold text-gray-900">No videos yet</h3>
-          <p className="mt-1 text-sm text-gray-500">Add a Loom video for each language.</p>
+          <p className="mt-1 text-sm text-gray-500">Add a video for each language.</p>
           <div className="mt-4">
             <Button size="sm" onClick={openCreate}>
               Add first video
@@ -121,7 +122,7 @@ export default function HowItWorksVideoManager() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Language</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Loom URL</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Video URL</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
                 <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
               </tr>
@@ -182,12 +183,12 @@ export default function HowItWorksVideoManager() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Loom URL</label>
+            <label className="block text-sm font-medium text-gray-700">Video URL</label>
             <input
               type="url"
               value={loomUrl}
               onChange={(e) => setLoomUrl(e.target.value)}
-              placeholder="https://www.loom.com/share/..."
+              placeholder="https://www.youtube.com/watch?v=... or https://www.loom.com/share/..."
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>

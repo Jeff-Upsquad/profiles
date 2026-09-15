@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useHowItWorksVideos } from '@/hooks/useHowItWorks';
 import { LANGUAGE_LABELS } from '@/hooks/useTraining';
+import { useHowItWorksLanguageGate } from '@/hooks/useHowItWorksLanguageGate';
+import HowItWorksHeroMedia from './how-it-works/HowItWorksHeroMedia';
+import HowItWorksLanguageGate from './how-it-works/HowItWorksLanguageGate';
 
-// The How-it-works walkthrough (language-picked Loom video + Squad Hire /
+// The How-it-works walkthrough (language-gated video + Squad Hire /
 // Squad Hub explainer tabs), extracted so it can render in two places:
 //
 //   • `variant="page"`     — the standalone /business/how-it-works route, which
@@ -13,14 +16,10 @@ import { LANGUAGE_LABELS } from '@/hooks/useTraining';
 //                            moves once the SquadHub tab takes over the fourth
 //                            nav slot, so the guide is never lost.
 //
-// Both variants share the video and tabs; only the header differs. The language
-// choice persists to localStorage, so picking it in one place carries to the other.
-
-function loomEmbedUrl(shareUrl: string): string {
-  return shareUrl.replace('/share/', '/embed/');
-}
-
-const STORAGE_KEY = 'how_it_works_language';
+// Player format matches the upsquad-site landing hero: pressing play opens a
+// "Choose your language" modal, picking a language starts playback with
+// speed control. The language choice persists to localStorage, so picking it
+// in one place carries to the other.
 
 export default function HowItWorksContent({
   variant = 'page',
@@ -28,58 +27,38 @@ export default function HowItWorksContent({
   variant?: 'page' | 'embedded';
 }) {
   const { data: videos = [], isLoading } = useHowItWorksVideos();
-  const [language, setLanguage] = useState<string>('');
-  const [hasSelected, setHasSelected] = useState(false);
   const [activeTab, setActiveTab] = useState<'hire' | 'hub'>('hire');
 
-  const availableLanguages = videos.map((v) => v.language);
+  const languages = videos.map((v) => ({
+    code: v.language,
+    name: LANGUAGE_LABELS[v.language] ?? v.language.toUpperCase(),
+  }));
 
-  useEffect(() => {
-    if (availableLanguages.length === 0) return;
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored && availableLanguages.includes(stored)) {
-      setLanguage(stored);
-      setHasSelected(true);
-    } else if (availableLanguages.length === 1) {
-      setLanguage(availableLanguages[0]);
-      setHasSelected(true);
-      localStorage.setItem(STORAGE_KEY, availableLanguages[0]);
-    } else if (!language || !availableLanguages.includes(language)) {
-      setLanguage(availableLanguages[0]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableLanguages.join(',')]);
+  const {
+    selected,
+    selectedCode,
+    gateOpen,
+    setGateOpen,
+    pendingPlay,
+    requestPlay,
+    onSelectLanguage,
+  } = useHowItWorksLanguageGate(languages);
 
-  const handleLanguageChange = (lang: string) => {
-    setLanguage(lang);
-    setHasSelected(true);
-    localStorage.setItem(STORAGE_KEY, lang);
-  };
+  const currentVideo = videos.find((v) => v.language === (selected?.code ?? ''));
+  const previewUrl = currentVideo?.loom_url ?? videos[0]?.loom_url;
 
-  const currentVideo = videos.find((v) => v.language === language);
-
-  const languagePicker = availableLanguages.length > 1 && (
-    <div className={`relative flex items-center gap-2 stagger-4 ${!hasSelected ? 'lang-picker-highlight' : ''}`}>
-      <svg className="h-4 w-4 text-[#525252]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+  const languagePill = selected && languages.length > 1 && (
+    <button
+      type="button"
+      onClick={() => setGateOpen(true)}
+      aria-label="Change video language"
+      className="inline-flex items-center gap-2 rounded-full border border-[#E7E7EA] bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm hover:border-gray-300 stagger-4"
+    >
+      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zm0 0c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3 7.5 7.03 7.5 12s2.015 9 4.5 9zM3.6 9h16.8M3.6 15h16.8" />
       </svg>
-      <select
-        value={language}
-        onChange={(e) => handleLanguageChange(e.target.value)}
-        aria-label="Video language"
-        className={`font-[family-name:var(--font-inter)] rounded-lg border bg-white px-3 py-1.5 text-[13px] font-medium text-[#0a0a0a] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/30 focus:border-[#0a0a0a] ${
-          !hasSelected
-            ? 'border-[#0a0a0a] ring-2 ring-[#0a0a0a]/30 animate-pulse'
-            : 'border-[#E7E7EA]'
-        }`}
-      >
-        {availableLanguages.map((lang) => (
-          <option key={lang} value={lang}>
-            {LANGUAGE_LABELS[lang] ?? lang.toUpperCase()}
-          </option>
-        ))}
-      </select>
-    </div>
+      Language: {selected.name}
+    </button>
   );
 
   return (
@@ -105,11 +84,11 @@ export default function HowItWorksContent({
                 Watch the video to learn how UpSquad helps you find, onboard, and manage top talent.
               </p>
             </div>
-            {languagePicker}
+            {languagePill}
           </div>
         </section>
       ) : (
-        languagePicker && <div className="flex justify-end">{languagePicker}</div>
+        languagePill && <div className="flex justify-end">{languagePill}</div>
       )}
 
       {isLoading ? (
@@ -132,40 +111,24 @@ export default function HowItWorksContent({
             </p>
           </div>
         </div>
-      ) : !hasSelected && availableLanguages.length > 1 ? (
-        <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#0a0a0a]/40 bg-gradient-to-br from-[#FFFAC2]/60 to-white px-6 py-10 text-center">
-          <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
-          <div className="relative">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center text-[#0a0a0a]">
-              <svg className="h-10 w-10 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-              </svg>
-            </div>
-            <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
-              Pick your language to start
-            </h3>
-            <p className="mt-1.5 text-sm text-[#525252] max-w-sm mx-auto">
-              Choose a language from the dropdown above to watch the video.
-            </p>
-          </div>
-        </div>
-      ) : currentVideo ? (
-        <div className="overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#09090B] shadow-[0_8px_30px_-8px_rgba(0,0,0,0.15)]">
-          <div className="aspect-video">
-            <iframe
-              src={loomEmbedUrl(currentVideo.loom_url)}
-              className="w-full h-full"
-              allowFullScreen
-              allow="autoplay; fullscreen"
+      ) : (
+        <>
+          <div className="overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#09090B] shadow-[0_8px_30px_-8px_rgba(0,0,0,0.15)]">
+            <HowItWorksHeroMedia
+              videoUrl={currentVideo?.loom_url}
+              previewUrl={previewUrl}
+              autoPlay={pendingPlay}
+              onRequestGate={requestPlay}
             />
           </div>
-        </div>
-      ) : (
-        <div className="rounded-2xl border border-[#E7E7EA] bg-white px-6 py-12 text-center">
-          <p className="text-sm text-[#737373]">
-            No video available for {LANGUAGE_LABELS[language] ?? language}. Try selecting another language.
-          </p>
-        </div>
+          <HowItWorksLanguageGate
+            open={gateOpen}
+            languages={languages}
+            selectedCode={selectedCode}
+            onSelect={onSelectLanguage}
+            onDismiss={() => setGateOpen(false)}
+          />
+        </>
       )}
 
       <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden">
