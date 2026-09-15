@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import BusinessNotificationsBell from '@/components/jobs/business/BusinessNotificationsBell';
@@ -33,6 +34,9 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
     (user?.role === 'business' && user?.contact_person_name) || user?.full_name || user?.email || '';
   const displayEmail = (user?.role === 'business' && user?.contact_email) || user?.email || '';
   const displayPhone = user?.role === 'business' ? user?.contact_phone : undefined;
+  // Temporary hide only — local state resets on refresh/navigation back, so
+  // contact details are expanded again by default.
+  const [showContactDetails, setShowContactDetails] = useState(true);
 
   return (
     <div className="flex h-full w-72 flex-col border-r border-gray-200 bg-white md:w-56">
@@ -181,12 +185,29 @@ export default function BusinessSidebar({ onNavigate }: { onNavigate?: () => voi
         {user && (
           <div className="mb-2 px-1">
             {displayName && (
-              <p className="truncate text-sm font-semibold text-zinc-900">{displayName}</p>
+              <button
+                type="button"
+                onClick={() => setShowContactDetails((v) => !v)}
+                aria-expanded={showContactDetails}
+                aria-label={showContactDetails ? 'Hide email and phone' : 'Show email and phone'}
+                className="flex w-full items-center justify-between gap-2 rounded-md py-0.5 text-left"
+              >
+                <span className="truncate text-sm font-semibold text-zinc-900">{displayName}</span>
+                <svg
+                  className={`h-3.5 w-3.5 shrink-0 text-zinc-400 transition-transform ${showContactDetails ? '' : 'rotate-180'}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
             )}
-            {displayEmail && (
+            {showContactDetails && displayEmail && (
               <p className="truncate text-[11px] text-zinc-500">{displayEmail}</p>
             )}
-            {displayPhone && (
+            {showContactDetails && displayPhone && (
               <p className="truncate text-[11px] text-zinc-500">{displayPhone}</p>
             )}
           </div>
