@@ -36,12 +36,12 @@ export default function BusinessCardsList({
   title?: string;
   subtitle?: string;
 }) {
-  const [filter, setFilter] = useState<FilterKey>('all');
+  const [filter, setFilter] = useState<FilterKey>('open');
 
   const visibleItems = items;
 
   const counts = useMemo(() => {
-    const c: Record<FilterKey, number> = { all: visibleItems.length } as Record<FilterKey, number>;
+    const c = {} as Record<FilterKey, number>;
     for (const status of STATUS_FILTER_ORDER) c[status] = 0;
     for (const i of visibleItems) c[i.status] = (c[i.status] ?? 0) + 1;
     return c;
@@ -52,27 +52,23 @@ export default function BusinessCardsList({
   const ALWAYS_SHOW_STATUSES: ActivityStatus[] = ['paused', 'closed', 'cancelled'];
 
   // Show tabs with cards, the active tab, and always-visible statuses.
+  // No "All" tab — the first tab (Open) is the default view.
   const tabs = useMemo(() => {
-    const statusTabs = STATUS_FILTER_ORDER.filter(
+    return STATUS_FILTER_ORDER.filter(
       (s) => (counts[s] ?? 0) > 0 || filter === s || ALWAYS_SHOW_STATUSES.includes(s),
     ).map((s) => ({ key: s as FilterKey, label: STATUS_STYLES[s].label }));
-    return [{ key: 'all' as const, label: 'All' }, ...statusTabs];
   }, [counts, filter]);
 
   // When the active filter has no cards left (e.g. data refreshed), fall back
-  // to All so the list isn't stuck on an empty status tab.
+  // to Open so the list isn't stuck on an empty status tab.
   const effectiveFilter: FilterKey =
-    filter === 'all' || (counts[filter] ?? 0) > 0 ? filter : 'all';
+    (counts[filter] ?? 0) > 0 || ALWAYS_SHOW_STATUSES.includes(filter)
+      ? filter
+      : (counts['open'] ?? 0) > 0
+        ? 'open'
+        : (STATUS_FILTER_ORDER.find((s) => (counts[s] ?? 0) > 0) ?? 'open');
 
-  // Statuses visible in the "All" tab — only open (pre-assigned) and active
-  // (assigned). Terminal states (paused, filled, cancelled, closed) live in
-  // their own tabs.
-  const ALL_TAB_STATUSES: ActivityStatus[] = [
-    'submitted', 'open', 'sourcing', 'interviewing', 'active',
-  ];
-
-  // Group by status in workflow order. "All" shows only open + active groups;
-  // a specific status tab shows only that group.
+  // Group by status: a specific status tab shows only that group.
   const groups = useMemo(() => {
     const byStatus = new Map<ActivityStatus, HireActivityItem[]>();
     for (const item of visibleItems) {
@@ -80,10 +76,7 @@ export default function BusinessCardsList({
       if (list) list.push(item);
       else byStatus.set(item.status, [item]);
     }
-    const order =
-      effectiveFilter === 'all'
-        ? ALL_TAB_STATUSES
-        : STATUS_FILTER_ORDER.filter((s) => s === effectiveFilter);
+    const order = STATUS_FILTER_ORDER.filter((s) => s === effectiveFilter);
     return order
       .filter((s) => (byStatus.get(s)?.length ?? 0) > 0)
       .map((status) => ({
@@ -163,17 +156,6 @@ export default function BusinessCardsList({
         <div>
           {groups.map((group) => (
             <div key={group.status}>
-              {/* Section header only when "All" shows multiple statuses */}
-              {effectiveFilter === 'all' && groups.length > 1 && (
-                <div className="border-b border-[#E7E7EA] bg-[#FAFAFA] px-5 py-2 sm:px-6">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#737373]">
-                    {group.label}
-                    <span className="ml-1.5 font-medium normal-case tracking-normal text-[#a3a3a3]">
-                      {group.items.length}
-                    </span>
-                  </p>
-                </div>
-              )}
               <ul className="divide-y divide-[#E7E7EA]">
                 {group.items.map((item) => (
                   <CardRow key={item.id} item={item} preview={preview} />

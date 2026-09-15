@@ -42,7 +42,7 @@ export interface HireActivityItem {
 }
 
 /** Tab filter on My Cards / Your activity — by lifecycle status, not product type. */
-export type FilterKey = 'all' | ActivityStatus;
+export type FilterKey = ActivityStatus;
 
 /** Display order for status filter tabs (workflow-ish left → right). */
 export const STATUS_FILTER_ORDER: ActivityStatus[] = [
