@@ -10,6 +10,7 @@ import TierBadge from '@/components/ui/TierBadge';
 import { cleanPhoneForLink } from '@/lib/phone';
 import { formatDate } from '@/lib/formatDate';
 import { coerceLeveledList, LEVEL_LABELS, type LeveledItem } from '../../../../shared/src/types/talent';
+import { CRM_URL } from '@/lib/crmUrl';
 
 type Tier = 'junior' | 'pro' | 'Top Talents' | 'custom';
 const TIER_OPTIONS: { value: Tier | null; label: string }[] = [
@@ -290,7 +291,7 @@ export default function TalentProfileView({
   const talentUser = profile.talent_users;
   const waPhone = cleanPhoneForLink(talentUser?.phone);
   const whatsappHref = waPhone ? `https://wa.me/${waPhone}` : null;
-  const crmHref = waPhone ? `https://shcrm.squadhub.in/app/leads/lookup?phone=${waPhone}` : null;
+  const crmHref = waPhone ? `${CRM_URL}/app/leads/lookup?phone=${waPhone}` : null;
   const skills: { skill: string; level: number }[] = (profile.field_data?._skills ?? []).map(
     (s: { skill: string; level: number }) => ({
       skill: s.skill,

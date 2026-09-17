@@ -22,9 +22,18 @@ interface PipelineConfig {
   stages?: CrmStage[];
 }
 
+// The CRM's post-onboarding *talent* board for a category. No status mapping:
+// Profiles mirrors these stages verbatim (talent_users.crm_talent_stage_*), so
+// only the name + a live snapshot of stages are kept.
+interface TalentPipelineConfig {
+  pipeline_name: string;
+  stages?: CrmStage[];
+}
+
 interface MultiPipelineConfig {
   crm_webhook_url: string;
   pipelines: Record<string, PipelineConfig>;
+  talent_pipelines?: Record<string, TalentPipelineConfig>;
 }
 
 const FORM_TYPE_OPTIONS = [
@@ -38,6 +47,7 @@ const EMPTY_PIPELINE: PipelineConfig = { pipeline_name: '', mappings: {}, stages
 const DEFAULT_CONFIG: MultiPipelineConfig = {
   crm_webhook_url: '',
   pipelines: {},
+  talent_pipelines: {},
 };
 
 // Tolerates the old single-pipeline shape (pre-00069) by collapsing it into
@@ -49,6 +59,10 @@ function normalizeIncoming(raw: unknown): MultiPipelineConfig {
     return {
       crm_webhook_url: String(r.crm_webhook_url ?? ''),
       pipelines: r.pipelines as Record<string, PipelineConfig>,
+      talent_pipelines:
+        r.talent_pipelines && typeof r.talent_pipelines === 'object'
+          ? (r.talent_pipelines as Record<string, TalentPipelineConfig>)
+          : {},
     };
   }
   // Legacy single-pipeline shape
@@ -174,6 +188,60 @@ export default function CrmStatusMapping() {
     setDirty(true);
   };
 
+  const [fetchingTalentFor, setFetchingTalentFor] = useState<string | null>(null);
+
+  const setTalentPipelineName = (formType: string, name: string) => {
+    setConfig((prev) => ({
+      ...prev,
+      talent_pipelines: {
+        ...(prev.talent_pipelines ?? {}),
+        [formType]: { ...(prev.talent_pipelines?.[formType] ?? { pipeline_name: '', stages: [] }), pipeline_name: name },
+      },
+    }));
+    setDirty(true);
+  };
+
+  const removeTalentPipeline = (formType: string) => {
+    setConfig((prev) => {
+      const next = { ...(prev.talent_pipelines ?? {}) };
+      delete next[formType];
+      return { ...prev, talent_pipelines: next };
+    });
+    setDirty(true);
+  };
+
+  const fetchTalentStages = useCallback(
+    async (formType: string, opts: { silent?: boolean } = {}) => {
+      const cfg = config.talent_pipelines?.[formType];
+      const name = cfg?.pipeline_name?.trim();
+      if (!name) {
+        if (!opts.silent) toast.error('Set the talent pipeline name first');
+        return;
+      }
+      setFetchingTalentFor(formType);
+      try {
+        const res = await api.get('/admin/settings/crm-status-mapping/stages', {
+          params: { pipeline: name, kind: 'talent' },
+        });
+        const stages = (res.data.stages as CrmStage[] | undefined) ?? [];
+        setConfig((prev) => {
+          const existing = prev.talent_pipelines?.[formType] ?? { pipeline_name: name, stages: [] };
+          if (JSON.stringify(existing.stages) !== JSON.stringify(stages)) setDirty(true);
+          return {
+            ...prev,
+            talent_pipelines: { ...(prev.talent_pipelines ?? {}), [formType]: { ...existing, stages } },
+          };
+        });
+        if (!opts.silent) toast.success(`Fetched ${stages.length} talent stages from "${name}"`);
+      } catch (err: any) {
+        if (!opts.silent) toast.error(err.response?.data?.error || 'Failed to fetch talent stages');
+      } finally {
+        setFetchingTalentFor(null);
+      }
+    },
+    [config.talent_pipelines],
+  );
+
   const fetchStages = useCallback(
     async (formType: string, opts: { silent?: boolean } = {}) => {
       const pipeline = config.pipelines[formType];
@@ -239,6 +307,20 @@ export default function CrmStatusMapping() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedForm, selectedPipeline?.pipeline_name, config.crm_webhook_url]);
+
+  // Same silent refresh for the talent board so its chips on the Onboarding
+  // hub follow CRM renames without a manual fetch.
+  const selectedTalentPipeline = config.talent_pipelines?.[selectedForm];
+  useEffect(() => {
+    if (
+      selectedTalentPipeline?.pipeline_name?.trim() &&
+      config.crm_webhook_url?.trim() &&
+      fetchingTalentFor !== selectedForm
+    ) {
+      fetchTalentStages(selectedForm, { silent: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedForm, selectedTalentPipeline?.pipeline_name, config.crm_webhook_url]);
 
   const linkedForms = Object.keys(config.pipelines);
 
@@ -339,12 +421,122 @@ export default function CrmStatusMapping() {
         </Card>
       )}
 
+      <TalentPipelineCard
+        formType={selectedForm}
+        config={config.talent_pipelines?.[selectedForm]}
+        fetching={fetchingTalentFor === selectedForm}
+        onNameChange={(v) => setTalentPipelineName(selectedForm, v)}
+        onFetch={() => fetchTalentStages(selectedForm)}
+        onRemove={() => removeTalentPipeline(selectedForm)}
+      />
+
       {linkedForms.length > 0 && (
         <p className="text-xs text-gray-400">
           Linked pipelines: {linkedForms.map((f) => config.pipelines[f].pipeline_name || f).join(', ')}
         </p>
       )}
     </div>
+  );
+}
+
+// The CRM's talent board (post-onboarding: Welcome → Download App → … →
+// Onboarding completed) for this category. Stages are mirrored as-is onto the
+// Onboarding hub, so there's nothing to map — just link the board by name and
+// keep its stage snapshot fresh (ids stay stable across renames).
+function TalentPipelineCard({
+  formType,
+  config,
+  fetching,
+  onNameChange,
+  onFetch,
+  onRemove,
+}: {
+  formType: string;
+  config: TalentPipelineConfig | undefined;
+  fetching: boolean;
+  onNameChange: (value: string) => void;
+  onFetch: () => void;
+  onRemove: () => void;
+}) {
+  const label = FORM_TYPE_OPTIONS.find((ft) => ft.value === formType)?.label ?? formType;
+  const stages = useMemo(
+    () => [...(config?.stages ?? [])].sort((a, b) => a.sort_order - b.sort_order),
+    [config?.stages],
+  );
+
+  if (!config) {
+    return (
+      <Card>
+        <h2 className="text-base font-semibold text-gray-900">Talent board · {label}</h2>
+        <p className="mt-1 text-sm text-gray-600">
+          The CRM&apos;s post-onboarding pipeline (Welcome → Download App → Webinars → Onboarding
+          completed). Link it so the Onboarding hub can show and move talents through it.
+        </p>
+        <button
+          onClick={() => onNameChange(formType === 'creative' ? 'Designers and Editors' : formType === 'accountant' ? 'Accountants' : '')}
+          className="mt-3 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+        >
+          + Link the talent board
+        </button>
+      </Card>
+    );
+  }
+
+  return (
+    <Card padding={false}>
+      <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-4">
+        <div className="flex-1">
+          <h2 className="text-base font-semibold text-gray-900">Talent board · {label}</h2>
+          <p className="mt-0.5 text-xs text-gray-500">
+            CRM pipeline of kind <code>talent</code>. Stages sync both ways with the Onboarding hub — no
+            mapping needed.
+          </p>
+        </div>
+        <button onClick={onRemove} className="text-xs text-red-600 hover:text-red-700" title="Unlink">
+          Unlink
+        </button>
+      </div>
+      <div className="space-y-4 px-6 py-4">
+        <div>
+          <Input
+            label="Talent pipeline name in CRM"
+            value={config.pipeline_name}
+            onChange={(e) => onNameChange(e.target.value)}
+            placeholder={formType === 'accountant' ? 'Accountants' : 'Designers and Editors'}
+          />
+          <div className="mt-2 flex items-center gap-3">
+            <button
+              onClick={onFetch}
+              disabled={fetching || !config.pipeline_name?.trim()}
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {fetching ? 'Refreshing...' : stages.length ? 'Refresh stages from CRM' : 'Fetch stages from CRM'}
+            </button>
+            {stages.length > 0 && (
+              <span className="text-xs text-gray-500">
+                {stages.length} live stage{stages.length === 1 ? '' : 's'}
+              </span>
+            )}
+          </div>
+        </div>
+        {stages.length > 0 ? (
+          <ol className="flex flex-wrap items-center gap-1.5">
+            {stages.map((st, i) => (
+              <li key={st.id} className="flex items-center gap-1.5">
+                <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-700">
+                  {st.name.trim() || '(blank)'}
+                </span>
+                {i < stages.length - 1 && <span className="text-gray-300">→</span>}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="text-xs text-amber-600">
+            No stages loaded yet — set the name and Fetch to pull the talent board&apos;s stages.
+          </p>
+        )}
+      </div>
+    </Card>
   );
 }
 

@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
+// The Onboarding tab moved to the Onboarding hub (/approvals), which tracks
+// every sign-up's journey alongside both CRM boards.
 const TABS = [
   { href: '/leads', label: 'Applications', section: 'applications' },
   { href: '/leads/interviews', label: 'Interview Responses', section: 'interviews' },
-  { href: '/leads/onboarding', label: 'Onboarding', section: 'onboarding' },
 ];
 
 export default function LeadsTabs() {

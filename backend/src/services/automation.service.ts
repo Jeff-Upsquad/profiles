@@ -675,6 +675,62 @@ export async function notifyCrmPipelineStageChanged(input: {
   });
 }
 
+/**
+ * Admin moved a talent on the Onboarding hub's *talent pipeline* strip (the
+ * CRM's post-onboarding board). Tells the CRM to move the WhatsApp card to that
+ * stage — by stable stage id, name as fallback — inside the named talent
+ * pipeline. The CRM handles a card that is still on a candidates board by
+ * re-homing it into the talent pipeline (same hop its qualify handoff does).
+ */
+export async function notifyCrmTalentStageChanged(input: {
+  talentUserId: string;
+  adminUserId: string | null;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  pipelineName: string;
+  stageId: string;
+  stageName: string;
+}): Promise<void> {
+  const phone = input.phone?.trim() || '';
+  const email = input.email?.trim().toLowerCase() || '';
+  if (!phone && !email) return;
+
+  const mapping = await getCrmStatusMapping();
+  let webhookUrl = mapping?.crm_webhook_url || '';
+  if (!webhookUrl) {
+    const { env } = await import('../config/env.js');
+    const explicit = (env.SQUADHIRE_CRM_API_URL || '').replace(/\/$/, '');
+    const derived = env.SQUADHIRE_CRM_SYSTEM_EVENTS_URL
+      ? new URL(env.SQUADHIRE_CRM_SYSTEM_EVENTS_URL).origin
+      : '';
+    const origin = explicit || derived;
+    if (origin) webhookUrl = `${origin}/integrations/profiles/leads`;
+  }
+  if (!webhookUrl) return;
+
+  const result = await sendCrmWebhook(webhookUrl, {
+    event: 'talent_stage_changed',
+    pipeline_kind: 'talent',
+    lead: { name: input.name, email, phone },
+    pipeline_name: input.pipelineName,
+    pipeline_stage: input.stageName,
+    stage_id: input.stageId,
+    timestamp: new Date().toISOString(),
+  });
+  await logEvent({
+    event_type: result.sent ? 'crm_talent_stage_sync_sent' : 'crm_talent_stage_sync_failed',
+    talent_user_id: input.talentUserId,
+    triggered_by: input.adminUserId ? `admin:${input.adminUserId}` : 'system',
+    metadata: {
+      pipeline_name: input.pipelineName,
+      stage_id: input.stageId,
+      stage_name: input.stageName,
+      error: result.error,
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Backfill: push existing leads (all form types) to CRM with their current stage
 // ---------------------------------------------------------------------------

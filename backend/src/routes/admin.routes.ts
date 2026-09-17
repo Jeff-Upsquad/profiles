@@ -204,6 +204,12 @@ router.patch('/reviews/bulk-approve', adminController.bulkApproveProfiles);
 
 router.get('/user-approvals/stats', adminController.getSignupStats);
 router.get('/user-approvals/pipeline-stats', adminController.getPipelineStageStats);
+// Onboarding hub — the combined Sign-ups + journey + CRM talent-pipeline view.
+router.get('/user-approvals/hub', adminController.getOnboardingHub);
+router.get('/user-approvals/hub/stats', adminController.getOnboardingHubStats);
+router.get('/user-approvals/talent-pipelines', adminController.getTalentPipelines);
+router.get('/user-approvals/:userId/journey', adminController.getTalentJourney);
+router.patch('/user-approvals/:userId/talent-stage', adminController.setTalentStage);
 router.post('/user-approvals/bulk-approve', adminController.bulkApproveUsers);
 router.get('/user-approvals', adminController.getPendingApprovals);
 router.patch('/user-approvals/:userId/approve', adminController.approveUser);

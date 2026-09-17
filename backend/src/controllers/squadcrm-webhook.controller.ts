@@ -47,6 +47,11 @@ const leadStageWebhookSchema = z.object({
   // Optional stable CRM stage id — when present, the reverse lookup matches on
   // it (rename-proof) instead of the stage name.
   stage_id: z.string().min(1).optional(),
+  // Which board the card moved on. 'candidates' (default, the onboarding
+  // funnel mapped to lead statuses) or 'talent' (the CRM's post-onboarding
+  // board, mirrored verbatim onto talent_users.crm_talent_stage_*).
+  pipeline_kind: z.enum(['candidates', 'talent', 'partners']).optional(),
+  pipeline_name: z.string().optional(),
   timestamp: z.string().optional(),
 });
 
@@ -86,6 +91,16 @@ async function findLead(
   }
 
   return null;
+}
+
+async function linkedTalentForLead(leadId: string | null): Promise<string | null> {
+  if (!leadId) return null;
+  const { data } = await supabaseAdmin
+    .from('lead_submissions')
+    .select('linked_talent_user_id')
+    .eq('id', leadId)
+    .maybeSingle();
+  return (data?.linked_talent_user_id as string | null) ?? null;
 }
 
 async function resolveInternalStatus(
@@ -135,9 +150,63 @@ export async function handleLeadStageChanged(
     if (!parsed.success) {
       throw new AppError(400, parsed.error.issues.map((i) => i.message).join('; '));
     }
-    const { external_lead_id, phone, stage_name, stage_id } = parsed.data;
+    const { external_lead_id, phone, stage_name, stage_id, pipeline_kind, pipeline_name } =
+      parsed.data;
 
     const lead = await findLead(external_lead_id ?? null, phone ?? null);
+
+    // Talent-pipeline moves aren't mapped to lead statuses at all — the CRM
+    // owns those stage names. Resolve the talent account (via the lead link,
+    // else by phone) and mirror the stage as-is.
+    if (pipeline_kind === 'talent') {
+      const talentUserId =
+        (await linkedTalentForLead(lead?.id ?? null)) ??
+        (await findTalentUserIdByPhone(phone ?? null));
+      if (!talentUserId) {
+        res.json({ ok: true, skipped: 'talent_not_found', stage_name });
+        return;
+      }
+      const { applyInboundTalentStage } = await import('../services/onboarding-hub.service.js');
+      await applyInboundTalentStage(talentUserId, {
+        pipeline_name: pipeline_name ?? null,
+        stage_id: stage_id ?? null,
+        stage_name,
+      });
+      await supabaseAdmin
+        .from('automation_events')
+        .insert({
+          event_type: 'crm_talent_stage_received',
+          lead_id: lead?.id ?? null,
+          talent_user_id: talentUserId,
+          triggered_by: 'system',
+          metadata: { pipeline_name: pipeline_name ?? null, stage_name, stage_id: stage_id ?? null },
+        })
+        .then(
+          () => {},
+          () => {},
+        );
+      res.json({ ok: true, talentUserId, talent_stage: stage_name });
+      return;
+    }
+
+    if (pipeline_kind === 'partners') {
+      // Partner boards aren't mirrored anywhere in Profiles yet.
+      res.json({ ok: true, skipped: 'unsupported_pipeline_kind', pipeline_kind });
+      return;
+    }
+
+    // A move on a candidates board means the card is no longer on the talent
+    // board (a card lives in exactly one pipeline) — drop the mirrored stage.
+    {
+      const talentUserId =
+        (await linkedTalentForLead(lead?.id ?? null)) ??
+        (await findTalentUserIdByPhone(phone ?? null));
+      if (talentUserId) {
+        const { clearTalentStage } = await import('../services/onboarding-hub.service.js');
+        await clearTalentStage(talentUserId).catch(() => {});
+      }
+    }
+
     const { internalStatus, validForType } = await resolveInternalStatus(
       lead?.form_type ?? null,
       stage_name,

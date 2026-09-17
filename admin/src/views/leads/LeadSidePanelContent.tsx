@@ -14,6 +14,7 @@ import InterviewInvitationSection from '@/views/interview/InterviewInvitationSec
 import Link from 'next/link';
 import { formatIndianPhone, cleanPhoneForLink } from '@/lib/phone';
 import { formatDate } from '@/lib/formatDate';
+import { CRM_URL } from '@/lib/crmUrl';
 
 interface LeadFull {
   id: string;
@@ -261,7 +262,7 @@ export default function LeadSidePanelContent({
                 {displayPhone}
               </a>
               <a
-                href={`https://shcrm.squadhub.in/app/leads/lookup?phone=${linkPhone}`}
+                href={`${CRM_URL}/app/leads/lookup?phone=${linkPhone}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700"

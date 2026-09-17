@@ -27,6 +27,7 @@ import EditIdProofsDialog from './edit-dialogs/EditIdProofsDialog';
 import EditProfilePictureDialog from './edit-dialogs/EditProfilePictureDialog';
 import EditBankAccountDialog from './edit-dialogs/EditBankAccountDialog';
 import EditResumeDialog from './edit-dialogs/EditResumeDialog';
+import { CRM_URL } from '@/lib/crmUrl';
 
 type EditTarget =
   | 'basic'
@@ -699,7 +700,7 @@ export default function UserDetail({ userId }: { userId: string }) {
   const { user, basic, profiles, lead_id: leadId } = data;
   const waPhone = cleanPhoneForLink(user.phone ?? undefined);
   const whatsappHref = waPhone ? `https://wa.me/${waPhone}` : null;
-  const crmHref = waPhone ? `https://shcrm.squadhub.in/app/leads/lookup?phone=${waPhone}` : null;
+  const crmHref = waPhone ? `${CRM_URL}/app/leads/lookup?phone=${waPhone}` : null;
   const photoUrl = basic?.profile_picture_url ?? user.profile_photo_url ?? null;
 
   const wantsSalary = (basic?.employment_type ?? []).includes('salary');

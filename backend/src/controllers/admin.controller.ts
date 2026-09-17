@@ -286,6 +286,76 @@ export async function bulkApproveUsers(req: Request, res: Response, next: NextFu
 }
 
 // ---------------------------------------------------------------------------
+// Onboarding hub (Sign-ups + journey + CRM talent pipeline)
+// ---------------------------------------------------------------------------
+
+export async function getOnboardingHub(req: Request, res: Response, next: NextFunction) {
+  try {
+    const q = req.query;
+    const hub = await import('../services/onboarding-hub.service.js');
+    const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+    const attention = str(q.attention);
+    const sort = str(q.sort);
+    res.json(
+      await hub.listHub({
+        search: str(q.search),
+        category: str(q.category),
+        pipeline_stage: str(q.pipeline_stage),
+        talent_stage: str(q.talent_stage),
+        attention: attention ? (attention as any) : undefined,
+        sort: sort === 'oldest' ? 'oldest' : 'newest',
+        page: q.page ? Number(q.page) : 1,
+        limit: q.limit ? Number(q.limit) : 25,
+      }),
+    );
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getOnboardingHubStats(req: Request, res: Response, next: NextFunction) {
+  try {
+    const category = typeof req.query.category === 'string' ? req.query.category : undefined;
+    const hub = await import('../services/onboarding-hub.service.js');
+    res.json(await hub.hubStats(category));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getTalentPipelines(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const hub = await import('../services/onboarding-hub.service.js');
+    res.json({ pipelines: await hub.getTalentPipelineConfig() });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getTalentJourney(req: Request, res: Response, next: NextFunction) {
+  try {
+    const hub = await import('../services/onboarding-hub.service.js');
+    res.json(await hub.talentJourney(req.params.userId as string));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function setTalentStage(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { stage_id } = req.body as { stage_id?: string };
+    if (!stage_id) {
+      res.status(400).json({ message: 'stage_id required' });
+      return;
+    }
+    const hub = await import('../services/onboarding-hub.service.js');
+    res.json(await hub.setTalentStage(req.params.userId as string, { stage_id }, req.user!.id));
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Pipeline Stage Management
 // ---------------------------------------------------------------------------
 
@@ -1138,9 +1208,12 @@ export async function getCrmPipelineStages(req: Request, res: Response, next: Ne
     } catch {
       return res.status(500).json({ error: 'crm_webhook_url is not a valid URL' });
     }
-    const stagesUrl = `${webhook.origin}/integrations/profiles/pipelines/${encodeURIComponent(
-      pipelineName,
-    )}/stages`;
+    // kind=talent asks the CRM for its post-onboarding *talent* board of that
+    // name instead of the candidates funnel (the CRM keeps both under one name).
+    const kind = req.query.kind === 'talent' ? 'talent' : 'candidates';
+    const stagesUrl =
+      `${webhook.origin}/integrations/profiles/pipelines/${encodeURIComponent(pipelineName)}/stages` +
+      `?kind=${kind}`;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5_000);

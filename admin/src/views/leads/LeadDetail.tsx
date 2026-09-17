@@ -11,6 +11,7 @@ import Modal from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
 import InterviewInvitationSection from '@/views/interview/InterviewInvitationSection';
 import { formatDateTime } from '@/lib/formatDate';
+import { CRM_URL } from '@/lib/crmUrl';
 
 interface Lead {
   id: string;
@@ -287,7 +288,7 @@ export default function LeadDetail({ id }: { id: string }) {
             <span className="block text-xs font-medium uppercase text-gray-500">Phone</span>
             <span className="text-sm text-gray-900">{lead.phone}</span>
             <a
-              href={`https://shcrm.squadhub.in/app/leads/lookup?phone=${lead.phone.replace(/[^0-9]/g, '')}`}
+              href={`${CRM_URL}/app/leads/lookup?phone=${lead.phone.replace(/[^0-9]/g, '')}`}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
