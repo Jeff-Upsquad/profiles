@@ -254,17 +254,26 @@ export async function checkCandidateStatus(input: { email?: string; phone?: stri
     }
   }
 
-  // Account-exists lookup via shared RPC (returns 'talent' | 'business' | 'lead')
+  // Talent signup must not be blocked by a business/agency contact sharing the
+  // same phone/email — the same person can be talent and a business contact.
+  // Only an actual talent or auth account blocks.
   let has_account = false;
   try {
-    const { data: contactData } = await supabaseAdmin.rpc('check_contact_exists', {
+    const { data: contactData } = await supabaseAdmin.rpc('check_contact_exists_detailed', {
       p_email: normalizedEmail,
       p_phone_digits: normalizedPhone,
     });
-    const source = (contactData ?? [])[0]?.source;
-    has_account = source === 'talent' || source === 'business' || source === 'auth';
+    has_account = (contactData ?? []).some((r: any) => r.source === 'talent' || r.source === 'auth');
   } catch {
-    has_account = false;
+    try {
+      const { data: fallback } = await supabaseAdmin.rpc('check_contact_exists', {
+        p_email: normalizedEmail,
+        p_phone_digits: normalizedPhone,
+      });
+      has_account = (fallback ?? []).some((r: any) => r.source === 'talent' || r.source === 'auth');
+    } catch {
+      has_account = false;
+    }
   }
 
   // Lead submissions match
