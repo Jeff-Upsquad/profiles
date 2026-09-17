@@ -121,8 +121,9 @@ function collectEntries(page: TalentPage): TalentPage[] {
   return out;
 }
 
-export function itemToCourse(item: TalentItem): TrainingCourse {
-  const chapters: TrainingChapter[] = (item.pages ?? []).map((section) => ({
+/** A page and its content-bearing subtree as one reader section. */
+export function pageToChapter(section: TalentPage): TrainingChapter {
+  return {
     id: section.id,
     title: section.title,
     description: section.summary ?? undefined,
@@ -132,7 +133,11 @@ export function itemToCourse(item: TalentItem): TrainingCourse {
     total_count: section.total_count,
     unlocked: section.unlocked,
     linked_module: section.linked_module,
-  }));
+  };
+}
+
+export function itemToCourse(item: TalentItem): TrainingCourse {
+  const chapters: TrainingChapter[] = (item.pages ?? []).map(pageToChapter);
 
   return {
     id: item.id,
@@ -665,7 +670,10 @@ export function useProfileGate(categoryId: string | undefined) {
     enabled: !!categoryId,
     queryFn: async () => {
       const { data } = await api.get(`/talent/training/profile-gate/${categoryId}`);
-      return { locked: !!data.locked, chapter: data.chapter ?? null };
+      // The API returns the gate as a page (`{ locked, page, item }`); adapt it
+      // to the chapter shape ProfileTrainingGate renders.
+      const page = data.page as TalentPage | null | undefined;
+      return { locked: !!data.locked, chapter: page ? pageToChapter(page) : null };
     },
   });
 }
