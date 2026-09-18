@@ -38,7 +38,8 @@ interface HubResponse {
 
 const ATTENTION_CHIPS: { value: HubAttention; label: string; hint: string }[] = [
   { value: 'pending_approval', label: 'Pending approval', hint: 'New accounts waiting for approval' },
-  { value: 'needs_review', label: 'Needs review', hint: 'Job profiles submitted for review' },
+  { value: 'needs_review', label: 'Needs review', hint: 'Job profiles submitted for review — your turn' },
+  { value: 'waiting_on_talent', label: 'Waiting on talent', hint: 'You asked for changes; the talent has not resubmitted yet' },
   { value: 'course_pending', label: 'Course not done', hint: 'Still on the onboarding course' },
   { value: 'basic_incomplete', label: 'Basic incomplete', hint: 'Course done, basic profile still missing sections' },
   { value: 'no_job_profile', label: 'No job profile', hint: 'Basic profile done, no job profile submitted yet' },
@@ -461,7 +462,9 @@ export default function OnboardingHub() {
                 ? stats?.attention.pending_approval
                 : c.value === 'needs_review'
                   ? stats?.attention.needs_review
-                  : undefined;
+                  : c.value === 'waiting_on_talent'
+                    ? stats?.attention.waiting_on_talent
+                    : undefined;
             return (
               <button
                 key={c.value}
@@ -536,9 +539,11 @@ export default function OnboardingHub() {
                         ? `Basic: ${j.basic_missing.length} missing`
                         : !j.job_profile_completed
                           ? j.job_profiles.draft > 0 ? 'Job profile in draft' : 'No job profile'
-                          : j.job_profiles.pending_review > 0
-                            ? 'Profile awaiting review'
-                            : !j.portfolio_completed
+                          : j.job_profiles.changes_requested > 0
+                            ? `Waiting on talent · ${timeAgo(j.changes_requested_at)}${j.requested_change_labels.length ? ` · ${j.requested_change_labels.slice(0, 3).join(', ')}${j.requested_change_labels.length > 3 ? ` +${j.requested_change_labels.length - 3}` : ''}` : ''}`
+                            : j.job_profiles.pending_review > 0
+                              ? j.resubmitted_at ? `Resubmitted ${timeAgo(j.resubmitted_at)} · review` : 'Profile awaiting review'
+                              : !j.portfolio_completed
                               ? 'No portfolio yet'
                               : 'Journey complete'
                     : '';

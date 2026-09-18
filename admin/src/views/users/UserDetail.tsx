@@ -141,6 +141,7 @@ type UserDetailResponse =
 const statusVariant: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
   approved: 'green',
   pending_review: 'yellow',
+  changes_requested: 'yellow',
   rejected: 'red',
   draft: 'gray',
   inactive: 'gray',

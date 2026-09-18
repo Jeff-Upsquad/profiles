@@ -193,9 +193,13 @@ router.patch(
 // ---------------------------------------------------------------------------
 
 router.get('/reviews', adminController.getReviewQueue);
+// Static paths before /:profileId so "checklist" isn't read as an id.
+router.get('/reviews/checklist', adminController.getReviewChecklist);
+router.put('/reviews/checklist', adminController.updateReviewChecklist);
 router.get('/reviews/:profileId', adminController.getReviewProfile);
 router.patch('/reviews/:profileId/approve', adminController.approveProfile);
 router.patch('/reviews/:profileId/reject', adminController.rejectProfile);
+router.patch('/reviews/:profileId/request-changes', adminController.requestProfileChanges);
 router.patch('/reviews/bulk-approve', adminController.bulkApproveProfiles);
 
 // ---------------------------------------------------------------------------

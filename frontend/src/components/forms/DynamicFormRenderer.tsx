@@ -31,14 +31,16 @@ export default function DynamicFormRenderer({
   return (
     <div className="space-y-5">
       {activeFields.map((field) => (
-        <FieldRenderer
-          key={field.id}
-          field={field}
-          value={values[field.field_key]}
-          onChange={(val) => onChange(field.field_key, val)}
-          error={errors[field.field_key]}
-          disabled={disabled}
-        />
+        // id lets "request changes" deep-link straight to the field (#field-<key>)
+        <div key={field.id} id={`field-${field.field_key}`} className="scroll-mt-24">
+          <FieldRenderer
+            field={field}
+            value={values[field.field_key]}
+            onChange={(val) => onChange(field.field_key, val)}
+            error={errors[field.field_key]}
+            disabled={disabled}
+          />
+        </div>
       ))}
     </div>
   );

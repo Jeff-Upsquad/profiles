@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { Profile, CategoryField, CategoryWithFields } from '@/types';
 import TierBadge from '@/components/ui/TierBadge';
 import { periodSuffix } from '@/lib/assignmentPricing';
+import RequestedChangesBanner from '@/components/profile/RequestedChangesBanner';
 
 interface TalentUser {
   full_name: string;
@@ -365,8 +366,19 @@ export default function ThreadsProfileHeader({
         )}
       </div>
 
+      {/* Reviewer asked for changes */}
+      {mode === 'talent' && profile.status === 'changes_requested' && (
+        <div className="mt-4">
+          <RequestedChangesBanner
+            profileId={profile.id}
+            changes={profile.requested_changes ?? []}
+            requestedAt={profile.changes_requested_at}
+          />
+        </div>
+      )}
+
       {/* Rejection reason */}
-      {mode === 'talent' && profile.rejection_reason && (
+      {mode === 'talent' && profile.status !== 'changes_requested' && profile.rejection_reason && (
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
           <p className="text-xs font-semibold text-red-800">Rejection Reason</p>
           <p className="mt-0.5 text-sm text-red-700">{profile.rejection_reason}</p>

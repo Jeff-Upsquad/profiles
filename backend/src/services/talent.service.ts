@@ -286,10 +286,11 @@ export async function computeOnboardingProgress(userId: string): Promise<{
 
   const basic = (basicRes.data ?? null) as Record<string, any> | null;
   const profiles = (profilesRes.data ?? []) as { id: string; created_at: string; status: string }[];
-  // A job profile counts as "complete" only once submitted (pending_review) or
-  // approved. `draft` and `rejected` profiles do not flip the tick on.
+  // A job profile counts as "complete" only once submitted (pending_review,
+  // or changes_requested — it was submitted and is mid-review) or approved.
+  // `draft` and `rejected` profiles do not flip the tick on.
   const submittedProfiles = profiles.filter(
-    (p) => p.status === 'approved' || p.status === 'pending_review',
+    (p) => p.status === 'approved' || p.status === 'pending_review' || p.status === 'changes_requested',
   );
   const profileIds = profiles.map((p) => p.id);
 
@@ -523,7 +524,8 @@ export async function updateProfile(profileId: string, userId: string, input: Up
     }
   }
 
-  // Determine new status
+  // Determine new status. `changes_requested` stays put while the talent
+  // edits — only the explicit "Resubmit for review" tap returns it to the queue.
   let newStatus = profile.status;
   if (profile.status === 'approved' || profile.status === 'rejected') {
     newStatus = 'pending_review';
@@ -585,7 +587,7 @@ export async function submitProfile(profileId: string, userId: string) {
 
   if (fetchErr || !profile) throw new AppError(404, 'Profile not found');
 
-  if (profile.status !== 'draft' && profile.status !== 'rejected') {
+  if (profile.status !== 'draft' && profile.status !== 'rejected' && profile.status !== 'changes_requested') {
     throw new AppError(400, 'Only draft or rejected profiles can be submitted');
   }
 
@@ -597,7 +599,10 @@ export async function submitProfile(profileId: string, userId: string) {
 
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')
-    .update({ status: 'pending_review' })
+    .update({
+      status: 'pending_review',
+      ...(profile.status === 'changes_requested' ? { resubmitted_at: new Date().toISOString() } : {}),
+    })
     .eq('id', profileId)
     .select('*')
     .single();
@@ -1107,7 +1112,7 @@ async function validateFieldData(categoryId: string, fieldData: Record<string, a
   return errors;
 }
 
-async function validateRequiredFields(categoryId: string, fieldData: Record<string, any>): Promise<string[]> {
+export async function validateRequiredFields(categoryId: string, fieldData: Record<string, any>): Promise<string[]> {
   const { data: fields } = await supabaseAdmin
     .from('category_fields')
     .select('field_key, field_label, is_required')

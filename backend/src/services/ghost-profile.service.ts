@@ -132,9 +132,10 @@ export async function syncGhostForTalent(talentUserId: string): Promise<void> {
       const STATUS_PRIORITY: Record<string, number> = {
         approved: 0,
         pending_review: 1,
-        draft: 2,
-        rejected: 3,
-        inactive: 4,
+        changes_requested: 2,
+        draft: 3,
+        rejected: 4,
+        inactive: 5,
       };
       const dPri = STATUS_PRIORITY[(designer as any).status] ?? STATUS_PRIORITY.draft;
       const ePri = STATUS_PRIORITY[(editor as any).status] ?? STATUS_PRIORITY.draft;

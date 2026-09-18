@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as adminService from '../services/admin.service.js';
+import * as reviewChanges from '../services/profile-review-changes.service.js';
 import * as inviteService from '../services/invite.service.js';
 import * as businessAuthService from '../services/business-auth.service.js';
 import { getCandidateActivity } from '../services/activity.service.js';
@@ -163,7 +164,8 @@ export async function reorderOptions(req: Request, res: Response, next: NextFunc
 export async function getReviewQueue(req: Request, res: Response, next: NextFunction) {
   try {
     const categoryId = req.query.category_id as string | undefined;
-    const result = await adminService.getReviewQueue(categoryId);
+    const status = req.query.status === 'changes_requested' ? 'changes_requested' : 'pending_review';
+    const result = await adminService.getReviewQueue(categoryId, status);
     res.json({ profiles: result });
   } catch (err) {
     next(err);
@@ -183,6 +185,41 @@ export async function approveProfile(req: Request, res: Response, next: NextFunc
   try {
     const result = await adminService.approveProfile(req.params.profileId as string, req.user!.id);
     res.json({ profile: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function requestProfileChanges(req: Request, res: Response, next: NextFunction) {
+  try {
+    const body = req.body ?? {};
+    const keys = Array.isArray(body.keys) ? body.keys.filter((k: unknown) => typeof k === 'string') : [];
+    const result = await reviewChanges.requestProfileChanges(req.params.profileId as string, req.user!.id, {
+      keys,
+      other: typeof body.other === 'string' ? body.other : null,
+      notes: body.notes && typeof body.notes === 'object' ? body.notes : null,
+      send_whatsapp: body.send_whatsapp !== false,
+    });
+    res.json({ profile: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getReviewChecklist(req: Request, res: Response, next: NextFunction) {
+  try {
+    const categoryId = (req.query.category_id as string | undefined) || null;
+    const items = await reviewChanges.getChecklistForCategory(categoryId);
+    res.json({ items });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateReviewChecklist(req: Request, res: Response, next: NextFunction) {
+  try {
+    const items = await reviewChanges.saveSharedChecklist(req.body?.items, req.user!.id);
+    res.json({ items });
   } catch (err) {
     next(err);
   }

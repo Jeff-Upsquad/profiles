@@ -54,6 +54,10 @@ interface JobProfile {
   portfolio_items: number;
   created_at: string;
   updated_at: string;
+  requested_changes?: { key: string; label: string; message: string; note?: string | null }[];
+  changes_requested_at?: string | null;
+  resubmitted_at?: string | null;
+  changes_whatsapp_sent?: boolean | null;
 }
 
 interface Journey {
@@ -131,6 +135,7 @@ const STAGE_TO_LEAD_KEY: Record<PipelineStage, string> = {
 const PROFILE_STATUS: Record<string, { label: string; variant: 'green' | 'yellow' | 'red' | 'gray' }> = {
   approved: { label: 'Approved', variant: 'green' },
   pending_review: { label: 'Pending review', variant: 'yellow' },
+  changes_requested: { label: 'Waiting on talent', variant: 'gray' },
   rejected: { label: 'Rejected', variant: 'red' },
   draft: { label: 'Draft', variant: 'gray' },
   inactive: { label: 'Inactive', variant: 'gray' },
@@ -784,6 +789,9 @@ export default function TalentJourneyPanel({
                           {data.profiles.some((p) => p.status === 'pending_review') && (
                             <span className="ml-1 font-medium text-amber-700">· needs your review</span>
                           )}
+                          {data.profiles.some((p) => p.status === 'changes_requested') && (
+                            <span className="ml-1 font-medium text-gray-600">· waiting on talent</span>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -791,6 +799,7 @@ export default function TalentJourneyPanel({
                       <ul className="ml-9 mt-2 divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200 bg-white">
                         {data.profiles.map((p) => {
                           const st = PROFILE_STATUS[p.status] ?? { label: p.status, variant: 'gray' as const };
+                          const asked = p.requested_changes ?? [];
                           return (
                             <li key={p.id} className="flex items-center gap-3 px-3 py-2">
                               <div className="min-w-0 flex-1">
@@ -805,6 +814,17 @@ export default function TalentJourneyPanel({
                                 <p className="text-[11px] text-gray-500">
                                   {p.portfolio_items} portfolio item{p.portfolio_items === 1 ? '' : 's'} · updated {timeAgo(p.updated_at)}
                                 </p>
+                                {p.status === 'changes_requested' && asked.length > 0 && (
+                                  <p className="mt-0.5 text-[11px] text-amber-800" title={asked.map((c) => c.message).join('\n')}>
+                                    Asked {timeAgo(p.changes_requested_at)}: {asked.map((c) => c.label).join(', ')}
+                                    {p.changes_whatsapp_sent === false && <span className="text-amber-600"> · WhatsApp not sent</span>}
+                                  </p>
+                                )}
+                                {p.status === 'pending_review' && p.resubmitted_at && (
+                                  <p className="mt-0.5 text-[11px] text-emerald-700">
+                                    Resubmitted {timeAgo(p.resubmitted_at)} after changes were requested
+                                  </p>
+                                )}
                               </div>
                               <Badge variant={st.variant}>{st.label}</Badge>
                               {p.status === 'pending_review' ? (

@@ -173,6 +173,7 @@ async function talentPipelineFor(
 export type HubAttention =
   | 'pending_approval'
   | 'needs_review'
+  | 'waiting_on_talent'
   | 'course_pending'
   | 'basic_incomplete'
   | 'no_job_profile';
@@ -196,7 +197,20 @@ interface JourneySummary {
   basic_profile_completed: boolean;
   basic_missing: string[];
   job_profile_completed: boolean;
-  job_profiles: { total: number; draft: number; pending_review: number; approved: number; rejected: number };
+  job_profiles: {
+    total: number;
+    draft: number;
+    pending_review: number;
+    changes_requested: number;
+    approved: number;
+    rejected: number;
+  };
+  /** Oldest open "request changes" ask, when any profile is in changes_requested. */
+  changes_requested_at: string | null;
+  /** Labels the reviewer asked for on that profile (for the row hint). */
+  requested_change_labels: string[];
+  /** Set when a profile was resubmitted after a request and is back in review. */
+  resubmitted_at: string | null;
   portfolio_completed: boolean;
   portfolio_items: number;
 }
@@ -221,7 +235,7 @@ async function journeysFor(
     supabaseAdmin.from('talent_profiles_basic').select(BASIC_COLUMNS).in('talent_user_id', ids),
     supabaseAdmin
       .from('talent_profiles')
-      .select('id, talent_user_id, status')
+      .select('id, talent_user_id, status, requested_changes, changes_requested_at, resubmitted_at')
       .in('talent_user_id', ids)
       .is('deleted_at', null),
     supabaseAdmin.from('training_course_starts').select('talent_user_id').in('talent_user_id', ids),
@@ -230,11 +244,24 @@ async function journeysFor(
   const basicBy = new Map<string, Record<string, any>>();
   for (const row of basicRes.data ?? []) basicBy.set((row as any).talent_user_id, row as any);
 
-  const profilesBy = new Map<string, Array<{ id: string; status: string }>>();
+  interface ProfileLite {
+    id: string;
+    status: string;
+    requested_changes: unknown;
+    changes_requested_at: string | null;
+    resubmitted_at: string | null;
+  }
+  const profilesBy = new Map<string, ProfileLite[]>();
   for (const row of profRes.data ?? []) {
     const r = row as any;
     const arr = profilesBy.get(r.talent_user_id) ?? [];
-    arr.push({ id: r.id, status: r.status });
+    arr.push({
+      id: r.id,
+      status: r.status,
+      requested_changes: r.requested_changes ?? null,
+      changes_requested_at: r.changes_requested_at ?? null,
+      resubmitted_at: r.resubmitted_at ?? null,
+    });
     profilesBy.set(r.talent_user_id, arr);
   }
 
@@ -260,9 +287,30 @@ async function journeysFor(
       languages_spoken: t.languages_spoken,
     });
     const profiles = profilesBy.get(t.id) ?? [];
-    const counts = { total: profiles.length, draft: 0, pending_review: 0, approved: 0, rejected: 0 };
+    const counts = {
+      total: profiles.length,
+      draft: 0,
+      pending_review: 0,
+      changes_requested: 0,
+      approved: 0,
+      rejected: 0,
+    };
+    let changesRequestedAt: string | null = null;
+    let requestedLabels: string[] = [];
+    let resubmittedAt: string | null = null;
     for (const p of profiles) {
       if (p.status in counts) (counts as any)[p.status] += 1;
+      if (p.status === 'changes_requested' && p.changes_requested_at) {
+        if (!changesRequestedAt || p.changes_requested_at < changesRequestedAt) {
+          changesRequestedAt = p.changes_requested_at;
+          requestedLabels = Array.isArray(p.requested_changes)
+            ? p.requested_changes.map((c: any) => String(c?.label ?? '')).filter(Boolean)
+            : [];
+        }
+      }
+      if (p.status === 'pending_review' && p.resubmitted_at) {
+        if (!resubmittedAt || p.resubmitted_at > resubmittedAt) resubmittedAt = p.resubmitted_at;
+      }
     }
     const portfolioItems = profiles.reduce(
       (sum, p) => sum + (portfolioCountByProfile.get(p.id) ?? 0),
@@ -278,8 +326,13 @@ async function journeysFor(
         languages_spoken: t.languages_spoken,
       }),
       basic_missing: checklist.filter((c) => c.required && !c.done).map((c) => c.key),
-      job_profile_completed: counts.pending_review + counts.approved > 0,
+      // changes_requested counts as submitted: the talent did their part once;
+      // the funnel shouldn't yank them back to "Job Profile".
+      job_profile_completed: counts.pending_review + counts.changes_requested + counts.approved > 0,
       job_profiles: counts,
+      changes_requested_at: changesRequestedAt,
+      requested_change_labels: requestedLabels,
+      resubmitted_at: resubmittedAt,
       portfolio_completed: portfolioItems > 0,
       portfolio_items: portfolioItems,
     });
@@ -310,11 +363,11 @@ async function attentionIds(attention: HubAttention | undefined): Promise<string
     return [...ids];
   }
 
-  if (attention === 'needs_review') {
+  if (attention === 'needs_review' || attention === 'waiting_on_talent') {
     const { data } = await supabaseAdmin
       .from('talent_profiles')
       .select('talent_user_id')
-      .eq('status', 'pending_review')
+      .eq('status', attention === 'needs_review' ? 'pending_review' : 'changes_requested')
       .is('deleted_at', null);
     for (const r of data ?? []) ids.add((r as any).talent_user_id);
     return [...ids];
@@ -487,7 +540,7 @@ export async function hubStats(category?: string) {
     by_pipeline_stage: {} as Record<string, number>,
     by_talent_stage: {} as Record<string, number>,
     in_talent_pipeline: 0,
-    attention: { pending_approval: 0, needs_review: 0 },
+    attention: { pending_approval: 0, needs_review: 0, waiting_on_talent: 0 },
   };
   if (categoryIds && categoryIds.length === 0) return empty;
 
@@ -516,13 +569,16 @@ export async function hubStats(category?: string) {
   const idSet = categoryIds ? new Set(categoryIds) : null;
   const { data: reviewRows } = await supabaseAdmin
     .from('talent_profiles')
-    .select('talent_user_id')
-    .eq('status', 'pending_review')
+    .select('talent_user_id, status')
+    .in('status', ['pending_review', 'changes_requested'])
     .is('deleted_at', null);
   const needsReview = new Set<string>();
+  const waitingOnTalent = new Set<string>();
   for (const r of reviewRows ?? []) {
     const id = (r as any).talent_user_id as string;
-    if (!idSet || idSet.has(id)) needsReview.add(id);
+    if (idSet && !idSet.has(id)) continue;
+    if ((r as any).status === 'pending_review') needsReview.add(id);
+    else waitingOnTalent.add(id);
   }
 
   return {
@@ -531,7 +587,11 @@ export async function hubStats(category?: string) {
     by_pipeline_stage: byStage,
     by_talent_stage: byTalentStage,
     in_talent_pipeline: inTalent,
-    attention: { pending_approval: pending, needs_review: needsReview.size },
+    attention: {
+      pending_approval: pending,
+      needs_review: needsReview.size,
+      waiting_on_talent: waitingOnTalent.size,
+    },
   };
 }
 
@@ -556,7 +616,7 @@ export async function talentJourney(userId: string) {
     supabaseAdmin.from('talent_profiles_basic').select('*').eq('talent_user_id', userId).maybeSingle(),
     supabaseAdmin
       .from('talent_profiles')
-      .select('id, category_id, status, is_active, tier, tier_custom, created_at, updated_at, categories(name, slug)')
+      .select('id, category_id, status, is_active, tier, tier_custom, created_at, updated_at, requested_changes, changes_requested_at, resubmitted_at, changes_whatsapp_sent, categories(name, slug)')
       .eq('talent_user_id', userId)
       .is('deleted_at', null)
       .order('updated_at', { ascending: false }),
@@ -679,6 +739,10 @@ export async function talentJourney(userId: string) {
       portfolio_items: portfolioByProfile.get(p.id) ?? 0,
       created_at: p.created_at,
       updated_at: p.updated_at,
+      requested_changes: Array.isArray(p.requested_changes) ? p.requested_changes : [],
+      changes_requested_at: p.changes_requested_at ?? null,
+      resubmitted_at: p.resubmitted_at ?? null,
+      changes_whatsapp_sent: p.changes_whatsapp_sent ?? null,
     })),
     lead: leadRes.data ?? null,
     talent_pipeline: talentPipeline.config

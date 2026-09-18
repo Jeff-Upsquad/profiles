@@ -325,13 +325,16 @@ export async function deleteOption(optionId: string) {
 // Profile Reviews
 // ---------------------------------------------------------------------------
 
-export async function getReviewQueue(categoryId?: string) {
+export type ReviewQueueStatus = 'pending_review' | 'changes_requested';
+
+export async function getReviewQueue(categoryId?: string, status: ReviewQueueStatus = 'pending_review') {
   let qb = supabaseAdmin
     .from('talent_profiles')
-    .select('*, talent_users!inner(full_name), categories!inner(name, slug)')
-    .eq('status', 'pending_review')
+    .select('*, talent_users!inner(full_name, phone), categories!inner(name, slug)')
+    .eq('status', status)
     .is('deleted_at', null)
-    .order('updated_at', { ascending: true });
+    // Waiting-on-talent sorts by when we asked, so the oldest ask surfaces first.
+    .order(status === 'changes_requested' ? 'changes_requested_at' : 'updated_at', { ascending: true });
 
   if (categoryId) {
     qb = qb.eq('category_id', categoryId);
@@ -400,6 +403,8 @@ export async function approveProfile(profileId: string, adminId: string) {
       reviewed_at: new Date().toISOString(),
       rejection_reason: null,
       previous_field_data: null,
+      // Close out any request-changes round; requested_changes stays as history.
+      resubmitted_at: null,
     })
     .eq('id', profileId)
     .eq('status', 'pending_review')

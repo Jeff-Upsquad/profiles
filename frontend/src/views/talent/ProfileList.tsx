@@ -7,6 +7,7 @@ import {
 } from '@/hooks/useProfiles';
 import Button from '@/components/ui/Button';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
+import RequestedChangesBanner from '@/components/profile/RequestedChangesBanner';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
 import { formatDate } from '@/lib/formatDate';
@@ -152,7 +153,7 @@ export default function ProfileList() {
                     </h3>
                     {!isLive && (
                       <Badge variant={isPaused ? 'gray' : statusToBadgeVariant(profile.status)}>
-                        {isPaused ? 'Paused' : profile.status.replace('_', ' ')}
+                        {isPaused ? 'Paused' : profile.status === 'changes_requested' ? 'updates needed' : profile.status.replace('_', ' ')}
                       </Badge>
                     )}
                   </div>
@@ -167,7 +168,15 @@ export default function ProfileList() {
                     </p>
                   )}
 
-                  {profile.rejection_reason && (
+                  {profile.status === 'changes_requested' && (
+                    <RequestedChangesBanner
+                      profileId={profile.id}
+                      changes={profile.requested_changes ?? []}
+                      compact
+                    />
+                  )}
+
+                  {profile.status !== 'changes_requested' && profile.rejection_reason && (
                     <div className="mt-3 rounded-lg bg-red-50 ring-1 ring-inset ring-red-200 p-2.5 text-xs text-red-700">
                       <span className="font-medium">Rejected:</span> {profile.rejection_reason}
                     </div>
@@ -179,10 +188,10 @@ export default function ProfileList() {
                         View
                       </Button>
                     </Link>
-                    {!profile.is_ghost && (profile.status === 'draft' || profile.status === 'rejected' || profile.status === 'approved' || profile.status === 'pending_review') && (
+                    {!profile.is_ghost && (profile.status === 'draft' || profile.status === 'rejected' || profile.status === 'approved' || profile.status === 'pending_review' || profile.status === 'changes_requested') && (
                       <Link href={`/talent/profiles/${profile.id}/edit`}>
-                        <Button variant="secondary" size="sm">
-                          Edit
+                        <Button variant={profile.status === 'changes_requested' ? 'primary' : 'secondary'} size="sm">
+                          {profile.status === 'changes_requested' ? 'Make updates' : 'Edit'}
                         </Button>
                       </Link>
                     )}

@@ -65,6 +65,7 @@ export interface CategoryField {
 export type ProfileStatus =
   | 'draft'
   | 'pending_review'
+  | 'changes_requested'
   | 'approved'
   | 'rejected'
   | 'inactive';

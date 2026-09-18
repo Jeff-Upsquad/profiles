@@ -45,7 +45,7 @@ export interface CategoryWithFields extends Category {
   fields: CategoryField[];
 }
 
-export type ProfileStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'inactive';
+export type ProfileStatus = 'draft' | 'pending_review' | 'changes_requested' | 'approved' | 'rejected' | 'inactive';
 
 export interface Profile {
   id: string;

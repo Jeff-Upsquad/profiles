@@ -45,6 +45,7 @@ export const CATEGORY_BADGE: Record<string, { label: string; cls: string }> = {
 export type HubAttention =
   | 'pending_approval'
   | 'needs_review'
+  | 'waiting_on_talent'
   | 'course_pending'
   | 'basic_incomplete'
   | 'no_job_profile';
@@ -57,7 +58,17 @@ export interface JourneySummary {
   basic_profile_completed: boolean;
   basic_missing: string[];
   job_profile_completed: boolean;
-  job_profiles: { total: number; draft: number; pending_review: number; approved: number; rejected: number };
+  job_profiles: {
+    total: number;
+    draft: number;
+    pending_review: number;
+    changes_requested: number;
+    approved: number;
+    rejected: number;
+  };
+  changes_requested_at: string | null;
+  requested_change_labels: string[];
+  resubmitted_at: string | null;
   portfolio_completed: boolean;
   portfolio_items: number;
 }
@@ -90,7 +101,7 @@ export interface HubStats {
   by_pipeline_stage: Record<string, number>;
   by_talent_stage: Record<string, number>;
   in_talent_pipeline: number;
-  attention: { pending_approval: number; needs_review: number };
+  attention: { pending_approval: number; needs_review: number; waiting_on_talent: number };
 }
 
 export interface CrmStage {

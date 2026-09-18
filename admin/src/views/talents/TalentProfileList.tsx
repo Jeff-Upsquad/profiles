@@ -39,6 +39,7 @@ type TierKey = 'Top Talents' | 'pro' | 'junior' | 'custom' | 'none';
 const statusVariant: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
   approved: 'green',
   pending_review: 'yellow',
+  changes_requested: 'yellow',
   rejected: 'red',
   draft: 'gray',
   inactive: 'gray',
@@ -48,6 +49,7 @@ const STATUS_TABS = [
   { key: '', label: 'All' },
   { key: 'approved', label: 'Approved' },
   { key: 'pending_review', label: 'Pending Review' },
+  { key: 'changes_requested', label: 'Changes Requested' },
   { key: 'rejected', label: 'Rejected' },
   { key: 'draft', label: 'Draft' },
   { key: 'inactive', label: 'Inactive' },

@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import TierBadge from '@/components/ui/TierBadge';
 import Modal from '@/components/ui/Modal';
+import RequestChangesDialog from './RequestChangesDialog';
 import toast from 'react-hot-toast';
 import { coerceLeveledList, LEVEL_LABELS, type LeveledItem } from '../../../../shared/src/types/talent';
 import { formatDate, formatDateTime } from '@/lib/formatDate';
@@ -30,6 +31,10 @@ interface ReviewProfile {
   field_data: Record<string, any>;
   previous_field_data?: Record<string, any> | null;
   rejection_reason?: string;
+  requested_changes?: { key: string; label: string; message: string; note?: string | null }[] | null;
+  changes_requested_at?: string | null;
+  resubmitted_at?: string | null;
+  changes_whatsapp_sent?: boolean | null;
   created_at: string;
   updated_at: string;
   talent_users?: {
@@ -266,6 +271,7 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
   const queryClient = useQueryClient();
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [changesOpen, setChangesOpen] = useState(false);
 
   const { data: profile, isLoading } = useQuery<ReviewProfile>({
     queryKey: ['review', profileId],
@@ -446,6 +452,11 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
           >
             Reject
           </Button>
+          {profile.status === 'pending_review' && (
+            <Button variant="secondary" onClick={() => setChangesOpen(true)}>
+              Request changes
+            </Button>
+          )}
           <Button
             loading={approve.isPending}
             onClick={() => approve.mutate()}
@@ -454,6 +465,40 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
           </Button>
         </div>
       </div>
+
+      {/* Request-changes history: what we asked, whether they came back */}
+      {profile.requested_changes && profile.requested_changes.length > 0 && (
+        <div
+          className={`rounded-xl border p-4 ${
+            profile.status === 'changes_requested'
+              ? 'border-amber-200 bg-amber-50'
+              : 'border-emerald-200 bg-emerald-50'
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className={`text-sm font-semibold ${profile.status === 'changes_requested' ? 'text-amber-900' : 'text-emerald-900'}`}>
+              {profile.status === 'changes_requested'
+                ? `Waiting on talent · asked ${profile.changes_requested_at ? formatDateTime(profile.changes_requested_at) : ''}`
+                : `Resubmitted${profile.resubmitted_at ? ` ${formatDateTime(profile.resubmitted_at)}` : ''} · you asked for:`}
+            </h3>
+            {profile.changes_whatsapp_sent === true && (
+              <span className="text-xs text-emerald-700">WhatsApp sent</span>
+            )}
+            {profile.changes_whatsapp_sent === false && (
+              <span className="text-xs text-amber-700">WhatsApp not sent — event not mapped in CRM</span>
+            )}
+          </div>
+          <ul className="mt-2 list-inside list-disc space-y-0.5 text-sm text-gray-800">
+            {profile.requested_changes.map((c, i) => (
+              <li key={`${c.key}-${i}`}>
+                <span className="font-medium">{c.label}</span>
+                {c.label !== c.message && <span className="text-gray-600"> — {c.message}</span>}
+                {c.note && <span className="text-gray-500"> ({c.note})</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Originated From — surfaces matching lead_submissions linked at signup */}
       {profile.linked_leads && profile.linked_leads.length > 0 && (
@@ -709,6 +754,16 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
           </div>
         </dl>
       </div>
+
+      <RequestChangesDialog
+        isOpen={changesOpen}
+        onClose={() => setChangesOpen(false)}
+        profileId={profileId}
+        categoryId={profile.category_id}
+        talentName={talentUser?.full_name}
+        talentPhone={talentUser?.phone}
+        onDone={() => router.push('/reviews')}
+      />
 
       {/* Reject Modal */}
       <Modal

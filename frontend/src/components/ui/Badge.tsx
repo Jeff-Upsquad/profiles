@@ -22,6 +22,7 @@ export function statusToBadgeVariant(status: string): BadgeVariant {
     case 'approved':
       return 'green';
     case 'pending_review':
+    case 'changes_requested':
       return 'yellow';
     case 'rejected':
       return 'red';

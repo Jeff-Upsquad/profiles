@@ -74,7 +74,16 @@ export interface CategoryWithFields extends Category {
   fields: CategoryField[];
 }
 
-export type ProfileStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'inactive';
+export type ProfileStatus = 'draft' | 'pending_review' | 'changes_requested' | 'approved' | 'rejected' | 'inactive';
+
+/** One item the reviewer asked the talent to fix (status = changes_requested). */
+export interface RequestedChange {
+  key: string;
+  section: string;
+  label: string;
+  message: string;
+  note?: string | null;
+}
 
 export interface GhostSourceProfile {
   id: string;
@@ -96,6 +105,9 @@ export interface Profile {
   is_active?: boolean;
   field_data: Record<string, any>;
   rejection_reason?: string;
+  requested_changes?: RequestedChange[] | null;
+  changes_requested_at?: string | null;
+  resubmitted_at?: string | null;
   submitted_at?: string;
   reviewed_at?: string;
   created_at: string;

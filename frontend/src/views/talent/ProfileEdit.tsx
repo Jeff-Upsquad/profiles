@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useProfile, useUpdateProfile, useSubmitProfile, usePortfolioItems } from '@/hooks/useProfiles';
+import RequestedChangesBanner from '@/components/profile/RequestedChangesBanner';
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import { useTalentMe } from '@/hooks/useTalentMe';
 import { useAuth } from '@/context/AuthContext';
@@ -260,7 +261,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
                   Editing
                 </p>
                 <Badge variant={statusToBadgeVariant(profile.status)}>
-                  {profile.status.replace('_', ' ')}
+                  {profile.status === 'changes_requested' ? 'updates needed' : profile.status.replace('_', ' ')}
                 </Badge>
               </div>
               <h1 className="font-[family-name:var(--font-jakarta)] text-[22px] sm:text-[26px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] truncate">
@@ -279,7 +280,20 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
       <PendingApprovalBanner />
 
-      {profile.rejection_reason && (
+      {profile.status === 'changes_requested' && (
+        <RequestedChangesBanner
+          profileId={profileId}
+          changes={profile.requested_changes ?? []}
+          requestedAt={profile.changes_requested_at}
+          onEditPage
+          onResubmit={handleSaveAndSubmit}
+          resubmitting={updateProfile.isPending || submitProfile.isPending}
+          resubmitDisabled={isRejected}
+          resubmitDisabledReason="Submitting is locked because this account was not approved"
+        />
+      )}
+
+      {profile.status !== 'changes_requested' && profile.rejection_reason && (
         <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4">
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-red-100">
             <svg className="h-4 w-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -335,7 +349,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
         {/* Skills & Tools */}
         {profile && (
-          <section className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <section id="skills" className="scroll-mt-24 rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-orange flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -392,7 +406,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
         {/* Portfolio — not required for sales profiles */}
         {profile && profile.category?.slug !== 'sales' && (
-          <section className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <section id="portfolio" className="scroll-mt-24 rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-pink flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -440,7 +454,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
           <Button variant="outline" onClick={handleSave} loading={updateProfile.isPending}>
             Save Changes
           </Button>
-          {(profile.status === 'draft' || profile.status === 'rejected') && (
+          {(profile.status === 'draft' || profile.status === 'rejected' || profile.status === 'changes_requested') && (
             <button
               type="button"
               onClick={handleSaveAndSubmit}
@@ -448,7 +462,9 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
               title={isRejected ? 'Submitting is locked because this account was not approved' : undefined}
               className="btn-iridescent disabled:opacity-50"
             >
-              {(updateProfile.isPending || submitProfile.isPending) ? 'Submitting…' : 'Save & Submit'}
+              {(updateProfile.isPending || submitProfile.isPending)
+                ? 'Submitting…'
+                : profile.status === 'changes_requested' ? 'Save & Resubmit' : 'Save & Submit'}
             </button>
           )}
         </div>
