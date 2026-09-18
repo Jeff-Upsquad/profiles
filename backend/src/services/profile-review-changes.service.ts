@@ -106,6 +106,30 @@ export interface RequestChangesInput {
   send_whatsapp?: boolean;
 }
 
+// Full checklist as a free-text WhatsApp message. The CRM sends this directly
+// when the talent's 24h window is open, otherwise it sends the mapped opener
+// template and queues this as a reply follow-up (goes out on their next reply).
+function whatsappFollowupText(
+  talentName: string | null,
+  categoryName: string,
+  changes: RequestedChange[],
+): string {
+  const hi = talentName?.trim() ? `Hi ${talentName.trim().split(/\s+/)[0]},` : 'Hi,';
+  const lines = changes.map(
+    (c, i) => `${i + 1}. ${c.message}${c.note ? ` (${c.note})` : ''}`,
+  );
+  return [
+    `${hi} thanks for submitting your UpSquad ${categoryName} profile.`,
+    '',
+    `Before we can approve it, please update the following:`,
+    ...lines,
+    '',
+    `Open the app, make the changes, and tap "Resubmit for review". We'll take another look right after.`,
+    '',
+    '– UpSquad team',
+  ].join('\n');
+}
+
 function whatsappSummary(changes: RequestedChange[]): string {
   const lines = changes.map((c) => (c.note ? `${c.message} (${c.note})` : c.message));
   const shown = lines.slice(0, WHATSAPP_MAX_ITEMS);
@@ -189,9 +213,10 @@ export async function requestProfileChanges(
     console.error('[review-changes] in-app notify failed:', e);
   }
 
-  // WhatsApp via the SquadHire CRM system event → approved Meta template.
-  // Templates are allowed outside the 24h session window, so this always
-  // reaches the talent as long as the event is mapped in the CRM.
+  // WhatsApp via the SquadHire CRM system event. The CRM sends the full
+  // checklist (`followup_text`) as free text when the talent's 24h window is
+  // open; otherwise it sends the mapped opener template and queues the
+  // checklist as a reply follow-up that fires on the talent's next message.
   let whatsappSent: boolean | null = null;
   if (input.send_whatsapp !== false && talent?.phone) {
     whatsappSent = await deliverCrmSystemEvent({
@@ -203,6 +228,7 @@ export async function requestProfileChanges(
         category: categoryName,
         changes: whatsappSummary(changes),
         changes_count: String(changes.length),
+        followup_text: whatsappFollowupText(talent.full_name ?? null, categoryName, changes),
       },
     });
     await supabaseAdmin
