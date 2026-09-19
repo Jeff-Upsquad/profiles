@@ -719,6 +719,7 @@ router.post(
   validate({ body: createWebinarSchema }),
   webinarsController.createAdmin,
 );
+router.get('/training/webinars/:id/registrations', webinarsController.listRegistrations);
 router.put(
   '/training/webinars/:id',
   validate({ body: updateWebinarSchema }),

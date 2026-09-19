@@ -97,6 +97,37 @@ export async function deleteWebinar(id: string) {
   return { success: true };
 }
 
+export interface WebinarRegistrant {
+  talent_user_id: string;
+  full_name: string | null;
+  phone: string | null;
+  registered_at: string;
+  day_notified_at: string | null;
+  min30_notified_at: string | null;
+  min5_notified_at: string | null;
+}
+
+export async function listWebinarRegistrations(webinarId: string): Promise<WebinarRegistrant[]> {
+  const { data, error } = await supabaseAdmin
+    .from('training_webinar_registrations')
+    .select(
+      'talent_user_id, created_at, day_notified_at, min30_notified_at, min5_notified_at, talent:talent_users(full_name, phone)',
+    )
+    .eq('webinar_id', webinarId)
+    .order('created_at', { ascending: true })
+    .limit(2000);
+  if (error) throw new AppError(500, `Failed to load registrations: ${error.message}`);
+  return (data ?? []).map((r: any) => ({
+    talent_user_id: r.talent_user_id as string,
+    full_name: (r.talent?.full_name as string | null) ?? null,
+    phone: (r.talent?.phone as string | null) ?? null,
+    registered_at: r.created_at as string,
+    day_notified_at: (r.day_notified_at as string | null) ?? null,
+    min30_notified_at: (r.min30_notified_at as string | null) ?? null,
+    min5_notified_at: (r.min5_notified_at as string | null) ?? null,
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // Talent
 // ---------------------------------------------------------------------------

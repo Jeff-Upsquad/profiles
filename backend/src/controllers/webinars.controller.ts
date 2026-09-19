@@ -37,6 +37,15 @@ export async function deleteAdmin(req: Request, res: Response, next: NextFunctio
   }
 }
 
+export async function listRegistrations(req: Request, res: Response, next: NextFunction) {
+  try {
+    const svc = await import('../services/webinars.service.js');
+    res.json(await svc.listWebinarRegistrations(req.params.id as string));
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Talent — inside Training.
 export async function listForTalent(req: Request, res: Response, next: NextFunction) {
   try {

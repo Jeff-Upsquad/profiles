@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/services/api';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
@@ -13,7 +15,7 @@ import {
   type WebinarForm,
 } from '@/hooks/useWebinars';
 
-const LANGUAGES = [
+export const LANGUAGES = [
   { value: 'en', label: 'English' },
   { value: 'th', label: 'Thai (ไทย)' },
   { value: 'hi', label: 'Hindi' },
@@ -27,27 +29,130 @@ const LANGUAGES = [
   { value: 'pa', label: 'Punjabi' },
 ];
 
+export function languageLabel(code: string): string {
+  return LANGUAGES.find((l) => l.value === code)?.label ?? code;
+}
+
 function toLocalInput(iso: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+interface Registrant {
+  talent_user_id: string;
+  full_name: string | null;
+  phone: string | null;
+  registered_at: string;
+  day_notified_at: string | null;
+  min30_notified_at: string | null;
+  min5_notified_at: string | null;
+}
+
+function RegistrantsView({ webinar }: { webinar: Webinar }) {
+  const { data, isLoading } = useQuery<Registrant[]>({
+    queryKey: ['admin', 'training', 'webinars', webinar.id, 'registrations'],
+    queryFn: async () => {
+      const { data } = await api.get(`/admin/training/webinars/${webinar.id}/registrations`);
+      return data;
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2 py-2">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-10 animate-pulse rounded bg-gray-100" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!data?.length) {
+    return <p className="py-6 text-center text-sm text-gray-500">No registrations yet.</p>;
+  }
+
+  return (
+    <div className="max-h-[50vh] overflow-y-auto">
+      <table className="w-full text-sm">
+        <thead className="sticky top-0 bg-gray-50">
+          <tr className="border-b border-gray-200">
+            <th className="px-4 py-2 text-left font-medium text-gray-500">Talent</th>
+            <th className="px-4 py-2 text-left font-medium text-gray-500">Phone</th>
+            <th className="px-4 py-2 text-left font-medium text-gray-500">Registered</th>
+            <th className="px-4 py-2 text-left font-medium text-gray-500">Reminders</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {data.map((r) => {
+            const sent = [r.day_notified_at, r.min30_notified_at, r.min5_notified_at].filter(Boolean).length;
+            return (
+              <tr key={r.talent_user_id}>
+                <td className="px-4 py-2.5 font-medium text-gray-900">{r.full_name ?? '—'}</td>
+                <td className="px-4 py-2.5 text-gray-500">{r.phone ?? '—'}</td>
+                <td className="px-4 py-2.5 text-gray-500">
+                  {new Date(r.registered_at).toLocaleString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </td>
+                <td className="px-4 py-2.5 text-gray-500">
+                  {sent === 0 ? (
+                    <span className="text-xs text-gray-400">pending</span>
+                  ) : (
+                    <span className="text-xs">
+                      {sent}/3 sent
+                      {r.min5_notified_at ? ' · day ✓ 30m ✓ 5m ✓' : r.min30_notified_at ? ' · day ✓ 30m ✓' : ' · day ✓'}
+                    </span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Every field starts empty — nothing is pre-selected. */
+const EMPTY_FORM: WebinarForm = {
+  title: '',
+  starts_at: '',
+  language: '',
+  meeting_link: '',
+  audience: '' as WebinarForm['audience'],
+  status: '' as WebinarForm['status'],
+};
+
 function WebinarFormView({ webinar, onClose }: { webinar?: Webinar | null; onClose: () => void }) {
   const create = useCreateWebinar();
   const update = useUpdateWebinar();
-  const [form, setForm] = useState<WebinarForm>({
-    title: webinar?.title ?? '',
-    starts_at: webinar ? toLocalInput(webinar.starts_at) : '',
-    language: webinar?.language ?? 'th',
-    meeting_link: webinar?.meeting_link ?? '',
-    audience: webinar?.audience ?? 'thailand',
-    status: webinar?.status ?? 'published',
-  });
+  const [form, setForm] = useState<WebinarForm>(
+    webinar
+      ? {
+          title: webinar.title,
+          starts_at: toLocalInput(webinar.starts_at),
+          language: webinar.language,
+          meeting_link: webinar.meeting_link,
+          audience: webinar.audience,
+          status: webinar.status,
+        }
+      : { ...EMPTY_FORM },
+  );
   const pending = create.isPending || update.isPending;
+  const valid =
+    form.title.trim() !== '' &&
+    form.starts_at !== '' &&
+    form.language !== '' &&
+    form.meeting_link.trim() !== '' &&
+    (form.audience === 'all' || form.audience === 'thailand') &&
+    (form.status === 'draft' || form.status === 'published' || form.status === 'cancelled');
 
   const submit = async () => {
-    if (!form.title.trim() || !form.starts_at || !form.meeting_link.trim()) return;
+    if (!valid) return;
     const payload: WebinarForm = {
       ...form,
       title: form.title.trim(),
@@ -61,6 +166,8 @@ function WebinarFormView({ webinar, onClose }: { webinar?: Webinar | null; onClo
   };
 
   const set = (k: keyof WebinarForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const selectClass =
+    'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none';
 
   return (
     <div className="space-y-4">
@@ -85,11 +192,10 @@ function WebinarFormView({ webinar, onClose }: { webinar?: Webinar | null; onClo
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Language</label>
-          <select
-            value={form.language}
-            onChange={(e) => set('language', e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-          >
+          <select value={form.language} onChange={(e) => set('language', e.target.value)} className={selectClass}>
+            <option value="" disabled>
+              Select language…
+            </option>
             {LANGUAGES.map((l) => (
               <option key={l.value} value={l.value}>
                 {l.label}
@@ -110,22 +216,20 @@ function WebinarFormView({ webinar, onClose }: { webinar?: Webinar | null; onClo
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Audience</label>
-          <select
-            value={form.audience}
-            onChange={(e) => set('audience', e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-          >
+          <select value={form.audience} onChange={(e) => set('audience', e.target.value)} className={selectClass}>
+            <option value="" disabled>
+              Select audience…
+            </option>
             <option value="thailand">Thailand talents</option>
             <option value="all">Everyone</option>
           </select>
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
-          <select
-            value={form.status}
-            onChange={(e) => set('status', e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-          >
+          <select value={form.status} onChange={(e) => set('status', e.target.value)} className={selectClass}>
+            <option value="" disabled>
+              Select status…
+            </option>
             <option value="published">Published</option>
             <option value="draft">Draft</option>
             <option value="cancelled">Cancelled</option>
@@ -139,10 +243,7 @@ function WebinarFormView({ webinar, onClose }: { webinar?: Webinar | null; onClo
         <Button variant="ghost" onClick={onClose}>
           Cancel
         </Button>
-        <Button
-          onClick={submit}
-          disabled={pending || !form.title.trim() || !form.starts_at || !form.meeting_link.trim()}
-        >
+        <Button onClick={submit} disabled={pending || !valid}>
           {pending ? 'Saving…' : webinar ? 'Save changes' : 'Create webinar'}
         </Button>
       </div>
@@ -150,11 +251,12 @@ function WebinarFormView({ webinar, onClose }: { webinar?: Webinar | null; onClo
   );
 }
 
-export default function WebinarsManager() {
+export default function WebinarsManager({ hideHeading = false }: { hideHeading?: boolean } = {}) {
   const { data: webinars, isLoading } = useWebinars();
   const del = useDeleteWebinar();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Webinar | null>(null);
+  const [viewing, setViewing] = useState<Webinar | null>(null);
 
   const openCreate = () => {
     setEditing(null);
@@ -168,12 +270,18 @@ export default function WebinarsManager() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Webinars</h2>
-          <p className="mt-0.5 text-sm text-gray-500">
+        {!hideHeading ? (
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Webinars</h2>
+            <p className="mt-0.5 text-sm text-gray-500">
+              Live sessions for Thailand talents. Registration + reminders are automatic.
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">
             Live sessions for Thailand talents. Registration + reminders are automatic.
           </p>
-        </div>
+        )}
         <Button onClick={openCreate}>New webinar</Button>
       </div>
 
@@ -214,7 +322,7 @@ export default function WebinarsManager() {
                       minute: '2-digit',
                     })}
                   </td>
-                  <td className="px-6 py-4 text-gray-500">{w.language}</td>
+                  <td className="px-6 py-4 text-gray-500">{languageLabel(w.language)}</td>
                   <td className="max-w-[200px] truncate px-6 py-4">
                     <a
                       href={w.meeting_link}
@@ -225,7 +333,16 @@ export default function WebinarsManager() {
                       Open link
                     </a>
                   </td>
-                  <td className="px-6 py-4 text-gray-500">{w.registrations ?? 0}</td>
+                  <td className="px-6 py-4">
+                    <button
+                      type="button"
+                      onClick={() => setViewing(w)}
+                      className="text-indigo-600 hover:text-indigo-800 hover:underline"
+                      title="See who registered"
+                    >
+                      {w.registrations ?? 0} · View
+                    </button>
+                  </td>
                   <td className="px-6 py-4">
                     <Badge variant={w.status === 'published' ? 'green' : w.status === 'draft' ? 'gray' : 'red'}>
                       {w.status}
@@ -257,6 +374,15 @@ export default function WebinarsManager() {
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit webinar' : 'New webinar'}>
         <WebinarFormView webinar={editing} onClose={() => setModalOpen(false)} />
+      </Modal>
+
+      <Modal
+        isOpen={!!viewing}
+        onClose={() => setViewing(null)}
+        title={viewing ? `Registered — ${viewing.title}` : 'Registered'}
+        size="lg"
+      >
+        {viewing && <RegistrantsView webinar={viewing} />}
       </Modal>
     </div>
   );
