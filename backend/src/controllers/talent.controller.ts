@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as talentService from '../services/talent.service.js';
+import { resubmitBasicProfile } from '../services/basic-profile-changes.service.js';
 import * as squadhubTalentSsoService from '../services/squadhub-talent-sso.service.js';
 
 function paramStr(val: string | string[]): string {
@@ -36,6 +37,15 @@ export async function getBasicProfile(req: Request, res: Response, next: NextFun
 export async function updateBasicProfile(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await talentService.updateBasicProfile(req.user!.id, req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function resubmitBasic(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await resubmitBasicProfile(req.user!.id);
     res.json(result);
   } catch (err) {
     next(err);

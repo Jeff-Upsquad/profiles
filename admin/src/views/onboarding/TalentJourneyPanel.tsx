@@ -372,6 +372,7 @@ export default function TalentJourneyPanel({
   const [showApplication, setShowApplication] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [changesProfileId, setChangesProfileId] = useState<string | null>(null);
+  const [basicChangesOpen, setBasicChangesOpen] = useState(false);
 
   // Keyboard: Esc closes, ←/→ move between rows (unless typing).
   useEffect(() => {
@@ -379,7 +380,7 @@ export default function TalentJourneyPanel({
     const handler = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
-      if (changesProfileId) return;
+      if (changesProfileId || basicChangesOpen) return;
       if (e.key === 'Escape') onClose();
       else if (e.key === 'ArrowLeft' && hasPrev) onNavigate(-1);
       else if (e.key === 'ArrowRight' && hasNext) onNavigate(1);
@@ -390,13 +391,14 @@ export default function TalentJourneyPanel({
       window.removeEventListener('keydown', handler);
       document.body.style.overflow = '';
     };
-  }, [userId, hasPrev, hasNext, onNavigate, onClose, changesProfileId]);
+  }, [userId, hasPrev, hasNext, onNavigate, onClose, changesProfileId, basicChangesOpen]);
 
   useEffect(() => {
     setShowBasic(false);
     setShowApplication(false);
     setActivityOpen(false);
     setChangesProfileId(null);
+    setBasicChangesOpen(false);
   }, [userId]);
 
   const { data, isLoading } = useQuery<Journey>({
@@ -410,6 +412,22 @@ export default function TalentJourneyPanel({
     qc.invalidateQueries({ queryKey: ['onboarding-hub'] });
     qc.invalidateQueries({ queryKey: ['onboarding-hub-stats'] });
   };
+
+  const acceptBasicMut = useMutation({
+    mutationFn: async () =>
+      (await api.patch(`/admin/user-approvals/${userId}/basic/accept-changes`)).data,
+    onSuccess: () => {
+      toast.success('Basic-profile updates accepted');
+      refresh();
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to accept updates'),
+  });
+
+  // The one common basic-profile change request (always live, no status).
+  const basicAsked: { key: string; label: string; message: string; note?: string | null }[] =
+    data?.basic?.requested_changes ?? [];
+  const basicReqOpen = !!data?.basic?.changes_requested_at && data?.basic?.reviewed_at == null;
+  const basicResubmitted = basicReqOpen && !!data?.basic?.resubmitted_at;
 
   const stageMut = useMutation({
     mutationFn: async (stage: PipelineStage) =>
@@ -738,17 +756,56 @@ export default function TalentJourneyPanel({
                               ? `${missing.length} section${missing.length === 1 ? '' : 's'} missing`
                               : 'Not started'}
                         </p>
+                        {basicReqOpen && basicAsked.length > 0 && (
+                          <p className="mt-0.5 text-[11px] text-amber-800" title={basicAsked.map((c) => c.message).join('\n')}>
+                            Asked {timeAgo(data.basic!.changes_requested_at)}: {basicAsked.map((c) => c.label).join(', ')}
+                            {data.basic!.changes_whatsapp_sent === false && <span className="text-amber-600"> · WhatsApp not sent</span>}
+                          </p>
+                        )}
+                        {basicResubmitted && (
+                          <p className="mt-0.5 text-[11px] text-emerald-700">
+                            Resubmitted {timeAgo(data.basic!.resubmitted_at)} after changes were requested
+                          </p>
+                        )}
+                        {basicReqOpen && (
+                          <p className="mt-0.5 text-[11px] font-medium text-emerald-700">
+                            Basic profile remains live · {basicResubmitted ? 'updates ready for review' : 'waiting for updates'}
+                          </p>
+                        )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowBasic((v) => !v)}
-                        className="text-xs font-medium text-indigo-600 hover:underline"
-                      >
-                        {showBasic ? 'Hide' : 'View'}
-                      </button>
-                      <Link href={`/users/${u.id}`} className="text-xs font-medium text-gray-500 hover:underline">
-                        Edit
-                      </Link>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        {canEdit && !basicReqOpen && (
+                          <button
+                            type="button"
+                            onClick={() => setBasicChangesOpen(true)}
+                            className="text-xs font-medium text-amber-700 hover:underline"
+                          >
+                            Request changes
+                          </button>
+                        )}
+                        {canEdit && basicResubmitted && (
+                          <button
+                            type="button"
+                            onClick={() => acceptBasicMut.mutate()}
+                            disabled={acceptBasicMut.isPending}
+                            className="text-xs font-medium text-indigo-600 hover:underline disabled:opacity-50"
+                          >
+                            {acceptBasicMut.isPending ? 'Accepting…' : 'Accept updates'}
+                          </button>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowBasic((v) => !v)}
+                            className="text-xs font-medium text-indigo-600 hover:underline"
+                          >
+                            {showBasic ? 'Hide' : 'View'}
+                          </button>
+                          <Link href={`/users/${u.id}`} className="text-xs font-medium text-gray-500 hover:underline">
+                            Edit
+                          </Link>
+                        </div>
+                      </div>
                     </div>
                     <div className="ml-9 mt-2 flex flex-wrap gap-1.5">
                       {j.basic_checklist
@@ -1042,6 +1099,16 @@ export default function TalentJourneyPanel({
           profileId={changesProfileId}
           categoryId={data.profiles.find((p) => p.id === changesProfileId)?.category_id}
           wasApproved={data.profiles.find((p) => p.id === changesProfileId)?.status === 'approved'}
+          talentName={data.user.full_name}
+          talentPhone={data.user.phone}
+          onDone={refresh}
+        />
+      )}
+      {basicChangesOpen && data && (
+        <RequestChangesDialog
+          isOpen
+          onClose={() => setBasicChangesOpen(false)}
+          basicUserId={data.user.id}
           talentName={data.user.full_name}
           talentPhone={data.user.phone}
           onDone={refresh}

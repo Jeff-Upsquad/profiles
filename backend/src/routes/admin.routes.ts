@@ -214,6 +214,10 @@ router.get('/user-approvals/hub/stats', adminController.getOnboardingHubStats);
 router.get('/user-approvals/talent-pipelines', adminController.getTalentPipelines);
 router.get('/user-approvals/:userId/journey', adminController.getTalentJourney);
 router.patch('/user-approvals/:userId/talent-stage', adminController.setTalentStage);
+// Basic profile change requests — one common request per talent (the basic
+// profile is always live; resubmits come back here for accept).
+router.patch('/user-approvals/:userId/basic/request-changes', adminController.requestBasicChanges);
+router.patch('/user-approvals/:userId/basic/accept-changes', adminController.acceptBasicChanges);
 router.post('/user-approvals/bulk-approve', adminController.bulkApproveUsers);
 router.get('/user-approvals', adminController.getPendingApprovals);
 router.patch('/user-approvals/:userId/approve', adminController.approveUser);

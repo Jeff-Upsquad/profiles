@@ -378,6 +378,15 @@ async function attentionIds(attention: HubAttention | undefined): Promise<string
         : 'status.eq.changes_requested,and(status.eq.approved,changes_requested_at.not.is.null,reviewed_at.is.null,resubmitted_at.is.null)')
       .is('deleted_at', null);
     for (const r of data ?? []) ids.add((r as any).talent_user_id);
+    // Basic-profile change requests live on talent_profiles_basic (always
+    // live, no status): resubmitted → needs review, open → waiting on talent.
+    const { data: basicRows } = await supabaseAdmin
+      .from('talent_profiles_basic')
+      .select('talent_user_id')
+      .not('changes_requested_at', 'is', null)
+      .is('reviewed_at', null)
+      .filter('resubmitted_at', attention === 'needs_review' ? 'not.is' : 'is', null);
+    for (const r of basicRows ?? []) ids.add((r as any).talent_user_id);
     return [...ids];
   }
 

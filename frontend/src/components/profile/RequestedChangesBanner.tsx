@@ -16,6 +16,8 @@ interface Props {
   resubmitDisabledReason?: string;
   compact?: boolean;
   staysLive?: boolean;
+  /** Overrides the "Unsaved edits are saved first." hint next to Resubmit. */
+  resubmitNote?: string;
 }
 
 /** Deep-link for one checklist item. `basic.*` → basic profile page, everything else → the job-profile edit page. */
@@ -50,6 +52,7 @@ export default function RequestedChangesBanner({
   resubmitDisabledReason,
   compact = false,
   staysLive = false,
+  resubmitNote = 'Unsaved edits are saved first.',
 }: Props) {
   if (!changes || changes.length === 0) return null;
 
@@ -116,7 +119,7 @@ export default function RequestedChangesBanner({
               >
                 {resubmitting ? 'Resubmitting…' : 'Resubmit for review'}
               </button>
-              <span className="text-xs text-amber-800">Unsaved edits are saved first.</span>
+              <span className="text-xs text-amber-800">{resubmitNote}</span>
             </div>
           )}
         </div>

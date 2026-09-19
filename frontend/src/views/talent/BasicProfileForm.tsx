@@ -17,6 +17,9 @@ import ExperiencePicker, { type ExperienceEntry } from '@/components/forms/Exper
 import toast from 'react-hot-toast';
 import { COUNTRIES, INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-locations';
 import { GENDER_OPTIONS } from '@/constants/lead-form-options';
+import RequestedChangesBanner from '@/components/profile/RequestedChangesBanner';
+import { hasOpenBasicChanges, needsBasicResubmission } from '@/lib/profileChanges';
+import type { RequestedChange } from '@/types';
 
 /** Age in completed years (years only, never months) from a YYYY-MM-DD date. */
 function ageFromDob(dob: string): number | null {
@@ -65,6 +68,12 @@ interface BasicProfile {
   freelance_available?: boolean;
   education_courses?: EducationEntry[];
   experience?: ExperienceEntry[];
+  /** Reviewer-requested fixes on the basic profile (one common request). */
+  requested_changes?: RequestedChange[];
+  changes_requested_at?: string | null;
+  resubmitted_at?: string | null;
+  reviewed_at?: string | null;
+  changes_whatsapp_sent?: boolean | null;
 }
 
 const AVAILABILITY_OPTIONS = [
@@ -349,6 +358,23 @@ export default function BasicProfileForm() {
       toast.error(err.response?.data?.message || 'Failed to update details');
     },
   });
+
+  // Resubmit after fixing reviewer-requested basic-profile changes. Saves are
+  // per-section (each section's own Save button), so this only stamps the
+  // resubmission — the banner tells the talent to save first.
+  const resubmitBasic = useMutation({
+    mutationFn: async () => (await api.patch('/talent/me/basic-profile/resubmit')).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['basicProfile'] });
+      toast.success('Resubmitted for review');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to resubmit');
+    },
+  });
+
+  const basicOpen = hasOpenBasicChanges(profile);
+  const basicNeedsResubmit = needsBasicResubmission(profile);
 
   const set = (key: keyof BasicProfile) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
@@ -746,6 +772,22 @@ export default function BasicProfileForm() {
 
   return (
     <div className="space-y-4 lg:space-y-8">
+      {basicNeedsResubmit ? (
+        <RequestedChangesBanner
+          profileId=""
+          changes={profile?.requested_changes ?? []}
+          requestedAt={profile?.changes_requested_at}
+          staysLive
+          onEditPage
+          onResubmit={() => resubmitBasic.mutate()}
+          resubmitting={resubmitBasic.isPending}
+          resubmitNote="Save each section with its Save button first, then tap Resubmit."
+        />
+      ) : basicOpen ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          Updates submitted — your reviewer will take another look soon. Your profile stays live.
+        </div>
+      ) : null}
       {/* ── Header — mobile: single line ── */}
       <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-4 py-3 sm:px-6 lg:hidden">
         <div className="hero-content flex items-center justify-between gap-3">

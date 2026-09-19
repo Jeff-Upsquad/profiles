@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as adminService from '../services/admin.service.js';
 import * as reviewChanges from '../services/profile-review-changes.service.js';
+import * as basicChanges from '../services/basic-profile-changes.service.js';
 import * as inviteService from '../services/invite.service.js';
 import * as businessAuthService from '../services/business-auth.service.js';
 import { getCandidateActivity } from '../services/activity.service.js';
@@ -208,9 +209,47 @@ export async function requestProfileChanges(req: Request, res: Response, next: N
 
 export async function getReviewChecklist(req: Request, res: Response, next: NextFunction) {
   try {
-    const categoryId = (req.query.category_id as string | undefined) || null;
-    const items = await reviewChanges.getChecklistForCategory(categoryId);
+    const scope = (req.query.scope as string | undefined) || null;
+    const items =
+      scope === 'basic'
+        ? await basicChanges.getBasicChecklist()
+        : await reviewChanges.getChecklistForCategory((req.query.category_id as string | undefined) || null);
     res.json({ items });
+  } catch (err) {
+    next(err);
+  }
+}
+
+function parseChangesBody(body: any) {
+  const b = body ?? {};
+  return {
+    keys: Array.isArray(b.keys) ? b.keys.filter((k: unknown) => typeof k === 'string') : [],
+    other: typeof b.other === 'string' ? b.other : null,
+    notes: b.notes && typeof b.notes === 'object' ? b.notes : null,
+    send_whatsapp: b.send_whatsapp !== false,
+  };
+}
+
+// Basic profile — the one common change request per talent (see
+// basic-profile-changes.service.ts). Mounted under user-approvals beside the
+// journey endpoints.
+export async function requestBasicChanges(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await basicChanges.requestBasicChanges(
+      req.params.userId as string,
+      req.user!.id,
+      parseChangesBody(req.body),
+    );
+    res.json({ basic: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function acceptBasicChanges(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await basicChanges.acceptBasicChanges(req.params.userId as string, req.user!.id);
+    res.json({ basic: result });
   } catch (err) {
     next(err);
   }

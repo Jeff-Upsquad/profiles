@@ -17,11 +17,17 @@ export interface ChecklistItem {
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  profileId: string;
-  categoryId: string | null | undefined;
+  profileId?: string;
+  categoryId?: string | null;
   talentName?: string | null;
   talentPhone?: string | null;
   wasApproved?: boolean;
+  /**
+   * Basic-profile mode: one common request per talent instead of per job
+   * profile. Uses the basic checklist scope + the basic request endpoint;
+   * the basic profile is always live.
+   */
+  basicUserId?: string;
   onDone?: () => void;
 }
 
@@ -30,6 +36,10 @@ interface Props {
  * ticks checklist items (shared list from Settings + this category's form
  * fields), optionally adds a free-text line, and the talent gets the list
  * in-app plus a WhatsApp template via the SquadHire CRM.
+ *
+ * In basic-profile mode (`basicUserId`) the same dialog drives the one common
+ * basic-profile request: shared `basic.*`/`identity.*` items only, and the
+ * basic profile stays live throughout.
  */
 export default function RequestChangesDialog({
   isOpen,
@@ -39,9 +49,13 @@ export default function RequestChangesDialog({
   talentName,
   talentPhone,
   wasApproved = false,
+  basicUserId,
   onDone,
 }: Props) {
   const queryClient = useQueryClient();
+  const isBasic = !!basicUserId;
+  // The basic profile is always live, so it gets the approved-profile wording.
+  const staysLive = wasApproved || isBasic;
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [other, setOther] = useState('');
@@ -49,10 +63,10 @@ export default function RequestChangesDialog({
   const [filter, setFilter] = useState('');
 
   const { data: items, isLoading } = useQuery<ChecklistItem[]>({
-    queryKey: ['review-checklist', categoryId ?? 'none'],
+    queryKey: ['review-checklist', isBasic ? 'basic' : (categoryId ?? 'none')],
     queryFn: async () => {
       const { data } = await api.get('/admin/reviews/checklist', {
-        params: categoryId ? { category_id: categoryId } : {},
+        params: isBasic ? { scope: 'basic' } : categoryId ? { category_id: categoryId } : {},
       });
       return data.items ?? [];
     },
@@ -81,18 +95,22 @@ export default function RequestChangesDialog({
 
   const send = useMutation({
     mutationFn: async () => {
-      const { data } = await api.patch(`/admin/reviews/${profileId}/request-changes`, {
+      const url = isBasic
+        ? `/admin/user-approvals/${basicUserId}/basic/request-changes`
+        : `/admin/reviews/${profileId}/request-changes`;
+      const { data } = await api.patch(url, {
         keys: [...picked],
         notes,
         other: other.trim() || null,
         send_whatsapp: sendWhatsapp,
       });
-      return data.profile as { changes_whatsapp_sent: boolean | null };
+      return (isBasic ? data.basic : data.profile) as { changes_whatsapp_sent: boolean | null };
     },
     onSuccess: (p) => {
       queryClient.invalidateQueries({ queryKey: ['reviews'] });
       queryClient.invalidateQueries({ queryKey: ['review', profileId] });
       queryClient.invalidateQueries({ queryKey: ['onboarding-hub'] });
+      queryClient.invalidateQueries({ queryKey: ['onboarding-hub-stats'] });
       queryClient.invalidateQueries({ queryKey: ['onboarding-journey'] });
       if (p.changes_whatsapp_sent === true) {
         toast.success('Changes requested · WhatsApp sent');
@@ -124,13 +142,17 @@ export default function RequestChangesDialog({
       <div className="space-y-4">
         <p className="text-sm text-gray-600">
           Tick what {talentName ? <span className="font-medium text-gray-900">{talentName}</span> : 'the talent'} needs
-          to fix. {wasApproved
-            ? 'The profile will return to your review queue once they resubmit it.'
-            : <>The profile leaves your queue until they tap <span className="font-medium">Resubmit for review</span>.</>}
+          to fix. {isBasic
+            ? 'The basic profile stays live; it will show under Needs attention → Needs review once they resubmit it.'
+            : staysLive
+              ? 'The profile will return to your review queue once they resubmit it.'
+              : <>The profile leaves your queue until they tap <span className="font-medium">Resubmit for review</span>.</>}
         </p>
-        {wasApproved && (
+        {staysLive && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            This approved profile will remain live while the talent updates it. Their edits will be visible immediately.
+            {isBasic
+              ? 'This basic profile will remain live while the talent updates it. Their edits will be visible immediately.'
+              : 'This approved profile will remain live while the talent updates it. Their edits will be visible immediately.'}
           </p>
         )}
 

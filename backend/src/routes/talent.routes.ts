@@ -53,6 +53,7 @@ router.put('/me', validate({ body: updateTalentUserSchema }), talentController.u
 // Basic profile
 router.get('/me/basic-profile', talentController.getBasicProfile);
 router.put('/me/basic-profile', validate({ body: updateBasicProfileSchema }), talentController.updateBasicProfile);
+router.patch('/me/basic-profile/resubmit', talentController.resubmitBasic);
 
 // Lead submission (used by signup to auto-populate from a prior public-form lead)
 router.get('/me/lead-submission', talentController.getMyLeadSubmission);
