@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useUpload } from '@/hooks/useUpload';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
+import DatePicker from '@/components/ui/DatePicker';
 import Button from '@/components/ui/Button';
 import PreferredLocationsEditor from '@/components/jobs/talent/PreferredLocationsEditor';
 import { useJobPreferences, type JobPreferencesInput, type PreferredLocation } from '@/hooks/useJobs';
@@ -1017,17 +1018,14 @@ export default function BasicProfileForm() {
                     <Input label="Phone Number" value={phone} disabled helperText="Phone number cannot be changed" />
                   </div>
                   <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                    <Input
+                    <DatePicker
                       label="Date of Birth"
-                      type="date"
                       value={dateOfBirth}
+                      onChange={setDateOfBirth}
                       max={new Date().toISOString().slice(0, 10)}
-                      onChange={(e) => setDateOfBirth(e.target.value)}
-                      helperText={
-                        dateOfBirth && ageFromDob(dateOfBirth) !== null
-                          ? `Age: ${ageFromDob(dateOfBirth)} years`
-                          : 'We calculate your age from this'
-                      }
+                      min="1900-01-01"
+                      showAge
+                      helperText="We calculate your age from this"
                     />
                     <Select
                       label="Gender"

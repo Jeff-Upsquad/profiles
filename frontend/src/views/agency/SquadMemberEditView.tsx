@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { agencyApi } from '@/services/agency-api';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
+import DatePicker from '@/components/ui/DatePicker';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
@@ -17,16 +18,6 @@ import { useRouter } from 'next/navigation';
 import api from '@/services/api';
 import { GENDER_OPTIONS } from '@/constants/lead-form-options';
 
-function ageFromDob(dob: string): number | null {
-  if (!dob) return null;
-  const b = new Date(`${dob}T00:00:00`);
-  if (Number.isNaN(b.getTime())) return null;
-  const now = new Date();
-  let age = now.getFullYear() - b.getFullYear();
-  const m = now.getMonth() - b.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--;
-  return age;
-}
 type SectionId = 'basic_details' | 'language' | 'education' | 'experience' | 'working_days' | 'profile_picture' | 'job_profiles';
 interface SectionDef { id: SectionId; name: string; description: string; tint: string; icon: ReactNode; optional?: boolean; }
 function SectionHeader({ section }: { section: SectionDef }) {
@@ -239,7 +230,7 @@ export default function SquadMemberEditView({ memberId }: { memberId: string }){
                 <Input label="Email *" value={email} onChange={e=>setEmail(e.target.value)} placeholder="member@agency.com" required />
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Input label="Role / Title" value={roleTitle} onChange={e=>setRoleTitle(e.target.value)} placeholder="Designer" />
-                  <Input label="Date of Birth" type="date" value={dateOfBirth} onChange={e=>setDateOfBirth(e.target.value)} helperText={dateOfBirth && ageFromDob(dateOfBirth)!==null? `Age: ${ageFromDob(dateOfBirth)} years`:'We calculate age from this'} />
+                  <DatePicker label="Date of Birth" value={dateOfBirth} onChange={setDateOfBirth} min="1900-01-01" max={new Date().toISOString().slice(0, 10)} showAge helperText="We calculate age from this" />
                 </div>
                 <Select label="Gender" value={gender} onChange={e=>setGender(e.target.value)} placeholder="Select" options={GENDER_OPTIONS} />
                 <Input label="Skills (comma)" value={skills} onChange={e=>setSkills(e.target.value)} placeholder="Figma, Photoshop" />

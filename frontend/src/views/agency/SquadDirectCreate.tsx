@@ -6,6 +6,7 @@ import { agencyApi } from '@/services/agency-api';
 import { useUpload } from '@/hooks/useUpload';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
+import DatePicker from '@/components/ui/DatePicker';
 import Button from '@/components/ui/Button';
 import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
 import EducationPicker, { type EducationEntry } from '@/components/forms/EducationPicker';
@@ -207,7 +208,7 @@ export default function SquadDirectCreate(){
                 <Input label="Email *" value={email} onChange={e=>setEmail(e.target.value)} placeholder="member@agency.com" required helperText="Only email is required — phone not needed" />
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Input label="Role / Title" value={roleTitle} onChange={e=>setRoleTitle(e.target.value)} placeholder={role==='manager'?'Squad Manager':'Designer'} />
-                  <Input label="Date of Birth" type="date" value={dateOfBirth} onChange={e=>setDateOfBirth(e.target.value)} helperText={dateOfBirth && ageFromDob(dateOfBirth)!==null? `Age: ${ageFromDob(dateOfBirth)} years`:'We calculate age from this'} />
+                  <DatePicker label="Date of Birth" value={dateOfBirth} onChange={setDateOfBirth} min="1900-01-01" max={new Date().toISOString().slice(0, 10)} showAge helperText="We calculate age from this" />
                 </div>
                 <Select label="Gender" value={gender} onChange={e=>setGender(e.target.value)} placeholder="Select" options={GENDER_OPTIONS} />
                 <Input label="Skills (comma)" value={skills} onChange={e=>setSkills(e.target.value)} placeholder="Figma, Photoshop" helperText="Basic skills — full portfolio later" />
