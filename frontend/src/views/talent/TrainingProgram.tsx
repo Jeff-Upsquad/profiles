@@ -979,7 +979,10 @@ function CourseReader({
   const cooldownActive = !!active && !active.lesson.completed && hasVideo && secondsLeft > 0;
   const togglePending = markComplete.isPending || markIncomplete.isPending;
   const outline = useMemo(() => collectHeadings(blocks), [blocks]);
-  const showOutline = outlinePref !== 'closed';
+  // A video-only lesson has nothing to navigate in the outline. Keeping an
+  // empty rail pinned makes the actual lesson needlessly narrow.
+  const hasOutline = outline.length > 0;
+  const showOutline = hasOutline && outlinePref !== 'closed';
   const outlineOverlay = outlinePref === 'open';
 
   // Whether the READER is wide enough for the rail to sit beside the lesson.
@@ -1001,7 +1004,7 @@ function CourseReader({
   }, []);
 
   const outlineVisible =
-    outlinePref === 'open' || (outlinePref === 'auto' && wideEnough === true);
+    hasOutline && (outlinePref === 'open' || (outlinePref === 'auto' && wideEnough === true));
 
   // One button, the obvious meaning at both sizes: when the rail is already
   // pinned beside the lesson the button closes it; when it isn't shown, the
@@ -1098,7 +1101,7 @@ function CourseReader({
               />
             </span>
           </span>
-          <button
+          {hasOutline && <button
             type="button"
             onClick={toggleOutline}
             aria-pressed={outlineVisible}
@@ -1115,7 +1118,7 @@ function CourseReader({
               <path d="M4 6h10M4 12h16M4 18h7" />
             </svg>
             Outline
-          </button>
+          </button>}
           <LanguagePicker language={language} available={availableLanguages} onChange={setLanguage} />
         </span>
       </div>
@@ -1170,7 +1173,7 @@ function CourseReader({
                 showOutline ? '@[1000px]:grid-cols-[minmax(0,1fr)_264px]' : ''
               }`}
             >
-              <main ref={contentRef} className="min-h-0 min-w-0 overflow-y-auto scroll-smooth bg-white">
+              <main ref={contentRef} className="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto scroll-smooth bg-white">
                 {!active ? (
                   <div className="flex h-full items-center justify-center px-6 py-16 text-sm text-[#737373]">
                     Select a lesson to begin.
