@@ -8,6 +8,7 @@ import {
 import Button from '@/components/ui/Button';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
 import RequestedChangesBanner from '@/components/profile/RequestedChangesBanner';
+import { needsProfileResubmission } from '@/lib/profileChanges';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
 import { formatDate } from '@/lib/formatDate';
@@ -168,11 +169,12 @@ export default function ProfileList() {
                     </p>
                   )}
 
-                  {profile.status === 'changes_requested' && (
+                  {needsProfileResubmission(profile) && (
                     <RequestedChangesBanner
                       profileId={profile.id}
                       changes={profile.requested_changes ?? []}
                       compact
+                      staysLive={profile.status === 'approved'}
                     />
                   )}
 
@@ -190,8 +192,8 @@ export default function ProfileList() {
                     </Link>
                     {!profile.is_ghost && (profile.status === 'draft' || profile.status === 'rejected' || profile.status === 'approved' || profile.status === 'pending_review' || profile.status === 'changes_requested') && (
                       <Link href={`/talent/profiles/${profile.id}/edit`}>
-                        <Button variant={profile.status === 'changes_requested' ? 'primary' : 'secondary'} size="sm">
-                          {profile.status === 'changes_requested' ? 'Make updates' : 'Edit'}
+                        <Button variant={needsProfileResubmission(profile) ? 'primary' : 'secondary'} size="sm">
+                          {needsProfileResubmission(profile) ? 'Make updates' : 'Edit'}
                         </Button>
                       </Link>
                     )}

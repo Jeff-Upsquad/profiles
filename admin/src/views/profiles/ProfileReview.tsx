@@ -34,6 +34,7 @@ interface ReviewProfile {
   requested_changes?: { key: string; label: string; message: string; note?: string | null }[] | null;
   changes_requested_at?: string | null;
   resubmitted_at?: string | null;
+  reviewed_at?: string | null;
   changes_whatsapp_sent?: boolean | null;
   created_at: string;
   updated_at: string;
@@ -297,7 +298,7 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reviews'] });
-      toast.success('Profile approved');
+      toast.success(profile?.status === 'approved' ? 'Live profile updates accepted' : 'Profile approved');
       router.push('/reviews');
     },
     onError: (err: any) => {
@@ -446,23 +447,21 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="danger"
-            onClick={() => setRejectModalOpen(true)}
-          >
-            Reject
-          </Button>
           {profile.status === 'pending_review' && (
+            <Button variant="danger" onClick={() => setRejectModalOpen(true)}>
+              Reject
+            </Button>
+          )}
+          {(profile.status === 'pending_review' || (profile.status === 'approved' && profile.reviewed_at == null && !!profile.resubmitted_at)) && (
             <Button variant="secondary" onClick={() => setChangesOpen(true)}>
               Request changes
             </Button>
           )}
-          <Button
-            loading={approve.isPending}
-            onClick={() => approve.mutate()}
-          >
-            Approve
-          </Button>
+          {(profile.status === 'pending_review' || (profile.status === 'approved' && profile.reviewed_at == null && !!profile.resubmitted_at)) && (
+            <Button loading={approve.isPending} onClick={() => approve.mutate()}>
+              {profile.status === 'approved' ? 'Accept updates' : 'Approve'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -470,14 +469,14 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
       {profile.requested_changes && profile.requested_changes.length > 0 && (
         <div
           className={`rounded-xl border p-4 ${
-            profile.status === 'changes_requested'
+            profile.status === 'changes_requested' || (profile.status === 'approved' && profile.reviewed_at == null && !profile.resubmitted_at)
               ? 'border-amber-200 bg-amber-50'
               : 'border-emerald-200 bg-emerald-50'
           }`}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className={`text-sm font-semibold ${profile.status === 'changes_requested' ? 'text-amber-900' : 'text-emerald-900'}`}>
-              {profile.status === 'changes_requested'
+            <h3 className={`text-sm font-semibold ${profile.status === 'changes_requested' || (profile.status === 'approved' && profile.reviewed_at == null && !profile.resubmitted_at) ? 'text-amber-900' : 'text-emerald-900'}`}>
+              {profile.status === 'changes_requested' || (profile.status === 'approved' && profile.reviewed_at == null && !profile.resubmitted_at)
                 ? `Waiting on talent · asked ${profile.changes_requested_at ? formatDateTime(profile.changes_requested_at) : ''}`
                 : `Resubmitted${profile.resubmitted_at ? ` ${formatDateTime(profile.resubmitted_at)}` : ''} · you asked for:`}
             </h3>
@@ -760,6 +759,7 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
         onClose={() => setChangesOpen(false)}
         profileId={profileId}
         categoryId={profile.category_id}
+        wasApproved={profile.status === 'approved'}
         talentName={talentUser?.full_name}
         talentPhone={talentUser?.phone}
         onDone={() => router.push('/reviews')}

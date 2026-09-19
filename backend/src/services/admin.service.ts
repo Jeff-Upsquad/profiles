@@ -328,10 +328,13 @@ export async function deleteOption(optionId: string) {
 export type ReviewQueueStatus = 'pending_review' | 'changes_requested';
 
 export async function getReviewQueue(categoryId?: string, status: ReviewQueueStatus = 'pending_review') {
+  const liveCondition = status === 'pending_review'
+    ? 'resubmitted_at.not.is.null'
+    : 'resubmitted_at.is.null';
   let qb = supabaseAdmin
     .from('talent_profiles')
     .select('*, talent_users!inner(full_name, phone), categories!inner(name, slug)')
-    .eq('status', status)
+    .or(`status.eq.${status},and(status.eq.approved,changes_requested_at.not.is.null,reviewed_at.is.null,${liveCondition})`)
     .is('deleted_at', null)
     // Waiting-on-talent sorts by when we asked, so the oldest ask surfaces first.
     .order(status === 'changes_requested' ? 'changes_requested_at' : 'updated_at', { ascending: true });
@@ -395,6 +398,27 @@ export async function getReviewProfile(profileId: string) {
 }
 
 export async function approveProfile(profileId: string, adminId: string) {
+  const { data: current } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('status, changes_requested_at, reviewed_at, resubmitted_at')
+    .eq('id', profileId)
+    .maybeSingle();
+  if (current?.status === 'approved') {
+    if (!current.changes_requested_at || current.reviewed_at !== null || !current.resubmitted_at) {
+      throw new AppError(400, 'This live profile has no resubmitted changes to review');
+    }
+    const { data, error } = await supabaseAdmin
+      .from('talent_profiles')
+      .update({ reviewed_by: adminId, reviewed_at: new Date().toISOString(), resubmitted_at: null, previous_field_data: null })
+      .eq('id', profileId)
+      .eq('status', 'approved')
+      .is('reviewed_at', null)
+      .not('resubmitted_at', 'is', null)
+      .select()
+      .single();
+    if (error || !data) throw new AppError(400, error?.message ?? 'Failed to accept live profile updates');
+    return data;
+  }
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')
     .update({

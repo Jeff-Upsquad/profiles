@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useProfile, useUpdateProfile, useSubmitProfile, usePortfolioItems } from '@/hooks/useProfiles';
 import RequestedChangesBanner from '@/components/profile/RequestedChangesBanner';
+import { hasOpenProfileChanges, needsProfileResubmission } from '@/lib/profileChanges';
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import { useTalentMe } from '@/hooks/useTalentMe';
 import { useAuth } from '@/context/AuthContext';
@@ -261,7 +262,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
                   Editing
                 </p>
                 <Badge variant={statusToBadgeVariant(profile.status)}>
-                  {profile.status === 'changes_requested' ? 'updates needed' : profile.status.replace('_', ' ')}
+                  {needsProfileResubmission(profile) ? 'updates needed' : profile.status.replace('_', ' ')}
                 </Badge>
               </div>
               <h1 className="font-[family-name:var(--font-jakarta)] text-[22px] sm:text-[26px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] truncate">
@@ -280,11 +281,12 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
       <PendingApprovalBanner />
 
-      {profile.status === 'changes_requested' && (
+      {needsProfileResubmission(profile) && (
         <RequestedChangesBanner
           profileId={profileId}
           changes={profile.requested_changes ?? []}
           requestedAt={profile.changes_requested_at}
+          staysLive={profile.status === 'approved'}
           onEditPage
           onResubmit={handleSaveAndSubmit}
           resubmitting={updateProfile.isPending || submitProfile.isPending}
@@ -317,7 +319,9 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
           <div>
             <h3 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-amber-900">This profile is live</h3>
             <p className="mt-0.5 text-sm text-amber-800">
-              Saving will reset its status to pending review and take it offline until re-approved.
+              {hasOpenProfileChanges(profile)
+                ? 'This profile remains live while you make the requested updates.'
+                : 'Saving will reset its status to pending review and take it offline until re-approved.'}
             </p>
           </div>
         </div>
@@ -454,7 +458,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
           <Button variant="outline" onClick={handleSave} loading={updateProfile.isPending}>
             Save Changes
           </Button>
-          {(profile.status === 'draft' || profile.status === 'rejected' || profile.status === 'changes_requested') && (
+          {(profile.status === 'draft' || profile.status === 'rejected' || needsProfileResubmission(profile)) && (
             <button
               type="button"
               onClick={handleSaveAndSubmit}
@@ -464,7 +468,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
             >
               {(updateProfile.isPending || submitProfile.isPending)
                 ? 'Submitting…'
-                : profile.status === 'changes_requested' ? 'Save & Resubmit' : 'Save & Submit'}
+                : needsProfileResubmission(profile) ? 'Save & Resubmit' : 'Save & Submit'}
             </button>
           )}
         </div>

@@ -5,6 +5,7 @@ import type { Profile, CategoryField, CategoryWithFields } from '@/types';
 import TierBadge from '@/components/ui/TierBadge';
 import { periodSuffix } from '@/lib/assignmentPricing';
 import RequestedChangesBanner from '@/components/profile/RequestedChangesBanner';
+import { needsProfileResubmission } from '@/lib/profileChanges';
 
 interface TalentUser {
   full_name: string;
@@ -367,12 +368,13 @@ export default function ThreadsProfileHeader({
       </div>
 
       {/* Reviewer asked for changes */}
-      {mode === 'talent' && profile.status === 'changes_requested' && (
+      {mode === 'talent' && needsProfileResubmission(profile) && (
         <div className="mt-4">
           <RequestedChangesBanner
             profileId={profile.id}
             changes={profile.requested_changes ?? []}
             requestedAt={profile.changes_requested_at}
+            staysLive={profile.status === 'approved'}
           />
         </div>
       )}

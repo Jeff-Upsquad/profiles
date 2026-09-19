@@ -235,7 +235,7 @@ async function journeysFor(
     supabaseAdmin.from('talent_profiles_basic').select(BASIC_COLUMNS).in('talent_user_id', ids),
     supabaseAdmin
       .from('talent_profiles')
-      .select('id, talent_user_id, status, requested_changes, changes_requested_at, resubmitted_at')
+      .select('id, talent_user_id, status, requested_changes, changes_requested_at, resubmitted_at, reviewed_at')
       .in('talent_user_id', ids)
       .is('deleted_at', null),
     supabaseAdmin.from('training_course_starts').select('talent_user_id').in('talent_user_id', ids),
@@ -250,6 +250,7 @@ async function journeysFor(
     requested_changes: unknown;
     changes_requested_at: string | null;
     resubmitted_at: string | null;
+    reviewed_at: string | null;
   }
   const profilesBy = new Map<string, ProfileLite[]>();
   for (const row of profRes.data ?? []) {
@@ -261,6 +262,7 @@ async function journeysFor(
       requested_changes: r.requested_changes ?? null,
       changes_requested_at: r.changes_requested_at ?? null,
       resubmitted_at: r.resubmitted_at ?? null,
+      reviewed_at: r.reviewed_at ?? null,
     });
     profilesBy.set(r.talent_user_id, arr);
   }
@@ -300,7 +302,11 @@ async function journeysFor(
     let resubmittedAt: string | null = null;
     for (const p of profiles) {
       if (p.status in counts) (counts as any)[p.status] += 1;
-      if (p.status === 'changes_requested' && p.changes_requested_at) {
+      const liveChangesOpen = p.status === 'approved' && !!p.changes_requested_at && p.reviewed_at === null;
+      if (liveChangesOpen) {
+        counts[p.resubmitted_at ? 'pending_review' : 'changes_requested'] += 1;
+      }
+      if ((p.status === 'changes_requested' || (liveChangesOpen && !p.resubmitted_at)) && p.changes_requested_at) {
         if (!changesRequestedAt || p.changes_requested_at < changesRequestedAt) {
           changesRequestedAt = p.changes_requested_at;
           requestedLabels = Array.isArray(p.requested_changes)
@@ -308,7 +314,7 @@ async function journeysFor(
             : [];
         }
       }
-      if (p.status === 'pending_review' && p.resubmitted_at) {
+      if ((p.status === 'pending_review' || liveChangesOpen) && p.resubmitted_at) {
         if (!resubmittedAt || p.resubmitted_at > resubmittedAt) resubmittedAt = p.resubmitted_at;
       }
     }
@@ -367,7 +373,9 @@ async function attentionIds(attention: HubAttention | undefined): Promise<string
     const { data } = await supabaseAdmin
       .from('talent_profiles')
       .select('talent_user_id')
-      .eq('status', attention === 'needs_review' ? 'pending_review' : 'changes_requested')
+      .or(attention === 'needs_review'
+        ? 'status.eq.pending_review,and(status.eq.approved,changes_requested_at.not.is.null,reviewed_at.is.null,resubmitted_at.not.is.null)'
+        : 'status.eq.changes_requested,and(status.eq.approved,changes_requested_at.not.is.null,reviewed_at.is.null,resubmitted_at.is.null)')
       .is('deleted_at', null);
     for (const r of data ?? []) ids.add((r as any).talent_user_id);
     return [...ids];
@@ -569,15 +577,15 @@ export async function hubStats(category?: string) {
   const idSet = categoryIds ? new Set(categoryIds) : null;
   const { data: reviewRows } = await supabaseAdmin
     .from('talent_profiles')
-    .select('talent_user_id, status')
-    .in('status', ['pending_review', 'changes_requested'])
+    .select('talent_user_id, status, changes_requested_at, reviewed_at, resubmitted_at')
+    .or('status.in.(pending_review,changes_requested),and(status.eq.approved,changes_requested_at.not.is.null,reviewed_at.is.null)')
     .is('deleted_at', null);
   const needsReview = new Set<string>();
   const waitingOnTalent = new Set<string>();
   for (const r of reviewRows ?? []) {
     const id = (r as any).talent_user_id as string;
     if (idSet && !idSet.has(id)) continue;
-    if ((r as any).status === 'pending_review') needsReview.add(id);
+    if ((r as any).status === 'pending_review' || ((r as any).status === 'approved' && (r as any).resubmitted_at)) needsReview.add(id);
     else waitingOnTalent.add(id);
   }
 
@@ -616,7 +624,7 @@ export async function talentJourney(userId: string) {
     supabaseAdmin.from('talent_profiles_basic').select('*').eq('talent_user_id', userId).maybeSingle(),
     supabaseAdmin
       .from('talent_profiles')
-      .select('id, category_id, status, is_active, tier, tier_custom, created_at, updated_at, requested_changes, changes_requested_at, resubmitted_at, changes_whatsapp_sent, categories(name, slug)')
+      .select('id, category_id, status, is_active, tier, tier_custom, created_at, updated_at, requested_changes, changes_requested_at, resubmitted_at, reviewed_at, changes_whatsapp_sent, categories(name, slug)')
       .eq('talent_user_id', userId)
       .is('deleted_at', null)
       .order('updated_at', { ascending: false }),
@@ -742,6 +750,7 @@ export async function talentJourney(userId: string) {
       requested_changes: Array.isArray(p.requested_changes) ? p.requested_changes : [],
       changes_requested_at: p.changes_requested_at ?? null,
       resubmitted_at: p.resubmitted_at ?? null,
+      reviewed_at: p.reviewed_at ?? null,
       changes_whatsapp_sent: p.changes_whatsapp_sent ?? null,
     })),
     lead: leadRes.data ?? null,

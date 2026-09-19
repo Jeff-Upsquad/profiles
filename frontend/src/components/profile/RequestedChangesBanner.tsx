@@ -15,6 +15,7 @@ interface Props {
   resubmitDisabled?: boolean;
   resubmitDisabledReason?: string;
   compact?: boolean;
+  staysLive?: boolean;
 }
 
 /** Deep-link for one checklist item. `basic.*` → basic profile page, everything else → the job-profile edit page. */
@@ -48,6 +49,7 @@ export default function RequestedChangesBanner({
   resubmitDisabled,
   resubmitDisabledReason,
   compact = false,
+  staysLive = false,
 }: Props) {
   if (!changes || changes.length === 0) return null;
 
@@ -75,8 +77,7 @@ export default function RequestedChangesBanner({
           </h3>
           <p className="mt-0.5 text-xs text-amber-800">
             {requestedAt ? `Requested on ${formatWhen(requestedAt)}. ` : ''}
-            Make the updates below, then tap <span className="font-medium">Resubmit for review</span>. Your profile stays
-            paused until then.
+            Make the updates below, then tap <span className="font-medium">Resubmit for review</span>. Your profile {staysLive ? 'remains live while you make these updates.' : 'stays paused until then.'}
           </p>
           <ol className="mt-3 space-y-1.5">
             {changes.map((c, i) => {

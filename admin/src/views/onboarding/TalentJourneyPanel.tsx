@@ -58,6 +58,7 @@ interface JobProfile {
   requested_changes?: { key: string; label: string; message: string; note?: string | null }[];
   changes_requested_at?: string | null;
   resubmitted_at?: string | null;
+  reviewed_at?: string | null;
   changes_whatsapp_sent?: boolean | null;
 }
 
@@ -804,6 +805,7 @@ export default function TalentJourneyPanel({
                         {data.profiles.map((p) => {
                           const st = PROFILE_STATUS[p.status] ?? { label: p.status, variant: 'gray' as const };
                           const asked = p.requested_changes ?? [];
+                          const liveChangesOpen = p.status === 'approved' && !!p.changes_requested_at && p.reviewed_at == null;
                           return (
                             <li key={p.id} className="flex items-center gap-3 px-3 py-2">
                               <div className="min-w-0 flex-1">
@@ -818,7 +820,7 @@ export default function TalentJourneyPanel({
                                 <p className="text-[11px] text-gray-500">
                                   {p.portfolio_items} portfolio item{p.portfolio_items === 1 ? '' : 's'} · updated {timeAgo(p.updated_at)}
                                 </p>
-                                {p.status === 'changes_requested' && asked.length > 0 && (
+                                {(p.status === 'changes_requested' || liveChangesOpen) && asked.length > 0 && (
                                   <p className="mt-0.5 text-[11px] text-amber-800" title={asked.map((c) => c.message).join('\n')}>
                                     Asked {timeAgo(p.changes_requested_at)}: {asked.map((c) => c.label).join(', ')}
                                     {p.changes_whatsapp_sent === false && <span className="text-amber-600"> · WhatsApp not sent</span>}
@@ -829,11 +831,16 @@ export default function TalentJourneyPanel({
                                     Resubmitted {timeAgo(p.resubmitted_at)} after changes were requested
                                   </p>
                                 )}
+                                {liveChangesOpen && (
+                                  <p className="mt-0.5 text-[11px] font-medium text-emerald-700">
+                                    Profile remains live · {p.resubmitted_at ? 'updates ready for review' : 'waiting for updates'}
+                                  </p>
+                                )}
                               </div>
                               <Badge variant={st.variant}>{st.label}</Badge>
-                              {p.status === 'pending_review' ? (
+                              {p.status === 'pending_review' || p.status === 'approved' ? (
                                 <div className="flex shrink-0 flex-col items-end gap-1">
-                                  {canEdit && (
+                                  {canEdit && !liveChangesOpen && (
                                     <button
                                       type="button"
                                       onClick={() => setChangesProfileId(p.id)}
@@ -842,9 +849,15 @@ export default function TalentJourneyPanel({
                                       Request changes
                                     </button>
                                   )}
-                                  <Link href={`/reviews/${p.id}`} className="text-xs font-medium text-indigo-600 hover:underline">
-                                    Review
-                                  </Link>
+                                  {p.status === 'pending_review' || (liveChangesOpen && !!p.resubmitted_at) ? (
+                                    <Link href={`/reviews/${p.id}`} className="text-xs font-medium text-indigo-600 hover:underline">
+                                      Review
+                                    </Link>
+                                  ) : (
+                                    <Link href={`/talents/${p.category_id}/${p.id}`} className="text-xs font-medium text-gray-500 hover:underline">
+                                      View
+                                    </Link>
+                                  )}
                                 </div>
                               ) : (
                                 <Link href={`/talents/${p.category_id}/${p.id}`} className="text-xs font-medium text-gray-500 hover:underline">
@@ -1028,6 +1041,7 @@ export default function TalentJourneyPanel({
           onClose={() => setChangesProfileId(null)}
           profileId={changesProfileId}
           categoryId={data.profiles.find((p) => p.id === changesProfileId)?.category_id}
+          wasApproved={data.profiles.find((p) => p.id === changesProfileId)?.status === 'approved'}
           talentName={data.user.full_name}
           talentPhone={data.user.phone}
           onDone={refresh}

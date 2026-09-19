@@ -113,18 +113,21 @@ function whatsappFollowupText(
   talentName: string | null,
   categoryName: string,
   changes: RequestedChange[],
+  wasApproved: boolean,
 ): string {
   const hi = talentName?.trim() ? `Hi ${talentName.trim().split(/\s+/)[0]},` : 'Hi,';
   const lines = changes.map(
     (c, i) => `${i + 1}. ${c.message}${c.note ? ` (${c.note})` : ''}`,
   );
   return [
-    `${hi} thanks for submitting your UpSquad ${categoryName} profile.`,
+    wasApproved
+      ? `${hi} your UpSquad ${categoryName} profile needs some updates.`
+      : `${hi} thanks for submitting your UpSquad ${categoryName} profile.`,
     '',
-    `Before we can approve it, please update the following:`,
+    wasApproved ? 'Please update the following so we can review the changes:' : 'Before we can approve it, please update the following:',
     ...lines,
     '',
-    `Open the app, make the changes, and tap "Resubmit for review". We'll take another look right after.`,
+    `Open the app, make the changes, and tap "Resubmit for review". We'll take another look right after.${wasApproved ? ' Your profile stays live.' : ''}`,
     '',
     '– UpSquad team',
   ].join('\n');
@@ -146,12 +149,15 @@ export async function requestProfileChanges(
 ) {
   const { data: profile, error: fetchErr } = await supabaseAdmin
     .from('talent_profiles')
-    .select('id, talent_user_id, category_id, status, deleted_at, categories(name)')
+    .select('id, talent_user_id, category_id, status, deleted_at, reviewed_at, changes_requested_at, resubmitted_at, categories(name)')
     .eq('id', profileId)
     .single();
   if (fetchErr || !profile || profile.deleted_at) throw new AppError(404, 'Profile not found');
-  if (profile.status !== 'pending_review') {
-    throw new AppError(400, 'Only profiles pending review can have changes requested');
+  if (profile.status !== 'pending_review' && profile.status !== 'approved') {
+    throw new AppError(400, 'Only pending or approved profiles can have changes requested');
+  }
+  if (profile.status === 'approved' && profile.reviewed_at === null && profile.changes_requested_at && !profile.resubmitted_at) {
+    throw new AppError(400, 'Changes have already been requested for this live profile');
   }
 
   const checklist = await getChecklistForCategory(profile.category_id);
@@ -173,17 +179,17 @@ export async function requestProfileChanges(
   const { data: updated, error } = await supabaseAdmin
     .from('talent_profiles')
     .update({
-      status: 'changes_requested',
+      status: profile.status === 'approved' ? 'approved' : 'changes_requested',
       requested_changes: changes,
       changes_requested_at: now,
       changes_requested_by: adminId,
       resubmitted_at: null,
       reviewed_by: adminId,
-      reviewed_at: now,
+      reviewed_at: profile.status === 'approved' ? null : now,
       rejection_reason: null,
     })
     .eq('id', profileId)
-    .eq('status', 'pending_review')
+    .eq('status', profile.status)
     .select('*')
     .single();
   if (error || !updated) throw new AppError(400, error?.message ?? 'Failed to request changes');
@@ -228,7 +234,7 @@ export async function requestProfileChanges(
         category: categoryName,
         changes: whatsappSummary(changes),
         changes_count: String(changes.length),
-        followup_text: whatsappFollowupText(talent.full_name ?? null, categoryName, changes),
+        followup_text: whatsappFollowupText(talent.full_name ?? null, categoryName, changes, profile.status === 'approved'),
       },
     });
     await supabaseAdmin

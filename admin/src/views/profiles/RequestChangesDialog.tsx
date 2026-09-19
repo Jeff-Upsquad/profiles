@@ -21,6 +21,7 @@ interface Props {
   categoryId: string | null | undefined;
   talentName?: string | null;
   talentPhone?: string | null;
+  wasApproved?: boolean;
   onDone?: () => void;
 }
 
@@ -37,6 +38,7 @@ export default function RequestChangesDialog({
   categoryId,
   talentName,
   talentPhone,
+  wasApproved = false,
   onDone,
 }: Props) {
   const queryClient = useQueryClient();
@@ -122,8 +124,15 @@ export default function RequestChangesDialog({
       <div className="space-y-4">
         <p className="text-sm text-gray-600">
           Tick what {talentName ? <span className="font-medium text-gray-900">{talentName}</span> : 'the talent'} needs
-          to fix. The profile leaves your queue until they tap <span className="font-medium">Resubmit for review</span>.
+          to fix. {wasApproved
+            ? 'The profile will return to your review queue once they resubmit it.'
+            : <>The profile leaves your queue until they tap <span className="font-medium">Resubmit for review</span>.</>}
         </p>
+        {wasApproved && (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            This approved profile will remain live while the talent updates it. Their edits will be visible immediately.
+          </p>
+        )}
 
         <input
           type="text"

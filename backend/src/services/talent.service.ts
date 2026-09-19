@@ -527,7 +527,7 @@ export async function updateProfile(profileId: string, userId: string, input: Up
   // Determine new status. `changes_requested` stays put while the talent
   // edits — only the explicit "Resubmit for review" tap returns it to the queue.
   let newStatus = profile.status;
-  if (profile.status === 'approved' || profile.status === 'rejected') {
+  if ((profile.status === 'approved' && !(profile.changes_requested_at && profile.reviewed_at === null)) || profile.status === 'rejected') {
     newStatus = 'pending_review';
   }
 
@@ -587,8 +587,9 @@ export async function submitProfile(profileId: string, userId: string) {
 
   if (fetchErr || !profile) throw new AppError(404, 'Profile not found');
 
-  if (profile.status !== 'draft' && profile.status !== 'rejected' && profile.status !== 'changes_requested') {
-    throw new AppError(400, 'Only draft or rejected profiles can be submitted');
+  const liveChangesOpen = profile.status === 'approved' && !!profile.changes_requested_at && profile.reviewed_at === null && !profile.resubmitted_at;
+  if (profile.status !== 'draft' && profile.status !== 'rejected' && profile.status !== 'changes_requested' && !liveChangesOpen) {
+    throw new AppError(400, 'Only drafts, rejected profiles, or profiles with requested changes can be submitted');
   }
 
   // Validate all required fields have values
@@ -600,8 +601,8 @@ export async function submitProfile(profileId: string, userId: string) {
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')
     .update({
-      status: 'pending_review',
-      ...(profile.status === 'changes_requested' ? { resubmitted_at: new Date().toISOString() } : {}),
+      status: liveChangesOpen ? 'approved' : 'pending_review',
+      ...(profile.status === 'changes_requested' || liveChangesOpen ? { resubmitted_at: new Date().toISOString() } : {}),
     })
     .eq('id', profileId)
     .select('*')

@@ -244,7 +244,8 @@ export default function ReviewQueue() {
                     </div>
                     {tab === 'pending_review' && profile.resubmitted_at && (
                       <p className="mt-0.5 text-xs text-emerald-700">
-                        Resubmitted {timeAgo(profile.resubmitted_at)} after you asked for changes
+                        {profile.status === 'approved' ? 'Live profile · updates submitted ' : 'Resubmitted '}
+                        {timeAgo(profile.resubmitted_at)} after you asked for changes
                       </p>
                     )}
                   </td>
@@ -272,9 +273,13 @@ export default function ReviewQueue() {
                   </td>
                   <td className="px-4 py-3">
                     {tab === 'pending_review' ? (
-                      <Badge variant="yellow">Pending</Badge>
+                      <Badge variant={profile.status === 'approved' ? 'green' : 'yellow'}>
+                        {profile.status === 'approved' ? 'Live · review updates' : 'Pending'}
+                      </Badge>
                     ) : (
-                      <Badge variant="gray">Waiting on talent</Badge>
+                      <Badge variant={profile.status === 'approved' ? 'green' : 'gray'}>
+                        {profile.status === 'approved' ? 'Live · waiting on talent' : 'Waiting on talent'}
+                      </Badge>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">

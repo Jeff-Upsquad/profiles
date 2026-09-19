@@ -109,7 +109,7 @@ export interface Profile {
   changes_requested_at?: string | null;
   resubmitted_at?: string | null;
   submitted_at?: string;
-  reviewed_at?: string;
+  reviewed_at?: string | null;
   created_at: string;
   updated_at: string;
   is_ghost?: boolean;
