@@ -10,6 +10,9 @@ import {
   useMarkLessonComplete,
   useMarkLessonIncomplete,
   useRequestCourseReopen,
+  useTrainingWebinars,
+  useRegisterWebinar,
+  useUnregisterWebinar,
   pickLessonUrl,
   getCourseLanguages,
   getStoredCourseLanguage,
@@ -22,7 +25,9 @@ import {
   type TrainingLesson,
   type TrainingCourse,
   type TrainingSopSummary,
+  type TrainingWebinar,
 } from '@/hooks/useTraining';
+import toast from 'react-hot-toast';
 import CourseStartPopup from './CourseStartPopup';
 import ContentBlocks, { collectHeadings, type OutlineHeading } from '@/components/training/ContentBlocks';
 
@@ -1501,28 +1506,28 @@ function FullTrainingProgram() {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-0">
-      {/* Resources-style hero */}
-      <header className="border-b border-[#E7E7EA] pb-6">
-        <div className="flex items-start justify-between gap-4">
+      {/* Compact hero — one slim row + inline search + chip stats */}
+      <header className="border-b border-[#E7E7EA] pb-4">
+        <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[32px] sm:text-[36px] font-semibold tracking-[-0.02em] leading-tight text-[#0a0a0a]">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-[24px] sm:text-[28px] font-semibold tracking-[-0.02em] leading-tight text-[#0a0a0a]">
               Training
             </h1>
-            <p className="mt-1 text-[13px] text-[#737373]">
-              Courses, systems and procedures shared with you.
+            <p className="mt-0.5 text-[12px] text-[#737373]">
+              Courses, guides and live webinars shared with you.
             </p>
           </div>
           {lessonTotals.total > 0 && (
-            <div className="relative flex h-14 w-14 flex-shrink-0 items-center justify-center">
+            <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center">
               <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="42" fill="none" stroke="#E7E7EA" strokeWidth="9" />
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#E7E7EA" strokeWidth="12" />
                 <circle
                   cx="50"
                   cy="50"
                   r="42"
                   fill="none"
                   stroke="url(#train-catalog-grad)"
-                  strokeWidth="9"
+                  strokeWidth="12"
                   strokeLinecap="round"
                   strokeDasharray={`${(overallPct / 100) * 264} 264`}
                   className="transition-all duration-700"
@@ -1535,7 +1540,7 @@ function FullTrainingProgram() {
                   </linearGradient>
                 </defs>
               </svg>
-              <span className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
+              <span className="font-[family-name:var(--font-jakarta)] text-[11px] font-semibold text-[#0a0a0a]">
                 {overallPct}%
               </span>
             </div>
@@ -1543,7 +1548,7 @@ function FullTrainingProgram() {
         </div>
 
         {/* Search */}
-        <div className="relative mt-5">
+        <div className="relative mt-3">
           <svg
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a3a3a3]"
             fill="none"
@@ -1559,26 +1564,34 @@ function FullTrainingProgram() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search courses, systems and procedures…"
-            className="w-full rounded-[10px] border border-[#E7E7EA] bg-white py-[10px] pl-10 pr-3 text-[13.5px] text-[#0a0a0a] placeholder:text-[#a3a3a3] focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/10"
+            placeholder="Search courses, guides, webinars…"
+            className="w-full rounded-[10px] border border-[#E7E7EA] bg-white py-2 pl-10 pr-3 text-[13px] text-[#0a0a0a] placeholder:text-[#a3a3a3] focus:border-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]/10"
           />
         </div>
 
-        {/* Stat strip */}
+        {/* Compact stat strip — one inline row instead of a 3-cell grid */}
         {!isEmpty && !q && (
-          <div className="mt-5 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-[#E7E7EA] bg-[#E7E7EA]">
-            <CatalogStat label="In progress" value={stats.inProgress} />
-            <CatalogStat label="Assigned" value={stats.assigned} />
-            <CatalogStat label="Completed" value={stats.completed} accent="emerald" />
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+            <span className="rounded-full bg-[#F5F5F6] px-2.5 py-1 font-medium text-[#525252]">
+              {stats.inProgress} in progress
+            </span>
+            <span className="rounded-full bg-[#F5F5F6] px-2.5 py-1 font-medium text-[#525252]">
+              {stats.assigned} assigned
+            </span>
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
+              {stats.completed} done
+            </span>
           </div>
         )}
       </header>
 
       {activeCountdowns.length > 0 && !q && (
-        <div className="pt-5">
+        <div className="pt-3">
           <CountdownChips courses={activeCountdowns} />
         </div>
       )}
+
+      {!q && <WebinarsSection />}
 
       {isLoading ? (
         <div className="space-y-3 pt-8">
@@ -1604,7 +1617,7 @@ function FullTrainingProgram() {
           No matches for “{query.trim()}”. Try another term.
         </div>
       ) : (
-        <div className="pb-8">
+        <div className="pb-4">
           {/* Active courses first */}
           {filteredCourses.filter((c) => courseStatus(c) !== 'completed').length > 0 && (
             <CatalogSection title="Courses">
@@ -1674,26 +1687,33 @@ function FullTrainingProgram() {
             </CatalogSection>
           )}
 
-          {/* Completed */}
+          {/* Completed — collapsed by default so the list stays short */}
           {(filteredCourses.some((c) => courseStatus(c) === 'completed') ||
             filteredSops.some((s) => s.completed)) && (
-            <CatalogSection title="Completed">
-              {filteredCourses
-                .filter((c) => courseStatus(c) === 'completed')
-                .map((course) => (
-                  <CatalogCourseCard
-                    key={course.id}
-                    course={course}
-                    onOpen={() => router.push(`/talent/training/${course.id}`)}
-                  />
-                ))}
-              {filteredSops
-                .filter((s) => s.completed)
-                .map((sop) => (
-                <CatalogSopCard key={sop.id} sop={sop} onOpen={() => router.push(`/talent/training/${sop.id}`)} />
-
-                ))}
-            </CatalogSection>
+            <details className="mt-4">
+              <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-wider text-[#a3a3a3] hover:text-[#0a0a0a]">
+                Completed (
+                {filteredCourses.filter((c) => courseStatus(c) === 'completed').length +
+                  filteredSops.filter((s) => s.completed).length}
+                )
+              </summary>
+              <div className="mt-2 grid gap-2 pb-8 sm:grid-cols-2">
+                {filteredCourses
+                  .filter((c) => courseStatus(c) === 'completed')
+                  .map((course) => (
+                    <CatalogCourseCard
+                      key={course.id}
+                      course={course}
+                      onOpen={() => router.push(`/talent/training/${course.id}`)}
+                    />
+                  ))}
+                {filteredSops
+                  .filter((s) => s.completed)
+                  .map((sop) => (
+                    <CatalogSopCard key={sop.id} sop={sop} onOpen={() => router.push(`/talent/training/${sop.id}`)} />
+                  ))}
+              </div>
+            </details>
           )}
 
           {!q &&
@@ -1710,26 +1730,117 @@ function FullTrainingProgram() {
   );
 }
 
-function CatalogStat({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: number;
-  accent?: 'emerald';
-}) {
+function formatWebinarWhen(startsAt: string, now: Date): string {
+  const start = new Date(startsAt);
+  const diffMs = start.getTime() - now.getTime();
+  if (diffMs <= 0) return 'Live now';
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 60) return `In ${mins}m`;
+  const hours = Math.floor(mins / 60);
+  const sameDay = start.toDateString() === now.toDateString();
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toDateString() === start.toDateString();
+  const time = start.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  if (sameDay) return `Today ${time}`;
+  if (tomorrow) return `Tomorrow ${time}`;
+  if (hours < 48) return `In ${hours}h`;
+  return `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} ${time}`;
+}
+
+/** Compact Upcoming Webinars — one-click register, Join appears near start. */
+function WebinarsSection() {
+  const { data: webinars, isLoading } = useTrainingWebinars();
+  const register = useRegisterWebinar();
+  const unregister = useUnregisterWebinar();
+  const now = useNow(30_000);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  if (isLoading) {
+    return (
+      <section className="mt-4">
+        <h2 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
+          Upcoming webinars
+        </h2>
+        <div className="h-14 animate-pulse rounded-xl bg-[#f0f0f0]" />
+      </section>
+    );
+  }
+  if (!webinars || webinars.length === 0) return null;
+
+  const act = async (w: TrainingWebinar) => {
+    if (busyId) return;
+    setBusyId(w.id);
+    try {
+      if (w.registered) {
+        await unregister.mutateAsync(w.id);
+        toast.success('Unregistered');
+      } else {
+        await register.mutateAsync(w.id);
+        toast.success("You're registered — we'll remind you on the day, 30 min and 5 min before.");
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Could not update registration');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
-    <div className="bg-white px-4 py-3">
-      <div
-        className={`font-[family-name:var(--font-jakarta)] text-[26px] leading-none font-semibold ${
-          accent === 'emerald' ? 'text-emerald-600' : 'text-[#0a0a0a]'
-        }`}
-      >
-        {value}
+    <section className="mt-4">
+      <h2 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
+        Upcoming webinars
+      </h2>
+      <div className="space-y-2">
+        {webinars.map((w) => {
+          const startMs = new Date(w.starts_at).getTime();
+          const joinable = w.registered && now.getTime() >= startMs - 15 * 60 * 1000;
+          const busy = busyId === w.id;
+          return (
+            <div
+              key={w.id}
+              className="flex items-center gap-2.5 rounded-xl border border-[#E7E7EA] bg-white p-2.5"
+            >
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#FFFAC2] text-base">
+                🎥
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-semibold leading-tight text-[#0a0a0a]">
+                  {w.title}
+                </span>
+                <span className="mt-0.5 block truncate text-[11px] text-[#737373]">
+                  {formatWebinarWhen(w.starts_at, now)} · {LANGUAGE_LABELS[w.language] ?? w.language}
+                  {w.registered && ' · Registered ✓'}
+                </span>
+              </span>
+              {joinable && (
+                <a
+                  href={w.meeting_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 rounded-lg bg-[#0a0a0a] px-2.5 py-1.5 text-[11.5px] font-semibold text-white hover:bg-[#0a0a0a]/85"
+                >
+                  Join
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={() => act(w)}
+                disabled={busy}
+                className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11.5px] font-semibold transition disabled:opacity-40 ${
+                  w.registered
+                    ? 'border border-[#E7E7EA] text-[#525252] hover:bg-[#F5F5F6]'
+                    : 'bg-[#0a0a0a] text-white hover:bg-[#0a0a0a]/85'
+                }`}
+              >
+                {busy ? '…' : w.registered ? 'Registered' : 'Register'}
+              </button>
+            </div>
+          );
+        })}
       </div>
-      <div className="mt-1 text-[11px] uppercase tracking-wider text-[#a3a3a3]">{label}</div>
-    </div>
+      <p className="mt-1.5 text-[11px] text-[#a3a3a3]">
+        Registered talents get reminders on the day, 30 min and 5 min before — in notifications + WhatsApp.
+      </p>
+    </section>
   );
 }
 
@@ -1747,14 +1858,14 @@ function CatalogSection({
     : !!children;
   if (!hasKids && !empty) return null;
   return (
-    <section className="mt-7">
-      <h2 className="mb-3 text-[12px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
+    <section className="mt-4">
+      <h2 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
         {title}
       </h2>
       {hasKids ? (
-        <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+        <div className="grid gap-2 sm:grid-cols-2">{children}</div>
       ) : empty ? (
-        <p className="rounded-xl border border-dashed border-[#E7E7EA] bg-white px-4 py-6 text-center text-[12.5px] text-[#a3a3a3]">
+        <p className="rounded-xl border border-dashed border-[#E7E7EA] bg-white px-4 py-4 text-center text-[12.5px] text-[#a3a3a3]">
           {empty}
         </p>
       ) : null}
@@ -1776,9 +1887,9 @@ function CatalogCourseCard({
     <button
       type="button"
       onClick={onOpen}
-      className="group flex items-center gap-3 rounded-xl border border-[#E7E7EA] bg-white p-3 text-left transition hover:border-[#a3a3a3] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.08)]"
+      className="group flex items-center gap-2.5 rounded-xl border border-[#E7E7EA] bg-white p-2.5 text-left transition hover:border-[#a3a3a3] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.08)]"
     >
-      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[#FFFAC2] text-xl">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#FFFAC2] text-base">
         {status === 'completed' ? '✓' : course.is_onboarding ? '🚀' : '📚'}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-1">
@@ -1834,10 +1945,10 @@ function CatalogSopCard({
     <button
       type="button"
       onClick={onOpen}
-      className="group flex items-center gap-3 rounded-xl border border-[#E7E7EA] bg-white p-3 text-left transition hover:border-[#a3a3a3] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.08)]"
+      className="group flex items-center gap-2.5 rounded-xl border border-[#E7E7EA] bg-white p-2.5 text-left transition hover:border-[#a3a3a3] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.08)]"
     >
       <span
-        className={`grid h-12 w-12 shrink-0 place-items-center rounded-lg text-xl ${
+        className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg text-base ${
           sop.completed ? 'bg-emerald-50' : 'bg-[#F5F5F6]'
         }`}
       >

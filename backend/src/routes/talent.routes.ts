@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as talentController from '../controllers/talent.controller.js';
 import * as trainingController from '../controllers/training.controller.js';
+import * as webinarsController from '../controllers/webinars.controller.js';
 import * as notificationsController from '../controllers/notifications.controller.js';
 import * as appInstallController from '../controllers/app-install.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
@@ -121,6 +122,12 @@ router.post(
   validate({ body: submitQuizSchema }),
   trainingController.submitQuiz,
 );
+
+// Upcoming webinars (inside Training): list, one-click register/unregister.
+// Timed reminders (day-of, T-30m, T-5m) fan out via the sweeper.
+router.get('/training/webinars', webinarsController.listForTalent);
+router.post('/training/webinars/:id/register', webinarsController.register);
+router.delete('/training/webinars/:id/register', webinarsController.unregister);
 
 // Notifications
 router.get('/notifications', notificationsController.listTalent);

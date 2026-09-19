@@ -714,3 +714,55 @@ export function useCompleteOnboarding() {
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Upcoming webinars (inside Training)
+// ---------------------------------------------------------------------------
+
+export interface TrainingWebinar {
+  id: string;
+  title: string;
+  starts_at: string;
+  language: string;
+  meeting_link: string;
+  audience: string;
+  status: string;
+  registered: boolean;
+}
+
+export function useTrainingWebinars() {
+  return useQuery<TrainingWebinar[]>({
+    queryKey: ['trainingWebinars'],
+    queryFn: async () => {
+      const { data } = await api.get('/talent/training/webinars');
+      return data.webinars ?? [];
+    },
+  });
+}
+
+export function useRegisterWebinar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (webinarId: string) => {
+      const { data } = await api.post(`/talent/training/webinars/${webinarId}/register`);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['trainingWebinars'] });
+      qc.invalidateQueries({ queryKey: ['talent-notifications'] });
+    },
+  });
+}
+
+export function useUnregisterWebinar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (webinarId: string) => {
+      const { data } = await api.delete(`/talent/training/webinars/${webinarId}/register`);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['trainingWebinars'] });
+    },
+  });
+}

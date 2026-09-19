@@ -7,6 +7,7 @@ import * as formConfigController from '../controllers/form-config.controller.js'
 import * as interviewController from '../controllers/interview.controller.js';
 import * as talentAccessController from '../controllers/talent-access.controller.js';
 import * as trainingController from '../controllers/training.controller.js';
+import * as webinarsController from '../controllers/webinars.controller.js';
 import * as howItWorksController from '../controllers/how-it-works.controller.js';
 import * as accessRequestsController from '../controllers/access-requests.controller.js';
 import * as savedFilterController from '../controllers/saved-filter.controller.js';
@@ -43,6 +44,10 @@ import {
   shareCourseSchema,
   previewShareAudienceSchema,
 } from '../validators/training.validators.js';
+import {
+  createWebinarSchema,
+  updateWebinarSchema,
+} from '../validators/webinars.validators.js';
 import {
   createHowItWorksVideoSchema,
   updateHowItWorksVideoSchema,
@@ -705,6 +710,21 @@ router.put(
 // Course enrollment management (reopen expired deadlines)
 router.get('/training/users/:userId/enrollments', trainingController.getUserCourseEnrollments);
 router.delete('/training/users/:userId/enrollments/:courseId', trainingController.reopenCourse);
+
+// Webinars — created in the SquadHire admin Training module (title, date/time,
+// language, meeting link). Talents register from Training → Upcoming Webinars.
+router.get('/training/webinars', webinarsController.listAdmin);
+router.post(
+  '/training/webinars',
+  validate({ body: createWebinarSchema }),
+  webinarsController.createAdmin,
+);
+router.put(
+  '/training/webinars/:id',
+  validate({ body: updateWebinarSchema }),
+  webinarsController.updateAdmin,
+);
+router.delete('/training/webinars/:id', webinarsController.deleteAdmin);
 
 // ---------------------------------------------------------------------------
 // How it works videos
