@@ -256,6 +256,24 @@ function renderNode(node: TiptapNode, ctx: RenderCtx): ReactNode {
         />
       );
     }
+    case 'embed': {
+      // SquadClips / video embeds pasted inline in rich text (the SquadHub
+      // editor stores them as TipTap embed nodes, not video blocks). Without
+      // this the page renders blank — the node has no children for the
+      // default branch to fall back to.
+      const src = safeUrl(node.attrs?.src);
+      if (!src) return null;
+      return (
+        <span className="my-4 block aspect-video overflow-hidden rounded-xl bg-[#09090B]">
+          <iframe
+            src={videoEmbedUrl(src)}
+            className="h-full w-full"
+            allowFullScreen
+            allow="autoplay; fullscreen; picture-in-picture"
+          />
+        </span>
+      );
+    }
     case 'doc':
       return renderNodes(node.content, ctx);
     default:
