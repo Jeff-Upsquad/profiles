@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
+import RequestChangesDialog from '@/views/profiles/RequestChangesDialog';
 import NotesSection from '@/views/leads/NotesSection';
 import CandidateActivityPanel from '@/views/leads/CandidateActivityPanel';
 import { useStageLabels } from '@/hooks/useStageLabels';
@@ -369,6 +370,7 @@ export default function TalentJourneyPanel({
   const [showBasic, setShowBasic] = useState(false);
   const [showApplication, setShowApplication] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [changesProfileId, setChangesProfileId] = useState<string | null>(null);
 
   // Keyboard: Esc closes, ←/→ move between rows (unless typing).
   useEffect(() => {
@@ -376,6 +378,7 @@ export default function TalentJourneyPanel({
     const handler = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      if (changesProfileId) return;
       if (e.key === 'Escape') onClose();
       else if (e.key === 'ArrowLeft' && hasPrev) onNavigate(-1);
       else if (e.key === 'ArrowRight' && hasNext) onNavigate(1);
@@ -386,12 +389,13 @@ export default function TalentJourneyPanel({
       window.removeEventListener('keydown', handler);
       document.body.style.overflow = '';
     };
-  }, [userId, hasPrev, hasNext, onNavigate, onClose]);
+  }, [userId, hasPrev, hasNext, onNavigate, onClose, changesProfileId]);
 
   useEffect(() => {
     setShowBasic(false);
     setShowApplication(false);
     setActivityOpen(false);
+    setChangesProfileId(null);
   }, [userId]);
 
   const { data, isLoading } = useQuery<Journey>({
@@ -828,9 +832,20 @@ export default function TalentJourneyPanel({
                               </div>
                               <Badge variant={st.variant}>{st.label}</Badge>
                               {p.status === 'pending_review' ? (
-                                <Link href={`/reviews/${p.id}`} className="text-xs font-medium text-indigo-600 hover:underline">
-                                  Review
-                                </Link>
+                                <div className="flex shrink-0 flex-col items-end gap-1">
+                                  {canEdit && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setChangesProfileId(p.id)}
+                                      className="text-xs font-medium text-amber-700 hover:underline"
+                                    >
+                                      Request changes
+                                    </button>
+                                  )}
+                                  <Link href={`/reviews/${p.id}`} className="text-xs font-medium text-indigo-600 hover:underline">
+                                    Review
+                                  </Link>
+                                </div>
                               ) : (
                                 <Link href={`/talents/${p.category_id}/${p.id}`} className="text-xs font-medium text-gray-500 hover:underline">
                                   View
@@ -1006,6 +1021,17 @@ export default function TalentJourneyPanel({
 
       {activityOpen && u && (
         <CandidateActivityPanel talentUserId={u.id} title={u.full_name} onClose={() => setActivityOpen(false)} />
+      )}
+      {changesProfileId && data && (
+        <RequestChangesDialog
+          isOpen
+          onClose={() => setChangesProfileId(null)}
+          profileId={changesProfileId}
+          categoryId={data.profiles.find((p) => p.id === changesProfileId)?.category_id}
+          talentName={data.user.full_name}
+          talentPhone={data.user.phone}
+          onDone={refresh}
+        />
       )}
     </div>,
     document.body,
