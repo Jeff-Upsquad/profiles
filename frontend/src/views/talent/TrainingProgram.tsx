@@ -810,9 +810,15 @@ function ChapterRail({
         const lockedReason = lockedReasons[ci];
         const doneCount = chapter.lessons.filter((l) => l.completed).length;
         const chapterDone = chapter.total_count > 0 && doneCount >= chapter.total_count;
+        // A section page can also be a lesson. Use its selectable lesson row
+        // as the chapter label instead of repeating the same title above it.
+        const chapterLesson = chapter.lessons.find((lesson) =>
+          lesson.title.trim().toLowerCase() === chapter.title.trim().toLowerCase() &&
+          (lesson.id === chapter.id || chapter.lessons.length === 1),
+        );
         return (
           <div key={chapter.id} className="mb-3 last:mb-0">
-            <div className="flex items-center gap-2 px-2 pb-1">
+            {!chapterLesson && <div className="flex items-center gap-2 px-2 pb-1">
               <span
                 className={`grid h-5 w-5 shrink-0 place-items-center rounded-md text-[10px] font-semibold ${
                   lockedReason
@@ -838,16 +844,18 @@ function ChapterRail({
               <span className="shrink-0 text-[10px] tabular-nums text-[#a3a3a3]">
                 {doneCount}/{chapter.total_count}
               </span>
-            </div>
+            </div>}
             <ul title={lockedReason ?? undefined}>
               {chapter.lessons.map((lesson) => {
                 const isActive = lesson.id === activeLessonId;
+                const isChapterLesson = lesson.id === chapterLesson?.id;
                 return (
                   <li key={lesson.id}>
                     <button
                       type="button"
                       onClick={() => onPick(lesson.id)}
                       disabled={!!lockedReason}
+                      aria-current={isActive ? 'page' : undefined}
                       title={lockedReason ?? lesson.title}
                       className={`flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left transition ${
                         isActive
@@ -858,19 +866,26 @@ function ChapterRail({
                       }`}
                     >
                       <span
-                        className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full text-[9px] font-semibold ${
+                        className={`mt-0.5 grid shrink-0 place-items-center font-semibold ${isChapterLesson ? 'h-5 w-5 rounded-md text-[10px]' : 'h-4 w-4 rounded-full text-[9px]'} ${
                           lesson.completed
                             ? 'bg-emerald-500 text-white'
                             : isActive
                               ? 'bg-white text-[#0a0a0a]'
-                              : 'bg-[#E7E7EA] text-[#525252]'
+                              : isChapterLesson && !lockedReason
+                                ? 'bg-[#0a0a0a] text-white'
+                                : 'bg-[#E7E7EA] text-[#525252]'
                         }`}
                       >
-                        {lesson.completed ? '✓' : '•'}
+                        {lesson.completed ? '✓' : isChapterLesson ? ci + 1 : '•'}
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-[12.5px] leading-snug">
+                      <span className={`min-w-0 flex-1 truncate leading-snug ${isChapterLesson ? 'text-[12px] font-semibold' : 'text-[12.5px]'}`}>
                         {lesson.title}
                       </span>
+                      {isChapterLesson && (
+                        <span className={`shrink-0 text-[10px] tabular-nums ${isActive ? 'text-white/70' : 'text-[#a3a3a3]'}`}>
+                          {doneCount}/{chapter.total_count}
+                        </span>
+                      )}
                     </button>
                   </li>
                 );
@@ -1145,7 +1160,12 @@ function CourseReader({
               className="w-full rounded-lg border border-[#E7E7EA] bg-white px-3 py-2 text-[13px] font-medium text-[#0a0a0a] focus:border-[#0a0a0a] focus:outline-none"
             >
               {course.chapters.map((chapter, ci) => (
-                <optgroup key={chapter.id} label={chapter.title}>
+                <optgroup
+                  key={chapter.id}
+                  label={chapter.lessons.some((lesson) => lesson.title.trim().toLowerCase() === chapter.title.trim().toLowerCase())
+                    ? `Chapter ${ci + 1}`
+                    : chapter.title}
+                >
                   {chapter.lessons.map((lesson) => (
                     <option key={lesson.id} value={lesson.id} disabled={!!lockedReasons[ci]}>
                       {lesson.completed ? '✓ ' : ''}{lesson.title}
