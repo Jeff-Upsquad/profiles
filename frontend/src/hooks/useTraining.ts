@@ -351,6 +351,11 @@ export interface MyTrainingResponse {
   /** Raw items, kept alongside the adapted courses for the language picker. */
   items: TalentItem[];
   sops: TrainingSopSummary[];
+  /**
+   * SOP items adapted as courses. SOPs open in the full-page course reader,
+   * which works off chapters — the summary shape alone can't feed it.
+   */
+  sopCourses: TrainingCourse[];
   assignments?: TrainingAssignment[];
   /** Incomplete training_assignments count (sidebar badge) */
   incomplete_count?: number;
@@ -394,6 +399,7 @@ export function useMyTraining() {
         courses: items.map(itemToCourse),
         items,
         sops: sopItems.map((i) => itemToSopSummary(i, assignments)),
+        sopCourses: sopItems.map(itemToCourse),
         assignments,
         incomplete_count: data.incomplete_count ?? 0,
       };

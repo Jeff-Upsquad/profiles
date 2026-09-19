@@ -24,7 +24,6 @@ import {
   type TrainingSopSummary,
 } from '@/hooks/useTraining';
 import CourseStartPopup from './CourseStartPopup';
-import SopReader from '@/components/training/SopReader';
 import ContentBlocks, { collectHeadings, type OutlineHeading } from '@/components/training/ContentBlocks';
 
 // Both supported providers (Loom and SquadClips / clips.squadhub.in) expose a
@@ -1308,23 +1307,22 @@ function FullTrainingProgram() {
   const { data, isLoading } = useMyTraining();
   const courses = data?.courses ?? [];
   const sops = data?.sops ?? [];
+  const sopCourses = data?.sopCourses ?? [];
   const activeCountdowns = getActiveCountdowns(courses);
 
   const [query, setQuery] = useState('');
-  const [openSopId, setOpenSopId] = useState<string | null>(null);
   const [viewingLegacy, setViewingLegacy] = useState(false);
   const viewingCourseId = routeCourseId;
 
   // Legacy deep link: /talent/training?resource=sop:<id> | course:<id>.
-  // Courses now have their own route, so forward those and keep SOPs inline.
+  // Both now have their own reader route.
   useEffect(() => {
     const resource = searchParams.get('resource');
     if (!resource) return;
     if (resource.startsWith('sop:')) {
-      setOpenSopId(resource.slice(4));
       setViewingLegacy(false);
+      router.replace(`/talent/training/${resource.slice(4)}`);
     } else if (resource.startsWith('course:')) {
-      setOpenSopId(null);
       setViewingLegacy(false);
       router.replace(`/talent/training/${resource.slice(7)}`);
     }
@@ -1408,7 +1406,12 @@ function FullTrainingProgram() {
       : 0;
 
   const isEmpty = courses.length === 0 && sops.length === 0;
-  const viewingCourse = courses.find((c) => c.id === viewingCourseId) ?? null;
+  // Courses and SOPs share one full-page reader — SOP items carry the same
+  // chapter payload, so the lookup spans both lists.
+  const viewingCourse =
+    courses.find((c) => c.id === viewingCourseId) ??
+    sopCourses.find((c) => c.id === viewingCourseId) ??
+    null;
 
   // Drill into a course — the SOP-style reader (left rail | lesson | outline).
   // The parent shell is a flex column here, so the reader claims the remaining
@@ -1610,7 +1613,8 @@ function FullTrainingProgram() {
             {filteredSops
               .filter((s) => !s.completed)
               .map((sop) => (
-                <CatalogSopCard key={sop.id} sop={sop} onOpen={() => setOpenSopId(sop.id)} />
+                  <CatalogSopCard key={sop.id} sop={sop} onOpen={() => router.push(`/talent/training/${sop.id}`)} />
+
               ))}
           </CatalogSection>
 
@@ -1663,7 +1667,8 @@ function FullTrainingProgram() {
               {filteredSops
                 .filter((s) => s.completed)
                 .map((sop) => (
-                  <CatalogSopCard key={sop.id} sop={sop} onOpen={() => setOpenSopId(sop.id)} />
+                <CatalogSopCard key={sop.id} sop={sop} onOpen={() => router.push(`/talent/training/${sop.id}`)} />
+
                 ))}
             </CatalogSection>
           )}
@@ -1678,8 +1683,6 @@ function FullTrainingProgram() {
             )}
         </div>
       )}
-
-      {openSopId && <SopReader sopId={openSopId} onClose={() => setOpenSopId(null)} />}
     </div>
   );
 }
