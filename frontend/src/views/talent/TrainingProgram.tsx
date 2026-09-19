@@ -1173,7 +1173,7 @@ function CourseReader({
                 showOutline ? '@[1000px]:grid-cols-[minmax(0,1fr)_264px]' : ''
               }`}
             >
-              <main ref={contentRef} className="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto scroll-smooth bg-white">
+              <main ref={contentRef} className="course-lesson-scroll min-h-0 min-w-0 overflow-x-hidden overflow-y-auto scroll-smooth bg-white">
                 {!active ? (
                   <div className="flex h-full items-center justify-center px-6 py-16 text-sm text-[#737373]">
                     Select a lesson to begin.

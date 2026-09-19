@@ -148,6 +148,11 @@ body {
   display: none;
 }
 
+/* WebKit can still paint an overlay thumb for the lesson's clipped x-axis. */
+.course-lesson-scroll::-webkit-scrollbar:horizontal {
+  height: 0;
+}
+
 /* ── Animations ── */
 @keyframes cuLift {
   0%   { opacity: 0; transform: translateY(12px); }
