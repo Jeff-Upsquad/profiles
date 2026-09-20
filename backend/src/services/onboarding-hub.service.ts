@@ -133,9 +133,32 @@ export interface TalentPipelineConfig {
   stages: CrmStage[];
 }
 
+let jobsStageCache: { expires: number; stages: CrmStage[] } | null = null;
+
+async function discoverJobsStages(webhookUrl: string): Promise<CrmStage[]> {
+  if (jobsStageCache && jobsStageCache.expires > Date.now()) return jobsStageCache.stages;
+  const secret = process.env.SQUADHIRE_CRM_INBOUND_SECRET;
+  if (!webhookUrl || !secret) return [];
+  try {
+    const url = new URL(webhookUrl);
+    const endpoint = `${url.origin}/integrations/profiles/pipelines/${encodeURIComponent('Jobs Onboarding')}/stages?kind=talent`;
+    const response = await fetch(endpoint, {
+      headers: { 'X-SquadHire-Admin-Signature': secret },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!response.ok) return [];
+    const body = await response.json() as { data?: { stages?: CrmStage[] } };
+    const stages = body.data?.stages ?? [];
+    jobsStageCache = { expires: Date.now() + 60_000, stages };
+    return stages;
+  } catch {
+    return [];
+  }
+}
+
 /** { formType -> talent pipeline snapshot } from the CRM Status Mapping setting. */
 export async function getTalentPipelineConfig(): Promise<Record<string, TalentPipelineConfig>> {
-  const mapping = await getAdminSetting<{ talent_pipelines?: Record<string, TalentPipelineConfig> }>(
+  const mapping = await getAdminSetting<{ crm_webhook_url?: string; talent_pipelines?: Record<string, TalentPipelineConfig> }>(
     'crm_status_mapping',
   );
   const out: Record<string, TalentPipelineConfig> = {};
@@ -146,6 +169,9 @@ export async function getTalentPipelineConfig(): Promise<Record<string, TalentPi
       stages: [...(cfg.stages ?? [])].sort((a, b) => a.sort_order - b.sort_order),
     };
   }
+  if (out.jobs && out.jobs.stages.length === 0) {
+    out.jobs.stages = await discoverJobsStages(mapping?.crm_webhook_url ?? '');
+  }
   return out;
 }
 
@@ -153,8 +179,10 @@ export async function getTalentPipelineConfig(): Promise<Record<string, TalentPi
 async function talentPipelineFor(
   talentUserId: string,
   storedPipelineName: string | null,
+  track: 'partner' | 'jobs' = 'partner',
 ): Promise<{ formType: string | null; config: TalentPipelineConfig | null }> {
   const all = await getTalentPipelineConfig();
+  if (track === 'jobs') return { formType: 'jobs', config: all.jobs ?? null };
   if (storedPipelineName) {
     const hit = Object.entries(all).find(
       ([, c]) => normalizeStage(c.pipeline_name) === normalizeStage(storedPipelineName),
@@ -179,6 +207,7 @@ export type HubAttention =
   | 'no_job_profile';
 
 export interface HubListFilters {
+  track?: 'partner' | 'jobs';
   search?: string;
   category?: string;
   pipeline_stage?: string;
@@ -347,24 +376,23 @@ async function journeysFor(
 }
 
 const TALENT_LIST_COLUMNS =
-  'id, full_name, phone, current_location, approval_status, is_active, suspended, blacklisted, ' +
-  'created_at, approved_at, pipeline_stage, onboarding_completed, skip_onboarding, languages_spoken, ' +
-  'crm_talent_pipeline_name, crm_talent_stage_id, crm_talent_stage_name, crm_talent_stage_changed_at';
+  'id, full_name, phone, current_location, approval_status, wants_jobs, partner_approval_status, is_active, suspended, blacklisted, ' +
+  'created_at, approved_at, pipeline_stage, jobs_pipeline_stage, onboarding_completed, skip_onboarding, languages_spoken, ' +
+  'crm_talent_pipeline_name, crm_talent_stage_id, crm_talent_stage_name, crm_talent_stage_changed_at, ' +
+  'crm_jobs_pipeline_name, crm_jobs_stage_id, crm_jobs_stage_name, crm_jobs_stage_changed_at';
 
 /**
  * Talent ids matching an "attention" filter. Each is a cheap id-set query so
  * it can be AND-ed into the main talent_users query as an `in` filter.
  * Returns null for "no restriction".
  */
-async function attentionIds(attention: HubAttention | undefined): Promise<string[] | null> {
+async function attentionIds(attention: HubAttention | undefined, track?: 'partner' | 'jobs'): Promise<string[] | null> {
   if (!attention) return null;
   const ids = new Set<string>();
 
   if (attention === 'pending_approval') {
-    const { data } = await supabaseAdmin
-      .from('talent_users')
-      .select('id')
-      .eq('approval_status', 'pending');
+    const { data } = await supabaseAdmin.from('talent_users').select('id')
+      .eq(track === 'partner' ? 'partner_approval_status' : 'approval_status', 'pending');
     for (const r of data ?? []) ids.add((r as any).id);
     return [...ids];
   }
@@ -427,16 +455,20 @@ export async function listHub(filters: HubListFilters) {
     .select(TALENT_LIST_COLUMNS, { count: 'exact' })
     .order('created_at', { ascending: filters.sort === 'oldest' });
 
+  if (filters.track === 'partner') qb = qb.not('partner_approval_status', 'is', null);
+  if (filters.track === 'jobs') qb = qb.eq('wants_jobs', true);
+
   const stage = (filters.pipeline_stage ?? '').trim().toLowerCase();
-  if (stage && stage !== 'all') qb = qb.eq('pipeline_stage', stage);
+  if (stage && stage !== 'all') qb = qb.eq(filters.track === 'jobs' ? 'jobs_pipeline_stage' : 'pipeline_stage', stage);
 
   const talentStage = (filters.talent_stage ?? '').trim();
-  if (talentStage === 'none') qb = qb.is('crm_talent_stage_id', null);
-  else if (talentStage && talentStage !== 'all') qb = qb.eq('crm_talent_stage_id', talentStage);
+  const talentStageColumn = filters.track === 'jobs' ? 'crm_jobs_stage_id' : 'crm_talent_stage_id';
+  if (talentStage === 'none') qb = qb.is(talentStageColumn, null);
+  else if (talentStage && talentStage !== 'all') qb = qb.eq(talentStageColumn, talentStage);
 
   const cat = parseSignupCategory(filters.category);
   const categoryIds = await talentIdsForSignupCategory(cat);
-  const attention = await attentionIds(filters.attention);
+  const attention = await attentionIds(filters.attention, filters.track);
   const restrict = intersect(categoryIds, attention);
   if (restrict && restrict.length === 0) {
     return { users: [], total: 0, page, limit, total_pages: 0 };
@@ -479,16 +511,18 @@ export async function listHub(filters: HubListFilters) {
     email: emailMap.get(u.id) ?? null,
     current_location: u.current_location,
     approval_status: u.approval_status,
+    wants_jobs: u.wants_jobs,
+    partner_approval_status: u.partner_approval_status,
     is_active: u.is_active,
     suspended: u.suspended,
     blacklisted: u.blacklisted,
     created_at: u.created_at,
     approved_at: u.approved_at,
-    pipeline_stage: u.pipeline_stage ?? 'signed_up',
-    crm_talent_pipeline_name: u.crm_talent_pipeline_name ?? null,
-    crm_talent_stage_id: u.crm_talent_stage_id ?? null,
-    crm_talent_stage_name: u.crm_talent_stage_name ?? null,
-    crm_talent_stage_changed_at: u.crm_talent_stage_changed_at ?? null,
+    pipeline_stage: (filters.track === 'jobs' ? u.jobs_pipeline_stage : u.pipeline_stage) ?? 'signed_up',
+    crm_talent_pipeline_name: (filters.track === 'jobs' ? u.crm_jobs_pipeline_name : u.crm_talent_pipeline_name) ?? null,
+    crm_talent_stage_id: (filters.track === 'jobs' ? u.crm_jobs_stage_id : u.crm_talent_stage_id) ?? null,
+    crm_talent_stage_name: (filters.track === 'jobs' ? u.crm_jobs_stage_name : u.crm_talent_stage_name) ?? null,
+    crm_talent_stage_changed_at: (filters.track === 'jobs' ? u.crm_jobs_stage_changed_at : u.crm_talent_stage_changed_at) ?? null,
     categories: catMap.get(u.id) ?? [],
     lead: leadMap.get(u.id) ?? null,
     journey: journeys.get(u.id) ?? null,
@@ -548,7 +582,7 @@ async function leadsFor(
 // Stats — counts for the funnel strips and attention chips
 // ---------------------------------------------------------------------------
 
-export async function hubStats(category?: string) {
+export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
   const cat = parseSignupCategory(category);
   const categoryIds = await talentIdsForSignupCategory(cat);
   const empty = {
@@ -563,8 +597,10 @@ export async function hubStats(category?: string) {
 
   let qb = supabaseAdmin
     .from('talent_users')
-    .select('id, approval_status, pipeline_stage, crm_talent_stage_id');
+    .select('id, approval_status, partner_approval_status, wants_jobs, pipeline_stage, jobs_pipeline_stage, crm_talent_stage_id, crm_jobs_stage_id');
   if (categoryIds) qb = qb.in('id', categoryIds);
+  if (track === 'partner') qb = qb.not('partner_approval_status', 'is', null);
+  if (track === 'jobs') qb = qb.eq('wants_jobs', true);
   const { data, error } = await qb;
   if (error) throw new AppError(500, error.message);
 
@@ -574,16 +610,17 @@ export async function hubStats(category?: string) {
   let pending = 0;
   let inTalent = 0;
   for (const r of rows) {
-    const s = r.pipeline_stage ?? 'signed_up';
+    const s = (track === 'jobs' ? r.jobs_pipeline_stage : r.pipeline_stage) ?? 'signed_up';
     byStage[s] = (byStage[s] ?? 0) + 1;
-    if (r.approval_status === 'pending') pending += 1;
-    if (r.crm_talent_stage_id) {
+    if ((track === 'partner' ? r.partner_approval_status : r.approval_status) === 'pending') pending += 1;
+    const talentStageId = track === 'jobs' ? r.crm_jobs_stage_id : r.crm_talent_stage_id;
+    if (talentStageId) {
       inTalent += 1;
-      byTalentStage[r.crm_talent_stage_id] = (byTalentStage[r.crm_talent_stage_id] ?? 0) + 1;
+      byTalentStage[talentStageId] = (byTalentStage[talentStageId] ?? 0) + 1;
     }
   }
 
-  const idSet = categoryIds ? new Set(categoryIds) : null;
+  const idSet = new Set(rows.map((r) => r.id));
   const { data: reviewRows } = await supabaseAdmin
     .from('talent_profiles')
     .select('talent_user_id, status, changes_requested_at, reviewed_at, resubmitted_at')
@@ -593,7 +630,7 @@ export async function hubStats(category?: string) {
   const waitingOnTalent = new Set<string>();
   for (const r of reviewRows ?? []) {
     const id = (r as any).talent_user_id as string;
-    if (idSet && !idSet.has(id)) continue;
+    if (!idSet.has(id)) continue;
     if ((r as any).status === 'pending_review' || ((r as any).status === 'approved' && (r as any).resubmitted_at)) needsReview.add(id);
     else waitingOnTalent.add(id);
   }
@@ -616,7 +653,7 @@ export async function hubStats(category?: string) {
 // Journey detail for one talent
 // ---------------------------------------------------------------------------
 
-export async function talentJourney(userId: string) {
+export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 'partner') {
   const { data: talent, error } = await supabaseAdmin
     .from('talent_users')
     .select(
@@ -700,7 +737,7 @@ export async function talentJourney(userId: string) {
   });
   const portfolioItems = profileIds.reduce((s, id) => s + (portfolioByProfile.get(id) ?? 0), 0);
 
-  const talentPipeline = await talentPipelineFor(userId, t.crm_talent_pipeline_name ?? null);
+  const talentPipeline = await talentPipelineFor(userId, track === 'jobs' ? t.crm_jobs_pipeline_name : t.crm_talent_pipeline_name, track);
 
   return {
     user: {
@@ -711,6 +748,8 @@ export async function talentJourney(userId: string) {
       profile_photo_url: t.profile_photo_url ?? basic?.profile_picture_url ?? null,
       current_location: t.current_location,
       approval_status: t.approval_status,
+      wants_jobs: t.wants_jobs,
+      partner_approval_status: t.partner_approval_status,
       rejection_reason: t.rejection_reason ?? null,
       is_active: t.is_active,
       suspended: t.suspended,
@@ -720,11 +759,11 @@ export async function talentJourney(userId: string) {
       languages_spoken: t.languages_spoken ?? [],
       skip_onboarding: !!t.skip_onboarding,
       skip_onboarding_reason: t.skip_onboarding_reason ?? null,
-      pipeline_stage: t.pipeline_stage ?? 'signed_up',
-      crm_talent_pipeline_name: t.crm_talent_pipeline_name ?? null,
-      crm_talent_stage_id: t.crm_talent_stage_id ?? null,
-      crm_talent_stage_name: t.crm_talent_stage_name ?? null,
-      crm_talent_stage_changed_at: t.crm_talent_stage_changed_at ?? null,
+      pipeline_stage: (track === 'jobs' ? t.jobs_pipeline_stage : t.pipeline_stage) ?? 'signed_up',
+      crm_talent_pipeline_name: (track === 'jobs' ? t.crm_jobs_pipeline_name : t.crm_talent_pipeline_name) ?? null,
+      crm_talent_stage_id: (track === 'jobs' ? t.crm_jobs_stage_id : t.crm_talent_stage_id) ?? null,
+      crm_talent_stage_name: (track === 'jobs' ? t.crm_jobs_stage_name : t.crm_talent_stage_name) ?? null,
+      crm_talent_stage_changed_at: (track === 'jobs' ? t.crm_jobs_stage_changed_at : t.crm_talent_stage_changed_at) ?? null,
       categories: cats.get(userId) ?? [],
     },
     journey: {
@@ -778,9 +817,16 @@ export async function applyInboundTalentStage(
   talentUserId: string,
   input: { pipeline_name: string | null; stage_id: string | null; stage_name: string },
 ) {
+  const jobsPipeline = (await getTalentPipelineConfig()).jobs?.pipeline_name;
+  const jobs = !!jobsPipeline && normalizeStage(jobsPipeline) === normalizeStage(input.pipeline_name ?? '');
   const { error } = await supabaseAdmin
     .from('talent_users')
-    .update({
+    .update(jobs ? {
+      crm_jobs_pipeline_name: input.pipeline_name,
+      crm_jobs_stage_id: input.stage_id ?? normalizeStage(input.stage_name),
+      crm_jobs_stage_name: input.stage_name,
+      crm_jobs_stage_changed_at: new Date().toISOString(),
+    } : {
       crm_talent_pipeline_name: input.pipeline_name,
       crm_talent_stage_id: input.stage_id ?? normalizeStage(input.stage_name),
       crm_talent_stage_name: input.stage_name,
@@ -811,18 +857,20 @@ export async function clearTalentStage(talentUserId: string) {
  */
 export async function setTalentStage(
   talentUserId: string,
-  input: { stage_id: string },
+  input: { stage_id: string; track?: 'partner' | 'jobs' },
   adminUserId: string,
 ) {
   const { data: talent, error } = await supabaseAdmin
     .from('talent_users')
-    .select('id, full_name, phone, crm_talent_pipeline_name, crm_talent_stage_id')
+    .select('id, full_name, phone, crm_talent_pipeline_name, crm_talent_stage_id, crm_jobs_pipeline_name, crm_jobs_stage_id')
     .eq('id', talentUserId)
     .maybeSingle();
   if (error) throw new AppError(500, error.message);
   if (!talent) throw new AppError(404, 'Talent not found');
 
-  const { config } = await talentPipelineFor(talentUserId, talent.crm_talent_pipeline_name ?? null);
+  const { config } = await talentPipelineFor(talentUserId,
+    input.track === 'jobs' ? talent.crm_jobs_pipeline_name : talent.crm_talent_pipeline_name,
+    input.track ?? 'partner');
   if (!config) {
     throw new AppError(
       400,

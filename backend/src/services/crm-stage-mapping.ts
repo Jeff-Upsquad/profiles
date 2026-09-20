@@ -62,6 +62,7 @@ export function validStatusesForFormType(
 ): ReadonlySet<string> | null {
   if (formType === 'creative' || formType === 'sales') return new Set(CREATIVE_STATUSES);
   if (formType === 'accountant') return new Set(ACCOUNTANT_STATUSES);
+  if (formType === 'jobs') return new Set(ACCOUNTANT_STATUSES);
   return null;
 }
 

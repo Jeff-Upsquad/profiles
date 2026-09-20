@@ -224,8 +224,11 @@ router.patch('/user-approvals/:userId/talent-stage', adminController.setTalentSt
 router.patch('/user-approvals/:userId/basic/request-changes', adminController.requestBasicChanges);
 router.patch('/user-approvals/:userId/basic/accept-changes', adminController.acceptBasicChanges);
 router.post('/user-approvals/bulk-approve', adminController.bulkApproveUsers);
+router.post('/user-approvals/bulk-approve-partner', adminController.bulkApprovePartnerUsers);
 router.get('/user-approvals', adminController.getPendingApprovals);
 router.patch('/user-approvals/:userId/approve', adminController.approveUser);
+router.patch('/user-approvals/:userId/approve-partner', adminController.approvePartnerUser);
+router.patch('/user-approvals/:userId/reject-partner', adminController.rejectPartnerUser);
 router.patch('/user-approvals/:userId/reject', adminController.rejectUser);
 router.patch('/user-approvals/:userId/pipeline-stage', adminController.updatePipelineStage);
 

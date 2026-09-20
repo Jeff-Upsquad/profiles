@@ -37,6 +37,7 @@ interface MultiPipelineConfig {
 }
 
 const FORM_TYPE_OPTIONS = [
+  { value: 'jobs', label: 'Jobs (all categories)' },
   { value: 'creative', label: 'Creative (Designer / Editor)' },
   { value: 'accountant', label: 'Accountant' },
   { value: 'sales', label: 'Sales' },

@@ -11,6 +11,7 @@ import { COUNTRIES, INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-
 import { COUNTRY_CODES } from '@/constants/country-codes';
 import AlreadySubmittedSheet from '@/components/forms/AlreadySubmittedSheet';
 import SubmissionResultScreen from '@/components/forms/SubmissionResultScreen';
+import SignupCredentials from '@/components/forms/SignupCredentials';
 import { useDuplicateContactCheck } from '@/hooks/useDuplicateContactCheck';
 
 interface FormValues {
@@ -87,6 +88,8 @@ function Section({ index, title, description, delay = 0, children }: SectionProp
 export default function CreativeLeadForm() {
   const searchParams = useSearchParams();
   const [form, setForm] = useState(initial);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [countryCode, setCountryCode] = useState('+91');
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({});
   const [shakeWarning, setShakeWarning] = useState(false);
@@ -101,7 +104,7 @@ export default function CreativeLeadForm() {
   const [serverError, setServerError] = useState('');
   const [formDisabled, setFormDisabled] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
-  const dup = useDuplicateContactCheck();
+  const dup = useDuplicateContactCheck(true);
 
   useEffect(() => {
     axios
@@ -197,9 +200,15 @@ export default function CreativeLeadForm() {
       return;
     }
 
+    if (password.length < 8 || password !== confirmPassword) {
+      setServerError(password.length < 8 ? 'Password must be at least 8 characters.' : 'Passwords do not match.');
+      document.getElementById('field-password')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const { data } = await axios.post('/api/leads/submit', {
+      const { data } = await axios.post('/api/auth/signup/talent/application', { password, application: {
         form_type: 'creative',
         name: form.name.trim(),
         phone: form.phone.replace(/\s/g, ''),
@@ -216,7 +225,7 @@ export default function CreativeLeadForm() {
         utm_source: searchParams.get('utm_source') || undefined,
         utm_medium: searchParams.get('utm_medium') || undefined,
         utm_campaign: searchParams.get('utm_campaign') || undefined,
-      });
+      }});
       setSubmitting(false);
       setChecking(true);
       await new Promise((r) => setTimeout(r, 10000));
@@ -631,6 +640,7 @@ export default function CreativeLeadForm() {
           </Section>
 
           {/* Submit */}
+          <SignupCredentials password={password} confirmPassword={confirmPassword} onPasswordChange={setPassword} onConfirmPasswordChange={setConfirmPassword} />
           <div className="card-saas mt-5 flex flex-col gap-6 px-6 py-9 sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-9">
             {dup.anyDuplicate && (
               <div
@@ -671,7 +681,7 @@ export default function CreativeLeadForm() {
                 </>
               ) : (
                 <>
-                  Submit Application
+                  Sign up and apply
                   <span className="arrow-icon">→</span>
                 </>
               )}
@@ -687,6 +697,8 @@ export default function CreativeLeadForm() {
       <AlreadySubmittedSheet
         open={dup.showSheet}
         onClose={() => dup.setShowSheet(false)}
+        message="A SquadHire account already uses this email or phone. Sign in, or contact Talent Support if you need help."
+        signInHref="/login/talent"
       />
     </div>
   );

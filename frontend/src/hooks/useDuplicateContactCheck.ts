@@ -5,7 +5,7 @@ import axios from 'axios';
 
 const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function useDuplicateContactCheck() {
+export function useDuplicateContactCheck(accountOnly = false) {
   const [emailDuplicate, setEmailDuplicate] = useState(false);
   const [phoneDuplicate, setPhoneDuplicate] = useState(false);
   const [showSheet, setShowSheet] = useState(false);
@@ -16,15 +16,16 @@ export function useDuplicateContactCheck() {
       const cached = seenRef.current.get(cacheKey);
       if (cached !== undefined) return cached;
       try {
-        const { data } = await axios.post('/api/leads/check-existing', payload);
-        const exists = !!data?.exists;
+        const { data } = await axios.post(
+          accountOnly ? '/api/auth/check-candidate-status' : '/api/leads/check-existing', payload);
+        const exists = accountOnly ? !!data?.has_account : !!data?.exists;
         seenRef.current.set(cacheKey, exists);
         return exists;
       } catch {
         return false;
       }
     },
-    []
+    [accountOnly]
   );
 
   const checkEmail = useCallback(

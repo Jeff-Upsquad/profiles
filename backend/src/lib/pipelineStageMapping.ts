@@ -2,7 +2,8 @@
 // Used to auto-sync the Sign-ups pipeline when a lead's status changes.
 
 const LEAD_STATUS_TO_PIPELINE_STAGE: Record<string, string> = {
-  signed_up: 'signed_up',
+  form_filled: 'applicants',
+  signed_up: 'application_approved',
   onboarding_training: 'onboarding_course',
   basic_profile: 'basic_profile',
   job_profile: 'job_profile',
@@ -12,6 +13,8 @@ const LEAD_STATUS_TO_PIPELINE_STAGE: Record<string, string> = {
 };
 
 const PIPELINE_STAGE_TO_LEAD_STATUS: Record<string, string> = {
+  applicants: 'form_filled',
+  application_approved: 'signed_up',
   signed_up: 'signed_up',
   onboarding_course: 'onboarding_training',
   basic_profile: 'basic_profile',
@@ -22,6 +25,8 @@ const PIPELINE_STAGE_TO_LEAD_STATUS: Record<string, string> = {
 };
 
 const VALID_PIPELINE_STAGES = new Set([
+  'applicants',
+  'application_approved',
   'signed_up',
   'onboarding_course',
   'basic_profile',

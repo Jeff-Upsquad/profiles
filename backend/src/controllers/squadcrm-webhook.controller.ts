@@ -19,10 +19,14 @@ import {
 // survives CRM stage renames. Lookup here is case-insensitive/whitespace-tolerant.
 const CRM_STAGE_TO_STATUS: Record<string, (typeof LEAD_STATUS_VALUES)[number]> = {
   'new': 'new',
+  'new applicants': 'new',
   'share form': 'share_form',
+  'share landing page': 'share_form',
   'form filled / for review': 'form_filled',
+  'applicants': 'form_filled',
   'shortlisted': 'shortlisted',
   'signed up': 'signed_up',
+  'application approved': 'signed_up',
   'onboarding training': 'onboarding_training',
   'onboarding course': 'onboarding_training',
   'basic profile': 'basic_profile',
@@ -155,6 +159,29 @@ export async function handleLeadStageChanged(
 
     const lead = await findLead(external_lead_id ?? null, phone ?? null);
 
+    if (pipeline_kind === 'candidates' && normalizeStage(pipeline_name ?? '') === 'jobs candidates') {
+      const talentUserId = (await linkedTalentForLead(lead?.id ?? null)) ??
+        (await findTalentUserIdByPhone(phone ?? null));
+      if (!talentUserId) { res.json({ ok: true, skipped: 'talent_not_found' }); return; }
+      const stageByName: Record<string, string> = {
+        applicants: 'applicants',
+        'application approved': 'application_approved',
+        'onboarding training': 'onboarding_course',
+        'basic profile': 'basic_profile',
+        'job profile': 'job_profile',
+        'final review': 'final_review',
+        live: 'live',
+      };
+      const stage = stageByName[normalizeStage(stage_name)];
+      if (!stage) { res.json({ ok: true, skipped: 'pre_signup_or_unmapped_stage' }); return; }
+      const { error } = await supabaseAdmin.from('talent_users')
+        .update({ jobs_pipeline_stage: stage })
+        .eq('id', talentUserId).eq('wants_jobs', true);
+      if (error) throw new AppError(500, error.message);
+      res.json({ ok: true, talentUserId, pipeline_stage: stage });
+      return;
+    }
+
     // Talent-pipeline moves aren't mapped to lead statuses at all — the CRM
     // owns those stage names. Resolve the talent account (via the lead link,
     // else by phone) and mirror the stage as-is.
@@ -195,8 +222,8 @@ export async function handleLeadStageChanged(
       return;
     }
 
-    // A move on a candidates board means the card is no longer on the talent
-    // board (a card lives in exactly one pipeline) — drop the mirrored stage.
+    // Candidate boards may also be secondary memberships. Preserve the other
+    // track's post-live stage rather than clearing it on every candidate move.
     {
       const talentUserId =
         (await linkedTalentForLead(lead?.id ?? null)) ??

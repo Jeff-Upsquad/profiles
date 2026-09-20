@@ -79,10 +79,12 @@ export default function TalentLayout({
     }
   }, [pathname]);
   const isTalent = !!user && user.role === 'talent';
+  const partnerOnlyPending = user?.wants_jobs === false && user?.partner_approval_status !== 'approved';
+  const partnerLocked = user?.partner_approval_status !== undefined && user.partner_approval_status !== 'approved';
   const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
-  const { data: unread = 0 } = useUnreadSubscriptionCount({ enabled: isTalent });
-  const { data: unreadAssignments = 0 } = useUnreadAssignmentCount({ enabled: isTalent });
-  const { data: unreadJobs = 0 } = useUnreadJobsCount({ enabled: isTalent });
+  const { data: unread = 0 } = useUnreadSubscriptionCount({ enabled: isTalent && !partnerLocked });
+  const { data: unreadAssignments = 0 } = useUnreadAssignmentCount({ enabled: isTalent && !partnerLocked });
+  const { data: unreadJobs = 0 } = useUnreadJobsCount({ enabled: isTalent && user?.wants_jobs !== false });
   const { data: unreadNotifications = 0 } = useUnreadNotificationsCount({ enabled: isTalent });
   const { data: unreadMessages = 0 } = useConversationUnread('talent', { enabled: isTalent });
   const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
@@ -115,6 +117,15 @@ export default function TalentLayout({
   );
 
   const isModuleLocked = (route: string): boolean => {
+    if (partnerOnlyPending) {
+      return !['/talent/dashboard', '/talent/training', '/talent/contact-support'].some(
+        (r) => route === r || route.startsWith(r + '/'),
+      );
+    }
+    if (partnerLocked && ['/talent/subscriptions', '/talent/assignments', '/talent/bidding', '/talent/my-clients', '/talent/squadhub'].some(
+      (r) => route === r || route.startsWith(r + '/'),
+    )) return true;
+    if (user.wants_jobs === false && (route === '/talent/job-openings' || route.startsWith('/talent/job-openings/'))) return true;
     if (ALWAYS_ACCESSIBLE.some((r) => route === r || route.startsWith(r + '/'))) return false;
     const mod = Object.entries(ROUTE_TO_MODULE).find(([r]) => route === r || route.startsWith(r + '/'))?.[1];
     if (!mod) return !onboarded;
@@ -280,6 +291,15 @@ export default function TalentLayout({
   ];
 
   const gatedItems = sidebarItems.map((item) => {
+    if (partnerOnlyPending && !['/talent/dashboard', '/talent/training', '/talent/contact-support'].includes(item.to)) {
+      return { ...item, disabled: true, tooltip: 'Partner Program approval pending' };
+    }
+    if (partnerLocked && ['/talent/subscriptions', '/talent/assignments', '/talent/my-clients', '/talent/squadhub'].includes(item.to)) {
+      return { ...item, disabled: true, tooltip: 'Partner Program approval pending' };
+    }
+    if (user.wants_jobs === false && item.to === '/talent/job-openings') {
+      return { ...item, disabled: true, tooltip: 'Select Jobs in your basic profile to unlock' };
+    }
     const isAlwaysAccessible = ALWAYS_ACCESSIBLE.some(
       (r) => item.to === r || item.to.startsWith(r + '/'),
     );

@@ -14,6 +14,7 @@ import {
   updateBasicProfileSchema,
 } from '../validators/talent.validators.js';
 import { requireApprovalOrAutoApprove } from '../middleware/approval.middleware.js';
+import { requireProfileAccess, requirePartnerAccess } from '../middleware/work-access.middleware.js';
 import { requestCourseReopenSchema } from '../validators/access-requests.validators.js';
 import { submitQuizSchema } from '../validators/training.validators.js';
 import { appCheckinSchema } from '../validators/app-install.validators.js';
@@ -41,7 +42,7 @@ router.use(authenticate, requireRole('talent'));
 // SquadHub auto-login — mints the one-time code the SquadHub tab hands over so
 // an assigned talent lands inside SquadHub as a partner without a second
 // sign-in. Mirrors /api/business/squadhub/sso/authorize.
-router.post('/squadhub/sso/authorize', talentController.authorizeSquadhubLogin);
+router.post('/squadhub/sso/authorize', requirePartnerAccess, talentController.authorizeSquadhubLogin);
 
 // App install/version check-in — fired by the mobile app once per launch so the
 // admin panel can see who has the talent app and which build they run.
@@ -53,8 +54,8 @@ router.put('/me', validate({ body: updateTalentUserSchema }), talentController.u
 
 // Basic profile
 router.get('/me/basic-profile', talentController.getBasicProfile);
-router.put('/me/basic-profile', validate({ body: updateBasicProfileSchema }), talentController.updateBasicProfile);
-router.patch('/me/basic-profile/resubmit', talentController.resubmitBasic);
+router.put('/me/basic-profile', requireProfileAccess, validate({ body: updateBasicProfileSchema }), talentController.updateBasicProfile);
+router.patch('/me/basic-profile/resubmit', requireProfileAccess, talentController.resubmitBasic);
 
 // Lead submission (used by signup to auto-populate from a prior public-form lead)
 router.get('/me/lead-submission', talentController.getMyLeadSubmission);
@@ -70,20 +71,20 @@ router.get('/profile-categories', talentController.getTalentCreatableCategories)
 
 // Talent profiles (rejected accounts cannot submit; pending can)
 router.get('/profiles', talentController.getProfiles);
-router.post('/profiles', validate({ body: createProfileSchema }), talentController.createProfile);
+router.post('/profiles', requireProfileAccess, validate({ body: createProfileSchema }), talentController.createProfile);
 router.get('/profiles/:id', talentController.getProfile);
-router.put('/profiles/:id', validate({ body: updateProfileSchema }), talentController.updateProfile);
-router.patch('/profiles/:id/submit', requireApprovalOrAutoApprove, talentController.submitProfile);
-router.patch('/profiles/:id/deactivate', talentController.deactivateProfile);
-router.patch('/profiles/:id/reactivate', talentController.reactivateProfile);
-router.delete('/profiles/:id', talentController.deleteProfile);
+router.put('/profiles/:id', requireProfileAccess, validate({ body: updateProfileSchema }), talentController.updateProfile);
+router.patch('/profiles/:id/submit', requireProfileAccess, requireApprovalOrAutoApprove, talentController.submitProfile);
+router.patch('/profiles/:id/deactivate', requireProfileAccess, talentController.deactivateProfile);
+router.patch('/profiles/:id/reactivate', requireProfileAccess, talentController.reactivateProfile);
+router.delete('/profiles/:id', requireProfileAccess, talentController.deleteProfile);
 
 // Portfolio items
 router.get('/profiles/:id/portfolio', talentController.getPortfolioItems);
-router.post('/profiles/:id/portfolio', talentController.addPortfolioItem);
-router.delete('/profiles/:id/portfolio/:itemId', talentController.deletePortfolioItem);
-router.patch('/profiles/:id/portfolio/reorder', talentController.reorderPortfolioItems);
-router.patch('/profiles/:id/portfolio/:itemId', talentController.updatePortfolioItem);
+router.post('/profiles/:id/portfolio', requireProfileAccess, talentController.addPortfolioItem);
+router.delete('/profiles/:id/portfolio/:itemId', requireProfileAccess, talentController.deletePortfolioItem);
+router.patch('/profiles/:id/portfolio/reorder', requireProfileAccess, talentController.reorderPortfolioItems);
+router.patch('/profiles/:id/portfolio/:itemId', requireProfileAccess, talentController.updatePortfolioItem);
 
 // Training program. Courses and SOPs are two tracks of the same synced
 // content, so both are served from the item endpoints; /training/sops stays

@@ -334,6 +334,7 @@ const DEFAULT_STAGE_ORDER = [
 ];
 
 export function orderedStagesForFormType(formType: string | null | undefined): string[] {
+  if (formType === 'jobs') return ACCOUNTANT_STAGE_ORDER.filter((s) => s !== 'shortlisted');
   if (formType === 'creative' || formType === 'sales') return CREATIVE_STAGE_ORDER;
   if (formType === 'accountant') return ACCOUNTANT_STAGE_ORDER;
   return DEFAULT_STAGE_ORDER;
@@ -361,6 +362,14 @@ export async function syncOnboardingStage(talentUserId: string) {
 
   const { computeOnboardingProgress } = await import('./talent.service.js');
   const progress = await computeOnboardingProgress(talentUserId);
+  const { data: intent } = await supabaseAdmin
+    .from('talent_users')
+    .select('wants_jobs, partner_approval_status')
+    .eq('id', talentUserId)
+    .maybeSingle();
+  // Training can be completed while Partner Program approval is pending. It
+  // stays ticked on the journey, but must not move the partner pipeline.
+  if (intent?.partner_approval_status === 'pending' && !intent.wants_jobs) return;
 
   // Furthest completed step wins (STEP_STAGES is ascending).
   let target: string | null = null;
@@ -369,9 +378,19 @@ export async function syncOnboardingStage(talentUserId: string) {
   }
   if (!target) return;
 
+  // A submitted job profile is awaiting final review. It becomes live only
+  // after an admin approves at least one profile.
+  let jobsTarget = target;
+  if (intent?.wants_jobs && progress.job_profile_completed) {
+    const { data: jobProfiles } = await supabaseAdmin.from('talent_profiles')
+      .select('status').eq('talent_user_id', talentUserId).is('deleted_at', null);
+    jobsTarget = (jobProfiles ?? []).some((p) => p.status === 'approved')
+      ? 'live' : 'final_review';
+  }
+
   const { data: leads } = await supabaseAdmin
     .from('lead_submissions')
-    .select('id, status, form_type')
+    .select('id, status, form_type, form_data')
     .eq('linked_talent_user_id', talentUserId)
     .is('deleted_at', null)
     .neq('status', 'archived');
@@ -379,7 +398,11 @@ export async function syncOnboardingStage(talentUserId: string) {
   const { updateLeadStatus } = await import('./lead.service.js');
   let advancedAny = false;
 
-  for (const lead of (leads ?? []) as Array<{ id: string; status: string; form_type: string | null }>) {
+  for (const lead of (leads ?? []) as Array<{ id: string; status: string; form_type: string | null; form_data: any }>) {
+    if (intent?.partner_approval_status === null) continue;
+    if (intent?.partner_approval_status === 'pending' &&
+        Array.isArray(lead.form_data?.work_type_seeking) &&
+        lead.form_data.work_type_seeking.includes('UpSquad Partner Program')) continue;
     const stages = orderedStagesForFormType(lead.form_type);
     const targetRank = stages.indexOf(target);
     if (targetRank === -1) continue; // target stage not part of this pipeline
@@ -405,16 +428,25 @@ export async function syncOnboardingStage(talentUserId: string) {
 
   // No linked candidate card (or none in this funnel) — still move Sign-ups
   // and the CRM WhatsApp card from talent progress.
-  if (advancedAny) return;
+  if (advancedAny && !intent?.wants_jobs) return;
   try {
-    const { applyLeadStatusToTalentUser } = await import('../lib/talent-pipeline-sync.js');
     const { data: talent } = await supabaseAdmin
       .from('talent_users')
-      .select('full_name, phone, pipeline_stage')
+      .select('full_name, phone, pipeline_stage, jobs_pipeline_stage')
       .eq('id', talentUserId)
       .maybeSingle();
-    const pipelineStage = await applyLeadStatusToTalentUser(talentUserId, target);
-    if (!pipelineStage || pipelineStage === (talent?.pipeline_stage ?? 'signed_up')) return;
+    const { leadStatusToPipelineStage } = await import('../lib/pipelineStageMapping.js');
+    const pipelineStage = leadStatusToPipelineStage(intent?.wants_jobs ? jobsTarget : target);
+    if (!pipelineStage) return;
+    if (intent?.wants_jobs) {
+      const { error } = await supabaseAdmin.from('talent_users')
+        .update({ jobs_pipeline_stage: pipelineStage }).eq('id', talentUserId);
+      if (error) throw error;
+    } else {
+      const { applyLeadStatusToTalentUser } = await import('../lib/talent-pipeline-sync.js');
+      await applyLeadStatusToTalentUser(talentUserId, target);
+    }
+    if (pipelineStage === (intent?.wants_jobs ? talent?.jobs_pipeline_stage : talent?.pipeline_stage)) return;
 
     const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(talentUserId);
     await notifyCrmPipelineStageChanged({
@@ -423,6 +455,7 @@ export async function syncOnboardingStage(talentUserId: string) {
       email: authUser?.user?.email ?? null,
       phone: talent?.phone ?? null,
       newStage: pipelineStage,
+      ...(intent?.wants_jobs ? { formType: 'jobs' } : {}),
     });
   } catch (err) {
     console.error('[automation] syncOnboardingStage talent/CRM sync failed:', err);
@@ -617,6 +650,8 @@ export async function notifyCrmPipelineStageChanged(input: {
 
   // Map internal stage to CRM display name
   const stageDisplayNames: Record<string, string> = {
+    applicants: 'Applicants',
+    application_approved: 'Application Approved',
     signed_up: 'Signed Up',
     onboarding_course: 'Onboarding Training',
     onboarding_training: 'Onboarding Training',

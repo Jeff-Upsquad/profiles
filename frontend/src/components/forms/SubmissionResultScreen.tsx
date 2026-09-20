@@ -153,17 +153,15 @@ export default function SubmissionResultScreen({
             )}
           </h2>
           <p className="mt-3 text-canvas-600">
-            Welcome aboard. You&rsquo;ve been approved to join the UpSquad Partner Program.
+            Your SquadHire account is ready. Sign in to complete training and build your profile. If you also selected the Partner Program, that request will be reviewed separately.
           </p>
 
           {result.redirect_url && (
             <a
               href={result.redirect_url}
-              target="_blank"
-              rel="noopener noreferrer"
               className="btn-iridescent mt-7"
             >
-              Visit UpSquad Partner Program
+              Sign in to SquadHire
               <span className="arrow-icon">→</span>
             </a>
           )}
@@ -198,8 +196,13 @@ export default function SubmissionResultScreen({
           Thank <span className="text-prism">you</span>.
         </h2>
         <p className="mt-3 text-canvas-600">
-          Your application has landed. We&rsquo;ll review your profile and get back to you soon.
+          {result?.message || 'Your Partner Program request is pending review. You can sign in and complete training while you wait.'}
         </p>
+        {result?.redirect_url && (
+          <a href={result.redirect_url} className="btn-iridescent mt-7">
+            Sign in and start training <span className="arrow-icon">→</span>
+          </a>
+        )}
       </div>
     </div>
   );

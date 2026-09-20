@@ -72,10 +72,16 @@ export const NAV_SECTIONS: ModuleNavSection[] = [
         icon: icon('M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'),
       },
       {
-        label: 'Onboarding',
+        label: 'Partner Program Onboarding',
         href: '/approvals',
         module: 'approvals',
         icon: icon('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'),
+      },
+      {
+        label: 'Jobs Onboarding',
+        href: '/jobs-onboarding',
+        module: 'approvals',
+        icon: icon('M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'),
       },
       {
         label: 'Reviews',

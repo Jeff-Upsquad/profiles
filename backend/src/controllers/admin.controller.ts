@@ -338,6 +338,30 @@ export async function approveUser(req: Request, res: Response, next: NextFunctio
   }
 }
 
+export async function approvePartnerUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await adminService.approvePartnerUser(req.params.userId as string, req.user!.id));
+  } catch (err) { next(err); }
+}
+
+export async function rejectPartnerUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await adminService.rejectPartnerUser(req.params.userId as string, req.user!.id, req.body?.reason));
+  } catch (err) { next(err); }
+}
+
+export async function bulkApprovePartnerUsers(req: Request, res: Response, next: NextFunction) {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids as string[] : [];
+    if (ids.length > 100) { res.status(400).json({ message: 'Maximum 100 users per request' }); return; }
+    const results = await Promise.all(ids.map(async (id) => {
+      try { await adminService.approvePartnerUser(id, req.user!.id); return { id, success: true }; }
+      catch (e) { return { id, success: false, error: e instanceof Error ? e.message : String(e) }; }
+    }));
+    res.json({ results });
+  } catch (err) { next(err); }
+}
+
 export async function rejectUser(req: Request, res: Response, next: NextFunction) {
   try {
     const reason = typeof req.body?.reason === 'string' ? req.body.reason : undefined;
@@ -374,6 +398,7 @@ export async function getOnboardingHub(req: Request, res: Response, next: NextFu
     const sort = str(q.sort);
     res.json(
       await hub.listHub({
+        track: str(q.track) === 'jobs' ? 'jobs' : 'partner',
         search: str(q.search),
         category: str(q.category),
         pipeline_stage: str(q.pipeline_stage),
@@ -393,7 +418,7 @@ export async function getOnboardingHubStats(req: Request, res: Response, next: N
   try {
     const category = typeof req.query.category === 'string' ? req.query.category : undefined;
     const hub = await import('../services/onboarding-hub.service.js');
-    res.json(await hub.hubStats(category));
+    res.json(await hub.hubStats(category, req.query.track === 'jobs' ? 'jobs' : 'partner'));
   } catch (err) {
     next(err);
   }
@@ -411,7 +436,7 @@ export async function getTalentPipelines(_req: Request, res: Response, next: Nex
 export async function getTalentJourney(req: Request, res: Response, next: NextFunction) {
   try {
     const hub = await import('../services/onboarding-hub.service.js');
-    res.json(await hub.talentJourney(req.params.userId as string));
+    res.json(await hub.talentJourney(req.params.userId as string, req.query.track === 'jobs' ? 'jobs' : 'partner'));
   } catch (err) {
     next(err);
   }
@@ -419,13 +444,13 @@ export async function getTalentJourney(req: Request, res: Response, next: NextFu
 
 export async function setTalentStage(req: Request, res: Response, next: NextFunction) {
   try {
-    const { stage_id } = req.body as { stage_id?: string };
+    const { stage_id, track } = req.body as { stage_id?: string; track?: string };
     if (!stage_id) {
       res.status(400).json({ message: 'stage_id required' });
       return;
     }
     const hub = await import('../services/onboarding-hub.service.js');
-    res.json(await hub.setTalentStage(req.params.userId as string, { stage_id }, req.user!.id));
+    res.json(await hub.setTalentStage(req.params.userId as string, { stage_id, track: track === 'jobs' ? 'jobs' : 'partner' }, req.user!.id));
   } catch (err) {
     next(err);
   }
@@ -446,12 +471,12 @@ export async function getPipelineStageStats(req: Request, res: Response, next: N
 
 export async function updatePipelineStage(req: Request, res: Response, next: NextFunction) {
   try {
-    const { stage } = req.body as { stage?: string };
+    const { stage, track } = req.body as { stage?: string; track?: 'partner' | 'jobs' };
     if (!stage) {
       res.status(400).json({ message: 'stage required' });
       return;
     }
-    const result = await adminService.updatePipelineStage(req.params.userId as string, stage);
+    const result = await adminService.updatePipelineStage(req.params.userId as string, stage, track);
     res.json({ user: result });
   } catch (err) {
     next(err);

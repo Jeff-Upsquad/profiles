@@ -3,6 +3,7 @@ import * as subscriptionController from '../controllers/subscription.controller.
 import * as assignmentOffers from '../controllers/assignment-offers.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
+import { requirePartnerAccess } from '../middleware/work-access.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import {
   listSubscriptionsQuerySchema,
@@ -16,7 +17,7 @@ import {
 
 const router = Router();
 
-router.use(authenticate, requireRole('talent'));
+router.use(authenticate, requireRole('talent'), requirePartnerAccess);
 
 router.get(
   '/',

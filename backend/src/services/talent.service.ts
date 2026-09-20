@@ -103,6 +103,39 @@ export async function updateBasicProfile(userId: string, input: UpdateBasicProfi
 
   if (error) throw new AppError(500, `Failed to save basic profile: ${error.message}`);
 
+  // A jobs applicant can request Partner Program review from their basic
+  // profile. Keep the application card and the admin queue in sync.
+  if (input.employment_type?.includes('partner_program') || input.employment_type?.includes('freelance')) {
+    const { data: intent, error: intentError } = await supabaseAdmin.from('talent_users')
+      .select('partner_approval_status').eq('id', userId).single();
+    if (intentError || !intent) throw new AppError(404, 'Talent user not found');
+    if (intent.partner_approval_status === null) {
+      const { error: requestError } = await supabaseAdmin.from('talent_users')
+        .update({ partner_approval_status: 'pending', partner_requested_at: new Date().toISOString(), pipeline_stage: 'applicants' })
+        .eq('id', userId).is('partner_approval_status', null);
+      if (requestError) throw new AppError(500, 'Failed to request Partner Program review');
+      const { data: lead } = await supabaseAdmin.from('lead_submissions')
+        .select('id, form_data').eq('linked_talent_user_id', userId)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (lead) {
+        const selections = new Set<string>(lead.form_data?.work_type_seeking ?? []);
+        selections.add('UpSquad Partner Program');
+        await supabaseAdmin.from('lead_submissions')
+          .update({ form_data: { ...lead.form_data, work_type_seeking: [...selections] } })
+          .eq('id', lead.id);
+        try {
+          const { onLeadStatusChanged } = await import('./automation.service.js');
+          await onLeadStatusChanged(lead.id, 'form_filled', null);
+        } catch (e) { console.error('[partner request] CRM sync failed:', e); }
+      }
+    }
+  }
+  if (input.employment_type?.includes('salary')) {
+    await supabaseAdmin.from('talent_users')
+      .update({ wants_jobs: true, jobs_pipeline_stage: 'application_approved' }).eq('id', userId)
+      .eq('wants_jobs', false);
+  }
+
   // Sync profile picture to talent_users so job profiles display it
   if (input.profile_picture_url !== undefined) {
     await supabaseAdmin

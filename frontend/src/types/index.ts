@@ -11,6 +11,8 @@ export interface User {
   business_note?: string;
   business_location?: string;
   approval_status?: ApprovalStatus;
+  wants_jobs?: boolean;
+  partner_approval_status?: ApprovalStatus | null;
   must_reset_password?: boolean;
   must_change_password?: boolean;
   auto_approve_signups?: boolean;

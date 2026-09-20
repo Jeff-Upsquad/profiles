@@ -71,6 +71,8 @@ interface Journey {
     profile_photo_url: string | null;
     current_location: string | null;
     approval_status: string;
+    partner_approval_status: string | null;
+    wants_jobs: boolean;
     rejection_reason: string | null;
     is_active: boolean;
     suspended: boolean;
@@ -111,6 +113,7 @@ interface Journey {
 }
 
 interface Props {
+  track: 'partner' | 'jobs';
   userId: string | null;
   onClose: () => void;
   onNavigate: (direction: -1 | 1) => void;
@@ -125,6 +128,8 @@ interface Props {
 // pipeline_stage key -> lead status key, so the CRM's live stage names (from
 // the Status Mapping) can label the chips.
 const STAGE_TO_LEAD_KEY: Record<PipelineStage, string> = {
+  applicants: 'form_filled',
+  application_approved: 'signed_up',
   signed_up: 'signed_up',
   onboarding_course: 'onboarding_training',
   basic_profile: 'basic_profile',
@@ -356,6 +361,7 @@ function BasicProfileView({ basic, user }: { basic: Record<string, any> | null; 
 // ---------------------------------------------------------------------------
 
 export default function TalentJourneyPanel({
+  track,
   userId,
   onClose,
   onNavigate,
@@ -402,13 +408,13 @@ export default function TalentJourneyPanel({
   }, [userId]);
 
   const { data, isLoading } = useQuery<Journey>({
-    queryKey: ['onboarding-journey', userId],
-    queryFn: async () => (await api.get(`/admin/user-approvals/${userId}/journey`)).data,
+    queryKey: ['onboarding-journey', track, userId],
+    queryFn: async () => (await api.get(`/admin/user-approvals/${userId}/journey`, { params: { track } })).data,
     enabled: !!userId,
   });
 
   const refresh = () => {
-    qc.invalidateQueries({ queryKey: ['onboarding-journey', userId] });
+    qc.invalidateQueries({ queryKey: ['onboarding-journey'] });
     qc.invalidateQueries({ queryKey: ['onboarding-hub'] });
     qc.invalidateQueries({ queryKey: ['onboarding-hub-stats'] });
   };
@@ -431,7 +437,7 @@ export default function TalentJourneyPanel({
 
   const stageMut = useMutation({
     mutationFn: async (stage: PipelineStage) =>
-      (await api.patch(`/admin/user-approvals/${userId}/pipeline-stage`, { stage })).data,
+      (await api.patch(`/admin/user-approvals/${userId}/pipeline-stage`, { stage, track })).data,
     onSuccess: () => {
       toast.success('Stage updated · synced to CRM');
       refresh();
@@ -441,7 +447,7 @@ export default function TalentJourneyPanel({
 
   const talentStageMut = useMutation({
     mutationFn: async (stage_id: string) =>
-      (await api.patch(`/admin/user-approvals/${userId}/talent-stage`, { stage_id })).data,
+      (await api.patch(`/admin/user-approvals/${userId}/talent-stage`, { stage_id, track })).data,
     onSuccess: () => {
       toast.success('Talent stage updated · synced to CRM');
       refresh();
@@ -451,7 +457,7 @@ export default function TalentJourneyPanel({
   });
 
   const approveMut = useMutation({
-    mutationFn: async () => (await api.patch(`/admin/user-approvals/${userId}/approve`)).data,
+    mutationFn: async () => (await api.patch(`/admin/user-approvals/${userId}/${track === 'partner' ? 'approve-partner' : 'approve'}`)).data,
     onSuccess: () => {
       toast.success('Approved');
       refresh();
@@ -461,7 +467,7 @@ export default function TalentJourneyPanel({
 
   const rejectMut = useMutation({
     mutationFn: async (reason: string) =>
-      (await api.patch(`/admin/user-approvals/${userId}/reject`, { reason })).data,
+      (await api.patch(`/admin/user-approvals/${userId}/${track === 'partner' ? 'reject-partner' : 'reject'}`, { reason })).data,
     onSuccess: () => {
       toast.success('Rejected');
       refresh();
@@ -488,6 +494,7 @@ export default function TalentJourneyPanel({
 
   const u = data?.user;
   const j = data?.journey;
+  const approvalStatus = track === 'partner' ? u?.partner_approval_status : u?.approval_status;
   const phoneDigits = cleanPhoneForLink(u?.phone);
   const formType = data?.lead?.form_type ?? u?.categories?.[0];
   const stageLabel = (s: PipelineStage) =>
@@ -585,9 +592,9 @@ export default function TalentJourneyPanel({
                       })}
                       {u.suspended ? (
                         <Badge variant="red">Suspended</Badge>
-                      ) : u.approval_status === 'pending' ? (
+                      ) : approvalStatus === 'pending' ? (
                         <Badge variant="yellow">Pending approval</Badge>
-                      ) : u.approval_status === 'rejected' ? (
+                      ) : approvalStatus === 'rejected' ? (
                         <Badge variant="red">Rejected</Badge>
                       ) : u.is_active === false ? (
                         <Badge variant="gray">Inactive</Badge>
@@ -639,7 +646,7 @@ export default function TalentJourneyPanel({
                   <ActionButton onClick={() => setActivityOpen(true)} title="Activity timeline">
                     Activity
                   </ActionButton>
-                  {canEdit && u.approval_status === 'pending' && (
+                  {canEdit && track === 'partner' && approvalStatus === 'pending' && (
                     <span className="ml-auto flex gap-2">
                       <ActionButton tone="success" onClick={() => approveMut.mutate()}>
                         Approve
@@ -656,7 +663,7 @@ export default function TalentJourneyPanel({
                     </span>
                   )}
                 </div>
-                {u.approval_status === 'rejected' && u.rejection_reason && (
+                {approvalStatus === 'rejected' && u.rejection_reason && (
                   <p className="mt-2 text-xs text-red-600">Rejected: {u.rejection_reason}</p>
                 )}
               </div>

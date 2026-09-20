@@ -1,6 +1,8 @@
 // Shared shapes + constants for the Onboarding hub (list + journey panel).
 
 export type PipelineStage =
+  | 'applicants'
+  | 'application_approved'
   | 'signed_up'
   | 'onboarding_course'
   | 'basic_profile'
@@ -13,7 +15,9 @@ export type PipelineStage =
 // Order = funnel order. `dot`/`chip` are the tailwind tints used everywhere
 // the stage shows up so a stage always looks the same across the page.
 export const PIPELINE_STAGES: { value: PipelineStage; label: string; dot: string; chip: string }[] = [
-  { value: 'signed_up', label: 'Signed up', dot: 'bg-purple-500', chip: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { value: 'applicants', label: 'Applicants', dot: 'bg-yellow-500', chip: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+  { value: 'application_approved', label: 'Application approved', dot: 'bg-purple-500', chip: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { value: 'signed_up', label: 'Application approved (legacy)', dot: 'bg-purple-500', chip: 'bg-purple-50 text-purple-700 border-purple-200' },
   { value: 'onboarding_course', label: 'Course', dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-700 border-amber-200' },
   { value: 'basic_profile', label: 'Basic profile', dot: 'bg-orange-500', chip: 'bg-orange-50 text-orange-700 border-orange-200' },
   { value: 'job_profile', label: 'Job profile', dot: 'bg-teal-500', chip: 'bg-teal-50 text-teal-700 border-teal-200' },
@@ -80,6 +84,8 @@ export interface HubRow {
   email: string | null;
   current_location: string | null;
   approval_status: string;
+  partner_approval_status: string | null;
+  wants_jobs: boolean;
   is_active: boolean;
   suspended: boolean;
   blacklisted: boolean;

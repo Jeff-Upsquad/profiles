@@ -89,15 +89,19 @@ export default function TalentDashboard() {
   const { data: onboardingProgress } = useMyOnboardingProgress();
   const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
   const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
-  const [tab, setTab] = useState<TalentHomeTab>('subscriptions');
+  const partnerAvailable = user?.partner_approval_status === undefined || user.partner_approval_status === 'approved';
+  const partnerOnlyPending = user?.wants_jobs === false && !partnerAvailable;
+  const [tab, setTab] = useState<TalentHomeTab>(partnerAvailable ? 'subscriptions' : 'jobs');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const q = new URLSearchParams(window.location.search).get('tab');
-    if (isHomeTab(q)) setTab(q);
-  }, []);
+    if (isHomeTab(q) && (q === 'jobs' || partnerAvailable)) setTab(q);
+    else if (!partnerAvailable) setTab('jobs');
+  }, [partnerAvailable]);
 
   const handleTab = (next: TalentHomeTab) => {
+    if (!partnerAvailable && next !== 'jobs') return;
     setTab(next);
     const url = next === 'subscriptions' ? '/talent/dashboard' : `/talent/dashboard?tab=${next}`;
     router.replace(url, { scroll: false });
@@ -149,9 +153,22 @@ export default function TalentDashboard() {
     );
   }
 
+  if (partnerOnlyPending) {
+    return (
+      <div className="mx-auto max-w-lg rounded-2xl border border-[#E7E7EA] bg-white px-8 py-10 text-center shadow-sm">
+        <h1 className="text-2xl font-semibold text-[#0a0a0a]">{user?.partner_approval_status === 'rejected' ? 'Partner Program application declined' : 'Partner Program application pending'}</h1>
+        <p className="mt-3 text-sm text-[#525252]">{user?.partner_approval_status === 'rejected' ? 'Contact support if you have questions about this decision.' : 'We’re reviewing your application. Your training progress is saved, and we’ll unlock the remaining sections after approval.'}</p>
+        <div className="mt-6 flex justify-center gap-3">
+          <Link href="/talent/training" className="btn-iridescent inline-flex px-4 py-2 text-sm">Training Program</Link>
+          <Link href="/talent/contact-support" className="inline-flex rounded-lg border px-4 py-2 text-sm">Contact Support</Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <WhatsAppUpdatesToggle />
+      {partnerAvailable && <WhatsAppUpdatesToggle />}
 
       {showOnboardingStrip && onboardingProgress && (
         <section className="rounded-2xl border border-[#E7E7EA] bg-white px-5 py-5 sm:px-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -172,7 +189,7 @@ export default function TalentDashboard() {
       )}
 
       <div className="-mx-4 bg-transparent px-4 py-2 md:mx-0 md:px-0 md:py-0">
-        <TalentHomeTabs active={tab} onChange={handleTab} />
+        <TalentHomeTabs active={tab} onChange={handleTab} tabs={partnerAvailable ? undefined : ['jobs']} />
       </div>
 
       {tabLocked && activeLock ? (

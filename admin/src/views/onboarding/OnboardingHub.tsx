@@ -47,6 +47,8 @@ const ATTENTION_CHIPS: { value: HubAttention; label: string; hint: string }[] = 
 
 // pipeline_stage → lead status key, so CRM stage names from the mapping apply.
 const STAGE_TO_LEAD_KEY: Record<PipelineStage, string> = {
+  applicants: 'form_filled',
+  application_approved: 'signed_up',
   signed_up: 'signed_up',
   onboarding_course: 'onboarding_training',
   basic_profile: 'basic_profile',
@@ -91,21 +93,22 @@ function JourneyDots({ row }: { row: HubRow }) {
   );
 }
 
-function StatusBadge({ row }: { row: HubRow }) {
+function StatusBadge({ row, track }: { row: HubRow; track: 'partner' | 'jobs' }) {
+  const approvalStatus = track === 'partner' ? row.partner_approval_status : row.approval_status;
   const cls = row.suspended
     ? 'bg-red-100 text-red-700'
-    : row.approval_status === 'rejected'
+    : approvalStatus === 'rejected'
       ? 'bg-red-100 text-red-700'
-      : row.approval_status === 'pending'
+      : approvalStatus === 'pending'
         ? 'bg-amber-100 text-amber-800'
         : row.is_active === false
           ? 'bg-gray-100 text-gray-600'
           : 'bg-emerald-100 text-emerald-700';
   const label = row.suspended
     ? 'Suspended'
-    : row.approval_status === 'rejected'
+    : approvalStatus === 'rejected'
       ? 'Rejected'
-      : row.approval_status === 'pending'
+      : approvalStatus === 'pending'
         ? 'Pending'
         : row.is_active === false
           ? 'Inactive'
@@ -113,7 +116,7 @@ function StatusBadge({ row }: { row: HubRow }) {
   return <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${cls}`}>{label}</span>;
 }
 
-export default function OnboardingHub() {
+export default function OnboardingHub({ track = 'partner' }: { track?: 'partner' | 'jobs' }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -158,8 +161,8 @@ export default function OnboardingHub() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const { data: stats } = useQuery<HubStats>({
-    queryKey: ['onboarding-hub-stats', category],
-    queryFn: async () => (await api.get('/admin/user-approvals/hub/stats', { params: { category } })).data,
+    queryKey: ['onboarding-hub-stats', track, category],
+    queryFn: async () => (await api.get('/admin/user-approvals/hub/stats', { params: { category, track } })).data,
   });
 
   const { data: pipelines } = useQuery<{ pipelines: Record<string, TalentPipelineConfig> }>({
@@ -169,9 +172,9 @@ export default function OnboardingHub() {
   });
 
   const { data, isLoading, isPlaceholderData } = useQuery<HubResponse>({
-    queryKey: ['onboarding-hub', category, stage, talentStage, attention, sort, search, page],
+    queryKey: ['onboarding-hub', track, category, stage, talentStage, attention, sort, search, page],
     queryFn: async () => {
-      const params: Record<string, string | number> = { page, limit: 25, category, sort };
+      const params: Record<string, string | number> = { page, limit: 25, category, sort, track };
       if (stage !== 'all') params.pipeline_stage = stage;
       if (talentStage !== 'all') params.talent_stage = talentStage;
       if (attention) params.attention = attention;
@@ -181,35 +184,13 @@ export default function OnboardingHub() {
     placeholderData: keepPreviousData,
   });
 
-  const { data: autoApprove } = useQuery<{ enabled: boolean }>({
-    queryKey: ['autoApproveSetting'],
-    queryFn: async () => (await api.get('/admin/settings/auto-approve')).data,
-  });
-
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['onboarding-hub'] });
     qc.invalidateQueries({ queryKey: ['onboarding-hub-stats'] });
   };
 
-  const autoApproveMut = useMutation({
-    mutationFn: async (enabled: boolean) =>
-      (await api.patch('/admin/settings/auto-approve', { enabled })).data as { enabled: boolean; approvedCount: number },
-    onSuccess: (res) => {
-      qc.invalidateQueries({ queryKey: ['autoApproveSetting'] });
-      invalidate();
-      toast.success(
-        res.enabled
-          ? res.approvedCount > 0
-            ? `Auto-approval on — ${res.approvedCount} pending sign-up${res.approvedCount === 1 ? '' : 's'} approved`
-            : 'Auto-approval on'
-          : 'Auto-approval off',
-      );
-    },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to update setting'),
-  });
-
   const bulkApproveMut = useMutation({
-    mutationFn: async (ids: string[]) => (await api.post('/admin/user-approvals/bulk-approve', { ids })).data,
+    mutationFn: async (ids: string[]) => (await api.post('/admin/user-approvals/bulk-approve-partner', { ids })).data,
     onSuccess: (res: any) => {
       const ok = (res.results ?? []).filter((r: any) => r.success).length;
       toast.success(`${ok} sign-up${ok === 1 ? '' : 's'} approved`);
@@ -248,14 +229,16 @@ export default function OnboardingHub() {
   // "All"), or just the selected category's pipeline.
   const talentStages = useMemo(() => {
     const all = pipelines?.pipelines ?? {};
-    const picked = category === 'all' ? Object.values(all) : all[category] ? [all[category]] : [];
+    const picked = track === 'jobs' ? all.jobs ? [all.jobs] : []
+      : category === 'all' ? Object.entries(all).filter(([key]) => key !== 'jobs').map(([, cfg]) => cfg)
+        : all[category] ? [all[category]] : [];
     const seen = new Map<string, { id: string; name: string; sort_order: number }>();
     for (const p of picked) for (const s of p.stages) if (!seen.has(s.id)) seen.set(s.id, s);
     return [...seen.values()].sort((a, b) => a.sort_order - b.sort_order);
-  }, [pipelines, category]);
+  }, [pipelines, category, track]);
   const talentPipelineLinked = talentStages.length > 0;
 
-  const pendingOnPage = users.filter((u) => u.approval_status === 'pending');
+  const pendingOnPage = users.filter((u) => track === 'partner' && u.partner_approval_status === 'pending');
   const allPendingSelected = pendingOnPage.length > 0 && pendingOnPage.every((u) => selected.has(u.id));
   const toggleAll = () => {
     setSelected((prev) => {
@@ -274,7 +257,7 @@ export default function OnboardingHub() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Onboarding</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{track === 'partner' ? 'Partner Program Onboarding' : 'Jobs Onboarding'}</h1>
           <p className="mt-1 text-sm text-gray-500">
             Every sign-up and how far they&apos;ve got — course, basic profile, job profile, portfolio —
             with both CRM boards in sync. Click a row to assist.
@@ -290,44 +273,13 @@ export default function OnboardingHub() {
               {bulkApproveMut.isPending ? 'Approving…' : `Approve ${selected.size} selected`}
             </button>
           )}
-          {canEdit && (
-            <label
-              className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
-              title="When on, new accounts skip the approval queue"
-            >
-              <span>Auto-approve</span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={autoApprove?.enabled === true}
-                disabled={autoApproveMut.isPending}
-                onClick={() => {
-                  const next = !(autoApprove?.enabled === true);
-                  if (next && (stats?.pending ?? 0) > 0) {
-                    const n = stats?.pending ?? 0;
-                    if (!confirm(`This will approve all ${n} pending sign-up${n === 1 ? '' : 's'} now. Continue?`)) return;
-                  }
-                  autoApproveMut.mutate(next);
-                }}
-                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
-                  autoApprove?.enabled ? 'bg-indigo-600' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                    autoApprove?.enabled ? 'translate-x-4' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
-            </label>
-          )}
           <Link
-            href="/approvals/preview"
+            href={`https://squadhire.upsquadconnect.com/apply/${category === 'all' ? 'creative' : category}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
-            Preview signup form ↗
+            Preview role signup ↗
           </Link>
         </div>
       </div>
@@ -372,7 +324,7 @@ export default function OnboardingHub() {
           </p>
           <p className="text-[11px] text-gray-400">{stats?.total ?? 0} total · synced with SquadHire CRM</p>
         </div>
-        <div className="grid grid-cols-4 gap-2 lg:grid-cols-7">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-9">
           {PIPELINE_STAGES.map((s) => {
             const active = stage === s.value;
             return (
@@ -554,7 +506,7 @@ export default function OnboardingHub() {
                       className={`cursor-pointer transition-colors ${isSel ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
                     >
                       <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-                        {canEdit && u.approval_status === 'pending' && (
+                        {canEdit && track === 'partner' && u.partner_approval_status === 'pending' && (
                           <input
                             type="checkbox"
                             checked={selected.has(u.id)}
@@ -610,7 +562,7 @@ export default function OnboardingHub() {
                         </div>
                       </td>
                       <td className="px-3 py-2.5">
-                        <StatusBadge row={u} />
+                          <StatusBadge row={u} track={track} />
                       </td>
                       <td className="px-3 py-2.5 text-xs text-gray-500" title={u.created_at}>
                         {timeAgo(u.created_at)}
@@ -684,6 +636,7 @@ export default function OnboardingHub() {
       </div>
 
       <TalentJourneyPanel
+        track={track}
         userId={selectedId}
         onClose={closeRow}
         onNavigate={navigate}

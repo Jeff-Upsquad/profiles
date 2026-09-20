@@ -3,10 +3,12 @@ import { AppError } from '../middleware/errorHandler.middleware.js';
 import { checkInvitation, markInvitationAccepted } from './invite.service.js';
 import { getAdminSetting } from './admin.service.js';
 import type { SignupTalentInput, SignupAgencyInput, LoginInput } from '../validators/auth.validators.js';
+import type { CreateLeadInput } from '../validators/lead.validators.js';
+import { workIntent } from '../lib/work-intent.js';
 import { formTypeFromSignupHint } from '../lib/signup-category.js';
 import type { UserRole } from '../../../shared/src/types/auth.js';
 
-export async function signupTalent(input: SignupTalentInput) {
+export async function signupTalent(input: SignupTalentInput, application?: CreateLeadInput) {
   const {
     email, password, full_name, country, state, current_district,
     signup_role, signup_ref, ...profileData
@@ -16,10 +18,10 @@ export async function signupTalent(input: SignupTalentInput) {
   // the referrer, which is only a guess. Both are recorded: signupFormType
   // drives the Sign-ups category filter and the CRM pipeline choice, while
   // signupSource is kept verbatim so a human can audit a wrong classification.
-  const signupFormType =
+  const signupFormType = application?.form_type ??
     formTypeFromSignupHint(signup_role) ?? formTypeFromSignupHint(signup_ref);
   const signupSource = signupFormType
-    ? (signup_role ? `landing:${signup_role}` : `referrer:${signup_ref}`).slice(0, 500)
+    ? (application ? `application:${application.form_type}` : signup_role ? `landing:${signup_role}` : `referrer:${signup_ref}`).slice(0, 500)
     : null;
 
   // Open self-serve signup for now — no invitation required. If a pending
@@ -45,6 +47,7 @@ export async function signupTalent(input: SignupTalentInput) {
 
   // Ops review flag only. Pending talent can sign in and use the app immediately.
   const autoApprove = (await getAdminSetting<boolean>('auto_approve_signups')) === true;
+  const intent = application ? workIntent(application.work_type_seeking) : null;
 
   // Insert into talent_users table
   const { error: profileError } = await supabaseAdmin
@@ -58,10 +61,17 @@ export async function signupTalent(input: SignupTalentInput) {
       native_place: profileData.native_place ?? null,
       current_location: profileData.current_location ?? null,
       languages_spoken: profileData.languages_spoken ?? [],
+      ...(application ? {
+        wants_jobs: intent!.jobs,
+        partner_approval_status: intent!.partner ? 'pending' : null,
+        partner_requested_at: intent!.partner ? new Date().toISOString() : null,
+        pipeline_stage: 'applicants',
+        jobs_pipeline_stage: intent!.jobs ? 'applicants' : null,
+      } : {}),
       ...(signupFormType
         ? { signup_form_type: signupFormType, signup_source: signupSource }
         : {}),
-      ...(autoApprove
+      ...((application ? intent!.jobs : autoApprove)
         ? { approval_status: 'approved' as const, approved_at: new Date().toISOString() }
         : {}),
     });
@@ -70,6 +80,33 @@ export async function signupTalent(input: SignupTalentInput) {
     console.error('Talent profile insert error:', profileError);
     await supabaseAdmin.auth.admin.deleteUser(userId);
     throw new AppError(500, 'Failed to create talent profile');
+  }
+
+  let applicationLeadId: string | null = null;
+  if (application) {
+    const { form_type, name, phone, email: applicationEmail, ...formData } = application;
+    const { data: lead, error: leadError } = await supabaseAdmin
+      .from('lead_submissions')
+      .insert({
+        form_type,
+        name,
+        phone,
+        email: applicationEmail.toLowerCase(),
+        form_data: formData,
+        resume_url: form_type === 'accountant' ? (formData as any).resume_url || null : null,
+        status: 'form_filled',
+        linked_talent_user_id: userId,
+        utm_source: formData.utm_source ?? null,
+        utm_medium: formData.utm_medium ?? null,
+        utm_campaign: formData.utm_campaign ?? null,
+      })
+      .select('id')
+      .single();
+    if (leadError || !lead) {
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      throw new AppError(500, `Failed to save application: ${leadError?.message ?? 'unknown error'}`);
+    }
+    applicationLeadId = lead.id;
   }
 
   // Create basic profile with location data
@@ -81,6 +118,18 @@ export async function signupTalent(input: SignupTalentInput) {
         country: country || 'India',
         state: state || null,
         current_district: current_district || null,
+        ...(application ? { employment_type: [
+          ...(intent!.jobs ? ['salary'] : []),
+          ...(intent!.partner ? ['partner_program'] : []),
+        ],
+          ...(application.form_type === 'accountant' ? {
+            resume_url: application.resume_url || null,
+            expected_salary_monthly: application.expected_salary,
+            education_courses: [{ course_name: application.education, institution: '' }],
+            job_type: application.work_type.map((type) =>
+              type === 'Online' ? 'remote' : type === 'At Office' ? 'office' : 'hybrid'),
+          } : {}),
+        } : {}),
       });
     if (basicError) {
       console.error('Basic profile insert error (non-fatal):', basicError);
@@ -115,17 +164,46 @@ export async function signupTalent(input: SignupTalentInput) {
 
   try {
     const { onCandidateSignedUp, notifyCrmTalentSignedUp } = await import('./automation.service.js');
-    await onCandidateSignedUp(userId, email, profileData.phone ?? null);
+    if (!application) await onCandidateSignedUp(userId, email, profileData.phone ?? null);
     // Always tell SquadHire CRM — landing-page signups often have no
     // lead_submission, so onCandidateSignedUp is a no-op for the kanban card.
-    await notifyCrmTalentSignedUp({
+    if (!application) await notifyCrmTalentSignedUp({
       name: full_name,
       email,
       phone: profileData.phone ?? null,
       talentUserId: userId,
     });
+    if (application && applicationLeadId) {
+      const { onLeadReceived, onLeadStatusChanged, notifyCrmPipelineStageChanged } = await import('./automation.service.js');
+      if (intent!.partner) {
+        try {
+          await onLeadReceived(applicationLeadId, application.form_type, {
+            name: application.name, email: application.email, phone: application.phone,
+          });
+        } catch (e) { console.error('[signup] partner lead message failed:', e); }
+        try {
+          await onLeadStatusChanged(applicationLeadId, 'form_filled', null);
+        } catch (e) { console.error('[signup] partner CRM stage failed:', e); }
+      }
+      if (intent!.jobs) {
+        for (const newStage of ['applicants', 'application_approved']) {
+          try {
+            await notifyCrmPipelineStageChanged({
+              talentUserId: userId, name: full_name, email, phone: profileData.phone ?? null,
+              newStage, formType: 'jobs',
+            });
+          } catch (e) { console.error(`[signup] jobs CRM ${newStage} failed:`, e); }
+        }
+      }
+    }
   } catch (e) {
     console.error('[automation] onCandidateSignedUp failed:', e);
+  }
+
+  if (application && intent!.jobs) {
+    const { error: stageError } = await supabaseAdmin.from('talent_users')
+      .update({ jobs_pipeline_stage: 'application_approved' }).eq('id', userId);
+    if (stageError) console.error('[signup] failed to record jobs approval stage:', stageError);
   }
 
   try {
@@ -147,7 +225,37 @@ export async function signupTalent(input: SignupTalentInput) {
     console.error('[card-backfill] talent signup import failed', e);
   }
 
-  return { message: 'Account created successfully. Please sign in to continue.' };
+  return {
+    message: 'Account created successfully. Please sign in to continue.',
+    ...(application ? {
+      auto_approved: intent!.jobs,
+      approved_message: intent!.jobs
+        ? 'Your jobs account is approved. Complete training and your profile to get started.'
+        : 'Your Partner Program application is pending review. You can start training now.',
+      redirect_url: '/login/talent',
+    } : {}),
+  };
+}
+
+export async function signupTalentApplication(input: { password: string; application: CreateLeadInput }) {
+  const a = input.application;
+  return signupTalent({
+    email: a.email,
+    password: input.password,
+    full_name: a.name,
+    phone: a.phone,
+    country: a.country,
+    state: a.state,
+    current_district: a.current_district,
+    age: a.age,
+    gender: a.gender,
+    ...(a.form_type === 'accountant' ? { native_place: a.native_place } : {}),
+    ...(a.form_type === 'accountant' ? { current_location: a.location } : {}),
+    ...(a.form_type === 'accountant' ? {
+      languages_spoken: a.languages.map((language) => ({ language, proficiency: '' })),
+    } : {}),
+    signup_role: a.form_type,
+  }, a);
 }
 
 export async function signupAgency(input: SignupAgencyInput) {

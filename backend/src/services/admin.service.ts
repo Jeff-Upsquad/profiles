@@ -681,6 +681,73 @@ export async function approveUser(userId: string, adminId: string) {
   throw new AppError(400, 'User not found or not pending');
 }
 
+/** Partner approval is independent of the jobs account approval. */
+export async function approvePartnerUser(userId: string, adminId: string) {
+  const { data: current, error: lookupError } = await supabaseAdmin
+    .from('talent_users')
+    .select('id, wants_jobs, partner_approval_status, pipeline_stage')
+    .eq('id', userId)
+    .single();
+  if (lookupError || !current) throw new AppError(404, 'Talent user not found');
+  if (current.partner_approval_status !== 'pending') throw new AppError(400, 'Partner application is not pending');
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabaseAdmin
+    .from('talent_users')
+    .update({
+      partner_approval_status: 'approved',
+      partner_approved_at: now,
+      pipeline_stage: 'application_approved',
+      ...(current.wants_jobs ? {} : {
+        approval_status: 'approved', approved_at: now, approved_by: adminId,
+      }),
+    })
+    .eq('id', userId)
+    .eq('partner_approval_status', 'pending')
+    .select()
+    .single();
+  if (error || !data) throw new AppError(500, error?.message || 'Partner approval failed');
+
+  const { data: leads } = await supabaseAdmin
+    .from('lead_submissions')
+    .select('id, status, form_data')
+    .eq('linked_talent_user_id', userId)
+    .is('deleted_at', null);
+  for (const lead of leads ?? []) {
+    if (!Array.isArray(lead.form_data?.work_type_seeking) ||
+        !lead.form_data.work_type_seeking.includes('UpSquad Partner Program')) continue;
+    if (lead.status === 'form_filled' || lead.status === 'shortlisted') {
+      const { error: leadError } = await supabaseAdmin.from('lead_submissions')
+        .update({ status: 'signed_up', status_changed_by: adminId, status_changed_at: now })
+        .eq('id', lead.id);
+      if (!leadError) {
+        try {
+          const { onLeadStatusChanged } = await import('./automation.service.js');
+          await onLeadStatusChanged(lead.id, 'signed_up', adminId);
+        } catch (e) { console.error('[partner approval] CRM sync failed:', e); }
+      }
+    }
+  }
+  try {
+    const { backfillCardsForTalent } = await import('./card-backfill.service.js');
+    await backfillCardsForTalent(userId);
+  } catch (e) { console.error('[partner approval] card backfill failed:', e); }
+  return data;
+}
+
+export async function rejectPartnerUser(userId: string, adminId: string, reason?: string) {
+  const { data: current } = await supabaseAdmin.from('talent_users')
+    .select('wants_jobs, partner_approval_status').eq('id', userId).maybeSingle();
+  if (!current || current.partner_approval_status !== 'pending') throw new AppError(400, 'Partner application is not pending');
+  const { data, error } = await supabaseAdmin.from('talent_users').update({
+    partner_approval_status: 'rejected',
+    ...(!current.wants_jobs ? { approval_status: 'rejected', approved_by: adminId,
+      rejected_at: new Date().toISOString(), rejection_reason: reason?.trim() || null } : {}),
+  }).eq('id', userId).eq('partner_approval_status', 'pending').select().single();
+  if (error || !data) throw new AppError(500, error?.message || 'Partner rejection failed');
+  return data;
+}
+
 export async function rejectUser(userId: string, adminId: string, reason?: string) {
   const trimmed = reason?.trim() ?? '';
   for (const attempt of [true, false]) {
@@ -721,6 +788,8 @@ export async function bulkApproveUsers(ids: string[], adminId: string) {
 // ---------------------------------------------------------------------------
 
 const VALID_PIPELINE_STAGES = [
+  'applicants',
+  'application_approved',
   'signed_up',
   'onboarding_course',
   'basic_profile',
@@ -730,7 +799,7 @@ const VALID_PIPELINE_STAGES = [
   'no_response',
 ];
 
-export async function updatePipelineStage(userId: string, stage: string) {
+export async function updatePipelineStage(userId: string, stage: string, track: 'partner' | 'jobs' = 'partner') {
   if (!VALID_PIPELINE_STAGES.includes(stage)) {
     throw new AppError(400, `Invalid pipeline stage: ${stage}`);
   }
@@ -738,13 +807,20 @@ export async function updatePipelineStage(userId: string, stage: string) {
   // Get user data before update for CRM notification
   const { data: userData } = await supabaseAdmin
     .from('talent_users')
-    .select('full_name, phone')
+    .select('full_name, phone, wants_jobs, partner_approval_status')
     .eq('id', userId)
     .single();
+  if (!userData) throw new AppError(404, 'User not found');
+  if (track === 'jobs' && !userData?.wants_jobs) {
+    throw new AppError(400, 'This talent has not selected Jobs');
+  }
+  if (track === 'partner' && userData?.partner_approval_status === null) {
+    throw new AppError(400, 'This talent has not requested the Partner Program');
+  }
 
   const { data, error } = await supabaseAdmin
     .from('talent_users')
-    .update({ pipeline_stage: stage })
+    .update(track === 'jobs' ? { jobs_pipeline_stage: stage } : { pipeline_stage: stage })
     .eq('id', userId)
     .select()
     .single();
@@ -755,6 +831,15 @@ export async function updatePipelineStage(userId: string, stage: string) {
   // Get email from auth.users
   const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
   const email = authUser?.user?.email ?? null;
+
+  if (track === 'jobs') {
+    const { notifyCrmPipelineStageChanged } = await import('./automation.service.js');
+    await notifyCrmPipelineStageChanged({
+      talentUserId: userId, name: userData.full_name ?? '', email,
+      phone: userData.phone ?? null, newStage: stage, formType: 'jobs',
+    });
+    return data;
+  }
 
   // Push the matching candidate lead(s) so Candidates + CRM stay in lockstep.
   // updateLeadStatus already fires the mapped CRM webhook per form_type.

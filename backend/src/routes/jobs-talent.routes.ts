@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as jobsTalentController from '../controllers/jobs-talent.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
+import { requireJobsAccess } from '../middleware/work-access.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import {
   askJobQuestionSchema,
@@ -19,7 +20,7 @@ import {
 
 const router = Router();
 
-router.use(authenticate, requireRole('talent'));
+router.use(authenticate, requireRole('talent'), requireJobsAccess);
 
 // ─── Opt-in + preferences ──────────────────────────────────────────────────
 router.get('/opt-in', jobsTalentController.getPreferences);

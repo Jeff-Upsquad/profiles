@@ -20,9 +20,9 @@ export default function TalentHomeTabs({
   onChange: (tab: TalentHomeTab) => void;
   tabs?: TalentHomeTab[];
 }) {
-  const { data: unreadSubs = 0 } = useUnreadSubscriptionCount();
-  const { data: unreadAssignments = 0 } = useUnreadAssignmentCount();
-  const { data: unreadJobs = 0 } = useUnreadJobsCount();
+  const { data: unreadSubs = 0 } = useUnreadSubscriptionCount({ enabled: tabs.includes('subscriptions') });
+  const { data: unreadAssignments = 0 } = useUnreadAssignmentCount({ enabled: tabs.includes('assignments') });
+  const { data: unreadJobs = 0 } = useUnreadJobsCount({ enabled: tabs.includes('jobs') });
 
   const badgeFor = (key: TalentHomeTab) => {
     if (key === 'subscriptions') return unreadSubs;

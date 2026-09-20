@@ -29,11 +29,11 @@ export interface StageDef {
 }
 
 export const CREATIVE_STAGES: StageDef[] = [
-  { value: 'new', label: 'New', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  { value: 'share_form', label: 'Share Form', color: 'bg-sky-50 text-sky-700 border-sky-200' },
-  { value: 'form_filled', label: 'Form Filled / For Review', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+  { value: 'new', label: 'New Applicants', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { value: 'share_form', label: 'Share Landing Page', color: 'bg-sky-50 text-sky-700 border-sky-200' },
+  { value: 'form_filled', label: 'Applicants', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
   { value: 'shortlisted', label: 'Shortlisted', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-  { value: 'signed_up', label: 'Signed Up', color: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { value: 'signed_up', label: 'Application Approved', color: 'bg-purple-50 text-purple-700 border-purple-200' },
   { value: 'onboarding_training', label: 'Onboarding Training', color: 'bg-amber-50 text-amber-700 border-amber-200' },
   { value: 'basic_profile', label: 'Basic Profile', color: 'bg-orange-50 text-orange-700 border-orange-200' },
   { value: 'job_profile', label: 'Job Profile', color: 'bg-teal-50 text-teal-700 border-teal-200' },
@@ -49,6 +49,10 @@ export const ACCOUNTANT_STAGES: StageDef[] = CREATIVE_STAGES.filter(
   (s) => s.value !== 'portfolio_updation',
 );
 
+export const JOBS_STAGES: StageDef[] = CREATIVE_STAGES.filter(
+  (s) => s.value !== 'portfolio_updation' && s.value !== 'shortlisted',
+);
+
 export const DEFAULT_STAGES: StageDef[] = [
   { value: 'new', label: 'New', color: 'bg-blue-50 text-blue-700 border-blue-200' },
   { value: 'under_review', label: 'Under Review', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
@@ -62,6 +66,7 @@ export const DEFAULT_STAGES: StageDef[] = [
 // `creative` and `sales` are talent-onboarding funnels sharing the rich stage
 // set; `accountant` is the same funnel without portfolio.
 export function stagesForFormType(formType?: string): StageDef[] {
+  if (formType === 'jobs') return JOBS_STAGES;
   if (formType === 'creative' || formType === 'sales') return CREATIVE_STAGES;
   if (formType === 'accountant') return ACCOUNTANT_STAGES;
   return DEFAULT_STAGES;

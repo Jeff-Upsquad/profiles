@@ -6,6 +6,7 @@ import { useConversationUnread } from '@/hooks/useConversations';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { useIncompleteTrainingCount } from '@/hooks/useTraining';
 import { useTalentHasAssignedCard } from '@/hooks/useMyClients';
+import { useAuth } from '@/context/AuthContext';
 
 interface NavItem {
   href: string;
@@ -50,6 +51,8 @@ export default function TalentBottomNav() {
   // Hooks must all run before any early return — a conditional hook here took
   // the whole app down once already (see the rules-of-hooks note in CLAUDE.md).
   const { hasAssignedCard } = useTalentHasAssignedCard();
+  const { user } = useAuth();
+  const partnerOnlyPending = user?.wants_jobs === false && user.partner_approval_status !== 'approved';
   if (/^\/talent\/messages\/[^/]+/.test(pathname)) return null;
 
   const navItems: NavItem[] = [
@@ -110,6 +113,18 @@ export default function TalentBottomNav() {
     });
   }
 
+  const visibleItems: NavItem[] = partnerOnlyPending ? [
+    navItems[0],
+    {
+      href: '/talent/training', label: 'Training', badge: incompleteTraining,
+      icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+    },
+    {
+      href: '/talent/contact-support', label: 'Support',
+      icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>,
+    },
+  ] : navItems;
+
   const isActive = (href: string, matchPrefixes?: string[]) => {
     if (matchPrefixes?.length) {
       return matchPrefixes.some((p) => pathname === p || pathname.startsWith(p + '/'));
@@ -122,7 +137,7 @@ export default function TalentBottomNav() {
       <div className="h-[64px] md:hidden" />
       <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
         <nav className="mx-auto flex max-w-lg items-center justify-around py-2">
-          {navItems.map((item) => {
+          {visibleItems.map((item) => {
             const active = isActive(item.href, item.matchPrefixes);
             return (
               <Link

@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import { createLeadSchema } from './lead.validators.js';
+
+export const signupTalentApplicationSchema = z.object({
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  application: createLeadSchema,
+});
 
 export const signupTalentSchema = z.object({
   email: z.string().email('Valid email is required'),
