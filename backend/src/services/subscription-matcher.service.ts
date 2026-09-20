@@ -150,78 +150,95 @@ export async function findMatchingTalents(
     if (rows.length === 0) return [];
   }
 
-  // Step 3: Country / region filter — narrow by talent_user_id
+  // Step 3 & 4: Location & Language filters — narrow by talent_user_id.
+  // When BOTH location rules and language rules are present, broadcast uses OR
+  // matching so talents who match either condition receive the card within their
+  // category and tier. When only one rule is present, it is applied directly.
   const countryNames = Array.isArray(matchRules.target_country_names)
     ? matchRules.target_country_names.filter((v): v is string => typeof v === 'string' && v.length > 0)
     : [];
   const regions = Array.isArray(matchRules.target_regions) ? matchRules.target_regions : [];
+  const hasLocationRules = countryNames.length > 0 || regions.length > 0;
 
-  if (countryNames.length > 0 || regions.length > 0) {
-    const allCountries = new Set(countryNames.map((c) => c.toLowerCase()));
-    for (const r of regions) {
-      if (r.country_name) allCountries.add(r.country_name.toLowerCase());
-    }
-
-    const talentUserIds = [...new Set(rows.map((r) => r.talent_user_id))];
-    const { data: basicRows, error: basicErr } = await supabaseAdmin
-      .from('talent_profiles_basic')
-      .select('talent_user_id, country, state')
-      .in('talent_user_id', talentUserIds);
-    if (basicErr) {
-      console.error('[subscription-matcher] location query failed', basicErr);
-      throw basicErr;
-    }
-
-    const regionPairs = regions
-      .filter((r) => r.country_name && r.region)
-      .map((r) => `${r.country_name!.toLowerCase()}::${r.region.toLowerCase()}`);
-    const regionPairSet = new Set(regionPairs);
-    const countriesWithRegions = new Set(
-      regions.filter((r) => r.country_name && r.region).map((r) => r.country_name!.toLowerCase()),
-    );
-
-    const allowedUsers = new Set<string>();
-    for (const b of basicRows ?? []) {
-      const uid = b.talent_user_id as string;
-      const country = String(b.country ?? '').toLowerCase();
-      const state = String(b.state ?? '').toLowerCase();
-
-      if (countriesWithRegions.has(country)) {
-        if (regionPairSet.has(`${country}::${state}`)) allowedUsers.add(uid);
-      } else if (allCountries.has(country)) {
-        allowedUsers.add(uid);
-      }
-    }
-
-    rows = rows.filter((r) => allowedUsers.has(r.talent_user_id));
-    if (rows.length === 0) return [];
-  }
-
-  // Step 4: Language filter — JS post-filter on JSONB languages_spoken
   const langs = Array.isArray(matchRules.target_languages)
     ? matchRules.target_languages.filter((v): v is string => typeof v === 'string' && v.length > 0)
     : [];
-  if (langs.length > 0) {
-    const wanted = new Set(langs.map((l) => l.toLowerCase()));
+  const hasLanguageRules = langs.length > 0;
+
+  if (hasLocationRules || hasLanguageRules) {
     const talentUserIds = [...new Set(rows.map((r) => r.talent_user_id))];
-    const { data: userRows, error: userErr } = await supabaseAdmin
-      .from('talent_users')
-      .select('id, languages_spoken')
-      .in('id', talentUserIds);
-    if (userErr) {
-      console.error('[subscription-matcher] language query failed', userErr);
-      throw userErr;
+    const locationMatchedUsers = new Set<string>();
+    const languageMatchedUsers = new Set<string>();
+
+    if (hasLocationRules) {
+      const allCountries = new Set(countryNames.map((c) => c.toLowerCase()));
+      for (const r of regions) {
+        if (r.country_name) allCountries.add(r.country_name.toLowerCase());
+      }
+
+      const { data: basicRows, error: basicErr } = await supabaseAdmin
+        .from('talent_profiles_basic')
+        .select('talent_user_id, country, state')
+        .in('talent_user_id', talentUserIds);
+      if (basicErr) {
+        console.error('[subscription-matcher] location query failed', basicErr);
+        throw basicErr;
+      }
+
+      const regionPairs = regions
+        .filter((r) => r.country_name && r.region)
+        .map((r) => `${r.country_name!.toLowerCase()}::${r.region.toLowerCase()}`);
+      const regionPairSet = new Set(regionPairs);
+      const countriesWithRegions = new Set(
+        regions.filter((r) => r.country_name && r.region).map((r) => r.country_name!.toLowerCase()),
+      );
+
+      for (const b of basicRows ?? []) {
+        const uid = b.talent_user_id as string;
+        const country = String(b.country ?? '').toLowerCase();
+        const state = String(b.state ?? '').toLowerCase();
+
+        if (countriesWithRegions.has(country)) {
+          if (regionPairSet.has(`${country}::${state}`)) locationMatchedUsers.add(uid);
+        } else if (allCountries.has(country)) {
+          locationMatchedUsers.add(uid);
+        }
+      }
     }
 
-    const allowedUsers = new Set<string>();
-    for (const u of userRows ?? []) {
-      const spoken = u.languages_spoken as Array<{ language?: string }> | null;
-      if (
-        Array.isArray(spoken) &&
-        spoken.some((l) => wanted.has(String(l?.language ?? '').toLowerCase()))
-      ) {
-        allowedUsers.add(u.id as string);
+    if (hasLanguageRules) {
+      const wanted = new Set(langs.map((l) => l.toLowerCase()));
+      const { data: userRows, error: userErr } = await supabaseAdmin
+        .from('talent_users')
+        .select('id, languages_spoken')
+        .in('id', talentUserIds);
+      if (userErr) {
+        console.error('[subscription-matcher] language query failed', userErr);
+        throw userErr;
       }
+
+      for (const u of userRows ?? []) {
+        const spoken = u.languages_spoken as Array<{ language?: string } | string> | null;
+        if (
+          Array.isArray(spoken) &&
+          spoken.some((l) => {
+            const name = typeof l === 'string' ? l : l?.language ?? '';
+            return wanted.has(name.toLowerCase());
+          })
+        ) {
+          languageMatchedUsers.add(u.id as string);
+        }
+      }
+    }
+
+    let allowedUsers: Set<string>;
+    if (hasLocationRules && hasLanguageRules) {
+      // OR-match across location and language within category & tier
+      allowedUsers = new Set([...locationMatchedUsers, ...languageMatchedUsers]);
+    } else if (hasLocationRules) {
+      allowedUsers = locationMatchedUsers;
+    } else {
+      allowedUsers = languageMatchedUsers;
     }
 
     rows = rows.filter((r) => allowedUsers.has(r.talent_user_id));

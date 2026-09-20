@@ -1735,6 +1735,21 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
   const talentMap = new Map<string, any>();
   for (const t of talents ?? []) talentMap.set((t as any).id, t);
 
+  const basicLocMap = new Map<string, { country: string | null; state: string | null; city: string | null }>();
+  if (talentIds.length > 0) {
+    const { data: basicRows } = await supabaseAdmin
+      .from('talent_profiles_basic')
+      .select('talent_user_id, country, state, city')
+      .in('talent_user_id', talentIds);
+    for (const b of basicRows ?? []) {
+      basicLocMap.set((b as any).talent_user_id, {
+        country: ((b as any).country as string | null) ?? null,
+        state: ((b as any).state as string | null) ?? null,
+        city: ((b as any).city as string | null) ?? null,
+      });
+    }
+  }
+
   // Best profile per talent for deep-links. Load all approved non-deleted
   // profiles (including inactive + ghost), then pick the highest-scoring one:
   // category match > active > non-ghost. Category match wins even when inactive
@@ -1862,6 +1877,9 @@ export async function getCardRecipientsForReview(businessUserId: string, cardId:
         talent_name: talent.full_name ?? null,
         profile_photo_url: talent.profile_photo_url ?? null,
         current_location: talent.current_location ?? null,
+        country: basicLocMap.get(r.talent_user_id as string)?.country ?? null,
+        state: basicLocMap.get(r.talent_user_id as string)?.state ?? null,
+        city: basicLocMap.get(r.talent_user_id as string)?.city ?? null,
         languages_spoken: talent.languages_spoken ?? null,
         profile_id: profile?.id ?? null,
         category: profile?.categories ?? null,

@@ -12,6 +12,7 @@ import {
   useUnselectCardRecipient,
   useMarkCardAcceptancesSeen,
   type CardRecipientForBusiness,
+  type BusinessSubscriptionCardDetail,
 } from '@/hooks/useBusiness';
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
 import BusinessAssignmentOffers from '@/components/subscriptions/BusinessAssignmentOffers';
@@ -157,6 +158,7 @@ export default function SubscriptionCardReview({
   // Active tier sub-tab ('all' or a normalized tier). Only shown for multi-tier
   // briefs, where the review sections split into All · Top talents · Pro · Junior.
   const [activeTier, setActiveTier] = useState<string>('all');
+  const [shuffleRound, setShuffleRound] = useState(0);
 
   const hasSelection = useMemo(() => {
     return (recipients ?? []).some((r) => r.selected_at);
@@ -248,10 +250,50 @@ export default function SubscriptionCardReview({
   // Tier sub-tab filtering applied to both review sections.
   const tierMatches = (r: CardRecipientForBusiness) =>
     activeTier === 'all' || normalizeTier(r.tier) === activeTier;
-  // Newly-accepted (unseen at load) talents float to the top of the review pool.
-  const forReviewView = forReview
-    .filter(tierMatches)
-    .sort((a, b) => (isNewAcceptance(b) ? 1 : 0) - (isNewAcceptance(a) ? 1 : 0));
+
+  // Criteria match evaluation for review talents
+  const evaluatedForReview = useMemo(() => {
+    return forReview.map((r) => {
+      const evaluation = card ? evaluateRecipientMatches(r, card) : { items: [], isAllMatch: true };
+      return { r, ...evaluation };
+    });
+  }, [forReview, card]);
+
+  const criteriaByRecipientId = useMemo(() => {
+    const m = new Map<string, CriteriaMatchItem[]>();
+    for (const item of evaluatedForReview) {
+      m.set(item.r.recipient_id, item.items);
+    }
+    return m;
+  }, [evaluatedForReview]);
+
+  const allMatching = useMemo(
+    () => evaluatedForReview.filter((x) => x.isAllMatch && tierMatches(x.r)).map((x) => x.r),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [evaluatedForReview, activeTier],
+  );
+
+  const partialMatching = useMemo(
+    () => evaluatedForReview.filter((x) => !x.isAllMatch && tierMatches(x.r)).map((x) => x.r),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [evaluatedForReview, activeTier],
+  );
+
+  const allMatchingView = useMemo(() => {
+    const sorted = [...allMatching].sort((a, b) => (isNewAcceptance(b) ? 1 : 0) - (isNewAcceptance(a) ? 1 : 0));
+    return shuffleRound > 0 ? shuffleWithSeed(sorted, 42 + shuffleRound * 31) : sorted;
+  }, [allMatching, shuffleRound]);
+
+  const partialMatchingView = useMemo(() => {
+    const sorted = [...partialMatching].sort((a, b) => (isNewAcceptance(b) ? 1 : 0) - (isNewAcceptance(a) ? 1 : 0));
+    return shuffleRound > 0 ? shuffleWithSeed(sorted, 84 + shuffleRound * 31) : sorted;
+  }, [partialMatching, shuffleRound]);
+
+  const forReviewView = useMemo(
+    () => [...allMatchingView, ...partialMatchingView],
+    [allMatchingView, partialMatchingView],
+  );
+
   const shortlistedView = shortlisted.filter(tierMatches);
   const newAcceptedCount = forReview.filter(isNewAcceptance).length;
   // Optional skills/tools the client attached to the brief — shown under each
@@ -755,7 +797,7 @@ export default function SubscriptionCardReview({
 
           <div className="rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="border-b border-[#E7E7EA] px-4 py-3 sm:px-6 sm:py-4">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2">
                   <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">
                     New talents for review
@@ -766,10 +808,21 @@ export default function SubscriptionCardReview({
                     </span>
                   )}
                 </div>
-                <span className="shrink-0 text-xs text-[#a3a3a3]">{forReviewView.length} total</span>
+                <div className="flex items-center gap-3">
+                  <span className="shrink-0 text-xs text-[#a3a3a3]">{forReviewView.length} total</span>
+                  {forReviewView.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setShuffleRound((s) => s + 1)}
+                      className="rounded-lg border border-[#E7E7EA] bg-white px-2.5 py-1 text-xs font-semibold text-[#525252] shadow-xs transition-colors hover:bg-[#F5F5F6]"
+                    >
+                      ⤨ &nbsp; Shuffle order
+                    </button>
+                  )}
+                </div>
               </div>
               <p className="mt-0.5 hidden text-xs text-[#a3a3a3] sm:block">
-                Talents who accepted your card. Newly accepted are listed first. Bids live under Bidding above.
+                Talents who accepted your card. Category is required; a location or requested language brings them into review.
               </p>
             </div>
 
@@ -778,55 +831,155 @@ export default function SubscriptionCardReview({
                 <p className="text-sm text-[#737373]">No new talents to review.</p>
               </div>
             ) : (
-              <ul className="divide-y divide-[#E7E7EA]">
-                {forReviewView.map((r, i) => (
-                  <li
-                    key={r.recipient_id}
-                    className={`relative px-4 py-4 sm:px-6 ${isNewAcceptance(r) ? 'bg-red-50/40' : ''}`}
-                  >
-                    <div className="flex flex-col gap-3">
-                      <RecipientLink recipient={r} inactive={(isClosed || hasSelection) && !r.selected_at}>
-                        <RecipientAvatar recipient={r} />
-                        <RecipientInfo recipient={r} isNew={isNewAcceptance(r)} />
-                      </RecipientLink>
-                      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-                        <RecipientPrice
-                          recipient={r}
-                          listPrice={card.customer_monthly_price}
-                          isAssignment={isAssignment}
-                          quantity={workQuantity}
-                          unit={workUnit}
-                        />
-                        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center">
-                          <button
-                            type="button"
-                            disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
-                            onClick={() => handleReview(r.recipient_id, 'shortlist')}
-                            className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 sm:py-1.5"
-                          >
-                            Shortlist
-                          </button>
-                          <button
-                            type="button"
-                            disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
-                            onClick={() => handleReview(r.recipient_id, 'reject')}
-                            className="rounded-lg border border-[#E7E7EA] px-3 py-2 text-xs font-semibold text-[#737373] transition-colors hover:border-red-200 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 sm:py-1.5"
-                          >
-                            Reject
-                          </button>
+              <div className="divide-y divide-[#E7E7EA]">
+                {/* Section 1: All Matching Talents */}
+                {allMatchingView.length > 0 && (
+                  <div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 bg-[#FAFAF8] px-4 py-3 sm:px-6 border-b border-[#E7E7EA]">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs bg-emerald-100 text-emerald-800 font-bold">
+                          ✓
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-[family-name:var(--font-jakarta)] text-[13.5px] font-semibold text-[#0a0a0a]">
+                              All Matching Talents
+                            </h3>
+                            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-[#525252] ring-1 ring-[#E7E7EA]">
+                              {allMatchingView.length} {allMatchingView.length === 1 ? 'talent' : 'talents'}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-xs text-[#737373]">
+                            Meet all listed card preferences and criteria.
+                          </p>
                         </div>
                       </div>
                     </div>
-                    <MatchChips reqs={additionalReqs} talentNames={r.skill_tool_names} />
-                    {i === 0 && !isClosed && !hasSelection && r.profile_id && r.category?.id && user?.id && (
-                      <FirstItemTip
-                        storageKey={`squadhire:tip:open-profile:${user.id}`}
-                        message="Tap a talent's name or photo to open their full profile."
-                      />
-                    )}
-                  </li>
-                ))}
-              </ul>
+                    <ul className="divide-y divide-[#E7E7EA]">
+                      {allMatchingView.map((r, i) => (
+                        <li
+                          key={r.recipient_id}
+                          className={`relative px-4 py-4 sm:px-6 sm:py-5 transition-colors hover:bg-[#fafafa]/80 ${
+                            isNewAcceptance(r) ? 'bg-red-50/30' : ''
+                          }`}
+                        >
+                          <div className="flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between">
+                            <RecipientLink recipient={r} inactive={(isClosed || hasSelection) && !r.selected_at}>
+                              <RecipientAvatar recipient={r} />
+                              <RecipientInfo recipient={r} isNew={isNewAcceptance(r)} />
+                            </RecipientLink>
+                            <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0 pt-1 sm:pt-0">
+                              <RecipientPrice
+                                recipient={r}
+                                listPrice={card.customer_monthly_price}
+                                isAssignment={isAssignment}
+                                quantity={workQuantity}
+                                unit={workUnit}
+                              />
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
+                                  onClick={() => handleReview(r.recipient_id, 'reject')}
+                                  className="rounded-lg border border-[#E7E7EA] bg-white px-3 py-1.5 text-xs font-semibold text-[#737373] shadow-xs transition-colors hover:border-red-200 hover:bg-rose-50/40 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  Reject
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
+                                  onClick={() => handleReview(r.recipient_id, 'shortlist')}
+                                  className="rounded-lg bg-[#0a0a0a] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  Shortlist
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          <CriteriaBreakdown items={criteriaByRecipientId.get(r.recipient_id) ?? []} />
+                          {i === 0 && !isClosed && !hasSelection && r.profile_id && r.category?.id && user?.id && (
+                            <FirstItemTip
+                              storageKey={`squadhire:tip:open-profile:${user.id}`}
+                              message="Tap a talent's name or photo to open their full profile."
+                            />
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Section 2: Partially Matching */}
+                {partialMatchingView.length > 0 && (
+                  <div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 bg-[#FAFAF8] px-4 py-3 sm:px-6 border-b border-[#E7E7EA]">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs bg-amber-100 text-amber-800">
+                          ≈
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-[family-name:var(--font-jakarta)] text-[13.5px] font-semibold text-[#0a0a0a]">
+                              Partially Matching
+                            </h3>
+                            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-[#525252] ring-1 ring-[#E7E7EA]">
+                              {partialMatchingView.length} {partialMatchingView.length === 1 ? 'talent' : 'talents'}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-xs text-[#737373]">
+                            Match category and location or language; review missing preferences below.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <ul className="divide-y divide-[#E7E7EA]">
+                      {partialMatchingView.map((r) => (
+                        <li
+                          key={r.recipient_id}
+                          className={`relative px-4 py-4 sm:px-6 sm:py-5 transition-colors hover:bg-[#fafafa]/80 ${
+                            isNewAcceptance(r) ? 'bg-red-50/30' : ''
+                          }`}
+                        >
+                          <div className="flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between">
+                            <RecipientLink recipient={r} inactive={(isClosed || hasSelection) && !r.selected_at}>
+                              <RecipientAvatar recipient={r} />
+                              <RecipientInfo recipient={r} isNew={isNewAcceptance(r)} />
+                            </RecipientLink>
+                            <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0 pt-1 sm:pt-0">
+                              <RecipientPrice
+                                recipient={r}
+                                listPrice={card.customer_monthly_price}
+                                isAssignment={isAssignment}
+                                quantity={workQuantity}
+                                unit={workUnit}
+                              />
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
+                                  onClick={() => handleReview(r.recipient_id, 'reject')}
+                                  className="rounded-lg border border-[#E7E7EA] bg-white px-3 py-1.5 text-xs font-semibold text-[#737373] shadow-xs transition-colors hover:border-red-200 hover:bg-rose-50/40 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  Reject
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
+                                  onClick={() => handleReview(r.recipient_id, 'shortlist')}
+                                  className="rounded-lg bg-[#0a0a0a] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  Shortlist
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          <CriteriaBreakdown items={criteriaByRecipientId.get(r.recipient_id) ?? []} />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -1010,12 +1163,12 @@ function RecipientPrice({
 
   return (
     <div
-      className={`w-full rounded-xl px-3.5 py-2 text-left ring-1 sm:w-auto sm:min-w-[7.5rem] sm:shrink-0 sm:text-right ${
+      className={`text-left sm:text-right ${
         isAgreed
-          ? 'bg-emerald-50 ring-emerald-200'
+          ? 'text-emerald-700'
           : isLiveBid
-            ? 'bg-[#FFFBEB] ring-[#FDE68A]'
-            : 'bg-[#FAFAF8] ring-[#E7E7EA]'
+            ? 'text-amber-800'
+            : 'text-[#0a0a0a]'
       }`}
       title={
         differsFromList && listPrice != null
@@ -1023,31 +1176,24 @@ function RecipientPrice({
           : label
       }
     >
+      <div className="flex items-baseline gap-1 sm:justify-end">
+        <span className="font-[family-name:var(--font-jakarta)] text-base sm:text-lg font-bold tabular-nums tracking-tight text-[#0a0a0a]">
+          {cur}{resolved.amount.toLocaleString()}
+        </span>
+        {suffix && (
+          <span className="text-xs font-medium text-[#737373]">{suffix}</span>
+        )}
+      </div>
       <p
         className={`text-[10px] font-semibold uppercase tracking-wider ${
           isAgreed
             ? 'text-emerald-700'
             : isLiveBid
-              ? 'text-amber-800'
+              ? 'text-amber-700'
               : 'text-[#a3a3a3]'
         }`}
       >
         {label}
-      </p>
-      <p
-        className={`mt-0.5 font-[family-name:var(--font-jakarta)] text-[15px] font-bold tabular-nums leading-tight sm:text-base ${
-          isAgreed
-            ? 'text-emerald-900'
-            : isLiveBid
-              ? 'text-[#0a0a0a]'
-              : 'text-[#0a0a0a]'
-        }`}
-      >
-        {cur}
-        {resolved.amount.toLocaleString()}
-        {suffix && (
-          <span className="ml-0.5 text-[11px] font-semibold text-[#737373]">{suffix}</span>
-        )}
       </p>
       {quantity && total != null && (
         <p className="mt-0.5 text-[10px] font-medium text-[#737373]">
@@ -1066,6 +1212,10 @@ function RecipientPrice({
 }
 
 function RecipientInfo({ recipient: r, isNew = false }: { recipient: CardRecipientForBusiness; isNew?: boolean }) {
+  const timeAgo = formatMinutesAgo(r.responded_at);
+  const loc = r.city
+    ? `${r.city}${r.state ? `, ${r.state}` : r.country ? `, ${r.country}` : ''}`
+    : (r.current_location || '');
   return (
     <div className="min-w-0 flex-1">
       <div className="flex flex-wrap items-center gap-2">
@@ -1073,21 +1223,225 @@ function RecipientInfo({ recipient: r, isNew = false }: { recipient: CardRecipie
           {r.talent_name || 'Unknown talent'}
         </p>
         {isNew && (
-          <span className="shrink-0 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+          <span className="shrink-0 rounded-full bg-rose-50 border border-rose-200/70 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
             New
           </span>
         )}
         {r.tier && (
-          <span className="shrink-0 rounded-full bg-[#F1F1F3] px-2 py-0.5 text-[10px] font-semibold text-[#0a0a0a]">
+          <span className="shrink-0 rounded-full bg-[#F1F1F3] px-2 py-0.5 text-[10px] font-semibold text-[#525252]">
             {r.tier_custom || r.tier}
           </span>
         )}
       </div>
-      <p className="mt-0.5 truncate font-[family-name:var(--font-inter)] text-xs text-[#a3a3a3]">
+      <p className="mt-0.5 truncate font-[family-name:var(--font-inter)] text-xs text-[#737373]">
         {r.category?.name}
-        {r.category?.name && r.current_location ? ' · ' : ''}
-        {r.current_location}
+        {r.category?.name && loc ? ' · ' : ''}
+        {loc}
+        {timeAgo && <span className="ml-2 text-[#a3a3a3]">· Applied {timeAgo}</span>}
       </p>
+    </div>
+  );
+}
+
+function formatMinutesAgo(isoDate: string | null | undefined): string | null {
+  if (!isoDate) return null;
+  const t = new Date(isoDate).getTime();
+  if (Number.isNaN(t)) return null;
+  const diffMinutes = Math.max(1, Math.round((Date.now() - t) / 60000));
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.round(diffHours / 24);
+  return `${diffDays}d ago`;
+}
+
+function extractSpokenLanguages(languagesSpoken: unknown): string[] {
+  if (!Array.isArray(languagesSpoken)) return [];
+  const out: string[] = [];
+  for (const item of languagesSpoken) {
+    if (typeof item === 'string' && item.trim()) {
+      out.push(item.trim());
+    } else if (item && typeof item === 'object') {
+      const name = (item as any).language ?? (item as any).name;
+      if (typeof name === 'string' && name.trim()) {
+        out.push(name.trim());
+      }
+    }
+  }
+  return out;
+}
+
+function shuffleWithSeed<T>(list: T[], seed: number): T[] {
+  const result = [...list];
+  let state = seed;
+  for (let index = result.length - 1; index > 0; index--) {
+    state = (Math.imul(state, 1664525) + 1013904223) | 0;
+    const chosen = (state >>> 0) % (index + 1);
+    [result[index], result[chosen]] = [result[chosen], result[index]];
+  }
+  return result;
+}
+
+interface CriteriaMatchItem {
+  key: string;
+  category: 'Role' | 'Location' | 'Language' | 'Tool';
+  label: string;
+  detail?: string;
+  matches: boolean;
+  optional?: boolean;
+}
+
+function evaluateRecipientMatches(
+  r: CardRecipientForBusiness,
+  card: BusinessSubscriptionCardDetail,
+): {
+  items: CriteriaMatchItem[];
+  isAllMatch: boolean;
+} {
+  const items: CriteriaMatchItem[] = [];
+
+  // 1. Role / Category
+  const categoryName = r.category?.name || card.categories?.[0]?.name || 'Required Role';
+  items.push({
+    key: 'category',
+    category: 'Role',
+    label: categoryName,
+    matches: true,
+  });
+
+  // 2. Location
+  const targetRegions: string[] = (card.target_regions ?? [])
+    .map((reg: any) => (typeof reg === 'string' ? reg : reg?.region))
+    .filter((x: any): x is string => typeof x === 'string' && x.trim().length > 0);
+
+  const hasLocationReq = targetRegions.length > 0;
+  let locationMatches = true;
+  if (hasLocationReq) {
+    const rState = (r.state ?? '').trim().toLowerCase();
+    const rLoc = (r.current_location ?? '').trim().toLowerCase();
+    locationMatches = targetRegions.some((tr) => {
+      const target = tr.trim().toLowerCase();
+      return (rState && rState.includes(target)) || (rLoc && rLoc.includes(target));
+    });
+
+    const displayLoc = r.state
+      ? (r.country ? `${r.state}, ${r.country}` : r.state)
+      : (r.current_location || 'Other location');
+
+    items.push({
+      key: 'location',
+      category: 'Location',
+      label: displayLoc,
+      detail: locationMatches ? undefined : `req. ${targetRegions.join('/')}`,
+      matches: locationMatches,
+    });
+  }
+
+  // 3. Language
+  const targetLanguages: string[] = (card.target_languages ?? [])
+    .filter((l: any): l is string => typeof l === 'string' && l.trim().length > 0);
+
+  const hasLanguageReq = targetLanguages.length > 0;
+  let languageMatches = true;
+  if (hasLanguageReq) {
+    const spokenLangs = extractSpokenLanguages(r.languages_spoken);
+    const matchedLangs = targetLanguages.filter((tl) =>
+      spokenLangs.some((sl) => sl.toLowerCase() === tl.toLowerCase()),
+    );
+    languageMatches = matchedLangs.length > 0;
+
+    const displayLangs = spokenLangs.length > 0 ? spokenLangs.slice(0, 2).join(', ') : 'Not listed';
+    items.push({
+      key: 'language',
+      category: 'Language',
+      label: languageMatches && matchedLangs.length > 0 ? matchedLangs.join(', ') : displayLangs,
+      detail: languageMatches ? undefined : `req. ${targetLanguages.join('/')}`,
+      matches: languageMatches,
+    });
+  }
+
+  // 4. Additional requirements (tools / skills)
+  const additionalReqs = flattenAdditionalReqs(card.additional_requirements);
+  const talentSkills = new Set((r.skill_tool_names ?? []).map((s) => s.trim().toLowerCase()));
+  for (const req of additionalReqs) {
+    const hasSkill = talentSkills.has(req.label.trim().toLowerCase());
+    items.push({
+      key: `req-${req.label}`,
+      category: 'Tool',
+      label: req.label,
+      matches: hasSkill,
+      optional: true,
+    });
+  }
+
+  const isAllMatch = locationMatches && languageMatches;
+  return { items, isAllMatch };
+}
+
+function CriteriaBreakdown({ items }: { items: CriteriaMatchItem[] }) {
+  const matches = items.filter((m) => m.matches);
+  const missing = items.filter((m) => !m.matches);
+
+  if (matches.length === 0 && missing.length === 0) return null;
+
+  return (
+    <div className="mt-3.5 pt-3 border-t border-[#f0f0f3] sm:ml-[58px] space-y-2">
+      {matches.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="w-16 shrink-0 text-[11px] font-medium text-zinc-400 flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            Matches
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {matches.map((item) => (
+              <span
+                key={item.key}
+                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-[#f4fbf6] px-2.5 py-0.5 text-xs text-emerald-900 transition-colors hover:bg-[#eaf8ee]"
+              >
+                <svg className="h-3 w-3 shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+                <span className="font-medium">{item.label}</span>
+                {item.optional && (
+                  <span className="rounded-full bg-emerald-100/70 px-1.5 py-0.2 text-[9px] font-medium text-emerald-800">
+                    optional
+                  </span>
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {missing.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="w-16 shrink-0 text-[11px] font-medium text-zinc-400 flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+            Missing
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {missing.map((item) => (
+              <span
+                key={item.key}
+                className="inline-flex items-center gap-1.5 rounded-full border border-rose-100 bg-[#fef5f5] px-2.5 py-0.5 text-xs text-rose-900 transition-colors hover:bg-[#fdeeed]"
+              >
+                <svg className="h-3 w-3 shrink-0 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span className="font-medium">{item.label}</span>
+                {item.detail && (
+                  <span className="text-[10.5px] text-rose-700/70">({item.detail})</span>
+                )}
+                {item.optional && (
+                  <span className="rounded-full bg-rose-100/70 px-1.5 py-0.2 text-[9px] font-medium text-rose-800">
+                    optional
+                  </span>
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

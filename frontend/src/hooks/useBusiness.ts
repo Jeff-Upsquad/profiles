@@ -289,6 +289,9 @@ export interface CardRecipientForBusiness {
   talent_name: string | null;
   profile_photo_url: string | null;
   current_location: string | null;
+  country?: string | null;
+  state?: string | null;
+  city?: string | null;
   languages_spoken: any;
   profile_id: string | null;
   category: { id: string; name: string; slug: string } | null;
