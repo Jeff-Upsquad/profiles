@@ -396,12 +396,7 @@ export default function BasicProfileForm() {
     setForm((prev) => {
       const arr = prev.employment_type || [];
       const isOn = arr.includes(value);
-      const partnerOptions: WorkPreferenceValue[] = ['partner_program', 'freelance'];
-      const next = isOn
-        ? arr.filter((v) => v !== value)
-        : partnerOptions.includes(value)
-          ? [...arr.filter((v) => !partnerOptions.includes(v as WorkPreferenceValue)), value]
-          : [...arr, value];
+      const next = isOn ? arr.filter((v) => v !== value) : [...arr, value];
       return { ...prev, employment_type: next };
     });
   };
@@ -1081,7 +1076,7 @@ export default function BasicProfileForm() {
 
                 <div className="border-t border-[#E7E7EA] pt-6">
                   <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Work Preference</h3>
-                  <p className="mb-4 mt-0.5 text-sm text-[#737373]">Choose one Partner Program track. Jobs can be selected separately.</p>
+                  <p className="mb-4 mt-0.5 text-sm text-[#737373]">Choose one or both Partner Program tracks. Jobs can be selected separately.</p>
                   <div className="space-y-4">
                     {WORK_PREFERENCE_GROUPS.map((group) => (
                       <div key={group.title} className="rounded-xl border border-[#E7E7EA] bg-[#F5F5F6] p-4">

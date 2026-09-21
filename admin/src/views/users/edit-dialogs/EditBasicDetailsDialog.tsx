@@ -128,7 +128,6 @@ export default function EditBasicDetailsDialog({
             label="Partner Program"
             options={PARTNER_PROGRAM_OPTIONS}
             value={employment.filter((value) => value !== 'salary')}
-            multi={false}
             onChange={(partnerOptions) =>
               setEmployment([
                 ...partnerOptions,
@@ -137,7 +136,7 @@ export default function EditBasicDetailsDialog({
             }
           />
           <p className="mt-2 text-xs text-gray-500">
-            A talent can choose either Subscriptions or Assignments.
+            A talent can choose Subscriptions, Assignments, or both.
           </p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">

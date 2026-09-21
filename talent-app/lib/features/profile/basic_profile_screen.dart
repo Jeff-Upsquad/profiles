@@ -625,7 +625,7 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Choose either Subscriptions or Assignments.',
+            'Choose Subscriptions, Assignments, or both.',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
           const SizedBox(height: 10),
@@ -638,18 +638,7 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
                 .where((value) => value == 'partner_program' || value == 'freelance')
                 .toList(),
             onChanged: (v) => setState(() {
-              final currentPartner = _p.employmentType
-                  .where((value) => value == 'partner_program' || value == 'freelance')
-                  .toSet();
-              final newlySelected = v
-                  .where((value) => !currentPartner.contains(value))
-                  .toList();
-              final next = <String>{};
-              if (newlySelected.isNotEmpty) {
-                next.add(newlySelected.first);
-              } else if (v.length == 1) {
-                next.add(v.first);
-              }
+              final next = <String>{...v};
               if (_p.employmentType.contains('salary')) next.add('salary');
               _p.employmentType = next.toList();
             }),
