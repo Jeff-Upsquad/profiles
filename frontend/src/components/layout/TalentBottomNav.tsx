@@ -14,6 +14,8 @@ interface NavItem {
   icon: React.ReactNode;
   matchPrefixes?: string[];
   badge?: number;
+  disabled?: boolean;
+  tooltip?: string;
 }
 
 const HOME_PREFIXES = [
@@ -53,6 +55,7 @@ export default function TalentBottomNav() {
   const { hasAssignedCard } = useTalentHasAssignedCard();
   const { user } = useAuth();
   const partnerOnlyPending = user?.wants_jobs === false && user.partner_approval_status !== 'approved';
+  const onboarded = user?.onboarding_completed === true || user?.skip_onboarding === true;
   if (/^\/talent\/messages\/[^/]+/.test(pathname)) return null;
 
   const navItems: NavItem[] = [
@@ -70,6 +73,8 @@ export default function TalentBottomNav() {
       href: '/talent/messages',
       label: 'Chatroom',
       badge: unreadMessages,
+      disabled: !onboarded,
+      tooltip: 'Complete training to unlock',
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -139,6 +144,31 @@ export default function TalentBottomNav() {
         <nav className="mx-auto flex max-w-lg items-center justify-around py-2">
           {visibleItems.map((item) => {
             const active = isActive(item.href, item.matchPrefixes);
+            if (item.disabled) {
+              return (
+                <div
+                  key={item.href}
+                  title={item.tooltip}
+                  aria-disabled="true"
+                  className="flex cursor-not-allowed flex-col items-center gap-0.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-zinc-300"
+                >
+                  <span className="relative">
+                    {item.icon}
+                    <svg
+                      className="absolute -right-2 -top-1 h-3 w-3 rounded-full bg-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.25}
+                      aria-hidden="true"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </span>
+                  {item.label}
+                </div>
+              );
+            }
             return (
               <Link
                 key={item.href}

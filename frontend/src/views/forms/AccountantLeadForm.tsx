@@ -16,7 +16,6 @@ import {
   GENDER_OPTIONS,
   WORK_TYPE_OPTIONS,
   WORK_TYPE_SEEKING_OPTIONS,
-  KERALA_DISTRICTS,
   ACCOUNTING_SOFTWARE_PRIMARY,
   ACCOUNTING_SOFTWARE_OTHER,
   ACCOUNTING_SKILLS,
@@ -33,7 +32,6 @@ interface FormValues {
   state: string;
   current_district: string;
   native_place: string;
-  district: string[];
   location: string;
   work_type: string[];
   work_type_seeking: string[];
@@ -41,12 +39,9 @@ interface FormValues {
   experience_years: string;
   accounting_software: string[];
   addon_skills: string[];
-  current_salary: string;
-  expected_salary: string;
   languages: string[];
   email: string;
   experience_details: string;
-  resume_url: string;
 }
 
 const initial: FormValues = {
@@ -58,7 +53,6 @@ const initial: FormValues = {
   state: '',
   current_district: '',
   native_place: '',
-  district: [],
   location: '',
   work_type: [],
   work_type_seeking: [],
@@ -66,12 +60,9 @@ const initial: FormValues = {
   experience_years: '',
   accounting_software: [],
   addon_skills: [],
-  current_salary: '',
-  expected_salary: '',
   languages: [],
   email: '',
   experience_details: '',
-  resume_url: '',
 };
 
 const chipStyle = {
@@ -131,8 +122,6 @@ export default function AccountantLeadForm() {
     message?: string;
   } | null>(null);
   const [serverError, setServerError] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [resumeFileName, setResumeFileName] = useState('');
   const [formDisabled, setFormDisabled] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
   const dup = useDuplicateContactCheck(true);
@@ -159,53 +148,23 @@ export default function AccountantLeadForm() {
     setErrors((prev) => ({ ...prev, [key]: undefined }));
   };
 
-  const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    setErrors((prev) => ({ ...prev, resume_url: undefined }));
-    try {
-      const { data } = await axios.post('/api/leads/upload-url', {
-        filename: file.name,
-        content_type: file.type,
-      });
-
-      await fetch(data.upload_url, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type },
-        body: file,
-      });
-
-      setForm((prev) => ({ ...prev, resume_url: data.file_url }));
-      setResumeFileName(file.name);
-    } catch {
-      setErrors((prev) => ({ ...prev, resume_url: 'Upload failed. Please try again.' }));
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const FIELD_ORDER: (keyof FormValues)[] = [
     'name',
     'phone',
+    'email',
     'age',
     'gender',
     'country',
     'state',
     'current_district',
     'native_place',
-    'district',
     'location',
     'work_type',
     'work_type_seeking',
     'education',
     'experience_years',
     'accounting_software',
-    'current_salary',
-    'expected_salary',
     'languages',
-    'email',
     'experience_details',
   ];
 
@@ -224,19 +183,12 @@ export default function AccountantLeadForm() {
     if (!form.state.trim()) errs.state = 'State is required';
     if (!form.current_district.trim()) errs.current_district = 'District is required';
     if (!form.native_place.trim()) errs.native_place = 'Native place is required';
-    if (form.district.length === 0) errs.district = 'Select at least one district';
     if (!form.location.trim()) errs.location = 'Location is required';
     if (form.work_type.length === 0) errs.work_type = 'Select at least one work type';
     if (form.work_type_seeking.length === 0) errs.work_type_seeking = 'Select at least one option';
     if (!form.education.trim()) errs.education = 'Educational qualifications are required';
     if (!form.experience_years.trim()) errs.experience_years = 'Years of experience is required';
     if (form.accounting_software.length === 0) errs.accounting_software = 'Select at least one software';
-    if (!form.current_salary.trim()) errs.current_salary = 'Current salary is required';
-    else if (isNaN(Number(form.current_salary)) || Number(form.current_salary) < 0)
-      errs.current_salary = 'Enter a valid amount';
-    if (!form.expected_salary.trim()) errs.expected_salary = 'Expected salary is required';
-    else if (isNaN(Number(form.expected_salary)) || Number(form.expected_salary) < 0)
-      errs.expected_salary = 'Enter a valid amount';
     if (form.languages.length === 0) errs.languages = 'Select at least one language';
     if (!form.email.trim()) errs.email = 'Email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
@@ -250,6 +202,8 @@ export default function AccountantLeadForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError('');
+
+    if (dup.checkingEmail || dup.checkingPhone) return;
 
     if (dup.anyDuplicate) {
       setShakeWarning(true);
@@ -293,7 +247,6 @@ export default function AccountantLeadForm() {
         state: form.state.trim(),
         current_district: form.current_district.trim(),
         native_place: form.native_place.trim(),
-        district: form.district,
         location: form.location.trim(),
         work_type: form.work_type,
         work_type_seeking: form.work_type_seeking,
@@ -301,11 +254,8 @@ export default function AccountantLeadForm() {
         experience_years: form.experience_years.trim(),
         accounting_software: form.accounting_software,
         addon_skills: form.addon_skills,
-        current_salary: Number(form.current_salary),
-        expected_salary: Number(form.expected_salary),
         languages: form.languages,
         experience_details: form.experience_details.trim(),
-        resume_url: form.resume_url || undefined,
         utm_source: searchParams.get('utm_source') || undefined,
         utm_medium: searchParams.get('utm_medium') || undefined,
         utm_campaign: searchParams.get('utm_campaign') || undefined,
@@ -321,6 +271,9 @@ export default function AccountantLeadForm() {
       setChecking(false);
       setSubmitted(true);
     } catch (err: any) {
+      if (err.response?.status === 409) {
+        dup.setShowSheet(true);
+      }
       setServerError(
         err.response?.data?.error || 'Something went wrong. Please try again.'
       );
@@ -404,17 +357,17 @@ export default function AccountantLeadForm() {
               </h1>
               <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-canvas-600 sm:mt-2">
                 We match you with employers that respect your expertise — full-time, freelance, hybrid.
-                Six chapters. About five minutes.
+                Five chapters. About four minutes.
               </p>
             </div>
 
             <div className="surface-saas grid grid-cols-2 gap-3 px-4 py-3 sm:gap-4 sm:px-4 sm:py-3">
               <div>
-                <p className="font-display-saas text-lg font-bold text-canvas-900 sm:text-2xl">06</p>
+                <p className="font-display-saas text-lg font-bold text-canvas-900 sm:text-2xl">05</p>
                 <p className="mt-0.5 text-xs font-medium text-canvas-500 sm:mt-1">Chapters</p>
               </div>
               <div>
-                <p className="font-display-saas text-lg font-bold text-canvas-900 sm:text-2xl">~5m</p>
+                <p className="font-display-saas text-lg font-bold text-canvas-900 sm:text-2xl">~4m</p>
                 <p className="mt-0.5 text-xs font-medium text-canvas-500 sm:mt-1">Time</p>
               </div>
               <div>
@@ -473,9 +426,11 @@ export default function AccountantLeadForm() {
                       digits = digits.slice(2);
                     }
                     digits = digits.slice(0, 10);
-                    setForm((prev) => ({ ...prev, phone: '+91' + digits }));
+                    const nextPhone = '+91' + digits;
+                    setForm((prev) => ({ ...prev, phone: nextPhone }));
                     setErrors((prev) => ({ ...prev, phone: undefined }));
-                    dup.clearPhone();
+                    if (digits.length === 10) dup.schedulePhoneCheck(nextPhone);
+                    else dup.clearPhone();
                   }}
                   onBlur={() => {
                     const phone = form.phone.replace(/\s/g, '');
@@ -490,8 +445,11 @@ export default function AccountantLeadForm() {
                 />
               </div>
               {errors.phone && <p className="mt-2 text-xs text-red-600">{errors.phone}</p>}
+              {dup.checkingPhone && !errors.phone && (
+                <p className="mt-2 text-xs text-canvas-500" aria-live="polite">Checking this number…</p>
+              )}
               {dup.phoneDuplicate && (
-                <p className="mt-2 text-xs text-amber-700">
+                <p className="mt-2 text-xs text-amber-700" role="alert">
                   This number is already registered with us.{' '}
                   <button
                     type="button"
@@ -538,7 +496,7 @@ export default function AccountantLeadForm() {
                 value={form.email}
                 onChange={(e) => {
                   set('email')(e);
-                  dup.clearEmail();
+                  dup.scheduleEmailCheck(e.target.value);
                 }}
                 onBlur={() => {
                   const email = form.email.trim();
@@ -551,8 +509,11 @@ export default function AccountantLeadForm() {
                 }}
                 error={errors.email}
               />
+              {dup.checkingEmail && !errors.email && (
+                <p className="mt-2 text-xs text-canvas-500" aria-live="polite">Checking this email…</p>
+              )}
               {dup.emailDuplicate && (
-                <p className="mt-2 text-xs text-amber-700">
+                <p className="mt-2 text-xs text-amber-700" role="alert">
                   This email is already registered with us.{' '}
                   <button
                     type="button"
@@ -569,7 +530,7 @@ export default function AccountantLeadForm() {
           <Section
             index="02"
             title="Location"
-            description="Where you&rsquo;re from, and where you&rsquo;d like to work."
+            description="Where you&rsquo;re from and where you&rsquo;re based."
             delay={0.1}
           >
             <div id="field-country" className="field-saas">
@@ -673,22 +634,6 @@ export default function AccountantLeadForm() {
               </div>
             </div>
 
-            <div id="field-district">
-              <p className="mb-2 text-sm font-medium text-canvas-700">
-                Preferred Work Districts<span className="ml-1 text-red-500">*</span>
-              </p>
-              <p className="mb-3 text-sm text-canvas-500">
-                Where you&rsquo;d like to work. Outside India? Pick the last option.
-              </p>
-              <ChipSelect
-                multi
-                options={KERALA_DISTRICTS}
-                selected={form.district}
-                onChange={(v) => setMulti('district')(v as string[])}
-                error={errors.district}
-                chipClassName={chipStyle}
-              />
-            </div>
           </Section>
 
           <Section
@@ -787,38 +732,6 @@ export default function AccountantLeadForm() {
                 chipClassName={chipStyle}
               />
             </div>
-          </Section>
-
-          <Section
-            index="05"
-            title="Compensation"
-            description="What you earn now, and what you&rsquo;d like to."
-            delay={0.25}
-          >
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div id="field-current_salary" className="field-saas">
-                <Input
-                  label="Current Salary / month"
-                  required
-                  type="number"
-                  placeholder="₹"
-                  value={form.current_salary}
-                  onChange={set('current_salary')}
-                  error={errors.current_salary}
-                />
-              </div>
-              <div id="field-expected_salary" className="field-saas">
-                <Input
-                  label="Expected Salary / month"
-                  required
-                  type="number"
-                  placeholder="₹"
-                  value={form.expected_salary}
-                  onChange={set('expected_salary')}
-                  error={errors.expected_salary}
-                />
-              </div>
-            </div>
 
             <div id="field-languages">
               <p className="mb-3 text-sm font-medium text-canvas-700">
@@ -836,10 +749,10 @@ export default function AccountantLeadForm() {
           </Section>
 
           <Section
-            index="06"
+            index="05"
             title="Final Details"
-            description="Resume, send-off."
-            delay={0.3}
+            description="Your experience, in your own words."
+            delay={0.25}
           >
             <div id="field-experience_details" className="field-saas">
               <Textarea
@@ -851,46 +764,6 @@ export default function AccountantLeadForm() {
                 error={errors.experience_details}
               />
             </div>
-
-            <div>
-              <p className="mb-3 text-sm font-medium text-canvas-700">Upload Resume</p>
-              <label
-                className={`group flex cursor-pointer items-center justify-between rounded-2xl border border-dashed px-5 py-5 text-sm transition-all ${
-                  errors.resume_url
-                    ? 'border-red-300 bg-red-50/40'
-                    : resumeFileName
-                    ? 'border-green-400 bg-green-50/60'
-                    : 'border-canvas-300 bg-canvas-50 hover:border-cu-900 hover:bg-brand-purple/20'
-                }`}
-              >
-                <input
-                  type="file"
-                  className="hidden"
-                  accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp"
-                  onChange={handleResumeUpload}
-                  disabled={uploading}
-                />
-                {uploading ? (
-                  <span className="text-canvas-500">Uploading…</span>
-                ) : resumeFileName ? (
-                  <>
-                    <span className="font-medium text-green-700">✓ {resumeFileName}</span>
-                    <span className="text-xs font-medium text-green-600">Uploaded</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-canvas-600 group-hover:text-cu-900">
-                      Drop a file or click to browse
-                    </span>
-                    <span className="text-xs font-medium text-canvas-400">PDF · DOC · JPG</span>
-                  </>
-                )}
-              </label>
-              {errors.resume_url && (
-                <p className="mt-2 text-xs text-red-600">{errors.resume_url}</p>
-              )}
-            </div>
-
           </Section>
 
           {/* Submit */}
@@ -925,7 +798,7 @@ export default function AccountantLeadForm() {
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || dup.checkingEmail || dup.checkingPhone}
               className="btn-iridescent w-full sm:w-auto sm:min-w-[220px]"
             >
               {submitting ? (

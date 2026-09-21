@@ -75,8 +75,6 @@ export const FORM_FIELD_DEFINITIONS: Record<string, FieldDef[]> = {
     { key: 'work_type', label: 'Work Type', type: 'string[]', options: WORK_TYPE },
     { key: 'work_type_seeking', label: 'Work Type Seeking', type: 'string[]', options: WORK_TYPE_SEEKING },
     { key: 'experience_years', label: 'Experience (years)', type: 'number' },
-    { key: 'current_salary', label: 'Current Salary', type: 'number' },
-    { key: 'expected_salary', label: 'Expected Salary', type: 'number' },
   ],
   sales: [
     { key: 'country', label: 'Country', type: 'string', options: COUNTRIES },

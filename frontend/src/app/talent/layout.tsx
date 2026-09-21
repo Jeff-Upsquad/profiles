@@ -19,7 +19,6 @@ const ALWAYS_ACCESSIBLE = [
   '/talent/dashboard',
   '/talent/training',
   '/talent/contact-support',
-  '/talent/messages',
   '/talent/more',
   '/talent/squadhub',
 ];
@@ -81,7 +80,7 @@ export default function TalentLayout({
   const isTalent = !!user && user.role === 'talent';
   const partnerOnlyPending = user?.wants_jobs === false && user?.partner_approval_status !== 'approved';
   const partnerLocked = user?.partner_approval_status !== undefined && user.partner_approval_status !== 'approved';
-  const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
+  const onboarded = user?.onboarding_completed === true || user?.skip_onboarding === true;
   const { data: unread = 0 } = useUnreadSubscriptionCount({ enabled: isTalent && !partnerLocked });
   const { data: unreadAssignments = 0 } = useUnreadAssignmentCount({ enabled: isTalent && !partnerLocked });
   const { data: unreadJobs = 0 } = useUnreadJobsCount({ enabled: isTalent && user?.wants_jobs !== false });

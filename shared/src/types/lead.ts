@@ -21,18 +21,14 @@ export interface AccountantFormData {
   age: number;
   gender: string;
   native_place: string;
-  district: string[];
   location: string;
   work_type: string;
   education: string;
   experience_years: string;
   accounting_software: string[];
   addon_skills: string[];
-  current_salary: number;
-  expected_salary: number;
   languages: string[];
   experience_details: string;
-  resume_url: string;
 }
 
 export interface LeadSubmission {
@@ -71,18 +67,14 @@ export interface CreateAccountantLeadPayload {
   age: number;
   gender: string;
   native_place: string;
-  district: string[];
   location: string;
   work_type: string;
   education: string;
   experience_years: string;
   accounting_software: string[];
   addon_skills: string[];
-  current_salary: number;
-  expected_salary: number;
   languages: string[];
   experience_details: string;
-  resume_url: string;
 }
 
 export interface CreateSalesLeadPayload {

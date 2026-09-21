@@ -166,6 +166,8 @@ export default function SalesLeadForm() {
     e.preventDefault();
     setServerError('');
 
+    if (dup.checkingEmail || dup.checkingPhone) return;
+
     if (dup.anyDuplicate) {
       setShakeWarning(true);
       setTimeout(() => setShakeWarning(false), 450);
@@ -225,6 +227,9 @@ export default function SalesLeadForm() {
       setChecking(false);
       setSubmitted(true);
     } catch (err: any) {
+      if (err.response?.status === 409) {
+        dup.setShowSheet(true);
+      }
       setServerError(
         err.response?.data?.error || 'Something went wrong. Please try again.'
       );
@@ -367,6 +372,8 @@ export default function SalesLeadForm() {
                     const digits = form.phone.replace(countryCode, '');
                     setCountryCode(newCode);
                     setForm((prev) => ({ ...prev, phone: newCode + digits }));
+                    if (digits.length >= 10) dup.schedulePhoneCheck(newCode + digits);
+                    else dup.clearPhone();
                   }}
                 >
                   {COUNTRY_CODES.map((cc) => (
@@ -382,9 +389,11 @@ export default function SalesLeadForm() {
                   value={form.phone.replace(countryCode, '')}
                   onChange={(e) => {
                     const digits = e.target.value.replace(/\D/g, '').slice(0, 15);
-                    setForm((prev) => ({ ...prev, phone: countryCode + digits }));
+                    const nextPhone = countryCode + digits;
+                    setForm((prev) => ({ ...prev, phone: nextPhone }));
                     setErrors((prev) => ({ ...prev, phone: undefined }));
-                    dup.clearPhone();
+                    if (digits.length >= 10) dup.schedulePhoneCheck(nextPhone);
+                    else dup.clearPhone();
                   }}
                   onBlur={() => {
                     const digits = form.phone.replace(countryCode, '');
@@ -393,13 +402,16 @@ export default function SalesLeadForm() {
                       setErrors((prev) => ({ ...prev, phone: 'Enter a valid phone number' }));
                       return;
                     }
-                    dup.checkPhone(form.phone);
+                    if (digits.length >= 10) dup.checkPhone(form.phone);
                   }}
                 />
               </div>
               {errors.phone && <p className="mt-2 text-xs text-red-600">{errors.phone}</p>}
+              {dup.checkingPhone && !errors.phone && (
+                <p className="mt-2 text-xs text-canvas-500" aria-live="polite">Checking this number…</p>
+              )}
               {dup.phoneDuplicate && (
-                <p className="mt-2 text-xs text-amber-700">
+                <p className="mt-2 text-xs text-amber-700" role="alert">
                   This number is already registered with us.{' '}
                   <button
                     type="button"
@@ -421,7 +433,7 @@ export default function SalesLeadForm() {
                 value={form.email}
                 onChange={(e) => {
                   set('email')(e);
-                  dup.clearEmail();
+                  dup.scheduleEmailCheck(e.target.value);
                 }}
                 onBlur={() => {
                   const email = form.email.trim();
@@ -434,8 +446,11 @@ export default function SalesLeadForm() {
                 }}
                 error={errors.email}
               />
+              {dup.checkingEmail && !errors.email && (
+                <p className="mt-2 text-xs text-canvas-500" aria-live="polite">Checking this email…</p>
+              )}
               {dup.emailDuplicate && (
-                <p className="mt-2 text-xs text-amber-700">
+                <p className="mt-2 text-xs text-amber-700" role="alert">
                   This email is already registered with us.{' '}
                   <button
                     type="button"
@@ -635,7 +650,7 @@ export default function SalesLeadForm() {
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || dup.checkingEmail || dup.checkingPhone}
               className="btn-iridescent w-full sm:w-auto sm:min-w-[220px]"
             >
               {submitting ? (

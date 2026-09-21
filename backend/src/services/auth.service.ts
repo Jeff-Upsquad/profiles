@@ -24,6 +24,17 @@ export async function signupTalent(input: SignupTalentInput, application?: Creat
     ? (application ? `application:${application.form_type}` : signup_role ? `landing:${signup_role}` : `referrer:${signup_ref}`).slice(0, 500)
     : null;
 
+  // The signup pages check this while the person types, but enforce it again
+  // here so a stale/failed browser check cannot create a second talent account
+  // with the same email or phone number.
+  const existingAccount = await checkCandidateStatus({
+    email,
+    phone: profileData.phone,
+  });
+  if (existingAccount.has_account) {
+    throw new AppError(409, 'An account with this email or phone number already exists');
+  }
+
   // Open self-serve signup for now — no invitation required. If a pending
   // talent invite exists for this email, mark it accepted after create.
   const invitation = await checkInvitation(email, 'talent');
@@ -123,8 +134,6 @@ export async function signupTalent(input: SignupTalentInput, application?: Creat
           ...(intent!.partner ? ['partner_program'] : []),
         ],
           ...(application.form_type === 'accountant' ? {
-            resume_url: application.resume_url || null,
-            expected_salary_monthly: application.expected_salary,
             education_courses: [{ course_name: application.education, institution: '' }],
             job_type: application.work_type.map((type) =>
               type === 'Online' ? 'remote' : type === 'At Office' ? 'office' : 'hybrid'),
