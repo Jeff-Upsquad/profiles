@@ -521,11 +521,10 @@ function CourseSection({
   );
 }
 
-function OnboardingTraining() {
+function OnboardingTraining({ routeCourseId }: { routeCourseId: string | null }) {
   const router = useRouter();
   const { data: courses = [], isLoading } = useOnboardingCourses();
   const completeOnboarding = useCompleteOnboarding();
-  const activeCountdowns = getActiveCountdowns(courses);
 
   const totals = courses.reduce(
     (acc, course) => ({
@@ -535,19 +534,28 @@ function OnboardingTraining() {
     { completed: 0, total: 0 },
   );
   const allComplete = totals.total > 0 && totals.completed === totals.total;
+  const activeCourse = courses.find(
+    (course) => course.total_count > 0 && course.completed_count < course.total_count,
+  ) ?? courses[0] ?? null;
 
-  // Auto-unlock: the moment every onboarding lesson is complete, flip the
-  // onboarding flag automatically so the account unlocks without needing a
-  // separate "Build Profile" click. Fires once per mount; the ref guard
-  // prevents duplicate mutations while the request is in flight. If it fails
-  // the manual "Build Profile" button below stays as a fallback.
+  // New talents land on /talent/training. Move them to the dedicated reader
+  // URL so DashboardLayout gives the onboarding course the full-width shell.
+  // When several onboarding courses exist, continue with the first unfinished
+  // one instead of falling back to the retired accordion page.
+  useEffect(() => {
+    if (isLoading || !activeCourse) return;
+    if (routeCourseId !== activeCourse.id) {
+      router.replace(`/talent/training/${activeCourse.id}`);
+    }
+  }, [activeCourse, isLoading, routeCourseId, router]);
+
+  // Auto-unlock as soon as all onboarding lessons are complete. The banner in
+  // the reader keeps an explicit retry available if this request fails.
   const autoUnlockFired = useRef(false);
   useEffect(() => {
     if (allComplete && !autoUnlockFired.current && !completeOnboarding.isPending) {
       autoUnlockFired.current = true;
-      completeOnboarding.mutateAsync().catch(() => {
-        // leave the flag set; the explicit button remains available to retry
-      });
+      completeOnboarding.mutateAsync().catch(() => undefined);
     }
   }, [allComplete, completeOnboarding]);
 
@@ -556,114 +564,64 @@ function OnboardingTraining() {
       await completeOnboarding.mutateAsync();
       router.push('/talent/basic-profile');
     } catch {
-      // handled by mutation
+      // The completion banner remains visible so the talent can retry.
     }
   };
 
+  if (isLoading || (activeCourse && routeCourseId !== activeCourse.id)) {
+    return <div className="min-h-0 flex-1 animate-pulse bg-[#f0f0f0]" />;
+  }
+
+  if (!activeCourse) {
+    return (
+      <div className="flex min-h-0 flex-1 items-center justify-center bg-white px-6 text-center">
+        <div>
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFFAC2]">
+            <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
+            No onboarding content yet
+          </h3>
+          <p className="mt-1 text-sm text-[#737373]">Check back soon — your admin is setting things up.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      <section className="hero-container hero-glow-orange relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-6 sm:px-7 sm:py-7">
-        <div className="hero-glow-blur" />
-        <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="mb-2.5 stagger-1">
-              <span className="eyebrow-rainbow">Onboarding</span>
-            </div>
-            <h1 className="font-[family-name:var(--font-jakarta)] text-[26px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] stagger-2">
-              Complete the <span className="text-rainbow">Training</span> to Unlock Your Account
-            </h1>
-            <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] max-w-xl stagger-3">
-              Watch the videos in each chapter and mark them complete to unlock the next chapter and the rest of your account.
-            </p>
-          </div>
+    <CourseReader
+      course={activeCourse}
+      enforceSequential
+      onBack={() => router.push('/talent/dashboard')}
+      completionBanner={allComplete ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-900 md:px-5">
+          <span>
+            <span className="font-semibold">Training complete.</span>{' '}
+            {completeOnboarding.isError ? 'We could not unlock your account automatically.' : 'Unlocking your account…'}
+          </span>
+          <button
+            type="button"
+            onClick={handleBuildProfile}
+            disabled={completeOnboarding.isPending}
+            className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-50"
+          >
+            {completeOnboarding.isPending ? 'Unlocking…' : 'Continue to profile'}
+          </button>
         </div>
-      </section>
-
-      {activeCountdowns.length > 0 && (
-        <CountdownChips courses={activeCountdowns} />
-      )}
-
-      {isLoading ? (
-        <div className="h-32 bg-[#f0f0f0] rounded-2xl animate-pulse" />
-      ) : courses.length === 0 ? (
-        <div className="relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-6 py-16 text-center">
-          <div className="hero-glow-purple absolute inset-0 pointer-events-none" />
-          <div className="relative">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFFAC2]">
-              <svg className="h-6 w-6 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
-              No onboarding content yet
-            </h3>
-            <p className="mt-1 text-sm text-[#737373]">Check back soon — your admin is setting things up.</p>
-          </div>
-        </div>
-      ) : (
-        <>
-          {courses.map((course) => (
-            <CourseSection
-              key={course.id}
-              course={course}
-              enforceSequential
-              defaultOpenFirst
-            />
-          ))}
-
-          <div className="rounded-2xl border border-[#E7E7EA] bg-white p-6 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            {allComplete ? (
-              <>
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50">
-                  <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold text-[#0a0a0a]">
-                  Training Complete!
-                </h3>
-                <p className="mt-1 text-sm text-[#737373] max-w-sm mx-auto">
-                  You&apos;re all set. Click below to unlock your full account and start building your profile.
-                </p>
-                <button
-                  onClick={handleBuildProfile}
-                  disabled={completeOnboarding.isPending}
-                  className="btn-iridescent mt-5 inline-flex text-sm py-2.5 px-6 disabled:opacity-50"
-                >
-                  {completeOnboarding.isPending ? 'Unlocking…' : 'Build Profile'}
-                  <svg className="arrow-icon h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50">
-                  <svg className="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-                <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
-                  Complete all chapters to unlock
-                </h3>
-                <p className="mt-1 text-sm text-[#737373]">
-                  {totals.completed} of {totals.total} lessons complete
-                </p>
-              </>
-            )}
-          </div>
-        </>
-      )}
-    </div>
+      ) : null}
+    />
   );
 }
 
 export default function TrainingProgram() {
   const { user } = useAuth();
+  const routeCourseId = (useParams()?.courseId as string | undefined) ?? null;
   const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
 
-  if (!onboarded) return <OnboardingTraining />;
+  if (!onboarded) return <OnboardingTraining routeCourseId={routeCourseId} />;
 
   return <FullTrainingProgram />;
 }
@@ -912,10 +870,12 @@ function CourseReader({
   course,
   enforceSequential,
   onBack,
+  completionBanner,
 }: {
   course: TrainingCourse;
   enforceSequential: boolean;
   onBack: () => void;
+  completionBanner?: ReactNode;
 }) {
   const availableLanguages = getCourseLanguages(course);
   const [language, setLanguage, hasSelectedLanguage] = useCourseLanguage(course.id, availableLanguages);
@@ -1144,6 +1104,7 @@ function CourseReader({
       </div>
 
       {banners}
+      {completionBanner}
 
       {needsLanguageSelection ? (
         <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">

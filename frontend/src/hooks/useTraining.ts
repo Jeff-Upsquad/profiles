@@ -458,7 +458,10 @@ export function useOnboardingCourses() {
     queryKey: ['onboardingCourses'],
     queryFn: async () => {
       const { data } = await api.get('/talent/training/onboarding-courses');
-      return data.courses ?? [];
+      // Use the canonical item/page payload, matching the regular Training
+      // catalog. The server's `chapters` field only exists for old mobile
+      // builds and should not drive the web reader.
+      return (data.courses ?? []).map(itemToCourse);
     },
   });
 }
