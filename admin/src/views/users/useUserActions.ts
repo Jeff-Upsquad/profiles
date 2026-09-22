@@ -9,6 +9,9 @@ export function useUserActions() {
     queryClient.invalidateQueries({ queryKey: ['admin-users-talent'] });
     queryClient.invalidateQueries({ queryKey: ['admin-users-business'] });
     queryClient.invalidateQueries({ queryKey: ['admin-onboarding-leads'] });
+    queryClient.invalidateQueries({ queryKey: ['blocked-profiles'] });
+    queryClient.invalidateQueries({ queryKey: ['talent-profiles'] });
+    queryClient.invalidateQueries({ queryKey: ['talent-categories'] });
   };
 
   const suspendUser = useMutation({

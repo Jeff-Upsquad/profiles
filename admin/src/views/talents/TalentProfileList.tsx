@@ -22,6 +22,8 @@ interface TalentProfile {
     profile_photo_url?: string;
     current_location?: string;
     is_active?: boolean;
+    suspended?: boolean;
+    blacklisted?: boolean;
   };
   categories?: { name: string };
   tier: 'junior' | 'pro' | 'Top Talents' | 'custom' | null;
@@ -81,6 +83,12 @@ function tierKeyOf(profile: TalentProfile): TierKey {
   return 'none';
 }
 
+// Partner Program / Jobs show only active + inactive. Suspended / blacklisted
+// talents are managed in the dedicated Blocked Users module.
+function isBlockedProfile(p: TalentProfile): boolean {
+  return p.talent_users?.suspended === true || p.talent_users?.blacklisted === true;
+}
+
 export type EmploymentScope = 'partner_program' | 'freelance' | 'salary';
 export type PartnerProgramTrack = 'both' | 'subscriptions_only' | 'assignments_only';
 
@@ -132,13 +140,19 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
   }, [profiles]);
 
   const { scopedProfiles, profileLocations } = useMemo(() => {
-    if (!stateName) return { scopedProfiles: profiles ?? [], profileLocations: allProfileLocations };
     const pairs = (profiles ?? [])
       .map((p, i) => [p, allProfileLocations[i]] as const)
-      .filter(([, loc]) => loc.state === decodeURIComponent(stateName));
+      .filter(([p]) => !isBlockedProfile(p));
+    if (!stateName) {
+      return {
+        scopedProfiles: pairs.map(([p]) => p),
+        profileLocations: pairs.map(([, l]) => l),
+      };
+    }
+    const scoped = pairs.filter(([, loc]) => loc.state === decodeURIComponent(stateName));
     return {
-      scopedProfiles: pairs.map(([p]) => p),
-      profileLocations: pairs.map(([, l]) => l),
+      scopedProfiles: scoped.map(([p]) => p),
+      profileLocations: scoped.map(([, l]) => l),
     };
   }, [profiles, allProfileLocations, stateName]);
 

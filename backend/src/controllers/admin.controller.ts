@@ -725,6 +725,23 @@ export async function getTalentProfilesByCategory(req: Request, res: Response, n
   }
 }
 
+export async function getBlockedTalentProfiles(req: Request, res: Response, next: NextFunction) {
+  try {
+    const search = req.query.search as string | undefined;
+    const rawBlock = req.query.block as string | undefined;
+    const block: 'all' | 'suspended' | 'blacklisted' =
+      rawBlock === 'suspended' || rawBlock === 'blacklisted' ? rawBlock : 'all';
+    const result = await adminService.getBlockedTalentProfiles(
+      search,
+      pickEmploymentType(req),
+      block,
+    );
+    res.json({ profiles: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getTalentProfile(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await adminService.getTalentProfile(req.params.profileId as string);

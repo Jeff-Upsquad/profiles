@@ -1833,6 +1833,24 @@ export async function getTalentCategories(employmentType?: string, track?: Partn
 
   if (profErr) throw new AppError(500, profErr.message);
 
+  // Partner Program / Jobs category counts show only active + inactive users.
+  // Suspended / blacklisted talents live in the dedicated Blocked Users module,
+  // so exclude them here.
+  const blockedUserIds = new Set<string>();
+  const profileUserIds = [...new Set((profiles ?? []).map((p: any) => p.talent_user_id).filter(Boolean))];
+  if (profileUserIds.length > 0) {
+    const { data: blockedRows, error: blockedErr } = await supabaseAdmin
+      .from('talent_users')
+      .select('id, suspended, blacklisted')
+      .in('id', profileUserIds);
+    if (blockedErr) throw new AppError(500, blockedErr.message);
+    for (const u of blockedRows ?? []) {
+      if ((u as any).suspended === true || (u as any).blacklisted === true) {
+        blockedUserIds.add((u as any).id);
+      }
+    }
+  }
+
   const countMap: Record<string, {
     total: number;
     approved: number;
@@ -1843,6 +1861,7 @@ export async function getTalentCategories(employmentType?: string, track?: Partn
     assignments_only: number;
   }> = {};
   for (const p of profiles ?? []) {
+    if (blockedUserIds.has((p as any).talent_user_id)) continue;
     if (!countMap[p.category_id]) {
       countMap[p.category_id] = {
         total: 0,
@@ -1895,9 +1914,13 @@ export async function getTalentProfilesByCategory(categoryId: string, search?: s
 
   let qb = supabaseAdmin
     .from('talent_profiles')
-    .select('*, talent_users!inner(full_name, profile_photo_url, current_location, is_active), categories!inner(name, slug)')
+    .select('*, talent_users!inner(full_name, profile_photo_url, current_location, is_active, suspended, blacklisted), categories!inner(name, slug)')
     .eq('category_id', categoryId)
     .is('deleted_at', null)
+    // Partner Program / Jobs lists show only active + inactive.
+    // Suspended / blacklisted live in the Blocked Users module.
+    .eq('talent_users.suspended', false)
+    .eq('talent_users.blacklisted', false)
     .order('created_at', { ascending: false });
 
   if (userIdsFilter !== null) {
@@ -1918,6 +1941,86 @@ export async function getTalentProfilesByCategory(categoryId: string, search?: s
   // Geography filter / breakdown reads structured location from
   // talent_profiles_basic (country/state). Fold those into each row so the
   // admin UI can prefer them over parsing the freeform current_location.
+  const basicMap = new Map<string, { country: string | null; state: string | null; employment_type: unknown }>();
+  if (userIds.length > 0) {
+    const { data: basicRows, error: basicErr } = await supabaseAdmin
+      .from('talent_profiles_basic')
+      .select('talent_user_id, country, state, employment_type')
+      .in('talent_user_id', userIds);
+    if (basicErr) throw new AppError(500, basicErr.message);
+    for (const b of basicRows ?? []) {
+      basicMap.set((b as any).talent_user_id, {
+        country: ((b as any).country as string | null) ?? null,
+        state: ((b as any).state as string | null) ?? null,
+        employment_type: (b as any).employment_type,
+      });
+    }
+  }
+
+  return rows.map((r) => {
+    const basic = basicMap.get(r.talent_user_id) ?? null;
+    return {
+      ...r,
+      tier: tiers[r.talent_user_id]?.tier ?? null,
+      tier_custom: tiers[r.talent_user_id]?.tier_custom ?? null,
+      basic_country: basic?.country ?? null,
+      basic_state: basic?.state ?? null,
+      employment_type: basic?.employment_type ?? null,
+    };
+  });
+}
+
+export type BlockedFilter = 'all' | 'suspended' | 'blacklisted';
+
+/**
+ * Dedicated Blocked Users feed: talent profiles whose owner is suspended
+ * and/or blacklisted. Covers both Partner Program and Jobs — callers can
+ * narrow via employmentType ('partner_program' | 'salary') and blockFilter.
+ * Restore = unsuspend/unblacklist from this list (handled by existing
+ * PATCH /admin/users/:id/suspend and /blacklist endpoints).
+ */
+export async function getBlockedTalentProfiles(search?: string, employmentType?: string, blockFilter?: BlockedFilter) {
+  let userIdsFilter: string[] | null = null;
+  if (employmentType) {
+    const { data: basicRows, error: basicErr } = await supabaseAdmin
+      .from('talent_profiles_basic')
+      .select('talent_user_id, employment_type');
+    if (basicErr) throw new AppError(500, basicErr.message);
+    userIdsFilter = (basicRows ?? [])
+      .filter((r) => matchesEmploymentScope((r as any).employment_type, employmentType))
+      .map((r) => (r as any).talent_user_id)
+      .filter(Boolean);
+    if (userIdsFilter.length === 0) return [];
+  }
+
+  let qb = supabaseAdmin
+    .from('talent_profiles')
+    .select('*, talent_users!inner(full_name, profile_photo_url, current_location, is_active, suspended, blacklisted, suspended_reason, blacklisted_reason, suspended_at, blacklisted_at), categories!inner(name, slug)')
+    .is('deleted_at', null)
+    .or('suspended.eq.true,blacklisted.eq.true', { foreignTable: 'talent_users' })
+    .order('created_at', { ascending: false });
+
+  if (blockFilter === 'suspended') {
+    qb = qb.eq('talent_users.suspended', true);
+  } else if (blockFilter === 'blacklisted') {
+    qb = qb.eq('talent_users.blacklisted', true);
+  }
+
+  if (userIdsFilter !== null) {
+    qb = qb.in('talent_user_id', userIdsFilter);
+  }
+
+  if (search) {
+    qb = qb.ilike('talent_users.full_name', `%${search}%`);
+  }
+
+  const { data, error } = await qb;
+  if (error) throw new AppError(500, error.message);
+
+  const rows = (data ?? []) as any[];
+  const userIds = rows.map((r) => r.talent_user_id).filter(Boolean);
+  const tiers = await getTalentTiersByUserIds(userIds);
+
   const basicMap = new Map<string, { country: string | null; state: string | null; employment_type: unknown }>();
   if (userIds.length > 0) {
     const { data: basicRows, error: basicErr } = await supabaseAdmin

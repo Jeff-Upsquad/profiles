@@ -278,6 +278,7 @@ router.delete('/portfolio-categories/:id', adminController.deleteTemplateCategor
 // ---------------------------------------------------------------------------
 
 router.get('/talents/categories', adminController.getTalentCategories);
+router.get('/talents/blocked-profiles', adminController.getBlockedTalentProfiles);
 router.get('/talents/categories/:categoryId/profiles', adminController.getTalentProfilesByCategory);
 router.get('/talents/profiles/:profileId', adminController.getTalentProfile);
 router.patch('/talents/profiles/:profileId/active', adminController.setProfileActive);
