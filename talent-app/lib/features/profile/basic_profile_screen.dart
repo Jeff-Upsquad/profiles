@@ -64,6 +64,15 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
       _sameAsOfficial = _inferSameAsOfficial();
       _fullName.text = me.fullName ?? '';
       _languages = List.of(me.languagesSpoken);
+      // Legacy data may hold only Fluent rows (no Native) — coerce the first
+      // row to Native so the "Languages (one native)" checklist turns green.
+      if (_languages.isNotEmpty &&
+          !_languages.any((l) => l.proficiency == 'native')) {
+        _languages = [
+          _languages.first.copyWith(proficiency: 'native'),
+          ..._languages.skip(1),
+        ];
+      }
       _preferredLocations = List.of(prefs.preferredLocations);
       _notice.text = prefs.noticePeriodDays?.toString() ?? '';
       _openToRelocation = prefs.openToRelocation;
@@ -201,10 +210,17 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
       await ref.read(basicProfileServiceProvider).update(_p);
 
       step = 'name & languages';
+      // Force the first language to Native (mother tongue) so a profile can
+      // never be saved with only Fluent entries.
+      final langsToSave = _languages.where((e) => e.language.isNotEmpty).toList();
+      if (langsToSave.isNotEmpty &&
+          !langsToSave.any((e) => e.proficiency == 'native')) {
+        langsToSave[0] = langsToSave.first.copyWith(proficiency: 'native');
+      }
+      _languages = List.of(langsToSave);
       await ref.read(talentServiceProvider).updateFields({
         'full_name': _fullName.text.trim(),
-        'languages_spoken':
-            _languages.where((e) => e.language.isNotEmpty).map((e) => e.toJson()).toList(),
+        'languages_spoken': langsToSave.map((e) => e.toJson()).toList(),
       });
 
       step = 'job preferences';
