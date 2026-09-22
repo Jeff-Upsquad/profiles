@@ -227,6 +227,8 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
 
   // Talent-board chips: union of stages across linked talent pipelines (for
   // "All"), or just the selected category's pipeline.
+  // Graduated stage ("Onboarding completed") is hidden — those talents live in
+  // Partner Program / Jobs now, not in the onboarding queue.
   const talentStages = useMemo(() => {
     const all = pipelines?.pipelines ?? {};
     const picked = track === 'jobs' ? all.jobs ? [all.jobs] : []
@@ -234,7 +236,9 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
         : all[category] ? [all[category]] : [];
     const seen = new Map<string, { id: string; name: string; sort_order: number }>();
     for (const p of picked) for (const s of p.stages) if (!seen.has(s.id)) seen.set(s.id, s);
-    return [...seen.values()].sort((a, b) => a.sort_order - b.sort_order);
+    return [...seen.values()]
+      .filter((s) => s.name.trim().toLowerCase() !== 'onboarding completed')
+      .sort((a, b) => a.sort_order - b.sort_order);
   }, [pipelines, category, track]);
   const talentPipelineLinked = talentStages.length > 0;
 
@@ -357,7 +361,7 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
           </p>
           <p className="text-[11px] text-gray-400">
             {talentPipelineLinked
-              ? `${stats?.in_talent_pipeline ?? 0} on the board · synced with SquadHire CRM`
+              ? `${stats?.in_talent_pipeline ?? 0} on the board · synced with SquadHire CRM · completed move to ${track === 'jobs' ? 'Jobs' : 'Partner Program'}`
               : 'not linked'}
           </p>
         </div>
@@ -398,7 +402,7 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
           <p className="rounded-lg border border-dashed border-gray-200 bg-white px-3 py-2 text-xs text-gray-500">
             Link the CRM talent pipeline for each category under{' '}
             <Link href="/crm-mapping" className="text-indigo-600 underline">CRM Mapping</Link> to see and move
-            talents through Welcome → Download App → Webinars → Onboarding completed here.
+            talents through Welcome → Download App → Webinars here. Completed talents graduate to {track === 'jobs' ? 'Jobs' : 'Partner Program'}.
           </p>
         )}
       </div>

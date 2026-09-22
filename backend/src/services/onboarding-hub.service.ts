@@ -21,6 +21,15 @@ import {
 } from '../lib/signup-category.js';
 import { normalizeStage, type CrmStage } from './crm-stage-mapping.js';
 
+// Graduated talents (talent-board "Onboarding completed") no longer belong in
+// the onboarding queue — they live in Partner Program / Jobs modules where the
+// live profiles appear. Match by normalized stage name so CRM renames/casing
+// don't leak them back into the hub.
+const GRADUATED_TALENT_STAGE = 'onboarding completed';
+function isGraduatedTalentStageName(name: string | null | undefined): boolean {
+  return normalizeStage(name ?? '') === GRADUATED_TALENT_STAGE;
+}
+
 // Columns needed to evaluate isBasicProfileMandatoryComplete + the checklist.
 const BASIC_COLUMNS =
   'talent_user_id, created_at, updated_at, permanent_country, permanent_state, permanent_district, ' +
@@ -458,6 +467,28 @@ export async function listHub(filters: HubListFilters) {
   if (filters.track === 'partner') qb = qb.not('partner_approval_status', 'is', null);
   if (filters.track === 'jobs') qb = qb.eq('wants_jobs', true);
 
+  // Graduated talents (talent-board "Onboarding completed") live in Partner
+  // Program / Jobs now — keep the onboarding hub as the active queue.
+  // Excluded here at the DB level so pagination/counts stay correct.
+  // Uses id exclusion (not `not.ilike`) so NULL stage rows are kept.
+  if (filters.track === 'partner' || filters.track === 'jobs') {
+    const graduatedColumn = filters.track === 'jobs' ? 'crm_jobs_stage_name' : 'crm_talent_stage_name';
+    const { data: graduatedRows } = await supabaseAdmin
+      .from('talent_users')
+      .select('id')
+      .ilike(graduatedColumn, GRADUATED_TALENT_STAGE);
+    const graduatedIds = (graduatedRows ?? []).map((r: any) => r.id).filter(Boolean);
+    if (graduatedIds.length > 0) qb = qb.not('id', 'in', `(${graduatedIds.join(',')})`);
+  } else {
+    const [{ data: g1 }, { data: g2 }] = await Promise.all([
+      supabaseAdmin.from('talent_users').select('id').ilike('crm_talent_stage_name', GRADUATED_TALENT_STAGE),
+      supabaseAdmin.from('talent_users').select('id').ilike('crm_jobs_stage_name', GRADUATED_TALENT_STAGE),
+    ]);
+    const graduatedIds = [...(g1 ?? []), ...(g2 ?? [])].map((r: any) => r.id).filter(Boolean);
+    const unique = [...new Set(graduatedIds)];
+    if (unique.length > 0) qb = qb.not('id', 'in', `(${unique.join(',')})`);
+  }
+
   const stage = (filters.pipeline_stage ?? '').trim().toLowerCase();
   if (stage && stage !== 'all') qb = qb.eq(filters.track === 'jobs' ? 'jobs_pipeline_stage' : 'pipeline_stage', stage);
 
@@ -597,14 +628,19 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
 
   let qb = supabaseAdmin
     .from('talent_users')
-    .select('id, approval_status, partner_approval_status, wants_jobs, pipeline_stage, jobs_pipeline_stage, crm_talent_stage_id, crm_jobs_stage_id');
+    .select('id, approval_status, partner_approval_status, wants_jobs, pipeline_stage, jobs_pipeline_stage, crm_talent_stage_id, crm_jobs_stage_id, crm_talent_stage_name, crm_jobs_stage_name');
   if (categoryIds) qb = qb.in('id', categoryIds);
   if (track === 'partner') qb = qb.not('partner_approval_status', 'is', null);
   if (track === 'jobs') qb = qb.eq('wants_jobs', true);
   const { data, error } = await qb;
   if (error) throw new AppError(500, error.message);
 
-  const rows = (data ?? []) as any[];
+  // Same graduation rule as listHub: hide "Onboarding completed" from the queue.
+  const rows = ((data ?? []) as any[]).filter((r) => {
+    const stageName = track === 'jobs' ? r.crm_jobs_stage_name : track === 'partner' ? r.crm_talent_stage_name : null;
+    if (track) return !isGraduatedTalentStageName(stageName);
+    return !isGraduatedTalentStageName(r.crm_talent_stage_name) && !isGraduatedTalentStageName(r.crm_jobs_stage_name);
+  });
   const byStage: Record<string, number> = {};
   const byTalentStage: Record<string, number> = {};
   let pending = 0;
