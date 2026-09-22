@@ -49,47 +49,49 @@ export default function Navbar() {
               Categories
             </Link>
 
-            <div className="ml-4 flex items-center gap-3">
-              {user ? (
-                <>
-                  <div className="text-right">
-                    <span className="font-[family-name:var(--font-inter)] block text-sm text-[#737373]">
-                      {user.role === 'business' && user.contact_person_name
-                        ? user.contact_person_name
-                        : user.email}
-                    </span>
-                    {user.role === 'business' && (user.contact_phone || user.contact_email) && (
-                      <span className="font-[family-name:var(--font-inter)] block text-[11px] text-[#a0a0a0]">
-                        {user.contact_email ?? user.email}
-                        {user.contact_phone && ` · ${user.contact_phone}`}
+            {user?.role !== 'talent' && (
+              <div className="ml-4 flex items-center gap-3">
+                {user ? (
+                  <>
+                    <div className="text-right">
+                      <span className="font-[family-name:var(--font-inter)] block text-sm text-[#737373]">
+                        {user.role === 'business' && user.contact_person_name
+                          ? user.contact_person_name
+                          : user.email}
                       </span>
-                    )}
-                  </div>
-                  <Badge variant="indigo">{user.role}</Badge>
-                  <button
-                    onClick={() => logout()}
-                    className="font-[family-name:var(--font-inter)] rounded-lg px-2.5 py-2 text-sm font-medium text-[#525252] transition-all duration-200 hover:bg-[#f0f0f0] hover:text-[#0a0a0a]"
-                  >
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link
-                    href="/login"
-                    className="font-[family-name:var(--font-inter)] rounded-lg px-2.5 py-2 text-sm font-medium text-[#525252] transition-all duration-200 hover:bg-[#f0f0f0] hover:text-[#0a0a0a]"
-                  >
-                    Login
-                  </Link>
-                  <Link
-                    href="/signup/talent"
-                    className="font-[family-name:var(--font-inter)] inline-flex items-center rounded-lg bg-[#0a0a0a] px-3 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-[#0a0a0a]/85 active:scale-[0.97]"
-                  >
-                    Get Started
-                  </Link>
-                </>
-              )}
-            </div>
+                      {user.role === 'business' && (user.contact_phone || user.contact_email) && (
+                        <span className="font-[family-name:var(--font-inter)] block text-[11px] text-[#a0a0a0]">
+                          {user.contact_email ?? user.email}
+                          {user.contact_phone && ` · ${user.contact_phone}`}
+                        </span>
+                      )}
+                    </div>
+                    <Badge variant="indigo">{user.role}</Badge>
+                    <button
+                      onClick={() => logout()}
+                      className="font-[family-name:var(--font-inter)] rounded-lg px-2.5 py-2 text-sm font-medium text-[#525252] transition-all duration-200 hover:bg-[#f0f0f0] hover:text-[#0a0a0a]"
+                    >
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/login"
+                      className="font-[family-name:var(--font-inter)] rounded-lg px-2.5 py-2 text-sm font-medium text-[#525252] transition-all duration-200 hover:bg-[#f0f0f0] hover:text-[#0a0a0a]"
+                    >
+                      Login
+                    </Link>
+                    <Link
+                      href="/signup/talent"
+                      className="font-[family-name:var(--font-inter)] inline-flex items-center rounded-lg bg-[#0a0a0a] px-3 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-[#0a0a0a]/85 active:scale-[0.97]"
+                    >
+                      Get Started
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Mobile hamburger */}

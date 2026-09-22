@@ -17,6 +17,7 @@ export interface SidebarItem {
 interface DashboardLayoutProps {
   sidebarItems?: SidebarItem[];
   sidebarContent?: React.ReactNode | ((opts: { onNavigate: () => void }) => React.ReactNode);
+  sidebarFooter?: React.ReactNode;
   hideMobileSidebar?: boolean;
   hideNavbar?: boolean;
   /** Keep the desktop top bar, hide it on mobile (talent uses TalentTopBar). */
@@ -24,7 +25,15 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
-export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobileSidebar, hideNavbar, hideNavbarOnMobile, children }: DashboardLayoutProps) {
+export default function DashboardLayout({
+  sidebarItems,
+  sidebarContent,
+  sidebarFooter,
+  hideMobileSidebar,
+  hideNavbar,
+  hideNavbarOnMobile,
+  children,
+}: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname() ?? '';
   const isMessagesList = pathname === '/business/messages' || pathname === '/talent/messages';
@@ -70,11 +79,11 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
           </div>
         ) : sidebarItems && sidebarItems.length > 0 ? (
           <aside
-            className={`fixed inset-y-0 left-0 z-20 ${hideNavbar ? '' : 'mt-[60px]'} w-60 transform border-r border-[#E7E7EA] bg-white transition-transform md:relative md:mt-0 md:translate-x-0 ${
+            className={`fixed inset-y-0 left-0 z-20 ${hideNavbar ? '' : 'mt-[60px]'} flex w-60 transform flex-col border-r border-[#E7E7EA] bg-white transition-transform md:relative md:mt-0 md:translate-x-0 ${
               sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             }`}
           >
-            <nav className="flex flex-col gap-0.5 p-3">
+            <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3">
               {sidebarItems.map((item, index) => {
                 const divider =
                   item.groupStart && index > 0 ? (
@@ -111,6 +120,7 @@ export default function DashboardLayout({ sidebarItems, sidebarContent, hideMobi
                 return divider ? [divider, node] : node;
               })}
             </nav>
+            {sidebarFooter}
           </aside>
         ) : null}
 

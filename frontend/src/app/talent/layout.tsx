@@ -8,6 +8,7 @@ import Badge from '@/components/ui/Badge';
 import { useUnreadSubscriptionCount, useUnreadAssignmentCount } from '@/hooks/useSubscriptionCards';
 import TalentTopBar from '@/components/layout/TalentTopBar';
 import TalentBottomNav from '@/components/layout/TalentBottomNav';
+import TalentSidebarFooter from '@/components/layout/TalentSidebarFooter';
 import { useUnreadJobsCount } from '@/hooks/useJobs';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { useConversationUnread } from '@/hooks/useConversations';
@@ -360,6 +361,7 @@ export default function TalentLayout({
   return (
     <DashboardLayout
       sidebarItems={gatedItems}
+      sidebarFooter={<TalentSidebarFooter />}
       hideMobileSidebar
       hideNavbarOnMobile
     >
