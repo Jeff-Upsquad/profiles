@@ -22,6 +22,7 @@ import GroupMeetPanel from '@/components/group-meet/GroupMeetPanel';
 import { isOpenBusinessOffer, useBusinessAssignmentOffers, type BusinessAssignmentOffer } from '@/hooks/useBusinessAssignmentOffers';
 import { useCardPayments, useStartCardPayment, type CardPayment, type CardGateway } from '@/hooks/useCardPayments';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
+import { evaluateRecipientMatches, flattenAdditionalReqs, type CriteriaMatchItem, type ReqItem } from '@/lib/reviewCriteria';
 import {
   assignmentOfferPeriod,
   optionalAssignmentQuantity,
@@ -297,7 +298,7 @@ export default function SubscriptionCardReview({
   const shortlistedView = shortlisted.filter(tierMatches);
   const newAcceptedCount = forReview.filter(isNewAcceptance).length;
   // Optional skills/tools the client attached to the brief — shown under each
-  // accepted talent as ✓ (they list it) / ✗ (they don't). Reference only.
+  // accepted talent as ✓ or ✗. They affect review grouping, not broadcast.
   const additionalReqs = flattenAdditionalReqs(card?.additional_requirements);
   const tierCount = (key: string) => {
     const pool = [...forReview, ...shortlisted];
@@ -461,6 +462,7 @@ export default function SubscriptionCardReview({
             one compact grid (service/plan live in the title + subtitle). */}
         {(card.hours_label ||
           (card.working_days && card.working_days.length > 0) ||
+          (card.target_country_names?.length ?? 0) > 0 ||
           card.target_regions.length > 0 ||
           card.target_languages.length > 0) && (
           <Section title="Details">
@@ -470,6 +472,11 @@ export default function SubscriptionCardReview({
               )}
               {!isAssignment && card.working_days && card.working_days.length > 0 && (
                 <DetailRow label="Working days">{card.working_days.join(', ')}</DetailRow>
+              )}
+              {(card.target_country_names?.length ?? 0) > 0 && (
+                <DetailRow label={card.target_country_names.length === 1 ? 'Country' : 'Countries'}>
+                  {card.target_country_names.join(', ')}
+                </DetailRow>
               )}
               {card.target_regions.length > 0 && (
                 <DetailRow label={card.target_regions.length === 1 ? 'Region' : 'Regions'}>
@@ -850,7 +857,7 @@ export default function SubscriptionCardReview({
                             </span>
                           </div>
                           <p className="mt-0.5 text-xs text-[#737373]">
-                            Meet all listed card preferences and criteria.
+                            Meet all listed card preferences, including optional requirements.
                           </p>
                         </div>
                       </div>
@@ -927,7 +934,7 @@ export default function SubscriptionCardReview({
                             </span>
                           </div>
                           <p className="mt-0.5 text-xs text-[#737373]">
-                            Match category and location or language; review missing preferences below.
+                            Match the role and at least one location or language criterion; review missing preferences below.
                           </p>
                         </div>
                       </div>
@@ -1255,22 +1262,6 @@ function formatMinutesAgo(isoDate: string | null | undefined): string | null {
   return `${diffDays}d ago`;
 }
 
-function extractSpokenLanguages(languagesSpoken: unknown): string[] {
-  if (!Array.isArray(languagesSpoken)) return [];
-  const out: string[] = [];
-  for (const item of languagesSpoken) {
-    if (typeof item === 'string' && item.trim()) {
-      out.push(item.trim());
-    } else if (item && typeof item === 'object') {
-      const name = (item as any).language ?? (item as any).name;
-      if (typeof name === 'string' && name.trim()) {
-        out.push(name.trim());
-      }
-    }
-  }
-  return out;
-}
-
 function shuffleWithSeed<T>(list: T[], seed: number): T[] {
   const result = [...list];
   let state = seed;
@@ -1280,102 +1271,6 @@ function shuffleWithSeed<T>(list: T[], seed: number): T[] {
     [result[index], result[chosen]] = [result[chosen], result[index]];
   }
   return result;
-}
-
-interface CriteriaMatchItem {
-  key: string;
-  category: 'Role' | 'Location' | 'Language' | 'Tool';
-  label: string;
-  detail?: string;
-  matches: boolean;
-  optional?: boolean;
-}
-
-function evaluateRecipientMatches(
-  r: CardRecipientForBusiness,
-  card: BusinessSubscriptionCardDetail,
-): {
-  items: CriteriaMatchItem[];
-  isAllMatch: boolean;
-} {
-  const items: CriteriaMatchItem[] = [];
-
-  // 1. Role / Category
-  const categoryName = r.category?.name || card.categories?.[0]?.name || 'Required Role';
-  items.push({
-    key: 'category',
-    category: 'Role',
-    label: categoryName,
-    matches: true,
-  });
-
-  // 2. Location
-  const targetRegions: string[] = (card.target_regions ?? [])
-    .map((reg: any) => (typeof reg === 'string' ? reg : reg?.region))
-    .filter((x: any): x is string => typeof x === 'string' && x.trim().length > 0);
-
-  const hasLocationReq = targetRegions.length > 0;
-  let locationMatches = true;
-  if (hasLocationReq) {
-    const rState = (r.state ?? '').trim().toLowerCase();
-    const rLoc = (r.current_location ?? '').trim().toLowerCase();
-    locationMatches = targetRegions.some((tr) => {
-      const target = tr.trim().toLowerCase();
-      return (rState && rState.includes(target)) || (rLoc && rLoc.includes(target));
-    });
-
-    const displayLoc = r.state
-      ? (r.country ? `${r.state}, ${r.country}` : r.state)
-      : (r.current_location || 'Other location');
-
-    items.push({
-      key: 'location',
-      category: 'Location',
-      label: displayLoc,
-      detail: locationMatches ? undefined : `req. ${targetRegions.join('/')}`,
-      matches: locationMatches,
-    });
-  }
-
-  // 3. Language
-  const targetLanguages: string[] = (card.target_languages ?? [])
-    .filter((l: any): l is string => typeof l === 'string' && l.trim().length > 0);
-
-  const hasLanguageReq = targetLanguages.length > 0;
-  let languageMatches = true;
-  if (hasLanguageReq) {
-    const spokenLangs = extractSpokenLanguages(r.languages_spoken);
-    const matchedLangs = targetLanguages.filter((tl) =>
-      spokenLangs.some((sl) => sl.toLowerCase() === tl.toLowerCase()),
-    );
-    languageMatches = matchedLangs.length > 0;
-
-    const displayLangs = spokenLangs.length > 0 ? spokenLangs.slice(0, 2).join(', ') : 'Not listed';
-    items.push({
-      key: 'language',
-      category: 'Language',
-      label: languageMatches && matchedLangs.length > 0 ? matchedLangs.join(', ') : displayLangs,
-      detail: languageMatches ? undefined : `req. ${targetLanguages.join('/')}`,
-      matches: languageMatches,
-    });
-  }
-
-  // 4. Additional requirements (tools / skills)
-  const additionalReqs = flattenAdditionalReqs(card.additional_requirements);
-  const talentSkills = new Set((r.skill_tool_names ?? []).map((s) => s.trim().toLowerCase()));
-  for (const req of additionalReqs) {
-    const hasSkill = talentSkills.has(req.label.trim().toLowerCase());
-    items.push({
-      key: `req-${req.label}`,
-      category: 'Tool',
-      label: req.label,
-      matches: hasSkill,
-      optional: true,
-    });
-  }
-
-  const isAllMatch = locationMatches && languageMatches;
-  return { items, isAllMatch };
 }
 
 function CriteriaBreakdown({ items }: { items: CriteriaMatchItem[] }) {
@@ -1448,24 +1343,7 @@ function CriteriaBreakdown({ items }: { items: CriteriaMatchItem[] }) {
 
 // ── Additional requirements (optional skills/tools) ─────────────────────────
 // Presence-match the card's optional requirements against a talent's profile
-// skill/tool names. Reference only for the business — never affects matching.
-interface ReqItem { group: string; label: string }
-
-function flattenAdditionalReqs(
-  raw: Record<string, string[]> | null | undefined,
-): ReqItem[] {
-  if (!raw || typeof raw !== 'object') return [];
-  const out: ReqItem[] = [];
-  for (const [group, list] of Object.entries(raw)) {
-    if (!Array.isArray(list)) continue;
-    for (const label of list) {
-      const l = typeof label === 'string' ? label.trim() : '';
-      if (l) out.push({ group, label: l });
-    }
-  }
-  return out;
-}
-
+// skill/tool names. These never affect broadcast eligibility.
 function MatchChips({ reqs, talentNames }: { reqs: ReqItem[]; talentNames?: string[] }) {
   if (reqs.length === 0) return null;
   const have = new Set((talentNames ?? []).map((n) => n.trim().toLowerCase()).filter(Boolean));

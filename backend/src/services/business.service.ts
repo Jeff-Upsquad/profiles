@@ -1355,8 +1355,11 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
       .map(([tier, v]) => ({ tier, plan_name: v.plan_name, price: v.price }))
       .sort((a, b) => tierRankOf(a.tier) - tierRankOf(b.tier)),
     target_languages: Array.isArray(matchRules.target_languages) ? (matchRules.target_languages as string[]) : [],
+    target_country_names: Array.isArray(matchRules.target_country_names)
+      ? (matchRules.target_country_names as string[])
+      : [],
     target_regions: Array.isArray(matchRules.target_regions)
-      ? (matchRules.target_regions as Array<{ country_id: string; region: string }>)
+      ? (matchRules.target_regions as Array<{ country_name?: string; region: string }>)
       : [],
     custom_deliverables: Array.isArray(content.custom_deliverables)
       ? (content.custom_deliverables as Array<{

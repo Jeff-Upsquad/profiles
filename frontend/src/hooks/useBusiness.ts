@@ -196,7 +196,8 @@ export interface BusinessSubscriptionCardDetail {
    *  ordered junior → top. Empty when no tier carried a price. */
   tier_prices?: Array<{ tier: string; plan_name: string | null; price: number }>;
   target_languages: string[];
-  target_regions: Array<{ country_id: string; region: string }>;
+  target_country_names: string[];
+  target_regions: Array<{ country_name?: string; region: string }>;
   custom_deliverables: Array<{
     id?: string;
     name: string;
