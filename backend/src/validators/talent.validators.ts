@@ -135,7 +135,40 @@ export const updateBasicProfileSchema = z.object({
   expected_salary_part_time: z.number().int().min(0).nullable().optional(),
 });
 
+const dayEnum = z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
+
+/**
+ * Standalone Partner Program application (the form on the locked Subscriptions /
+ * Assignments preview). Mirrors the partner fields of the basic-profile wizard:
+ * which tracks the talent wants, plus the hours they commit to.
+ */
+export const applyPartnerProgramSchema = z.object({
+  tracks: z
+    .array(z.enum(['partner_program', 'freelance']))
+    .min(1, 'Choose at least one track')
+    .max(2),
+  virtual_office_hours: z
+    .array(
+      z.object({
+        day: dayEnum,
+        from: z.string().regex(/^\d{2}:\d{2}$/),
+        to: z.string().regex(/^\d{2}:\d{2}$/),
+      })
+    )
+    .min(1, 'Set your office hours for at least one day')
+    .max(7),
+  daily_available_hours: z
+    .array(z.object({ day: dayEnum, hours: z.number().min(0).max(24) }))
+    .max(7)
+    .default([]),
+});
+
+export const opportunityPreviewQuerySchema = z.object({
+  card_type: z.enum(['subscription', 'assignment']).default('subscription'),
+});
+
 export type CreateProfileInput = z.infer<typeof createProfileSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type UpdateTalentUserInput = z.infer<typeof updateTalentUserSchema>;
 export type UpdateBasicProfileInput = z.infer<typeof updateBasicProfileSchema>;
+export type ApplyPartnerProgramInput = z.infer<typeof applyPartnerProgramSchema>;

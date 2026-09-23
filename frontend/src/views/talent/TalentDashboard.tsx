@@ -8,6 +8,7 @@ import TalentHomeTabs, { type TalentHomeTab } from '@/components/layout/TalentHo
 import TalentOffersView, { WhatsAppUpdatesToggle } from '@/components/subscriptions/TalentOffersView';
 import TalentJobsView from '@/components/jobs/talent/TalentJobsView';
 import ModuleUnlockGate from '@/components/training/ModuleUnlockGate';
+import PartnerLockedView from '@/components/partner/PartnerLockedView';
 
 type OnboardingStageKey = keyof OnboardingProgress;
 
@@ -90,18 +91,25 @@ export default function TalentDashboard() {
   const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
   const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
   const partnerAvailable = user?.partner_approval_status === undefined || user.partner_approval_status === 'approved';
-  const partnerOnlyPending = user?.wants_jobs === false && !partnerAvailable;
-  const [tab, setTab] = useState<TalentHomeTab>(partnerAvailable ? 'subscriptions' : 'jobs');
+  // A talent who never asked for Jobs has no Jobs tab; everyone else keeps all
+  // three, because Subscriptions and Assignments are now browsable (read-only)
+  // even before Partner Program approval.
+  const wantsJobs = user?.wants_jobs !== false;
+  const homeTabs: TalentHomeTab[] | undefined = wantsJobs
+    ? undefined
+    : ['subscriptions', 'assignments'];
+  const [tab, setTab] = useState<TalentHomeTab>(
+    partnerAvailable || !wantsJobs ? 'subscriptions' : 'jobs',
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const q = new URLSearchParams(window.location.search).get('tab');
-    if (isHomeTab(q) && (q === 'jobs' || partnerAvailable)) setTab(q);
-    else if (!partnerAvailable) setTab('jobs');
-  }, [partnerAvailable]);
+    if (isHomeTab(q) && (q !== 'jobs' || wantsJobs)) setTab(q);
+  }, [wantsJobs]);
 
   const handleTab = (next: TalentHomeTab) => {
-    if (!partnerAvailable && next !== 'jobs') return;
+    if (next === 'jobs' && !wantsJobs) return;
     setTab(next);
     const url = next === 'subscriptions' ? '/talent/dashboard' : `/talent/dashboard?tab=${next}`;
     router.replace(url, { scroll: false });
@@ -153,19 +161,6 @@ export default function TalentDashboard() {
     );
   }
 
-  if (partnerOnlyPending) {
-    return (
-      <div className="mx-auto max-w-lg rounded-2xl border border-[#E7E7EA] bg-white px-8 py-10 text-center shadow-sm">
-        <h1 className="text-2xl font-semibold text-[#0a0a0a]">{user?.partner_approval_status === 'rejected' ? 'Partner Program application declined' : 'Partner Program application pending'}</h1>
-        <p className="mt-3 text-sm text-[#525252]">{user?.partner_approval_status === 'rejected' ? 'Contact support if you have questions about this decision.' : 'We’re reviewing your application. Your training progress is saved, and we’ll unlock the remaining sections after approval.'}</p>
-        <div className="mt-6 flex justify-center gap-3">
-          <Link href="/talent/training" className="btn-iridescent inline-flex px-4 py-2 text-sm">Training Program</Link>
-          <Link href="/talent/contact-support" className="inline-flex rounded-lg border px-4 py-2 text-sm">Contact Support</Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {partnerAvailable && <WhatsAppUpdatesToggle />}
@@ -189,7 +184,7 @@ export default function TalentDashboard() {
       )}
 
       <div className="-mx-4 bg-transparent px-4 py-2 md:mx-0 md:px-0 md:py-0">
-        <TalentHomeTabs active={tab} onChange={handleTab} tabs={partnerAvailable ? undefined : ['jobs']} />
+        <TalentHomeTabs active={tab} onChange={handleTab} tabs={homeTabs} />
       </div>
 
       {tabLocked && activeLock ? (
@@ -206,6 +201,8 @@ export default function TalentDashboard() {
         </div>
       ) : tab === 'jobs' ? (
         <TalentJobsView embedded />
+      ) : !partnerAvailable ? (
+        <PartnerLockedView variant={tab === 'assignments' ? 'assignment' : 'subscription'} embedded />
       ) : (
         <TalentOffersView
           variant={tab === 'assignments' ? 'assignment' : 'subscription'}

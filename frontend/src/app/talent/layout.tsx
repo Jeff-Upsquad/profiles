@@ -24,6 +24,12 @@ const ALWAYS_ACCESSIBLE = [
   '/talent/squadhub',
 ];
 
+// Partner modules a non-partner may still OPEN. They render a read-only,
+// anonymised preview of the live pool plus the Partner Program application
+// form (PartnerLockedView) — so the lock is a lock on acting, not on looking.
+// The action-bearing partner routes (bidding, my-clients, squadhub) stay shut.
+const PARTNER_PREVIEWABLE = ['/talent/subscriptions', '/talent/assignments'];
+
 const ROUTE_TO_MODULE: Record<string, string> = {
   '/talent/basic-profile': 'basic-profile',
   '/talent/profiles': 'profiles',
@@ -46,6 +52,17 @@ const MODULE_LABELS: Record<string, string> = {
   settings: 'Settings',
   notifications: 'Notifications',
 };
+
+/** Small lock glyph used in place of a count badge on a gated sidebar item. */
+function LockBadge({ tooltip }: { tooltip: string }) {
+  return (
+    <span title={tooltip} className="inline-flex items-center text-[#a3a3a3]">
+      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      </svg>
+    </span>
+  );
+}
 
 export default function TalentLayout({
   children,
@@ -116,15 +133,17 @@ export default function TalentLayout({
     (moduleAccess?.locked ?? []).map((l) => [l.module, l]),
   );
 
+  const matches = (route: string, list: string[]) =>
+    list.some((r) => route === r || route.startsWith(r + '/'));
+  const isPartnerPreviewable = (route: string) => matches(route, PARTNER_PREVIEWABLE);
+
   const isModuleLocked = (route: string): boolean => {
-    if (partnerOnlyPending) {
-      return !['/talent/dashboard', '/talent/training', '/talent/contact-support'].some(
-        (r) => route === r || route.startsWith(r + '/'),
-      );
+    if (partnerOnlyPending && !isPartnerPreviewable(route)) {
+      return !matches(route, ['/talent/dashboard', '/talent/training', '/talent/contact-support']);
     }
-    if (partnerLocked && ['/talent/subscriptions', '/talent/assignments', '/talent/bidding', '/talent/my-clients', '/talent/squadhub'].some(
-      (r) => route === r || route.startsWith(r + '/'),
-    )) return true;
+    if (partnerLocked && matches(route, ['/talent/bidding', '/talent/my-clients', '/talent/squadhub'])) {
+      return true;
+    }
     if (user.wants_jobs === false && (route === '/talent/job-openings' || route.startsWith('/talent/job-openings/'))) return true;
     if (ALWAYS_ACCESSIBLE.some((r) => route === r || route.startsWith(r + '/'))) return false;
     const mod = Object.entries(ROUTE_TO_MODULE).find(([r]) => route === r || route.startsWith(r + '/'))?.[1];
@@ -291,10 +310,16 @@ export default function TalentLayout({
   ];
 
   const gatedItems = sidebarItems.map((item) => {
+    // Preview-only partner modules: clickable, but flagged with a lock so the
+    // sidebar still says at a glance that these can't be acted on yet.
+    if (partnerLocked && PARTNER_PREVIEWABLE.includes(item.to)) {
+      const tooltip = 'Preview only — join the Partner Program to respond';
+      return { ...item, tooltip, badge: <LockBadge tooltip={tooltip} /> };
+    }
     if (partnerOnlyPending && !['/talent/dashboard', '/talent/training', '/talent/contact-support'].includes(item.to)) {
       return { ...item, disabled: true, tooltip: 'Partner Program approval pending' };
     }
-    if (partnerLocked && ['/talent/subscriptions', '/talent/assignments', '/talent/my-clients', '/talent/squadhub'].includes(item.to)) {
+    if (partnerLocked && ['/talent/my-clients', '/talent/squadhub'].includes(item.to)) {
       return { ...item, disabled: true, tooltip: 'Partner Program approval pending' };
     }
     if (user.wants_jobs === false && item.to === '/talent/job-openings') {
@@ -322,17 +347,7 @@ export default function TalentLayout({
       // talent can open it and watch the training inline. Show a lock badge
       // (with progress) instead of the normal badge.
       const tooltip = `Complete "${lock.chapter_title}" to unlock (${lock.completed}/${lock.total})`;
-      return {
-        ...item,
-        tooltip,
-        badge: (
-          <span title={tooltip} className="inline-flex items-center text-[#a3a3a3]">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </span>
-        ),
-      };
+      return { ...item, tooltip, badge: <LockBadge tooltip={tooltip} /> };
     }
     return onboarded ? item : { ...item, disabled: true, tooltip: 'Complete training to unlock' };
   });

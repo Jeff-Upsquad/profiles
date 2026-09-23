@@ -12,6 +12,8 @@ import {
   updateProfileSchema,
   updateTalentUserSchema,
   updateBasicProfileSchema,
+  applyPartnerProgramSchema,
+  opportunityPreviewQuerySchema,
 } from '../validators/talent.validators.js';
 import { requireApprovalOrAutoApprove } from '../middleware/approval.middleware.js';
 import { requireProfileAccess, requirePartnerAccess } from '../middleware/work-access.middleware.js';
@@ -56,6 +58,21 @@ router.put('/me', validate({ body: updateTalentUserSchema }), talentController.u
 router.get('/me/basic-profile', talentController.getBasicProfile);
 router.put('/me/basic-profile', requireProfileAccess, validate({ body: updateBasicProfileSchema }), talentController.updateBasicProfile);
 router.patch('/me/basic-profile/resubmit', requireProfileAccess, talentController.resubmitBasic);
+
+// Partner Program — read-only preview of the live broadcast pool, plus the
+// standalone application form shown above it. Both are intentionally open to
+// any authenticated talent: they exist precisely for people the Partner
+// modules are still locked for.
+router.get(
+  '/opportunity-preview',
+  validate({ query: opportunityPreviewQuerySchema }),
+  talentController.listOpportunityPreview,
+);
+router.post(
+  '/me/partner-program/apply',
+  validate({ body: applyPartnerProgramSchema }),
+  talentController.applyForPartnerProgram,
+);
 
 // Lead submission (used by signup to auto-populate from a prior public-form lead)
 router.get('/me/lead-submission', talentController.getMyLeadSubmission);

@@ -2,6 +2,7 @@
 
 import { useUnreadSubscriptionCount, useUnreadAssignmentCount } from '@/hooks/useSubscriptionCards';
 import { useUnreadJobsCount } from '@/hooks/useJobs';
+import { usePartnerAccess } from '@/hooks/usePartnerProgram';
 
 export type TalentHomeTab = 'subscriptions' | 'assignments' | 'jobs';
 
@@ -20,8 +21,12 @@ export default function TalentHomeTabs({
   onChange: (tab: TalentHomeTab) => void;
   tabs?: TalentHomeTab[];
 }) {
-  const { data: unreadSubs = 0 } = useUnreadSubscriptionCount({ enabled: tabs.includes('subscriptions') });
-  const { data: unreadAssignments = 0 } = useUnreadAssignmentCount({ enabled: tabs.includes('assignments') });
+  // Non-partners see the Subscriptions / Assignments tabs as a read-only
+  // preview, and the unread endpoints behind these badges are partner-gated —
+  // so skip the calls (there is nothing pending for them to count anyway).
+  const { approved } = usePartnerAccess();
+  const { data: unreadSubs = 0 } = useUnreadSubscriptionCount({ enabled: approved && tabs.includes('subscriptions') });
+  const { data: unreadAssignments = 0 } = useUnreadAssignmentCount({ enabled: approved && tabs.includes('assignments') });
   const { data: unreadJobs = 0 } = useUnreadJobsCount({ enabled: tabs.includes('jobs') });
 
   const badgeFor = (key: TalentHomeTab) => {
@@ -49,6 +54,19 @@ export default function TalentHomeTabs({
             }`}
           >
             <span>{t.label}</span>
+            {/* Read-only for non-partners — say so on the tab itself. */}
+            {!approved && t.key !== 'jobs' && (
+              <svg
+                className="h-3.5 w-3.5 shrink-0 text-[#a3a3a3]"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-label="Preview only"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            )}
             {count > 0 && (
               <span
                 className={`inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-semibold md:h-5 md:min-w-5 md:px-1.5 md:text-[11px] ${

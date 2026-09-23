@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import * as talentService from '../services/talent.service.js';
 import { resubmitBasicProfile } from '../services/basic-profile-changes.service.js';
 import * as squadhubTalentSsoService from '../services/squadhub-talent-sso.service.js';
+import { listBroadcastPreview } from '../services/opportunity-preview.service.js';
 
 function paramStr(val: string | string[]): string {
   return Array.isArray(val) ? val[0] : val;
@@ -55,6 +56,30 @@ export async function resubmitBasic(req: Request, res: Response, next: NextFunct
 export async function getMyLeadSubmission(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await talentService.getLeadSubmissionForTalent(req.user!.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Read-only preview of the live broadcast pool, for talents who are not in the
+ * Partner Program yet. Deliberately NOT behind requirePartnerAccess — seeing
+ * the redacted pool is the whole point of the locked module.
+ */
+export async function listOpportunityPreview(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { card_type } = req.query as { card_type: 'subscription' | 'assignment' };
+    const items = await listBroadcastPreview(card_type);
+    res.json({ items });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function applyForPartnerProgram(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await talentService.applyForPartnerProgram(req.user!.id, req.body);
     res.json(result);
   } catch (err) {
     next(err);

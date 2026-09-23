@@ -1,6 +1,11 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
-import type { UpdateProfileInput, UpdateTalentUserInput, UpdateBasicProfileInput } from '../validators/talent.validators.js';
+import type {
+  UpdateProfileInput,
+  UpdateTalentUserInput,
+  UpdateBasicProfileInput,
+  ApplyPartnerProgramInput,
+} from '../validators/talent.validators.js';
 import { parseVideoUrl, type VideoProvider } from '../../../shared/src/videoEmbed.js';
 import {
   isGhostCategory,
@@ -90,6 +95,106 @@ export async function getBasicProfile(userId: string) {
   return data;
 }
 
+/**
+ * Move a talent into the Partner Program approval queue.
+ *
+ * Called from two places — ticking a Partner track on the basic profile, and
+ * the standalone "Apply for the Partner Program" form on the locked
+ * Subscriptions / Assignments modules. Idempotent: an application already
+ * pending or approved is left exactly as it is, so a second submit can never
+ * reset someone's place in the queue. A previously rejected talent may re-apply.
+ */
+export async function requestPartnerProgramReview(userId: string): Promise<'pending' | 'approved'> {
+  const { data: intent, error: intentError } = await supabaseAdmin.from('talent_users')
+    .select('partner_approval_status').eq('id', userId).single();
+  if (intentError || !intent) throw new AppError(404, 'Talent user not found');
+  if (intent.partner_approval_status === 'approved') return 'approved';
+  if (intent.partner_approval_status === 'pending') return 'pending';
+
+  // null (never applied) or 'rejected' (re-applying) — both enter the queue.
+  const previous = intent.partner_approval_status as null | 'rejected';
+  let update = supabaseAdmin.from('talent_users')
+    .update({ partner_approval_status: 'pending', partner_requested_at: new Date().toISOString(), pipeline_stage: 'applicants' })
+    .eq('id', userId);
+  // Guard against a concurrent second submit stealing the transition.
+  update = previous === null
+    ? update.is('partner_approval_status', null)
+    : update.eq('partner_approval_status', 'rejected');
+  const { error: requestError } = await update;
+  if (requestError) throw new AppError(500, 'Failed to request Partner Program review');
+
+  const { data: lead } = await supabaseAdmin.from('lead_submissions')
+    .select('id, form_data').eq('linked_talent_user_id', userId)
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (lead) {
+    const selections = new Set<string>(lead.form_data?.work_type_seeking ?? []);
+    selections.add('UpSquad Partner Program');
+    await supabaseAdmin.from('lead_submissions')
+      .update({ form_data: { ...lead.form_data, work_type_seeking: [...selections] } })
+      .eq('id', lead.id);
+    try {
+      const { onLeadStatusChanged } = await import('./automation.service.js');
+      await onLeadStatusChanged(lead.id, 'form_filled', null);
+    } catch (e) { console.error('[partner request] CRM sync failed:', e); }
+  }
+  return 'pending';
+}
+
+/**
+ * Standalone Partner Program application, submitted from the locked
+ * Subscriptions / Assignments preview rather than the basic-profile wizard.
+ *
+ * Captures exactly what the programme needs to review someone — which tracks
+ * they want and the hours they can commit — writes them onto the basic profile
+ * so the wizard and the admin review screen show the same answers, then queues
+ * the application.
+ */
+export async function applyForPartnerProgram(
+  userId: string,
+  input: ApplyPartnerProgramInput,
+): Promise<{ partner_approval_status: 'pending' | 'approved' }> {
+  const { data: current, error: currentError } = await supabaseAdmin
+    .from('talent_users')
+    .select('partner_approval_status')
+    .eq('id', userId)
+    .single();
+  if (currentError || !current) throw new AppError(404, 'Talent user not found');
+  if (current.partner_approval_status === 'pending') {
+    throw new AppError(400, 'Your Partner Program application is already under review.');
+  }
+  if (current.partner_approval_status === 'approved') {
+    throw new AppError(400, 'You are already in the Partner Program.');
+  }
+
+  // Merge the chosen tracks into whatever the basic profile already holds —
+  // applying for Subscriptions must not erase an existing "looking for a job".
+  const { data: existing } = await supabaseAdmin
+    .from('talent_profiles_basic')
+    .select('employment_type')
+    .eq('talent_user_id', userId)
+    .maybeSingle();
+  const employmentType = new Set<string>(
+    Array.isArray(existing?.employment_type) ? existing!.employment_type : [],
+  );
+  for (const track of input.tracks) employmentType.add(track);
+
+  const { error: profileError } = await supabaseAdmin
+    .from('talent_profiles_basic')
+    .upsert(
+      {
+        talent_user_id: userId,
+        employment_type: [...employmentType],
+        virtual_office_hours: input.virtual_office_hours,
+        daily_available_hours: input.daily_available_hours,
+      },
+      { onConflict: 'talent_user_id' },
+    );
+  if (profileError) throw new AppError(500, `Failed to save your application: ${profileError.message}`);
+
+  const status = await requestPartnerProgramReview(userId);
+  return { partner_approval_status: status };
+}
+
 export async function updateBasicProfile(userId: string, input: UpdateBasicProfileInput) {
   // Upsert: insert if not exists, update if exists
   const { data, error } = await supabaseAdmin
@@ -106,29 +211,7 @@ export async function updateBasicProfile(userId: string, input: UpdateBasicProfi
   // A jobs applicant can request Partner Program review from their basic
   // profile. Keep the application card and the admin queue in sync.
   if (input.employment_type?.includes('partner_program') || input.employment_type?.includes('freelance')) {
-    const { data: intent, error: intentError } = await supabaseAdmin.from('talent_users')
-      .select('partner_approval_status').eq('id', userId).single();
-    if (intentError || !intent) throw new AppError(404, 'Talent user not found');
-    if (intent.partner_approval_status === null) {
-      const { error: requestError } = await supabaseAdmin.from('talent_users')
-        .update({ partner_approval_status: 'pending', partner_requested_at: new Date().toISOString(), pipeline_stage: 'applicants' })
-        .eq('id', userId).is('partner_approval_status', null);
-      if (requestError) throw new AppError(500, 'Failed to request Partner Program review');
-      const { data: lead } = await supabaseAdmin.from('lead_submissions')
-        .select('id, form_data').eq('linked_talent_user_id', userId)
-        .order('created_at', { ascending: false }).limit(1).maybeSingle();
-      if (lead) {
-        const selections = new Set<string>(lead.form_data?.work_type_seeking ?? []);
-        selections.add('UpSquad Partner Program');
-        await supabaseAdmin.from('lead_submissions')
-          .update({ form_data: { ...lead.form_data, work_type_seeking: [...selections] } })
-          .eq('id', lead.id);
-        try {
-          const { onLeadStatusChanged } = await import('./automation.service.js');
-          await onLeadStatusChanged(lead.id, 'form_filled', null);
-        } catch (e) { console.error('[partner request] CRM sync failed:', e); }
-      }
-    }
+    await requestPartnerProgramReview(userId);
   }
   if (input.employment_type?.includes('salary')) {
     await supabaseAdmin.from('talent_users')
