@@ -98,12 +98,25 @@ pm2 status
 # deploy-demo.sh pulls main, rebuilds admin+frontend+backend, applies new
 # demo-DB migrations, and restarts ONLY the profiles-demo-* processes.
 #
-# Guarded and non-fatal: it runs in a subshell whose failure is swallowed by
-# `|| echo`, so a demo build/migration problem can never fail the prod deploy
+# OFF BY DEFAULT since 2026-09-23. The demo Supabase project no longer resolves
+# (getaddrinfo ENOTFOUND; the pooler reports the tenant as unknown), so the
+# cascade burned ~2 minutes on 15 doomed connection retries at the end of every
+# production deploy and ended in a warning that was pure noise.
+#
+# Re-enable for one run with:   DEPLOY_DEMO=1 bash deploy/deploy.sh
+# or permanently by flipping the default below, once the demo Supabase project
+# is restored.
+#
+# Still guarded and non-fatal when enabled: it runs in a subshell whose failure
+# is swallowed by `|| echo`, so a demo problem can never fail the prod deploy
 # above (which has already completed at this point).
 # ---------------------------------------------------------------------------
+DEPLOY_DEMO="${DEPLOY_DEMO:-0}"
 DEMO_DEPLOY="/root/Profiles-demo/deploy/deploy-demo.sh"
-if [ -f "$DEMO_DEPLOY" ]; then
+if [ "$DEPLOY_DEMO" != "1" ]; then
+  echo ""
+  echo "ℹ Demo cascade disabled (DEPLOY_DEMO=0). Production deploy is complete."
+elif [ -f "$DEMO_DEPLOY" ]; then
   echo ""
   echo "=== Cascading to hosted demo (non-fatal) ==="
   ( bash "$DEMO_DEPLOY" ) || echo "⚠ Demo update FAILED — prod is unaffected. Inspect: bash $DEMO_DEPLOY"
