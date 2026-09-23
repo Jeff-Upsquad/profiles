@@ -369,7 +369,10 @@ body {
   100% { opacity: 1; transform: translateY(0); }
 }
 .section-rise {
-  animation: sectionRise 0.5s cubic-bezier(0.2, 0.65, 0.25, 1) both;
+  /* Do not retain the final transform after the entrance animation. Even a
+     no-op transform creates a stacking context, which trapped form dropdowns
+     beneath sticky action bars after the animation had finished. */
+  animation: sectionRise 0.5s cubic-bezier(0.2, 0.65, 0.25, 1);
 }
 
 /* ── Legacy compat ── */
