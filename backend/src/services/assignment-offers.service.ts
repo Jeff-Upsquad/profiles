@@ -9,6 +9,7 @@ import {
   type JobsActor,
 } from './jobs.service.js';
 import { createBusinessNotification } from './business-notifications.service.js';
+import { notifyBusinessCardActivity } from './business-card-alerts.service.js';
 import { emitCardEvent } from './card-events-outbox.service.js';
 import { notifyAssignmentEvent } from './push.service.js';
 import { fireJobsCrmEvent } from './talent-whatsapp.service.js';
@@ -888,6 +889,12 @@ export async function talentSubmitOrCounter(
     actor,
     data: { amount, terms: input.terms ?? null, note: input.note ?? null },
   });
+
+  // A priced move from the talent needs the business back on the card to answer
+  // it. Fires under the 'bid' budget, which is separate from 'acceptance' — the
+  // first bid also flips the recipient to accepted, and we don't want one talent
+  // action to spend two nudges.
+  void notifyBusinessCardActivity({ cardId: ctx.cardId, kind: 'bid' });
 
   return offer;
 }

@@ -51,6 +51,9 @@ export async function listCandidates(req: Request, res: Response, next: NextFunc
     await jobsService.assertBusinessOwnsCard(req.user!.id, cardId);
     const { stage } = req.query as { stage?: jobsService.JobFunnelStage };
     const candidates = await jobsService.listCandidates(cardId, stage);
+    // Opening the list counts as reviewing it: clears the "new" marks and
+    // re-arms the card's WhatsApp alerts. Fire-and-forget.
+    void jobsService.onBusinessViewedJobCandidates(cardId);
     res.json({ candidates });
   } catch (err) {
     next(err);

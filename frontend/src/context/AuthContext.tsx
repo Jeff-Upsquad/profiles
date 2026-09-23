@@ -27,11 +27,16 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  businessLogin: (identifier: {
-    email?: string;
-    phone?: string;
-    password?: string;
-  }) => Promise<{ needsSignup: boolean }>;
+  businessLogin: (
+    identifier: {
+      email?: string;
+      phone?: string;
+      password?: string;
+    },
+    // Where to land after a successful login instead of the portal home —
+    // set when the user arrived from a deep link (e.g. a WhatsApp card alert).
+    nextPath?: string,
+  ) => Promise<{ needsSignup: boolean }>;
   businessSignup: (data: BusinessSignupData) => Promise<void>;
   signupTalent: (data: TalentSignupData, options?: { skipRedirect?: boolean }) => Promise<void>;
   signupAgency: (data: AgencySignupData) => Promise<void>;
@@ -83,6 +88,18 @@ function persistAndEnterApp(
 ) {
   persistAuthTokens(authToken, refreshToken);
   enterApp(path);
+}
+
+/**
+ * Accept only same-origin absolute paths as a post-login destination. Anything
+ * with a scheme or a protocol-relative prefix is an open-redirect vector, so it
+ * is dropped and the caller falls back to the portal home.
+ */
+export function safeNextPath(next: string | null | undefined): string | null {
+  if (!next) return null;
+  if (!next.startsWith('/')) return null;
+  if (next.startsWith('//')) return null;
+  return next;
 }
 
 function destinationForRole(role: string | undefined): string {
@@ -253,18 +270,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const businessLogin = useCallback(
-    async (identifier: { email?: string; phone?: string; password?: string }) => {
+    async (
+      identifier: { email?: string; phone?: string; password?: string },
+      nextPath?: string,
+    ) => {
       const { data } = await api.post('/auth/business-login', identifier);
       // Provisioned/invited account that hasn't set a password yet → the caller
       // routes the user to first-time signup instead of showing an error.
       if (data.status === 'needs_signup') {
         return { needsSignup: true };
       }
-      persistAndEnterApp(
-        data.access_token || data.token,
-        null,
-        data.must_change_password ? BUSINESS_CHANGE_PASSWORD_PATH : '/business/hire',
-      );
+      // A forced password change outranks the deep link — they can't use the
+      // portal until it's done, and the change screen sends them on afterwards.
+      const destination = data.must_change_password
+        ? BUSINESS_CHANGE_PASSWORD_PATH
+        : safeNextPath(nextPath) ?? '/business/hire';
+      persistAndEnterApp(data.access_token || data.token, null, destination);
       return { needsSignup: false };
     },
     []

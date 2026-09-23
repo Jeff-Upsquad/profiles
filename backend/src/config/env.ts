@@ -115,6 +115,14 @@ const envSchema = z.object({
   // Optional — when unset, business events fall back to the SquadHire CRM URL.
   SQUADCRM_SYSTEM_EVENTS_URL: z.string().url().optional(),
 
+  // Business WhatsApp card alerts (00150). How many nudges a single card may
+  // ever spend per kind, and the minimum gap between two of them. The real
+  // pacing gate is the business opening the card (which re-arms the alert);
+  // the cooldown is just a floor so a fast view→respond loop can't drain the
+  // whole budget in minutes.
+  BUSINESS_CARD_ALERT_MAX_SENDS: z.coerce.number().int().min(1).max(20).default(5),
+  BUSINESS_CARD_ALERT_COOLDOWN_MINUTES: z.coerce.number().int().min(0).max(1440).default(30),
+
   // Notify talents when a card is *ingested* (created/edited/synced via the
   // SquadHub webhook), not just when it's explicitly broadcast. Default false:
   // ingest silently syncs the card + reconciles recipient rows (so it still

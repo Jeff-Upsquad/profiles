@@ -2,8 +2,8 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth, safeNextPath } from '@/context/AuthContext';
 import toast from 'react-hot-toast';
 import { AuthShell, RedirectingSplash } from './LoginTalent';
 import { COUNTRY_CODES } from '@/constants/country-codes';
@@ -12,7 +12,11 @@ type Identifier = 'email' | 'phone';
 
 export default function LoginBusiness() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { businessLogin, user, token } = useAuth();
+  // Deep links (e.g. the WhatsApp card alert) bounce through here when the
+  // session has expired; `next` carries the page they were actually after.
+  const nextPath = safeNextPath(searchParams.get('next'));
 
   // Already signed in (e.g. a mobile swipe-back landed here from the app).
   // `token` is read synchronously from localStorage on mount, so it's set
@@ -25,9 +29,9 @@ export default function LoginBusiness() {
     // router.replace here can leave the login view mounted above the app on
     // mobile, so the user sees it by scrolling up past the portal.
     window.location.replace(
-      !user || user.role === 'business' ? '/business/hire' : '/dashboard',
+      !user || user.role === 'business' ? nextPath ?? '/business/hire' : '/dashboard',
     );
-  }, [token, user]);
+  }, [token, user, nextPath]);
 
   const [identifier, setIdentifier] = useState<Identifier>('email');
   const [email, setEmail] = useState('');
@@ -44,7 +48,7 @@ export default function LoginBusiness() {
     try {
       const creds =
         identifier === 'email' ? { email, password } : { phone, password };
-      const res = await businessLogin(creds);
+      const res = await businessLogin(creds, nextPath ?? undefined);
       if (res.needsSignup) {
         // First-time user — send them to set their name/business/password.
         const q =

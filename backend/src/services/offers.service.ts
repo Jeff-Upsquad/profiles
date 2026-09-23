@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { emitJobsEvent } from './jobs-outbox.service.js';
 import { createBusinessNotification } from './business-notifications.service.js';
+import { notifyBusinessCardActivity } from './business-card-alerts.service.js';
 import { notifyJobEvent } from './push.service.js';
 import { fireJobsCrmEvent } from './talent-whatsapp.service.js';
 import {
@@ -594,6 +595,13 @@ export async function respondToOffer(
     actor,
     data: { offer_id: offerId, amount: input.amount ?? null, note: input.note ?? null },
   });
+
+  // The jobs analogue of a bid: the candidate came back with their own figure,
+  // so the business has money to answer. Accept/decline are terminal and need
+  // no nudge — the in-app notification above already covers them.
+  if (input.action === 'negotiate') {
+    void notifyBusinessCardActivity({ cardId: offer.card_id, kind: 'bid' });
+  }
 
   return updated as unknown as OfferRow;
 }

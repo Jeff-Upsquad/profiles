@@ -113,6 +113,10 @@ router.post(
   '/my-subscription-cards/:cardId/recipients/seen',
   businessController.markCardAcceptancesSeen,
 );
+// Card-id → portal route. Backs the `/business/card/:cardId` landing page the
+// WhatsApp card-alert button links to, so one template URL works for
+// subscription, assignment and job-post cards alike.
+router.get('/card-link/:cardId', businessController.resolveCardLink);
 router.post(
   '/my-subscription-cards/:cardId/select',
   validate({ body: selectCardRecipientSchema }),

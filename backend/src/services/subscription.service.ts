@@ -10,6 +10,7 @@ import { getTalentTiersByUserIds } from './talent-tier.service.js';
 import { notifyTalentSubscriptionCardReceived } from './talent-whatsapp.service.js';
 import { assertHiringContentValid, syncJobEntitiesForCard } from './jobs-ingest.service.js';
 import { onHiringCardAccepted, onHiringCardDeclined } from './jobs.service.js';
+import { notifyBusinessCardActivity } from './business-card-alerts.service.js';
 import { phoneMatchSuffix } from '../lib/phone.js';
 import { fanoutCardToAgencies } from './card-backfill.service.js';
 import { provisionAssignedTalent } from './squadhub-talent-provision.service.js';
@@ -1759,6 +1760,14 @@ export async function respond(
     }
   }
 
+  // Nudge the business on WhatsApp that someone responded. Throttled per card
+  // (one nudge until they open it, 5 max) inside the alert service, so calling
+  // it on every accept is safe. Never awaited — a WhatsApp hop must not sit in
+  // the talent's request.
+  if (input.action === 'accept' && card?.id) {
+    void notifyBusinessCardActivity({ cardId: card.id, kind: 'acceptance' });
+  }
+
   // Fire-and-forget callback. Never block or fail the user's response on this.
   if (externalId) {
     const { data: talent } = await supabaseAdmin
@@ -1870,6 +1879,8 @@ export async function handleTalentAcceptedByWebhook(
       console.error('[handleTalentAcceptedByWebhook] writeAcceptedTalentToDashboard threw', err);
     }
   }
+
+  void notifyBusinessCardActivity({ cardId: (card as any).id as string, kind: 'acceptance' });
 
   return { updated: 1, alreadyAccepted: false };
 }

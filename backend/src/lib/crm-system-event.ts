@@ -60,6 +60,13 @@ export async function deliverCrmSystemEvent(args: {
   phone: string;
   // Extra template variables (e.g. { code } or { temp_password }).
   data: Record<string, unknown>;
+  // Explicit {{1}},{{2}},... body values. Without this the CRM falls back to
+  // `data`'s value order, which is fine for single-variable templates but too
+  // fragile for multi-variable ones.
+  bodyParams?: string[];
+  // Value appended to a dynamic URL button's base, e.g. a card id for a
+  // "View card" deep link. Ignored by templates without such a button.
+  buttonUrlParam?: string;
 }): Promise<boolean> {
   const target = resolveTarget(args.audience);
   if (!target) return false;
@@ -68,6 +75,8 @@ export async function deliverCrmSystemEvent(args: {
     system_event: args.event,
     talent: { name: args.name ?? '', phone: args.phone, email: null },
     data: { talent_name: args.name ?? '', ...args.data },
+    ...(args.bodyParams ? { body_params: args.bodyParams } : {}),
+    ...(args.buttonUrlParam ? { button_url_param: args.buttonUrlParam } : {}),
     timestamp: new Date().toISOString(),
   };
 

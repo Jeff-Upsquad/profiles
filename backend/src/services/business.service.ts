@@ -8,6 +8,7 @@ import { offerMetadataForCard } from '../lib/assignment-pricing.js';
 import { cancelPaymentLink as cancelRazorpayPaymentLink } from './razorpay.service.js';
 import { cancelPaymentLink as cancelCashfreePaymentLink } from './cashfree.service.js';
 import { pushCrmIdentityNames } from '../lib/crm-identity-names.js';
+import { rearmBusinessCardAlerts } from './business-card-alerts.service.js';
 
 // ─── Business User ──────────────────────────────────────────────────────────
 
@@ -1558,7 +1559,7 @@ async function businessOwnsCardRow(
 async function verifyCardOwnership(businessUserId: string, cardId: string) {
   const { data: card, error } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, business_user_id, business_email, match_rules, selected_at, selected_talent_user_id, external_id, content, status, group_id')
+    .select('id, business_user_id, business_email, match_rules, selected_at, selected_talent_user_id, external_id, content, status, group_id, card_type')
     .eq('id', cardId)
     .maybeSingle();
 
@@ -1970,6 +1971,30 @@ export async function reviewCardRecipient(
   if (updErr) throw new AppError(500, updErr.message);
 }
 
+/**
+ * Resolve a card id to the business-portal route that shows it. Backs the
+ * `/business/card/:cardId` landing page, which is where the WhatsApp card-alert
+ * deep link points — one URL shape for every card type, because a WhatsApp
+ * template's dynamic URL button can only vary its tail.
+ *
+ * 404s (via verifyCardOwnership) when the card isn't this business's, so the
+ * link can't be used to probe other businesses' card ids.
+ */
+export async function resolveCardPortalPath(
+  businessUserId: string,
+  cardId: string,
+): Promise<{ card_id: string; card_type: string; path: string }> {
+  const card = await verifyCardOwnership(businessUserId, cardId);
+  const cardType = ((card as any).card_type as string | null) ?? 'subscription';
+  const path =
+    cardType === 'hiring'
+      ? `/business/job-posts/${cardId}/candidates`
+      : cardType === 'assignment'
+        ? `/business/assignments/${cardId}`
+        : `/business/subscription/${cardId}`;
+  return { card_id: cardId, card_type: cardType, path };
+}
+
 // Mark every still-unseen acceptance on this brief (all tier siblings) as seen
 // by the business. Called when the business opens the card's review page, so the
 // unread badge / "New" markers clear on the next load. Scoped by card ownership.
@@ -1990,6 +2015,11 @@ export async function markCardAcceptancesSeen(
     .select('id');
 
   if (error) throw new AppError(500, error.message);
+
+  // The business is looking at the card right now — re-arm its WhatsApp alerts
+  // so the NEXT talent to respond nudges them again.
+  void rearmBusinessCardAlerts(groupCardIds);
+
   return { marked: (data ?? []).length };
 }
 

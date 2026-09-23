@@ -24,7 +24,20 @@ export default function BusinessLayout({
   }
 
   if (!user) {
-    router.push('/login/business');
+    // Carry the page they were after through the login hop — WhatsApp card
+    // alerts link straight to a card, and most recipients won't have a live
+    // session when they tap it. Read the URL off `window` rather than
+    // useSearchParams so this layout doesn't need a Suspense boundary around
+    // every business page.
+    const intended =
+      typeof window !== 'undefined'
+        ? `${window.location.pathname}${window.location.search}`
+        : '';
+    router.push(
+      intended && intended !== '/business/hire'
+        ? `/login/business?next=${encodeURIComponent(intended)}`
+        : '/login/business',
+    );
     return null;
   }
 

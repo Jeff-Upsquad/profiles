@@ -3,6 +3,7 @@ import { AppError } from '../middleware/errorHandler.middleware.js';
 import { assembleProfileDetail } from './talent-access.service.js';
 import { emitJobsEvent } from './jobs-outbox.service.js';
 import { createBusinessNotification } from './business-notifications.service.js';
+import { rearmBusinessCardAlerts } from './business-card-alerts.service.js';
 import { notifyJobEvent } from './push.service.js';
 import { fireJobsCrmEvent } from './talent-whatsapp.service.js';
 import type {
@@ -1512,6 +1513,31 @@ export async function listCandidates(cardId: string, stage?: JobFunnelStage) {
     ...r,
     talent_name: names.get(r.talent_user_id) ?? null,
   }));
+}
+
+/**
+ * The business opened this job post's candidate list. Jobs has no explicit
+ * "mark seen" endpoint like the subscription review page does, so opening the
+ * list IS the acknowledgement: stamp the applications as seen and re-arm the
+ * card's WhatsApp alerts, so the next candidate to apply nudges them again.
+ *
+ * Fire-and-forget — bookkeeping must never fail the read.
+ */
+export async function onBusinessViewedJobCandidates(cardId: string): Promise<void> {
+  try {
+    const { error } = await supabaseAdmin
+      .from('subscription_card_recipients')
+      .update({ business_seen_at: new Date().toISOString() })
+      .eq('card_id', cardId)
+      .eq('status', 'accepted')
+      .is('business_seen_at', null);
+    if (error) {
+      console.error('[jobs] failed to stamp candidates seen', error.message);
+    }
+  } catch (err) {
+    console.error('[jobs] onBusinessViewedJobCandidates threw', err);
+  }
+  await rearmBusinessCardAlerts([cardId]);
 }
 
 // ─── Funnel actions ────────────────────────────────────────────────────────
