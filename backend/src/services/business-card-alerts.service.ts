@@ -92,16 +92,32 @@ function cardTitle(content: Record<string, unknown>, cardType: string): string {
   return cardType === 'assignment' ? 'your assignment' : 'your requirement';
 }
 
-/** Cards published as a tier group are reviewed together — treat them as one. */
-async function resolveGroupCardIds(card: AlertCard): Promise<string[]> {
-  if (!card.groupId) return [card.id];
+/**
+ * Cards published as a tier group are ONE brief to the business: the dashboard
+ * lists only the non-secondary sibling, and its review screen shows every
+ * tier's talents together.
+ *
+ * So the alert has to be keyed on the group, not the card — otherwise talents
+ * accepting on two sibling tiers spend two send budgets and fire two WhatsApps
+ * quoting the same count. `primaryCardId` is that shared key (and the id the
+ * deep link points at, so the business lands on the card they actually see).
+ */
+async function resolveGroup(
+  card: AlertCard,
+): Promise<{ primaryCardId: string; cardIds: string[] }> {
+  if (!card.groupId) return { primaryCardId: card.id, cardIds: [card.id] };
   const { data } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id')
+    .select('id, is_secondary')
     .eq('group_id', card.groupId)
     .is('archived_at', null);
-  const ids = (data ?? []).map((c: any) => c.id as string);
-  return ids.length > 0 ? ids : [card.id];
+  const rows = data ?? [];
+  if (rows.length === 0) return { primaryCardId: card.id, cardIds: [card.id] };
+  const primary = rows.find((c: any) => c.is_secondary === false) ?? rows[0];
+  return {
+    primaryCardId: (primary as any).id as string,
+    cardIds: rows.map((c: any) => c.id as string),
+  };
 }
 
 async function loadCard(cardId: string): Promise<AlertCard | null> {
@@ -219,10 +235,13 @@ export async function notifyBusinessCardActivity(params: {
     const business = await loadBusiness(card.businessUserId);
     if (!business) return;
 
+    // One budget per brief, not per tier card.
+    const { primaryCardId, cardIds: groupCardIds } = await resolveGroup(card);
+
     // Claim BEFORE counting: the claim is what collapses a burst of concurrent
     // acceptances into one message.
     const { data: claim, error: claimErr } = await supabaseAdmin.rpc('claim_business_card_alert', {
-      p_card_id: cardId,
+      p_card_id: primaryCardId,
       p_business_user_id: card.businessUserId,
       p_kind: kind,
       p_max_sends: env.BUSINESS_CARD_ALERT_MAX_SENDS,
@@ -247,7 +266,6 @@ export async function notifyBusinessCardActivity(params: {
       return;
     }
 
-    const groupCardIds = await resolveGroupCardIds(card);
     // The triggering response is guaranteed to be one of these, but a row the
     // count filters out (already seen, already settled) shouldn't produce a
     // "0 talents" message.
@@ -266,7 +284,7 @@ export async function notifyBusinessCardActivity(params: {
         business_name: business.name,
         count: String(pending),
         card_title: title,
-        card_id: cardId,
+        card_id: primaryCardId,
         send_number: sendNumber,
       },
       // Explicit ordering — the CRM fills {{1}},{{2}},{{3}} from this array
@@ -274,17 +292,23 @@ export async function notifyBusinessCardActivity(params: {
       bodyParams: [sanitizeParam(business.name, 40), String(pending), sanitizeParam(title)],
       // Dynamic URL button → /business/card/<id>, which resolves the card type
       // and forwards to the right review screen.
-      buttonUrlParam: cardId,
+      buttonUrlParam: primaryCardId,
     });
 
     if (!delivered) {
       // Template not approved yet, or Meta/transport failed. Give the slot back
       // so the next response still gets its nudge.
-      await releaseClaim(cardId, kind);
+      await releaseClaim(primaryCardId, kind);
       return;
     }
 
-    console.info('[business-card-alerts] sent', { cardId, kind, event, sendNumber, pending });
+    console.info('[business-card-alerts] sent', {
+      cardId: primaryCardId,
+      kind,
+      event,
+      sendNumber,
+      pending,
+    });
   } catch (err) {
     console.error('[business-card-alerts] notify threw', err);
   }
