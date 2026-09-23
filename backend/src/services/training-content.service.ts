@@ -70,6 +70,7 @@ export interface TalentItem {
   cover_image_url: string | null;
   sort_order: number;
   is_onboarding: boolean;
+  program_track: 'jobs' | 'partner' | null;
   countdown_enabled: boolean;
   countdown_hours: number | null;
   started_at: string | null;
@@ -395,6 +396,7 @@ export async function buildItemPayloads(
       cover_image_url: item.cover_image_url ?? null,
       sort_order: item.sort_order,
       is_onboarding: item.is_onboarding,
+      program_track: item.program_track ?? null,
       countdown_enabled: countdownEnabled,
       countdown_hours: countdownHours,
       started_at: startedAt,
@@ -490,8 +492,17 @@ export async function getMyItems(userId: string, categoryIds: string[]): Promise
     .order('sort_order', { ascending: true });
   if (error) throw new AppError(500, `Failed to fetch training items: ${error.message}`);
 
+  const { data: talent, error: talentError } = await supabaseAdmin
+    .from('talent_users')
+    .select('wants_jobs, partner_approval_status')
+    .eq('id', userId)
+    .single();
+  if (talentError) throw new AppError(500, `Failed to load training audience: ${talentError.message}`);
+
   const categorySet = new Set(categoryIds);
   const visible = withCategories(data ?? []).filter((item: any) => {
+    if (item.program_track === 'jobs' && !talent.wants_jobs) return false;
+    if (item.program_track === 'partner' && talent.partner_approval_status == null) return false;
     if (item.available_to_all) return true;
     const itemCategoryIds: string[] = (item.training_item_categories ?? []).map(
       (l: any) => l.category_id,
@@ -669,6 +680,7 @@ async function itemsForCategories(categoryIds: string[]): Promise<any[]> {
     .in('training_item_categories.category_id', categoryIds)
     .eq('is_active', true)
     .eq('status', 'published')
+    .is('program_track', null)
     .is('deleted_at', null);
   if (error) throw new AppError(500, `Failed to fetch items for categories: ${error.message}`);
   return withCategories(data ?? []);

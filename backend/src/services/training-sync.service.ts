@@ -112,7 +112,7 @@ export async function syncItem(payload: SyncItemPayload) {
     // progress and its gating so republishing restores everything.
     const { error } = await supabaseAdmin
       .from('training_items')
-      .update({ status: 'draft', synced_at: new Date().toISOString() })
+      .update({ status: 'draft', squadhub_visible: false, synced_at: new Date().toISOString() })
       .eq('id', itemId);
     if (error) throw new AppError(500, `Failed to unpublish item: ${error.message}`);
     return { item_id: itemId, pages: 0, blocks: 0, unpublished: true };
@@ -123,7 +123,7 @@ export async function syncItem(payload: SyncItemPayload) {
 
   const { error: stampErr } = await supabaseAdmin
     .from('training_items')
-    .update({ synced_at: new Date().toISOString() })
+    .update({ squadhub_visible: true, synced_at: new Date().toISOString() })
     .eq('id', itemId);
   if (stampErr) throw new AppError(500, `Failed to stamp sync: ${stampErr.message}`);
 

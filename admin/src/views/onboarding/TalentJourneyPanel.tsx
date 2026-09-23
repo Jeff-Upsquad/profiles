@@ -23,6 +23,7 @@ import {
   type CrmStage,
   type PipelineStage,
 } from './hubTypes';
+import type { ProgramCourseProgress } from './hubTypes';
 
 // ---------------------------------------------------------------------------
 // Types (mirror GET /admin/user-approvals/:id/journey)
@@ -93,6 +94,7 @@ interface Journey {
     onboarding_completed: boolean;
     onboarding_bypassed: boolean;
     course: { items: CourseItem[]; completed: number; total: number };
+    program_courses: Record<'jobs' | 'partner', ProgramCourseProgress | null>;
     basic_profile_completed: boolean;
     basic_checklist: ChecklistItem[];
     job_profile_completed: boolean;
@@ -946,6 +948,33 @@ export default function TalentJourneyPanel({
                     </div>
                   </li>
                 </ol>
+              </Section>
+
+              <Section title="Module training" aside={<span className="text-[11px] text-gray-500">Does not block access</span>}>
+                <div className="space-y-2">
+                  {([
+                    ...(u.wants_jobs ? [{ key: 'jobs' as const, label: 'Jobs' }] : []),
+                    ...(u.partner_approval_status != null ? [{ key: 'partner' as const, label: 'Partner Program' }] : []),
+                  ]).map(({ key, label }) => {
+                    const course = j.program_courses[key];
+                    const state = !course?.published ? 'Content being prepared'
+                      : course.total === 0 ? 'No lessons yet'
+                      : course.done ? 'Completed'
+                      : course.started ? `${course.completed} of ${course.total} pages complete`
+                      : 'Not started';
+                    return (
+                      <div key={key} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{label} course</p>
+                          <p className="text-xs text-gray-500">{state}</p>
+                        </div>
+                        <span className={`text-xs font-medium ${course?.done ? 'text-green-700' : 'text-gray-500'}`}>
+                          {course?.done ? '✓ Done' : course?.published && course.total > 0 ? 'Pending' : '—'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </Section>
 
               {/* Candidate pipeline stage */}

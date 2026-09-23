@@ -15,8 +15,10 @@ interface CourseFormProps {
  * visibility, targeting, onboarding behaviour and the completion deadline.
  */
 export default function CourseForm({ course, onClose }: CourseFormProps) {
+  const programCourse = !!course.program_track;
   const [sortOrder, setSortOrder] = useState(course?.sort_order ?? 0);
   const [isActive, setIsActive] = useState(course?.is_active ?? true);
+  const [isPublished, setIsPublished] = useState(course?.status === 'published');
   const [isOnboarding, setIsOnboarding] = useState(course?.is_onboarding ?? false);
   const [availableToAll, setAvailableToAll] = useState(course?.available_to_all ?? false);
   const [countdownEnabled, setCountdownEnabled] = useState(course?.countdown_enabled ?? false);
@@ -60,11 +62,12 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
     const payload = {
       sort_order: sortOrder,
       is_active: isActive,
-      is_onboarding: isOnboarding,
-      available_to_all: availableToAll,
-      countdown_enabled: countdownEnabled,
-      countdown_hours: countdownHoursValue,
-      category_ids: selectedCategoryIds,
+      status: isPublished ? 'published' as const : 'draft' as const,
+      is_onboarding: programCourse ? false : isOnboarding,
+      available_to_all: programCourse ? true : availableToAll,
+      countdown_enabled: programCourse ? false : countdownEnabled,
+      countdown_hours: programCourse ? null : countdownHoursValue,
+      category_ids: programCourse ? [] : selectedCategoryIds,
     };
 
     try {
@@ -98,6 +101,12 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
         onChange={(e) => setSortOrder(Number(e.target.value))}
       />
 
+      {programCourse && (
+        <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
+          This course is shown only to {course.program_track === 'jobs' ? 'talents looking for jobs' : 'Partner Program applicants'}. Completion is visible in the admin onboarding views and never blocks access.
+        </p>
+      )}
+
       <div className="flex items-center gap-2">
         <input
           type="checkbox"
@@ -109,7 +118,19 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
         <label htmlFor="course-active" className="text-sm text-gray-700">Active</label>
       </div>
 
-      <div className="flex items-center gap-2">
+      {programCourse && (
+        <div>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)}
+              disabled={!course.squadhub_visible}
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600 disabled:opacity-50" />
+            Publish to eligible talents
+          </label>
+          {!course.squadhub_visible && <p className="mt-1 text-xs text-gray-500">Publish this course in SquadHub first. It will become available here after the content syncs.</p>}
+        </div>
+      )}
+
+      {!programCourse && <div className="flex items-center gap-2">
         <input
           type="checkbox"
           id="course-onboarding"
@@ -120,14 +141,14 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
         <label htmlFor="course-onboarding" className="text-sm text-gray-700">
           Onboarding course
         </label>
-      </div>
-      {isOnboarding && (
+      </div>}
+      {!programCourse && isOnboarding && (
         <p className="text-xs text-amber-700 -mt-2">
           Onboarding courses unlock their sections in order and are required for new talents in the selected job profiles. Each job profile may belong to only one onboarding course.
         </p>
       )}
 
-      {isOnboarding && (
+      {!programCourse && isOnboarding && (
         <div className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -141,13 +162,13 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
           </label>
         </div>
       )}
-      {isOnboarding && availableToAll && (
+      {!programCourse && isOnboarding && availableToAll && (
         <p className="text-xs text-amber-700 -mt-2">
           This course will be visible to all users, including existing approved talents who may not match the selected job profiles. Sections remain unlocked for approved users.
         </p>
       )}
 
-      <div>
+      {!programCourse && <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Categories {requiresCategories && <span className="ml-0.5 text-red-500">*</span>}
           {!requiresCategories && <span className="ml-2 text-xs font-normal text-gray-500">(optional &mdash; leave empty to make visible to all talents)</span>}
@@ -176,9 +197,9 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
         {categoryError && (
           <p className="mt-1 text-sm text-red-600">Onboarding courses require at least one category</p>
         )}
-      </div>
+      </div>}
 
-      <div className="rounded-lg border border-gray-200 p-3 space-y-2">
+      {!programCourse && <div className="rounded-lg border border-gray-200 p-3 space-y-2">
         <div className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -217,7 +238,7 @@ export default function CourseForm({ course, onClose }: CourseFormProps) {
         <p className="text-xs text-gray-500">
           When enabled, talents see a Start popup on first open. The course locks once the deadline passes.
         </p>
-      </div>
+      </div>}
 
       <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
         <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>

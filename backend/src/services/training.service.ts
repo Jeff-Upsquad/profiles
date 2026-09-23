@@ -56,11 +56,9 @@ function shapeItem(row: any) {
     ...row,
     categories: (row.training_item_categories ?? []).map((l: any) => l.categories).filter(Boolean),
     category_ids: (row.training_item_categories ?? []).map((l: any) => l.category_id),
-    // Where an admin goes to edit this content. SquadHub's Resources module is
-    // an in-app section rather than a per-item route, so this points at the app
-    // and the admin picks the item there. Built server-side so the admin UI
-    // needs no SquadHub config of its own.
-    squadhub_url: `${env.SQUADHUB_WEB_URL.replace(/\/$/, '')}/app`,
+    squadhub_url: row.squadhub_item_id
+      ? `${env.SQUADHUB_WEB_URL.replace(/\/$/, '')}/admin/learning/${row.squadhub_item_id}`
+      : `${env.SQUADHUB_WEB_URL.replace(/\/$/, '')}/admin/learning`,
   };
 }
 
@@ -181,6 +179,36 @@ export async function updateItem(id: string, input: UpdateItemInput) {
 
   const willBeOnboarding = input.is_onboarding ?? current.is_onboarding;
   const nextCategoryIds = input.category_ids ?? current.category_ids;
+
+  if (current.program_track && (
+    willBeOnboarding ||
+    (input.countdown_enabled ?? current.countdown_enabled) ||
+    nextCategoryIds.length > 0 ||
+    (input.available_to_all ?? current.available_to_all) !== true
+  )) {
+    throw new AppError(400, 'Program courses must stay optional and available to their full track');
+  }
+
+  if (current.program_track && input.status === 'published') {
+    if (!current.squadhub_visible) {
+      throw new AppError(400, 'Publish the course in SquadHub and wait for its content to sync first');
+    }
+    const { data: pages, error: pagesError } = await supabaseAdmin
+      .from('training_pages')
+      .select('id')
+      .eq('item_id', id)
+      .eq('is_active', true);
+    if (pagesError) throw new AppError(500, `Failed to check course pages: ${pagesError.message}`);
+    const pageIds = (pages ?? []).map((page) => page.id);
+    if (!pageIds.length) throw new AppError(400, 'Add and publish a lesson in SquadHub first');
+    const { data: blocks, error: blocksError } = await supabaseAdmin
+      .from('training_blocks')
+      .select('id')
+      .in('page_id', pageIds)
+      .limit(1);
+    if (blocksError) throw new AppError(500, `Failed to check course content: ${blocksError.message}`);
+    if (!blocks?.length) throw new AppError(400, 'Add and publish lesson content in SquadHub first');
+  }
 
   if (willBeOnboarding) {
     const openToAll = input.available_to_all ?? current.available_to_all;
@@ -317,6 +345,18 @@ export async function getItemPages(itemId: string) {
  * an admin hide a synced page from talents without touching SquadHub.
  */
 export async function updatePageConfig(pageId: string, input: UpdatePageConfigInput) {
+  if (input.linked_module || input.gates_profile_creation === true) {
+    const { data: page, error: pageError } = await supabaseAdmin
+      .from('training_pages')
+      .select('training_items!inner(program_track)')
+      .eq('id', pageId)
+      .maybeSingle();
+    if (pageError) throw new AppError(500, `Failed to load page: ${pageError.message}`);
+    if (!page) throw new AppError(404, 'Page not found');
+    if ((page as any).training_items?.program_track) {
+      throw new AppError(400, 'Program courses cannot unlock modules or gate profile creation');
+    }
+  }
   const patch: Record<string, unknown> = {};
   for (const key of ['linked_module', 'gates_profile_creation', 'language', 'is_active'] as const) {
     if (input[key] !== undefined) patch[key] = input[key];

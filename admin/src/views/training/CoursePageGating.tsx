@@ -137,7 +137,9 @@ export default function CoursePageGating({ courseId }: { courseId: string }) {
 
       <div className="mb-5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
         Pages, videos and quizzes are written in SquadHub&rsquo;s Resources module and sync here
-        automatically. This screen controls what each page <strong>unlocks</strong> for talents.
+        automatically. {course?.program_track
+          ? 'This program course tracks completion and does not gate access.'
+          : <>This screen controls what each page <strong>unlocks</strong> for talents.</>}
       </div>
 
       {course && !course.squadhub_item_id && (
@@ -232,7 +234,7 @@ export default function CoursePageGating({ courseId }: { courseId: string }) {
                     <td className="px-4 py-3">
                       <select
                         value={page.linked_module ?? ''}
-                        disabled={busy}
+                        disabled={busy || !!course?.program_track}
                         onChange={(e) =>
                           save(page.id, { linked_module: e.target.value || null })
                         }
@@ -251,7 +253,7 @@ export default function CoursePageGating({ courseId }: { courseId: string }) {
                       <input
                         type="checkbox"
                         checked={page.gates_profile_creation}
-                        disabled={busy}
+                        disabled={busy || !!course?.program_track}
                         onChange={(e) =>
                           save(page.id, { gates_profile_creation: e.target.checked })
                         }

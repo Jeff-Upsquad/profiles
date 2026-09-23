@@ -25,6 +25,7 @@ export interface TrainingItem {
   sort_order: number;
   is_active: boolean;
   is_onboarding: boolean;
+  program_track: 'jobs' | 'partner' | null;
   available_to_all: boolean;
   countdown_enabled: boolean;
   countdown_hours: number | null;
@@ -36,6 +37,7 @@ export interface TrainingItem {
   squadhub_url: string;
   /** Null until SquadHub has published this item down to us. */
   squadhub_item_id: string | null;
+  squadhub_visible: boolean;
   synced_at: string | null;
   created_at: string;
   updated_at: string;

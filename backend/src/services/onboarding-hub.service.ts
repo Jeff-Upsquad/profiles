@@ -20,6 +20,7 @@ import {
   formTypesForTalent,
 } from '../lib/signup-category.js';
 import { normalizeStage, type CrmStage } from './crm-stage-mapping.js';
+import { programProgressFor, type ProgramProgress } from './program-training-progress.service.js';
 
 // Graduated talents (talent-board "Onboarding completed") no longer belong in
 // the onboarding queue — they live in Partner Program / Jobs modules where the
@@ -232,6 +233,7 @@ interface JourneySummary {
   onboarding_completed: boolean;
   onboarding_bypassed: boolean;
   course_started: boolean;
+  program_courses: ProgramProgress;
   basic_profile_completed: boolean;
   basic_missing: string[];
   job_profile_completed: boolean;
@@ -269,7 +271,7 @@ async function journeysFor(
   const ids = talents.map((t) => t.id);
   if (ids.length === 0) return out;
 
-  const [basicRes, profRes, startsRes] = await Promise.all([
+  const [basicRes, profRes, startsRes, programProgress] = await Promise.all([
     supabaseAdmin.from('talent_profiles_basic').select(BASIC_COLUMNS).in('talent_user_id', ids),
     supabaseAdmin
       .from('talent_profiles')
@@ -277,6 +279,7 @@ async function journeysFor(
       .in('talent_user_id', ids)
       .is('deleted_at', null),
     supabaseAdmin.from('training_course_starts').select('talent_user_id').in('talent_user_id', ids),
+    programProgressFor(ids),
   ]);
 
   const basicBy = new Map<string, Record<string, any>>();
@@ -365,6 +368,7 @@ async function journeysFor(
       onboarding_completed: !!t.onboarding_completed || !!t.skip_onboarding,
       onboarding_bypassed: !!t.skip_onboarding,
       course_started: started.has(t.id),
+      program_courses: programProgress.get(t.id) ?? { jobs: null, partner: null },
       basic_profile_completed: isBasicProfileMandatoryComplete(basic, {
         full_name: t.full_name ?? null,
         languages_spoken: t.languages_spoken,
@@ -702,7 +706,7 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
   if (!talent) throw new AppError(404, 'Talent not found');
   const t = talent as any;
 
-  const [basicRes, profilesRes, authRes, leadRes, cats] = await Promise.all([
+  const [basicRes, profilesRes, authRes, leadRes, cats, programProgress] = await Promise.all([
     supabaseAdmin.from('talent_profiles_basic').select('*').eq('talent_user_id', userId).maybeSingle(),
     supabaseAdmin
       .from('talent_profiles')
@@ -720,6 +724,7 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
       .limit(1)
       .maybeSingle(),
     signupCategoriesByTalentIds([userId]),
+    programProgressFor([userId]),
   ]);
 
   const basic = (basicRes.data ?? null) as Record<string, any> | null;
@@ -807,6 +812,7 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
       onboarding_completed: !!t.onboarding_completed || !!t.skip_onboarding,
       onboarding_bypassed: !!t.skip_onboarding,
       course,
+      program_courses: programProgress.get(userId) ?? { jobs: null, partner: null },
       basic_profile_completed: isBasicProfileMandatoryComplete(basic, {
         full_name: t.full_name ?? null,
         languages_spoken: t.languages_spoken,

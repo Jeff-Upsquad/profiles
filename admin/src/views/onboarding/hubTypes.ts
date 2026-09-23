@@ -59,6 +59,7 @@ export interface JourneySummary {
   onboarding_completed: boolean;
   onboarding_bypassed: boolean;
   course_started: boolean;
+  program_courses: Record<'jobs' | 'partner', ProgramCourseProgress | null>;
   basic_profile_completed: boolean;
   basic_missing: string[];
   job_profile_completed: boolean;
@@ -75,6 +76,16 @@ export interface JourneySummary {
   resubmitted_at: string | null;
   portfolio_completed: boolean;
   portfolio_items: number;
+}
+
+export interface ProgramCourseProgress {
+  id: string;
+  title: string;
+  published: boolean;
+  completed: number;
+  total: number;
+  started: boolean;
+  done: boolean;
 }
 
 export interface HubRow {

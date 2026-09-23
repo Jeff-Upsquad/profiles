@@ -93,6 +93,31 @@ function JourneyDots({ row }: { row: HubRow }) {
   );
 }
 
+function ModuleCourseStatus({ row }: { row: HubRow }) {
+  const courses = row.journey?.program_courses;
+  if (!courses) return null;
+  const tracks = [
+    ...(row.wants_jobs ? [{ key: 'jobs' as const, label: 'Jobs' }] : []),
+    ...(row.partner_approval_status != null ? [{ key: 'partner' as const, label: 'Partner' }] : []),
+  ];
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1">
+      {tracks.map(({ key, label }) => {
+        const course = courses[key];
+        const state = !course?.published || course.total === 0
+          ? 'Not ready'
+          : course.done ? 'Done' : `${course.completed}/${course.total}`;
+        return (
+          <span key={key} title={`${label} module training: ${state}`}
+            className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${course?.done ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
+            {label} course · {state}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function StatusBadge({ row, track }: { row: HubRow; track: 'partner' | 'jobs' }) {
   const approvalStatus = track === 'partner' ? row.partner_approval_status : row.approval_status;
   const cls = row.suspended
@@ -551,6 +576,7 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
                       <td className="px-3 py-2.5">
                         <JourneyDots row={u} />
                         <p className="mt-1 text-[11px] text-gray-500">{hint}</p>
+                        <ModuleCourseStatus row={u} />
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex flex-col items-start gap-1">

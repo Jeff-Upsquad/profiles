@@ -77,14 +77,18 @@ export default function CourseList({ hideHeading = false }: { hideHeading?: bool
                     </Link>
                   </td>
                   <td className="px-6 py-4">
-                    {course.is_onboarding ? (
+                    {course.program_track ? (
+                      <Badge variant="blue">{course.program_track === 'jobs' ? 'Jobs' : 'Partner Program'}</Badge>
+                    ) : course.is_onboarding ? (
                       <Badge variant="indigo">Onboarding</Badge>
                     ) : (
                       <span className="text-gray-400 text-xs">Standard</span>
                     )}
                   </td>
                   <td className="px-6 py-4">
-                    {course.categories.length > 0 ? (
+                    {course.program_track ? (
+                      <span className="text-gray-500 text-xs">{course.program_track === 'jobs' ? 'Jobs seekers' : 'Partner applicants'}</span>
+                    ) : course.categories.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {course.categories.map((cat) => (
                           <Badge key={cat.id} variant="blue">
@@ -103,8 +107,8 @@ export default function CourseList({ hideHeading = false }: { hideHeading?: bool
                   </td>
                   <td className="px-6 py-4 text-gray-500">{course.page_count ?? 0}</td>
                   <td className="px-6 py-4">
-                    <Badge variant={course.is_active ? 'green' : 'gray'}>
-                      {course.is_active ? 'Active' : 'Inactive'}
+                    <Badge variant={course.status === 'draft' || !course.is_active ? 'gray' : 'green'}>
+                      {course.status === 'draft' ? 'Draft' : course.is_active ? 'Active' : 'Inactive'}
                     </Badge>
                   </td>
                   <td className="px-6 py-4 text-gray-500">{course.sort_order}</td>
