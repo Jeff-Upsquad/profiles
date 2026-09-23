@@ -193,21 +193,6 @@ export async function updateItem(id: string, input: UpdateItemInput) {
     if (!current.squadhub_visible) {
       throw new AppError(400, 'Publish the course in SquadHub and wait for its content to sync first');
     }
-    const { data: pages, error: pagesError } = await supabaseAdmin
-      .from('training_pages')
-      .select('id')
-      .eq('item_id', id)
-      .eq('is_active', true);
-    if (pagesError) throw new AppError(500, `Failed to check course pages: ${pagesError.message}`);
-    const pageIds = (pages ?? []).map((page) => page.id);
-    if (!pageIds.length) throw new AppError(400, 'Add and publish a lesson in SquadHub first');
-    const { data: blocks, error: blocksError } = await supabaseAdmin
-      .from('training_blocks')
-      .select('id')
-      .in('page_id', pageIds)
-      .limit(1);
-    if (blocksError) throw new AppError(500, `Failed to check course content: ${blocksError.message}`);
-    if (!blocks?.length) throw new AppError(400, 'Add and publish lesson content in SquadHub first');
   }
 
   if (willBeOnboarding) {

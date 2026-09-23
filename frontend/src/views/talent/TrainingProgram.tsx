@@ -1112,7 +1112,7 @@ function CourseReader({
         </div>
       ) : course.chapters.length === 0 || flat.length === 0 ? (
         <div className="flex min-h-0 flex-1 items-center justify-center px-6 text-sm text-[#737373]">
-          No lessons yet.
+          {course.program_track ? 'Content coming soon.' : 'No lessons yet.'}
         </div>
       ) : (
         <>
@@ -1358,6 +1358,7 @@ function FullTrainingProgram() {
     let assigned = 0;
     let completed = 0;
     for (const c of courses) {
+      if (c.program_track && c.total_count === 0) continue;
       const st = courseStatus(c);
       if (st === 'completed') completed += 1;
       else if (st === 'in_progress') inProgress += 1;
@@ -1866,6 +1867,11 @@ function CatalogCourseCard({
               In progress
             </span>
           )}
+          {course.program_track && course.total_count === 0 && (
+            <span className="rounded-full bg-amber-50 px-1.5 py-px text-[9px] font-medium text-amber-700">
+              Content coming soon
+            </span>
+          )}
           {status === 'completed' && (
             <span className="rounded-full bg-emerald-50 px-1.5 py-px text-[9px] font-medium text-emerald-700">
               Done
@@ -1875,7 +1881,9 @@ function CatalogCourseCard({
         <span className="truncate text-[13.5px] font-semibold leading-tight text-[#0a0a0a]">
           {course.title}
         </span>
-        <span className="flex items-center gap-2 pt-0.5">
+        {course.program_track && course.total_count === 0 ? (
+          <span className="text-[11px] text-[#737373]">Lessons will appear here when added.</span>
+        ) : <span className="flex items-center gap-2 pt-0.5">
           <span className="h-1 flex-1 overflow-hidden rounded-full bg-[#E7E7EA]">
             <span
               className={`block h-full rounded-full transition-all ${
@@ -1889,7 +1897,7 @@ function CatalogCourseCard({
           <span className="shrink-0 text-[10px] tabular-nums text-[#a3a3a3]">
             {status === 'completed' ? '✓' : `${course.completed_count}/${course.total_count}`}
           </span>
-        </span>
+        </span>}
       </span>
     </button>
   );

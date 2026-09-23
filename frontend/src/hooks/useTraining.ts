@@ -58,6 +58,7 @@ export interface TalentItem {
   cover_image_url: string | null;
   sort_order: number;
   is_onboarding: boolean;
+  program_track: 'jobs' | 'partner' | null;
   countdown_enabled: boolean;
   countdown_hours: number | null;
   started_at: string | null;
@@ -145,6 +146,7 @@ export function itemToCourse(item: TalentItem): TrainingCourse {
     description: item.summary ?? undefined,
     sort_order: item.sort_order,
     is_onboarding: item.is_onboarding,
+    program_track: item.program_track ?? null,
     countdown_enabled: item.countdown_enabled,
     countdown_hours: item.countdown_hours,
     started_at: item.started_at,
@@ -249,6 +251,7 @@ export interface TrainingCourse {
   description?: string;
   sort_order: number;
   is_onboarding: boolean;
+  program_track: 'jobs' | 'partner' | null;
   countdown_enabled: boolean;
   countdown_hours: number | null;
   started_at: string | null;
