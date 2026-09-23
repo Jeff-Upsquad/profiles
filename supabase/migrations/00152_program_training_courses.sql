@@ -26,10 +26,10 @@ INSERT INTO training_items
    is_onboarding, available_to_all, countdown_enabled, program_track, sort_order)
 VALUES
   ('7f1e32db-469e-4bfc-88d9-97162358d1ee', 'course', 'learning',
-   'SquadHire Jobs Module Training', 'Training for talents looking for jobs.',
+   'Jobs Module Training', 'Training for talents looking for jobs.',
    'draft', true, false, true, false, 'jobs', 20),
   ('ba493993-771d-4969-8e16-18489be875c0', 'course', 'learning',
-   'SquadHire Partner Program Module Training', 'Training for Partner Program talents.',
+   'Partner Program Module Training', 'Training for Partner Program talents.',
    'draft', true, false, true, false, 'partner', 21)
 ON CONFLICT (squadhub_item_id) DO UPDATE SET
   program_track = EXCLUDED.program_track,
