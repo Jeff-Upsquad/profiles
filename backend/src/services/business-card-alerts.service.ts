@@ -71,6 +71,16 @@ const EVENT_BY_SURFACE: Record<'marketplace' | 'jobs', Record<CardAlertKind, str
   },
 };
 
+/**
+ * Meta rejects template parameters containing newlines, tabs or runs of 4+
+ * spaces, and caps the rendered body length. Card titles and contact names are
+ * user-authored, so every value that reaches a {{n}} goes through here.
+ */
+function sanitizeParam(value: string, maxLength = 60): string {
+  const flat = value.replace(/\s+/g, ' ').trim();
+  return flat.length > maxLength ? `${flat.slice(0, maxLength - 1).trimEnd()}…` : flat;
+}
+
 function cardTitle(content: Record<string, unknown>, cardType: string): string {
   if (typeof content.title === 'string' && content.title.trim()) return content.title.trim();
   const jp = content.job_profile as Record<string, unknown> | undefined;
@@ -261,7 +271,7 @@ export async function notifyBusinessCardActivity(params: {
       },
       // Explicit ordering — the CRM fills {{1}},{{2}},{{3}} from this array
       // rather than guessing at `data` key order.
-      bodyParams: [business.name, String(pending), title],
+      bodyParams: [sanitizeParam(business.name, 40), String(pending), sanitizeParam(title)],
       // Dynamic URL button → /business/card/<id>, which resolves the card type
       // and forwards to the right review screen.
       buttonUrlParam: cardId,
