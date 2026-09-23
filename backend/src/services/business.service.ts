@@ -2016,6 +2016,18 @@ export async function markCardAcceptancesSeen(
 
   if (error) throw new AppError(500, error.message);
 
+  // Agencies accept into their own table against the same card ids. Stamp them
+  // too, or they'd stay "unseen" forever and keep inflating the alert count.
+  const { error: agencyErr } = await supabaseAdmin
+    .from('agency_card_recipients')
+    .update({ business_seen_at: new Date().toISOString() })
+    .in('card_id', groupCardIds)
+    .eq('status', 'accepted')
+    .is('business_seen_at', null);
+  if (agencyErr) {
+    console.error('[business] failed to stamp agency acceptances seen', agencyErr.message);
+  }
+
   // The business is looking at the card right now — re-arm its WhatsApp alerts
   // so the NEXT talent to respond nudges them again.
   void rearmBusinessCardAlerts(groupCardIds);

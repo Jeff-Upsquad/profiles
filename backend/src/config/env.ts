@@ -122,6 +122,15 @@ const envSchema = z.object({
   // whole budget in minutes.
   BUSINESS_CARD_ALERT_MAX_SENDS: z.coerce.number().int().min(1).max(20).default(5),
   BUSINESS_CARD_ALERT_COOLDOWN_MINUTES: z.coerce.number().int().min(0).max(1440).default(30),
+  // Stage 2: how long after the FIRST acceptance the roll-up total goes out.
+  BUSINESS_CARD_ALERT_ROLLUP_MINUTES: z.coerce.number().int().min(1).max(720).default(30),
+  // Stage 1 for agencies. OFF until the business card review screen actually
+  // lists agency acceptances — otherwise the nudge lands them on a page with
+  // no agency on it. Agency acceptances are still counted in stages 2 and 3.
+  BUSINESS_CARD_ALERT_INCLUDE_AGENCIES: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true' || v === '1'),
 
   // Notify talents when a card is *ingested* (created/edited/synced via the
   // SquadHub webhook), not just when it's explicitly broadcast. Default false:

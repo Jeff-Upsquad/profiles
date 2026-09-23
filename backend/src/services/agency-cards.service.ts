@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { isSubscriptionRequestQuote } from '../lib/card-pricing-mode.js';
+import { notifyBusinessCardActivity } from './business-card-alerts.service.js';
 
 export async function listForAgency(
   agencyUserId: string,
@@ -96,7 +97,7 @@ export async function respondCard(
     .eq('agency_user_id', agencyUserId)
     .eq('status', 'pending')
     .is('cancelled_at', null)
-    .select('id')
+    .select('id, card_id')
     .maybeSingle();
 
   if (error) throw new AppError(500, error.message);
@@ -110,6 +111,16 @@ export async function respondCard(
     if (!existing) throw new AppError(404, 'Card not found');
     if ((existing as any).cancelled_at) throw new AppError(409, 'This offer has been cancelled');
     throw new AppError(409, 'Already responded to this card');
+  }
+
+  // Agencies share the card space with talents, so the same business card
+  // alert ladder covers them — they're just their own stage-1 group.
+  if (action === 'accept' && (updated as any).card_id) {
+    void notifyBusinessCardActivity({
+      cardId: (updated as any).card_id as string,
+      kind: 'acceptance',
+      responderType: 'agency',
+    });
   }
 
   return { id: updated.id as string, status: newStatus, responded_at: respondedAt };

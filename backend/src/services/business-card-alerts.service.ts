@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { deliverCrmSystemEvent } from '../lib/crm-system-event.js';
+import { getTalentTiersByUserIds } from './talent-tier.service.js';
 
 /**
  * Business WhatsApp card alerts (00150).
@@ -37,6 +38,49 @@ import { deliverCrmSystemEvent } from '../lib/crm-system-event.js';
 
 export type CardAlertKind = 'acceptance' | 'bid';
 
+/**
+ * The five buckets stage 1 fires for. A business cares *who* showed up, not
+ * just how many — "a Top Talent accepted" is different news from "a junior
+ * accepted", and worth interrupting them for separately.
+ *
+ * 'other' catches the 'custom' tier and talents with no tier resolved yet, so
+ * an untiered talent still produces exactly one instant alert instead of
+ * silently falling into the 30-minute roll-up.
+ */
+export type ResponderGroup = 'top_talents' | 'pro' | 'junior' | 'other' | 'agency';
+
+/** How each group is named inside the WhatsApp sentence. */
+const GROUP_LABEL: Record<ResponderGroup, string> = {
+  top_talents: 'A Top Talent',
+  pro: 'A pro talent',
+  junior: 'A junior talent',
+  other: 'A talent',
+  agency: 'An agency',
+};
+
+/** talent_profiles.tier → bucket. Anything unrecognised lands in 'other'. */
+function groupForTier(tier: string | null | undefined): ResponderGroup {
+  if (tier === 'Top Talents') return 'top_talents';
+  if (tier === 'pro') return 'pro';
+  if (tier === 'junior') return 'junior';
+  return 'other';
+}
+
+async function resolveResponderGroup(params: {
+  responderType?: 'talent' | 'agency';
+  talentUserId?: string;
+}): Promise<ResponderGroup> {
+  if (params.responderType === 'agency') return 'agency';
+  if (!params.talentUserId) return 'other';
+  try {
+    const tiers = await getTalentTiersByUserIds([params.talentUserId]);
+    return groupForTier(tiers[params.talentUserId]?.tier ?? null);
+  } catch (err) {
+    console.error('[business-card-alerts] tier lookup failed', err);
+    return 'other';
+  }
+}
+
 /** Cards that behave like a talent marketplace brief (accept + priced bids). */
 const MARKETPLACE_CARD_TYPES = new Set(['subscription', 'assignment']);
 
@@ -69,6 +113,16 @@ const EVENT_BY_SURFACE: Record<'marketplace' | 'jobs', Record<CardAlertKind, str
     acceptance: 'business_job_new_applicants',
     bid: 'business_job_new_negotiations',
   },
+};
+
+/**
+ * Stage 1 speaks about a person, not a number ("A Top Talent has accepted…"),
+ * so it needs its own template. Stages 2 and 3 both quote a count and reuse
+ * the EVENT_BY_SURFACE templates above.
+ */
+const FIRST_EVENT_BY_SURFACE: Record<'marketplace' | 'jobs', string> = {
+  marketplace: 'business_card_first_acceptance',
+  jobs: 'business_job_first_applicant',
 };
 
 /**
@@ -180,14 +234,24 @@ async function countPending(
   groupCardIds: string[],
 ): Promise<number> {
   if (kind === 'acceptance') {
-    const { count } = await supabaseAdmin
+    const { count: talentCount } = await supabaseAdmin
       .from('subscription_card_recipients')
       .select('id', { count: 'exact', head: true })
       .in('card_id', groupCardIds)
       .eq('status', 'accepted')
       .is('cancelled_at', null)
       .is('business_seen_at', null);
-    return count ?? 0;
+
+    // Agencies accept into their own table against the same card ids.
+    const { count: agencyCount } = await supabaseAdmin
+      .from('agency_card_recipients')
+      .select('id', { count: 'exact', head: true })
+      .in('card_id', groupCardIds)
+      .eq('status', 'accepted')
+      .is('cancelled_at', null)
+      .is('business_seen_at', null);
+
+    return (talentCount ?? 0) + (agencyCount ?? 0);
   }
 
   if (card.cardType === 'hiring') {
@@ -218,16 +282,70 @@ async function releaseClaim(cardId: string, kind: CardAlertKind): Promise<void> 
   }
 }
 
+/** Shared send step for stages 2 and 3, which both quote a count. */
+async function sendCountMessage(params: {
+  card: AlertCard;
+  business: AlertBusiness;
+  kind: CardAlertKind;
+  primaryCardId: string;
+  groupCardIds: string[];
+  stage: 'rollup' | 'post_review';
+}): Promise<boolean> {
+  const { card, business, kind, primaryCardId, groupCardIds, stage } = params;
+  const surface = card.cardType === 'hiring' ? 'jobs' : 'marketplace';
+  const event = EVENT_BY_SURFACE[surface][kind];
+  const title = cardTitle(card.content, card.cardType);
+  const pending = Math.max(await countPending(kind, card, groupCardIds), 1);
+
+  const delivered = await deliverCrmSystemEvent({
+    audience: 'business',
+    event,
+    name: business.name,
+    phone: business.phone,
+    data: {
+      business_name: business.name,
+      count: String(pending),
+      card_title: title,
+      card_id: primaryCardId,
+      stage,
+    },
+    bodyParams: [sanitizeParam(business.name, 40), String(pending), sanitizeParam(title)],
+    buttonUrlParam: primaryCardId,
+  });
+
+  if (delivered) {
+    console.info('[business-card-alerts] sent', { cardId: primaryCardId, kind, event, stage, pending });
+  }
+  return delivered;
+}
+
 /**
- * A talent responded to a card — nudge the business if it's their turn to hear
- * about it. Fire-and-forget: never throws, never blocks the talent's action.
+ * A talent or agency responded to a card — walk the ladder and decide whether
+ * the business hears about it now, later, or not at all.
+ *
+ *   Stage 1  first responder from this group → send immediately.
+ *   Stage 2  group already announced, roll-up still pending → stay quiet; the
+ *            sweeper will fold this response into the 30-minute total.
+ *   Stage 3  roll-up settled → the 00150 rule: send only if the business has
+ *            reviewed the card since the last nudge.
+ *
+ * Fire-and-forget: never throws, never blocks the responder's own action.
  */
 export async function notifyBusinessCardActivity(params: {
   cardId: string;
   kind: CardAlertKind;
+  talentUserId?: string;
+  responderType?: 'talent' | 'agency';
 }): Promise<void> {
   const { cardId, kind } = params;
   try {
+    if (params.responderType === 'agency' && !env.BUSINESS_CARD_ALERT_INCLUDE_AGENCIES) {
+      // The business card review screen does not list agency acceptances yet,
+      // so an "an agency accepted" nudge would land them on a page with no
+      // agency on it. Counting still happens; only the alert is held back.
+      return;
+    }
+
     const card = await loadCard(cardId);
     if (!card) return;
     if (card.cardType !== 'hiring' && !MARKETPLACE_CARD_TYPES.has(card.cardType)) return;
@@ -235,82 +353,193 @@ export async function notifyBusinessCardActivity(params: {
     const business = await loadBusiness(card.businessUserId);
     if (!business) return;
 
-    // One budget per brief, not per tier card.
+    // One ladder per brief, not per tier card.
     const { primaryCardId, cardIds: groupCardIds } = await resolveGroup(card);
 
-    // Claim BEFORE counting: the claim is what collapses a burst of concurrent
-    // acceptances into one message.
-    const { data: claim, error: claimErr } = await supabaseAdmin.rpc('claim_business_card_alert', {
-      p_card_id: primaryCardId,
-      p_business_user_id: card.businessUserId,
-      p_kind: kind,
-      p_max_sends: env.BUSINESS_CARD_ALERT_MAX_SENDS,
-      p_cooldown_seconds: env.BUSINESS_CARD_ALERT_COOLDOWN_MINUTES * 60,
-    });
-    if (claimErr) {
-      console.error('[business-card-alerts] claim failed', {
-        cardId,
-        kind,
-        error: claimErr.message,
-      });
-      return;
+    // ── Stage 1 ────────────────────────────────────────────────────────────
+    // Bids have no tier story — they drop straight to stage 3.
+    if (kind === 'acceptance') {
+      const group = await resolveResponderGroup(params);
+      const { data: claim, error: claimErr } = await supabaseAdmin.rpc(
+        'claim_business_card_group_alert',
+        {
+          p_card_id: primaryCardId,
+          p_business_user_id: card.businessUserId,
+          p_kind: kind,
+          p_group: group,
+          p_rollup_minutes: env.BUSINESS_CARD_ALERT_ROLLUP_MINUTES,
+        },
+      );
+      if (claimErr) {
+        console.error('[business-card-alerts] group claim failed', {
+          cardId: primaryCardId,
+          group,
+          error: claimErr.message,
+        });
+        return;
+      }
+      const row = Array.isArray(claim) ? claim[0] : claim;
+      const claimed = Number((row as any)?.out_claimed ?? 0) === 1;
+
+      if (claimed) {
+        const surface = card.cardType === 'hiring' ? 'jobs' : 'marketplace';
+        const title = cardTitle(card.content, card.cardType);
+        const delivered = await deliverCrmSystemEvent({
+          audience: 'business',
+          event: FIRST_EVENT_BY_SURFACE[surface],
+          name: business.name,
+          phone: business.phone,
+          data: {
+            business_name: business.name,
+            responder: GROUP_LABEL[group],
+            card_title: title,
+            card_id: primaryCardId,
+            group,
+          },
+          bodyParams: [
+            sanitizeParam(business.name, 40),
+            GROUP_LABEL[group],
+            sanitizeParam(title),
+          ],
+          buttonUrlParam: primaryCardId,
+        });
+        if (!delivered) {
+          await supabaseAdmin.rpc('release_business_card_group_alert', {
+            p_card_id: primaryCardId,
+            p_kind: kind,
+            p_group: group,
+          });
+          return;
+        }
+        console.info('[business-card-alerts] stage1 sent', {
+          cardId: primaryCardId,
+          group,
+          event: FIRST_EVENT_BY_SURFACE[surface],
+        });
+        return;
+      }
+
+      // Not claimed. Either this group already fired and the roll-up is still
+      // pending (stay quiet — the sweeper folds this in), or the ladder has
+      // moved past stage 1, in which case stage 3 below decides.
+      const reason = String((row as any)?.out_reason ?? '');
+      if (reason !== 'ladder_past_stage_one') return;
     }
-    const row = Array.isArray(claim) ? claim[0] : claim;
-    const sendNumber = Number((row as any)?.out_send_number ?? 0);
-    if (!sendNumber) {
-      console.info('[business-card-alerts] skipped', {
-        cardId,
-        kind,
-        reason: (row as any)?.out_reason ?? 'unknown',
-      });
-      return;
-    }
 
-    // The triggering response is guaranteed to be one of these, but a row the
-    // count filters out (already seen, already settled) shouldn't produce a
-    // "0 talents" message.
-    const pending = Math.max(await countPending(kind, card, groupCardIds), 1);
-
-    const surface = card.cardType === 'hiring' ? 'jobs' : 'marketplace';
-    const event = EVENT_BY_SURFACE[surface][kind];
-    const title = cardTitle(card.content, card.cardType);
-
-    const delivered = await deliverCrmSystemEvent({
-      audience: 'business',
-      event,
-      name: business.name,
-      phone: business.phone,
-      data: {
-        business_name: business.name,
-        count: String(pending),
-        card_title: title,
-        card_id: primaryCardId,
-        send_number: sendNumber,
+    // ── Stage 3 ────────────────────────────────────────────────────────────
+    const { data: sendClaim, error: sendErr } = await supabaseAdmin.rpc(
+      'claim_business_card_alert',
+      {
+        p_card_id: primaryCardId,
+        p_business_user_id: card.businessUserId,
+        p_kind: kind,
+        p_max_sends: env.BUSINESS_CARD_ALERT_MAX_SENDS,
+        p_cooldown_seconds: env.BUSINESS_CARD_ALERT_COOLDOWN_MINUTES * 60,
       },
-      // Explicit ordering — the CRM fills {{1}},{{2}},{{3}} from this array
-      // rather than guessing at `data` key order.
-      bodyParams: [sanitizeParam(business.name, 40), String(pending), sanitizeParam(title)],
-      // Dynamic URL button → /business/card/<id>, which resolves the card type
-      // and forwards to the right review screen.
-      buttonUrlParam: primaryCardId,
-    });
-
-    if (!delivered) {
-      // Template not approved yet, or Meta/transport failed. Give the slot back
-      // so the next response still gets its nudge.
-      await releaseClaim(primaryCardId, kind);
+    );
+    if (sendErr) {
+      console.error('[business-card-alerts] claim failed', {
+        cardId: primaryCardId,
+        kind,
+        error: sendErr.message,
+      });
+      return;
+    }
+    const sendRow = Array.isArray(sendClaim) ? sendClaim[0] : sendClaim;
+    if (!Number((sendRow as any)?.out_send_number ?? 0)) {
+      console.info('[business-card-alerts] skipped', {
+        cardId: primaryCardId,
+        kind,
+        reason: (sendRow as any)?.out_reason ?? 'unknown',
+      });
       return;
     }
 
-    console.info('[business-card-alerts] sent', {
-      cardId: primaryCardId,
+    const delivered = await sendCountMessage({
+      card,
+      business,
       kind,
-      event,
-      sendNumber,
-      pending,
+      primaryCardId,
+      groupCardIds,
+      stage: 'post_review',
     });
+    if (!delivered) await releaseClaim(primaryCardId, kind);
   } catch (err) {
     console.error('[business-card-alerts] notify threw', err);
+  }
+}
+
+/**
+ * Stage 2. Settle every card whose 30-minute roll-up has come due: send one
+ * message with the real total, but only when more responses arrived than
+ * stage 1 already announced (each stage-1 message covered exactly one).
+ *
+ * Settling stamps rollup_sent_at either way — that is what opens stage 3.
+ *
+ * Driven by the per-minute sweeper so it survives restarts; an in-process
+ * timer would lose every pending roll-up on deploy.
+ */
+export async function sweepBusinessCardRollups(): Promise<void> {
+  const { data: due, error } = await supabaseAdmin
+    .from('business_card_alert_state')
+    .select('card_id, kind')
+    .eq('kind', 'acceptance')
+    .not('rollup_due_at', 'is', null)
+    .is('rollup_sent_at', null)
+    .lte('rollup_due_at', new Date().toISOString())
+    .limit(200);
+  if (error) {
+    console.error('[business-card-alerts] rollup sweep query failed', error.message);
+    return;
+  }
+
+  for (const rowDue of due ?? []) {
+    const cardId = (rowDue as any).card_id as string;
+    const kind = (rowDue as any).kind as CardAlertKind;
+    try {
+      const { data: claim, error: claimErr } = await supabaseAdmin.rpc(
+        'claim_business_card_rollup',
+        { p_card_id: cardId, p_kind: kind },
+      );
+      if (claimErr) {
+        console.error('[business-card-alerts] rollup claim failed', cardId, claimErr.message);
+        continue;
+      }
+      const row = Array.isArray(claim) ? claim[0] : claim;
+      if (Number((row as any)?.out_claimed ?? 0) !== 1) continue;
+
+      const announced = Number((row as any)?.out_announced ?? 0);
+
+      const card = await loadCard(cardId);
+      if (!card) continue;
+      const business = await loadBusiness(card.businessUserId);
+      if (!business) continue;
+
+      const { primaryCardId, cardIds: groupCardIds } = await resolveGroup(card);
+      const pending = await countPending(kind, card, groupCardIds);
+
+      // Stage 1 announced one talent per group. Nothing new on top of that
+      // means there is nothing to say — the card still advances to stage 3.
+      if (pending <= announced) {
+        console.info('[business-card-alerts] rollup settled, nothing new', {
+          cardId,
+          pending,
+          announced,
+        });
+        continue;
+      }
+
+      await sendCountMessage({
+        card,
+        business,
+        kind,
+        primaryCardId,
+        groupCardIds,
+        stage: 'rollup',
+      });
+    } catch (err) {
+      console.error('[business-card-alerts] rollup threw for card', cardId, err);
+    }
   }
 }
 

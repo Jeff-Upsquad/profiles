@@ -1765,7 +1765,12 @@ export async function respond(
   // it on every accept is safe. Never awaited — a WhatsApp hop must not sit in
   // the talent's request.
   if (input.action === 'accept' && card?.id) {
-    void notifyBusinessCardActivity({ cardId: card.id, kind: 'acceptance' });
+    void notifyBusinessCardActivity({
+      cardId: card.id,
+      kind: 'acceptance',
+      responderType: 'talent',
+      talentUserId: updated.talent_user_id as string,
+    });
   }
 
   // Fire-and-forget callback. Never block or fail the user's response on this.
@@ -1880,7 +1885,12 @@ export async function handleTalentAcceptedByWebhook(
     }
   }
 
-  void notifyBusinessCardActivity({ cardId: (card as any).id as string, kind: 'acceptance' });
+  void notifyBusinessCardActivity({
+    cardId: (card as any).id as string,
+    kind: 'acceptance',
+    responderType: 'talent',
+    talentUserId: (updated as any).talent_user_id as string,
+  });
 
   return { updated: 1, alreadyAccepted: false };
 }

@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { createBusinessNotification } from './business-notifications.service.js';
+import { sweepBusinessCardRollups } from './business-card-alerts.service.js';
 import { notifyJobEvent } from './push.service.js';
 import { fireJobsCrmEvent } from './talent-whatsapp.service.js';
 import {
@@ -263,6 +264,7 @@ export function startInterviewSweeper(): NodeJS.Timeout {
       await sweepMeetingReminders();
       await sweepGroupMeetJoinNotices();
       await sweepWebinarReminders(now);
+      await sweepBusinessCardRollups();
     } catch (err) {
       console.error('[jobs-sweeper] tick errored', err);
     }
