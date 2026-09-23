@@ -48,6 +48,8 @@ const envSchema = z.object({
   // auto-login hand-off link the business tab sends the browser to. Defaults to
   // production; override for staging/local.
   SQUADHUB_WEB_URL: z.string().url().default('https://squadhub.in'),
+  // SquadHub Resources authoring is served by a separate admin origin.
+  SQUADHUB_ADMIN_URL: z.string().url().default('https://admin.squadhub.in'),
 
   // Jobs module: SquadHub's SINGLE inbound events endpoint (cross-repo
   // contract) — every outbound job event (candidate applied, interview

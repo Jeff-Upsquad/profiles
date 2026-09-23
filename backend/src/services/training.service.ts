@@ -57,8 +57,8 @@ function shapeItem(row: any) {
     categories: (row.training_item_categories ?? []).map((l: any) => l.categories).filter(Boolean),
     category_ids: (row.training_item_categories ?? []).map((l: any) => l.category_id),
     squadhub_url: row.squadhub_item_id
-      ? `${env.SQUADHUB_WEB_URL.replace(/\/$/, '')}/admin/learning/${row.squadhub_item_id}`
-      : `${env.SQUADHUB_WEB_URL.replace(/\/$/, '')}/admin/learning`,
+      ? `${env.SQUADHUB_ADMIN_URL.replace(/\/$/, '')}/admin/learning/${row.squadhub_item_id}`
+      : `${env.SQUADHUB_ADMIN_URL.replace(/\/$/, '')}/admin/learning`,
   };
 }
 
