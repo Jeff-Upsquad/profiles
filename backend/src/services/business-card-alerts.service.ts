@@ -121,7 +121,12 @@ const EVENT_BY_SURFACE: Record<'marketplace' | 'jobs', Record<CardAlertKind, str
  * the EVENT_BY_SURFACE templates above.
  */
 const FIRST_EVENT_BY_SURFACE: Record<'marketplace' | 'jobs', string> = {
-  marketplace: 'business_card_first_acceptance',
+  // NOT `business_card_first_acceptance` — Meta re-filed that one as MARKETING,
+  // which would make an operational alert subject to marketing opt-outs and
+  // per-user marketing caps. `business_card_tier_acceptance` is the same
+  // message reworded to match the stage-2 copy that holds UTILITY
+  // ("...is waiting for your review" rather than "...shortlist them").
+  marketplace: 'business_card_tier_acceptance',
   jobs: 'business_job_first_applicant',
 };
 
