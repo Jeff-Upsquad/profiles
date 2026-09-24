@@ -15,6 +15,7 @@ import { useStageLabels } from '@/hooks/useStageLabels';
 import { cleanPhoneForLink, formatIndianPhone } from '@/lib/phone';
 import { formatDate } from '@/lib/formatDate';
 import { crmLookupUrl } from '@/lib/crmUrl';
+import { formatTotalExperience } from '../../../../shared/src/experienceTotal';
 import {
   CATEGORY_BADGE,
   PIPELINE_STAGES,
@@ -270,6 +271,7 @@ function BasicProfileView({ basic, user }: { basic: Record<string, any> | null; 
   const employment: string[] = Array.isArray(b.employment_type) ? b.employment_type : [];
   const courses: any[] = Array.isArray(b.education_courses) ? b.education_courses : [];
   const exps: any[] = Array.isArray(b.experience) ? b.experience : [];
+  const totalExp = formatTotalExperience(exps);
 
   return (
     <dl className="mt-3 grid gap-3 border-t border-gray-100 pt-3 sm:grid-cols-2">
@@ -310,6 +312,13 @@ function BasicProfileView({ basic, user }: { basic: Record<string, any> | null; 
         <KV label="Experience">
           {exps.length ? (
             <ul className="space-y-1">
+              {totalExp && (
+                <li className="text-sm">
+                  <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+                    Total: {totalExp}
+                  </span>
+                </li>
+              )}
               {exps.map((e, i) => (
                 <li key={i} className="text-sm">
                   <span className="font-medium">{e.designation || 'Untitled role'}</span>

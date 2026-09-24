@@ -11,6 +11,7 @@ import { cleanPhoneForLink } from '@/lib/phone';
 import { formatDate } from '@/lib/formatDate';
 import { coerceLeveledList, LEVEL_LABELS, type LeveledItem } from '../../../../shared/src/types/talent';
 import { CRM_URL } from '@/lib/crmUrl';
+import { formatTotalExperience, type ExperienceRange } from '../../../../shared/src/experienceTotal';
 
 type Tier = 'junior' | 'pro' | 'Top Talents' | 'custom';
 const TIER_OPTIONS: { value: Tier | null; label: string }[] = [
@@ -65,6 +66,7 @@ interface ProfileData {
   updated_at: string;
   is_ghost?: boolean;
   source_profiles?: SourceProfile[];
+  basic_experience?: ExperienceRange[];
   talent_users?: {
     id: string;
     full_name: string;
@@ -290,6 +292,7 @@ export default function TalentProfileView({
 
   const sortedFields = (fields ?? []).filter((f) => f.is_active).sort((a, b) => a.sort_order - b.sort_order);
   const talentUser = profile.talent_users;
+  const totalExperience = formatTotalExperience(profile.basic_experience);
   const waPhone = cleanPhoneForLink(talentUser?.phone);
   const whatsappHref = waPhone ? `https://wa.me/${waPhone}` : null;
   const crmHref = waPhone ? `${CRM_URL}/app/leads/lookup?phone=${waPhone}` : null;
@@ -359,7 +362,9 @@ export default function TalentProfileView({
               <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
               <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
             </svg>
-            {profile.field_data?.years_experience != null ? (
+            {totalExperience ? (
+              <span>{totalExperience} experience</span>
+            ) : profile.field_data?.years_experience != null ? (
               <span>{profile.field_data.years_experience} yrs experience</span>
             ) : (
               <span className="text-gray-400 italic">Experience not specified</span>

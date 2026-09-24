@@ -2302,6 +2302,15 @@ export async function getTalentProfile(profileId: string) {
     .eq('linked_talent_user_id', data.talent_user_id)
     .order('created_at', { ascending: false });
 
+  // Work history lives on the talent's basic profile (shared by every job
+  // profile) — the admin header totals it into years + months.
+  const { data: basicRow } = await supabaseAdmin
+    .from('talent_profiles_basic')
+    .select('experience')
+    .eq('talent_user_id', data.talent_user_id)
+    .maybeSingle();
+  const basic_experience = Array.isArray(basicRow?.experience) ? basicRow!.experience : [];
+
   // Ghost profiles carry no field_data of their own. Embed the two source
   // profiles (Designer + Video Editor) and their portfolios so the admin
   // detail view can render the combined "Designer + Editor" listing.
@@ -2362,12 +2371,18 @@ export async function getTalentProfile(profileId: string) {
         ...data,
         portfolio_items: portfolioWithSkills,
         linked_leads: linkedLeads ?? [],
+        basic_experience,
         source_profiles: sourceProfiles,
       };
     }
   }
 
-  return { ...data, portfolio_items: portfolioWithSkills, linked_leads: linkedLeads ?? [] };
+  return {
+    ...data,
+    portfolio_items: portfolioWithSkills,
+    linked_leads: linkedLeads ?? [],
+    basic_experience,
+  };
 }
 
 // ---------------------------------------------------------------------------

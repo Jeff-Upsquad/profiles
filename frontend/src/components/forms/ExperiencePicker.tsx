@@ -1,5 +1,6 @@
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
+import { formatTotalExperience } from '../../../../shared/src/experienceTotal';
 
 export interface ExperienceEntry {
   from_year: number | '';
@@ -57,8 +58,18 @@ export default function ExperiencePicker({ value, onChange }: ExperiencePickerPr
     onChange(value.filter((_, i) => i !== index));
   };
 
+  const total = formatTotalExperience(value);
+
   return (
     <div>
+      {value.length > 0 && (
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-[#E7E7EA] bg-white px-5 py-3">
+          <span className="text-[13px] font-medium text-[#3F3F46]">Total experience</span>
+          <span className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
+            {total ?? <span className="text-sm font-normal text-[#a3a3a3]">Add From and To dates</span>}
+          </span>
+        </div>
+      )}
       {value.length > 0 && (
         <div className="space-y-4">
           {value.map((entry, i) => (
