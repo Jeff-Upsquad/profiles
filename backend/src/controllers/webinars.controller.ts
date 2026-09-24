@@ -46,6 +46,21 @@ export async function listRegistrations(req: Request, res: Response, next: NextF
   }
 }
 
+// Tick the talent's onboarding-webinar checklist item from the registrant list.
+export async function setAttended(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { attended } = req.body as { attended?: unknown };
+    if (typeof attended !== 'boolean') {
+      res.status(400).json({ message: 'attended (boolean) required' });
+      return;
+    }
+    const hub = await import('../services/onboarding-hub.service.js');
+    res.json(await hub.setWebinarAttended(req.params.talentUserId as string, attended, req.user!.id));
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Talent — inside Training.
 export async function listForTalent(req: Request, res: Response, next: NextFunction) {
   try {

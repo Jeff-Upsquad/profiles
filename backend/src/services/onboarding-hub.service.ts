@@ -267,6 +267,47 @@ interface JourneySummary {
   resubmitted_at: string | null;
   portfolio_completed: boolean;
   portfolio_items: number;
+  talent_board: TalentBoardChecklist;
+}
+
+/**
+ * Talent-board (post-live) checklist inputs. The courses come from
+ * `program_courses`; these are the other two ticks.
+ *  - App downloaded: first check-in from the talent mobile app, which fires on
+ *    every sign-in — so the first login ticks it with no admin action.
+ *  - Webinar attended: marked by an admin (one common webinar for both tracks).
+ */
+export interface TalentBoardChecklist {
+  app_downloaded_at: string | null;
+  app_platform: string | null;
+  webinar_attended_at: string | null;
+}
+
+/** Batch first-app-login lookup: talent id -> { first_seen_at, platform }. */
+async function appInstallsFor(ids: string[]): Promise<Map<string, { first_seen_at: string; platform: string }>> {
+  const out = new Map<string, { first_seen_at: string; platform: string }>();
+  if (ids.length === 0) return out;
+  const { data, error } = await supabaseAdmin
+    .from('talent_app_installs')
+    .select('user_id, first_seen_at, platform')
+    .in('user_id', ids);
+  if (error) {
+    console.error('[onboarding-hub] app installs lookup failed:', error.message);
+    return out;
+  }
+  for (const r of data ?? []) out.set((r as any).user_id, { first_seen_at: (r as any).first_seen_at, platform: (r as any).platform });
+  return out;
+}
+
+function talentBoardChecklist(
+  install: { first_seen_at: string; platform: string } | undefined,
+  webinarAttendedAt: string | null | undefined,
+): TalentBoardChecklist {
+  return {
+    app_downloaded_at: install?.first_seen_at ?? null,
+    app_platform: install?.platform ?? null,
+    webinar_attended_at: webinarAttendedAt ?? null,
+  };
 }
 
 /**
@@ -279,13 +320,14 @@ async function journeysFor(
     languages_spoken: unknown;
     onboarding_completed?: boolean | null;
     skip_onboarding?: boolean | null;
+    onboarding_webinar_attended_at?: string | null;
   }>,
 ): Promise<Map<string, JourneySummary>> {
   const out = new Map<string, JourneySummary>();
   const ids = talents.map((t) => t.id);
   if (ids.length === 0) return out;
 
-  const [basicRes, profRes, startsRes, programProgress] = await Promise.all([
+  const [basicRes, profRes, startsRes, programProgress, installs] = await Promise.all([
     supabaseAdmin.from('talent_profiles_basic').select(BASIC_COLUMNS).in('talent_user_id', ids),
     supabaseAdmin
       .from('talent_profiles')
@@ -294,6 +336,7 @@ async function journeysFor(
       .is('deleted_at', null),
     supabaseAdmin.from('training_course_starts').select('talent_user_id').in('talent_user_id', ids),
     programProgressFor(ids),
+    appInstallsFor(ids),
   ]);
 
   const basicBy = new Map<string, Record<string, any>>();
@@ -398,6 +441,7 @@ async function journeysFor(
       resubmitted_at: resubmittedAt,
       portfolio_completed: portfolioItems > 0,
       portfolio_items: portfolioItems,
+      talent_board: talentBoardChecklist(installs.get(t.id), t.onboarding_webinar_attended_at),
     });
   }
   return out;
@@ -409,7 +453,8 @@ const TALENT_LIST_COLUMNS =
   'crm_talent_pipeline_name, crm_talent_stage_id, crm_talent_stage_name, crm_talent_stage_changed_at, ' +
   'crm_jobs_pipeline_name, crm_jobs_stage_id, crm_jobs_stage_name, crm_jobs_stage_changed_at, ' +
   'rejection_reason, rejected_at, partner_rejection_reason, partner_rejected_at, jobs_rejection_reason, jobs_rejected_at, ' +
-  'application_cancelled_at, application_cancelled_reason, rc_anchor_at, rc_reminders_sent, rc_last_sent_at';
+  'application_cancelled_at, application_cancelled_reason, rc_anchor_at, rc_reminders_sent, rc_last_sent_at, ' +
+  'onboarding_webinar_attended_at';
 
 /**
  * Talent ids matching an "attention" filter. Each is a cheap id-set query so
@@ -835,7 +880,7 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
   if (!talent) throw new AppError(404, 'Talent not found');
   const t = talent as any;
 
-  const [basicRes, profilesRes, authRes, leadRes, cats, programProgress] = await Promise.all([
+  const [basicRes, profilesRes, authRes, leadRes, cats, programProgress, installs] = await Promise.all([
     supabaseAdmin.from('talent_profiles_basic').select('*').eq('talent_user_id', userId).maybeSingle(),
     supabaseAdmin
       .from('talent_profiles')
@@ -854,6 +899,7 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
       .maybeSingle(),
     signupCategoriesByTalentIds([userId]),
     programProgressFor([userId]),
+    appInstallsFor([userId]),
   ]);
 
   const basic = (basicRes.data ?? null) as Record<string, any> | null;
@@ -977,6 +1023,7 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
       ),
       portfolio_completed: portfolioItems > 0,
       portfolio_items: portfolioItems,
+      talent_board: talentBoardChecklist(installs.get(userId), t.onboarding_webinar_attended_at),
     },
     basic,
     profiles: profiles.map((p) => ({
@@ -1106,4 +1153,24 @@ export async function setTalentStage(
   }
 
   return { stage_id: stage.id, stage_name: stage.name, pipeline_name: config.pipeline_name };
+}
+
+/**
+ * Tick / untick the common onboarding webinar on the talent-board checklist.
+ * There's no attendance feed from the meeting tool, so this is the admin's call.
+ */
+export async function setWebinarAttended(talentUserId: string, attended: boolean, adminUserId: string) {
+  const attendedAt = attended ? new Date().toISOString() : null;
+  const { data, error } = await supabaseAdmin
+    .from('talent_users')
+    .update({
+      onboarding_webinar_attended_at: attendedAt,
+      onboarding_webinar_attended_by: attended ? adminUserId : null,
+    })
+    .eq('id', talentUserId)
+    .select('id')
+    .maybeSingle();
+  if (error) throw new AppError(500, error.message);
+  if (!data) throw new AppError(404, 'Talent not found');
+  return { webinar_attended_at: attendedAt };
 }

@@ -220,6 +220,7 @@ router.get('/user-approvals/hub/stats', adminController.getOnboardingHubStats);
 router.get('/user-approvals/talent-pipelines', adminController.getTalentPipelines);
 router.get('/user-approvals/:userId/journey', adminController.getTalentJourney);
 router.patch('/user-approvals/:userId/talent-stage', adminController.setTalentStage);
+router.patch('/user-approvals/:userId/webinar-attended', adminController.setWebinarAttended);
 // Basic profile change requests — one common request per talent (the basic
 // profile is always live; resubmits come back here for accept).
 router.patch('/user-approvals/:userId/basic/request-changes', adminController.requestBasicChanges);
@@ -729,6 +730,7 @@ router.post(
   webinarsController.createAdmin,
 );
 router.get('/training/webinars/:id/registrations', webinarsController.listRegistrations);
+router.patch('/training/webinars/:id/registrations/:talentUserId/attended', webinarsController.setAttended);
 router.put(
   '/training/webinars/:id',
   validate({ body: updateWebinarSchema }),

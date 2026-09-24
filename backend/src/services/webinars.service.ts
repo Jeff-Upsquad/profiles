@@ -105,13 +105,15 @@ export interface WebinarRegistrant {
   day_notified_at: string | null;
   min30_notified_at: string | null;
   min5_notified_at: string | null;
+  /** The common onboarding webinar tick on the talent-board checklist. */
+  webinar_attended_at: string | null;
 }
 
 export async function listWebinarRegistrations(webinarId: string): Promise<WebinarRegistrant[]> {
   const { data, error } = await supabaseAdmin
     .from('training_webinar_registrations')
     .select(
-      'talent_user_id, created_at, day_notified_at, min30_notified_at, min5_notified_at, talent:talent_users(full_name, phone)',
+      'talent_user_id, created_at, day_notified_at, min30_notified_at, min5_notified_at, talent:talent_users(full_name, phone, onboarding_webinar_attended_at)',
     )
     .eq('webinar_id', webinarId)
     .order('created_at', { ascending: true })
@@ -125,6 +127,7 @@ export async function listWebinarRegistrations(webinarId: string): Promise<Webin
     day_notified_at: (r.day_notified_at as string | null) ?? null,
     min30_notified_at: (r.min30_notified_at as string | null) ?? null,
     min5_notified_at: (r.min5_notified_at as string | null) ?? null,
+    webinar_attended_at: (r.talent?.onboarding_webinar_attended_at as string | null) ?? null,
   }));
 }
 

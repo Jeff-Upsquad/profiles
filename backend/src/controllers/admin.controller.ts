@@ -491,6 +491,20 @@ export async function setTalentStage(req: Request, res: Response, next: NextFunc
   }
 }
 
+export async function setWebinarAttended(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { attended } = req.body as { attended?: unknown };
+    if (typeof attended !== 'boolean') {
+      res.status(400).json({ message: 'attended (boolean) required' });
+      return;
+    }
+    const hub = await import('../services/onboarding-hub.service.js');
+    res.json(await hub.setWebinarAttended(req.params.userId as string, attended, req.user!.id));
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Pipeline Stage Management
 // ---------------------------------------------------------------------------

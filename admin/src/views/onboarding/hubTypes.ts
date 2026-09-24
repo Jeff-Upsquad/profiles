@@ -1,5 +1,7 @@
 // Shared shapes + constants for the Onboarding hub (list + journey panel).
 
+import { formatDate } from '@/lib/formatDate';
+
 export type PipelineStage =
   | 'applicants'
   | 'application_approved'
@@ -98,6 +100,76 @@ export interface JourneySummary {
   resubmitted_at: string | null;
   portfolio_completed: boolean;
   portfolio_items: number;
+  talent_board?: TalentBoardChecklist;
+}
+
+/** Post-live checklist inputs (courses come from `program_courses`). */
+export interface TalentBoardChecklist {
+  /** First sign-in on the talent mobile app — ticks itself. */
+  app_downloaded_at: string | null;
+  app_platform: string | null;
+  /** The one common onboarding webinar, ticked by an admin. */
+  webinar_attended_at: string | null;
+}
+
+export interface TalentBoardStep {
+  key: 'app' | 'webinar' | 'partner_course' | 'jobs_course';
+  label: string;
+  short: string;
+  done: boolean;
+  detail: string;
+}
+
+/**
+ * The talent-board checklist, in order: App downloaded → Webinar attended →
+ * the course for each track the talent applied to (Partner and/or Jobs).
+ */
+export function talentBoardSteps(input: {
+  wants_jobs: boolean;
+  partner_approval_status: string | null;
+  talent_board?: TalentBoardChecklist;
+  program_courses: Record<'jobs' | 'partner', ProgramCourseProgress | null>;
+}): TalentBoardStep[] {
+  const tb = input.talent_board;
+  const courseDetail = (c: ProgramCourseProgress | null) =>
+    !c?.published ? 'Course content being prepared'
+      : c.total === 0 ? 'No lessons yet'
+        : c.done ? 'Completed'
+          : c.started ? `${c.completed} of ${c.total} pages complete`
+            : 'Not started';
+  const platform = tb?.app_platform === 'ios' ? 'iOS' : tb?.app_platform === 'android' ? 'Android' : null;
+  return [
+    {
+      key: 'app',
+      label: 'App downloaded',
+      short: 'App',
+      done: !!tb?.app_downloaded_at,
+      detail: tb?.app_downloaded_at
+        ? `First signed in ${formatDate(tb.app_downloaded_at)}${platform ? ` · ${platform}` : ''}`
+        : 'Not signed in on the mobile app yet',
+    },
+    {
+      key: 'webinar',
+      label: 'Webinar attended',
+      short: 'Webinar',
+      done: !!tb?.webinar_attended_at,
+      detail: tb?.webinar_attended_at ? `Marked ${formatDate(tb.webinar_attended_at)}` : 'Not attended yet',
+    },
+    ...(input.partner_approval_status != null ? [{
+      key: 'partner_course' as const,
+      label: 'Partner course completed',
+      short: 'Partner course',
+      done: !!input.program_courses.partner?.done,
+      detail: courseDetail(input.program_courses.partner),
+    }] : []),
+    ...(input.wants_jobs ? [{
+      key: 'jobs_course' as const,
+      label: 'Jobs course completed',
+      short: 'Jobs course',
+      done: !!input.program_courses.jobs?.done,
+      detail: courseDetail(input.program_courses.jobs),
+    }] : []),
+  ];
 }
 
 export interface ProgramCourseProgress {

@@ -25,7 +25,13 @@ import {
   type CrmStage,
   type PipelineStage,
 } from './hubTypes';
-import { requestChangesStepLabel, type ProgramCourseProgress, type RequestChangesStatus } from './hubTypes';
+import {
+  requestChangesStepLabel,
+  talentBoardSteps,
+  type ProgramCourseProgress,
+  type RequestChangesStatus,
+  type TalentBoardChecklist,
+} from './hubTypes';
 
 // ---------------------------------------------------------------------------
 // Types (mirror GET /admin/user-approvals/:id/journey)
@@ -106,6 +112,7 @@ interface Journey {
     onboarding_bypassed: boolean;
     course: { items: CourseItem[]; completed: number; total: number };
     program_courses: Record<'jobs' | 'partner', ProgramCourseProgress | null>;
+    talent_board?: TalentBoardChecklist;
     basic_profile_completed: boolean;
     basic_checklist: ChecklistItem[];
     job_profile_completed: boolean;
@@ -479,6 +486,16 @@ export default function TalentJourneyPanel({
       refresh();
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to update stage'),
+  });
+
+  const webinarMut = useMutation({
+    mutationFn: async (attended: boolean) =>
+      (await api.patch(`/admin/user-approvals/${userId}/webinar-attended`, { attended })).data,
+    onSuccess: (_res, attended) => {
+      toast.success(attended ? 'Webinar marked attended' : 'Webinar unmarked');
+      refresh();
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to update webinar'),
   });
 
   const talentStageMut = useMutation({
@@ -1086,31 +1103,40 @@ export default function TalentJourneyPanel({
                 </ol>
               </Section>
 
-              <Section title="Module training" aside={<span className="text-[11px] text-gray-500">Does not block access</span>}>
-                <div className="space-y-2">
-                  {([
-                    ...(u.wants_jobs ? [{ key: 'jobs' as const, label: 'Jobs' }] : []),
-                    ...(u.partner_approval_status != null ? [{ key: 'partner' as const, label: 'Partner Program' }] : []),
-                  ]).map(({ key, label }) => {
-                    const course = j.program_courses[key];
-                    const state = !course?.published ? 'Content being prepared'
-                      : course.total === 0 ? 'No lessons yet'
-                      : course.done ? 'Completed'
-                      : course.started ? `${course.completed} of ${course.total} pages complete`
-                      : 'Not started';
-                    return (
-                      <div key={key} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{label} course</p>
-                          <p className="text-xs text-gray-500">{state}</p>
-                        </div>
-                        <span className={`text-xs font-medium ${course?.done ? 'text-green-700' : 'text-gray-500'}`}>
-                          {course?.done ? '✓ Done' : course?.published && course.total > 0 ? 'Pending' : '—'}
-                        </span>
+              <Section title="Talent board checklist" aside={<span className="text-[11px] text-gray-500">After going live</span>}>
+                <ol className="space-y-3">
+                  {talentBoardSteps({
+                    wants_jobs: u.wants_jobs,
+                    partner_approval_status: u.partner_approval_status,
+                    talent_board: j.talent_board,
+                    program_courses: j.program_courses,
+                  }).map((s, i, all) => (
+                    <li key={s.key} className="flex items-start gap-3">
+                      <StepIcon done={s.done} active={!s.done && all.slice(0, i).every((p) => p.done)} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900">{s.label}</p>
+                        <p className="text-xs text-gray-500">
+                          {s.detail}
+                          {s.key === 'app' && !s.done ? ' · ticks itself on first sign-in' : ''}
+                        </p>
                       </div>
-                    );
-                  })}
-                </div>
+                      {s.key === 'webinar' && canEdit && (
+                        <button
+                          type="button"
+                          disabled={webinarMut.isPending}
+                          onClick={() => webinarMut.mutate(!s.done)}
+                          className={`shrink-0 rounded-lg border px-2.5 py-1 text-xs font-medium disabled:opacity-60 ${
+                            s.done
+                              ? 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                              : 'border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50'
+                          }`}
+                        >
+                          {s.done ? 'Unmark' : 'Mark attended'}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ol>
               </Section>
 
               {/* Candidate pipeline stage */}

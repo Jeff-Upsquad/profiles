@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -47,15 +48,29 @@ interface Registrant {
   day_notified_at: string | null;
   min30_notified_at: string | null;
   min5_notified_at: string | null;
+  webinar_attended_at: string | null;
 }
 
 function RegistrantsView({ webinar }: { webinar: Webinar }) {
+  const qc = useQueryClient();
+  const registrationsKey = ['admin', 'training', 'webinars', webinar.id, 'registrations'];
   const { data, isLoading } = useQuery<Registrant[]>({
-    queryKey: ['admin', 'training', 'webinars', webinar.id, 'registrations'],
+    queryKey: registrationsKey,
     queryFn: async () => {
       const { data } = await api.get(`/admin/training/webinars/${webinar.id}/registrations`);
       return data;
     },
+  });
+  // Ticks the talent's "Webinar attended" item on the Onboarding hub checklist.
+  const attendedMut = useMutation({
+    mutationFn: async ({ talentUserId, attended }: { talentUserId: string; attended: boolean }) =>
+      (await api.patch(`/admin/training/webinars/${webinar.id}/registrations/${talentUserId}/attended`, { attended })).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: registrationsKey });
+      qc.invalidateQueries({ queryKey: ['onboarding-hub'] });
+      qc.invalidateQueries({ queryKey: ['onboarding-journey'] });
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to update attendance'),
   });
 
   if (isLoading) {
@@ -81,6 +96,7 @@ function RegistrantsView({ webinar }: { webinar: Webinar }) {
             <th className="px-4 py-2 text-left font-medium text-gray-500">Phone</th>
             <th className="px-4 py-2 text-left font-medium text-gray-500">Registered</th>
             <th className="px-4 py-2 text-left font-medium text-gray-500">Reminders</th>
+            <th className="px-4 py-2 text-left font-medium text-gray-500" title="Ticks “Webinar attended” on the talent's onboarding checklist">Attended</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -107,6 +123,18 @@ function RegistrantsView({ webinar }: { webinar: Webinar }) {
                       {r.min5_notified_at ? ' · day ✓ 30m ✓ 5m ✓' : r.min30_notified_at ? ' · day ✓ 30m ✓' : ' · day ✓'}
                     </span>
                   )}
+                </td>
+                <td className="px-4 py-2.5">
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={!!r.webinar_attended_at}
+                      disabled={attendedMut.isPending}
+                      onChange={(e) => attendedMut.mutate({ talentUserId: r.talent_user_id, attended: e.target.checked })}
+                      className="rounded border-gray-300"
+                    />
+                    {r.webinar_attended_at ? 'Yes' : 'No'}
+                  </label>
                 </td>
               </tr>
             );

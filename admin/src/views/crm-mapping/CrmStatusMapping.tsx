@@ -470,7 +470,7 @@ function TalentPipelineCard({
       <Card>
         <h2 className="text-base font-semibold text-gray-900">Talent board · {label}</h2>
         <p className="mt-1 text-sm text-gray-600">
-          The CRM&apos;s post-onboarding pipeline (Welcome → Download App → Webinars → Onboarding
+          The CRM&apos;s post-onboarding pipeline (Welcome → Download App → Onboarding webinar → Onboarding
           completed). Link it so the Onboarding hub can show and move talents through it.
         </p>
         <button
