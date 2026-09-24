@@ -341,7 +341,8 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
           <p className="mt-1 text-sm text-gray-500">
             {rejectedOnly
               ? 'Review rejection reasons, open the full talent journey, and restore applications to the start of onboarding.'
-              : 'Every sign-up and how far they have got — course, basic profile, job profile, portfolio — with both CRM boards in sync. Click a row to assist.'}
+              : <>Every sign-up and how far they&apos;ve got — course, basic profile, job profile, portfolio —
+                with both CRM boards in sync. Click a row to assist.</>}
           </p>
         </div>
         {!rejectedOnly && <div className="flex flex-wrap items-center gap-2">
@@ -397,83 +398,100 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
         </div>
       </div>
 
+      {/* Funnel — candidate pipeline (synced with CRM) */}
       {!rejectedOnly && (
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Onboarding queue · candidate pipeline</p>
-            <p className="text-[11px] text-gray-400">{stats?.total ?? 0} total · synced with SquadHire CRM</p>
-          </div>
-          <div className="flex gap-1 overflow-x-auto border-b border-gray-200" role="tablist" aria-label="Candidate pipeline stage">
-            {[{ value: 'all', label: 'All stages', dot: 'bg-indigo-500', chip: '' }, ...PIPELINE_STAGES].map((s) => {
-              const active = stage === s.value;
+      <div>
+        <div className="mb-1.5 flex items-center justify-between">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+            Sign-up journey · candidate pipeline
+          </p>
+          <p className="text-[11px] text-gray-400">{stats?.total ?? 0} total · synced with SquadHire CRM</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+          {PIPELINE_STAGES.map((s) => {
+            const active = stage === s.value;
+            return (
+              <button
+                key={s.value}
+                type="button"
+                onClick={() => updateQuery({
+                  stage: active ? null : s.value,
+                  // The talent board only applies to Live — drop its filter when leaving Live.
+                  ...(s.value === 'live' && !active ? {} : { talent_stage: null }),
+                  page: null,
+                })}
+                className={`rounded-xl border p-3 text-left transition ${
+                  active ? `${s.chip} border-2 shadow-sm` : 'border-gray-200 bg-white hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className={`h-2 w-2 rounded-full ${s.dot}`} />
+                  <span className="truncate text-[11px] font-medium text-gray-600">
+                    {labelFor(formTypeForLabels, STAGE_TO_LEAD_KEY[s.value], s.label)}
+                  </span>
+                </div>
+                <div className="mt-1 text-xl font-bold text-gray-900">{stageCount(s.value)}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      )}
+
+      {/* Talent board — CRM post-onboarding pipeline, shown only for Live candidates */}
+      {!rejectedOnly && stage === 'live' && (
+      <div>
+        <div className="mb-1.5 flex items-center justify-between">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+            Talent board · after going live
+          </p>
+          <p className="text-[11px] text-gray-400">
+            {talentPipelineLinked
+              ? `${stats?.in_talent_pipeline ?? 0} on the board · synced with SquadHire CRM · completed move to ${track === 'jobs' ? 'Jobs' : 'Partner Program'}`
+              : 'not linked'}
+          </p>
+        </div>
+        {talentPipelineLinked ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {talentStages.map((s) => {
+              const active = talentStage === s.id;
+              const n = stats?.by_talent_stage?.[s.id] ?? 0;
               return (
                 <button
-                  key={s.value}
+                  key={s.id}
                   type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => updateQuery({ stage: s.value === 'all' ? null : s.value, talent_stage: null, page: null, selected: null })}
-                  className={`-mb-px flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors ${
-                    active ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800'
+                  onClick={() => updateQuery({ talent_stage: active ? null : s.id, page: null })}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
+                    active
+                      ? 'border-sky-300 bg-sky-50 text-sky-700 ring-2 ring-sky-200 ring-offset-1'
+                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  <span className={`h-2 w-2 rounded-full ${s.dot}`} />
-                  {s.value === 'all' ? s.label : labelFor(formTypeForLabels, STAGE_TO_LEAD_KEY[s.value as PipelineStage], s.label)}
-                  <span className={`rounded-full px-1.5 py-0.5 text-[11px] ${active ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-600'}`}>
-                    {s.value === 'all' ? stats?.total ?? 0 : stageCount(s.value)}
-                  </span>
+                  {s.name}
+                  <span className={`rounded-full px-1.5 text-[10px] ${active ? 'bg-sky-100' : 'bg-gray-100 text-gray-600'}`}>{n}</span>
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={() => updateQuery({ talent_stage: talentStage === 'none' ? null : 'none', page: null })}
+              className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition ${
+                talentStage === 'none'
+                  ? 'border-gray-400 bg-gray-100 text-gray-800 ring-2 ring-gray-200 ring-offset-1'
+                  : 'border-dashed border-gray-300 bg-white text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              Not on board
+            </button>
           </div>
-        </div>
-      )}
-
-      {/* Talent pipeline tabs for the live portion of the onboarding queue. */}
-      {!rejectedOnly && (
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-              Talent pipeline · after going live
-            </p>
-            <p className="text-[11px] text-gray-400">
-              {talentPipelineLinked
-                ? `${stats?.in_talent_pipeline ?? 0} on the board · synced with SquadHire CRM`
-                : 'not linked'}
-            </p>
-          </div>
-          {talentPipelineLinked ? (
-            <div className="flex gap-1 overflow-x-auto border-b border-gray-200" role="tablist" aria-label="Talent pipeline stage">
-              <button type="button" role="tab" aria-selected={talentStage === 'all'}
-                onClick={() => updateQuery({ talent_stage: null, stage: null, page: null, selected: null })}
-                className={`-mb-px shrink-0 border-b-2 px-3 py-3 text-sm font-medium ${talentStage === 'all'
-                  ? 'border-sky-600 text-sky-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
-                All talent stages
-              </button>
-              {talentStages.map((s) => (
-                <button key={s.id} type="button" role="tab" aria-selected={talentStage === s.id}
-                  onClick={() => updateQuery({ talent_stage: s.id, stage: null, page: null, selected: null })}
-                  className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium ${talentStage === s.id
-                    ? 'border-sky-600 text-sky-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
-                  {s.name}
-                  <span className="rounded-full bg-sky-50 px-1.5 text-[11px] text-sky-700">{stats?.by_talent_stage?.[s.id] ?? 0}</span>
-                </button>
-              ))}
-              <button type="button" role="tab" aria-selected={talentStage === 'none'}
-                onClick={() => updateQuery({ talent_stage: 'none', stage: null, page: null, selected: null })}
-                className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium ${talentStage === 'none'
-                  ? 'border-sky-600 text-sky-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
-                Not on board
-              </button>
-            </div>
-          ) : (
-            <p className="rounded-lg border border-dashed border-gray-200 bg-white px-3 py-2 text-xs text-gray-500">
-              Link the CRM talent pipeline for each category under{' '}
-              <Link href="/crm-mapping" className="text-indigo-600 underline">CRM Mapping</Link> to see and move
-              talents through Welcome → Download App → Webinars here.
-            </p>
-          )}
-        </div>
+        ) : (
+          <p className="rounded-lg border border-dashed border-gray-200 bg-white px-3 py-2 text-xs text-gray-500">
+            Link the CRM talent pipeline for each category under{' '}
+            <Link href="/crm-mapping" className="text-indigo-600 underline">CRM Mapping</Link> to see and move
+            talents through Welcome → Download App → Webinars here. Completed talents graduate to {track === 'jobs' ? 'Jobs' : 'Partner Program'}.
+          </p>
+        )}
+      </div>
       )}
 
       {/* Attention chips + sort */}
