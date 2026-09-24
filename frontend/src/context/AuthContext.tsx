@@ -26,7 +26,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, nextPath?: string) => Promise<void>;
   businessLogin: (
     identifier: {
       email?: string;
@@ -256,14 +256,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, pathname, router]);
 
   const login = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string, nextPath?: string) => {
       const { data } = await api.post('/auth/login', { email, password });
       // Persist to localStorage only — do not set React state on this page.
       // The next document reads the token on mount and verifies it there.
+      // A deep link (`next`) only applies to talents; it's a /talent/* path.
+      const next = data.user?.role === 'talent' ? safeNextPath(nextPath) : null;
       persistAndEnterApp(
         data.access_token || data.token,
         data.refresh_token,
-        destinationForRole(data.user?.role),
+        next ?? destinationForRole(data.user?.role),
       );
     },
     []

@@ -2,11 +2,16 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/context/AuthContext';
+import { useSearchParams } from 'next/navigation';
+import { useAuth, safeNextPath } from '@/context/AuthContext';
 import toast from 'react-hot-toast';
 
 export default function LoginTalent() {
   const { login, user, token } = useAuth();
+  const searchParams = useSearchParams();
+  // Deep links (e.g. the request-changes WhatsApp) bounce through here when the
+  // session has expired; `next` carries the page they were actually after.
+  const nextPath = safeNextPath(searchParams.get('next'));
 
   // Already signed in (e.g. a mobile swipe-back landed here from the app).
   // `token` is read synchronously from localStorage on mount, so it's set
@@ -18,9 +23,9 @@ export default function LoginTalent() {
     // router.replace here can leave the login view mounted above the app on
     // mobile, so the user sees it by scrolling up past the dashboard.
     window.location.replace(
-      !user || user.role === 'talent' ? '/talent/dashboard' : '/dashboard',
+      !user || user.role === 'talent' ? nextPath ?? '/talent/dashboard' : '/dashboard',
     );
-  }, [token, user]);
+  }, [token, user, nextPath]);
 
   const [step, setStep] = useState<'email' | 'password'>('email');
   const [email, setEmail] = useState('');
@@ -37,7 +42,7 @@ export default function LoginTalent() {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password);
+      await login(email, password, nextPath ?? undefined);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Login failed');
     } finally {

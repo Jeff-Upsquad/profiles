@@ -16,6 +16,8 @@
 import { env } from '../config/env.js';
 
 const CRM_TIMEOUT_MS = 5_000;
+// A request-change event can send the button template and checklist separately.
+const REQUEST_CHANGES_TIMEOUT_MS = 12_000;
 
 type Audience = 'business' | 'talent';
 
@@ -81,7 +83,10 @@ export async function deliverCrmSystemEvent(args: {
   };
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), CRM_TIMEOUT_MS);
+  const timer = setTimeout(
+    () => controller.abort(),
+    args.event === 'talent_profile_changes_requested' ? REQUEST_CHANGES_TIMEOUT_MS : CRM_TIMEOUT_MS,
+  );
   try {
     const res = await fetch(target.url, {
       method: 'POST',

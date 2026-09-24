@@ -13,6 +13,7 @@ import {
   type ChecklistItem,
   type RequestedChange,
   type RequestChangesInput,
+  talentAccountUrl,
 } from './profile-review-changes.service.js';
 
 // Checklist scoped to what a basic-profile request can tick: the shared
@@ -38,6 +39,7 @@ export function needsBasicResubmission(
 function whatsappFollowupText(
   talentName: string | null,
   changes: RequestedChange[],
+  accountUrl: string,
 ): string {
   const hi = talentName?.trim() ? `Hi ${talentName.trim().split(/\s+/)[0]},` : 'Hi,';
   const lines = changes.map(
@@ -46,10 +48,12 @@ function whatsappFollowupText(
   return [
     `${hi} your UpSquad basic profile needs some updates.`,
     '',
+    `Open your account: ${accountUrl}`,
+    '',
     'Please update the following so we can review the changes:',
     ...lines,
     '',
-    'Open the app, make the changes, and tap "Resubmit for review". We\'ll take another look right after. Your profile stays live.',
+    'Make the changes and tap "Resubmit for review". We\'ll take another look right after. Your profile stays live.',
     '',
     '– UpSquad team',
   ].join('\n');
@@ -134,6 +138,7 @@ export async function requestBasicChanges(
   // requests — `category: Basic` flows into the mapped template params).
   let whatsappSent: boolean | null = null;
   if (input.send_whatsapp !== false && talent?.phone) {
+    const accountUrl = talentAccountUrl('/talent/basic-profile');
     whatsappSent = await deliverCrmSystemEvent({
       audience: 'talent',
       event: CHANGES_REQUESTED_EVENT,
@@ -143,7 +148,8 @@ export async function requestBasicChanges(
         category: 'Basic',
         changes: whatsappSummary(changes),
         changes_count: String(changes.length),
-        followup_text: whatsappFollowupText(talent.full_name ?? null, changes),
+        account_url: accountUrl,
+        followup_text: whatsappFollowupText(talent.full_name ?? null, changes, accountUrl),
       },
     });
     await supabaseAdmin

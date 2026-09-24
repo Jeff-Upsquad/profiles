@@ -16,6 +16,17 @@ import { isGhostSourceCategory, syncGhostForTalent } from './ghost-profile.servi
 export const REVIEW_CHECKLIST_SETTING = 'review_checklist';
 export const CHANGES_REQUESTED_EVENT = 'talent_profile_changes_requested';
 
+/**
+ * Public talent route for a request-change message. Opens straight into the
+ * app when they're signed in; otherwise login bounces them back here via
+ * `?next=`. FRONTEND_URL is internal (IP:port) on prod, so use the public
+ * origin (same override as the public forms).
+ */
+export function talentAccountUrl(path: string): string {
+  const origin = (process.env.PUBLIC_FORMS_BASE_URL || 'https://squadhire.upsquadconnect.com').trim().replace(/\/+$/, '');
+  return `${origin}${path}`;
+}
+
 // Max ticked items spelled out in the WhatsApp body before we say "and N more".
 const WHATSAPP_MAX_ITEMS = 5;
 
@@ -130,15 +141,16 @@ export interface RequestChangesInput {
   send_whatsapp?: boolean;
 }
 
-// Full checklist as a free-text WhatsApp message. The CRM sends this directly
-// when the talent's 24h window is open, otherwise it sends the mapped opener
-// template and queues this as a reply follow-up (goes out on their next reply).
+// Full checklist as a free-text WhatsApp message. The CRM sends the mapped
+// template with its account button first, then this text directly inside the
+// 24h window or as a reply follow-up after their next message.
 function whatsappFollowupText(
   talentName: string | null,
   categoryName: string,
   changes: RequestedChange[],
   wasApproved: boolean,
-  isDraft = false,
+  isDraft: boolean,
+  accountUrl: string,
 ): string {
   const hi = talentName?.trim() ? `Hi ${talentName.trim().split(/\s+/)[0]},` : 'Hi,';
   const lines = changes.map(
@@ -148,10 +160,12 @@ function whatsappFollowupText(
     return [
       `${hi} your UpSquad ${categoryName} profile is still a draft — it hasn't been submitted for review yet.`,
       '',
+      `Open your account: ${accountUrl}`,
+      '',
       'To get it reviewed, please:',
       ...lines,
       '',
-      'Open the app, complete your profile, and tap "Submit for review". We\'ll take a look right after.',
+      'Complete your profile and tap "Submit for review". We\'ll take a look right after.',
       '',
       '– UpSquad team',
     ].join('\n');
@@ -161,10 +175,12 @@ function whatsappFollowupText(
       ? `${hi} your UpSquad ${categoryName} profile needs some updates.`
       : `${hi} thanks for submitting your UpSquad ${categoryName} profile.`,
     '',
+    `Open your account: ${accountUrl}`,
+    '',
     wasApproved ? 'Please update the following so we can review the changes:' : 'Before we can approve it, please update the following:',
     ...lines,
     '',
-    `Open the app, make the changes, and tap "Resubmit for review". We'll take another look right after.${wasApproved ? ' Your profile stays live.' : ''}`,
+    `Make the changes and tap "Resubmit for review". We'll take another look right after.${wasApproved ? ' Your profile stays live.' : ''}`,
     '',
     '– UpSquad team',
   ].join('\n');
@@ -267,12 +283,11 @@ export async function requestProfileChanges(
     console.error('[review-changes] in-app notify failed:', e);
   }
 
-  // WhatsApp via the SquadHire CRM system event. The CRM sends the full
-  // checklist (`followup_text`) as free text when the talent's 24h window is
-  // open; otherwise it sends the mapped opener template and queues the
-  // checklist as a reply follow-up that fires on the talent's next message.
+  // WhatsApp via SquadHire CRM. The mapped template carries an account URL
+  // button; the checklist follows directly or after the talent's next reply.
   let whatsappSent: boolean | null = null;
   if (input.send_whatsapp !== false && talent?.phone) {
+    const accountUrl = talentAccountUrl(`/talent/profiles/${profileId}/edit`);
     whatsappSent = await deliverCrmSystemEvent({
       audience: 'talent',
       event: CHANGES_REQUESTED_EVENT,
@@ -282,7 +297,8 @@ export async function requestProfileChanges(
         category: categoryName,
         changes: whatsappSummary(changes),
         changes_count: String(changes.length),
-        followup_text: whatsappFollowupText(talent.full_name ?? null, categoryName, changes, profile.status === 'approved', isDraft),
+        account_url: accountUrl,
+        followup_text: whatsappFollowupText(talent.full_name ?? null, categoryName, changes, profile.status === 'approved', isDraft, accountUrl),
       },
     });
     await supabaseAdmin

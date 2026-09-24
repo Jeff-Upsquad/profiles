@@ -119,7 +119,18 @@ export default function TalentLayout({
   }
 
   if (!user) {
-    router.push('/login/talent');
+    // Carry the page they were after through the login hop — request-changes
+    // WhatsApps link straight to the profile to fix. Read off `window` (like
+    // the business layout) so no Suspense boundary is needed here.
+    const intended =
+      typeof window !== 'undefined'
+        ? `${window.location.pathname}${window.location.search}`
+        : '';
+    router.push(
+      intended && intended !== '/talent/dashboard'
+        ? `/login/talent?next=${encodeURIComponent(intended)}`
+        : '/login/talent',
+    );
     return null;
   }
 
