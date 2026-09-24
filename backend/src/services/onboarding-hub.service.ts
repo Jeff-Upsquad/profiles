@@ -481,6 +481,9 @@ export async function listHub(filters: HubListFilters) {
   if (filters.track === 'partner') qb = qb.not('partner_approval_status', 'is', null);
   if (filters.track === 'jobs') qb = qb.eq('wants_jobs', true);
 
+  // Suspended / blacklisted talents live in Blocked Users, never the hub.
+  qb = qb.not('suspended', 'is', true).not('blacklisted', 'is', true);
+
   // Graduated talents (talent-board "Onboarding completed") live in Partner
   // Program / Jobs now — keep the onboarding hub as the active queue.
   // Excluded here at the DB level so pagination/counts stay correct.
@@ -664,7 +667,9 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
 
   let qb = supabaseAdmin
     .from('talent_users')
-    .select('id, approval_status, partner_approval_status, wants_jobs, pipeline_stage, jobs_pipeline_stage, crm_talent_stage_id, crm_jobs_stage_id, crm_talent_stage_name, crm_jobs_stage_name');
+    .select('id, approval_status, partner_approval_status, wants_jobs, pipeline_stage, jobs_pipeline_stage, crm_talent_stage_id, crm_jobs_stage_id, crm_talent_stage_name, crm_jobs_stage_name')
+    .not('suspended', 'is', true)
+    .not('blacklisted', 'is', true);
   if (categoryIds) qb = qb.in('id', categoryIds);
   if (track === 'partner') qb = qb.not('partner_approval_status', 'is', null);
   if (track === 'jobs') qb = qb.eq('wants_jobs', true);
