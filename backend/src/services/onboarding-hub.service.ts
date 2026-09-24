@@ -21,6 +21,7 @@ import {
 } from '../lib/signup-category.js';
 import { normalizeStage, type CrmStage } from './crm-stage-mapping.js';
 import { programProgressFor, type ProgramProgress } from './program-training-progress.service.js';
+import { openChangeRequests, rcStatusFor } from './request-change-reminders.service.js';
 
 // Graduated talents (talent-board "Onboarding completed") no longer belong in
 // the onboarding queue — they live in Partner Program / Jobs modules where the
@@ -226,8 +227,12 @@ export interface HubListFilters {
   sort?: 'newest' | 'oldest';
   page?: number;
   limit?: number;
-  /** `rejected` = the Rejected / Disqualified section; default is the active queue. */
-  view?: 'active' | 'rejected';
+  /**
+   * `rejected` = the Rejected / Disqualified section; `cancelled` = Cancelled
+   * Applicants (auto-cancelled after unanswered change requests); default is
+   * the active queue.
+   */
+  view?: 'active' | 'rejected' | 'cancelled';
 }
 
 /** The track's rejection record — Partner and Jobs keep their own. */
@@ -403,7 +408,8 @@ const TALENT_LIST_COLUMNS =
   'created_at, approved_at, pipeline_stage, jobs_pipeline_stage, onboarding_completed, skip_onboarding, languages_spoken, ' +
   'crm_talent_pipeline_name, crm_talent_stage_id, crm_talent_stage_name, crm_talent_stage_changed_at, ' +
   'crm_jobs_pipeline_name, crm_jobs_stage_id, crm_jobs_stage_name, crm_jobs_stage_changed_at, ' +
-  'rejection_reason, rejected_at, partner_rejection_reason, partner_rejected_at, jobs_rejection_reason, jobs_rejected_at';
+  'rejection_reason, rejected_at, partner_rejection_reason, partner_rejected_at, jobs_rejection_reason, jobs_rejected_at, ' +
+  'application_cancelled_at, application_cancelled_reason, rc_anchor_at, rc_reminders_sent, rc_last_sent_at';
 
 /**
  * Talent ids matching an "attention" filter. Each is a cheap id-set query so
@@ -473,62 +479,39 @@ export async function listHub(filters: HubListFilters) {
   const page = Math.max(1, filters.page ?? 1);
   const limit = Math.min(100, Math.max(1, filters.limit ?? 25));
   const offset = (page - 1) * limit;
+  const view = filters.view ?? 'active';
 
-  let qb = supabaseAdmin
-    .from('talent_users')
-    .select(TALENT_LIST_COLUMNS, { count: 'exact' })
-    .order('created_at', { ascending: filters.sort === 'oldest' });
-
-  if (filters.track === 'partner') qb = qb.not('partner_approval_status', 'is', null);
-  if (filters.track === 'jobs') qb = qb.eq('wants_jobs', true);
-
-  // Suspended / blacklisted talents live in Blocked Users, never the hub.
-  qb = qb.not('suspended', 'is', true).not('blacklisted', 'is', true);
-
-  // Graduated talents (talent-board "Onboarding completed") live in Partner
-  // Program / Jobs now — keep the onboarding hub as the active queue.
-  // Excluded here at the DB level so pagination/counts stay correct.
-  // Uses id exclusion (not `not.ilike`) so NULL stage rows are kept.
-  if (filters.view !== 'rejected' && (filters.track === 'partner' || filters.track === 'jobs')) {
+  // Id-set exclusions and restrictions are resolved up front so the talent
+  // query can be built twice (see grouping below) without refetching them.
+  let excludeIds: string[] = [];
+  if (view === 'active' && (filters.track === 'partner' || filters.track === 'jobs')) {
+    // Graduated talents (talent-board "Onboarding completed") live in Partner
+    // Program / Jobs now — keep the onboarding hub as the active queue.
+    // Excluded here at the DB level so pagination/counts stay correct.
+    // Uses id exclusion (not `not.ilike`) so NULL stage rows are kept.
     const graduatedColumn = filters.track === 'jobs' ? 'crm_jobs_stage_name' : 'crm_talent_stage_name';
     const { data: graduatedRows } = await supabaseAdmin
       .from('talent_users')
       .select('id')
       .ilike(graduatedColumn, GRADUATED_TALENT_STAGE);
-    const graduatedIds = (graduatedRows ?? []).map((r: any) => r.id).filter(Boolean);
-    if (graduatedIds.length > 0) qb = qb.not('id', 'in', `(${graduatedIds.join(',')})`);
-  } else if (filters.view !== 'rejected') {
+    excludeIds.push(...(graduatedRows ?? []).map((r: any) => r.id).filter(Boolean));
+  } else if (view === 'active') {
     const [{ data: g1 }, { data: g2 }] = await Promise.all([
       supabaseAdmin.from('talent_users').select('id').ilike('crm_talent_stage_name', GRADUATED_TALENT_STAGE),
       supabaseAdmin.from('talent_users').select('id').ilike('crm_jobs_stage_name', GRADUATED_TALENT_STAGE),
     ]);
-    const graduatedIds = [...(g1 ?? []), ...(g2 ?? [])].map((r: any) => r.id).filter(Boolean);
-    const unique = [...new Set(graduatedIds)];
-    if (unique.length > 0) qb = qb.not('id', 'in', `(${unique.join(',')})`);
+    excludeIds.push(...[...(g1 ?? []), ...(g2 ?? [])].map((r: any) => r.id).filter(Boolean));
   }
-
   // Rejected / disqualified talents live in their own section, never the
   // active queue. Id exclusion (not `neq`) so NULL-stage rows are kept.
-  const stageColumn = filters.track === 'jobs' ? 'jobs_pipeline_stage' : 'pipeline_stage';
-  if (filters.view === 'rejected') {
-    qb = filters.track === 'jobs'
-      ? qb.eq('jobs_pipeline_stage', 'rejected')
-      : qb.or('pipeline_stage.eq.rejected,partner_approval_status.eq.rejected');
-  } else {
+  if (view === 'active') {
     const rejectedQuery = supabaseAdmin.from('talent_users').select('id');
     const { data: rejectedRows } = filters.track === 'jobs'
       ? await rejectedQuery.eq('jobs_pipeline_stage', 'rejected')
       : await rejectedQuery.or('pipeline_stage.eq.rejected,partner_approval_status.eq.rejected');
-    const rejectedIds = (rejectedRows ?? []).map((r: any) => r.id).filter(Boolean);
-    if (rejectedIds.length > 0) qb = qb.not('id', 'in', `(${rejectedIds.join(',')})`);
-    const stage = (filters.pipeline_stage ?? '').trim().toLowerCase();
-    if (stage && stage !== 'all') qb = qb.eq(stageColumn, stage);
+    excludeIds.push(...(rejectedRows ?? []).map((r: any) => r.id).filter(Boolean));
   }
-
-  const talentStage = (filters.talent_stage ?? '').trim();
-  const talentStageColumn = filters.track === 'jobs' ? 'crm_jobs_stage_id' : 'crm_talent_stage_id';
-  if (talentStage === 'none') qb = qb.is(talentStageColumn, null);
-  else if (talentStage && talentStage !== 'all') qb = qb.eq(talentStageColumn, talentStage);
+  excludeIds = [...new Set(excludeIds)];
 
   const cat = parseSignupCategory(filters.category);
   const categoryIds = await talentIdsForSignupCategory(cat);
@@ -537,8 +520,8 @@ export async function listHub(filters: HubListFilters) {
   if (restrict && restrict.length === 0) {
     return { users: [], total: 0, page, limit, total_pages: 0 };
   }
-  if (restrict) qb = qb.in('id', restrict);
 
+  let searchOr: string | null = null;
   const search = filters.search?.trim();
   if (search) {
     const like = `%${search.replace(/[%_,]/g, (c) => `\\${c}`)}%`;
@@ -552,13 +535,84 @@ export async function listHub(filters: HubListFilters) {
       .limit(200);
     const emailIds = (emailHits ?? []).map((r: { id: string }) => r.id).filter(Boolean);
     if (emailIds.length) orParts.push(`id.in.(${emailIds.join(',')})`);
-    qb = qb.or(orParts.join(','));
+    searchOr = orParts.join(',');
   }
 
-  const { data, error, count } = await qb.range(offset, offset + limit - 1);
-  if (error) throw new AppError(500, error.message);
+  const stageColumn = filters.track === 'jobs' ? 'jobs_pipeline_stage' : 'pipeline_stage';
+  const talentStage = (filters.talent_stage ?? '').trim();
+  const talentStageColumn = filters.track === 'jobs' ? 'crm_jobs_stage_id' : 'crm_talent_stage_id';
+  const stage = (filters.pipeline_stage ?? '').trim().toLowerCase();
 
-  const rows = (data ?? []) as any[];
+  const build = (opts: { head?: boolean } = {}) => {
+    let qb = supabaseAdmin
+      .from('talent_users')
+      .select(TALENT_LIST_COLUMNS, { count: 'exact', head: opts.head })
+      .order('created_at', { ascending: filters.sort === 'oldest' });
+    if (filters.track === 'partner') qb = qb.not('partner_approval_status', 'is', null);
+    if (filters.track === 'jobs') qb = qb.eq('wants_jobs', true);
+    // Suspended / blacklisted talents live in Blocked Users, never the hub.
+    qb = qb.not('suspended', 'is', true).not('blacklisted', 'is', true);
+    // Cancelled applicants live in their own section until restored.
+    qb = view === 'cancelled'
+      ? qb.not('application_cancelled_at', 'is', null)
+      : qb.is('application_cancelled_at', null);
+    if (excludeIds.length > 0) qb = qb.not('id', 'in', `(${excludeIds.join(',')})`);
+    if (view === 'rejected') {
+      qb = filters.track === 'jobs'
+        ? qb.eq('jobs_pipeline_stage', 'rejected')
+        : qb.or('pipeline_stage.eq.rejected,partner_approval_status.eq.rejected');
+    } else if (view === 'active' && stage && stage !== 'all') {
+      qb = qb.eq(stageColumn, stage);
+    }
+    if (talentStage === 'none') qb = qb.is(talentStageColumn, null);
+    else if (talentStage && talentStage !== 'all') qb = qb.eq(talentStageColumn, talentStage);
+    if (restrict) qb = qb.in('id', restrict);
+    if (searchOr) qb = qb.or(searchOr);
+    return qb;
+  };
+
+  // Within a stage, talents waiting on requested changes sit below the rest:
+  // page through "others" first, then continue into the request-changes group.
+  const open = await openChangeRequests();
+  const rcIds = view === 'active' ? [...open.keys()] : [];
+  let rows: any[];
+  let total: number;
+  if (rcIds.length === 0) {
+    const { data, error, count } = await build().range(offset, offset + limit - 1);
+    if (error) throw new AppError(500, error.message);
+    rows = (data ?? []) as any[];
+    total = count ?? 0;
+  } else {
+    const rcList = `(${rcIds.join(',')})`;
+    // Count both groups first — PostgREST rejects a range past the end (416).
+    const [othersRes, rcRes] = await Promise.all([
+      build({ head: true }).not('id', 'in', rcList),
+      build({ head: true }).in('id', rcIds),
+    ]);
+    if (othersRes.error) throw new AppError(500, othersRes.error.message);
+    if (rcRes.error) throw new AppError(500, rcRes.error.message);
+    const others = othersRes.count ?? 0;
+    const rcCount = rcRes.count ?? 0;
+    rows = [];
+    if (offset < others) {
+      const { data, error } = await build()
+        .not('id', 'in', rcList)
+        .range(offset, Math.min(offset + limit, others) - 1);
+      if (error) throw new AppError(500, error.message);
+      rows = (data ?? []) as any[];
+    }
+    const rcOffset = Math.max(0, offset - others);
+    const rcNeeded = limit - rows.length;
+    if (rcNeeded > 0 && rcOffset < rcCount) {
+      const { data, error } = await build()
+        .in('id', rcIds)
+        .range(rcOffset, Math.min(rcOffset + rcNeeded, rcCount) - 1);
+      if (error) throw new AppError(500, error.message);
+      rows = [...rows, ...((data ?? []) as any[])];
+    }
+    total = others + rcCount;
+  }
+
   const ids = rows.map((u) => u.id as string);
 
   const [emailMap, catMap, journeys, leadMap] = await Promise.all([
@@ -588,6 +642,10 @@ export async function listHub(filters: HubListFilters) {
     rejected_at: rejectionFor(u, filters.track).at,
     partner_rejected: u.partner_approval_status === 'rejected' || u.pipeline_stage === 'rejected',
     jobs_rejected: u.jobs_pipeline_stage === 'rejected',
+    application_cancelled_at: u.application_cancelled_at ?? null,
+    application_cancelled_reason: u.application_cancelled_reason ?? null,
+    under_request_changes: open.has(u.id),
+    request_changes: rcStatusFor(open.get(u.id), u),
     crm_talent_pipeline_name: (filters.track === 'jobs' ? u.crm_jobs_pipeline_name : u.crm_talent_pipeline_name) ?? null,
     crm_talent_stage_id: (filters.track === 'jobs' ? u.crm_jobs_stage_id : u.crm_talent_stage_id) ?? null,
     crm_talent_stage_name: (filters.track === 'jobs' ? u.crm_jobs_stage_name : u.crm_talent_stage_name) ?? null,
@@ -599,10 +657,10 @@ export async function listHub(filters: HubListFilters) {
 
   return {
     users,
-    total: count ?? 0,
+    total,
     page,
     limit,
-    total_pages: Math.ceil((count ?? 0) / limit),
+    total_pages: Math.ceil(total / limit),
   };
 }
 
@@ -662,23 +720,29 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
     live_by_talent_stage: {} as Record<string, number>,
     in_talent_pipeline: 0,
     rejected: 0,
+    cancelled: 0,
+    rc_by_pipeline_stage: {} as Record<string, number>,
+    rc_live_by_talent_stage: {} as Record<string, number>,
     attention: { pending_approval: 0, needs_review: 0, waiting_on_talent: 0 },
   };
   if (categoryIds && categoryIds.length === 0) return empty;
 
   let qb = supabaseAdmin
     .from('talent_users')
-    .select('id, approval_status, partner_approval_status, wants_jobs, pipeline_stage, jobs_pipeline_stage, crm_talent_stage_id, crm_jobs_stage_id, crm_talent_stage_name, crm_jobs_stage_name')
+    .select('id, approval_status, partner_approval_status, wants_jobs, pipeline_stage, jobs_pipeline_stage, crm_talent_stage_id, crm_jobs_stage_id, crm_talent_stage_name, crm_jobs_stage_name, application_cancelled_at')
     .not('suspended', 'is', true)
     .not('blacklisted', 'is', true);
   if (categoryIds) qb = qb.in('id', categoryIds);
   if (track === 'partner') qb = qb.not('partner_approval_status', 'is', null);
   if (track === 'jobs') qb = qb.eq('wants_jobs', true);
-  const { data, error } = await qb;
+  const [{ data: allRows, error }, open] = await Promise.all([qb, openChangeRequests()]);
   if (error) throw new AppError(500, error.message);
+  // Cancelled applicants are counted for their own section only.
+  const cancelled = ((allRows ?? []) as any[]).filter((r) => r.application_cancelled_at).length;
+  const data = ((allRows ?? []) as any[]).filter((r) => !r.application_cancelled_at);
 
   // Same graduation rule as listHub: hide "Onboarding completed" from the queue.
-  const visible = ((data ?? []) as any[]).filter((r) => {
+  const visible = data.filter((r) => {
     const stageName = track === 'jobs' ? r.crm_jobs_stage_name : track === 'partner' ? r.crm_talent_stage_name : null;
     if (track) return !isGraduatedTalentStageName(stageName);
     return !isGraduatedTalentStageName(r.crm_talent_stage_name) && !isGraduatedTalentStageName(r.crm_jobs_stage_name);
@@ -688,13 +752,17 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
   const isRejected = (r: any) => track === 'jobs'
     ? r.jobs_pipeline_stage === 'rejected'
     : r.pipeline_stage === 'rejected' || r.partner_approval_status === 'rejected';
-  const rejected = ((data ?? []) as any[]).filter(isRejected).length;
+  const rejected = data.filter(isRejected).length;
   const rows = visible.filter((r) => !isRejected(r));
   const byStage: Record<string, number> = {};
   const byTalentStage: Record<string, number> = {};
   // Live candidates grouped by talent-board stage ('none' = not on the board),
   // so the Live tabs' counts match the list they filter.
   const liveByTalentStage: Record<string, number> = {};
+  // The small "under request changes" count shown under each big number.
+  const rcByStage: Record<string, number> = {};
+  const rcLiveByTalentStage: Record<string, number> = {};
+  let waitingOnTalent = 0;
   let pending = 0;
   let inTalent = 0;
   for (const r of rows) {
@@ -706,9 +774,15 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
       inTalent += 1;
       byTalentStage[talentStageId] = (byTalentStage[talentStageId] ?? 0) + 1;
     }
+    const rc = open.has(r.id);
+    if (rc) {
+      waitingOnTalent += 1;
+      rcByStage[s] = (rcByStage[s] ?? 0) + 1;
+    }
     if (s === 'live') {
       const key = talentStageId || 'none';
       liveByTalentStage[key] = (liveByTalentStage[key] ?? 0) + 1;
+      if (rc) rcLiveByTalentStage[key] = (rcLiveByTalentStage[key] ?? 0) + 1;
     }
   }
 
@@ -719,12 +793,10 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
     .or('status.in.(pending_review,changes_requested),and(status.eq.draft,changes_requested_at.not.is.null),and(status.eq.approved,changes_requested_at.not.is.null,reviewed_at.is.null)')
     .is('deleted_at', null);
   const needsReview = new Set<string>();
-  const waitingOnTalent = new Set<string>();
   for (const r of reviewRows ?? []) {
     const id = (r as any).talent_user_id as string;
     if (!idSet.has(id)) continue;
     if ((r as any).status === 'pending_review' || ((r as any).status === 'approved' && (r as any).resubmitted_at)) needsReview.add(id);
-    else waitingOnTalent.add(id);
   }
 
   return {
@@ -735,10 +807,13 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
     live_by_talent_stage: liveByTalentStage,
     in_talent_pipeline: inTalent,
     rejected,
+    cancelled,
+    rc_by_pipeline_stage: rcByStage,
+    rc_live_by_talent_stage: rcLiveByTalentStage,
     attention: {
       pending_approval: pending,
       needs_review: needsReview.size,
-      waiting_on_talent: waitingOnTalent.size,
+      waiting_on_talent: waitingOnTalent,
     },
   };
 }
@@ -867,6 +942,9 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
       rejected_at: rejectionFor(t, track).at,
       partner_rejected: t.partner_approval_status === 'rejected' || t.pipeline_stage === 'rejected',
       jobs_rejected: t.jobs_pipeline_stage === 'rejected',
+      application_cancelled_at: t.application_cancelled_at ?? null,
+      application_cancelled_reason: t.application_cancelled_reason ?? null,
+      request_changes: rcStatusFor((await openChangeRequests([userId])).get(userId), t),
       is_active: t.is_active,
       suspended: t.suspended,
       blacklisted: t.blacklisted,

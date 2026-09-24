@@ -25,7 +25,7 @@ import {
   type CrmStage,
   type PipelineStage,
 } from './hubTypes';
-import type { ProgramCourseProgress } from './hubTypes';
+import { requestChangesStepLabel, type ProgramCourseProgress, type RequestChangesStatus } from './hubTypes';
 
 // ---------------------------------------------------------------------------
 // Types (mirror GET /admin/user-approvals/:id/journey)
@@ -83,6 +83,9 @@ interface Journey {
     wants_jobs: boolean;
     rejection_reason: string | null;
     rejected_at: string | null;
+    application_cancelled_at?: string | null;
+    application_cancelled_reason?: string | null;
+    request_changes?: RequestChangesStatus | null;
     is_active: boolean;
     suspended: boolean;
     blacklisted: boolean;
@@ -515,6 +518,16 @@ export default function TalentJourneyPanel({
     onError: (e: any) => toast.error(e.response?.data?.message || 'Approve failed'),
   });
 
+  const restoreCancelledMut = useMutation({
+    mutationFn: async () => (await api.patch(`/admin/user-approvals/${userId}/restore-cancelled`)).data,
+    onSuccess: () => {
+      toast.success('Restored to onboarding');
+      refresh();
+      onClose();
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Restore failed'),
+  });
+
   const rejectMut = useMutation({
     mutationFn: async (reason: string) =>
       (await api.patch(`/admin/user-approvals/${userId}/${track === 'partner' ? 'reject-partner' : 'reject-jobs'}`, { reason })).data,
@@ -716,6 +729,30 @@ export default function TalentJourneyPanel({
                     </span>
                   )}
                 </div>
+                {u.application_cancelled_at && (
+                  <div className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                    <span>
+                      <span className="font-semibold">Application cancelled</span> {formatDate(u.application_cancelled_at)}
+                      {u.application_cancelled_reason ? ` · ${u.application_cancelled_reason}` : ''}
+                    </span>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => restoreCancelledMut.mutate()}
+                        disabled={restoreCancelledMut.isPending}
+                        className="shrink-0 rounded-md border border-emerald-200 bg-white px-2 py-1 font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                      >
+                        Restore
+                      </button>
+                    )}
+                  </div>
+                )}
+                {!u.application_cancelled_at && u.request_changes && (
+                  <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <span className="font-semibold">Under request changes</span> since {timeAgo(u.request_changes.requested_at)}
+                    {' · '}{requestChangesStepLabel(u.request_changes)}
+                  </p>
+                )}
                 {isRejected && (
                   <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
                     Rejected{u.rejected_at ? ` ${formatDate(u.rejected_at)}` : ''}

@@ -129,6 +129,12 @@ export const NAV_SECTIONS: ModuleNavSection[] = [
         module: 'approvals',
         icon: icon('M9 12l2 2 4-4m-9.5-6.5h13a2 2 0 012 2v13a2 2 0 01-2 2h-13a2 2 0 01-2-2v-13a2 2 0 012-2z'),
       },
+      {
+        label: 'Cancelled Applicants',
+        href: '/cancelled-applicants',
+        module: 'approvals',
+        icon: icon('M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636'),
+      },
     ],
   },
   {

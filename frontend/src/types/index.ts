@@ -18,6 +18,9 @@ export interface User {
   auto_approve_signups?: boolean;
   onboarding_completed?: boolean;
   is_active?: boolean;
+  /** Set when the application was cancelled (unanswered change requests). */
+  application_cancelled_at?: string | null;
+  application_cancelled_reason?: string | null;
   skip_onboarding?: boolean;
   contact_person_name?: string;
   contact_email?: string;

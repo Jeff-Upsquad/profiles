@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -21,6 +21,7 @@ import {
   PIPELINE_STAGES,
   STAGE_BY_VALUE,
   initials,
+  requestChangesStepLabel,
   timeAgo,
   type HubAttention,
   type HubCategory,
@@ -146,7 +147,27 @@ function StatusBadge({ row, track }: { row: HubRow; track: 'partner' | 'jobs' })
   return <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${cls}`}>{label}</span>;
 }
 
-export default function OnboardingHub({ track = 'partner', rejectedOnly = false }: { track?: 'partner' | 'jobs'; rejectedOnly?: boolean }) {
+/** Small amber "N under request changes" count shown beside a stage's total. */
+function RcCount({ n }: { n: number }) {
+  if (n <= 0) return null;
+  return (
+    <span
+      title={`${n} under request changes`}
+      className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold leading-4 text-amber-800"
+    >
+      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" />
+      </svg>
+      {n}
+    </span>
+  );
+}
+
+export default function OnboardingHub({
+  track = 'partner',
+  rejectedOnly = false,
+  cancelledOnly = false,
+}: { track?: 'partner' | 'jobs'; rejectedOnly?: boolean; cancelledOnly?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -166,13 +187,15 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
   const selectedId = searchParams.get('selected');
   const chatPhone = searchParams.get('chat');
   const chatName = searchParams.get('chat_name');
-  const view = rejectedOnly ? 'rejected' : 'active';
+  const view = cancelledOnly ? 'cancelled' : rejectedOnly ? 'rejected' : 'active';
+  // Rejected / Cancelled are standalone sections: no funnel, no attention chips.
+  const sectionOnly = rejectedOnly || cancelledOnly;
 
   useEffect(() => {
-    if (!rejectedOnly && searchParams.get('view') === 'rejected') {
+    if (!sectionOnly && searchParams.get('view') === 'rejected') {
       router.replace(`/rejected-candidates${track === 'jobs' ? '?track=jobs' : ''}`);
     }
-  }, [rejectedOnly, router, searchParams, track]);
+  }, [sectionOnly, router, searchParams, track]);
 
   const updateQuery = useCallback(
     (updates: Record<string, string | null>) => {
@@ -263,6 +286,16 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
     onError: (e: any) => toast.error(e.response?.data?.message || 'Reject failed'),
   });
 
+  const restoreCancelledMut = useMutation({
+    mutationFn: async (id: string) => (await api.patch(`/admin/user-approvals/${id}/restore-cancelled`)).data,
+    onSuccess: () => {
+      toast.success('Restored to onboarding');
+      updateQuery({ selected: null });
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Restore failed'),
+  });
+
   const [restoreTarget, setRestoreTarget] = useState<HubRow | null>(null);
   const restoreMut = useMutation({
     mutationFn: async ({ id, selectedTrack }: { id: string; selectedTrack: 'partner' | 'jobs' | 'both' }) =>
@@ -325,7 +358,8 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
     [talentStages],
   );
   const liveCount = (id: string) => stats?.live_by_talent_stage?.[id] ?? 0;
-  const showLiveTabs = !rejectedOnly && stage === 'live' && talentPipelineLinked;
+  const liveRcCount = (id: string) => stats?.rc_live_by_talent_stage?.[id] ?? 0;
+  const showLiveTabs = !sectionOnly && stage === 'live' && talentPipelineLinked;
   useEffect(() => {
     if (!showLiveTabs || !stats) return;
     if (liveTabs.some((t) => t.id === talentStage)) return;
@@ -345,6 +379,7 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
   };
 
   const stageCount = (s: string) => stats?.by_pipeline_stage?.[s] ?? 0;
+  const stageRcCount = (s: string) => stats?.rc_by_pipeline_stage?.[s] ?? 0;
   const formTypeForLabels = category === 'all' ? 'creative' : category;
 
   return (
@@ -352,15 +387,17 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{rejectedOnly ? 'Rejected / Disqualified' : track === 'partner' ? 'Partner Program Onboarding' : 'Jobs Onboarding'}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{cancelledOnly ? 'Cancelled Applicants' : rejectedOnly ? 'Rejected / Disqualified' : track === 'partner' ? 'Partner Program Onboarding' : 'Jobs Onboarding'}</h1>
           <p className="mt-1 text-sm text-gray-500">
-            {rejectedOnly
+            {cancelledOnly
+              ? 'Applications cancelled after requested changes went unanswered (2 reminders + a final warning). The talent is locked out except Contact Support until you restore them.'
+              : rejectedOnly
               ? 'Review rejection reasons, open the full talent journey, and restore applications to the start of onboarding.'
               : <>Every sign-up and how far they&apos;ve got — course, basic profile, job profile, portfolio —
                 with both CRM boards in sync. Click a row to assist.</>}
           </p>
         </div>
-        {!rejectedOnly && <div className="flex flex-wrap items-center gap-2">
+        {!sectionOnly && <div className="flex flex-wrap items-center gap-2">
           {canEdit && selected.size > 0 && (
             <button
               onClick={() => bulkApproveMut.mutate([...selected])}
@@ -414,13 +451,19 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
       </div>
 
       {/* Funnel — candidate pipeline (synced with CRM) */}
-      {!rejectedOnly && (
+      {!sectionOnly && (
       <div>
         <div className="mb-1.5 flex items-center justify-between">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
             Sign-up journey · candidate pipeline
           </p>
-          <p className="text-[11px] text-gray-400">{stats?.total ?? 0} total · synced with SquadHire CRM</p>
+          <p className="text-[11px] text-gray-400">
+            {stats?.total ?? 0} total
+            {(stats?.attention.waiting_on_talent ?? 0) > 0 && (
+              <> · <span className="text-amber-700">{stats?.attention.waiting_on_talent} under request changes</span></>
+            )}
+            {' '}· synced with SquadHire CRM
+          </p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
           {PIPELINE_STAGES.map((s) => {
@@ -445,7 +488,10 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
                     {labelFor(formTypeForLabels, STAGE_TO_LEAD_KEY[s.value], s.label)}
                   </span>
                 </div>
-                <div className="mt-1 text-xl font-bold text-gray-900">{stageCount(s.value)}</div>
+                <div className="mt-1 flex items-baseline gap-1.5">
+                  <span className="text-xl font-bold text-gray-900">{stageCount(s.value)}</span>
+                  <RcCount n={stageRcCount(s.value)} />
+                </div>
               </button>
             );
           })}
@@ -454,7 +500,7 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
       )}
 
       {/* Talent board — Live candidates grouped by CRM talent-board stage */}
-      {!rejectedOnly && stage === 'live' && (
+      {!sectionOnly && stage === 'live' && (
       <div>
         <div className="mb-1.5 flex items-center justify-between">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
@@ -485,6 +531,7 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
                   <span className={`rounded-full px-1.5 text-[11px] ${active ? 'bg-sky-100 text-sky-700' : 'bg-gray-100 text-gray-600'}`}>
                     {liveCount(t.id)}
                   </span>
+                  <RcCount n={liveRcCount(t.id)} />
                 </button>
               );
             })}
@@ -501,7 +548,7 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
 
       {/* Attention chips + sort */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {!rejectedOnly && <div className="flex flex-wrap items-center gap-1.5">
+        {!sectionOnly && <div className="flex flex-wrap items-center gap-1.5">
           <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Needs attention</span>
           {ATTENTION_CHIPS.map((c) => {
             const active = attention === c.value;
@@ -553,9 +600,11 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
           </div>
         ) : users.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-sm font-medium text-gray-700">{view === 'rejected' ? 'No rejected talents' : 'No sign-ups match'}</p>
+            <p className="text-sm font-medium text-gray-700">{view === 'cancelled' ? 'No cancelled applicants' : view === 'rejected' ? 'No rejected talents' : 'No sign-ups match'}</p>
             <p className="text-sm text-gray-500">
-              {view === 'rejected'
+              {view === 'cancelled'
+                ? 'Talents who don\'t make requested changes after the reminders and final warning land here.'
+                : view === 'rejected'
                 ? 'Talents you reject or disqualify land here, with the reason.'
                 : 'Clear a filter or wait for new talent to sign up.'}
             </p>
@@ -571,7 +620,7 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
                     )}
                   </th>
                   <th className="px-3 py-2.5">Talent</th>
-                  <th className="px-3 py-2.5">{view === 'rejected' ? 'Reason' : 'Journey'}</th>
+                  <th className="px-3 py-2.5">{view !== 'active' ? 'Reason' : 'Journey'}</th>
                   <th className="px-3 py-2.5">Stage</th>
                   <th className="px-3 py-2.5">Status</th>
                   <th className="px-3 py-2.5">Joined</th>
@@ -579,8 +628,12 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {users.map((u) => {
+                {users.map((u, idx) => {
                   const isSel = u.id === selectedId;
+                  // Talents under request changes are grouped after the rest
+                  // (server orders them that way); mark where the group starts.
+                  const rcGroupStart = view === 'active' && u.under_request_changes
+                    && (idx === 0 || !users[idx - 1].under_request_changes);
                   const phone = cleanPhoneForLink(u.phone);
                   const st = STAGE_BY_VALUE[u.pipeline_stage] ?? STAGE_BY_VALUE.application_approved;
                   const isPending = track === 'partner' && u.partner_approval_status === 'pending' && u.pipeline_stage !== 'rejected';
@@ -601,8 +654,15 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
                               : 'Journey complete'
                     : '';
                   return (
+                    <Fragment key={u.id}>
+                    {rcGroupStart && (
+                      <tr className="bg-amber-50/70">
+                        <td colSpan={7} className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-800">
+                          Under request changes · waiting on the talent
+                        </td>
+                      </tr>
+                    )}
                     <tr
-                      key={u.id}
                       onClick={() => openRow(u.id)}
                       className={`cursor-pointer transition-colors ${isSel ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
                     >
@@ -645,7 +705,15 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
                           </div>
                         </div>
                       </td>
-                      {view === 'rejected' ? (
+                      {view === 'cancelled' ? (
+                        <td className="max-w-xs px-3 py-2.5">
+                          <span className="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">Cancelled</span>
+                          <p className="mt-1 text-sm text-gray-800">{u.application_cancelled_reason || '—'}</p>
+                          {u.application_cancelled_at && (
+                            <p className="mt-0.5 text-[11px] text-gray-500" title={u.application_cancelled_at}>Cancelled {timeAgo(u.application_cancelled_at)}</p>
+                          )}
+                        </td>
+                      ) : view === 'rejected' ? (
                         <td className="max-w-xs px-3 py-2.5">
                           <p className="text-sm text-gray-800">{u.rejection_reason || '—'}</p>
                           {u.rejected_at && (
@@ -656,6 +724,12 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
                         <td className="px-3 py-2.5">
                           <JourneyDots row={u} />
                           <p className="mt-1 text-[11px] text-gray-500">{hint}</p>
+                          {u.request_changes && (
+                            <p className="mt-1 inline-flex items-center rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800"
+                              title={`Changes requested ${timeAgo(u.request_changes.requested_at)}`}>
+                              Changes requested · {requestChangesStepLabel(u.request_changes)}
+                            </p>
+                          )}
                           <ModuleCourseStatus row={u} />
                         </td>
                       )}
@@ -701,7 +775,18 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
                               </button>
                             </>
                           )}
-                          {canEdit && u.pipeline_stage === 'rejected' && (
+                          {canEdit && view === 'cancelled' && (
+                            <button
+                              type="button"
+                              onClick={() => restoreCancelledMut.mutate(u.id)}
+                              disabled={restoreCancelledMut.isPending}
+                              title="Restore to onboarding — reminders restart if changes are still open"
+                              className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                            >
+                              Restore
+                            </button>
+                          )}
+                          {canEdit && view !== 'cancelled' && u.pipeline_stage === 'rejected' && (
                             <button
                               type="button"
                               onClick={() => setRestoreTarget(u)}
@@ -747,6 +832,7 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
                         </div>
                       </td>
                     </tr>
+                    </Fragment>
                   );
                 })}
               </tbody>

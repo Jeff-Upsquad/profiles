@@ -16,6 +16,21 @@ import { useIncompleteTrainingCount, useModuleAccess } from '@/hooks/useTraining
 import ModuleUnlockGate from '@/components/training/ModuleUnlockGate';
 import { useTalentHasAssignedCard } from '@/hooks/useMyClients';
 
+// A cancelled application (requested changes never made) can only reach support.
+const CANCELLED_ACCESSIBLE = '/talent/contact-support';
+
+function CancelledNotice() {
+  return (
+    <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 sm:p-5" role="alert">
+      <p className="text-[15px] font-semibold text-rose-800">Your application has been cancelled</p>
+      <p className="mt-1 text-sm text-rose-700">
+        The profile updates we requested weren&apos;t made in time, so your application was cancelled.
+        Please contact support below to continue — everything else stays locked until our team restores your account.
+      </p>
+    </div>
+  );
+}
+
 const ALWAYS_ACCESSIBLE = [
   '/talent/dashboard',
   '/talent/training',
@@ -99,6 +114,7 @@ export default function TalentLayout({
   const partnerOnlyPending = user?.wants_jobs === false && user?.partner_approval_status !== 'approved';
   const partnerLocked = user?.partner_approval_status !== undefined && user.partner_approval_status !== 'approved';
   const onboarded = user?.onboarding_completed === true || user?.skip_onboarding === true;
+  const cancelled = !!user?.application_cancelled_at;
   const { data: unread = 0 } = useUnreadSubscriptionCount({ enabled: isTalent && !partnerLocked });
   const { data: unreadAssignments = 0 } = useUnreadAssignmentCount({ enabled: isTalent && !partnerLocked });
   const { data: unreadJobs = 0 } = useUnreadJobsCount({ enabled: isTalent && user?.wants_jobs !== false });
@@ -149,6 +165,7 @@ export default function TalentLayout({
   const isPartnerPreviewable = (route: string) => matches(route, PARTNER_PREVIEWABLE);
 
   const isModuleLocked = (route: string): boolean => {
+    if (cancelled) return !matches(route, [CANCELLED_ACCESSIBLE]);
     if (partnerOnlyPending && !isPartnerPreviewable(route)) {
       return !matches(route, ['/talent/dashboard', '/talent/training', '/talent/contact-support']);
     }
@@ -176,8 +193,8 @@ export default function TalentLayout({
   // Locked route with no unlock video to show (e.g. onboarding incomplete and
   // no linked training chapter) — fall back to the dashboard as before. When
   // there IS a linked chapter we instead render the unlock gate inline below.
-  if (currentRouteLocked && !currentLock) {
-    router.push('/talent/dashboard');
+  if (currentRouteLocked && (cancelled || !currentLock)) {
+    router.push(cancelled ? CANCELLED_ACCESSIBLE : '/talent/dashboard');
     return null;
   }
 
@@ -321,6 +338,11 @@ export default function TalentLayout({
   ];
 
   const gatedItems = sidebarItems.map((item) => {
+    if (cancelled) {
+      return item.to === CANCELLED_ACCESSIBLE
+        ? item
+        : { ...item, disabled: true, tooltip: 'Application cancelled — contact support' };
+    }
     // Preview-only partner modules: clickable, but flagged with a lock so the
     // sidebar still says at a glance that these can't be acted on yet.
     if (partnerLocked && PARTNER_PREVIEWABLE.includes(item.to)) {
@@ -363,8 +385,12 @@ export default function TalentLayout({
     return onboarded ? item : { ...item, disabled: true, tooltip: 'Complete training to unlock' };
   });
 
-  const content =
-    currentRouteLocked && currentLock ? (
+  const content = cancelled ? (
+      <>
+        <CancelledNotice />
+        {children}
+      </>
+    ) : currentRouteLocked && currentLock ? (
       <ModuleUnlockGate
         moduleLabel={MODULE_LABELS[currentLock.module] ?? 'this section'}
         chapterId={currentLock.chapter_id}

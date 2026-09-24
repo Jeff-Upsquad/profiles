@@ -377,6 +377,13 @@ export async function restoreRejectedUser(req: Request, res: Response, next: Nex
   } catch (err) { next(err); }
 }
 
+export async function restoreCancelledUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { restoreCancelledApplication } = await import('../services/request-change-reminders.service.js');
+    res.json(await restoreCancelledApplication(req.params.userId as string));
+  } catch (err) { next(err); }
+}
+
 export async function bulkApprovePartnerUsers(req: Request, res: Response, next: NextFunction) {
   try {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids as string[] : [];
@@ -434,7 +441,7 @@ export async function getOnboardingHub(req: Request, res: Response, next: NextFu
         sort: sort === 'oldest' ? 'oldest' : 'newest',
         page: q.page ? Number(q.page) : 1,
         limit: q.limit ? Number(q.limit) : 25,
-        view: str(q.view) === 'rejected' ? 'rejected' : 'active',
+        view: str(q.view) === 'rejected' ? 'rejected' : str(q.view) === 'cancelled' ? 'cancelled' : 'active',
       }),
     );
   } catch (err) {

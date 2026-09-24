@@ -110,6 +110,16 @@ export interface ProgramCourseProgress {
   done: boolean;
 }
 
+/** Where a talent is in the request-change reminder sequence. */
+export interface RequestChangesStatus {
+  requested_at: string;
+  /** 1–2 = reminders sent, 3 = final "cancelled in 24h" warning sent. */
+  reminders_sent: number;
+  last_sent_at: string | null;
+  next_step_at: string | null;
+  next_step: 'reminder' | 'final_warning' | 'cancel' | null;
+}
+
 export interface HubRow {
   id: string;
   full_name: string;
@@ -129,6 +139,10 @@ export interface HubRow {
   rejected_at: string | null;
   partner_rejected: boolean;
   jobs_rejected: boolean;
+  application_cancelled_at: string | null;
+  application_cancelled_reason: string | null;
+  under_request_changes: boolean;
+  request_changes: RequestChangesStatus | null;
   crm_talent_pipeline_name: string | null;
   crm_talent_stage_id: string | null;
   crm_talent_stage_name: string | null;
@@ -146,6 +160,10 @@ export interface HubStats {
   live_by_talent_stage?: Record<string, number>;
   in_talent_pipeline: number;
   rejected: number;
+  cancelled?: number;
+  /** Per stage: how many of that stage's talents are under request changes. */
+  rc_by_pipeline_stage?: Record<string, number>;
+  rc_live_by_talent_stage?: Record<string, number>;
   attention: { pending_approval: number; needs_review: number; waiting_on_talent: number };
 }
 
@@ -194,4 +212,24 @@ export function initials(name: string | null | undefined): string {
     .map((w) => w[0])
     .join('')
     .toUpperCase();
+}
+
+/** "in 5h" / "in 2d" / "due now" — for the next reminder step. */
+export function timeUntil(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const m = Math.floor((new Date(iso).getTime() - Date.now()) / 60_000);
+  if (m < 1) return 'due now';
+  if (m < 60) return `in ${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 48) return `in ${h}h`;
+  return `in ${Math.floor(h / 24)}d`;
+}
+
+/** One-line reminder progress for a talent under request changes. */
+export function requestChangesStepLabel(rc: RequestChangesStatus): string {
+  const next = timeUntil(rc.next_step_at);
+  if (rc.reminders_sent >= 3) return `Final warning sent · cancels ${next}`;
+  if (rc.reminders_sent === 2) return `2 reminders sent · final warning ${next}`;
+  if (rc.reminders_sent === 1) return `Reminder 1 sent · reminder 2 ${next}`;
+  return `Reminder 1 ${next}`;
 }
