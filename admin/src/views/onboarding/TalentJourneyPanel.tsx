@@ -1220,6 +1220,7 @@ export default function TalentJourneyPanel({
           isOpen
           onClose={() => setBasicChangesOpen(false)}
           basicUserId={data.user.id}
+          prefillKeys={missing.map((c) => `basic.${c.key}`)}
           talentName={data.user.full_name}
           talentPhone={data.user.phone}
           onDone={refresh}

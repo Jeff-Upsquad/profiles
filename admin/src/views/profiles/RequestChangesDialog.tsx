@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
@@ -28,6 +28,11 @@ interface Props {
    * the basic profile is always live.
    */
   basicUserId?: string;
+  /**
+   * Checklist keys to tick when the dialog opens (e.g. the basic-profile
+   * sections still missing). Keys not in the loaded checklist are ignored.
+   */
+  prefillKeys?: string[];
   onDone?: () => void;
 }
 
@@ -50,6 +55,7 @@ export default function RequestChangesDialog({
   talentPhone,
   wasApproved = false,
   basicUserId,
+  prefillKeys,
   onDone,
 }: Props) {
   const queryClient = useQueryClient();
@@ -72,6 +78,19 @@ export default function RequestChangesDialog({
     },
     enabled: isOpen,
   });
+
+  // Pre-tick `prefillKeys` once per open, after the checklist has loaded.
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (!isOpen) {
+      prefilled.current = false;
+      return;
+    }
+    if (prefilled.current || !items || !prefillKeys?.length) return;
+    prefilled.current = true;
+    const valid = new Set(items.map((i) => i.key));
+    setPicked(new Set(prefillKeys.filter((k) => valid.has(k))));
+  }, [isOpen, items, prefillKeys]);
 
   const sections = useMemo(() => {
     const q = filter.trim().toLowerCase();
