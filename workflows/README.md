@@ -11,7 +11,7 @@ named workflow.
 | **CM** | [cm.md](cm.md) | Commit + merge locally. No push or deploy. |
 | **PD** | [pd.md](pd.md) | Push `main` + deploy production. |
 | **CMPD** | [cmpd.md](cmpd.md) | Commit + merge + push + deploy. |
-| **CU** | [cu.md](cu.md) | Safely remove the merged branch/worktree. |
+| **CU** | [cu.md](cu.md) | Safely remove this session's merged branch/worktree and deploy leftovers. |
 | **push** | [push.md](push.md) | Commit + merge + push. No deploy. |
 | **deploy** | [deploy.md](deploy.md) | Deploy an already-pushed `main`. |
 | **rollback** | [rollback.md](rollback.md) | Revert a bad release and redeploy. |
