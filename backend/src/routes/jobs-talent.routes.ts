@@ -2,7 +2,7 @@ import { Router } from 'express';
 import * as jobsTalentController from '../controllers/jobs-talent.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
-import { requireJobsAccess } from '../middleware/work-access.middleware.js';
+import { requireJobsAccess, requireJobsNotRejected } from '../middleware/work-access.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import {
   askJobQuestionSchema,
@@ -35,6 +35,9 @@ router.put(
   validate({ body: jobPreferencesSchema }),
   jobsTalentController.updatePreferences
 );
+
+// Everything below needs a Jobs application that isn't rejected.
+router.use(requireJobsNotRejected);
 
 // ─── Feed ──────────────────────────────────────────────────────────────────
 router.get('/', validate({ query: listJobsQuerySchema }), jobsTalentController.list);

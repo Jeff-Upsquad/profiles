@@ -268,7 +268,18 @@ export async function findMatchingTalents(
         : [];
       prefsByUser.set((p as any).talent_user_id as string, districts);
     }
-    rows = rows.filter((r) => prefsByUser.has(r.talent_user_id));
+    // Rejected / disqualified from Jobs → never matched to hiring cards.
+    const { data: rejectedRows, error: rejectedErr } = await supabaseAdmin
+      .from('talent_users')
+      .select('id')
+      .in('id', talentUserIds)
+      .eq('jobs_pipeline_stage', 'rejected');
+    if (rejectedErr) {
+      console.error('[subscription-matcher] jobs rejection query failed', rejectedErr);
+      throw rejectedErr;
+    }
+    const jobsRejected = new Set((rejectedRows ?? []).map((u) => (u as any).id as string));
+    rows = rows.filter((r) => prefsByUser.has(r.talent_user_id) && !jobsRejected.has(r.talent_user_id));
     if (rows.length === 0) return [];
 
     // Step 6: age + gender from talent_users. Fail-closed on age: a talent

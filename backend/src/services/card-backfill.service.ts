@@ -26,7 +26,7 @@ interface AgencySignals {
 async function loadTalentSignals(talentUserId: string): Promise<TalentSignals | null> {
   const { data: user, error: userErr } = await supabaseAdmin
     .from('talent_users')
-    .select('id, is_active, suspended, blacklisted, age, gender, languages_spoken')
+    .select('id, is_active, suspended, blacklisted, age, gender, languages_spoken, jobs_pipeline_stage')
     .eq('id', talentUserId)
     .maybeSingle();
   if (userErr || !user) return null;
@@ -109,7 +109,8 @@ async function loadTalentSignals(talentUserId: string): Promise<TalentSignals | 
   const state = String((basic as any)?.state ?? '').toLowerCase();
   const currentDistrict = String((basic as any)?.current_district ?? '').toLowerCase();
 
-  const optedIn = !!(prefRows as any)?.opted_in_at;
+  // A rejected / disqualified Jobs application counts as not opted in.
+  const optedIn = !!(prefRows as any)?.opted_in_at && (user as any).jobs_pipeline_stage !== 'rejected';
   const preferredDistricts = new Set<string>(
     (Array.isArray((prefRows as any)?.preferred_districts) ? (prefRows as any).preferred_districts : [])
       .map((d: string) => String(d).toLowerCase())

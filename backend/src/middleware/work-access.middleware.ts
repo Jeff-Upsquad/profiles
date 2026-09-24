@@ -30,3 +30,25 @@ async function check(req: Request, next: NextFunction, kind: 'profile' | 'partne
 export const requireProfileAccess = (req: Request, _res: Response, next: NextFunction) => check(req, next, 'profile');
 export const requirePartnerAccess = (req: Request, _res: Response, next: NextFunction) => check(req, next, 'partner');
 export const requireJobsAccess = (req: Request, _res: Response, next: NextFunction) => check(req, next, 'jobs');
+
+/**
+ * A rejected / disqualified Jobs application closes the Jobs section (feed,
+ * interviews, offers) until an admin reinstates it. Preferences stay editable
+ * — the basic-profile form saves them, and the matcher skips rejected talents.
+ */
+export async function requireJobsNotRejected(req: Request, _res: Response, next: NextFunction) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('talent_users')
+      .select('jobs_pipeline_stage')
+      .eq('id', req.user!.id)
+      .single();
+    if (error || !data) throw new AppError(404, 'Talent user not found');
+    if (data.jobs_pipeline_stage === 'rejected') {
+      throw new AppError(403, 'Your Jobs application was not approved, so job openings are unavailable.');
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+}

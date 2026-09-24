@@ -51,11 +51,14 @@ export default function JobCardList({
   tab,
   isLoading,
   isError,
+  blockedMessage,
 }: {
   items: TalentJobFeedItem[] | undefined;
   tab: TalentJobsTab;
   isLoading: boolean;
   isError: boolean;
+  /** Set when the server refused access (403) — shown instead of "refresh". */
+  blockedMessage?: string | null;
 }) {
   if (isLoading) {
     return (
@@ -81,9 +84,9 @@ export default function JobCardList({
         </div>
         <div>
           <h3 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-red-900">
-            Could not load job openings
+            {blockedMessage ? 'Job openings unavailable' : 'Could not load job openings'}
           </h3>
-          <p className="mt-0.5 text-sm text-red-700">Please refresh the page to try again.</p>
+          <p className="mt-0.5 text-sm text-red-700">{blockedMessage || 'Please refresh the page to try again.'}</p>
         </div>
       </div>
     );

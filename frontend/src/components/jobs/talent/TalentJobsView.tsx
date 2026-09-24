@@ -37,7 +37,9 @@ export default function TalentJobsView({
   const { data: prefs, isLoading: prefsLoading } = useJobPreferences();
   const optOut = useOptOutOfJobs();
   const optedIn = prefs?.opted_in === true;
-  const { data: jobs, isLoading, isError } = useTalentJobs(tab, { enabled: optedIn });
+  const { data: jobs, isLoading, isError, error } = useTalentJobs(tab, { enabled: optedIn });
+  const jobsError = error as { response?: { status?: number; data?: { message?: string } } } | null;
+  const blockedMessage = jobsError?.response?.status === 403 ? jobsError.response.data?.message ?? null : null;
   const { data: counts } = useTalentJobsCounts({ enabled: optedIn });
 
   const newCount = counts?.new ?? 0;
@@ -159,7 +161,7 @@ export default function TalentJobsView({
             </div>
           </div>
 
-          <JobCardList items={jobs} tab={tab} isLoading={isLoading} isError={isError} />
+          <JobCardList items={jobs} tab={tab} isLoading={isLoading} isError={isError} blockedMessage={blockedMessage} />
         </>
       )}
     </div>
