@@ -2018,6 +2018,24 @@ function matchesEmploymentScope(value: unknown, employmentType?: string, track?:
   return subscription || assignment;
 }
 
+/**
+ * Talents who have reached the module for this scope: Live on the track's
+ * onboarding pipeline, or already graduated on its CRM talent board
+ * ("Onboarding completed"). Everyone else stays in the onboarding hub only.
+ */
+async function moduleEligibleIds(employmentType: string): Promise<Set<string>> {
+  const jobs = employmentType === 'salary';
+  const stageColumn = jobs ? 'jobs_pipeline_stage' : 'pipeline_stage';
+  const talentStageColumn = jobs ? 'crm_jobs_stage_name' : 'crm_talent_stage_name';
+  const [live, graduated] = await Promise.all([
+    supabaseAdmin.from('talent_users').select('id').eq(stageColumn, 'live'),
+    supabaseAdmin.from('talent_users').select('id').ilike(talentStageColumn, 'onboarding completed'),
+  ]);
+  if (live.error) throw new AppError(500, live.error.message);
+  if (graduated.error) throw new AppError(500, graduated.error.message);
+  return new Set([...(live.data ?? []), ...(graduated.data ?? [])].map((r: any) => r.id as string));
+}
+
 function partnerProgramCounts(value: unknown) {
   const types = employmentTypesOf(value);
   const subscription = types.has('partner_program');
@@ -2047,7 +2065,9 @@ export async function getTalentCategories(employmentType?: string, track?: Partn
       .from('talent_profiles_basic')
       .select('talent_user_id, employment_type');
     if (basicErr) throw new AppError(500, basicErr.message);
+    const eligible = await moduleEligibleIds(employmentType);
     userIdsFilter = (basicRows ?? [])
+      .filter((r) => eligible.has((r as any).talent_user_id))
       .filter((r) => matchesEmploymentScope((r as any).employment_type, employmentType, track))
       .map((r) => {
         const id = (r as any).talent_user_id as string;
@@ -2152,7 +2172,9 @@ export async function getTalentProfilesByCategory(categoryId: string, search?: s
       .from('talent_profiles_basic')
       .select('talent_user_id, employment_type');
     if (basicErr) throw new AppError(500, basicErr.message);
+    const eligible = await moduleEligibleIds(employmentType);
     userIdsFilter = (basicRows ?? [])
+      .filter((r) => eligible.has((r as any).talent_user_id))
       .filter((r) => matchesEmploymentScope((r as any).employment_type, employmentType, track))
       .map((r) => (r as any).talent_user_id)
       .filter(Boolean);
