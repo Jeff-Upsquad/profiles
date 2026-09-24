@@ -655,6 +655,7 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
     pending: 0,
     by_pipeline_stage: {} as Record<string, number>,
     by_talent_stage: {} as Record<string, number>,
+    live_by_talent_stage: {} as Record<string, number>,
     in_talent_pipeline: 0,
     rejected: 0,
     attention: { pending_approval: 0, needs_review: 0, waiting_on_talent: 0 },
@@ -685,6 +686,9 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
   const rows = visible.filter((r) => !isRejected(r));
   const byStage: Record<string, number> = {};
   const byTalentStage: Record<string, number> = {};
+  // Live candidates grouped by talent-board stage ('none' = not on the board),
+  // so the Live tabs' counts match the list they filter.
+  const liveByTalentStage: Record<string, number> = {};
   let pending = 0;
   let inTalent = 0;
   for (const r of rows) {
@@ -695,6 +699,10 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
     if (talentStageId) {
       inTalent += 1;
       byTalentStage[talentStageId] = (byTalentStage[talentStageId] ?? 0) + 1;
+    }
+    if (s === 'live') {
+      const key = talentStageId || 'none';
+      liveByTalentStage[key] = (liveByTalentStage[key] ?? 0) + 1;
     }
   }
 
@@ -718,6 +726,7 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
     pending,
     by_pipeline_stage: byStage,
     by_talent_stage: byTalentStage,
+    live_by_talent_stage: liveByTalentStage,
     in_talent_pipeline: inTalent,
     rejected,
     attention: {

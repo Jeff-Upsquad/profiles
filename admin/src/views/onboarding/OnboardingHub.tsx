@@ -318,6 +318,21 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
   }, [pipelines, category, track]);
   const talentPipelineLinked = talentStages.length > 0;
 
+  // Live candidates are grouped under the talent-board tabs — every Live
+  // candidate sits in exactly one tab ('none' = not on the board yet).
+  const liveTabs = useMemo(
+    () => [...talentStages.map((s) => ({ id: s.id, name: s.name })), { id: 'none', name: 'Not on board' }],
+    [talentStages],
+  );
+  const liveCount = (id: string) => stats?.live_by_talent_stage?.[id] ?? 0;
+  const showLiveTabs = !rejectedOnly && stage === 'live' && talentPipelineLinked;
+  useEffect(() => {
+    if (!showLiveTabs || !stats) return;
+    if (liveTabs.some((t) => t.id === talentStage)) return;
+    const first = liveTabs.find((t) => (stats.live_by_talent_stage?.[t.id] ?? 0) > 0) ?? liveTabs[0];
+    updateQuery({ talent_stage: first.id, page: null });
+  }, [showLiveTabs, stats, liveTabs, talentStage, updateQuery]);
+
   const pendingOnPage = users.filter((u) => track === 'partner' && u.partner_approval_status === 'pending');
   const allPendingSelected = pendingOnPage.length > 0 && pendingOnPage.every((u) => selected.has(u.id));
   const toggleAll = () => {
@@ -438,7 +453,7 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
       </div>
       )}
 
-      {/* Talent board — CRM post-onboarding pipeline, shown only for Live candidates */}
+      {/* Talent board — Live candidates grouped by CRM talent-board stage */}
       {!rejectedOnly && stage === 'live' && (
       <div>
         <div className="mb-1.5 flex items-center justify-between">
@@ -447,42 +462,32 @@ export default function OnboardingHub({ track = 'partner', rejectedOnly = false 
           </p>
           <p className="text-[11px] text-gray-400">
             {talentPipelineLinked
-              ? `${stats?.in_talent_pipeline ?? 0} on the board · synced with SquadHire CRM · completed move to ${track === 'jobs' ? 'Jobs' : 'Partner Program'}`
+              ? `${stageCount('live')} live · synced with SquadHire CRM · completed move to ${track === 'jobs' ? 'Jobs' : 'Partner Program'}`
               : 'not linked'}
           </p>
         </div>
         {talentPipelineLinked ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {talentStages.map((s) => {
-              const active = talentStage === s.id;
-              const n = stats?.by_talent_stage?.[s.id] ?? 0;
+          <div className="flex gap-1 overflow-x-auto border-b border-gray-200" role="tablist" aria-label="Talent board stage">
+            {liveTabs.map((t) => {
+              const active = talentStage === t.id;
               return (
                 <button
-                  key={s.id}
+                  key={t.id}
                   type="button"
-                  onClick={() => updateQuery({ talent_stage: active ? null : s.id, page: null })}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
-                    active
-                      ? 'border-sky-300 bg-sky-50 text-sky-700 ring-2 ring-sky-200 ring-offset-1'
-                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => updateQuery({ talent_stage: t.id, page: null, selected: null })}
+                  className={`-mb-px inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+                    active ? 'border-sky-500 text-sky-700' : 'border-transparent text-gray-500 hover:text-gray-800'
                   }`}
                 >
-                  {s.name}
-                  <span className={`rounded-full px-1.5 text-[10px] ${active ? 'bg-sky-100' : 'bg-gray-100 text-gray-600'}`}>{n}</span>
+                  {t.name}
+                  <span className={`rounded-full px-1.5 text-[11px] ${active ? 'bg-sky-100 text-sky-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {liveCount(t.id)}
+                  </span>
                 </button>
               );
             })}
-            <button
-              type="button"
-              onClick={() => updateQuery({ talent_stage: talentStage === 'none' ? null : 'none', page: null })}
-              className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition ${
-                talentStage === 'none'
-                  ? 'border-gray-400 bg-gray-100 text-gray-800 ring-2 ring-gray-200 ring-offset-1'
-                  : 'border-dashed border-gray-300 bg-white text-gray-500 hover:bg-gray-50'
-              }`}
-            >
-              Not on board
-            </button>
           </div>
         ) : (
           <p className="rounded-lg border border-dashed border-gray-200 bg-white px-3 py-2 text-xs text-gray-500">

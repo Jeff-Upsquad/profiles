@@ -143,6 +143,7 @@ export interface HubStats {
   pending: number;
   by_pipeline_stage: Record<string, number>;
   by_talent_stage: Record<string, number>;
+  live_by_talent_stage?: Record<string, number>;
   in_talent_pipeline: number;
   rejected: number;
   attention: { pending_approval: number; needs_review: number; waiting_on_talent: number };
