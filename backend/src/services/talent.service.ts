@@ -741,6 +741,30 @@ export async function submitProfile(profileId: string, userId: string) {
   return data;
 }
 
+// Who paused a profile — shown to admins so a talent self-pause can be told
+// apart from an admin pause.
+export interface ProfilePauseActor {
+  role: 'talent' | 'admin' | 'staff';
+  id: string | null;
+  name: string | null;
+}
+
+export const CLEARED_PAUSE_FIELDS = {
+  paused_at: null,
+  paused_by_role: null,
+  paused_by_id: null,
+  paused_by_name: null,
+};
+
+export function pauseFields(actor: ProfilePauseActor) {
+  return {
+    paused_at: new Date().toISOString(),
+    paused_by_role: actor.role,
+    paused_by_id: actor.id,
+    paused_by_name: actor.name,
+  };
+}
+
 export async function deactivateProfile(profileId: string, userId: string) {
   const { data: profile, error: fetchErr } = await supabaseAdmin
     .from('talent_profiles')
@@ -756,9 +780,16 @@ export async function deactivateProfile(profileId: string, userId: string) {
     throw new AppError(400, 'Only approved profiles can be deactivated');
   }
 
+  const { data: talent } = await supabaseAdmin
+    .from('talent_users')
+    .select('full_name')
+    .eq('id', userId)
+    .maybeSingle();
+  const actor: ProfilePauseActor = { role: 'talent', id: userId, name: talent?.full_name ?? null };
+
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')
-    .update({ status: 'inactive', is_active: false })
+    .update({ status: 'inactive', is_active: false, ...pauseFields(actor) })
     .eq('id', profileId)
     .select('*')
     .single();
@@ -799,7 +830,7 @@ export async function reactivateProfile(profileId: string, userId: string) {
 
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')
-    .update({ status: nextStatus, is_active: true })
+    .update({ status: nextStatus, is_active: true, ...CLEARED_PAUSE_FIELDS })
     .eq('id', profileId)
     .select('*')
     .single();

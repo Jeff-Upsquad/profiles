@@ -977,6 +977,9 @@ export async function setProfileActive(req: Request, res: Response, next: NextFu
     const result = await adminService.setProfileActive(
       req.params.profileId as string,
       Boolean(req.body.is_active),
+      req.staff
+        ? { role: 'staff', id: req.staff.id, name: req.staff.name }
+        : { role: 'admin', id: req.user?.id ?? null, name: req.user?.email ?? null },
     );
     res.json(result);
   } catch (err) {

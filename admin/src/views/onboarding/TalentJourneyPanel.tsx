@@ -63,6 +63,9 @@ interface JobProfile {
   resubmitted_at?: string | null;
   reviewed_at?: string | null;
   changes_whatsapp_sent?: boolean | null;
+  paused_at?: string | null;
+  paused_by_role?: 'talent' | 'admin' | 'staff' | null;
+  paused_by_name?: string | null;
 }
 
 interface Journey {
@@ -473,6 +476,18 @@ export default function TalentJourneyPanel({
   });
 
   // A rejected application returns to the first onboarding stage for review.
+  // Resume a paused job profile — clears both an admin pause and a talent
+  // self-pause, restoring it to approved.
+  const resumeProfileMut = useMutation({
+    mutationFn: async (profileId: string) =>
+      (await api.patch(`/admin/talents/profiles/${profileId}/active`, { is_active: true })).data,
+    onSuccess: () => {
+      toast.success('Job profile is active again');
+      refresh();
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to reactivate profile'),
+  });
+
   const approveMut = useMutation({
     mutationFn: async () =>
       (await (data?.user?.pipeline_stage === 'rejected'
@@ -895,6 +910,7 @@ export default function TalentJourneyPanel({
                           const st = PROFILE_STATUS[p.status] ?? { label: p.status, variant: 'gray' as const };
                           const asked = p.requested_changes ?? [];
                           const liveChangesOpen = p.status === 'approved' && !!p.changes_requested_at && p.reviewed_at == null;
+                          const paused = p.status === 'inactive' || !p.is_active;
                           return (
                             <li key={p.id} className="flex items-center gap-3 px-3 py-2">
                               <div className="min-w-0 flex-1">
@@ -920,6 +936,15 @@ export default function TalentJourneyPanel({
                                     Resubmitted {timeAgo(p.resubmitted_at)} after changes were requested
                                   </p>
                                 )}
+                                {paused && (
+                                  <p className="mt-0.5 text-[11px] text-gray-600">
+                                    {p.paused_by_role
+                                      ? `Paused by ${p.paused_by_name || 'unknown'} (${p.paused_by_role})${p.paused_at ? ` on ${formatDate(p.paused_at)}` : ''}`
+                                      : p.status === 'inactive'
+                                        ? 'Paused by the talent (date not recorded)'
+                                        : 'Paused (who paused it was not recorded)'}
+                                  </p>
+                                )}
                                 {liveChangesOpen && (
                                   <p className="mt-0.5 text-[11px] font-medium text-emerald-700">
                                     Profile remains live · {p.resubmitted_at ? 'updates ready for review' : 'waiting for updates'}
@@ -929,6 +954,16 @@ export default function TalentJourneyPanel({
                               <Badge variant={st.variant}>{st.label}</Badge>
                               {p.status === 'pending_review' || p.status === 'approved' ? (
                                 <div className="flex shrink-0 flex-col items-end gap-1">
+                                  {canEdit && paused && (
+                                    <button
+                                      type="button"
+                                      disabled={resumeProfileMut.isPending}
+                                      onClick={() => resumeProfileMut.mutate(p.id)}
+                                      className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
+                                    >
+                                      Mark active
+                                    </button>
+                                  )}
                                   {canEdit && !liveChangesOpen && (
                                     <button
                                       type="button"
@@ -949,9 +984,21 @@ export default function TalentJourneyPanel({
                                   )}
                                 </div>
                               ) : (
-                                <Link href={`/talents/${p.category_id}/${p.id}`} className="text-xs font-medium text-gray-500 hover:underline">
-                                  View
-                                </Link>
+                                <div className="flex shrink-0 flex-col items-end gap-1">
+                                  {canEdit && paused && (
+                                    <button
+                                      type="button"
+                                      disabled={resumeProfileMut.isPending}
+                                      onClick={() => resumeProfileMut.mutate(p.id)}
+                                      className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
+                                    >
+                                      Mark active
+                                    </button>
+                                  )}
+                                  <Link href={`/talents/${p.category_id}/${p.id}`} className="text-xs font-medium text-gray-500 hover:underline">
+                                    View
+                                  </Link>
+                                </div>
                               )}
                             </li>
                           );

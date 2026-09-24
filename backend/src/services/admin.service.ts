@@ -1513,21 +1513,50 @@ export async function setProfileTier(
   };
 }
 
-// Flip talent_profiles.is_active. Touches ONLY is_active — never status —
-// so admin reactivation does not force re-approval. (Talent self-service
-// deactivateProfile/reactivateProfile in talent.service.ts intentionally
-// couples is_active with status; admin must not.)
-export async function setProfileActive(profileId: string, isActive: boolean) {
-  const { data, error } = await supabaseAdmin
+// Admin pause / resume of a job profile.
+//
+// Pausing flips is_active only — status stays approved, so resuming never
+// forces re-approval — and records who paused it.
+//
+// Resuming also clears a talent self-pause (status='inactive', set by
+// talent.service deactivateProfile): the admin already vetted the profile, so
+// it goes straight back to approved instead of through review again.
+export async function setProfileActive(
+  profileId: string,
+  isActive: boolean,
+  actor: talentService.ProfilePauseActor,
+) {
+  const { data: current, error: fetchErr } = await supabaseAdmin
     .from('talent_profiles')
-    .update({ is_active: isActive })
+    .select('id, status, talent_user_id, category_id')
     .eq('id', profileId)
     .is('deleted_at', null)
-    .select('id, is_active, status')
+    .maybeSingle();
+
+  if (fetchErr || !current) throw new AppError(404, 'Profile not found');
+
+  const update: Record<string, unknown> = isActive
+    ? {
+        is_active: true,
+        ...talentService.CLEARED_PAUSE_FIELDS,
+        ...(current.status === 'inactive' ? { status: 'approved' } : {}),
+      }
+    : { is_active: false, ...talentService.pauseFields(actor) };
+
+  const { data, error } = await supabaseAdmin
+    .from('talent_profiles')
+    .update(update)
+    .eq('id', profileId)
+    .select('id, is_active, status, paused_at, paused_by_role, paused_by_name')
     .single();
 
-  if (error || !data) throw new AppError(404, 'Profile not found');
-  return { id: data.id, is_active: data.is_active, status: data.status };
+  if (error || !data) throw new AppError(500, 'Failed to update profile');
+
+  if (current.status !== data.status && (await isGhostSourceCategory(current.category_id))) {
+    await syncGhostForTalent(current.talent_user_id);
+  }
+
+  return data;
 }
 
 export async function setTalentUserActive(userId: string, isActive: boolean) {

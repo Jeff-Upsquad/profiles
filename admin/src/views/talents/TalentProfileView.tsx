@@ -59,6 +59,9 @@ interface ProfileData {
   category_id: string;
   status: string;
   is_active: boolean;
+  paused_at?: string | null;
+  paused_by_role?: 'talent' | 'admin' | 'staff' | null;
+  paused_by_name?: string | null;
   tier: Tier | null;
   tier_custom: string | null;
   field_data: Record<string, any>;
@@ -191,6 +194,10 @@ export default function TalentProfileView({
       toast.error(err.response?.data?.error || err.response?.data?.message || 'Failed to update tier');
     },
   });
+
+  // Paused either by the admin (is_active off) or by the talent themselves
+  // (status 'inactive'). Mark Active clears both.
+  const isPaused = !!profile && (!profile.is_active || profile.status === 'inactive');
 
   const setProfileActive = useMutation({
     mutationFn: async (isActive: boolean) => {
@@ -350,13 +357,27 @@ export default function TalentProfileView({
             <Badge variant={statusVariant[profile.status] ?? 'gray'}>
               {profile.status.replace('_', ' ')}
             </Badge>
-            {!profile.is_active && <Badge variant="gray">Inactive</Badge>}
+            {!profile.is_active && profile.status !== 'inactive' && <Badge variant="gray">Inactive</Badge>}
             {talentUser?.is_active === false && (
               <Badge variant="gray">Talent account inactive</Badge>
             )}
             {talentUser?.suspended === true && <Badge variant="red">Suspended</Badge>}
             {talentUser?.blacklisted === true && <Badge variant="red">Blacklisted</Badge>}
           </div>
+          {isPaused && (
+            <p className="mt-1 text-sm text-gray-500">
+              {profile.paused_by_role ? (
+                <>
+                  Paused by {profile.paused_by_name || 'unknown'} ({profile.paused_by_role})
+                  {profile.paused_at && <> on {formatDate(profile.paused_at)}</>}
+                </>
+              ) : profile.status === 'inactive' ? (
+                'Paused by the talent (before pause tracking — date unknown)'
+              ) : (
+                'Paused (who paused it was not recorded)'
+              )}
+            </p>
+          )}
           <div className="mt-2 flex items-center gap-1.5 text-sm text-gray-600">
             <svg className="h-4 w-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
@@ -422,12 +443,12 @@ export default function TalentProfileView({
             Edit Profile
           </Button>
           <Button
-            variant={profile.is_active ? 'secondary' : 'primary'}
+            variant={isPaused ? 'primary' : 'secondary'}
             size="sm"
             loading={setProfileActive.isPending}
-            onClick={() => setProfileActive.mutate(!profile.is_active)}
+            onClick={() => setProfileActive.mutate(isPaused)}
           >
-            {profile.is_active ? 'Mark Inactive' : 'Mark Active'}
+            {isPaused ? 'Mark Active' : 'Mark Inactive'}
           </Button>
           {talentUser?.id && (
             <Button

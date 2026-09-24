@@ -758,7 +758,7 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
     supabaseAdmin.from('talent_profiles_basic').select('*').eq('talent_user_id', userId).maybeSingle(),
     supabaseAdmin
       .from('talent_profiles')
-      .select('id, category_id, status, is_active, tier, tier_custom, created_at, updated_at, requested_changes, changes_requested_at, resubmitted_at, reviewed_at, changes_whatsapp_sent, categories(name, slug)')
+      .select('id, category_id, status, is_active, tier, tier_custom, created_at, updated_at, requested_changes, changes_requested_at, resubmitted_at, reviewed_at, changes_whatsapp_sent, paused_at, paused_by_role, paused_by_name, categories(name, slug)')
       .eq('talent_user_id', userId)
       .is('deleted_at', null)
       .order('updated_at', { ascending: false }),
@@ -894,6 +894,9 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
       resubmitted_at: p.resubmitted_at ?? null,
       reviewed_at: p.reviewed_at ?? null,
       changes_whatsapp_sent: p.changes_whatsapp_sent ?? null,
+      paused_at: p.paused_at ?? null,
+      paused_by_role: p.paused_by_role ?? null,
+      paused_by_name: p.paused_by_name ?? null,
     })),
     lead: leadRes.data ?? null,
     talent_pipeline: talentPipeline.config
