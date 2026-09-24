@@ -44,9 +44,13 @@ export function useUserActions() {
 
   const setUserActive = useMutation({
     mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
-      await api.patch(`/admin/users/talent/${userId}/active`, { is_active: isActive });
+      const reason = isActive ? undefined : window.prompt('Reason for marking this Talent inactive:')?.trim();
+      if (!isActive && !reason) return { cancelled: true };
+      await api.patch(`/admin/users/talent/${userId}/active`, { is_active: isActive, reason });
+      return { cancelled: false };
     },
-    onSuccess: (_data, vars) => {
+    onSuccess: (data, vars) => {
+      if (data.cancelled) return;
       invalidateLists();
       queryClient.invalidateQueries({ queryKey: ['admin-user-detail', vars.userId] });
       toast.success(vars.isActive ? 'Talent marked active' : 'Talent marked inactive');

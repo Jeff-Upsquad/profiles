@@ -11,9 +11,11 @@ import DropdownMenu from '@/components/ui/DropdownMenu';
 import Modal from '@/components/ui/Modal';
 import { resolveLocation, COUNTRIES, INDIA_STATE_LABELS, UNKNOWN_STATE, type Country } from '@/lib/location';
 import { formatDate } from '@/lib/formatDate';
+import TalentActiveToggle from '@/components/TalentActiveToggle';
 
 interface TalentProfile {
   id: string;
+  talent_user_id: string;
   status: string;
   is_active: boolean;
   created_at: string;
@@ -22,6 +24,7 @@ interface TalentProfile {
     profile_photo_url?: string;
     current_location?: string;
     is_active?: boolean;
+    inactive_reason?: string | null;
     suspended?: boolean;
     blacklisted?: boolean;
   };
@@ -87,6 +90,10 @@ function tierKeyOf(profile: TalentProfile): TierKey {
 // talents are managed in the dedicated Blocked Users module.
 function isBlockedProfile(p: TalentProfile): boolean {
   return p.talent_users?.suspended === true || p.talent_users?.blacklisted === true;
+}
+
+function isInactiveProfile(p: TalentProfile): boolean {
+  return !p.is_active || p.status === 'inactive' || p.talent_users?.is_active === false;
 }
 
 export type EmploymentScope = 'partner_program' | 'freelance' | 'salary';
@@ -165,7 +172,7 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
 
     scopedProfiles.forEach((p, i) => {
       const tk = tierKeyOf(p);
-      if (!p.is_active) {
+      if (isInactiveProfile(p)) {
         sc.inactive = (sc.inactive ?? 0) + 1;
         if (!mx.inactive) mx.inactive = { 'Top Talents': 0, pro: 0, junior: 0, custom: 0, none: 0 };
         mx.inactive[tk]++;
@@ -200,15 +207,15 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
     let list = scopedProfiles;
     let locs = profileLocations;
     if (statusFilter === 'inactive') {
-      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => !p.is_active);
+      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => isInactiveProfile(p));
       list = idx.map(([p]) => p);
       locs = idx.map(([, l]) => l);
     } else if (statusFilter) {
-      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => p.is_active && p.status === statusFilter);
+      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => !isInactiveProfile(p) && p.status === statusFilter);
       list = idx.map(([p]) => p);
       locs = idx.map(([, l]) => l);
     } else {
-      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => p.is_active);
+      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => !isInactiveProfile(p));
       list = idx.map(([p]) => p);
       locs = idx.map(([, l]) => l);
     }
@@ -779,6 +786,14 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
                       {formatDate(profile.created_at)}
                     </td>
                     <td className="px-4 py-3 text-right">
+                      <div className="mb-2 flex justify-end">
+                        <TalentActiveToggle
+                          userId={profile.talent_user_id}
+                          name={profile.talent_users?.full_name ?? 'this Talent'}
+                          isActive={profile.talent_users?.is_active !== false}
+                          inactiveReason={profile.talent_users?.inactive_reason}
+                        />
+                      </div>
                       {isPending ? (
                         <DropdownMenu
                           items={[

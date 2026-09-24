@@ -6,6 +6,8 @@ import { env } from '../config/env.js';
 import { getTalentTiersByUserIds } from './talent-tier.service.js';
 import { isGhostSourceCategory, syncGhostForTalent } from './ghost-profile.service.js';
 import * as talentService from './talent.service.js';
+import { deliverCrmSystemEvent } from '../lib/crm-system-event.js';
+import { notifyBroadcast } from './push.service.js';
 import type {
   CreateCategoryInput,
   UpdateCategoryInput,
@@ -1559,16 +1561,82 @@ export async function setProfileActive(
   return data;
 }
 
-export async function setTalentUserActive(userId: string, isActive: boolean) {
+export async function setTalentUserActive(
+  userId: string,
+  input: { is_active: boolean; reason?: string; send_whatsapp?: boolean; send_notification?: boolean },
+) {
+  const reason = input.reason?.trim();
+  if (!input.is_active && !reason) throw new AppError(400, 'Reason is required when marking a talent inactive');
+
+  const { data: current, error: fetchError } = await supabaseAdmin
+    .from('talent_users')
+    .select('id, is_active, full_name, phone, inactive_reason, inactive_at')
+    .eq('id', userId)
+    .maybeSingle();
+  if (fetchError) throw new AppError(500, fetchError.message);
+  if (!current) throw new AppError(404, 'Talent user not found');
+  if (current.is_active === input.is_active) {
+    return {
+      id: current.id,
+      is_active: current.is_active,
+      inactive_reason: current.inactive_reason,
+      inactive_at: current.inactive_at,
+      delivery: { notification_sent: false, whatsapp_sent: false },
+    };
+  }
+
+  // Account-level is_active is read by public search and the subscription
+  // matcher, so one switch hides all profiles and excludes new requests.
   const { data, error } = await supabaseAdmin
     .from('talent_users')
-    .update({ is_active: isActive })
+    .update(input.is_active
+      ? { is_active: true }
+      : { is_active: false, inactive_reason: reason, inactive_at: new Date().toISOString() })
     .eq('id', userId)
-    .select('id, is_active')
-    .single();
+    .eq('is_active', !input.is_active)
+    .select('id, is_active, inactive_reason, inactive_at')
+    .maybeSingle();
+  if (error) throw new AppError(500, error.message);
+  if (!data) throw new AppError(409, 'Talent status changed. Refresh and try again.');
 
-  if (error || !data) throw new AppError(404, 'Talent user not found');
-  return { id: data.id, is_active: data.is_active };
+  const delivery = { notification_sent: false, whatsapp_sent: false };
+  if (!input.is_active) {
+    const title = 'Your talent profile is inactive';
+    const body = `Your talent profile has been marked inactive. Reason: ${reason}. You will not be shown on the platform or receive new subscription requests. Please contact support to resolve this.`;
+    if (input.send_notification) {
+      const { data: notification, error: notificationError } = await supabaseAdmin
+        .from('notifications')
+        .insert({ kind: 'system', system_type: 'talent_marked_inactive', title, body })
+        .select('id')
+        .single();
+      if (notificationError || !notification) {
+        console.error('[admin] inactive notification insert failed', notificationError);
+      } else {
+        const { error: recipientError } = await supabaseAdmin
+          .from('notification_recipients')
+          .insert({ notification_id: notification.id, talent_user_id: userId });
+        if (recipientError) {
+          console.error('[admin] inactive notification recipient failed', recipientError);
+          await supabaseAdmin.from('notifications').delete().eq('id', notification.id);
+        } else {
+          delivery.notification_sent = true;
+          void notifyBroadcast([userId], { title, body, route: '/talent/notifications' })
+            .catch((err) => console.error('[admin] inactive push failed', err));
+        }
+      }
+    }
+    if (input.send_whatsapp && current.phone) {
+      delivery.whatsapp_sent = await deliverCrmSystemEvent({
+        audience: 'talent',
+        event: 'talent_marked_inactive',
+        name: current.full_name,
+        phone: current.phone,
+        data: { reason },
+        bodyParams: [current.full_name || 'Talent', reason!],
+      });
+    }
+  }
+  return { ...data, delivery };
 }
 
 // Admin-controlled override: skip the onboarding course for this talent.
@@ -2183,7 +2251,7 @@ export async function getTalentProfilesByCategory(categoryId: string, search?: s
 
   let qb = supabaseAdmin
     .from('talent_profiles')
-    .select('*, talent_users!inner(full_name, profile_photo_url, current_location, is_active, suspended, blacklisted), categories!inner(name, slug)')
+    .select('*, talent_users!inner(full_name, profile_photo_url, current_location, is_active, inactive_reason, suspended, blacklisted), categories!inner(name, slug)')
     .eq('category_id', categoryId)
     .is('deleted_at', null)
     // Partner Program / Jobs lists show only active + inactive.

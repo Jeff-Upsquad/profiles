@@ -2016,11 +2016,14 @@ export async function manualAssignTalent(
 
   const { data: talent, error: talentErr } = await supabaseAdmin
     .from('talent_users')
-    .select('id, suspended, blacklisted')
+    .select('id, is_active, suspended, blacklisted')
     .eq('id', input.talent_id)
     .maybeSingle();
   if (talentErr) throw new AppError(500, talentErr.message);
   if (!talent) throw new AppError(404, 'Talent not found');
+  if ((talent as any).is_active === false) {
+    throw new AppError(409, 'Talent is inactive on Profiles and cannot receive new subscription requests');
+  }
   // Suspended or blacklisted talents must not receive new offers or assignments
   // — reject loudly so the SquadHub-side admin sees why the assignment didn't
   // land.

@@ -1006,7 +1006,7 @@ export async function setTalentUserActive(req: Request, res: Response, next: Nex
   try {
     const result = await adminService.setTalentUserActive(
       req.params.id as string,
-      Boolean(req.body.is_active),
+      req.body,
     );
     res.json(result);
   } catch (err) {

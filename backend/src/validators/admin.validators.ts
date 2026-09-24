@@ -1,5 +1,16 @@
 import { z } from 'zod';
 
+export const setTalentUserActiveSchema = z.object({
+  is_active: z.boolean(),
+  reason: z.string().trim().min(1).max(1000).optional(),
+  send_whatsapp: z.boolean().optional().default(false),
+  send_notification: z.boolean().optional().default(false),
+}).superRefine((value, ctx) => {
+  if (!value.is_active && !value.reason) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['reason'], message: 'Reason is required when marking a talent inactive' });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Category schemas
 // ---------------------------------------------------------------------------

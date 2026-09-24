@@ -12,6 +12,7 @@ import { formatDate } from '@/lib/formatDate';
 import { coerceLeveledList, LEVEL_LABELS, type LeveledItem } from '../../../../shared/src/types/talent';
 import { CRM_URL } from '@/lib/crmUrl';
 import { formatTotalExperience, type ExperienceRange } from '../../../../shared/src/experienceTotal';
+import TalentActiveToggle from '@/components/TalentActiveToggle';
 
 type Tier = 'junior' | 'pro' | 'Top Talents' | 'custom';
 const TIER_OPTIONS: { value: Tier | null; label: string }[] = [
@@ -81,6 +82,7 @@ interface ProfileData {
     languages_spoken: string[];
     profile_photo_url?: string;
     is_active?: boolean;
+    inactive_reason?: string | null;
     suspended?: boolean;
     blacklisted?: boolean;
   };
@@ -448,8 +450,16 @@ export default function TalentProfileView({
             loading={setProfileActive.isPending}
             onClick={() => setProfileActive.mutate(isPaused)}
           >
-            {isPaused ? 'Mark Active' : 'Mark Inactive'}
+            {isPaused ? 'Resume Profile' : 'Pause Profile'}
           </Button>
+          {talentUser?.id && (
+            <TalentActiveToggle
+              userId={talentUser.id}
+              name={talentUser.full_name ?? 'this Talent'}
+              isActive={talentUser.is_active !== false}
+              inactiveReason={talentUser.inactive_reason}
+            />
+          )}
           {talentUser?.id && (
             <Button
               variant={talentUser.suspended ? 'primary' : 'danger'}
