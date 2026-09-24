@@ -24,6 +24,7 @@ const CRM_STAGE_TO_STATUS: Record<string, (typeof LEAD_STATUS_VALUES)[number]> =
   'share landing page': 'share_form',
   'form filled / for review': 'form_filled',
   'applicants': 'form_filled',
+  'signed up / applicants': 'form_filled',
   'shortlisted': 'shortlisted',
   'signed up': 'signed_up',
   'application approved': 'signed_up',
@@ -37,6 +38,9 @@ const CRM_STAGE_TO_STATUS: Record<string, (typeof LEAD_STATUS_VALUES)[number]> =
   'no response / in active': 'no_response',
   'no response / inactive': 'no_response',
   'no response': 'no_response',
+  'rejected / disqualified': 'rejected',
+  'rejected': 'rejected',
+  'disqualified': 'rejected',
 };
 
 function normalizeStage(label: string): string {
@@ -165,12 +169,14 @@ export async function handleLeadStageChanged(
       if (!talentUserId) { res.json({ ok: true, skipped: 'talent_not_found' }); return; }
       const stageByName: Record<string, string> = {
         applicants: 'applicants',
+        'signed up / applicants': 'applicants',
         'application approved': 'application_approved',
         'onboarding training': 'onboarding_course',
         'basic profile': 'basic_profile',
         'job profile': 'job_profile',
         'final review': 'final_review',
         live: 'live',
+        'rejected / disqualified': 'rejected',
       };
       const stage = stageByName[normalizeStage(stage_name)];
       if (!stage) { res.json({ ok: true, skipped: 'pre_signup_or_unmapped_stage' }); return; }

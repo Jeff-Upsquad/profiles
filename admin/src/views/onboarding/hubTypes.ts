@@ -9,15 +9,17 @@ export type PipelineStage =
   | 'job_profile'
   | 'final_review'
   | 'live'
-  | 'no_response';
+  | 'no_response'
+  | 'rejected';
 
 // The CRM candidate-pipeline stages mirrored on talent_users.pipeline_stage.
 // Order = funnel order. `dot`/`chip` are the tailwind tints used everywhere
 // the stage shows up so a stage always looks the same across the page.
-export const PIPELINE_STAGES: { value: PipelineStage; label: string; dot: string; chip: string }[] = [
-  { value: 'applicants', label: 'Applicants', dot: 'bg-yellow-500', chip: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
-  { value: 'application_approved', label: 'Application approved', dot: 'bg-purple-500', chip: 'bg-purple-50 text-purple-700 border-purple-200' },
-  { value: 'signed_up', label: 'Application approved (legacy)', dot: 'bg-purple-500', chip: 'bg-purple-50 text-purple-700 border-purple-200' },
+// `rejected` is terminal and shown in its own section, not the funnel strip.
+type StageDef = { value: PipelineStage; label: string; dot: string; chip: string };
+export const PIPELINE_STAGES: StageDef[] = [
+  { value: 'applicants', label: 'Signed Up / Applicants', dot: 'bg-yellow-500', chip: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+  { value: 'application_approved', label: 'Application Approved', dot: 'bg-purple-500', chip: 'bg-purple-50 text-purple-700 border-purple-200' },
   { value: 'onboarding_course', label: 'Course', dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-700 border-amber-200' },
   { value: 'basic_profile', label: 'Basic profile', dot: 'bg-orange-500', chip: 'bg-orange-50 text-orange-700 border-orange-200' },
   { value: 'job_profile', label: 'Job profile', dot: 'bg-teal-500', chip: 'bg-teal-50 text-teal-700 border-teal-200' },
@@ -26,10 +28,30 @@ export const PIPELINE_STAGES: { value: PipelineStage; label: string; dot: string
   { value: 'no_response', label: 'No response', dot: 'bg-gray-400', chip: 'bg-gray-50 text-gray-600 border-gray-200' },
 ];
 
-export const STAGE_BY_VALUE = Object.fromEntries(PIPELINE_STAGES.map((s) => [s.value, s])) as Record<
-  PipelineStage,
-  (typeof PIPELINE_STAGES)[number]
->;
+export const REJECTED_STAGE: StageDef = {
+  value: 'rejected', label: 'Rejected / Disqualified', dot: 'bg-red-500', chip: 'bg-red-50 text-red-700 border-red-200',
+};
+
+export const STAGE_BY_VALUE = Object.fromEntries(
+  [
+    ...PIPELINE_STAGES,
+    REJECTED_STAGE,
+    // Retired: folded into Application Approved (migration 00154).
+    { ...PIPELINE_STAGES[1], value: 'signed_up' as const },
+  ].map((s) => [s.value, s]),
+) as Record<PipelineStage, StageDef>;
+
+// Preset reasons offered when rejecting; the admin can also type their own.
+// Mirrored as CRM stage reasons on each pipeline's Rejected / Disqualified stage.
+export const REJECTION_REASONS = [
+  'Incomplete application',
+  "Doesn't meet the experience requirements",
+  'Portfolio / work samples not strong enough',
+  'Not the right fit for this role',
+  'Location not serviceable',
+  'Duplicate application',
+  'Unresponsive',
+];
 
 export type HubCategory = 'all' | 'creative' | 'accountant' | 'sales';
 
@@ -103,6 +125,8 @@ export interface HubRow {
   created_at: string;
   approved_at: string | null;
   pipeline_stage: PipelineStage;
+  rejection_reason: string | null;
+  rejected_at: string | null;
   crm_talent_pipeline_name: string | null;
   crm_talent_stage_id: string | null;
   crm_talent_stage_name: string | null;
@@ -118,6 +142,7 @@ export interface HubStats {
   by_pipeline_stage: Record<string, number>;
   by_talent_stage: Record<string, number>;
   in_talent_pipeline: number;
+  rejected: number;
   attention: { pending_approval: number; needs_review: number; waiting_on_talent: number };
 }
 

@@ -46,7 +46,7 @@ function loomEmbedUrl(url: string): string {
 }
 
 function iconForNotification(n: Notification): { tint: string; node: React.ReactNode; label: string } {
-  if (n.system_type === 'profile_approved') {
+  if (n.system_type === 'profile_approved' || n.system_type === 'application_approved') {
     return {
       tint: 'tint-green',
       label: 'Approved',
@@ -57,7 +57,7 @@ function iconForNotification(n: Notification): { tint: string; node: React.React
       ),
     };
   }
-  if (n.system_type === 'profile_rejected') {
+  if (n.system_type === 'profile_rejected' || n.system_type === 'application_rejected') {
     return {
       tint: 'tint-pink',
       label: 'Rejected',

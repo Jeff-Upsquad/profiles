@@ -12,11 +12,13 @@ import { cleanPhoneForLink, formatIndianPhone } from '@/lib/phone';
 import { crmLookupUrl } from '@/lib/crmUrl';
 import TalentJourneyPanel from './TalentJourneyPanel';
 import CrmChatDrawer from './CrmChatDrawer';
+import RejectDialog from './RejectDialog';
 import {
   CATEGORY_BADGE,
   CATEGORY_TABS,
   JOURNEY_STEPS,
   PIPELINE_STAGES,
+  REJECTED_STAGE,
   STAGE_BY_VALUE,
   initials,
   timeAgo,
@@ -56,6 +58,7 @@ const STAGE_TO_LEAD_KEY: Record<PipelineStage, string> = {
   final_review: 'final_review',
   live: 'live',
   no_response: 'no_response',
+  rejected: 'rejected',
 };
 
 /** Compact 5-dot journey strip for a row. */
@@ -119,7 +122,9 @@ function ModuleCourseStatus({ row }: { row: HubRow }) {
 }
 
 function StatusBadge({ row, track }: { row: HubRow; track: 'partner' | 'jobs' }) {
-  const approvalStatus = track === 'partner' ? row.partner_approval_status : row.approval_status;
+  const approvalStatus = row.pipeline_stage === 'rejected'
+    ? 'rejected'
+    : track === 'partner' ? row.partner_approval_status : row.approval_status;
   const cls = row.suspended
     ? 'bg-red-100 text-red-700'
     : approvalStatus === 'rejected'
@@ -161,6 +166,7 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
   const selectedId = searchParams.get('selected');
   const chatPhone = searchParams.get('chat');
   const chatName = searchParams.get('chat_name');
+  const view = searchParams.get('view') === 'rejected' ? 'rejected' : 'active';
 
   const updateQuery = useCallback(
     (updates: Record<string, string | null>) => {
@@ -197,12 +203,14 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
   });
 
   const { data, isLoading, isPlaceholderData } = useQuery<HubResponse>({
-    queryKey: ['onboarding-hub', track, category, stage, talentStage, attention, sort, search, page],
+    queryKey: ['onboarding-hub', track, view, category, stage, talentStage, attention, sort, search, page],
     queryFn: async () => {
-      const params: Record<string, string | number> = { page, limit: 25, category, sort, track };
-      if (stage !== 'all') params.pipeline_stage = stage;
-      if (talentStage !== 'all') params.talent_stage = talentStage;
-      if (attention) params.attention = attention;
+      const params: Record<string, string | number> = { page, limit: 25, category, sort, track, view };
+      if (view === 'active') {
+        if (stage !== 'all') params.pipeline_stage = stage;
+        if (talentStage !== 'all') params.talent_stage = talentStage;
+        if (attention) params.attention = attention;
+      }
       if (search) params.search = search;
       return (await api.get('/admin/user-approvals/hub', { params })).data;
     },
@@ -223,6 +231,30 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
       invalidate();
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Bulk approve failed'),
+  });
+
+  const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string } | null>(null);
+  const decisionPath = (id: string, decision: 'approve' | 'reject') =>
+    `/admin/user-approvals/${id}/${decision === 'approve'
+      ? track === 'partner' ? 'approve-partner' : 'reinstate-jobs'
+      : track === 'partner' ? 'reject-partner' : 'reject-jobs'}`;
+  const approveMut = useMutation({
+    mutationFn: async (id: string) => (await api.patch(decisionPath(id, 'approve'))).data,
+    onSuccess: () => {
+      toast.success('Approved · moved to Application Approved');
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Approve failed'),
+  });
+  const rejectMut = useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) =>
+      (await api.patch(decisionPath(id, 'reject'), { reason })).data,
+    onSuccess: () => {
+      toast.success('Rejected · talent notified');
+      setRejectTarget(null);
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Reject failed'),
   });
 
   const users = data?.users ?? [];
@@ -353,14 +385,14 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
           </p>
           <p className="text-[11px] text-gray-400">{stats?.total ?? 0} total · synced with SquadHire CRM</p>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-9">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
           {PIPELINE_STAGES.map((s) => {
-            const active = stage === s.value;
+            const active = view === 'active' && stage === s.value;
             return (
               <button
                 key={s.value}
                 type="button"
-                onClick={() => updateQuery({ stage: active ? null : s.value, page: null })}
+                onClick={() => updateQuery({ stage: active ? null : s.value, view: null, page: null })}
                 className={`rounded-xl border p-3 text-left transition ${
                   active ? `${s.chip} border-2 shadow-sm` : 'border-gray-200 bg-white hover:bg-gray-50'
                 }`}
@@ -434,7 +466,7 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
 
       {/* Attention chips + sort */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className={`flex flex-wrap items-center gap-1.5 ${view === 'rejected' ? 'invisible' : ''}`}>
           <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Needs attention</span>
           {ATTENTION_CHIPS.map((c) => {
             const active = attention === c.value;
@@ -476,6 +508,33 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
         </select>
       </div>
 
+      {/* Section: active onboarding queue vs Rejected / Disqualified */}
+      <div className="flex items-center gap-1 border-b border-gray-200">
+        {([
+          { value: 'active', label: 'Onboarding queue', n: stats?.total },
+          { value: 'rejected', label: REJECTED_STAGE.label, n: stats?.rejected },
+        ] as const).map((t) => (
+          <button
+            key={t.value}
+            type="button"
+            onClick={() => {
+              updateQuery({ view: t.value === 'active' ? null : t.value, page: null, selected: null });
+              setSelected(new Set());
+            }}
+            className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+              view === t.value
+                ? t.value === 'rejected' ? 'border-red-500 text-red-700' : 'border-indigo-500 text-indigo-700'
+                : 'border-transparent text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            {t.label}
+            <span className={`rounded-full px-1.5 text-[11px] ${
+              view === t.value && t.value === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
+            }`}>{t.n ?? 0}</span>
+          </button>
+        ))}
+      </div>
+
       {/* List */}
       <div className={`overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm ${isPlaceholderData ? 'opacity-70 transition-opacity' : ''}`}>
         {isLoading ? (
@@ -486,8 +545,12 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
           </div>
         ) : users.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-sm font-medium text-gray-700">No sign-ups match</p>
-            <p className="text-sm text-gray-500">Clear a filter or wait for new talent to sign up.</p>
+            <p className="text-sm font-medium text-gray-700">{view === 'rejected' ? 'No rejected talents' : 'No sign-ups match'}</p>
+            <p className="text-sm text-gray-500">
+              {view === 'rejected'
+                ? 'Talents you reject or disqualify land here, with the reason.'
+                : 'Clear a filter or wait for new talent to sign up.'}
+            </p>
           </div>
         ) : (
           <>
@@ -500,7 +563,7 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
                     )}
                   </th>
                   <th className="px-3 py-2.5">Talent</th>
-                  <th className="px-3 py-2.5">Journey</th>
+                  <th className="px-3 py-2.5">{view === 'rejected' ? 'Reason' : 'Journey'}</th>
                   <th className="px-3 py-2.5">Stage</th>
                   <th className="px-3 py-2.5">Status</th>
                   <th className="px-3 py-2.5">Joined</th>
@@ -511,7 +574,8 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
                 {users.map((u) => {
                   const isSel = u.id === selectedId;
                   const phone = cleanPhoneForLink(u.phone);
-                  const st = STAGE_BY_VALUE[u.pipeline_stage] ?? STAGE_BY_VALUE.signed_up;
+                  const st = STAGE_BY_VALUE[u.pipeline_stage] ?? STAGE_BY_VALUE.application_approved;
+                  const isPending = track === 'partner' && u.partner_approval_status === 'pending' && u.pipeline_stage !== 'rejected';
                   const j = u.journey;
                   const hint = j
                     ? !j.onboarding_completed
@@ -535,7 +599,7 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
                       className={`cursor-pointer transition-colors ${isSel ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
                     >
                       <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-                        {canEdit && track === 'partner' && u.partner_approval_status === 'pending' && (
+                        {canEdit && isPending && (
                           <input
                             type="checkbox"
                             checked={selected.has(u.id)}
@@ -573,11 +637,20 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 py-2.5">
-                        <JourneyDots row={u} />
-                        <p className="mt-1 text-[11px] text-gray-500">{hint}</p>
-                        <ModuleCourseStatus row={u} />
-                      </td>
+                      {view === 'rejected' ? (
+                        <td className="max-w-xs px-3 py-2.5">
+                          <p className="text-sm text-gray-800">{u.rejection_reason || '—'}</p>
+                          {u.rejected_at && (
+                            <p className="mt-0.5 text-[11px] text-gray-500" title={u.rejected_at}>Rejected {timeAgo(u.rejected_at)}</p>
+                          )}
+                        </td>
+                      ) : (
+                        <td className="px-3 py-2.5">
+                          <JourneyDots row={u} />
+                          <p className="mt-1 text-[11px] text-gray-500">{hint}</p>
+                          <ModuleCourseStatus row={u} />
+                        </td>
+                      )}
                       <td className="px-3 py-2.5">
                         <div className="flex flex-col items-start gap-1">
                           <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium ${st.chip}`}>
@@ -599,6 +672,38 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                          {canEdit && isPending && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => approveMut.mutate(u.id)}
+                                disabled={approveMut.isPending}
+                                title="Approve · moves to Application Approved"
+                                className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setRejectTarget({ id: u.id, name: u.full_name })}
+                                title="Reject with a reason"
+                                className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          {canEdit && u.pipeline_stage === 'rejected' && (
+                            <button
+                              type="button"
+                              onClick={() => approveMut.mutate(u.id)}
+                              disabled={approveMut.isPending}
+                              title="Reinstate · moves back to Application Approved"
+                              className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                            >
+                              Reinstate
+                            </button>
+                          )}
                           {phone && (
                             <button
                               type="button"
@@ -678,6 +783,14 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
         canEdit={canEdit}
       />
       <CrmChatDrawer phone={chatPhone} name={chatName} onClose={closeChat} />
+      <RejectDialog
+        open={!!rejectTarget}
+        talentName={rejectTarget?.name ?? ''}
+        programLabel={track === 'partner' ? 'Partner Program' : 'Jobs track'}
+        pending={rejectMut.isPending}
+        onClose={() => setRejectTarget(null)}
+        onConfirm={(reason) => rejectTarget && rejectMut.mutate({ id: rejectTarget.id, reason })}
+      />
     </div>
   );
 }

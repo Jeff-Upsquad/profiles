@@ -548,7 +548,7 @@ export async function getSignupStats(category?: string) {
   for (const r of rows) {
     const s = r.approval_status ?? 'pending';
     byStatus[s] = (byStatus[s] ?? 0) + 1;
-    const stage = r.pipeline_stage ?? 'signed_up';
+    const stage = r.pipeline_stage ?? 'application_approved';
     byPipelineStage[stage] = (byPipelineStage[stage] ?? 0) + 1;
     if (r.suspended) suspended += 1;
     else if (r.is_active !== false) active += 1;
@@ -689,7 +689,11 @@ export async function approvePartnerUser(userId: string, adminId: string) {
     .eq('id', userId)
     .single();
   if (lookupError || !current) throw new AppError(404, 'Talent user not found');
-  if (current.partner_approval_status !== 'pending') throw new AppError(400, 'Partner application is not pending');
+  // Pending → approve; rejected → reinstate (same move, back to Application Approved).
+  const fromStatus = current.partner_approval_status;
+  if (fromStatus !== 'pending' && fromStatus !== 'rejected') {
+    throw new AppError(400, 'Partner application is not pending');
+  }
 
   const now = new Date().toISOString();
   const { data, error } = await supabaseAdmin
@@ -697,30 +701,40 @@ export async function approvePartnerUser(userId: string, adminId: string) {
     .update({
       partner_approval_status: 'approved',
       partner_approved_at: now,
+      partner_rejected_at: null,
+      partner_rejection_reason: null,
       pipeline_stage: 'application_approved',
       ...(current.wants_jobs ? {} : {
         approval_status: 'approved', approved_at: now, approved_by: adminId,
+        rejected_at: null, rejection_reason: null,
       }),
     })
     .eq('id', userId)
-    .eq('partner_approval_status', 'pending')
+    .eq('partner_approval_status', fromStatus)
     .select()
     .single();
   if (error || !data) throw new AppError(500, error?.message || 'Partner approval failed');
 
   const { data: leads } = await supabaseAdmin
     .from('lead_submissions')
-    .select('id, status, form_data')
+    .select('id, status, form_type, form_data')
     .eq('linked_talent_user_id', userId)
     .is('deleted_at', null);
-  for (const lead of leads ?? []) {
-    if (!Array.isArray(lead.form_data?.work_type_seeking) ||
-        !lead.form_data.work_type_seeking.includes('UpSquad Partner Program')) continue;
-    if (lead.status === 'form_filled' || lead.status === 'shortlisted') {
+  const allLeads = (leads ?? []) as Array<{ id: string; status: string; form_type: string | null; form_data: any }>;
+  const tagged = allLeads.filter((l) => Array.isArray(l.form_data?.work_type_seeking) &&
+    l.form_data.work_type_seeking.includes('UpSquad Partner Program'));
+  // A reinstated rejection may have parked untagged (older) leads too — the
+  // same set pushRejectionToCrm moved.
+  const partnerLeads = tagged.length > 0 || fromStatus === 'pending'
+    ? tagged : allLeads.filter((l) => l.form_type !== 'jobs');
+  let movedLead = false;
+  for (const lead of partnerLeads) {
+    if (lead.status === 'form_filled' || lead.status === 'shortlisted' || lead.status === 'rejected') {
       const { error: leadError } = await supabaseAdmin.from('lead_submissions')
         .update({ status: 'signed_up', status_changed_by: adminId, status_changed_at: now })
         .eq('id', lead.id);
       if (!leadError) {
+        movedLead = true;
         try {
           const { onLeadStatusChanged } = await import('./automation.service.js');
           await onLeadStatusChanged(lead.id, 'signed_up', adminId);
@@ -728,23 +742,163 @@ export async function approvePartnerUser(userId: string, adminId: string) {
       }
     }
   }
+  if (!movedLead) {
+    // No candidate lead to carry the move (WhatsApp / landing-page sign-up) —
+    // move the CRM card directly.
+    try {
+      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
+      const { notifyCrmPipelineStageChanged } = await import('./automation.service.js');
+      await notifyCrmPipelineStageChanged({
+        talentUserId: userId, name: data.full_name ?? '', email: authUser?.user?.email ?? null,
+        phone: data.phone ?? null, newStage: 'application_approved',
+      });
+    } catch (e) { console.error('[partner approval] CRM card move failed:', e); }
+  }
   try {
     const { backfillCardsForTalent } = await import('./card-backfill.service.js');
     await backfillCardsForTalent(userId);
   } catch (e) { console.error('[partner approval] card backfill failed:', e); }
+  void notifyDecision(userId, 'partner', 'approved');
   return data;
 }
 
+function requireRejectionReason(reason?: string): string {
+  const trimmed = reason?.trim() ?? '';
+  if (!trimmed) throw new AppError(400, 'A rejection reason is required');
+  if (trimmed.length > 500) throw new AppError(400, 'Rejection reason must be 500 characters or fewer');
+  return trimmed;
+}
+
+function notifyDecision(
+  talentUserId: string,
+  track: 'partner' | 'jobs',
+  decision: 'approved' | 'rejected',
+  reason?: string,
+) {
+  return import('./application-decision.service.js')
+    .then(({ notifyApplicationDecision }) =>
+      notifyApplicationDecision({ talentUserId, track, decision, reason }),
+    )
+    .catch((e) => console.error(`[application ${decision}] notify failed:`, e));
+}
+
+/** Move the talent's CRM card(s) for a track to "Rejected / Disqualified". */
+async function pushRejectionToCrm(userId: string, track: 'partner' | 'jobs', adminId: string, reason: string) {
+  const { data: talent } = await supabaseAdmin.from('talent_users')
+    .select('full_name, phone').eq('id', userId).maybeSingle();
+  const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
+  const { notifyCrmPipelineStageChanged } = await import('./automation.service.js');
+  const crmInput = {
+    talentUserId: userId, name: talent?.full_name ?? '', email: authUser?.user?.email ?? null,
+    phone: talent?.phone ?? null, newStage: 'rejected', reason,
+  };
+  if (track === 'jobs') {
+    await notifyCrmPipelineStageChanged({ ...crmInput, formType: 'jobs' });
+    return;
+  }
+
+  // Partner: park the candidate lead(s) on `rejected` — updateLeadStatus fires
+  // the mapped CRM move per form_type. Tagged Partner Program leads win; older
+  // talents without the tag fall back to their non-jobs leads.
+  const { data: leads } = await supabaseAdmin.from('lead_submissions')
+    .select('id, status, form_type, form_data')
+    .eq('linked_talent_user_id', userId)
+    .is('deleted_at', null)
+    .neq('status', 'archived');
+  const all = (leads ?? []) as Array<{ id: string; status: string; form_type: string | null; form_data: any }>;
+  const tagged = all.filter((l) => Array.isArray(l.form_data?.work_type_seeking) &&
+    l.form_data.work_type_seeking.includes('UpSquad Partner Program'));
+  const targets = tagged.length > 0 ? tagged : all.filter((l) => l.form_type !== 'jobs');
+  const { updateLeadStatus } = await import('./lead.service.js');
+  for (const lead of targets) {
+    if (lead.status !== 'rejected') await updateLeadStatus(lead.id, { status: 'rejected' } as any, adminId);
+  }
+  // Always follow with the direct card move: it covers talents with no
+  // candidate lead, and carries the reason onto the CRM card (the lead-status
+  // webhook has no reason field).
+  await notifyCrmPipelineStageChanged(crmInput);
+}
+
+/**
+ * Reject a Partner Program application — or disqualify an approved partner
+ * candidate later in the funnel. Parks them on the terminal `rejected` stage
+ * (the hub's Rejected section) and CRM "Rejected / Disqualified".
+ */
 export async function rejectPartnerUser(userId: string, adminId: string, reason?: string) {
+  const why = requireRejectionReason(reason);
   const { data: current } = await supabaseAdmin.from('talent_users')
     .select('wants_jobs, partner_approval_status').eq('id', userId).maybeSingle();
-  if (!current || current.partner_approval_status !== 'pending') throw new AppError(400, 'Partner application is not pending');
+  if (!current || current.partner_approval_status == null) {
+    throw new AppError(400, 'This talent has not requested the Partner Program');
+  }
+  if (current.partner_approval_status === 'rejected') throw new AppError(400, 'Partner application is already rejected');
+  const now = new Date().toISOString();
   const { data, error } = await supabaseAdmin.from('talent_users').update({
     partner_approval_status: 'rejected',
+    partner_rejected_at: now,
+    partner_rejection_reason: why,
+    pipeline_stage: 'rejected',
     ...(!current.wants_jobs ? { approval_status: 'rejected', approved_by: adminId,
-      rejected_at: new Date().toISOString(), rejection_reason: reason?.trim() || null } : {}),
-  }).eq('id', userId).eq('partner_approval_status', 'pending').select().single();
+      rejected_at: now, rejection_reason: why } : {}),
+  }).eq('id', userId).eq('partner_approval_status', current.partner_approval_status).select().single();
   if (error || !data) throw new AppError(500, error?.message || 'Partner rejection failed');
+
+  try { await pushRejectionToCrm(userId, 'partner', adminId, why); }
+  catch (e) { console.error('[partner rejection] CRM sync failed:', e); }
+  void notifyDecision(userId, 'partner', 'rejected', why);
+  return data;
+}
+
+/** Reject / disqualify a talent from the Jobs track. */
+export async function rejectJobsUser(userId: string, adminId: string, reason?: string) {
+  const why = requireRejectionReason(reason);
+  const { data: current } = await supabaseAdmin.from('talent_users')
+    .select('wants_jobs, partner_approval_status, jobs_pipeline_stage').eq('id', userId).maybeSingle();
+  if (!current?.wants_jobs) throw new AppError(400, 'This talent has not selected Jobs');
+  if (current.jobs_pipeline_stage === 'rejected') throw new AppError(400, 'Jobs application is already rejected');
+  const now = new Date().toISOString();
+  // Jobs-only talents lose the account too (mirrors partner-only rejection);
+  // someone still in the Partner Program keeps their account.
+  const { data, error } = await supabaseAdmin.from('talent_users').update({
+    jobs_pipeline_stage: 'rejected',
+    jobs_rejected_at: now,
+    jobs_rejection_reason: why,
+    ...(current.partner_approval_status == null ? { approval_status: 'rejected', approved_by: adminId,
+      rejected_at: now, rejection_reason: why } : {}),
+  }).eq('id', userId).select().single();
+  if (error || !data) throw new AppError(500, error?.message || 'Jobs rejection failed');
+
+  try { await pushRejectionToCrm(userId, 'jobs', adminId, why); }
+  catch (e) { console.error('[jobs rejection] CRM sync failed:', e); }
+  void notifyDecision(userId, 'jobs', 'rejected', why);
+  return data;
+}
+
+/** Undo a Jobs rejection — back to Application Approved. */
+export async function reinstateJobsUser(userId: string, adminId: string) {
+  const { data: current } = await supabaseAdmin.from('talent_users')
+    .select('wants_jobs, approval_status, jobs_pipeline_stage, full_name, phone').eq('id', userId).maybeSingle();
+  if (!current?.wants_jobs) throw new AppError(400, 'This talent has not selected Jobs');
+  if (current.jobs_pipeline_stage !== 'rejected') throw new AppError(400, 'Jobs application is not rejected');
+  const now = new Date().toISOString();
+  const { data, error } = await supabaseAdmin.from('talent_users').update({
+    jobs_pipeline_stage: 'application_approved',
+    jobs_rejected_at: null,
+    jobs_rejection_reason: null,
+    ...(current.approval_status === 'rejected' ? { approval_status: 'approved', approved_at: now,
+      approved_by: adminId, rejected_at: null, rejection_reason: null } : {}),
+  }).eq('id', userId).select().single();
+  if (error || !data) throw new AppError(500, error?.message || 'Jobs reinstate failed');
+
+  try {
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
+    const { notifyCrmPipelineStageChanged } = await import('./automation.service.js');
+    await notifyCrmPipelineStageChanged({
+      talentUserId: userId, name: current.full_name ?? '', email: authUser?.user?.email ?? null,
+      phone: current.phone ?? null, newStage: 'application_approved', formType: 'jobs',
+    });
+  } catch (e) { console.error('[jobs reinstate] CRM sync failed:', e); }
+  void notifyDecision(userId, 'jobs', 'approved');
   return data;
 }
 
@@ -905,7 +1059,7 @@ export async function getPipelineStageStats(category?: string) {
   const rows = data ?? [];
   const byStage: Record<string, number> = {};
   for (const r of rows) {
-    const stage = r.pipeline_stage ?? 'signed_up';
+    const stage = r.pipeline_stage ?? 'application_approved';
     byStage[stage] = (byStage[stage] ?? 0) + 1;
   }
   return {

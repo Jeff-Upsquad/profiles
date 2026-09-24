@@ -226,6 +226,15 @@ export interface HubListFilters {
   sort?: 'newest' | 'oldest';
   page?: number;
   limit?: number;
+  /** `rejected` = the Rejected / Disqualified section; default is the active queue. */
+  view?: 'active' | 'rejected';
+}
+
+/** The track's rejection record — Partner and Jobs keep their own. */
+function rejectionFor(u: any, track: 'partner' | 'jobs' | undefined) {
+  return track === 'jobs'
+    ? { reason: u.jobs_rejection_reason ?? u.rejection_reason ?? null, at: u.jobs_rejected_at ?? u.rejected_at ?? null }
+    : { reason: u.partner_rejection_reason ?? u.rejection_reason ?? null, at: u.partner_rejected_at ?? u.rejected_at ?? null };
 }
 
 interface JourneySummary {
@@ -392,7 +401,8 @@ const TALENT_LIST_COLUMNS =
   'id, full_name, phone, current_location, approval_status, wants_jobs, partner_approval_status, is_active, suspended, blacklisted, ' +
   'created_at, approved_at, pipeline_stage, jobs_pipeline_stage, onboarding_completed, skip_onboarding, languages_spoken, ' +
   'crm_talent_pipeline_name, crm_talent_stage_id, crm_talent_stage_name, crm_talent_stage_changed_at, ' +
-  'crm_jobs_pipeline_name, crm_jobs_stage_id, crm_jobs_stage_name, crm_jobs_stage_changed_at';
+  'crm_jobs_pipeline_name, crm_jobs_stage_id, crm_jobs_stage_name, crm_jobs_stage_changed_at, ' +
+  'rejection_reason, rejected_at, partner_rejection_reason, partner_rejected_at, jobs_rejection_reason, jobs_rejected_at';
 
 /**
  * Talent ids matching an "attention" filter. Each is a cheap id-set query so
@@ -493,8 +503,18 @@ export async function listHub(filters: HubListFilters) {
     if (unique.length > 0) qb = qb.not('id', 'in', `(${unique.join(',')})`);
   }
 
-  const stage = (filters.pipeline_stage ?? '').trim().toLowerCase();
-  if (stage && stage !== 'all') qb = qb.eq(filters.track === 'jobs' ? 'jobs_pipeline_stage' : 'pipeline_stage', stage);
+  // Rejected / disqualified talents live in their own section, never the
+  // active queue. Id exclusion (not `neq`) so NULL-stage rows are kept.
+  const stageColumn = filters.track === 'jobs' ? 'jobs_pipeline_stage' : 'pipeline_stage';
+  if (filters.view === 'rejected') {
+    qb = qb.eq(stageColumn, 'rejected');
+  } else {
+    const { data: rejectedRows } = await supabaseAdmin.from('talent_users').select('id').eq(stageColumn, 'rejected');
+    const rejectedIds = (rejectedRows ?? []).map((r: any) => r.id).filter(Boolean);
+    if (rejectedIds.length > 0) qb = qb.not('id', 'in', `(${rejectedIds.join(',')})`);
+    const stage = (filters.pipeline_stage ?? '').trim().toLowerCase();
+    if (stage && stage !== 'all') qb = qb.eq(stageColumn, stage);
+  }
 
   const talentStage = (filters.talent_stage ?? '').trim();
   const talentStageColumn = filters.track === 'jobs' ? 'crm_jobs_stage_id' : 'crm_talent_stage_id';
@@ -553,7 +573,9 @@ export async function listHub(filters: HubListFilters) {
     blacklisted: u.blacklisted,
     created_at: u.created_at,
     approved_at: u.approved_at,
-    pipeline_stage: (filters.track === 'jobs' ? u.jobs_pipeline_stage : u.pipeline_stage) ?? 'signed_up',
+    pipeline_stage: (filters.track === 'jobs' ? u.jobs_pipeline_stage : u.pipeline_stage) ?? 'application_approved',
+    rejection_reason: rejectionFor(u, filters.track).reason,
+    rejected_at: rejectionFor(u, filters.track).at,
     crm_talent_pipeline_name: (filters.track === 'jobs' ? u.crm_jobs_pipeline_name : u.crm_talent_pipeline_name) ?? null,
     crm_talent_stage_id: (filters.track === 'jobs' ? u.crm_jobs_stage_id : u.crm_talent_stage_id) ?? null,
     crm_talent_stage_name: (filters.track === 'jobs' ? u.crm_jobs_stage_name : u.crm_talent_stage_name) ?? null,
@@ -626,6 +648,7 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
     by_pipeline_stage: {} as Record<string, number>,
     by_talent_stage: {} as Record<string, number>,
     in_talent_pipeline: 0,
+    rejected: 0,
     attention: { pending_approval: 0, needs_review: 0, waiting_on_talent: 0 },
   };
   if (categoryIds && categoryIds.length === 0) return empty;
@@ -640,17 +663,22 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
   if (error) throw new AppError(500, error.message);
 
   // Same graduation rule as listHub: hide "Onboarding completed" from the queue.
-  const rows = ((data ?? []) as any[]).filter((r) => {
+  const visible = ((data ?? []) as any[]).filter((r) => {
     const stageName = track === 'jobs' ? r.crm_jobs_stage_name : track === 'partner' ? r.crm_talent_stage_name : null;
     if (track) return !isGraduatedTalentStageName(stageName);
     return !isGraduatedTalentStageName(r.crm_talent_stage_name) && !isGraduatedTalentStageName(r.crm_jobs_stage_name);
   });
+  // Rejected talents are counted for the Rejected section only — they are
+  // out of the funnel, the totals and the attention chips.
+  const isRejected = (r: any) => (track === 'jobs' ? r.jobs_pipeline_stage : r.pipeline_stage) === 'rejected';
+  const rejected = visible.filter(isRejected).length;
+  const rows = visible.filter((r) => !isRejected(r));
   const byStage: Record<string, number> = {};
   const byTalentStage: Record<string, number> = {};
   let pending = 0;
   let inTalent = 0;
   for (const r of rows) {
-    const s = (track === 'jobs' ? r.jobs_pipeline_stage : r.pipeline_stage) ?? 'signed_up';
+    const s = (track === 'jobs' ? r.jobs_pipeline_stage : r.pipeline_stage) ?? 'application_approved';
     byStage[s] = (byStage[s] ?? 0) + 1;
     if ((track === 'partner' ? r.partner_approval_status : r.approval_status) === 'pending') pending += 1;
     const talentStageId = track === 'jobs' ? r.crm_jobs_stage_id : r.crm_talent_stage_id;
@@ -681,6 +709,7 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
     by_pipeline_stage: byStage,
     by_talent_stage: byTalentStage,
     in_talent_pipeline: inTalent,
+    rejected,
     attention: {
       pending_approval: pending,
       needs_review: needsReview.size,
@@ -698,7 +727,7 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
     .from('talent_users')
     .select(
       TALENT_LIST_COLUMNS +
-        ', profile_photo_url, rejection_reason, rejected_at, skip_onboarding_reason, skip_onboarding_at, signup_form_type',
+        ', profile_photo_url, skip_onboarding_reason, skip_onboarding_at, signup_form_type',
     )
     .eq('id', userId)
     .maybeSingle();
@@ -791,7 +820,8 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
       approval_status: t.approval_status,
       wants_jobs: t.wants_jobs,
       partner_approval_status: t.partner_approval_status,
-      rejection_reason: t.rejection_reason ?? null,
+      rejection_reason: rejectionFor(t, track).reason,
+      rejected_at: rejectionFor(t, track).at,
       is_active: t.is_active,
       suspended: t.suspended,
       blacklisted: t.blacklisted,
@@ -800,7 +830,7 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
       languages_spoken: t.languages_spoken ?? [],
       skip_onboarding: !!t.skip_onboarding,
       skip_onboarding_reason: t.skip_onboarding_reason ?? null,
-      pipeline_stage: (track === 'jobs' ? t.jobs_pipeline_stage : t.pipeline_stage) ?? 'signed_up',
+      pipeline_stage: (track === 'jobs' ? t.jobs_pipeline_stage : t.pipeline_stage) ?? 'application_approved',
       crm_talent_pipeline_name: (track === 'jobs' ? t.crm_jobs_pipeline_name : t.crm_talent_pipeline_name) ?? null,
       crm_talent_stage_id: (track === 'jobs' ? t.crm_jobs_stage_id : t.crm_talent_stage_id) ?? null,
       crm_talent_stage_name: (track === 'jobs' ? t.crm_jobs_stage_name : t.crm_talent_stage_name) ?? null,

@@ -346,7 +346,21 @@ export async function approvePartnerUser(req: Request, res: Response, next: Next
 
 export async function rejectPartnerUser(req: Request, res: Response, next: NextFunction) {
   try {
-    res.json(await adminService.rejectPartnerUser(req.params.userId as string, req.user!.id, req.body?.reason));
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason : undefined;
+    res.json(await adminService.rejectPartnerUser(req.params.userId as string, req.user!.id, reason));
+  } catch (err) { next(err); }
+}
+
+export async function rejectJobsUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason : undefined;
+    res.json(await adminService.rejectJobsUser(req.params.userId as string, req.user!.id, reason));
+  } catch (err) { next(err); }
+}
+
+export async function reinstateJobsUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await adminService.reinstateJobsUser(req.params.userId as string, req.user!.id));
   } catch (err) { next(err); }
 }
 
@@ -407,6 +421,7 @@ export async function getOnboardingHub(req: Request, res: Response, next: NextFu
         sort: sort === 'oldest' ? 'oldest' : 'newest',
         page: q.page ? Number(q.page) : 1,
         limit: q.limit ? Number(q.limit) : 25,
+        view: str(q.view) === 'rejected' ? 'rejected' : 'active',
       }),
     );
   } catch (err) {

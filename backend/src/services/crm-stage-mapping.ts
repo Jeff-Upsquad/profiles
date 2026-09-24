@@ -45,7 +45,7 @@ export function normalizeStage(label: string): string {
 export const CREATIVE_STATUSES: readonly string[] = [
   'new', 'share_form', 'form_filled', 'shortlisted', 'signed_up',
   'onboarding_training', 'basic_profile', 'job_profile', 'portfolio_updation',
-  'final_review', 'live', 'no_response',
+  'final_review', 'live', 'no_response', 'rejected',
 ];
 
 export const ACCOUNTANT_STATUSES: readonly string[] = CREATIVE_STATUSES.filter(

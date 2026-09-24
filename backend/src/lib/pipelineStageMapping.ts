@@ -10,6 +10,7 @@ const LEAD_STATUS_TO_PIPELINE_STAGE: Record<string, string> = {
   final_review: 'final_review',
   live: 'live',
   no_response: 'no_response',
+  rejected: 'rejected',
 };
 
 const PIPELINE_STAGE_TO_LEAD_STATUS: Record<string, string> = {
@@ -22,6 +23,7 @@ const PIPELINE_STAGE_TO_LEAD_STATUS: Record<string, string> = {
   final_review: 'final_review',
   live: 'live',
   no_response: 'no_response',
+  rejected: 'rejected',
 };
 
 const VALID_PIPELINE_STAGES = new Set([
@@ -34,6 +36,7 @@ const VALID_PIPELINE_STAGES = new Set([
   'final_review',
   'live',
   'no_response',
+  'rejected',
 ]);
 
 /**

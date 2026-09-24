@@ -326,7 +326,7 @@ export async function onCandidateSignedUp(
 const CREATIVE_STAGE_ORDER = [
   'new', 'share_form', 'form_filled', 'shortlisted', 'signed_up',
   'onboarding_training', 'basic_profile', 'job_profile', 'portfolio_updation',
-  'final_review', 'live', 'no_response',
+  'final_review', 'live', 'no_response', 'rejected',
 ];
 const ACCOUNTANT_STAGE_ORDER = CREATIVE_STAGE_ORDER.filter((s) => s !== 'portfolio_updation');
 const DEFAULT_STAGE_ORDER = [
@@ -364,12 +364,18 @@ export async function syncOnboardingStage(talentUserId: string) {
   const progress = await computeOnboardingProgress(talentUserId);
   const { data: intent } = await supabaseAdmin
     .from('talent_users')
-    .select('wants_jobs, partner_approval_status')
+    .select('wants_jobs, partner_approval_status, pipeline_stage, jobs_pipeline_stage')
     .eq('id', talentUserId)
     .maybeSingle();
   // Training can be completed while Partner Program approval is pending. It
   // stays ticked on the journey, but must not move the partner pipeline.
   if (intent?.partner_approval_status === 'pending' && !intent.wants_jobs) return;
+  // Rejected / disqualified is terminal: progress never pulls a talent back
+  // into the funnel. Only an admin approve (reinstate) moves them out.
+  const jobsClosed = !intent?.wants_jobs || intent.jobs_pipeline_stage === 'rejected';
+  const partnerClosed = intent?.partner_approval_status == null ||
+    intent.partner_approval_status === 'rejected' || intent.pipeline_stage === 'rejected';
+  if (jobsClosed && partnerClosed) return;
 
   // Furthest completed step wins (STEP_STAGES is ascending).
   let target: string | null = null;
@@ -429,6 +435,7 @@ export async function syncOnboardingStage(talentUserId: string) {
   // No linked candidate card (or none in this funnel) — still move Sign-ups
   // and the CRM WhatsApp card from talent progress.
   if (advancedAny && !intent?.wants_jobs) return;
+  if (intent?.wants_jobs && intent.jobs_pipeline_stage === 'rejected') return;
   try {
     const { data: talent } = await supabaseAdmin
       .from('talent_users')
@@ -630,6 +637,8 @@ export async function notifyCrmPipelineStageChanged(input: {
   phone: string | null;
   newStage: string;
   formType?: string | null;
+  /** Rejection reason — recorded on the CRM card's Rejected / Disqualified entry. */
+  reason?: string | null;
 }): Promise<void> {
   const phone = input.phone?.trim() || '';
   const email = input.email?.trim().toLowerCase() || '';
@@ -650,9 +659,9 @@ export async function notifyCrmPipelineStageChanged(input: {
 
   // Map internal stage to CRM display name
   const stageDisplayNames: Record<string, string> = {
-    applicants: 'Applicants',
+    applicants: 'Signed Up / Applicants',
     application_approved: 'Application Approved',
-    signed_up: 'Signed Up',
+    signed_up: 'Application Approved',
     onboarding_course: 'Onboarding Training',
     onboarding_training: 'Onboarding Training',
     basic_profile: 'Basic Profile',
@@ -660,6 +669,7 @@ export async function notifyCrmPipelineStageChanged(input: {
     final_review: 'Final Review',
     live: 'Live',
     no_response: 'No Response',
+    rejected: 'Rejected / Disqualified',
   };
 
   const { pipelineStageToLeadStatus } = await import('../lib/pipelineStageMapping.js');
@@ -696,6 +706,7 @@ export async function notifyCrmPipelineStageChanged(input: {
     },
     ...(pipeline_name ? { pipeline_name } : {}),
     pipeline_stage,
+    ...(input.reason?.trim() ? { reason: input.reason.trim().slice(0, 500) } : {}),
     timestamp: new Date().toISOString(),
   });
   await logEvent({

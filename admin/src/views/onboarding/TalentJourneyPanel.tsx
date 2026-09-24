@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
 import RequestChangesDialog from '@/views/profiles/RequestChangesDialog';
+import RejectDialog from './RejectDialog';
 import NotesSection from '@/views/leads/NotesSection';
 import CandidateActivityPanel from '@/views/leads/CandidateActivityPanel';
 import { useStageLabels } from '@/hooks/useStageLabels';
@@ -75,6 +76,7 @@ interface Journey {
     partner_approval_status: string | null;
     wants_jobs: boolean;
     rejection_reason: string | null;
+    rejected_at: string | null;
     is_active: boolean;
     suspended: boolean;
     blacklisted: boolean;
@@ -139,6 +141,7 @@ const STAGE_TO_LEAD_KEY: Record<PipelineStage, string> = {
   final_review: 'final_review',
   live: 'live',
   no_response: 'no_response',
+  rejected: 'rejected',
 };
 
 const PROFILE_STATUS: Record<string, { label: string; variant: 'green' | 'yellow' | 'red' | 'gray' }> = {
@@ -381,6 +384,7 @@ export default function TalentJourneyPanel({
   const [activityOpen, setActivityOpen] = useState(false);
   const [changesProfileId, setChangesProfileId] = useState<string | null>(null);
   const [basicChangesOpen, setBasicChangesOpen] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
 
   // Keyboard: Esc closes, ←/→ move between rows (unless typing).
   useEffect(() => {
@@ -388,7 +392,7 @@ export default function TalentJourneyPanel({
     const handler = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
-      if (changesProfileId || basicChangesOpen) return;
+      if (changesProfileId || basicChangesOpen || rejectOpen) return;
       if (e.key === 'Escape') onClose();
       else if (e.key === 'ArrowLeft' && hasPrev) onNavigate(-1);
       else if (e.key === 'ArrowRight' && hasNext) onNavigate(1);
@@ -399,7 +403,7 @@ export default function TalentJourneyPanel({
       window.removeEventListener('keydown', handler);
       document.body.style.overflow = '';
     };
-  }, [userId, hasPrev, hasNext, onNavigate, onClose, changesProfileId, basicChangesOpen]);
+  }, [userId, hasPrev, hasNext, onNavigate, onClose, changesProfileId, basicChangesOpen, rejectOpen]);
 
   useEffect(() => {
     setShowBasic(false);
@@ -407,6 +411,7 @@ export default function TalentJourneyPanel({
     setActivityOpen(false);
     setChangesProfileId(null);
     setBasicChangesOpen(false);
+    setRejectOpen(false);
   }, [userId]);
 
   const { data, isLoading } = useQuery<Journey>({
@@ -458,10 +463,13 @@ export default function TalentJourneyPanel({
       toast.error(e.response?.data?.message || e.response?.data?.error || 'Failed to update talent stage'),
   });
 
+  // Approve a pending application, or reinstate a rejected one — both land on
+  // Application Approved and notify the talent.
   const approveMut = useMutation({
-    mutationFn: async () => (await api.patch(`/admin/user-approvals/${userId}/${track === 'partner' ? 'approve-partner' : 'approve'}`)).data,
+    mutationFn: async () =>
+      (await api.patch(`/admin/user-approvals/${userId}/${track === 'partner' ? 'approve-partner' : 'reinstate-jobs'}`)).data,
     onSuccess: () => {
-      toast.success('Approved');
+      toast.success('Approved · moved to Application Approved');
       refresh();
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Approve failed'),
@@ -469,9 +477,10 @@ export default function TalentJourneyPanel({
 
   const rejectMut = useMutation({
     mutationFn: async (reason: string) =>
-      (await api.patch(`/admin/user-approvals/${userId}/${track === 'partner' ? 'reject-partner' : 'reject'}`, { reason })).data,
+      (await api.patch(`/admin/user-approvals/${userId}/${track === 'partner' ? 'reject-partner' : 'reject-jobs'}`, { reason })).data,
     onSuccess: () => {
-      toast.success('Rejected');
+      toast.success('Rejected · talent notified');
+      setRejectOpen(false);
       refresh();
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Reject failed'),
@@ -496,7 +505,9 @@ export default function TalentJourneyPanel({
 
   const u = data?.user;
   const j = data?.journey;
-  const approvalStatus = track === 'partner' ? u?.partner_approval_status : u?.approval_status;
+  const isRejected = u?.pipeline_stage === 'rejected';
+  const approvalStatus = isRejected ? 'rejected' : track === 'partner' ? u?.partner_approval_status : u?.approval_status;
+  const canApprove = track === 'partner' ? approvalStatus === 'pending' || isRejected : isRejected;
   const phoneDigits = cleanPhoneForLink(u?.phone);
   const formType = data?.lead?.form_type ?? u?.categories?.[0];
   const stageLabel = (s: PipelineStage) =>
@@ -648,25 +659,26 @@ export default function TalentJourneyPanel({
                   <ActionButton onClick={() => setActivityOpen(true)} title="Activity timeline">
                     Activity
                   </ActionButton>
-                  {canEdit && track === 'partner' && approvalStatus === 'pending' && (
+                  {canEdit && (
                     <span className="ml-auto flex gap-2">
-                      <ActionButton tone="success" onClick={() => approveMut.mutate()}>
-                        Approve
-                      </ActionButton>
-                      <ActionButton
-                        tone="danger"
-                        onClick={() => {
-                          const r = prompt('Rejection reason (optional)');
-                          if (r !== null) rejectMut.mutate(r);
-                        }}
-                      >
-                        Reject
-                      </ActionButton>
+                      {canApprove && (
+                        <ActionButton tone="success" onClick={() => approveMut.mutate()}>
+                          {isRejected ? 'Reinstate' : 'Approve'}
+                        </ActionButton>
+                      )}
+                      {!isRejected && (
+                        <ActionButton tone="danger" onClick={() => setRejectOpen(true)}>
+                          {approvalStatus === 'pending' ? 'Reject' : 'Disqualify'}
+                        </ActionButton>
+                      )}
                     </span>
                   )}
                 </div>
-                {approvalStatus === 'rejected' && u.rejection_reason && (
-                  <p className="mt-2 text-xs text-red-600">Rejected: {u.rejection_reason}</p>
+                {isRejected && (
+                  <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+                    Rejected{u.rejected_at ? ` ${formatDate(u.rejected_at)}` : ''}
+                    {u.rejection_reason ? ` · ${u.rejection_reason}` : ''}
+                  </p>
                 )}
               </div>
 
@@ -987,13 +999,18 @@ export default function TalentJourneyPanel({
                 }
               >
                 <div className="flex flex-wrap gap-1.5">
+                  {isRejected && (
+                    <span className={`rounded-full border px-3 py-1 text-xs font-medium ${STAGE_BY_VALUE.rejected.chip}`}>
+                      {stageLabel('rejected')}
+                    </span>
+                  )}
                   {PIPELINE_STAGES.map((s) => {
                     const active = s.value === u.pipeline_stage;
                     return (
                       <button
                         key={s.value}
                         type="button"
-                        disabled={active || !canEdit || stageMut.isPending}
+                        disabled={active || !canEdit || stageMut.isPending || isRejected}
                         onClick={() => stageMut.mutate(s.value)}
                         className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
                           active
@@ -1148,6 +1165,16 @@ export default function TalentJourneyPanel({
           talentName={data.user.full_name}
           talentPhone={data.user.phone}
           onDone={refresh}
+        />
+      )}
+      {u && (
+        <RejectDialog
+          open={rejectOpen}
+          talentName={u.full_name}
+          programLabel={track === 'partner' ? 'Partner Program' : 'Jobs track'}
+          pending={rejectMut.isPending}
+          onClose={() => setRejectOpen(false)}
+          onConfirm={(reason) => rejectMut.mutate(reason)}
         />
       )}
     </div>,
