@@ -463,14 +463,16 @@ export default function TalentJourneyPanel({
       toast.error(e.response?.data?.message || e.response?.data?.error || 'Failed to update talent stage'),
   });
 
-  // Approve a pending application, or reinstate a rejected one — both land on
-  // Application Approved and notify the talent.
+  // A rejected application returns to the first onboarding stage for review.
   const approveMut = useMutation({
     mutationFn: async () =>
-      (await api.patch(`/admin/user-approvals/${userId}/${track === 'partner' ? 'approve-partner' : 'reinstate-jobs'}`)).data,
+      (await (data?.user?.pipeline_stage === 'rejected'
+        ? api.patch(`/admin/user-approvals/${userId}/restore-rejected`, { track })
+        : api.patch(`/admin/user-approvals/${userId}/approve-partner`))).data,
     onSuccess: () => {
-      toast.success('Approved · moved to Application Approved');
+      toast.success(isRejected ? 'Restored to Signed Up / Applicants' : 'Approved · moved to Application Approved');
       refresh();
+      if (isRejected) onClose();
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Approve failed'),
   });
@@ -663,7 +665,7 @@ export default function TalentJourneyPanel({
                     <span className="ml-auto flex gap-2">
                       {canApprove && (
                         <ActionButton tone="success" onClick={() => approveMut.mutate()}>
-                          {isRejected ? 'Reinstate' : 'Approve'}
+                          {isRejected ? 'Restore to start' : 'Approve'}
                         </ActionButton>
                       )}
                       {!isRejected && (

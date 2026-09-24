@@ -127,6 +127,8 @@ export interface HubRow {
   pipeline_stage: PipelineStage;
   rejection_reason: string | null;
   rejected_at: string | null;
+  partner_rejected: boolean;
+  jobs_rejected: boolean;
   crm_talent_pipeline_name: string | null;
   crm_talent_stage_id: string | null;
   crm_talent_stage_name: string | null;

@@ -231,6 +231,7 @@ router.patch('/user-approvals/:userId/approve-partner', adminController.approveP
 router.patch('/user-approvals/:userId/reject-partner', adminController.rejectPartnerUser);
 router.patch('/user-approvals/:userId/reject-jobs', adminController.rejectJobsUser);
 router.patch('/user-approvals/:userId/reinstate-jobs', adminController.reinstateJobsUser);
+router.patch('/user-approvals/:userId/restore-rejected', adminController.restoreRejectedUser);
 router.patch('/user-approvals/:userId/reject', adminController.rejectUser);
 router.patch('/user-approvals/:userId/pipeline-stage', adminController.updatePipelineStage);
 

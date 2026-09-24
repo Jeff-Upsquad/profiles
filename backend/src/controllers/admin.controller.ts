@@ -364,6 +364,17 @@ export async function reinstateJobsUser(req: Request, res: Response, next: NextF
   } catch (err) { next(err); }
 }
 
+export async function restoreRejectedUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    const track = req.body?.track;
+    if (track !== 'partner' && track !== 'jobs' && track !== 'both') {
+      res.status(400).json({ message: 'Choose Partner Program, Jobs, or both' });
+      return;
+    }
+    res.json(await adminService.restoreRejectedUser(req.params.userId as string, req.user!.id, track));
+  } catch (err) { next(err); }
+}
+
 export async function bulkApprovePartnerUsers(req: Request, res: Response, next: NextFunction) {
   try {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids as string[] : [];

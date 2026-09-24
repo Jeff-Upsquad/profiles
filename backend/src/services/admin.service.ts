@@ -902,6 +902,70 @@ export async function reinstateJobsUser(userId: string, adminId: string) {
   return data;
 }
 
+/** Return rejected applications to the first candidate stage for fresh review. */
+export async function restoreRejectedUser(userId: string, adminId: string, track: 'partner' | 'jobs' | 'both') {
+  const { data: current, error: lookupError } = await supabaseAdmin.from('talent_users')
+    .select('id, full_name, phone, wants_jobs, partner_approval_status, pipeline_stage, jobs_pipeline_stage, approval_status')
+    .eq('id', userId).maybeSingle();
+  if (lookupError || !current) throw new AppError(404, 'Talent user not found');
+
+  const partner = track === 'partner' || track === 'both';
+  const jobs = track === 'jobs' || track === 'both';
+  if (partner && current.partner_approval_status !== 'rejected' && current.pipeline_stage !== 'rejected') {
+    throw new AppError(400, 'Partner Program application is not rejected');
+  }
+  if (jobs && (!current.wants_jobs || current.jobs_pipeline_stage !== 'rejected')) {
+    throw new AppError(400, 'Jobs application is not rejected');
+  }
+
+  const patch: Record<string, unknown> = {
+    ...(partner ? {
+      partner_approval_status: 'pending', pipeline_stage: 'applicants',
+      partner_rejected_at: null, partner_rejection_reason: null,
+      partner_approved_at: null,
+      crm_talent_stage_id: null, crm_talent_stage_name: null, crm_talent_stage_changed_at: null,
+    } : {}),
+    ...(jobs ? {
+      jobs_pipeline_stage: 'applicants', jobs_rejected_at: null, jobs_rejection_reason: null,
+      crm_jobs_stage_id: null, crm_jobs_stage_name: null, crm_jobs_stage_changed_at: null,
+    } : {}),
+    ...(current.approval_status === 'rejected' ? {
+      approval_status: 'pending', approved_at: null, approved_by: null,
+      rejected_at: null, rejection_reason: null,
+    } : {}),
+  };
+  const { data, error } = await supabaseAdmin.from('talent_users').update(patch)
+    .eq('id', userId).select().single();
+  if (error || !data) throw new AppError(500, error?.message || 'Restore failed');
+
+  // Mirror the start of the funnel in candidate leads and CRM. Keep existing
+  // course/profile data intact so a review does not erase the talent's work.
+  try {
+    if (partner) {
+      const { data: leads } = await supabaseAdmin.from('lead_submissions')
+        .select('id, form_type, form_data, status').eq('linked_talent_user_id', userId)
+        .is('deleted_at', null).neq('status', 'archived');
+      const all = (leads ?? []) as Array<{ id: string; form_type: string | null; form_data: any; status: string }>;
+      const tagged = all.filter((lead) => Array.isArray(lead.form_data?.work_type_seeking) &&
+        lead.form_data.work_type_seeking.includes('UpSquad Partner Program'));
+      const targets = tagged.length ? tagged : all.filter((lead) => lead.form_type !== 'jobs');
+      const { updateLeadStatus } = await import('./lead.service.js');
+      for (const lead of targets) {
+        if (lead.status !== 'form_filled') await updateLeadStatus(lead.id, { status: 'form_filled' } as any, adminId);
+      }
+    }
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
+    const { notifyCrmPipelineStageChanged } = await import('./automation.service.js');
+    const crm = { talentUserId: userId, name: current.full_name ?? '',
+      email: authUser?.user?.email ?? null, phone: current.phone ?? null, newStage: 'applicants' };
+    if (partner) await notifyCrmPipelineStageChanged(crm);
+    if (jobs) await notifyCrmPipelineStageChanged({ ...crm, formType: 'jobs' });
+  } catch (syncError) {
+    console.error('[restore rejected] CRM sync failed:', syncError);
+  }
+  return data;
+}
+
 export async function rejectUser(userId: string, adminId: string, reason?: string) {
   const trimmed = reason?.trim() ?? '';
   for (const attempt of [true, false]) {

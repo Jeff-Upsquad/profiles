@@ -13,12 +13,12 @@ import { crmLookupUrl } from '@/lib/crmUrl';
 import TalentJourneyPanel from './TalentJourneyPanel';
 import CrmChatDrawer from './CrmChatDrawer';
 import RejectDialog from './RejectDialog';
+import Modal from '@/components/ui/Modal';
 import {
   CATEGORY_BADGE,
   CATEGORY_TABS,
   JOURNEY_STEPS,
   PIPELINE_STAGES,
-  REJECTED_STAGE,
   STAGE_BY_VALUE,
   initials,
   timeAgo,
@@ -146,7 +146,7 @@ function StatusBadge({ row, track }: { row: HubRow; track: 'partner' | 'jobs' })
   return <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${cls}`}>{label}</span>;
 }
 
-export default function OnboardingHub({ track = 'partner' }: { track?: 'partner' | 'jobs' }) {
+export default function OnboardingHub({ track = 'partner', rejectedOnly = false }: { track?: 'partner' | 'jobs'; rejectedOnly?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -166,7 +166,13 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
   const selectedId = searchParams.get('selected');
   const chatPhone = searchParams.get('chat');
   const chatName = searchParams.get('chat_name');
-  const view = searchParams.get('view') === 'rejected' ? 'rejected' : 'active';
+  const view = rejectedOnly ? 'rejected' : 'active';
+
+  useEffect(() => {
+    if (!rejectedOnly && searchParams.get('view') === 'rejected') {
+      router.replace(`/rejected-candidates${track === 'jobs' ? '?track=jobs' : ''}`);
+    }
+  }, [rejectedOnly, router, searchParams, track]);
 
   const updateQuery = useCallback(
     (updates: Record<string, string | null>) => {
@@ -257,6 +263,19 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
     onError: (e: any) => toast.error(e.response?.data?.message || 'Reject failed'),
   });
 
+  const [restoreTarget, setRestoreTarget] = useState<HubRow | null>(null);
+  const restoreMut = useMutation({
+    mutationFn: async ({ id, selectedTrack }: { id: string; selectedTrack: 'partner' | 'jobs' | 'both' }) =>
+      (await api.patch(`/admin/user-approvals/${id}/restore-rejected`, { track: selectedTrack })).data,
+    onSuccess: () => {
+      toast.success('Restored to Signed Up / Applicants');
+      setRestoreTarget(null);
+      updateQuery({ selected: null });
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Restore failed'),
+  });
+
   const users = data?.users ?? [];
   const totalPages = data?.total_pages ?? 1;
 
@@ -318,13 +337,14 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{track === 'partner' ? 'Partner Program Onboarding' : 'Jobs Onboarding'}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{rejectedOnly ? 'Rejected / Disqualified' : track === 'partner' ? 'Partner Program Onboarding' : 'Jobs Onboarding'}</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Every sign-up and how far they&apos;ve got — course, basic profile, job profile, portfolio —
-            with both CRM boards in sync. Click a row to assist.
+            {rejectedOnly
+              ? 'Review rejection reasons, open the full talent journey, and restore applications to the start of onboarding.'
+              : 'Every sign-up and how far they have got — course, basic profile, job profile, portfolio — with both CRM boards in sync. Click a row to assist.'}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        {!rejectedOnly && <div className="flex flex-wrap items-center gap-2">
           {canEdit && selected.size > 0 && (
             <button
               onClick={() => bulkApproveMut.mutate([...selected])}
@@ -342,7 +362,7 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
           >
             Preview role signup ↗
           </Link>
-        </div>
+        </div>}
       </div>
 
       {/* Category tabs + search */}
@@ -377,96 +397,88 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
         </div>
       </div>
 
-      {/* Funnel — candidate pipeline (synced with CRM) */}
-      <div>
-        <div className="mb-1.5 flex items-center justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-            Sign-up journey · candidate pipeline
-          </p>
-          <p className="text-[11px] text-gray-400">{stats?.total ?? 0} total · synced with SquadHire CRM</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
-          {PIPELINE_STAGES.map((s) => {
-            const active = view === 'active' && stage === s.value;
-            return (
-              <button
-                key={s.value}
-                type="button"
-                onClick={() => updateQuery({ stage: active ? null : s.value, view: null, page: null })}
-                className={`rounded-xl border p-3 text-left transition ${
-                  active ? `${s.chip} border-2 shadow-sm` : 'border-gray-200 bg-white hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <span className={`h-2 w-2 rounded-full ${s.dot}`} />
-                  <span className="truncate text-[11px] font-medium text-gray-600">
-                    {labelFor(formTypeForLabels, STAGE_TO_LEAD_KEY[s.value], s.label)}
-                  </span>
-                </div>
-                <div className="mt-1 text-xl font-bold text-gray-900">{stageCount(s.value)}</div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Talent board — CRM post-onboarding pipeline */}
-      <div>
-        <div className="mb-1.5 flex items-center justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-            Talent board · after going live
-          </p>
-          <p className="text-[11px] text-gray-400">
-            {talentPipelineLinked
-              ? `${stats?.in_talent_pipeline ?? 0} on the board · synced with SquadHire CRM · completed move to ${track === 'jobs' ? 'Jobs' : 'Partner Program'}`
-              : 'not linked'}
-          </p>
-        </div>
-        {talentPipelineLinked ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {talentStages.map((s) => {
-              const active = talentStage === s.id;
-              const n = stats?.by_talent_stage?.[s.id] ?? 0;
+      {!rejectedOnly && (
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Onboarding queue · candidate pipeline</p>
+            <p className="text-[11px] text-gray-400">{stats?.total ?? 0} total · synced with SquadHire CRM</p>
+          </div>
+          <div className="flex gap-1 overflow-x-auto border-b border-gray-200" role="tablist" aria-label="Candidate pipeline stage">
+            {[{ value: 'all', label: 'All stages', dot: 'bg-indigo-500', chip: '' }, ...PIPELINE_STAGES].map((s) => {
+              const active = stage === s.value;
               return (
                 <button
-                  key={s.id}
+                  key={s.value}
                   type="button"
-                  onClick={() => updateQuery({ talent_stage: active ? null : s.id, page: null })}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
-                    active
-                      ? 'border-sky-300 bg-sky-50 text-sky-700 ring-2 ring-sky-200 ring-offset-1'
-                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => updateQuery({ stage: s.value === 'all' ? null : s.value, talent_stage: null, page: null, selected: null })}
+                  className={`-mb-px flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors ${
+                    active ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800'
                   }`}
                 >
-                  {s.name}
-                  <span className={`rounded-full px-1.5 text-[10px] ${active ? 'bg-sky-100' : 'bg-gray-100 text-gray-600'}`}>{n}</span>
+                  <span className={`h-2 w-2 rounded-full ${s.dot}`} />
+                  {s.value === 'all' ? s.label : labelFor(formTypeForLabels, STAGE_TO_LEAD_KEY[s.value as PipelineStage], s.label)}
+                  <span className={`rounded-full px-1.5 py-0.5 text-[11px] ${active ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {s.value === 'all' ? stats?.total ?? 0 : stageCount(s.value)}
+                  </span>
                 </button>
               );
             })}
-            <button
-              type="button"
-              onClick={() => updateQuery({ talent_stage: talentStage === 'none' ? null : 'none', page: null })}
-              className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition ${
-                talentStage === 'none'
-                  ? 'border-gray-400 bg-gray-100 text-gray-800 ring-2 ring-gray-200 ring-offset-1'
-                  : 'border-dashed border-gray-300 bg-white text-gray-500 hover:bg-gray-50'
-              }`}
-            >
-              Not on board
-            </button>
           </div>
-        ) : (
-          <p className="rounded-lg border border-dashed border-gray-200 bg-white px-3 py-2 text-xs text-gray-500">
-            Link the CRM talent pipeline for each category under{' '}
-            <Link href="/crm-mapping" className="text-indigo-600 underline">CRM Mapping</Link> to see and move
-            talents through Welcome → Download App → Webinars here. Completed talents graduate to {track === 'jobs' ? 'Jobs' : 'Partner Program'}.
-          </p>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Talent pipeline tabs for the live portion of the onboarding queue. */}
+      {!rejectedOnly && (
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+              Talent pipeline · after going live
+            </p>
+            <p className="text-[11px] text-gray-400">
+              {talentPipelineLinked
+                ? `${stats?.in_talent_pipeline ?? 0} on the board · synced with SquadHire CRM`
+                : 'not linked'}
+            </p>
+          </div>
+          {talentPipelineLinked ? (
+            <div className="flex gap-1 overflow-x-auto border-b border-gray-200" role="tablist" aria-label="Talent pipeline stage">
+              <button type="button" role="tab" aria-selected={talentStage === 'all'}
+                onClick={() => updateQuery({ talent_stage: null, stage: null, page: null, selected: null })}
+                className={`-mb-px shrink-0 border-b-2 px-3 py-3 text-sm font-medium ${talentStage === 'all'
+                  ? 'border-sky-600 text-sky-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+                All talent stages
+              </button>
+              {talentStages.map((s) => (
+                <button key={s.id} type="button" role="tab" aria-selected={talentStage === s.id}
+                  onClick={() => updateQuery({ talent_stage: s.id, stage: null, page: null, selected: null })}
+                  className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium ${talentStage === s.id
+                    ? 'border-sky-600 text-sky-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+                  {s.name}
+                  <span className="rounded-full bg-sky-50 px-1.5 text-[11px] text-sky-700">{stats?.by_talent_stage?.[s.id] ?? 0}</span>
+                </button>
+              ))}
+              <button type="button" role="tab" aria-selected={talentStage === 'none'}
+                onClick={() => updateQuery({ talent_stage: 'none', stage: null, page: null, selected: null })}
+                className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium ${talentStage === 'none'
+                  ? 'border-sky-600 text-sky-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+                Not on board
+              </button>
+            </div>
+          ) : (
+            <p className="rounded-lg border border-dashed border-gray-200 bg-white px-3 py-2 text-xs text-gray-500">
+              Link the CRM talent pipeline for each category under{' '}
+              <Link href="/crm-mapping" className="text-indigo-600 underline">CRM Mapping</Link> to see and move
+              talents through Welcome → Download App → Webinars here.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Attention chips + sort */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className={`flex flex-wrap items-center gap-1.5 ${view === 'rejected' ? 'invisible' : ''}`}>
+        {!rejectedOnly && <div className="flex flex-wrap items-center gap-1.5">
           <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Needs attention</span>
           {ATTENTION_CHIPS.map((c) => {
             const active = attention === c.value;
@@ -497,7 +509,7 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
               </button>
             );
           })}
-        </div>
+        </div>}
         <select
           value={sort}
           onChange={(e) => updateQuery({ sort: e.target.value === 'oldest' ? 'oldest' : null, page: null })}
@@ -506,33 +518,6 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
         </select>
-      </div>
-
-      {/* Section: active onboarding queue vs Rejected / Disqualified */}
-      <div className="flex items-center gap-1 border-b border-gray-200">
-        {([
-          { value: 'active', label: 'Onboarding queue', n: stats?.total },
-          { value: 'rejected', label: REJECTED_STAGE.label, n: stats?.rejected },
-        ] as const).map((t) => (
-          <button
-            key={t.value}
-            type="button"
-            onClick={() => {
-              updateQuery({ view: t.value === 'active' ? null : t.value, page: null, selected: null });
-              setSelected(new Set());
-            }}
-            className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
-              view === t.value
-                ? t.value === 'rejected' ? 'border-red-500 text-red-700' : 'border-indigo-500 text-indigo-700'
-                : 'border-transparent text-gray-500 hover:text-gray-800'
-            }`}
-          >
-            {t.label}
-            <span className={`rounded-full px-1.5 text-[11px] ${
-              view === t.value && t.value === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
-            }`}>{t.n ?? 0}</span>
-          </button>
-        ))}
       </div>
 
       {/* List */}
@@ -696,12 +681,12 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
                           {canEdit && u.pipeline_stage === 'rejected' && (
                             <button
                               type="button"
-                              onClick={() => approveMut.mutate(u.id)}
-                              disabled={approveMut.isPending}
-                              title="Reinstate · moves back to Application Approved"
+                              onClick={() => setRestoreTarget(u)}
+                              disabled={restoreMut.isPending}
+                              title="Restore to Signed Up / Applicants"
                               className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
                             >
-                              Reinstate
+                              Restore
                             </button>
                           )}
                           {phone && (
@@ -783,6 +768,35 @@ export default function OnboardingHub({ track = 'partner' }: { track?: 'partner'
         canEdit={canEdit}
       />
       <CrmChatDrawer phone={chatPhone} name={chatName} onClose={closeChat} />
+      <Modal isOpen={!!restoreTarget} onClose={() => !restoreMut.isPending && setRestoreTarget(null)}
+        title={`Restore ${restoreTarget?.full_name ?? 'candidate'}`} size="sm">
+        <p className="mb-4 text-sm text-gray-600">
+          Return the selected application to Signed Up / Applicants for review. Existing profile and course work is kept.
+        </p>
+        <div className="space-y-2">
+          {restoreTarget?.partner_rejected && (
+            <button type="button" disabled={restoreMut.isPending}
+              onClick={() => restoreMut.mutate({ id: restoreTarget.id, selectedTrack: 'partner' })}
+              className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-left text-sm font-medium hover:bg-gray-50 disabled:opacity-50">
+              Restore Partner Program
+            </button>
+          )}
+          {restoreTarget?.jobs_rejected && (
+            <button type="button" disabled={restoreMut.isPending}
+              onClick={() => restoreMut.mutate({ id: restoreTarget.id, selectedTrack: 'jobs' })}
+              className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-left text-sm font-medium hover:bg-gray-50 disabled:opacity-50">
+              Restore Jobs
+            </button>
+          )}
+          {restoreTarget?.partner_rejected && restoreTarget.jobs_rejected && (
+            <button type="button" disabled={restoreMut.isPending}
+              onClick={() => restoreMut.mutate({ id: restoreTarget.id, selectedTrack: 'both' })}
+              className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-left text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+              Restore both
+            </button>
+          )}
+        </div>
+      </Modal>
       <RejectDialog
         open={!!rejectTarget}
         talentName={rejectTarget?.name ?? ''}

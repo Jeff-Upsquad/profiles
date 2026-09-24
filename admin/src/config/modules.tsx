@@ -66,12 +66,6 @@ export const NAV_SECTIONS: ModuleNavSection[] = [
         icon: icon('M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'),
       },
       {
-        label: 'Blocked Users',
-        href: '/blocked-users',
-        module: 'talents',
-        icon: icon('M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z'),
-      },
-      {
         label: 'Invitations',
         href: '/invitations',
         module: 'invitations',
@@ -117,6 +111,23 @@ export const NAV_SECTIONS: ModuleNavSection[] = [
         href: '/agencies',
         module: 'agencies',
         icon: icon('M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'),
+      },
+    ],
+  },
+  {
+    section: 'Exceptions',
+    items: [
+      {
+        label: 'Blocked Users',
+        href: '/blocked-users',
+        module: 'talents',
+        icon: icon('M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z'),
+      },
+      {
+        label: 'Rejected / Disqualified',
+        href: '/rejected-candidates',
+        module: 'approvals',
+        icon: icon('M9 12l2 2 4-4m-9.5-6.5h13a2 2 0 012 2v13a2 2 0 01-2 2h-13a2 2 0 01-2-2v-13a2 2 0 012-2z'),
       },
     ],
   },
