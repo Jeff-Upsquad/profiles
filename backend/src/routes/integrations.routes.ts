@@ -35,6 +35,12 @@ import {
 
 const router = Router();
 
+router.post(
+  '/squadhub/partner-ios-waitlist',
+  verifySquadhubSecret,
+  integrationsController.joinSquadhubPartnerIosWaitlist,
+);
+
 router.get(
   '/squadhub/categories',
   verifySquadhubSecret,

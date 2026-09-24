@@ -19,6 +19,36 @@ import {
 import * as squadcrmRooms from '../services/squadcrm-rooms.service.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
+import { joinPartnerIosWaitlist } from '../services/partner-ios-waitlist.service.js';
+
+const partnerIosWaitlistSchema = z.object({
+  email: z.string().trim().email().max(320),
+  phone: z.string().trim().regex(/^[+()\d\s-]{10,25}$/),
+}).strict();
+
+export async function joinSquadhubPartnerIosWaitlist(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { email, phone } = partnerIosWaitlistSchema.parse(req.body);
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 10 || digits.length > 15) {
+      throw new AppError(400, 'Enter a valid phone number');
+    }
+    const matched = await joinPartnerIosWaitlist(email, phone);
+    // The signed caller can log a match, but the public page always gives the
+    // same response so email/phone pairs cannot be enumerated from the form.
+    res.json({ success: true, matched });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      next(new AppError(400, 'Enter a valid email and phone number'));
+      return;
+    }
+    next(err);
+  }
+}
 
 const provisionBusinessSchema = z
   .object({
