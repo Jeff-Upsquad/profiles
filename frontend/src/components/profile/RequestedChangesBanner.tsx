@@ -18,6 +18,8 @@ interface Props {
   staysLive?: boolean;
   /** Overrides the "Unsaved edits are saved first." hint next to Resubmit. */
   resubmitNote?: string;
+  /** The profile was never submitted — word it as "submit", not "resubmit". */
+  isDraft?: boolean;
 }
 
 /** Deep-link for one checklist item. `basic.*` → basic profile page, everything else → the job-profile edit page. */
@@ -53,7 +55,9 @@ export default function RequestedChangesBanner({
   compact = false,
   staysLive = false,
   resubmitNote = 'Unsaved edits are saved first.',
+  isDraft = false,
 }: Props) {
+  const cta = isDraft ? 'Submit for review' : 'Resubmit for review';
   if (!changes || changes.length === 0) return null;
 
   if (compact) {
@@ -76,11 +80,15 @@ export default function RequestedChangesBanner({
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-amber-900">
-            Your reviewer asked you to update {changes.length === 1 ? 'one thing' : `${changes.length} things`}
+            {isDraft
+              ? 'Your profile is still a draft — finish it and submit for review'
+              : `Your reviewer asked you to update ${changes.length === 1 ? 'one thing' : `${changes.length} things`}`}
           </h3>
           <p className="mt-0.5 text-xs text-amber-800">
             {requestedAt ? `Requested on ${formatWhen(requestedAt)}. ` : ''}
-            Make the updates below, then tap <span className="font-medium">Resubmit for review</span>. Your profile {staysLive ? 'remains live while you make these updates.' : 'stays paused until then.'}
+            {isDraft
+              ? <>Complete the items below, then tap <span className="font-medium">{cta}</span>. We can&apos;t review it until it&apos;s submitted.</>
+              : <>Make the updates below, then tap <span className="font-medium">{cta}</span>. Your profile {staysLive ? 'remains live while you make these updates.' : 'stays paused until then.'}</>}
           </p>
           <ol className="mt-3 space-y-1.5">
             {changes.map((c, i) => {
@@ -117,7 +125,7 @@ export default function RequestedChangesBanner({
                 title={resubmitDisabled ? resubmitDisabledReason : undefined}
                 className="btn-iridescent disabled:opacity-50"
               >
-                {resubmitting ? 'Resubmitting…' : 'Resubmit for review'}
+                {resubmitting ? (isDraft ? 'Submitting…' : 'Resubmitting…') : cta}
               </button>
               <span className="text-xs text-amber-800">{resubmitNote}</span>
             </div>

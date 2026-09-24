@@ -1,7 +1,12 @@
 import type { Profile } from '@/types';
 
+/** An admin asked the talent to finish + submit a never-submitted draft. */
+export function isNudgedDraft(profile: Profile): boolean {
+  return profile.status === 'draft' && !!profile.changes_requested_at;
+}
+
 export function hasOpenProfileChanges(profile: Profile): boolean {
-  return profile.status === 'changes_requested' || (
+  return profile.status === 'changes_requested' || isNudgedDraft(profile) || (
     profile.status === 'approved' &&
     !!profile.changes_requested_at &&
     profile.reviewed_at == null

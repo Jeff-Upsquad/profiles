@@ -356,7 +356,8 @@ async function journeysFor(
       if (liveChangesOpen) {
         counts[p.resubmitted_at ? 'pending_review' : 'changes_requested'] += 1;
       }
-      if ((p.status === 'changes_requested' || (liveChangesOpen && !p.resubmitted_at)) && p.changes_requested_at) {
+      const draftNudged = p.status === 'draft' && !!p.changes_requested_at;
+      if ((p.status === 'changes_requested' || draftNudged || (liveChangesOpen && !p.resubmitted_at)) && p.changes_requested_at) {
         if (!changesRequestedAt || p.changes_requested_at < changesRequestedAt) {
           changesRequestedAt = p.changes_requested_at;
           requestedLabels = Array.isArray(p.requested_changes)
@@ -426,7 +427,7 @@ async function attentionIds(attention: HubAttention | undefined, track?: 'partne
       .select('talent_user_id')
       .or(attention === 'needs_review'
         ? 'status.eq.pending_review,and(status.eq.approved,changes_requested_at.not.is.null,reviewed_at.is.null,resubmitted_at.not.is.null)'
-        : 'status.eq.changes_requested,and(status.eq.approved,changes_requested_at.not.is.null,reviewed_at.is.null,resubmitted_at.is.null)')
+        : 'status.eq.changes_requested,and(status.eq.draft,changes_requested_at.not.is.null),and(status.eq.approved,changes_requested_at.not.is.null,reviewed_at.is.null,resubmitted_at.is.null)')
       .is('deleted_at', null);
     for (const r of data ?? []) ids.add((r as any).talent_user_id);
     // Basic-profile change requests live on talent_profiles_basic (always
@@ -715,7 +716,7 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
   const { data: reviewRows } = await supabaseAdmin
     .from('talent_profiles')
     .select('talent_user_id, status, changes_requested_at, reviewed_at, resubmitted_at')
-    .or('status.in.(pending_review,changes_requested),and(status.eq.approved,changes_requested_at.not.is.null,reviewed_at.is.null)')
+    .or('status.in.(pending_review,changes_requested),and(status.eq.draft,changes_requested_at.not.is.null),and(status.eq.approved,changes_requested_at.not.is.null,reviewed_at.is.null)')
     .is('deleted_at', null);
   const needsReview = new Set<string>();
   const waitingOnTalent = new Set<string>();
@@ -763,7 +764,7 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
     supabaseAdmin.from('talent_profiles_basic').select('*').eq('talent_user_id', userId).maybeSingle(),
     supabaseAdmin
       .from('talent_profiles')
-      .select('id, category_id, status, is_active, tier, tier_custom, created_at, updated_at, requested_changes, changes_requested_at, resubmitted_at, reviewed_at, changes_whatsapp_sent, paused_at, paused_by_role, paused_by_name, categories(name, slug)')
+      .select('id, category_id, status, is_active, tier, tier_custom, field_data, created_at, updated_at, requested_changes, changes_requested_at, resubmitted_at, reviewed_at, changes_whatsapp_sent, paused_at, paused_by_role, paused_by_name, categories(name, slug)')
       .eq('talent_user_id', userId)
       .is('deleted_at', null)
       .order('updated_at', { ascending: false }),
@@ -795,6 +796,24 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
       portfolioByProfile.set(pid, (portfolioByProfile.get(pid) ?? 0) + 1);
     }
   }
+
+  // Drafts: which required form fields are still empty, so the admin
+  // "Request changes" nudge can pre-tick exactly what blocks submission.
+  const draftCategoryIds = [...new Set(profiles.filter((p) => p.status === 'draft').map((p) => p.category_id as string))];
+  const requiredByCategory = new Map<string, string[]>();
+  if (draftCategoryIds.length) {
+    const { data: rows } = await supabaseAdmin
+      .from('category_fields')
+      .select('category_id, field_key')
+      .in('category_id', draftCategoryIds)
+      .eq('is_active', true)
+      .eq('is_required', true);
+    for (const r of rows ?? []) {
+      const cid = (r as any).category_id as string;
+      requiredByCategory.set(cid, [...(requiredByCategory.get(cid) ?? []), (r as any).field_key as string]);
+    }
+  }
+  const isEmpty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
 
   // Course progress — reuse the talent-facing payload so the numbers match
   // what the talent sees on their dashboard.
@@ -892,6 +911,9 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
       tier: p.tier ?? null,
       tier_custom: p.tier_custom ?? null,
       portfolio_items: portfolioByProfile.get(p.id) ?? 0,
+      missing_required_fields: p.status === 'draft'
+        ? (requiredByCategory.get(p.category_id) ?? []).filter((k) => isEmpty(p.field_data?.[k]))
+        : [],
       created_at: p.created_at,
       updated_at: p.updated_at,
       requested_changes: Array.isArray(p.requested_changes) ? p.requested_changes : [],

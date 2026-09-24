@@ -71,9 +71,33 @@ export async function saveSharedChecklist(items: unknown, adminId: string): Prom
   return clean;
 }
 
+// Minimum portfolio items a job profile needs before it can be submitted
+// (mirrors the talent-side check in ProfileCreate/ProfileEdit; sales is exempt).
+export const MIN_PORTFOLIO_ITEMS = 1;
+
+// Extra items offered when nudging a talent whose job profile is still a
+// draft (never submitted). The admin panel pre-ticks the ones that apply.
+export const DRAFT_CHECKLIST: ChecklistItem[] = [
+  {
+    key: 'job.submit_draft',
+    section: 'Draft — not submitted yet',
+    label: 'Submit for review',
+    message: 'Your job profile is still a draft. Complete it and tap "Submit for review" so we can review it',
+  },
+  {
+    key: 'job.portfolio_minimum',
+    section: 'Draft — not submitted yet',
+    label: `Add at least ${MIN_PORTFOLIO_ITEMS} portfolio item`,
+    message: `Add at least ${MIN_PORTFOLIO_ITEMS} portfolio item — it's the minimum needed to submit your profile`,
+  },
+];
+
 /** Shared items plus one "Fix: <label>" entry per field of this category's form. */
-export async function getChecklistForCategory(categoryId: string | null): Promise<ChecklistItem[]> {
-  const shared = await getSharedChecklist();
+export async function getChecklistForCategory(
+  categoryId: string | null,
+  opts: { draft?: boolean } = {},
+): Promise<ChecklistItem[]> {
+  const shared = opts.draft ? [...DRAFT_CHECKLIST, ...(await getSharedChecklist())] : await getSharedChecklist();
   if (!categoryId) return shared;
 
   const { data: fields } = await supabaseAdmin
@@ -114,11 +138,24 @@ function whatsappFollowupText(
   categoryName: string,
   changes: RequestedChange[],
   wasApproved: boolean,
+  isDraft = false,
 ): string {
   const hi = talentName?.trim() ? `Hi ${talentName.trim().split(/\s+/)[0]},` : 'Hi,';
   const lines = changes.map(
     (c, i) => `${i + 1}. ${c.message}${c.note ? ` (${c.note})` : ''}`,
   );
+  if (isDraft) {
+    return [
+      `${hi} your UpSquad ${categoryName} profile is still a draft — it hasn't been submitted for review yet.`,
+      '',
+      'To get it reviewed, please:',
+      ...lines,
+      '',
+      'Open the app, complete your profile, and tap "Submit for review". We\'ll take a look right after.',
+      '',
+      '– UpSquad team',
+    ].join('\n');
+  }
   return [
     wasApproved
       ? `${hi} your UpSquad ${categoryName} profile needs some updates.`
@@ -153,14 +190,18 @@ export async function requestProfileChanges(
     .eq('id', profileId)
     .single();
   if (fetchErr || !profile || profile.deleted_at) throw new AppError(404, 'Profile not found');
-  if (profile.status !== 'pending_review' && profile.status !== 'approved') {
-    throw new AppError(400, 'Only pending or approved profiles can have changes requested');
+  // Drafts can be nudged too: the talent never submitted, so the request asks
+  // them to finish + submit. The profile stays `draft` (it was never reviewed),
+  // it just carries the requested list until they submit.
+  const isDraft = profile.status === 'draft';
+  if (profile.status !== 'pending_review' && profile.status !== 'approved' && !isDraft) {
+    throw new AppError(400, 'Only draft, pending or approved profiles can have changes requested');
   }
   if (profile.status === 'approved' && profile.reviewed_at === null && profile.changes_requested_at && !profile.resubmitted_at) {
     throw new AppError(400, 'Changes have already been requested for this live profile');
   }
 
-  const checklist = await getChecklistForCategory(profile.category_id);
+  const checklist = await getChecklistForCategory(profile.category_id, { draft: isDraft });
   const byKey = new Map(checklist.map((c) => [c.key, c]));
   const changes: RequestedChange[] = [];
   for (const key of [...new Set(input.keys ?? [])]) {
@@ -178,16 +219,23 @@ export async function requestProfileChanges(
   const now = new Date().toISOString();
   const { data: updated, error } = await supabaseAdmin
     .from('talent_profiles')
-    .update({
-      status: profile.status === 'approved' ? 'approved' : 'changes_requested',
-      requested_changes: changes,
-      changes_requested_at: now,
-      changes_requested_by: adminId,
-      resubmitted_at: null,
-      reviewed_by: adminId,
-      reviewed_at: profile.status === 'approved' ? null : now,
-      rejection_reason: null,
-    })
+    .update(isDraft
+      ? {
+          requested_changes: changes,
+          changes_requested_at: now,
+          changes_requested_by: adminId,
+          resubmitted_at: null,
+        }
+      : {
+          status: profile.status === 'approved' ? 'approved' : 'changes_requested',
+          requested_changes: changes,
+          changes_requested_at: now,
+          changes_requested_by: adminId,
+          resubmitted_at: null,
+          reviewed_by: adminId,
+          reviewed_at: profile.status === 'approved' ? null : now,
+          rejection_reason: null,
+        })
     .eq('id', profileId)
     .eq('status', profile.status)
     .select('*')
@@ -211,7 +259,7 @@ export async function requestProfileChanges(
     await notifyTalentsInApp(
       [profile.talent_user_id],
       'profile_changes_requested',
-      `Your ${categoryName} profile needs a few updates`,
+      isDraft ? `Finish and submit your ${categoryName} profile` : `Your ${categoryName} profile needs a few updates`,
       changes.map((c) => `• ${c.message}`).join('\n'),
       `/talent/profiles/${profileId}/edit`,
     );
@@ -234,7 +282,7 @@ export async function requestProfileChanges(
         category: categoryName,
         changes: whatsappSummary(changes),
         changes_count: String(changes.length),
-        followup_text: whatsappFollowupText(talent.full_name ?? null, categoryName, changes, profile.status === 'approved'),
+        followup_text: whatsappFollowupText(talent.full_name ?? null, categoryName, changes, profile.status === 'approved', isDraft),
       },
     });
     await supabaseAdmin

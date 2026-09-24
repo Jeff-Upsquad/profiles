@@ -33,6 +33,12 @@ interface Props {
    * sections still missing). Keys not in the loaded checklist are ignored.
    */
   prefillKeys?: string[];
+  /**
+   * The job profile is still a draft (never submitted): offers the "Submit for
+   * review" / minimum-portfolio items and words the request as a nudge. The
+   * profile stays a draft until the talent submits it.
+   */
+  isDraft?: boolean;
   onDone?: () => void;
 }
 
@@ -56,6 +62,7 @@ export default function RequestChangesDialog({
   wasApproved = false,
   basicUserId,
   prefillKeys,
+  isDraft = false,
   onDone,
 }: Props) {
   const queryClient = useQueryClient();
@@ -69,10 +76,12 @@ export default function RequestChangesDialog({
   const [filter, setFilter] = useState('');
 
   const { data: items, isLoading } = useQuery<ChecklistItem[]>({
-    queryKey: ['review-checklist', isBasic ? 'basic' : (categoryId ?? 'none')],
+    queryKey: ['review-checklist', isBasic ? 'basic' : (categoryId ?? 'none'), isDraft ? 'draft' : 'review'],
     queryFn: async () => {
       const { data } = await api.get('/admin/reviews/checklist', {
-        params: isBasic ? { scope: 'basic' } : categoryId ? { category_id: categoryId } : {},
+        params: isBasic
+          ? { scope: 'basic' }
+          : { ...(categoryId ? { category_id: categoryId } : {}), ...(isDraft ? { scope: 'draft' } : {}) },
       });
       return data.items ?? [];
     },
@@ -155,10 +164,18 @@ export default function RequestChangesDialog({
       onClose={() => {
         if (!send.isPending) onClose();
       }}
-      title="Request changes"
+      title={isDraft ? 'Ask to submit for review' : 'Request changes'}
       size="lg"
     >
       <div className="space-y-4">
+        {isDraft ? (
+          <p className="text-sm text-gray-600">
+            {talentName ? <span className="font-medium text-gray-900">{talentName}</span> : 'The talent'} hasn&apos;t
+            submitted this job profile yet — it&apos;s still a draft. What&apos;s blocking submission is pre-ticked; they
+            get the list in-app and on WhatsApp, and the profile comes to your review queue once they tap{' '}
+            <span className="font-medium">Submit for review</span>.
+          </p>
+        ) : (
         <p className="text-sm text-gray-600">
           Tick what {talentName ? <span className="font-medium text-gray-900">{talentName}</span> : 'the talent'} needs
           to fix. {isBasic
@@ -167,6 +184,7 @@ export default function RequestChangesDialog({
               ? 'The profile will return to your review queue once they resubmit it.'
               : <>The profile leaves your queue until they tap <span className="font-medium">Resubmit for review</span>.</>}
         </p>
+        )}
         {staysLive && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             {isBasic

@@ -213,7 +213,9 @@ export async function getReviewChecklist(req: Request, res: Response, next: Next
     const items =
       scope === 'basic'
         ? await basicChanges.getBasicChecklist()
-        : await reviewChanges.getChecklistForCategory((req.query.category_id as string | undefined) || null);
+        : await reviewChanges.getChecklistForCategory((req.query.category_id as string | undefined) || null, {
+            draft: scope === 'draft',
+          });
     res.json({ items });
   } catch (err) {
     next(err);

@@ -718,7 +718,10 @@ export async function submitProfile(profileId: string, userId: string) {
     .from('talent_profiles')
     .update({
       status: liveChangesOpen ? 'approved' : 'pending_review',
-      ...(profile.status === 'changes_requested' || liveChangesOpen ? { resubmitted_at: new Date().toISOString() } : {}),
+      // A draft an admin nudged (changes_requested_at set) counts as answering that request.
+      ...(profile.status === 'changes_requested' || liveChangesOpen || (profile.status === 'draft' && profile.changes_requested_at)
+        ? { resubmitted_at: new Date().toISOString() }
+        : {}),
     })
     .eq('id', profileId)
     .select('*')

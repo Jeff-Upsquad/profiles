@@ -56,6 +56,8 @@ interface JobProfile {
   tier: string | null;
   tier_custom: string | null;
   portfolio_items: number;
+  /** Drafts only: required form fields still empty (field_key). */
+  missing_required_fields?: string[];
   created_at: string;
   updated_at: string;
   requested_changes?: { key: string; label: string; message: string; note?: string | null }[];
@@ -247,6 +249,17 @@ function ActionButton({
 
 const PLACEHOLDER = <span className="italic text-gray-400">Not provided</span>;
 const TITLE = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+// Mirrors the talent-side submit gate (sales profiles need no portfolio).
+const MIN_PORTFOLIO_ITEMS = 1;
+
+/** What blocks a draft from being submitted, as checklist keys to pre-tick. */
+function draftPrefillKeys(p: JobProfile): string[] {
+  const keys = ['job.submit_draft'];
+  if (p.category_slug !== 'sales' && p.portfolio_items < MIN_PORTFOLIO_ITEMS) keys.push('job.portfolio_minimum');
+  for (const f of p.missing_required_fields ?? []) keys.push(`field.${f}`);
+  return keys;
+}
 const WORK_TYPE_LABEL: Record<string, string> = {
   partner_program: 'Partner Program · Subscriptions',
   freelance: 'Partner Program · Assignments',
@@ -550,6 +563,8 @@ export default function TalentJourneyPanel({
     : [];
   const currentStep = steps.find((s) => !s.done)?.key ?? null;
   const missing = j?.basic_checklist.filter((c) => c.required && !c.done) ?? [];
+  const changesProfile = data?.profiles.find((p) => p.id === changesProfileId);
+  const changesIsDraft = changesProfile?.status === 'draft';
   const optionalMissing = j?.basic_checklist.filter((c) => !c.required && !c.done) ?? [];
   const coursePct = j && j.course.total > 0 ? Math.round((j.course.completed / j.course.total) * 100) : 0;
 
@@ -901,6 +916,9 @@ export default function TalentJourneyPanel({
                           {data.profiles.some((p) => p.status === 'changes_requested') && (
                             <span className="ml-1 font-medium text-gray-600">· waiting on talent</span>
                           )}
+                          {data.profiles.some((p) => p.status === 'draft' && p.changes_requested_at) && (
+                            <span className="ml-1 font-medium text-gray-600">· asked to submit</span>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -911,6 +929,7 @@ export default function TalentJourneyPanel({
                           const asked = p.requested_changes ?? [];
                           const liveChangesOpen = p.status === 'approved' && !!p.changes_requested_at && p.reviewed_at == null;
                           const paused = p.status === 'inactive' || !p.is_active;
+                          const draftNudged = p.status === 'draft' && !!p.changes_requested_at;
                           return (
                             <li key={p.id} className="flex items-center gap-3 px-3 py-2">
                               <div className="min-w-0 flex-1">
@@ -925,7 +944,7 @@ export default function TalentJourneyPanel({
                                 <p className="text-[11px] text-gray-500">
                                   {p.portfolio_items} portfolio item{p.portfolio_items === 1 ? '' : 's'} · updated {timeAgo(p.updated_at)}
                                 </p>
-                                {(p.status === 'changes_requested' || liveChangesOpen) && asked.length > 0 && (
+                                {(p.status === 'changes_requested' || liveChangesOpen || draftNudged) && asked.length > 0 && (
                                   <p className="mt-0.5 text-[11px] text-amber-800" title={asked.map((c) => c.message).join('\n')}>
                                     Asked {timeAgo(p.changes_requested_at)}: {asked.map((c) => c.label).join(', ')}
                                     {p.changes_whatsapp_sent === false && <span className="text-amber-600"> · WhatsApp not sent</span>}
@@ -993,6 +1012,15 @@ export default function TalentJourneyPanel({
                                       className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
                                     >
                                       Mark active
+                                    </button>
+                                  )}
+                                  {canEdit && p.status === 'draft' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setChangesProfileId(p.id)}
+                                      className="text-xs font-medium text-amber-700 hover:underline"
+                                    >
+                                      {draftNudged ? 'Ask again' : 'Request changes'}
                                     </button>
                                   )}
                                   <Link href={`/talents/${p.category_id}/${p.id}`} className="text-xs font-medium text-gray-500 hover:underline">
@@ -1208,8 +1236,10 @@ export default function TalentJourneyPanel({
           isOpen
           onClose={() => setChangesProfileId(null)}
           profileId={changesProfileId}
-          categoryId={data.profiles.find((p) => p.id === changesProfileId)?.category_id}
-          wasApproved={data.profiles.find((p) => p.id === changesProfileId)?.status === 'approved'}
+          categoryId={changesProfile?.category_id}
+          wasApproved={changesProfile?.status === 'approved'}
+          isDraft={changesIsDraft}
+          prefillKeys={changesIsDraft && changesProfile ? draftPrefillKeys(changesProfile) : undefined}
           talentName={data.user.full_name}
           talentPhone={data.user.phone}
           onDone={refresh}

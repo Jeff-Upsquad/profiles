@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useProfile, useUpdateProfile, useSubmitProfile, usePortfolioItems } from '@/hooks/useProfiles';
 import RequestedChangesBanner from '@/components/profile/RequestedChangesBanner';
-import { hasOpenProfileChanges, needsProfileResubmission } from '@/lib/profileChanges';
+import { hasOpenProfileChanges, isNudgedDraft, needsProfileResubmission } from '@/lib/profileChanges';
 import { useCategoryWithFields } from '@/hooks/useCategories';
 import { useTalentMe } from '@/hooks/useTalentMe';
 import { useAuth } from '@/context/AuthContext';
@@ -262,7 +262,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
                   Editing
                 </p>
                 <Badge variant={statusToBadgeVariant(profile.status)}>
-                  {needsProfileResubmission(profile) ? 'updates needed' : profile.status.replace('_', ' ')}
+                  {needsProfileResubmission(profile) && !isNudgedDraft(profile) ? 'updates needed' : profile.status.replace('_', ' ')}
                 </Badge>
               </div>
               <h1 className="font-[family-name:var(--font-jakarta)] text-[22px] sm:text-[26px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a] truncate">
@@ -287,6 +287,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
           changes={profile.requested_changes ?? []}
           requestedAt={profile.changes_requested_at}
           staysLive={profile.status === 'approved'}
+          isDraft={isNudgedDraft(profile)}
           onEditPage
           onResubmit={handleSaveAndSubmit}
           resubmitting={updateProfile.isPending || submitProfile.isPending}
@@ -468,7 +469,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
             >
               {(updateProfile.isPending || submitProfile.isPending)
                 ? 'Submitting…'
-                : needsProfileResubmission(profile) ? 'Save & Resubmit' : 'Save & Submit'}
+                : needsProfileResubmission(profile) && !isNudgedDraft(profile) ? 'Save & Resubmit' : 'Save & Submit'}
             </button>
           )}
         </div>
