@@ -71,9 +71,9 @@ export async function saveSharedChecklist(items: unknown, adminId: string): Prom
   return clean;
 }
 
-// Minimum portfolio items a job profile needs before it can be submitted
-// (mirrors the talent-side check in ProfileCreate/ProfileEdit; sales is exempt).
-export const MIN_PORTFOLIO_ITEMS = 1;
+// Portfolio items we ask for when nudging a draft (sales is exempt). Stricter
+// than the talent-side submit gate in ProfileCreate/ProfileEdit, which needs 1.
+export const MIN_PORTFOLIO_ITEMS = 10;
 
 // Extra items offered when nudging a talent whose job profile is still a
 // draft (never submitted). The admin panel pre-ticks the ones that apply.
@@ -87,8 +87,8 @@ export const DRAFT_CHECKLIST: ChecklistItem[] = [
   {
     key: 'job.portfolio_minimum',
     section: 'Draft — not submitted yet',
-    label: `Add at least ${MIN_PORTFOLIO_ITEMS} portfolio item`,
-    message: `Add at least ${MIN_PORTFOLIO_ITEMS} portfolio item — it's the minimum needed to submit your profile`,
+    label: `Add at least ${MIN_PORTFOLIO_ITEMS} portfolio items`,
+    message: `Add at least ${MIN_PORTFOLIO_ITEMS} portfolio items — it's the minimum we need to review your profile`,
   },
 ];
 

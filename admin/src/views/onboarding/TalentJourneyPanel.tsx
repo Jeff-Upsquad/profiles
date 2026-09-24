@@ -250,8 +250,9 @@ function ActionButton({
 const PLACEHOLDER = <span className="italic text-gray-400">Not provided</span>;
 const TITLE = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
-// Mirrors the talent-side submit gate (sales profiles need no portfolio).
-const MIN_PORTFOLIO_ITEMS = 1;
+// Portfolio items asked for when nudging a draft (sales needs none). Keep in
+// sync with MIN_PORTFOLIO_ITEMS in backend profile-review-changes.service.
+const MIN_PORTFOLIO_ITEMS = 10;
 
 /** What blocks a draft from being submitted, as checklist keys to pre-tick. */
 function draftPrefillKeys(p: JobProfile): string[] {
