@@ -248,6 +248,10 @@ export async function handleLeadStageChanged(
         .update({ jobs_pipeline_stage: stage })
         .eq('id', talentUserId).eq('wants_jobs', true);
       if (error) throw new AppError(500, error.message);
+      if (stage !== 'live') {
+        const { clearTalentStage } = await import('../services/onboarding-hub.service.js');
+        await clearTalentStage(talentUserId, 'jobs').catch(() => {});
+      }
       res.json({ ok: true, talentUserId, pipeline_stage: stage });
       return;
     }

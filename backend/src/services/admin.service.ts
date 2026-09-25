@@ -1056,6 +1056,13 @@ export async function updatePipelineStage(userId: string, stage: string, track: 
   if (error) throw new AppError(500, error.message);
   if (!data) throw new AppError(404, 'User not found');
 
+  // Only Live talents sit on the talent board. Moving one back to an earlier
+  // stage returns them to the candidate pipeline, so drop the board stage.
+  if (stage !== 'live') {
+    const { clearTalentStage } = await import('./onboarding-hub.service.js');
+    await clearTalentStage(userId, track);
+  }
+
   // Get email from auth.users
   const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
   const email = authUser?.user?.email ?? null;

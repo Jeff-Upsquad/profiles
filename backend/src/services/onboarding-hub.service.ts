@@ -1107,18 +1107,26 @@ export async function applyInboundTalentStage(
   if (error) throw new AppError(500, error.message);
 }
 
-/** A card moved back onto a candidates board — it's no longer on the talent board. */
-export async function clearTalentStage(talentUserId: string) {
+/**
+ * A card moved back onto a candidates board (or an admin moved the talent off
+ * Live) — it's no longer on that track's talent board.
+ */
+export async function clearTalentStage(talentUserId: string, track: 'partner' | 'jobs' = 'partner') {
   await supabaseAdmin
     .from('talent_users')
-    .update({
+    .update(track === 'jobs' ? {
+      crm_jobs_pipeline_name: null,
+      crm_jobs_stage_id: null,
+      crm_jobs_stage_name: null,
+      crm_jobs_stage_changed_at: null,
+    } : {
       crm_talent_pipeline_name: null,
       crm_talent_stage_id: null,
       crm_talent_stage_name: null,
       crm_talent_stage_changed_at: null,
     })
     .eq('id', talentUserId)
-    .not('crm_talent_stage_id', 'is', null);
+    .not(track === 'jobs' ? 'crm_jobs_stage_id' : 'crm_talent_stage_id', 'is', null);
 }
 
 /**
