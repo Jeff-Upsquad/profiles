@@ -756,11 +756,14 @@ router.post('/squad-bot/conversations/:id/reply', squadBotController.reply);
 router.post('/squad-bot/conversations/:id/hand-back', squadBotController.handBack);
 
 // Knowledge Center — Squad Bot's knowledge, written in SquadHub Resources and
-// synced here. Read-only: edits happen in SquadHub. Gated by `training`.
+// synced here. Edits happen in SquadHub; approving a Squad Bot suggestion
+// creates the item there. Gated by `training`.
 router.get('/knowledge/categories', knowledgeController.listCategories);
 router.get('/knowledge/items', knowledgeController.listItems);
 router.get('/knowledge/items/:id', knowledgeController.getItem);
 router.get('/knowledge/suggestions', knowledgeController.listSuggestions);
+router.post('/knowledge/suggestions/:id/approve', knowledgeController.approveSuggestion);
+router.post('/knowledge/suggestions/:id/reject', knowledgeController.rejectSuggestion);
 
 // ---------------------------------------------------------------------------
 // How it works videos

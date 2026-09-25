@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
@@ -54,8 +55,10 @@ function when(iso: string): string {
 }
 
 export default function SquadBotInbox() {
-  const [filter, setFilter] = useState<'handoff' | 'all'>('handoff');
-  const [openId, setOpenId] = useState<string | null>(null);
+  // ?chat=<id> (from a Knowledge Center suggestion) opens that chat directly.
+  const linkedChat = useSearchParams().get('chat');
+  const [filter, setFilter] = useState<'handoff' | 'all'>(linkedChat ? 'all' : 'handoff');
+  const [openId, setOpenId] = useState<string | null>(linkedChat);
 
   const { data, isLoading } = useQuery<{ conversations: ConversationSummary[]; waiting: number }>({
     queryKey: ['admin', 'squad-bot', 'list', filter],

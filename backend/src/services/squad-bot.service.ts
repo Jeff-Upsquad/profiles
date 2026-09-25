@@ -60,7 +60,8 @@ const HANDOFF_TOOL: Anthropic.Beta.BetaTool = {
 };
 
 let client: Anthropic | null = null;
-function claude(): Anthropic | null {
+/** The shared Claude client (null until ANTHROPIC_API_KEY is set). */
+export function squadBotClient(): Anthropic | null {
   if (!env.ANTHROPIC_API_KEY) return null;
   client ??= new Anthropic({
     apiKey: env.ANTHROPIC_API_KEY,
@@ -175,7 +176,7 @@ export async function sendTalentMessage(talentUserId: string, text: string) {
 }
 
 async function answer(conv: ConversationRow, talentUserId: string) {
-  const api = claude();
+  const api = squadBotClient();
   if (!api) {
     await handOff(conv, 'other', 'Squad Bot is not switched on yet (no ANTHROPIC_API_KEY), so this came straight to the team.');
     return { status: 'handoff' as const, message: await addMessage(conv.id, { sender: 'bot', body: HANDOFF_MESSAGE }) };
@@ -355,11 +356,19 @@ export async function staffReply(id: string, staff: { id: string; name: string }
 
 /** Done with a handoff: Squad Bot answers this talent again. */
 export async function handBack(id: string, staff: { id: string; name: string }) {
+  const { data: before } = await supabaseAdmin
+    .from('squad_bot_conversations').select('handoff_at').eq('id', id).maybeSingle();
   const { error } = await supabaseAdmin
     .from('squad_bot_conversations')
     .update({ status: 'bot', handoff_reason: null, handoff_summary: null, handoff_at: null })
     .eq('id', id);
   if (error) throw new AppError(500, error.message);
   await addMessage(id, { sender: 'system', body: `${staff.name} handed the chat back to Squad Bot.`, staff_user_id: staff.id, staff_name: staff.name });
+  // Learning loop: draft a knowledge entry from the team's answer, if it's reusable.
+  const handoffAt = (before as { handoff_at?: string | null } | null)?.handoff_at;
+  if (handoffAt) {
+    const { draftFromHandoff } = await import('./knowledge-learning.service.js');
+    void draftFromHandoff(id, handoffAt);
+  }
   return { status: 'bot' as const };
 }

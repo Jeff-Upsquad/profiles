@@ -100,3 +100,37 @@ export async function listSuggestions(req: Request, res: Response, next: NextFun
     next(err);
   }
 }
+
+// --- Learning loop: review drafted suggestions --------------------------------
+
+const approveSchema = z.object({
+  question: z.string().trim().min(3).max(200),
+  answer: z.string().trim().min(1).max(8000),
+  categories: z.array(z.string().min(1).max(100)).min(1, 'Pick at least one category').max(50),
+});
+
+function reviewer(req: Request): { authUserId: string | null; name: string } {
+  // Staff users sign in with their own token (no auth.users row); admins do.
+  if (req.staff) return { authUserId: null, name: req.staff.name || req.staff.email };
+  return { authUserId: req.user?.id ?? null, name: (req.user?.email ?? 'admin').split('@')[0] };
+}
+
+export async function approveSuggestion(req: Request, res: Response, next: NextFunction) {
+  try {
+    const parsed = approveSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError(400, parsed.error.errors[0]?.message ?? 'Invalid answer');
+    const svc = await import('../services/knowledge-learning.service.js');
+    res.json(await svc.approveSuggestion(req.params.id as string, parsed.data, reviewer(req)));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function rejectSuggestion(req: Request, res: Response, next: NextFunction) {
+  try {
+    const svc = await import('../services/knowledge-learning.service.js');
+    res.json(await svc.rejectSuggestion(req.params.id as string, reviewer(req)));
+  } catch (err) {
+    next(err);
+  }
+}

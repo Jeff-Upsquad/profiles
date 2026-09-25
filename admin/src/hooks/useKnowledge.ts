@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 
 // Knowledge Center — Squad Bot's knowledge, written in SquadHub Resources and
@@ -70,5 +70,30 @@ export function useKnowledgeSuggestions() {
   return useQuery<KnowledgeSuggestion[]>({
     queryKey: [...base, 'suggestions', 'pending'],
     queryFn: async () => (await api.get('/admin/knowledge/suggestions?status=pending')).data.suggestions,
+  });
+}
+
+export interface ApproveInput {
+  id: string;
+  question: string;
+  answer: string;
+  categories: string[];
+}
+
+/** Approve a Squad Bot draft: saved to SquadHub as knowledge, synced back here. */
+export function useApproveSuggestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...body }: ApproveInput) =>
+      (await api.post(`/admin/knowledge/suggestions/${id}/approve`, body)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: base }),
+  });
+}
+
+export function useRejectSuggestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => (await api.post(`/admin/knowledge/suggestions/${id}/reject`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: base }),
   });
 }
