@@ -49,6 +49,10 @@ interface ReviewProfile {
   };
   categories?: { name: string; slug: string };
   linked_leads?: LinkedLead[];
+  // Auto-generated Designer + Editor profile (see backend ghost-profile.service).
+  is_ghost?: boolean;
+  source_designer_profile_id?: string | null;
+  source_editor_profile_id?: string | null;
 }
 
 interface CategoryField {
@@ -447,23 +451,45 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
           </p>
         </div>
         <div className="flex gap-2">
-          {profile.status === 'pending_review' && (
+          {!profile.is_ghost && profile.status === 'pending_review' && (
             <Button variant="danger" onClick={() => setRejectModalOpen(true)}>
               Reject
             </Button>
           )}
-          {(profile.status === 'pending_review' || (profile.status === 'approved' && profile.reviewed_at == null && !!profile.resubmitted_at)) && (
+          {!profile.is_ghost && (profile.status === 'pending_review' || (profile.status === 'approved' && profile.reviewed_at == null && !!profile.resubmitted_at)) && (
             <Button variant="secondary" onClick={() => setChangesOpen(true)}>
               Request changes
             </Button>
           )}
-          {(profile.status === 'pending_review' || (profile.status === 'approved' && profile.reviewed_at == null && !!profile.resubmitted_at)) && (
+          {!profile.is_ghost && (profile.status === 'pending_review' || (profile.status === 'approved' && profile.reviewed_at == null && !!profile.resubmitted_at)) && (
             <Button loading={approve.isPending} onClick={() => approve.mutate()}>
               {profile.status === 'approved' ? 'Accept updates' : 'Approve'}
             </Button>
           )}
         </div>
       </div>
+
+      {profile.is_ghost && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900">
+          <p className="font-semibold">Approves automatically</p>
+          <p className="mt-1">
+            This Designer + Editor profile is created from the talent&apos;s Designer and Video Editor
+            profiles. It goes live once both of those are approved — review them instead.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {profile.source_designer_profile_id && (
+              <Link href={`/reviews/${profile.source_designer_profile_id}`}>
+                <Button variant="secondary" size="sm">Review Designer profile</Button>
+              </Link>
+            )}
+            {profile.source_editor_profile_id && (
+              <Link href={`/reviews/${profile.source_editor_profile_id}`}>
+                <Button variant="secondary" size="sm">Review Video Editor profile</Button>
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Request-changes history: what we asked, whether they came back */}
       {profile.requested_changes && profile.requested_changes.length > 0 && (

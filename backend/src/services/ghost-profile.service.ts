@@ -77,6 +77,14 @@ export async function isGhostSourceCategory(categoryId: string): Promise<boolean
 }
 
 /**
+ * Admins can't approve, reject or request changes on a ghost directly —
+ * its status is derived from the two source profiles, and a manual approve
+ * would put it live before they are.
+ */
+export const GHOST_REVIEW_LOCKED_MESSAGE =
+  'Designer + Editor profiles approve automatically once the Designer and Video Editor profiles are approved — review those instead';
+
+/**
  * Returns true if the given category_id IS the ghost (designer-editor)
  * category. Used by talent.service.ts to reject talent-initiated profile
  * creation in this category.

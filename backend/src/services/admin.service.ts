@@ -4,7 +4,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { env } from '../config/env.js';
 import { getTalentTiersByUserIds } from './talent-tier.service.js';
-import { isGhostSourceCategory, syncGhostForTalent } from './ghost-profile.service.js';
+import { GHOST_REVIEW_LOCKED_MESSAGE, isGhostSourceCategory, syncGhostForTalent } from './ghost-profile.service.js';
 import * as talentService from './talent.service.js';
 import { deliverCrmSystemEvent } from '../lib/crm-system-event.js';
 import { notifyBroadcast } from './push.service.js';
@@ -402,9 +402,10 @@ export async function getReviewProfile(profileId: string) {
 export async function approveProfile(profileId: string, adminId: string) {
   const { data: current } = await supabaseAdmin
     .from('talent_profiles')
-    .select('status, changes_requested_at, reviewed_at, resubmitted_at')
+    .select('status, is_ghost, changes_requested_at, reviewed_at, resubmitted_at')
     .eq('id', profileId)
     .maybeSingle();
+  if (current?.is_ghost) throw new AppError(400, GHOST_REVIEW_LOCKED_MESSAGE);
   if (current?.status === 'approved') {
     if (!current.changes_requested_at || current.reviewed_at !== null || !current.resubmitted_at) {
       throw new AppError(400, 'This live profile has no resubmitted changes to review');
@@ -461,6 +462,13 @@ export async function approveProfile(profileId: string, adminId: string) {
 }
 
 export async function rejectProfile(profileId: string, adminId: string, reason: string) {
+  const { data: current } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('is_ghost')
+    .eq('id', profileId)
+    .maybeSingle();
+  if (current?.is_ghost) throw new AppError(400, GHOST_REVIEW_LOCKED_MESSAGE);
+
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')
     .update({

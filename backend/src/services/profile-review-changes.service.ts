@@ -11,7 +11,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { deliverCrmSystemEvent } from '../lib/crm-system-event.js';
 import { getAdminSetting, setAdminSetting } from './admin.service.js';
-import { isGhostSourceCategory, syncGhostForTalent } from './ghost-profile.service.js';
+import { GHOST_REVIEW_LOCKED_MESSAGE, isGhostSourceCategory, syncGhostForTalent } from './ghost-profile.service.js';
 
 export const REVIEW_CHECKLIST_SETTING = 'review_checklist';
 export const CHANGES_REQUESTED_EVENT = 'talent_profile_changes_requested';
@@ -202,10 +202,11 @@ export async function requestProfileChanges(
 ) {
   const { data: profile, error: fetchErr } = await supabaseAdmin
     .from('talent_profiles')
-    .select('id, talent_user_id, category_id, status, deleted_at, reviewed_at, changes_requested_at, resubmitted_at, categories(name)')
+    .select('id, talent_user_id, category_id, status, is_ghost, deleted_at, reviewed_at, changes_requested_at, resubmitted_at, categories(name)')
     .eq('id', profileId)
     .single();
   if (fetchErr || !profile || profile.deleted_at) throw new AppError(404, 'Profile not found');
+  if (profile.is_ghost) throw new AppError(400, GHOST_REVIEW_LOCKED_MESSAGE);
   // Drafts can be nudged too: the talent never submitted, so the request asks
   // them to finish + submit. The profile stays `draft` (it was never reviewed),
   // it just carries the requested list until they submit.

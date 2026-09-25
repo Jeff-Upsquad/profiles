@@ -28,6 +28,9 @@ interface ReviewProfile {
   changes_requested_at?: string | null;
   resubmitted_at?: string | null;
   changes_whatsapp_sent?: boolean | null;
+  // Auto-generated Designer + Editor profile: its status follows the Designer
+  // and Video Editor profiles, so it can't be approved from here.
+  is_ghost?: boolean;
 }
 
 export default function ReviewQueue() {
@@ -91,11 +94,13 @@ export default function ReviewQueue() {
     });
   };
 
+  const selectable = (profiles ?? []).filter((p) => !p.is_ghost);
+
   const toggleAll = () => {
-    if (selectedIds.size === (profiles?.length ?? 0)) {
+    if (selectedIds.size === selectable.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set((profiles ?? []).map((p) => p.id)));
+      setSelectedIds(new Set(selectable.map((p) => p.id)));
     }
   };
 
@@ -196,7 +201,7 @@ export default function ReviewQueue() {
                   <th className="w-10 px-4 py-3">
                     <input
                       type="checkbox"
-                      checked={selectedIds.size === (profiles?.length ?? 0) && (profiles?.length ?? 0) > 0}
+                      checked={selectedIds.size === selectable.length && selectable.length > 0}
                       onChange={toggleAll}
                       className="h-4 w-4 rounded border-gray-300 text-indigo-600"
                     />
@@ -229,12 +234,14 @@ export default function ReviewQueue() {
                 <tr key={profile.id} className="hover:bg-gray-50">
                   {tab === 'pending_review' && (
                     <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(profile.id)}
-                        onChange={() => toggleSelect(profile.id)}
-                        className="h-4 w-4 rounded border-gray-300 text-indigo-600"
-                      />
+                      {!profile.is_ghost && (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(profile.id)}
+                          onChange={() => toggleSelect(profile.id)}
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600"
+                        />
+                      )}
                     </td>
                   )}
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">
@@ -272,7 +279,9 @@ export default function ReviewQueue() {
                       : timeAgo(profile.changes_requested_at) || formatDate(profile.changes_requested_at ?? profile.updated_at)}
                   </td>
                   <td className="px-4 py-3">
-                    {tab === 'pending_review' ? (
+                    {profile.is_ghost ? (
+                      <Badge variant="gray">Auto-approves</Badge>
+                    ) : tab === 'pending_review' ? (
                       <Badge variant={profile.status === 'approved' ? 'green' : 'yellow'}>
                         {profile.status === 'approved' ? 'Live · review updates' : 'Pending'}
                       </Badge>
@@ -285,7 +294,7 @@ export default function ReviewQueue() {
                   <td className="px-4 py-3 text-right">
                     <Link href={`/reviews/${profile.id}`}>
                       <Button variant="ghost" size="sm">
-                        {tab === 'pending_review' ? 'Review' : 'View'}
+                        {tab === 'pending_review' && !profile.is_ghost ? 'Review' : 'View'}
                       </Button>
                     </Link>
                   </td>
