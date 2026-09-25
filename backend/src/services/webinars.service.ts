@@ -3,9 +3,14 @@ import { AppError } from '../middleware/errorHandler.middleware.js';
 import { deliverCrmSystemEvent } from '../lib/crm-system-event.js';
 import { notifyTalentsInApp } from './jobs.service.js';
 import { notifyBroadcast } from './push.service.js';
-import type { CreateWebinarInput, UpdateWebinarInput } from '../validators/webinars.validators.js';
+import type {
+  CreateWebinarInput,
+  RescheduleWebinarInput,
+  UpdateWebinarInput,
+} from '../validators/webinars.validators.js';
 
 export const WEBINAR_WHATSAPP_EVENT = 'talent_webinar_reminder';
+export const WEBINAR_RESCHEDULED_EVENT = 'talent_webinar_rescheduled';
 
 export type WebinarReminderStage = 'day' | 't30' | 't5';
 
@@ -81,6 +86,7 @@ export async function updateWebinar(id: string, input: UpdateWebinarInput) {
   if (input.status !== undefined) patch.status = input.status;
   if (Object.keys(patch).length === 0) throw new AppError(400, 'Nothing to update');
   patch.updated_at = new Date().toISOString();
+  const { data: before } = await supabaseAdmin.from('training_webinars').select('starts_at').eq('id', id).maybeSingle();
   const { data, error } = await supabaseAdmin
     .from('training_webinars')
     .update(patch)
@@ -88,7 +94,141 @@ export async function updateWebinar(id: string, input: UpdateWebinarInput) {
     .select('id, title, starts_at, language, meeting_link, audience, status, created_at')
     .single();
   if (error || !data) throw new AppError(404, error?.message ?? 'Webinar not found');
+  // A moved start time means the old reminder stamps are for the wrong slot.
+  if (before && new Date((before as any).starts_at).getTime() !== new Date(data.starts_at).getTime()) {
+    await resetReminderStamps(id);
+  }
   return data;
+}
+
+async function resetReminderStamps(webinarId: string): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('training_webinar_registrations')
+    .update({ day_notified_at: null, min30_notified_at: null, min5_notified_at: null })
+    .eq('webinar_id', webinarId);
+  if (error) console.error('[webinars] reminder reset failed for', webinarId, error.message);
+}
+
+/** Thai numbers get Thailand time, everyone else India time — the two audiences we run webinars for. */
+function talentTimeZone(phone: string | null): { zone: string; label: string } {
+  if (phone && /^\+?66/.test(phone.replace(/[\s-]/g, ''))) return { zone: 'Asia/Bangkok', label: 'Thailand time' };
+  return { zone: 'Asia/Kolkata', label: 'IST' };
+}
+
+/** "25 September 2026, 7:00 pm IST" */
+export function formatWebinarTime(iso: string, phone: string | null): string {
+  const { zone, label } = talentTimeZone(phone);
+  const d = new Date(iso);
+  const date = new Intl.DateTimeFormat('en-GB', { timeZone: zone, day: 'numeric', month: 'long', year: 'numeric' }).format(d);
+  const time = new Intl.DateTimeFormat('en-US', { timeZone: zone, hour: 'numeric', minute: '2-digit', hour12: true })
+    .format(d)
+    .toLowerCase();
+  return `${date}, ${time} ${label}`;
+}
+
+/**
+ * Move a webinar to a new slot and tell everyone registered: notification
+ * panel + push + the `talent_webinar_rescheduled` WhatsApp template (sent as
+ * the template itself, no free-text follow-up). Registrations carry over and
+ * the day / 30 min / 5 min reminders re-arm for the new time.
+ */
+export async function rescheduleWebinar(id: string, input: RescheduleWebinarInput) {
+  const { data: current, error: loadErr } = await supabaseAdmin
+    .from('training_webinars')
+    .select('id, title, starts_at, language, meeting_link, audience, status')
+    .eq('id', id)
+    .maybeSingle();
+  if (loadErr || !current) throw new AppError(404, 'Webinar not found');
+  const webinar = current as WebinarRow;
+
+  const startsAt = new Date(input.starts_at);
+  if (Number.isNaN(startsAt.getTime())) throw new AppError(400, 'Invalid date and time');
+  if (startsAt.getTime() <= Date.now()) throw new AppError(400, 'The new time must be in the future');
+  const newLink = input.meeting_link?.trim() || webinar.meeting_link;
+  const oldStartsAt = webinar.starts_at;
+  if (startsAt.getTime() === new Date(oldStartsAt).getTime() && newLink === webinar.meeting_link) {
+    throw new AppError(400, 'Pick a different date or time');
+  }
+
+  const { data: updated, error } = await supabaseAdmin
+    .from('training_webinars')
+    .update({ starts_at: startsAt.toISOString(), meeting_link: newLink, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('id, title, starts_at, language, meeting_link, audience, status, created_at')
+    .single();
+  if (error || !updated) throw new AppError(500, error?.message ?? 'Could not reschedule webinar');
+  await resetReminderStamps(id);
+
+  let notified = 0;
+  // Drafts and cancelled webinars were never announced — move them quietly.
+  if (input.notify && webinar.status === 'published') {
+    const { data: regs } = await supabaseAdmin
+      .from('training_webinar_registrations')
+      .select('talent_user_id')
+      .eq('webinar_id', id);
+    const talentIds = (regs ?? []).map((r: any) => r.talent_user_id as string).filter(Boolean);
+    notified = talentIds.length;
+    if (talentIds.length > 0) {
+      await sendRescheduleNotice(updated as WebinarRow, oldStartsAt, talentIds);
+    }
+  }
+  return { webinar: updated, notified };
+}
+
+async function sendRescheduleNotice(
+  webinar: WebinarRow,
+  oldStartsAt: string,
+  talentIds: string[],
+): Promise<void> {
+  const { data: talents } = await supabaseAdmin
+    .from('talent_users')
+    .select('id, full_name, phone')
+    .in('id', talentIds);
+  const rows = (talents ?? []) as Array<{ id: string; full_name: string | null; phone: string | null }>;
+
+  // 1) Notification panel — one row per time zone so each talent reads their own clock.
+  const byZone = new Map<string, string[]>();
+  for (const t of rows) {
+    const zone = talentTimeZone(t.phone).zone;
+    byZone.set(zone, [...(byZone.get(zone) ?? []), t.id]);
+  }
+  const title = `Rescheduled: ${webinar.title}`;
+  const bodyFor = (phone: string | null) =>
+    `"${webinar.title}" has moved to ${formatWebinarTime(webinar.starts_at, phone)} ` +
+    `(was ${formatWebinarTime(oldStartsAt, phone)}). You're still registered — we'll remind you again before it starts.`;
+  for (const ids of byZone.values()) {
+    const sample = rows.find((t) => t.id === ids[0]);
+    try {
+      await notifyTalentsInApp(ids, 'webinar_rescheduled', title, bodyFor(sample?.phone ?? null), '/talent/training');
+    } catch (e) {
+      console.error('[webinars] reschedule in-app notify failed:', e);
+    }
+    // 2) Push.
+    notifyBroadcast(ids, { title, body: bodyFor(sample?.phone ?? null), route: '/talent/training' }).catch((e) =>
+      console.error('[webinars] reschedule push failed:', e),
+    );
+  }
+
+  // 3) WhatsApp — the approved template carries the whole message.
+  for (const t of rows) {
+    if (!t.phone) continue;
+    const first = String(t.full_name ?? '').trim().split(/\s+/)[0] || 'there';
+    void deliverCrmSystemEvent({
+      audience: 'talent',
+      event: WEBINAR_RESCHEDULED_EVENT,
+      // Full name keeps the CRM card's name intact; the template greets by first name.
+      name: t.full_name ?? null,
+      phone: t.phone,
+      data: {
+        talent_name: first,
+        webinar_name: webinar.title,
+        new_date_time: formatWebinarTime(webinar.starts_at, t.phone),
+        old_date_time: formatWebinarTime(oldStartsAt, t.phone),
+        meeting_link: webinar.meeting_link,
+        language: webinar.language,
+      },
+    }).catch((e) => console.error('[webinars] reschedule WA threw:', e));
+  }
 }
 
 export async function deleteWebinar(id: string) {
@@ -317,37 +457,31 @@ async function sendStageReminder(
   notifyBroadcast(talentIds, { title: copy.title, body: copy.body, route: '/talent/training' }).catch((e) =>
     console.error(`[webinars] ${stage} push failed:`, e),
   );
-  // 3) WhatsApp via CRM system event. The CRM sends `followup_text` as a free
-  //    "quick" message while the talent's 24h window is open, otherwise falls
-  //    back to the mapped opener template and queues the details as a reply
-  //    follow-up — the same pattern as profile-changes WhatsApps.
+  // 3) WhatsApp — the approved `talent_webinar_reminder` template carries the
+  //    whole message (no free-text follow-up), one template for all 3 stages.
   const { data: talents } = await supabaseAdmin
     .from('talent_users')
     .select('id, full_name, phone')
     .in('id', talentIds);
-  const when = new Date(webinar.starts_at).toLocaleString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const startsIn = stage === 'day' ? 'today' : stage === 't30' ? 'starting in 30 minutes' : 'starting in 5 minutes';
   for (const t of (talents ?? []) as any[]) {
     if (!t.phone) continue;
     const first = String(t.full_name ?? '').trim().split(/\s+/)[0] || 'there';
-    const followup = `Hi ${first}, reminder: "${webinar.title}" (${webinar.language}) is ${stage === 'day' ? 'today' : stage === 't30' ? 'starting in 30 minutes' : 'starting in 5 minutes'} — ${when}. Join here: ${webinar.meeting_link}`;
     void deliverCrmSystemEvent({
       audience: 'talent',
       event: WEBINAR_WHATSAPP_EVENT,
+      // Full name keeps the CRM card's name intact; the template greets by first name.
       name: t.full_name ?? null,
       phone: t.phone,
       data: {
+        talent_name: first,
         webinar_name: webinar.title,
+        starts_in: startsIn,
         date_time: webinar.starts_at,
+        date_time_text: formatWebinarTime(webinar.starts_at, t.phone),
         language: webinar.language,
         meeting_link: webinar.meeting_link,
         reminder_stage: stage,
-        changes: `${webinar.title} (${when})`,
-        followup_text: followup,
       },
     }).catch((e) => console.error(`[webinars] ${stage} WA threw:`, e));
   }

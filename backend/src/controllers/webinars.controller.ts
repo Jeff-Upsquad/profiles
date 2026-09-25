@@ -28,6 +28,15 @@ export async function updateAdmin(req: Request, res: Response, next: NextFunctio
   }
 }
 
+export async function rescheduleAdmin(req: Request, res: Response, next: NextFunction) {
+  try {
+    const svc = await import('../services/webinars.service.js');
+    res.json(await svc.rescheduleWebinar(req.params.id as string, req.body));
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function deleteAdmin(req: Request, res: Response, next: NextFunction) {
   try {
     const svc = await import('../services/webinars.service.js');

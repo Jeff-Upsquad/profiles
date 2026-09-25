@@ -47,6 +47,7 @@ import {
 } from '../validators/training.validators.js';
 import {
   createWebinarSchema,
+  rescheduleWebinarSchema,
   updateWebinarSchema,
 } from '../validators/webinars.validators.js';
 import {
@@ -737,6 +738,12 @@ router.put(
   '/training/webinars/:id',
   validate({ body: updateWebinarSchema }),
   webinarsController.updateAdmin,
+);
+// Move to a new slot + notify registrants (panel, push, WhatsApp template).
+router.post(
+  '/training/webinars/:id/reschedule',
+  validate({ body: rescheduleWebinarSchema }),
+  webinarsController.rescheduleAdmin,
 );
 router.delete('/training/webinars/:id', webinarsController.deleteAdmin);
 

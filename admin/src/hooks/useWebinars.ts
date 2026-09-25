@@ -65,6 +65,25 @@ export function useUpdateWebinar() {
   });
 }
 
+export function useRescheduleWebinar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...payload }: { id: string; starts_at: string; meeting_link?: string; notify: boolean }) => {
+      const { data } = await api.post(`/admin/training/webinars/${id}/reschedule`, payload);
+      return data as { webinar: Webinar; notified: number };
+    },
+    onSuccess: ({ notified }) => {
+      qc.invalidateQueries({ queryKey: webinarsKey });
+      toast.success(
+        notified > 0
+          ? `Webinar rescheduled — ${notified} registered talent${notified === 1 ? '' : 's'} notified`
+          : 'Webinar rescheduled',
+      );
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to reschedule webinar'),
+  });
+}
+
 export function useDeleteWebinar() {
   const qc = useQueryClient();
   return useMutation({

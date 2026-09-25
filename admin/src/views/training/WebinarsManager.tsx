@@ -12,6 +12,7 @@ import {
   useCreateWebinar,
   useUpdateWebinar,
   useDeleteWebinar,
+  useRescheduleWebinar,
   type Webinar,
   type WebinarForm,
 } from '@/hooks/useWebinars';
@@ -145,6 +146,107 @@ function RegistrantsView({ webinar }: { webinar: Webinar }) {
   );
 }
 
+function formatWhen(iso: string): string {
+  return new Date(iso).toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+function RescheduleView({ webinar, onClose }: { webinar: Webinar; onClose: () => void }) {
+  const reschedule = useRescheduleWebinar();
+  const [startsAt, setStartsAt] = useState(toLocalInput(webinar.starts_at));
+  const [meetingLink, setMeetingLink] = useState(webinar.meeting_link);
+  const [notify, setNotify] = useState(true);
+  const registered = webinar.registrations ?? 0;
+  const canNotify = webinar.status === 'published' && registered > 0;
+  const newTime = startsAt ? new Date(startsAt) : null;
+  const unchanged =
+    !!newTime &&
+    newTime.getTime() === new Date(webinar.starts_at).getTime() &&
+    meetingLink.trim() === webinar.meeting_link;
+  const valid = !!newTime && !Number.isNaN(newTime.getTime()) && newTime.getTime() > Date.now() && !unchanged;
+
+  const submit = async () => {
+    if (!valid || !newTime) return;
+    await reschedule.mutateAsync({
+      id: webinar.id,
+      starts_at: newTime.toISOString(),
+      meeting_link: meetingLink.trim() || undefined,
+      notify: canNotify && notify,
+    });
+    onClose();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">
+        Currently <span className="font-medium text-gray-900">{formatWhen(webinar.starts_at)}</span>
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium text-gray-700">New date and time</label>
+        <input
+          type="datetime-local"
+          value={startsAt}
+          onChange={(e) => setStartsAt(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+        />
+        {newTime && newTime.getTime() <= Date.now() && (
+          <p className="mt-1 text-xs text-red-600">Pick a time in the future.</p>
+        )}
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium text-gray-700">Meeting link</label>
+        <input
+          value={meetingLink}
+          onChange={(e) => setMeetingLink(e.target.value)}
+          placeholder="https://…"
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+        />
+        <p className="mt-1 text-xs text-gray-500">Change it only if the new slot uses a different link.</p>
+      </div>
+      {canNotify ? (
+        <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-200 px-3 py-2.5 text-sm">
+          <input
+            type="checkbox"
+            checked={notify}
+            onChange={(e) => setNotify(e.target.checked)}
+            className="mt-0.5 rounded border-gray-300"
+          />
+          <span>
+            <span className="font-medium text-gray-900">
+              Notify {registered} registered talent{registered === 1 ? '' : 's'}
+            </span>
+            <span className="block text-xs text-gray-500">
+              Notification panel, push and the WhatsApp “webinar rescheduled” template, with the new time in their
+              own time zone. They stay registered.
+            </span>
+          </span>
+        </label>
+      ) : (
+        <p className="text-xs text-gray-500">
+          {webinar.status !== 'published'
+            ? 'This webinar isn’t published, so nobody is notified.'
+            : 'Nobody has registered yet, so there’s no one to notify.'}
+        </p>
+      )}
+      <p className="text-xs text-gray-500">The day, 30 min and 5 min reminders are re-sent for the new time.</p>
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button onClick={submit} disabled={reschedule.isPending || !valid}>
+          {reschedule.isPending ? 'Rescheduling…' : canNotify && notify ? 'Reschedule & notify' : 'Reschedule'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /** Every field starts empty — nothing is pre-selected. */
 const EMPTY_FORM: WebinarForm = {
   title: '',
@@ -266,6 +368,7 @@ function WebinarFormView({ webinar, onClose }: { webinar?: Webinar | null; onClo
       </div>
       <p className="text-xs text-gray-500">
         Registered talents are reminded on the day, 30 min and 5 min before — notification panel + WhatsApp.
+        {webinar && ' Changing the time here doesn’t tell them — use Reschedule to notify registered talents.'}
       </p>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>
@@ -285,6 +388,7 @@ export default function WebinarsManager({ hideHeading = false }: { hideHeading?:
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Webinar | null>(null);
   const [viewing, setViewing] = useState<Webinar | null>(null);
+  const [rescheduling, setRescheduling] = useState<Webinar | null>(null);
 
   const openCreate = () => {
     setEditing(null);
@@ -378,6 +482,11 @@ export default function WebinarsManager({ hideHeading = false }: { hideHeading?:
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
+                      {new Date(w.starts_at).getTime() > Date.now() && w.status !== 'cancelled' && (
+                        <Button variant="ghost" size="sm" onClick={() => setRescheduling(w)}>
+                          Reschedule
+                        </Button>
+                      )}
                       <Button variant="ghost" size="sm" onClick={() => openEdit(w)}>
                         Edit
                       </Button>
@@ -411,6 +520,14 @@ export default function WebinarsManager({ hideHeading = false }: { hideHeading?:
         size="lg"
       >
         {viewing && <RegistrantsView webinar={viewing} />}
+      </Modal>
+
+      <Modal
+        isOpen={!!rescheduling}
+        onClose={() => setRescheduling(null)}
+        title={rescheduling ? `Reschedule — ${rescheduling.title}` : 'Reschedule'}
+      >
+        {rescheduling && <RescheduleView webinar={rescheduling} onClose={() => setRescheduling(null)} />}
       </Modal>
     </div>
   );

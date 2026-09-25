@@ -21,3 +21,11 @@ export const updateWebinarSchema = z.object({
 });
 
 export type UpdateWebinarInput = z.infer<typeof updateWebinarSchema>;
+
+export const rescheduleWebinarSchema = z.object({
+  starts_at: z.string().datetime({ offset: true }),
+  meeting_link: z.string().trim().max(2000).optional(),
+  notify: z.boolean().default(true),
+});
+
+export type RescheduleWebinarInput = z.infer<typeof rescheduleWebinarSchema>;
