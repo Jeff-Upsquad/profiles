@@ -512,7 +512,7 @@ export default function OnboardingHub({
                   </span>
                 </div>
                 <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-xl font-bold text-gray-900">{stageCount(s.value)}</span>
+                  <span className="text-xl font-bold text-gray-900">{Math.max(0, stageCount(s.value) - stageRcCount(s.value))}</span>
                   <RcCount n={stageRcCount(s.value)} />
                 </div>
               </button>
@@ -552,7 +552,7 @@ export default function OnboardingHub({
                 >
                   {t.name}
                   <span className={`rounded-full px-1.5 text-[11px] ${active ? 'bg-sky-100 text-sky-700' : 'bg-gray-100 text-gray-600'}`}>
-                    {liveCount(t.id)}
+                    {Math.max(0, liveCount(t.id) - liveRcCount(t.id))}
                   </span>
                   <RcCount n={liveRcCount(t.id)} />
                 </button>
