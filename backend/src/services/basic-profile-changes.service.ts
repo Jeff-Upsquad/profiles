@@ -7,6 +7,7 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { deliverCrmSystemEvent } from '../lib/crm-system-event.js';
+import { basicProfileChecklist } from './onboarding-hub.service.js';
 import {
   CHANGES_REQUESTED_EVENT,
   getSharedChecklist,
@@ -161,6 +162,32 @@ export async function requestBasicChanges(
   return { ...updated, changes_whatsapp_sent: whatsappSent };
 }
 
+// Requested items that are still empty in the saved profile. Saves are
+// per-section, so a talent could tap Resubmit with unsaved edits and the
+// reviewer would see "Resubmitted" over unchanged data. Only checklist-backed
+// `basic.*` keys are verifiable; `identity.*` and free-text "Other" pass.
+// Freelance / partner hours pass once that work type is no longer selected.
+async function unresolvedBasicChanges(userId: string): Promise<string[]> {
+  const [{ data: basic }, { data: talent }] = await Promise.all([
+    supabaseAdmin.from('talent_profiles_basic').select('*').eq('talent_user_id', userId).maybeSingle(),
+    supabaseAdmin.from('talent_users').select('full_name, languages_spoken').eq('id', userId).maybeSingle(),
+  ]);
+  const checklist = basicProfileChecklist(basic, {
+    full_name: talent?.full_name ?? null,
+    languages_spoken: talent?.languages_spoken,
+  });
+  const byKey = new Map(checklist.map((c) => [`basic.${c.key}`, c]));
+  const requested = (basic?.requested_changes ?? []) as RequestedChange[];
+  return requested
+    .filter((c) => {
+      const item = byKey.get(c.key);
+      if (!item || item.done) return false;
+      if ((item.key === 'freelance' || item.key === 'partner_hours') && !item.required) return false;
+      return true;
+    })
+    .map((c) => c.label);
+}
+
 /** Talent taps "Resubmit for review" on the basic profile after fixing. */
 export async function resubmitBasicProfile(userId: string) {
   const { data: basic, error: fetchErr } = await supabaseAdmin
@@ -173,6 +200,14 @@ export async function resubmitBasicProfile(userId: string) {
     throw new AppError(400, 'No requested changes to resubmit');
   }
   if (basic.resubmitted_at) throw new AppError(400, 'Already resubmitted — waiting for review');
+
+  const unresolved = await unresolvedBasicChanges(userId);
+  if (unresolved.length > 0) {
+    throw new AppError(
+      400,
+      `Please fill in and save: ${unresolved.join(', ')} — then tap Resubmit.`,
+    );
+  }
 
   const { data, error } = await supabaseAdmin
     .from('talent_profiles_basic')

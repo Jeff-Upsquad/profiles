@@ -352,7 +352,8 @@ export default function BasicProfileForm() {
 
   // Resubmit after fixing reviewer-requested basic-profile changes. Saves are
   // per-section (each section's own Save button), so this only stamps the
-  // resubmission — the banner tells the talent to save first.
+  // resubmission. The API refuses it while any requested item is still empty
+  // in the saved profile and names what's missing.
   const resubmitBasic = useMutation({
     mutationFn: async () => (await api.patch('/talent/me/basic-profile/resubmit')).data,
     onSuccess: () => {
