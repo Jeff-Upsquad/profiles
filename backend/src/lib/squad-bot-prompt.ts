@@ -134,3 +134,38 @@ export function historyToMessages(lines: ChatLine[]): Array<{ role: 'user' | 'as
   while (out.length && out[0].role !== 'user') out.shift();
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// WhatsApp leads (Phase 4): people messaging on WhatsApp with no account yet.
+// ---------------------------------------------------------------------------
+
+/** CRM pipeline name → the signup form type its knowledge follows. */
+export function formTypeForPipeline(pipelineName: string | null | undefined): string | null {
+  const n = (pipelineName ?? '').trim().toLowerCase();
+  if (n.startsWith('designers and editors')) return 'creative';
+  if (n.startsWith('accountants')) return 'accountant';
+  if (n.startsWith('sales')) return 'sales';
+  return null;
+}
+
+const LANDING_PAGES: Record<string, string> = {
+  creative: 'https://www.upsquadconnect.com/partner-program/designer-and-video-editor/',
+  accountant: 'https://www.upsquadconnect.com/partner-program/accountant/',
+};
+
+/** Context for someone who hasn't signed up: guide them to the landing page and signup. */
+export function prospectContext(opts: { name: string | null; pipelineName: string | null }): string {
+  const ft = formTypeForPipeline(opts.pipelineName);
+  const label = ft === 'creative' ? 'Designers & Editors' : ft === 'accountant' ? 'Accountants' : ft === 'sales' ? 'Sales' : 'unknown';
+  const page = ft ? LANDING_PAGES[ft] : null;
+  return [
+    `Name (from WhatsApp): ${opts.name?.trim() || 'unknown'}`,
+    `Interested in: ${label}`,
+    'Account: NOT signed up to UpSquad yet',
+    `Next step: read the program page${page ? ` (${page})` : ''} and sign up with the button at the bottom; after signing up, the team reviews the application`,
+  ].join('\n');
+}
+
+/** Added to the talent context when the chat is on WhatsApp. */
+export const WHATSAPP_NOTE =
+  'This chat is on WhatsApp. Plain text only (no markdown); keep it short. A team member may review your reply before it is sent.';

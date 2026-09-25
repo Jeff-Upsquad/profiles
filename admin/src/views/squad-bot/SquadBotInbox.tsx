@@ -21,18 +21,23 @@ interface ConversationSummary {
   handoff_summary: string | null;
   handoff_at: string | null;
   last_message_at: string;
-  last_message: { sender: string; body: string } | null;
+  last_message: { sender: string; body: string; channel?: 'app' | 'whatsapp' } | null;
+  has_account?: boolean;
+  crm_lead_id?: string | null;
 }
 
 interface InboxMessage {
   id: string;
   sender: 'talent' | 'bot' | 'staff' | 'system';
   body: string;
+  channel?: 'app' | 'whatsapp';
   staff_name: string | null;
   created_at: string;
 }
 
 interface ConversationDetail extends ConversationSummary {
+  contact_name?: string | null;
+  phone?: string | null;
   talent: { full_name: string | null; phone: string | null } | null;
   messages: InboxMessage[];
 }
@@ -76,6 +81,8 @@ export default function SquadBotInbox() {
         </p>
       </div>
 
+      <WhatsAppModeSwitch />
+
       <div className="mb-4 flex gap-2">
         {([
           ['handoff', `Waiting for the team${data ? ` (${data.waiting})` : ''}`],
@@ -108,7 +115,13 @@ export default function SquadBotInbox() {
                     className={`block w-full px-4 py-3 text-left hover:bg-gray-50 ${openId === c.id ? 'bg-indigo-50/60' : ''}`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <p className="truncate font-medium text-gray-900">{c.talent_name || c.talent_phone || 'Talent'}</p>
+                      <p className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate font-medium text-gray-900">{c.talent_name || c.talent_phone || 'Talent'}</span>
+                        <ChannelTag channel={c.last_message?.channel} />
+                        {c.has_account === false && (
+                          <span className="shrink-0 rounded bg-sky-50 px-1.5 py-px text-[10px] font-medium text-sky-700">New lead</span>
+                        )}
+                      </p>
                       {c.status === 'handoff' ? (
                         <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800">
                           {REASONS[c.handoff_reason ?? 'other'] ?? 'Waiting'}
@@ -185,16 +198,21 @@ function ConversationPane({ id }: { id: string }) {
     <div className="flex h-[calc(100vh-240px)] min-h-[480px] flex-col rounded-lg border border-gray-200 bg-white">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-200 px-4 py-3">
         <div>
-          <p className="font-semibold text-gray-900">{conv.talent?.full_name || 'Talent'}</p>
-          <p className="text-xs text-gray-500">{conv.talent?.phone ?? ''}</p>
+          <p className="font-semibold text-gray-900">{conv.talent?.full_name || conv.contact_name || 'Talent'}</p>
+          <p className="text-xs text-gray-500">
+            {conv.talent?.phone ?? conv.phone ?? ''}
+            {!conv.talent_user_id && ' · not signed up yet'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
+          {conv.talent_user_id && (
           <Link
             href={`/approvals?search=${encodeURIComponent(conv.talent?.phone || conv.talent?.full_name || '')}&selected=${conv.talent_user_id}`}
             className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
           >
             Open in Onboarding hub
           </Link>
+          )}
           {conv.status === 'handoff' && (
             <button
               onClick={() => handBack.mutate()}
@@ -224,6 +242,7 @@ function ConversationPane({ id }: { id: string }) {
               <div className="max-w-[80%]">
                 <p className={`mb-0.5 text-[11px] text-gray-500 ${m.sender === 'talent' ? '' : 'text-right'}`}>
                   {m.sender === 'talent' ? 'Talent' : m.sender === 'bot' ? 'Squad Bot' : m.staff_name || 'Team'} · {when(m.created_at)}
+                  {m.channel === 'whatsapp' ? ' · WhatsApp' : ''}
                 </p>
                 <div
                   className={`whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm ${
@@ -262,6 +281,59 @@ function ConversationPane({ id }: { id: string }) {
           {reply.isPending ? 'Sending…' : 'Send'}
         </button>
       </form>
+    </div>
+  );
+}
+
+function ChannelTag({ channel }: { channel?: 'app' | 'whatsapp' }) {
+  if (channel !== 'whatsapp') return null;
+  return <span className="shrink-0 rounded bg-emerald-50 px-1.5 py-px text-[10px] font-medium text-emerald-700">WhatsApp</span>;
+}
+
+const MODES: Array<{ value: 'off' | 'draft' | 'auto'; label: string; hint: string }> = [
+  { value: 'off', label: 'Off', hint: 'Squad Bot ignores WhatsApp; recruiters reply as usual.' },
+  { value: 'draft', label: 'Draft', hint: 'Squad Bot suggests a reply in the CRM chat; a recruiter sends, edits or dismisses it.' },
+  { value: 'auto', label: 'Auto', hint: 'Squad Bot replies on WhatsApp by itself (handoffs still go to the team).' },
+];
+
+/** WhatsApp mode for Squad Bot (Designers & Editors and Accountants boards in the CRM). */
+function WhatsAppModeSwitch() {
+  const qc = useQueryClient();
+  const { data } = useQuery<{ mode: 'off' | 'draft' | 'auto'; pipelines: string[] }>({
+    queryKey: ['admin', 'squad-bot', 'settings'],
+    queryFn: async () => (await api.get('/admin/squad-bot/settings')).data,
+  });
+  const save = useMutation({
+    mutationFn: async (mode: 'off' | 'draft' | 'auto') => (await api.put('/admin/squad-bot/settings', { mode })).data,
+    onSuccess: (next) => {
+      qc.setQueryData(['admin', 'squad-bot', 'settings'], next);
+      toast.success(`WhatsApp: ${MODES.find((m) => m.value === next.mode)?.label}`);
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Could not change the mode'),
+  });
+  const current = MODES.find((m) => m.value === data?.mode);
+  return (
+    <div className="mb-5 rounded-lg border border-gray-200 bg-white p-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm font-medium text-gray-900">Squad Bot on WhatsApp</span>
+        <div className="flex rounded-lg border border-gray-200 p-0.5">
+          {MODES.map((m) => (
+            <button
+              key={m.value}
+              onClick={() => {
+                if (m.value === 'auto' && !confirm('Squad Bot will send WhatsApp replies without a recruiter checking them first. Switch to Auto?')) return;
+                save.mutate(m.value);
+              }}
+              disabled={save.isPending || !data}
+              className={`rounded-md px-3 py-1 text-xs font-medium ${data?.mode === m.value ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        {data && <span className="text-xs text-gray-500">Boards: {data.pipelines.join(', ')}</span>}
+      </div>
+      {current && <p className="mt-1.5 text-xs text-gray-500">{current.hint}</p>}
     </div>
   );
 }

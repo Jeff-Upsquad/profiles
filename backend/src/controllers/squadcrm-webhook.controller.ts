@@ -227,6 +227,16 @@ async function mirrorPartnerStatus(talentUserId: string | null, leadStatus: stri
     .catch((err) => console.error('[crm-webhook] linked-track mirror failed:', err));
 }
 
+const squadBotMessageSchema = z.object({
+  event: z.literal('squad_bot_message'),
+  lead_id: z.string().uuid(),
+  phone: z.string().min(5),
+  name: z.string().nullable().optional().transform((v) => v ?? null),
+  pipeline_name: z.string().nullable().optional().transform((v) => v ?? null),
+  message_id: z.string().uuid(),
+  text: z.string().trim().min(1).max(4096),
+});
+
 export async function handleLeadStageChanged(
   req: Request,
   res: Response,
@@ -237,6 +247,16 @@ export async function handleLeadStageChanged(
     // stage moves.
     if ((req.body as { event?: unknown } | null)?.event === 'message_failed') {
       await handleMessageFailed(req.body, res);
+      return;
+    }
+    // A talent or lead wrote on WhatsApp: Squad Bot answers in the background
+    // (the CRM waits only a few seconds, the model takes longer).
+    if ((req.body as { event?: unknown } | null)?.event === 'squad_bot_message') {
+      const parsed = squadBotMessageSchema.safeParse(req.body);
+      if (!parsed.success) throw new AppError(400, parsed.error.issues.map((i) => i.message).join('; '));
+      const { handleWhatsAppMessage } = await import('../services/squad-bot.service.js');
+      void handleWhatsAppMessage(parsed.data);
+      res.status(202).json({ success: true, accepted: true });
       return;
     }
     const parsed = leadStageWebhookSchema.safeParse(req.body);

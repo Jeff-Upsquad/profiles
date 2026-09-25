@@ -78,3 +78,27 @@ export async function handBack(req: Request, res: Response, next: NextFunction) 
     next(err);
   }
 }
+
+// --- WhatsApp mode (off / draft / auto) ---------------------------------------
+
+export async function getWhatsAppSettings(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const svc = await import('../services/squad-bot.service.js');
+    res.json(await svc.getWhatsAppSettings());
+  } catch (err) {
+    next(err);
+  }
+}
+
+const modeSchema = z.object({ mode: z.enum(['off', 'draft', 'auto']) });
+
+export async function setWhatsAppMode(req: Request, res: Response, next: NextFunction) {
+  try {
+    const parsed = modeSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError(400, 'Mode must be off, draft or auto');
+    const svc = await import('../services/squad-bot.service.js');
+    res.json(await svc.setWhatsAppMode(parsed.data.mode, actor(req).id));
+  } catch (err) {
+    next(err);
+  }
+}

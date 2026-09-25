@@ -46,3 +46,13 @@ test('history maps to alternating turns, starting with the talent', () => {
     { role: 'assistant', content: '[Reply from the UpSquad team] Between the 5th and 15th.' },
   ]);
 });
+
+test('WhatsApp leads: pipeline picks the knowledge and the landing page', async () => {
+  const { formTypeForPipeline, prospectContext } = await import('./squad-bot-prompt.js');
+  assert.equal(formTypeForPipeline('Designers and Editors'), 'creative');
+  assert.equal(formTypeForPipeline('Accountants'), 'accountant');
+  assert.equal(formTypeForPipeline('Jobs Candidates'), null);
+  const ctx = prospectContext({ name: 'Arun', pipelineName: 'Accountants' });
+  assert.match(ctx, /NOT signed up/);
+  assert.match(ctx, /partner-program\/accountant/);
+});
