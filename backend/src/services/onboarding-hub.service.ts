@@ -1105,6 +1105,17 @@ export async function applyInboundTalentStage(
     })
     .eq('id', talentUserId);
   if (error) throw new AppError(500, error.message);
+
+  // Reached "Webinar registered" outside Training (WhatsApp button / admin
+  // move) — give them an actual registration so the Webinars module lists them.
+  if (normalizeStage(input.stage_name) === WEBINAR_REGISTERED_STAGE) {
+    try {
+      const { ensureRegisteredForUpcomingWebinar } = await import('./webinars.service.js');
+      await ensureRegisteredForUpcomingWebinar(talentUserId);
+    } catch (err) {
+      console.error('[onboarding-hub] webinar auto-registration failed:', err);
+    }
+  }
 }
 
 /**

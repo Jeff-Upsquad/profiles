@@ -220,6 +220,42 @@ export async function registerForWebinar(talentUserId: string, webinarId: string
   return { success: true };
 }
 
+const LANGUAGE_ALIASES: Record<string, string> = { en: 'english', ml: 'malayalam', hi: 'hindi', ta: 'tamil', th: 'thai' };
+const normLanguage = (l: string) => {
+  const s = l.trim().toLowerCase();
+  return LANGUAGE_ALIASES[s] ?? s;
+};
+
+/**
+ * The talent landed on the talent board's "Webinar registered" stage without
+ * registering in Training (tapped Registered on the CRM WhatsApp message, or an
+ * admin moved the card). Sign them up for the next published webinar in their
+ * language — native first, then any language they speak, then English, then
+ * the soonest — so they show on the Webinars module and get the reminders.
+ * No-op when they already hold a registration for an upcoming webinar.
+ */
+export async function ensureRegisteredForUpcomingWebinar(talentUserId: string): Promise<void> {
+  const upcoming = (await listUpcomingForTalent(talentUserId)).filter(
+    (w: any) => new Date(w.starts_at).getTime() > Date.now(),
+  );
+  if (upcoming.length === 0 || upcoming.some((w: any) => w.registered)) return;
+
+  const { data: t } = await supabaseAdmin
+    .from('talent_users')
+    .select('languages_spoken')
+    .eq('id', talentUserId)
+    .maybeSingle();
+  const spoken = (((t as any)?.languages_spoken ?? []) as Array<{ language?: string; proficiency?: string }>)
+    .filter((l) => typeof l?.language === 'string');
+  const native = spoken.filter((l) => l.proficiency === 'native').map((l) => normLanguage(l.language!));
+  const preferences = [...native, ...spoken.map((l) => normLanguage(l.language!)), 'english'];
+
+  const pick =
+    preferences.map((lang) => upcoming.find((w: any) => normLanguage(w.language ?? '') === lang)).find(Boolean) ??
+    upcoming[0];
+  await registerForWebinar(talentUserId, (pick as any).id);
+}
+
 export async function unregisterFromWebinar(talentUserId: string, webinarId: string) {
   await supabaseAdmin
     .from('training_webinar_registrations')
