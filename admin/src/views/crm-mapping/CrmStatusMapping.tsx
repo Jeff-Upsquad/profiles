@@ -477,7 +477,7 @@ function TalentPipelineCard({
           registered → Onboarding completed). Link it so the Onboarding hub can show and move talents through it.
         </p>
         <button
-          onClick={() => onNameChange(formType === 'creative' ? 'Designers and Editors' : formType === 'accountant' ? 'Accountants' : '')}
+          onClick={() => onNameChange(formType === 'creative' ? 'Designers and Editors' : formType === 'accountant' ? 'Accountants' : formType === 'sales' ? 'Sales content' : '')}
           className="mt-3 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
         >
           + Link the talent board

@@ -320,7 +320,7 @@ export async function onCandidateSignedUp(
 // ---------------------------------------------------------------------------
 
 // Ordered pipeline stages per form_type — a mirror of
-// admin/src/constants/leadStages.ts (CREATIVE_STAGES / ACCOUNTANT_STAGES /
+// admin/src/constants/leadStages.ts (CREATIVE_STAGES / JOBS_STAGES /
 // DEFAULT_STAGES). Keep in sync. Used to (a) skip a step whose target stage
 // isn't in a pipeline and (b) rank stages so we only ever advance forward.
 const CREATIVE_STAGE_ORDER = [
@@ -328,15 +328,14 @@ const CREATIVE_STAGE_ORDER = [
   'onboarding_training', 'basic_profile', 'job_profile', 'portfolio_updation',
   'final_review', 'live', 'no_response', 'rejected',
 ];
-const ACCOUNTANT_STAGE_ORDER = CREATIVE_STAGE_ORDER.filter((s) => s !== 'portfolio_updation');
+const JOBS_FUNNEL_STAGE_ORDER = CREATIVE_STAGE_ORDER.filter((s) => s !== 'portfolio_updation' && s !== 'shortlisted');
 const DEFAULT_STAGE_ORDER = [
   'new', 'under_review', 'shortlisted', 'partner_onboarding', 'onboard_completed', 'archived',
 ];
 
 export function orderedStagesForFormType(formType: string | null | undefined): string[] {
-  if (formType === 'jobs') return ACCOUNTANT_STAGE_ORDER.filter((s) => s !== 'shortlisted');
-  if (formType === 'creative' || formType === 'sales') return CREATIVE_STAGE_ORDER;
-  if (formType === 'accountant') return ACCOUNTANT_STAGE_ORDER;
+  if (formType === 'jobs') return JOBS_FUNNEL_STAGE_ORDER;
+  if (formType === 'creative' || formType === 'accountant' || formType === 'sales') return CREATIVE_STAGE_ORDER;
   return DEFAULT_STAGE_ORDER;
 }
 

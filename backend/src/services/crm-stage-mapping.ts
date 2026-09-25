@@ -48,7 +48,7 @@ export const CREATIVE_STATUSES: readonly string[] = [
   'final_review', 'live', 'no_response', 'rejected',
 ];
 
-export const ACCOUNTANT_STATUSES: readonly string[] = CREATIVE_STATUSES.filter(
+export const JOBS_STATUSES: readonly string[] = CREATIVE_STATUSES.filter(
   (s) => s !== 'portfolio_updation',
 );
 
@@ -60,9 +60,10 @@ export const ACCOUNTANT_STATUSES: readonly string[] = CREATIVE_STATUSES.filter(
 export function validStatusesForFormType(
   formType: string | null | undefined,
 ): ReadonlySet<string> | null {
-  if (formType === 'creative' || formType === 'sales') return new Set(CREATIVE_STATUSES);
-  if (formType === 'accountant') return new Set(ACCOUNTANT_STATUSES);
-  if (formType === 'jobs') return new Set(ACCOUNTANT_STATUSES);
+  if (formType === 'creative' || formType === 'accountant' || formType === 'sales') {
+    return new Set(CREATIVE_STATUSES);
+  }
+  if (formType === 'jobs') return new Set(JOBS_STATUSES);
   return null;
 }
 
