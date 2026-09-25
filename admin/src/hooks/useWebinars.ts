@@ -9,7 +9,7 @@ export interface Webinar {
   language: string;
   meeting_link: string;
   audience: 'all' | 'thailand';
-  status: 'draft' | 'published' | 'cancelled';
+  status: 'draft' | 'published' | 'cancelled' | 'completed';
   created_at: string;
   registrations?: number;
 }
@@ -20,7 +20,7 @@ export interface WebinarForm {
   language: string;
   meeting_link: string;
   audience: 'all' | 'thailand';
-  status: 'draft' | 'published' | 'cancelled';
+  status: 'draft' | 'published' | 'cancelled' | 'completed';
 }
 
 const webinarsKey = ['admin', 'training', 'webinars'];
@@ -62,6 +62,21 @@ export function useUpdateWebinar() {
       toast.success('Webinar saved');
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to save webinar'),
+  });
+}
+
+export function useSetWebinarCompleted() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
+      const { data } = await api.put(`/admin/training/webinars/${id}`, { status: completed ? 'completed' : 'published' });
+      return data as Webinar;
+    },
+    onSuccess: (w) => {
+      qc.invalidateQueries({ queryKey: webinarsKey });
+      toast.success(w.status === 'completed' ? 'Marked as completed' : 'Moved back to upcoming');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to update webinar'),
   });
 }
 

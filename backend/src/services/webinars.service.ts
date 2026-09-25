@@ -150,9 +150,11 @@ export async function rescheduleWebinar(id: string, input: RescheduleWebinarInpu
     throw new AppError(400, 'Pick a different date or time');
   }
 
+  // Rescheduling a completed webinar runs it again — back to published.
+  const status = webinar.status === 'completed' ? 'published' : webinar.status;
   const { data: updated, error } = await supabaseAdmin
     .from('training_webinars')
-    .update({ starts_at: startsAt.toISOString(), meeting_link: newLink, updated_at: new Date().toISOString() })
+    .update({ starts_at: startsAt.toISOString(), meeting_link: newLink, status, updated_at: new Date().toISOString() })
     .eq('id', id)
     .select('id, title, starts_at, language, meeting_link, audience, status, created_at')
     .single();
@@ -161,7 +163,7 @@ export async function rescheduleWebinar(id: string, input: RescheduleWebinarInpu
 
   let notified = 0;
   // Drafts and cancelled webinars were never announced — move them quietly.
-  if (input.notify && webinar.status === 'published') {
+  if (input.notify && status === 'published') {
     const { data: regs } = await supabaseAdmin
       .from('training_webinar_registrations')
       .select('talent_user_id')

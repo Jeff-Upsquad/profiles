@@ -13,6 +13,7 @@ import {
   useUpdateWebinar,
   useDeleteWebinar,
   useRescheduleWebinar,
+  useSetWebinarCompleted,
   type Webinar,
   type WebinarForm,
 } from '@/hooks/useWebinars';
@@ -163,7 +164,8 @@ function RescheduleView({ webinar, onClose }: { webinar: Webinar; onClose: () =>
   const [meetingLink, setMeetingLink] = useState(webinar.meeting_link);
   const [notify, setNotify] = useState(true);
   const registered = webinar.registrations ?? 0;
-  const canNotify = webinar.status === 'published' && registered > 0;
+  // A completed webinar goes back to published when it's rescheduled.
+  const canNotify = (webinar.status === 'published' || webinar.status === 'completed') && registered > 0;
   const newTime = startsAt ? new Date(startsAt) : null;
   const unchanged =
     !!newTime &&
@@ -185,7 +187,11 @@ function RescheduleView({ webinar, onClose }: { webinar: Webinar; onClose: () =>
   return (
     <div className="space-y-4">
       <div className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">
-        Currently <span className="font-medium text-gray-900">{formatWhen(webinar.starts_at)}</span>
+        {new Date(webinar.starts_at).getTime() < Date.now() ? 'Was' : 'Currently'}{' '}
+        <span className="font-medium text-gray-900">{formatWhen(webinar.starts_at)}</span>
+        {webinar.status === 'completed' && (
+          <span className="block text-xs text-gray-500">It moves back to Upcoming and is published again.</span>
+        )}
       </div>
       <div>
         <label className="mb-1 block text-sm font-medium text-gray-700">New date and time</label>
@@ -279,7 +285,7 @@ function WebinarFormView({ webinar, onClose }: { webinar?: Webinar | null; onClo
     form.language !== '' &&
     form.meeting_link.trim() !== '' &&
     (form.audience === 'all' || form.audience === 'thailand') &&
-    (form.status === 'draft' || form.status === 'published' || form.status === 'cancelled');
+    (form.status === 'draft' || form.status === 'published' || form.status === 'cancelled' || form.status === 'completed');
 
   const submit = async () => {
     if (!valid) return;
@@ -363,6 +369,7 @@ function WebinarFormView({ webinar, onClose }: { webinar?: Webinar | null; onClo
             <option value="published">Published</option>
             <option value="draft">Draft</option>
             <option value="cancelled">Cancelled</option>
+            <option value="completed">Completed</option>
           </select>
         </div>
       </div>
@@ -385,6 +392,8 @@ function WebinarFormView({ webinar, onClose }: { webinar?: Webinar | null; onClo
 export default function WebinarsManager({ hideHeading = false }: { hideHeading?: boolean } = {}) {
   const { data: webinars, isLoading } = useWebinars();
   const del = useDeleteWebinar();
+  const setCompleted = useSetWebinarCompleted();
+  const [tab, setTab] = useState<'upcoming' | 'completed'>('upcoming');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Webinar | null>(null);
   const [viewing, setViewing] = useState<Webinar | null>(null);
@@ -398,6 +407,12 @@ export default function WebinarsManager({ hideHeading = false }: { hideHeading?:
     setEditing(w);
     setModalOpen(true);
   };
+
+  const completedCount = (webinars ?? []).filter((w) => w.status === 'completed').length;
+  const shown = (webinars ?? [])
+    .filter((w) => (tab === 'completed') === (w.status === 'completed'))
+    // Completed: most recent first.
+    .sort((a, b) => (tab === 'completed' ? -1 : 1) * (new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()));
 
   return (
     <div>
@@ -417,6 +432,26 @@ export default function WebinarsManager({ hideHeading = false }: { hideHeading?:
         <Button onClick={openCreate}>New webinar</Button>
       </div>
 
+      <div className="mb-3 flex gap-1 border-b border-gray-200">
+        {(
+          [
+            ['upcoming', 'Upcoming', (webinars?.length ?? 0) - completedCount],
+            ['completed', 'Completed', completedCount],
+          ] as const
+        ).map(([key, label, count]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
+              tab === key ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {label} <span className="ml-1 text-xs text-gray-400">{count}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
         {isLoading ? (
           <div className="space-y-3 p-8">
@@ -424,10 +459,19 @@ export default function WebinarsManager({ hideHeading = false }: { hideHeading?:
               <div key={i} className="h-12 animate-pulse rounded bg-gray-100" />
             ))}
           </div>
-        ) : !webinars?.length ? (
+        ) : !shown.length ? (
           <div className="p-12 text-center text-gray-500">
-            <p className="text-lg font-medium">No webinars yet</p>
-            <p className="mt-1 text-sm">Create the first one — it shows up under Training → Upcoming webinars.</p>
+            {tab === 'completed' ? (
+              <>
+                <p className="text-lg font-medium">No completed webinars</p>
+                <p className="mt-1 text-sm">Use “Mark completed” on a webinar once it has run.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-lg font-medium">No upcoming webinars</p>
+                <p className="mt-1 text-sm">Create one — it shows up under Training → Upcoming webinars.</p>
+              </>
+            )}
           </div>
         ) : (
           <table className="w-full text-sm">
@@ -443,7 +487,7 @@ export default function WebinarsManager({ hideHeading = false }: { hideHeading?:
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {webinars.map((w) => (
+              {shown.map((w) => (
                 <tr key={w.id} className="transition-colors hover:bg-gray-50">
                   <td className="px-6 py-4 font-medium text-gray-900">{w.title}</td>
                   <td className="px-6 py-4 text-gray-500">
@@ -476,13 +520,30 @@ export default function WebinarsManager({ hideHeading = false }: { hideHeading?:
                     </button>
                   </td>
                   <td className="px-6 py-4">
-                    <Badge variant={w.status === 'published' ? 'green' : w.status === 'draft' ? 'gray' : 'red'}>
+                    <Badge
+                      variant={
+                        w.status === 'published' ? 'green' : w.status === 'completed' ? 'blue' : w.status === 'draft' ? 'gray' : 'red'
+                      }
+                    >
                       {w.status}
                     </Badge>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
-                      {new Date(w.starts_at).getTime() > Date.now() && w.status !== 'cancelled' && (
+                      {w.status !== 'completed' && w.status !== 'cancelled' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={setCompleted.isPending}
+                          onClick={() => {
+                            if (confirm(`Mark "${w.title}" as completed? It moves to the Completed tab and stops reminders.`))
+                              setCompleted.mutate({ id: w.id, completed: true });
+                          }}
+                        >
+                          Mark completed
+                        </Button>
+                      )}
+                      {w.status !== 'cancelled' && (
                         <Button variant="ghost" size="sm" onClick={() => setRescheduling(w)}>
                           Reschedule
                         </Button>
