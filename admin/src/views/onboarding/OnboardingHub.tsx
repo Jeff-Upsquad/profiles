@@ -362,15 +362,28 @@ export default function OnboardingHub({
   // "All"), or just the selected category's pipeline.
   // Graduated stage ("Onboarding completed") is hidden — those talents live in
   // Partner Program / Jobs now, not in the onboarding queue.
+  // Jobs has a board per category (jobs_<category>) plus the shared `jobs`
+  // board; same-named stages across boards collapse into one chip whose id is
+  // the comma-joined stage ids.
   const talentStages = useMemo(() => {
     const all = pipelines?.pipelines ?? {};
-    const picked = track === 'jobs' ? all.jobs ? [all.jobs] : []
-      : category === 'all' ? Object.entries(all).filter(([key]) => key !== 'jobs').map(([, cfg]) => cfg)
-        : all[category] ? [all[category]] : [];
-    const seen = new Map<string, { id: string; name: string; sort_order: number }>();
-    for (const p of picked) for (const s of p.stages) if (!seen.has(s.id)) seen.set(s.id, s);
-    return [...seen.values()]
-      .filter((s) => s.name.trim().toLowerCase() !== 'onboarding completed')
+    const isJobsKey = (key: string) => key === 'jobs' || key.startsWith('jobs_');
+    const inTrack = Object.entries(all).filter(([key]) => (track === 'jobs') === isJobsKey(key));
+    const picked = category === 'all'
+      ? inTrack.map(([, cfg]) => cfg)
+      : inTrack.filter(([key]) => key === (track === 'jobs' ? `jobs_${category}` : category)).map(([, cfg]) => cfg);
+    const byName = new Map<string, { ids: string[]; name: string; sort_order: number }>();
+    for (const p of picked) {
+      for (const s of p.stages) {
+        const key = s.name.trim().toLowerCase();
+        const hit = byName.get(key);
+        if (hit) hit.ids.push(s.id);
+        else byName.set(key, { ids: [s.id], name: s.name, sort_order: s.sort_order });
+      }
+    }
+    return [...byName.entries()]
+      .filter(([key]) => key !== 'onboarding completed')
+      .map(([, s]) => ({ id: s.ids.join(','), name: s.name, sort_order: s.sort_order }))
       .sort((a, b) => a.sort_order - b.sort_order);
   }, [pipelines, category, track]);
   const talentPipelineLinked = talentStages.length > 0;
@@ -381,13 +394,15 @@ export default function OnboardingHub({
     () => [...talentStages.map((s) => ({ id: s.id, name: s.name })), { id: 'none', name: 'Not on board' }],
     [talentStages],
   );
-  const liveCount = (id: string) => stats?.live_by_talent_stage?.[id] ?? 0;
-  const liveRcCount = (id: string) => stats?.rc_live_by_talent_stage?.[id] ?? 0;
+  const sumIds = (m: Record<string, number> | undefined, id: string) =>
+    id.split(',').reduce((n, part) => n + (m?.[part] ?? 0), 0);
+  const liveCount = (id: string) => sumIds(stats?.live_by_talent_stage, id);
+  const liveRcCount = (id: string) => sumIds(stats?.rc_live_by_talent_stage, id);
   const showLiveTabs = !sectionOnly && stage === 'live' && talentPipelineLinked;
   useEffect(() => {
     if (!showLiveTabs || !stats) return;
     if (liveTabs.some((t) => t.id === talentStage)) return;
-    const first = liveTabs.find((t) => (stats.live_by_talent_stage?.[t.id] ?? 0) > 0) ?? liveTabs[0];
+    const first = liveTabs.find((t) => sumIds(stats.live_by_talent_stage, t.id) > 0) ?? liveTabs[0];
     updateQuery({ talent_stage: first.id, page: null });
   }, [showLiveTabs, stats, liveTabs, talentStage, updateQuery]);
 

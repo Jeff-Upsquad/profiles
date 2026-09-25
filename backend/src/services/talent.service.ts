@@ -214,9 +214,22 @@ export async function updateBasicProfile(userId: string, input: UpdateBasicProfi
     await requestPartnerProgramReview(userId);
   }
   if (input.employment_type?.includes('salary')) {
-    await supabaseAdmin.from('talent_users')
-      .update({ wants_jobs: true, jobs_pipeline_stage: 'application_approved' }).eq('id', userId)
-      .eq('wants_jobs', false);
+    // Jobs added later: its own pipeline from the start. Finished steps are
+    // caught up one stage at a time (linked-tracks.service).
+    const { data: joined } = await supabaseAdmin.from('talent_users')
+      .update({ wants_jobs: true, jobs_pipeline_stage: 'application_approved', tracks_linked: false })
+      .eq('id', userId).eq('wants_jobs', false)
+      .select('id, full_name, phone').maybeSingle();
+    if (joined) {
+      try {
+        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
+        const { notifyCrmPipelineStageChanged } = await import('./automation.service.js');
+        await notifyCrmPipelineStageChanged({
+          talentUserId: userId, name: joined.full_name ?? '', email: authUser?.user?.email ?? null,
+          phone: joined.phone ?? null, newStage: 'application_approved', formType: 'jobs',
+        });
+      } catch (e) { console.error('[jobs opt-in] CRM card failed:', e); }
+    }
   }
 
   // Sync profile picture to talent_users so job profiles display it

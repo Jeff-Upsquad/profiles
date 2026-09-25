@@ -206,6 +206,27 @@ async function handleMessageFailed(body: unknown, res: Response): Promise<void> 
   res.json({ ok: true, talentUserId, flagged: true });
 }
 
+/** A candidates board that belongs to the Jobs program (any jobs / jobs_<category> mapping). */
+async function isJobsCandidatesBoard(pipelineName: string | null): Promise<boolean> {
+  const name = normalizeStage(pipelineName ?? '');
+  if (!name) return false;
+  if (name === 'jobs candidates') return true;
+  const { getAdminSetting } = await import('../services/admin.service.js');
+  const { isJobsKey } = await import('../services/linked-tracks.service.js');
+  const mapping = await getAdminSetting<{ pipelines?: Record<string, { pipeline_name?: string }> }>('crm_status_mapping');
+  return Object.entries(mapping?.pipelines ?? {}).some(([key, cfg]) =>
+    isJobsKey(key) && normalizeStage(cfg?.pipeline_name ?? '') === name);
+}
+
+/** An operator moved the Partner Program card — a linked Jobs pipeline follows silently. */
+async function mirrorPartnerStatus(talentUserId: string | null, leadStatus: string) {
+  if (!talentUserId) return;
+  const { leadStatusToPipelineStage } = await import('../lib/pipelineStageMapping.js');
+  const { mirrorCandidateStage } = await import('../services/linked-tracks.service.js');
+  await mirrorCandidateStage(talentUserId, 'partner', leadStatusToPipelineStage(leadStatus))
+    .catch((err) => console.error('[crm-webhook] linked-track mirror failed:', err));
+}
+
 export async function handleLeadStageChanged(
   req: Request,
   res: Response,
@@ -227,7 +248,7 @@ export async function handleLeadStageChanged(
 
     const lead = await findLead(external_lead_id ?? null, phone ?? null);
 
-    if (pipeline_kind === 'candidates' && normalizeStage(pipeline_name ?? '') === 'jobs candidates') {
+    if (pipeline_kind === 'candidates' && (await isJobsCandidatesBoard(pipeline_name ?? null))) {
       const talentUserId = (await linkedTalentForLead(lead?.id ?? null)) ??
         (await findTalentUserIdByPhone(phone ?? null));
       if (!talentUserId) { res.json({ ok: true, skipped: 'talent_not_found' }); return; }
@@ -252,6 +273,9 @@ export async function handleLeadStageChanged(
         const { clearTalentStage } = await import('../services/onboarding-hub.service.js');
         await clearTalentStage(talentUserId, 'jobs').catch(() => {});
       }
+      // Applied together → the Partner Program pipeline follows (and messages).
+      const { mirrorCandidateStage } = await import('../services/linked-tracks.service.js');
+      await mirrorCandidateStage(talentUserId, 'jobs', stage);
       res.json({ ok: true, talentUserId, pipeline_stage: stage });
       return;
     }
@@ -354,6 +378,10 @@ export async function handleLeadStageChanged(
 
       const input: UpdateLeadStatusInput = { status: internalStatus };
       await leadService.updateLeadStatus(lead.id, input, null, { source: 'crm_webhook' });
+      await mirrorPartnerStatus(
+        (await linkedTalentForLead(lead.id)) ?? (await findTalentUserIdByPhone(phone ?? null)),
+        internalStatus,
+      );
       res.json({ ok: true, leadId: lead.id, status: internalStatus });
       return;
     }
@@ -367,6 +395,7 @@ export async function handleLeadStageChanged(
     }
 
     const pipelineStage = await applyLeadStatusToTalentUser(talentUserId, internalStatus);
+    if (pipelineStage) await mirrorPartnerStatus(talentUserId, internalStatus);
     if (!pipelineStage) {
       res.json({
         ok: true,

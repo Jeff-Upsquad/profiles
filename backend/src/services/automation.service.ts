@@ -355,6 +355,10 @@ const STEP_STAGES: Array<[string, string]> = [
  * lead parked in a side/terminal stage or manually moved out of the sequence.
  * Routes through updateLeadStatus so the CRM webhook fires. Idempotent — safe to
  * call after every onboarding-related write.
+ *
+ * Jobs + Partner Program (see linked-tracks.service): applied together, both
+ * pipelines jump together and only the Partner Program card messages; a track
+ * added later catches up one stage per CATCH_UP_GAP_MS instead of jumping.
  */
 export async function syncOnboardingStage(talentUserId: string) {
   const cfg = await getConfig();
@@ -362,11 +366,20 @@ export async function syncOnboardingStage(talentUserId: string) {
 
   const { computeOnboardingProgress } = await import('./talent.service.js');
   const progress = await computeOnboardingProgress(talentUserId);
+  const { isLinked, isCatchUp, catchUpPaced, nextStageToward, mirrorCandidateStage, JOBS_STAGE_ORDER } =
+    await import('./linked-tracks.service.js');
   const { data: intent } = await supabaseAdmin
     .from('talent_users')
-    .select('wants_jobs, partner_approval_status, pipeline_stage, jobs_pipeline_stage')
+    .select('tracks_linked, wants_jobs, partner_approval_status, pipeline_stage, jobs_pipeline_stage, ' +
+      'partner_stage_changed_at, jobs_stage_changed_at')
     .eq('id', talentUserId)
-    .maybeSingle();
+    .maybeSingle<{
+      tracks_linked: boolean | null; wants_jobs: boolean | null; partner_approval_status: string | null;
+      pipeline_stage: string | null; jobs_pipeline_stage: string | null;
+      partner_stage_changed_at: string | null; jobs_stage_changed_at: string | null;
+    }>();
+  const linked = isLinked(intent);
+  const catchUp = isCatchUp(intent);
   // Training can be completed while Partner Program approval is pending. It
   // stays ticked on the journey, but must not move the partner pipeline.
   if (intent?.partner_approval_status === 'pending' && !intent.wants_jobs) return;
@@ -403,10 +416,13 @@ export async function syncOnboardingStage(talentUserId: string) {
 
   const { updateLeadStatus } = await import('./lead.service.js');
   let advancedAny = false;
+  // A catching-up partner track waits out the gap since its last move.
+  const partnerPaced = catchUp && catchUpPaced(intent?.partner_stage_changed_at);
 
   for (const lead of (leads ?? []) as Array<{ id: string; status: string; form_type: string | null; form_data: any }>) {
     if (intent?.partner_approval_status === null) continue;
-    if (intent?.partner_approval_status === 'pending' &&
+    // Linked tracks move together even while Partner approval is pending.
+    if (!linked && intent?.partner_approval_status === 'pending' &&
         Array.isArray(lead.form_data?.work_type_seeking) &&
         lead.form_data.work_type_seeking.includes('UpSquad Partner Program')) continue;
     const stages = orderedStagesForFormType(lead.form_type);
@@ -416,16 +432,18 @@ export async function syncOnboardingStage(talentUserId: string) {
     // curRank === -1 → parked in a side/terminal stage; respect manual placement
     // and only ever advance forward.
     if (curRank === -1 || targetRank <= curRank) continue;
+    if (partnerPaced) continue;
+    const moveTo = catchUp ? stages[curRank + 1] : target;
 
     try {
-      await updateLeadStatus(lead.id, { status: target } as any, null);
+      await updateLeadStatus(lead.id, { status: moveTo } as any, null);
       advancedAny = true;
       await logEvent({
         event_type: 'lead_stage_auto_advanced',
         lead_id: lead.id,
         talent_user_id: talentUserId,
         triggered_by: 'system',
-        metadata: { from: lead.status, to: target },
+        metadata: { from: lead.status, to: moveTo, ...(catchUp ? { catch_up: true } : {}) },
       });
     } catch (err) {
       console.error('[automation] syncOnboardingStage advance failed:', err);
@@ -443,8 +461,14 @@ export async function syncOnboardingStage(talentUserId: string) {
       .eq('id', talentUserId)
       .maybeSingle();
     const { leadStatusToPipelineStage } = await import('../lib/pipelineStageMapping.js');
-    const pipelineStage = leadStatusToPipelineStage(intent?.wants_jobs ? jobsTarget : target);
+    let pipelineStage = leadStatusToPipelineStage(intent?.wants_jobs ? jobsTarget : target);
     if (!pipelineStage) return;
+    if (intent?.wants_jobs && catchUp) {
+      // Second track: one stage at a time, never a jump.
+      if (catchUpPaced(intent.jobs_stage_changed_at)) return;
+      pipelineStage = nextStageToward(JOBS_STAGE_ORDER, talent?.jobs_pipeline_stage ?? null, pipelineStage);
+      if (!pipelineStage) return;
+    }
     if (intent?.wants_jobs) {
       const { error } = await supabaseAdmin.from('talent_users')
         .update({ jobs_pipeline_stage: pipelineStage }).eq('id', talentUserId);
@@ -453,17 +477,22 @@ export async function syncOnboardingStage(talentUserId: string) {
       const { applyLeadStatusToTalentUser } = await import('../lib/talent-pipeline-sync.js');
       await applyLeadStatusToTalentUser(talentUserId, target);
     }
-    if (pipelineStage === (intent?.wants_jobs ? talent?.jobs_pipeline_stage : talent?.pipeline_stage)) return;
-
-    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(talentUserId);
-    await notifyCrmPipelineStageChanged({
-      talentUserId,
-      name: talent?.full_name ?? '',
-      email: authUser?.user?.email ?? null,
-      phone: talent?.phone ?? null,
-      newStage: pipelineStage,
-      ...(intent?.wants_jobs ? { formType: 'jobs' } : {}),
-    });
+    if (pipelineStage !== (intent?.wants_jobs ? talent?.jobs_pipeline_stage : talent?.pipeline_stage)) {
+      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(talentUserId);
+      await notifyCrmPipelineStageChanged({
+        talentUserId,
+        name: talent?.full_name ?? '',
+        email: authUser?.user?.email ?? null,
+        phone: talent?.phone ?? null,
+        newStage: pipelineStage,
+        ...(intent?.wants_jobs ? { formType: 'jobs', silent: linked } : {}),
+      });
+    }
+    // Linked: the Partner Program pipeline lands on the same stage (and its
+    // card sends the message) even when no candidate lead carried the move.
+    if (intent?.wants_jobs && linked) {
+      await mirrorCandidateStage(talentUserId, 'jobs', pipelineStage, { forwardOnly: true });
+    }
   } catch (err) {
     console.error('[automation] syncOnboardingStage talent/CRM sync failed:', err);
   }
@@ -491,7 +520,7 @@ export async function onLeadStatusChanged(
   leadId: string,
   newStatus: string,
   adminUserId: string | null,
-  options: { source?: 'admin' | 'crm_webhook' } = {},
+  options: { source?: 'admin' | 'crm_webhook'; silent?: boolean } = {},
 ) {
   // Loop guard: when the change originated from the SquadCRM webhook, do NOT
   // bounce it back to the CRM. The CRM is already on this stage by definition.
@@ -533,6 +562,8 @@ export async function onLeadStatusChanged(
     pipeline_name: pipelineConfig.pipeline_name,
     pipeline_stage: crmStage,
     status: newStatus,
+    // Mirror move for a linked Jobs + Partner talent — the CRM skips automations.
+    ...(options.silent ? { silent: true } : {}),
     timestamp: new Date().toISOString(),
   };
 
@@ -639,6 +670,8 @@ export async function notifyCrmPipelineStageChanged(input: {
   formType?: string | null;
   /** Rejection reason — recorded on the CRM card's Rejected / Disqualified entry. */
   reason?: string | null;
+  /** Move the card without running the board's automations (linked-track mirror). */
+  silent?: boolean;
 }): Promise<void> {
   const phone = input.phone?.trim() || '';
   const email = input.email?.trim().toLowerCase() || '';
@@ -677,9 +710,17 @@ export async function notifyCrmPipelineStageChanged(input: {
 
   let pipeline_stage = stageDisplayNames[input.newStage] || input.newStage;
   let pipeline_name: string | undefined;
+  // Jobs has its own board per category (jobs_<category>, else the shared
+  // jobs board) and moves the talent's own card there — never the Partner
+  // Program card the person may also have.
+  const jobs = input.formType === 'jobs';
   if (mapping?.pipelines) {
     const { resolveStageName } = await import('./crm-stage-mapping.js');
     let formType = input.formType ?? null;
+    if (jobs) {
+      const { jobsPipelineKey } = await import('./linked-tracks.service.js');
+      formType = await jobsPipelineKey(input.talentUserId, mapping.pipelines);
+    }
     if (!formType) {
       try {
         const { formTypesForTalent } = await import('../lib/signup-category.js');
@@ -697,8 +738,11 @@ export async function notifyCrmPipelineStageChanged(input: {
   }
 
   const result = await sendCrmWebhook(webhookUrl, {
-    event: 'pipeline_stage_changed',
-    status: input.newStage,
+    // `track_stage_changed` is board-specific: the CRM moves (or opens) this
+    // person's card on the named board. `pipeline_stage_changed` moves their
+    // primary card in place.
+    event: jobs ? 'track_stage_changed' : 'pipeline_stage_changed',
+    ...(jobs ? {} : { status: input.newStage }),
     lead: {
       name: input.name,
       email,
@@ -707,6 +751,7 @@ export async function notifyCrmPipelineStageChanged(input: {
     ...(pipeline_name ? { pipeline_name } : {}),
     pipeline_stage,
     ...(input.reason?.trim() ? { reason: input.reason.trim().slice(0, 500) } : {}),
+    ...(input.silent ? { silent: true } : {}),
     timestamp: new Date().toISOString(),
   });
   await logEvent({
@@ -716,6 +761,8 @@ export async function notifyCrmPipelineStageChanged(input: {
     metadata: {
       pipeline_stage: input.newStage,
       crm_stage: pipeline_stage,
+      pipeline_name: pipeline_name ?? null,
+      silent: !!input.silent,
       error: result.error,
     },
   });
@@ -737,6 +784,8 @@ export async function notifyCrmTalentStageChanged(input: {
   pipelineName: string;
   stageId: string;
   stageName: string;
+  /** Move the card without running the board's automations (linked-track mirror). */
+  silent?: boolean;
 }): Promise<void> {
   const phone = input.phone?.trim() || '';
   const email = input.email?.trim().toLowerCase() || '';
@@ -762,6 +811,7 @@ export async function notifyCrmTalentStageChanged(input: {
     pipeline_name: input.pipelineName,
     pipeline_stage: input.stageName,
     stage_id: input.stageId,
+    ...(input.silent ? { silent: true } : {}),
     timestamp: new Date().toISOString(),
   });
   await logEvent({

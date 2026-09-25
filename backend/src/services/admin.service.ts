@@ -695,10 +695,16 @@ export async function approveUser(userId: string, adminId: string) {
 export async function approvePartnerUser(userId: string, adminId: string) {
   const { data: current, error: lookupError } = await supabaseAdmin
     .from('talent_users')
-    .select('id, wants_jobs, partner_approval_status, pipeline_stage')
+    .select('id, wants_jobs, partner_approval_status, pipeline_stage, tracks_linked, jobs_pipeline_stage')
     .eq('id', userId)
     .single();
   if (lookupError || !current) throw new AppError(404, 'Talent user not found');
+  // Applied together with Jobs: the Partner Program pipeline already moves with
+  // Jobs, so approval just lifts the flag — it doesn't send them back.
+  const { JOBS_STAGE_ORDER, mirrorCandidateStage } = await import('./linked-tracks.service.js');
+  const linkedAhead = !!current.tracks_linked && !!current.wants_jobs &&
+    current.jobs_pipeline_stage !== 'rejected' &&
+    JOBS_STAGE_ORDER.indexOf(current.jobs_pipeline_stage ?? '') > JOBS_STAGE_ORDER.indexOf('application_approved');
   // Pending → approve; rejected → reinstate (same move, back to Application Approved).
   const fromStatus = current.partner_approval_status;
   if (fromStatus !== 'pending' && fromStatus !== 'rejected') {
@@ -713,7 +719,7 @@ export async function approvePartnerUser(userId: string, adminId: string) {
       partner_approved_at: now,
       partner_rejected_at: null,
       partner_rejection_reason: null,
-      pipeline_stage: 'application_approved',
+      ...(linkedAhead ? {} : { pipeline_stage: 'application_approved' }),
       ...(current.wants_jobs ? {} : {
         approval_status: 'approved', approved_at: now, approved_by: adminId,
         rejected_at: null, rejection_reason: null,
@@ -724,6 +730,16 @@ export async function approvePartnerUser(userId: string, adminId: string) {
     .select()
     .single();
   if (error || !data) throw new AppError(500, error?.message || 'Partner approval failed');
+
+  if (linkedAhead) {
+    await mirrorCandidateStage(userId, 'jobs', current.jobs_pipeline_stage, { forwardOnly: true });
+    try {
+      const { backfillCardsForTalent } = await import('./card-backfill.service.js');
+      await backfillCardsForTalent(userId);
+    } catch (e) { console.error('[partner approval] card backfill failed:', e); }
+    void notifyDecision(userId, 'partner', 'approved');
+    return data;
+  }
 
   const { data: leads } = await supabaseAdmin
     .from('lead_submissions')
@@ -903,10 +919,15 @@ export async function reinstateJobsUser(userId: string, adminId: string) {
   try {
     const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
     const { notifyCrmPipelineStageChanged } = await import('./automation.service.js');
+    const { loadTrackState, jobsSilent, mirrorCandidateStage } = await import('./linked-tracks.service.js');
+    const state = await loadTrackState(userId);
     await notifyCrmPipelineStageChanged({
       talentUserId: userId, name: current.full_name ?? '', email: authUser?.user?.email ?? null,
       phone: current.phone ?? null, newStage: 'application_approved', formType: 'jobs',
+      silent: jobsSilent(state),
     });
+    // Applied together → rejoin the Partner Program pipeline where it is now.
+    await mirrorCandidateStage(userId, 'partner', state?.pipeline_stage, { forwardOnly: true });
   } catch (e) { console.error('[jobs reinstate] CRM sync failed:', e); }
   void notifyDecision(userId, 'jobs', 'approved');
   return data;
@@ -1067,12 +1088,16 @@ export async function updatePipelineStage(userId: string, stage: string, track: 
   const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
   const email = authUser?.user?.email ?? null;
 
+  const { loadTrackState, jobsSilent, mirrorCandidateStage } = await import('./linked-tracks.service.js');
   if (track === 'jobs') {
     const { notifyCrmPipelineStageChanged } = await import('./automation.service.js');
     await notifyCrmPipelineStageChanged({
       talentUserId: userId, name: userData.full_name ?? '', email,
       phone: userData.phone ?? null, newStage: stage, formType: 'jobs',
+      silent: jobsSilent(await loadTrackState(userId)),
     });
+    // Applied together → the Partner Program pipeline moves too (and messages).
+    await mirrorCandidateStage(userId, 'jobs', stage);
     return data;
   }
 
@@ -1118,6 +1143,8 @@ export async function updatePipelineStage(userId: string, stage: string, track: 
     console.error('[pipeline-stage] CRM/lead sync failed:', err);
   }
 
+  // Applied together → the Jobs pipeline follows silently.
+  await mirrorCandidateStage(userId, 'partner', stage);
   return data;
 }
 

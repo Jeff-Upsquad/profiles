@@ -78,6 +78,8 @@ export async function signupTalent(input: SignupTalentInput, application?: Creat
         partner_requested_at: intent!.partner ? new Date().toISOString() : null,
         pipeline_stage: 'applicants',
         jobs_pipeline_stage: intent!.jobs ? 'applicants' : null,
+        // Both picked on one application → one pipeline journey, one message per stage.
+        tracks_linked: intent!.jobs && intent!.partner,
       } : {}),
       ...(signupFormType
         ? { signup_form_type: signupFormType, signup_source: signupSource }
@@ -199,7 +201,7 @@ export async function signupTalent(input: SignupTalentInput, application?: Creat
           try {
             await notifyCrmPipelineStageChanged({
               talentUserId: userId, name: full_name, email, phone: profileData.phone ?? null,
-              newStage, formType: 'jobs',
+              newStage, formType: 'jobs', silent: intent!.partner,
             });
           } catch (e) { console.error(`[signup] jobs CRM ${newStage} failed:`, e); }
         }

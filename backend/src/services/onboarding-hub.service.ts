@@ -20,6 +20,7 @@ import {
   formTypesForTalent,
 } from '../lib/signup-category.js';
 import { normalizeStage, type CrmStage } from './crm-stage-mapping.js';
+import { isJobsKey, jobsPipelineKey } from './linked-tracks.service.js';
 import { programProgressFor, type ProgramProgress } from './program-training-progress.service.js';
 import { openChangeRequests, rcStatusFor } from './request-change-reminders.service.js';
 
@@ -144,15 +145,16 @@ export interface TalentPipelineConfig {
   stages: CrmStage[];
 }
 
-let jobsStageCache: { expires: number; stages: CrmStage[] } | null = null;
+const jobsStageCache = new Map<string, { expires: number; stages: CrmStage[] }>();
 
-async function discoverJobsStages(webhookUrl: string): Promise<CrmStage[]> {
-  if (jobsStageCache && jobsStageCache.expires > Date.now()) return jobsStageCache.stages;
+async function discoverJobsStages(webhookUrl: string, pipelineName: string): Promise<CrmStage[]> {
+  const cached = jobsStageCache.get(pipelineName);
+  if (cached && cached.expires > Date.now()) return cached.stages;
   const secret = process.env.SQUADHIRE_CRM_INBOUND_SECRET;
   if (!webhookUrl || !secret) return [];
   try {
     const url = new URL(webhookUrl);
-    const endpoint = `${url.origin}/integrations/profiles/pipelines/${encodeURIComponent('Jobs Onboarding')}/stages?kind=talent`;
+    const endpoint = `${url.origin}/integrations/profiles/pipelines/${encodeURIComponent(pipelineName)}/stages?kind=talent`;
     const response = await fetch(endpoint, {
       headers: { 'X-SquadHire-Admin-Signature': secret },
       signal: AbortSignal.timeout(3000),
@@ -160,7 +162,7 @@ async function discoverJobsStages(webhookUrl: string): Promise<CrmStage[]> {
     if (!response.ok) return [];
     const body = await response.json() as { data?: { stages?: CrmStage[] } };
     const stages = body.data?.stages ?? [];
-    jobsStageCache = { expires: Date.now() + 60_000, stages };
+    jobsStageCache.set(pipelineName, { expires: Date.now() + 60_000, stages });
     return stages;
   } catch {
     return [];
@@ -180,8 +182,11 @@ export async function getTalentPipelineConfig(): Promise<Record<string, TalentPi
       stages: [...(cfg.stages ?? [])].sort((a, b) => a.sort_order - b.sort_order),
     };
   }
-  if (out.jobs && out.jobs.stages.length === 0) {
-    out.jobs.stages = await discoverJobsStages(mapping?.crm_webhook_url ?? '');
+  // Jobs talent boards are discovered live when no snapshot was saved.
+  for (const [key, cfg] of Object.entries(out)) {
+    if (isJobsKey(key) && cfg.stages.length === 0) {
+      cfg.stages = await discoverJobsStages(mapping?.crm_webhook_url ?? '', cfg.pipeline_name);
+    }
   }
   return out;
 }
@@ -193,12 +198,16 @@ async function talentPipelineFor(
   track: 'partner' | 'jobs' = 'partner',
 ): Promise<{ formType: string | null; config: TalentPipelineConfig | null }> {
   const all = await getTalentPipelineConfig();
-  if (track === 'jobs') return { formType: 'jobs', config: all.jobs ?? null };
+  const inTrack = Object.entries(all).filter(([key]) => (track === 'jobs') === isJobsKey(key));
   if (storedPipelineName) {
-    const hit = Object.entries(all).find(
+    const hit = inTrack.find(
       ([, c]) => normalizeStage(c.pipeline_name) === normalizeStage(storedPipelineName),
     );
     if (hit) return { formType: hit[0], config: hit[1] };
+  }
+  if (track === 'jobs') {
+    const key = await jobsPipelineKey(talentUserId, all);
+    return { formType: key, config: all[key] ?? null };
   }
   const types = await formTypesForTalent(talentUserId);
   const formType = types.find((t) => all[t]) ?? null;
@@ -626,8 +635,9 @@ export async function listHub(filters: HubListFilters) {
     } else if (view === 'active' && stage && stage !== 'all') {
       qb = qb.eq(stageColumn, stage);
     }
+    // A talent-board tab can span several boards' same-named stage (id,id,…).
     if (talentStage === 'none') qb = qb.is(talentStageColumn, null);
-    else if (talentStage && talentStage !== 'all') qb = qb.eq(talentStageColumn, talentStage);
+    else if (talentStage && talentStage !== 'all') qb = qb.in(talentStageColumn, talentStage.split(','));
     if (restrict) qb = qb.in('id', restrict);
     if (searchOr) qb = qb.or(searchOr);
     return qb;
@@ -1087,9 +1097,16 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
 export async function applyInboundTalentStage(
   talentUserId: string,
   input: { pipeline_name: string | null; stage_id: string | null; stage_name: string },
-) {
-  const jobsPipeline = (await getTalentPipelineConfig()).jobs?.pipeline_name;
-  const jobs = !!jobsPipeline && normalizeStage(jobsPipeline) === normalizeStage(input.pipeline_name ?? '');
+  /**
+   * Linked Jobs + Partner talent: mirror onto the other track's board.
+   * 'forward' (default, CRM echoes) never moves the other card back — a Jobs
+   * card's first arrival must not drag the Partner card to Welcome; 'any' is
+   * an admin's explicit move; false skips.
+   */
+  opts: { mirror?: 'forward' | 'any' | false } = {},
+): Promise<'partner' | 'jobs'> {
+  const jobs = Object.entries(await getTalentPipelineConfig()).some(([key, cfg]) =>
+    isJobsKey(key) && normalizeStage(cfg.pipeline_name) === normalizeStage(input.pipeline_name ?? ''));
   const { error } = await supabaseAdmin
     .from('talent_users')
     .update(jobs ? {
@@ -1116,6 +1133,70 @@ export async function applyInboundTalentStage(
       console.error('[onboarding-hub] webinar auto-registration failed:', err);
     }
   }
+
+  const track = jobs ? 'jobs' : 'partner';
+  if (opts.mirror !== false) {
+    await mirrorTalentStage(talentUserId, track, input.stage_name, opts.mirror ?? 'forward').catch((err) =>
+      console.error('[onboarding-hub] talent-board mirror failed:', err));
+  }
+  return track;
+}
+
+/**
+ * A linked Jobs + Partner talent moved on one track's talent board — put the
+ * other track's card on the same-named stage. The Partner Program card
+ * messages; the Jobs card moves silently. Skipped until the other track is
+ * Live itself (its own qualify handoff puts it on the board), and when it is
+ * already there — which is also what stops CRM echoes from looping.
+ */
+async function mirrorTalentStage(
+  talentUserId: string,
+  fromTrack: 'partner' | 'jobs',
+  stageName: string,
+  mode: 'forward' | 'any',
+) {
+  const { loadTrackState, isLinked } = await import('./linked-tracks.service.js');
+  const t = await loadTrackState(talentUserId);
+  if (!t || !isLinked(t)) return;
+  const other = fromTrack === 'jobs' ? 'partner' : 'jobs';
+  if ((other === 'jobs' ? t.jobs_pipeline_stage : t.pipeline_stage) !== 'live') return;
+
+  const { data: cur } = await supabaseAdmin
+    .from('talent_users')
+    .select('crm_talent_pipeline_name, crm_talent_stage_name, crm_jobs_pipeline_name, crm_jobs_stage_name')
+    .eq('id', talentUserId)
+    .maybeSingle();
+  const currentName = other === 'jobs' ? (cur as any)?.crm_jobs_stage_name : (cur as any)?.crm_talent_stage_name;
+  if (normalizeStage(currentName ?? '') === normalizeStage(stageName)) return;
+
+  const { config } = await talentPipelineFor(talentUserId,
+    other === 'jobs' ? (cur as any)?.crm_jobs_pipeline_name ?? null : (cur as any)?.crm_talent_pipeline_name ?? null,
+    other);
+  const stage = config?.stages.find((s) => normalizeStage(s.name) === normalizeStage(stageName));
+  if (!config || !stage) return;
+  if (mode === 'forward') {
+    const current = config.stages.find((s) => normalizeStage(s.name) === normalizeStage(currentName ?? ''));
+    if (current && current.sort_order >= stage.sort_order) return;
+  }
+
+  await applyInboundTalentStage(talentUserId, {
+    pipeline_name: config.pipeline_name,
+    stage_id: stage.id,
+    stage_name: stage.name,
+  }, { mirror: false });
+  const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(talentUserId);
+  const { notifyCrmTalentStageChanged } = await import('./automation.service.js');
+  await notifyCrmTalentStageChanged({
+    talentUserId,
+    adminUserId: null,
+    name: t.full_name ?? '',
+    email: authUser?.user?.email ?? null,
+    phone: t.phone ?? null,
+    pipelineName: config.pipeline_name,
+    stageId: stage.id,
+    stageName: stage.name,
+    silent: other === 'jobs',
+  });
 }
 
 /**
@@ -1174,14 +1255,17 @@ export async function setTalentStage(
     pipeline_name: config.pipeline_name,
     stage_id: stage.id,
     stage_name: stage.name,
-  });
+  }, { mirror: 'any' });
 
   const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(talentUserId);
+  const { loadTrackState, jobsSilent } = await import('./linked-tracks.service.js');
+  const silent = input.track === 'jobs' && jobsSilent(await loadTrackState(talentUserId));
   try {
     const { notifyCrmTalentStageChanged } = await import('./automation.service.js');
     await notifyCrmTalentStageChanged({
       talentUserId,
       adminUserId,
+      silent,
       name: talent.full_name ?? '',
       email: authUser?.user?.email ?? null,
       phone: talent.phone ?? null,
