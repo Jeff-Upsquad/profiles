@@ -26,7 +26,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (email: string, password: string, nextPath?: string) => Promise<void>;
+  login: (email: string, password: string, nextPath?: string, portal?: 'talent') => Promise<void>;
   businessLogin: (
     identifier: {
       email?: string;
@@ -256,8 +256,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, pathname, router]);
 
   const login = useCallback(
-    async (email: string, password: string, nextPath?: string) => {
-      const { data } = await api.post('/auth/login', { email, password });
+    async (email: string, password: string, nextPath?: string, portal?: 'talent') => {
+      // `portal` lets the backend say "no account" vs "wrong password".
+      const { data } = await api.post('/auth/login', { email, password, portal });
       // Persist to localStorage only — do not set React state on this page.
       // The next document reads the token on mount and verifies it there.
       // A deep link (`next`) only applies to talents; it's a /talent/* path.
@@ -349,7 +350,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const agencyLogin = useCallback(
     async (email: string, password: string) => {
-      const { data } = await api.post('/auth/login', { email, password });
+      const { data } = await api.post('/auth/login', { email, password, portal: 'agency' });
       if (data.user?.role && data.user.role !== 'agency') {
         throw new Error('This account is not an agency account');
       }

@@ -42,7 +42,7 @@ export default function LoginTalent() {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password, nextPath ?? undefined);
+      await login(email, password, nextPath ?? undefined, 'talent');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Login failed');
     } finally {

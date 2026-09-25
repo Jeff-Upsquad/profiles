@@ -505,6 +505,20 @@ export async function checkAgencyContact(input: { email?: string; phone?: string
   }
 }
 
+// Talents get told which half was wrong — "no account" sends them to signup,
+// "incorrect password" to Forgot password. Agencies always see the password
+// message (product decision). Admin/staff and unlabelled callers keep the
+// generic message so those logins can't be used to probe for accounts.
+async function loginFailureMessage(input: LoginInput): Promise<string> {
+  if (input.portal === 'agency') return 'Incorrect password. Please try again.';
+  if (input.portal !== 'talent') return 'Invalid email or password';
+
+  const { has_account } = await checkCandidateStatus({ email: input.email });
+  return has_account
+    ? 'Incorrect password. Please try again, or tap "Forgot password?" to reset it.'
+    : 'No account found for this email. Check the spelling or sign up to create one.';
+}
+
 export async function login(input: LoginInput) {
   // Use anon client for user sign-in (service-role client doesn't support user sessions)
   const { data, error } = await supabaseAnon.auth.signInWithPassword({
@@ -513,7 +527,7 @@ export async function login(input: LoginInput) {
   });
 
   if (error || !data.session) {
-    throw new AppError(401, 'Invalid email or password');
+    throw new AppError(401, await loginFailureMessage(input));
   }
 
   const role = (data.user.user_metadata?.role as UserRole) ?? 'talent';

@@ -14,7 +14,7 @@ export default function LoginAgency() {
   const handle = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    try { await agencyLogin(form.email.trim(), form.password); toast.success('Welcome back!'); } catch (err: any) { toast.error(err.message || 'Login failed'); } finally { setSubmitting(false); }
+    try { await agencyLogin(form.email.trim(), form.password); toast.success('Welcome back!'); } catch (err: any) { toast.error(err.response?.data?.message || err.message || 'Login failed'); } finally { setSubmitting(false); }
   };
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#F5F5F6] via-white to-[#F5F5F6] px-4 py-12">

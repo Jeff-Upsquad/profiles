@@ -47,6 +47,9 @@ export const signupBusinessSchema = z.object({
 export const loginSchema = z.object({
   email: z.string().email('Valid email is required'),
   password: z.string().min(1, 'Password is required'),
+  // Which login page sent this. Decides how specific a failed sign-in's message
+  // is (see authService.login); omitted = the generic message.
+  portal: z.enum(['talent', 'agency']).optional(),
 });
 
 export const forgotPasswordSchema = z.object({

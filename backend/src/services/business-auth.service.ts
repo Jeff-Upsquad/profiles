@@ -179,6 +179,14 @@ export async function businessLogin(identifier: {
 
   const businessUser = await findBusinessUser(identifier, { requireActive: true });
   if (!businessUser) {
+    // A deactivated account isn't "no account" — saying so sends them to a
+    // signup that will then refuse the same email/phone.
+    if (await findBusinessUser(identifier)) {
+      throw new AppError(
+        403,
+        'Your business account is inactive. Please contact the UpSquad team to reactivate it.'
+      );
+    }
     throw new AppError(
       401,
       identifier.email
