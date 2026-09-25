@@ -25,6 +25,8 @@ interface OnboardingProgress {
   basic_profile_completed: boolean;
   job_profile_completed: boolean;
   portfolio_completed: boolean;
+  /** False for sales and accountant, whose profiles have no portfolio. */
+  portfolio_required?: boolean;
 }
 
 interface OnboardingLead {
@@ -64,11 +66,14 @@ const FORM_TYPE_TABS: { value: string; label: string }[] = [
 ];
 
 function StageRow({ progress }: { progress: OnboardingProgress }) {
+  const stages = STAGES.filter(
+    (stage) => stage.key !== 'portfolio_completed' || progress.portfolio_required !== false,
+  );
   return (
     <div className="flex items-center gap-1.5">
-      {STAGES.map((stage, i) => {
+      {stages.map((stage, i) => {
         const done = progress[stage.key];
-        const isLast = i === STAGES.length - 1;
+        const isLast = i === stages.length - 1;
         return (
           <div key={stage.key} className="flex items-center gap-1.5" title={`${stage.label}: ${done ? 'Done' : 'Pending'}`}>
             <div className="flex flex-col items-center gap-1">

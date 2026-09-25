@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { evaluateAutoApproval, parseConfig } from './auto-approval.service.js';
 import { isBasicProfileMandatoryComplete, computeOnboardingProgress } from './talent.service.js';
+import { formTypeHasPortfolio } from '../../../shared/src/portfolio.js';
 import type {
   CreateLeadInput,
   UpdateLeadStatusInput,
@@ -360,6 +361,7 @@ export async function getOnboardingLeads(filters: {
       basic_profile_completed: false,
       job_profile_completed: false,
       portfolio_completed: false,
+      portfolio_required: formTypeHasPortfolio(lead.form_type),
     };
     if (talentId) {
       const basic = basicByTalent.get(talentId) ?? null;
@@ -411,6 +413,7 @@ export async function getLeadSubmission(id: string) {
     basic_profile_completed: false,
     job_profile_completed: false,
     portfolio_completed: false,
+    portfolio_required: true,
   };
 
   if (talentId) {
@@ -422,6 +425,7 @@ export async function getLeadSubmission(id: string) {
       basic_profile_completed: p.basic_profile_completed,
       job_profile_completed: p.job_profile_completed,
       portfolio_completed: p.portfolio_completed,
+      portfolio_required: p.portfolio_required,
     };
   }
 

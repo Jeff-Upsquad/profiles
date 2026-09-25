@@ -52,6 +52,12 @@ export const JOBS_STATUSES: readonly string[] = CREATIVE_STATUSES.filter(
   (s) => s !== 'portfolio_updation',
 );
 
+// Accountant and sales funnels: the creative set minus Portfolio Updation —
+// their job profiles have no portfolio (shared/src/portfolio.ts).
+export const NO_PORTFOLIO_STATUSES: readonly string[] = CREATIVE_STATUSES.filter(
+  (s) => s !== 'portfolio_updation',
+);
+
 /**
  * The statuses a given form_type's leads may legitimately hold, when that
  * vocabulary is well-defined. Returns null for pipelines with a mixed /
@@ -60,9 +66,8 @@ export const JOBS_STATUSES: readonly string[] = CREATIVE_STATUSES.filter(
 export function validStatusesForFormType(
   formType: string | null | undefined,
 ): ReadonlySet<string> | null {
-  if (formType === 'creative' || formType === 'accountant' || formType === 'sales') {
-    return new Set(CREATIVE_STATUSES);
-  }
+  if (formType === 'creative') return new Set(CREATIVE_STATUSES);
+  if (formType === 'accountant' || formType === 'sales') return new Set(NO_PORTFOLIO_STATUSES);
   if (formType === 'jobs') return new Set(JOBS_STATUSES);
   return null;
 }

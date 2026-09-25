@@ -329,13 +329,16 @@ const CREATIVE_STAGE_ORDER = [
   'final_review', 'live', 'no_response', 'rejected',
 ];
 const JOBS_FUNNEL_STAGE_ORDER = CREATIVE_STAGE_ORDER.filter((s) => s !== 'portfolio_updation' && s !== 'shortlisted');
+// Accountant and sales profiles have no portfolio (shared/src/portfolio.ts).
+const NO_PORTFOLIO_STAGE_ORDER = CREATIVE_STAGE_ORDER.filter((s) => s !== 'portfolio_updation');
 const DEFAULT_STAGE_ORDER = [
   'new', 'under_review', 'shortlisted', 'partner_onboarding', 'onboard_completed', 'archived',
 ];
 
 export function orderedStagesForFormType(formType: string | null | undefined): string[] {
   if (formType === 'jobs') return JOBS_FUNNEL_STAGE_ORDER;
-  if (formType === 'creative' || formType === 'accountant' || formType === 'sales') return CREATIVE_STAGE_ORDER;
+  if (formType === 'creative') return CREATIVE_STAGE_ORDER;
+  if (formType === 'accountant' || formType === 'sales') return NO_PORTFOLIO_STAGE_ORDER;
   return DEFAULT_STAGE_ORDER;
 }
 
@@ -389,11 +392,14 @@ export async function syncOnboardingStage(talentUserId: string) {
     intent.partner_approval_status === 'rejected' || intent.pipeline_stage === 'rejected';
   if (jobsClosed && partnerClosed) return;
 
-  // Furthest completed step wins (STEP_STAGES is ascending).
-  let target: string | null = null;
+  // Furthest completed step wins (STEP_STAGES is ascending). The portfolio
+  // step doesn't count for a talent whose categories have no portfolio.
+  const reached: string[] = [];
   for (const [key, stage] of STEP_STAGES) {
-    if ((progress as Record<string, unknown>)[key]) target = stage;
+    if (key === 'portfolio_completed' && !progress.portfolio_required) continue;
+    if ((progress as Record<string, unknown>)[key]) reached.push(stage);
   }
+  const target = reached[reached.length - 1] ?? null;
   if (!target) return;
 
   // A submitted job profile is awaiting final review. It becomes live only
@@ -425,14 +431,17 @@ export async function syncOnboardingStage(talentUserId: string) {
         Array.isArray(lead.form_data?.work_type_seeking) &&
         lead.form_data.work_type_seeking.includes('UpSquad Partner Program')) continue;
     const stages = orderedStagesForFormType(lead.form_type);
-    const targetRank = stages.indexOf(target);
-    if (targetRank === -1) continue; // target stage not part of this pipeline
+    // Furthest reached step this pipeline has — an accountant card skips
+    // Portfolio Updation even when a creative profile reached it.
+    const leadTarget = [...reached].reverse().find((st) => stages.includes(st));
+    if (!leadTarget) continue; // no reached step is part of this pipeline
+    const targetRank = stages.indexOf(leadTarget);
     const curRank = stages.indexOf(lead.status);
     // curRank === -1 → parked in a side/terminal stage; respect manual placement
     // and only ever advance forward.
     if (curRank === -1 || targetRank <= curRank) continue;
     if (partnerPaced) continue;
-    const moveTo = catchUp ? stages[curRank + 1] : target;
+    const moveTo = catchUp ? stages[curRank + 1] : leadTarget;
 
     try {
       await updateLeadStatus(lead.id, { status: moveTo } as any, null);

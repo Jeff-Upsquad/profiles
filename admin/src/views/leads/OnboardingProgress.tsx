@@ -6,6 +6,8 @@ interface OnboardingProgressProps {
     basic_profile_completed: boolean;
     job_profile_completed: boolean;
     portfolio_completed: boolean;
+    /** False for sales and accountant, whose profiles have no portfolio. */
+    portfolio_required?: boolean;
   };
 }
 
@@ -18,11 +20,14 @@ const STAGES = [
 ] as const;
 
 export default function OnboardingProgress({ progress }: OnboardingProgressProps) {
+  const stages = STAGES.filter(
+    (stage) => stage.key !== 'portfolio_completed' || progress.portfolio_required !== false,
+  );
   return (
     <ol className="flex items-start">
-      {STAGES.map((stage, i) => {
+      {stages.map((stage, i) => {
         const done = progress[stage.key];
-        const isLast = i === STAGES.length - 1;
+        const isLast = i === stages.length - 1;
         const isBypassed = stage.key === 'onboarding_completed' && progress.onboarding_bypassed === true;
         return (
           <li key={stage.key} className="relative flex flex-1 flex-col items-center px-1 text-center">

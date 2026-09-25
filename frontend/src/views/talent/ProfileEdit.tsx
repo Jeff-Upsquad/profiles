@@ -20,6 +20,7 @@ import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
 import Button from '@/components/ui/Button';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
 import type { CategoryField } from '@/types';
+import { categoryHasPortfolio } from '../../../../shared/src/portfolio';
 
 const BUILTIN_EXPERIENCE_FIELD: CategoryField = {
   id: '_experience',
@@ -171,7 +172,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
       newErrors._languages = 'At least one language must be set as native';
     }
 
-    if (profile?.category?.slug !== 'sales' && (!portfolioItems || portfolioItems.length === 0)) {
+    if (categoryHasPortfolio(profile?.category?.slug) && (!portfolioItems || portfolioItems.length === 0)) {
       newErrors._portfolio = 'At least one portfolio item is required';
     }
     if (belowPortfolioMin) {
@@ -423,8 +424,8 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
           )}
         </section>
 
-        {/* Portfolio — not required for sales profiles */}
-        {profile && profile.category?.slug !== 'sales' && (
+        {/* Portfolio — not part of sales or accountant profiles */}
+        {profile && categoryHasPortfolio(profile.category?.slug) && (
           <section id="portfolio" className="scroll-mt-24 rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-pink flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>

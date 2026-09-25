@@ -7,6 +7,8 @@ export interface OnboardingProgress {
   basic_profile_completed: boolean;
   job_profile_completed: boolean;
   portfolio_completed: boolean;
+  /** False when the talent's categories have no portfolio (sales, accountant). */
+  portfolio_required?: boolean;
 }
 
 export interface OnboardingProgressResponse {

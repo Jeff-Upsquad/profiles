@@ -33,6 +33,7 @@ import {
   type RequestChangesStatus,
   type TalentBoardChecklist,
 } from './hubTypes';
+import { categoryHasPortfolio } from '../../../../shared/src/portfolio';
 
 // ---------------------------------------------------------------------------
 // Types (mirror GET /admin/user-approvals/:id/journey)
@@ -119,6 +120,8 @@ interface Journey {
     basic_checklist: ChecklistItem[];
     job_profile_completed: boolean;
     portfolio_completed: boolean;
+    /** False for sales and accountant talents, whose profiles have no portfolio. */
+    portfolio_required?: boolean;
     portfolio_items: number;
   };
   basic: Record<string, any> | null;
@@ -262,14 +265,14 @@ function ActionButton({
 const PLACEHOLDER = <span className="italic text-gray-400">Not provided</span>;
 const TITLE = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
-// Portfolio items asked for when nudging a draft (sales needs none). Keep in
+// Portfolio items asked for when nudging a draft (sales and accountant need none). Keep in
 // sync with MIN_PORTFOLIO_ITEMS in backend profile-review-changes.service.
 const MIN_PORTFOLIO_ITEMS = 10;
 
 /** What blocks a draft from being submitted, as checklist keys to pre-tick. */
 function draftPrefillKeys(p: JobProfile): string[] {
   const keys = ['job.submit_draft'];
-  if (p.category_slug !== 'sales' && p.portfolio_items < MIN_PORTFOLIO_ITEMS) keys.push('job.portfolio_minimum');
+  if (categoryHasPortfolio(p.category_slug) && p.portfolio_items < MIN_PORTFOLIO_ITEMS) keys.push('job.portfolio_minimum');
   for (const f of p.missing_required_fields ?? []) keys.push(`field.${f}`);
   return keys;
 }
@@ -600,7 +603,9 @@ export default function TalentJourneyPanel({
         { key: 'course', label: 'Onboarding course', done: j.onboarding_completed },
         { key: 'basic', label: 'Basic profile', done: j.basic_profile_completed },
         { key: 'job', label: 'Job profile', done: j.job_profile_completed },
-        { key: 'portfolio', label: 'Portfolio', done: j.portfolio_completed },
+        ...(j.portfolio_required !== false
+          ? [{ key: 'portfolio', label: 'Portfolio', done: j.portfolio_completed }]
+          : []),
       ]
     : [];
   const currentStep = steps.find((s) => !s.done)?.key ?? null;
@@ -1120,7 +1125,8 @@ export default function TalentJourneyPanel({
                     )}
                   </li>
 
-                  {/* Portfolio */}
+                  {/* Portfolio — not a step for sales or accountant talents */}
+                  {j.portfolio_required !== false && (
                   <li className={`flex items-center gap-3 rounded-lg px-2 py-1.5 ${currentStep === 'portfolio' ? 'bg-indigo-50/60 ring-1 ring-indigo-100' : ''}`}>
                     <StepIcon done={j.portfolio_completed} active={currentStep === 'portfolio'} />
                     <div className="flex-1">
@@ -1130,6 +1136,7 @@ export default function TalentJourneyPanel({
                       </p>
                     </div>
                   </li>
+                  )}
                 </ol>
               </Section>
 

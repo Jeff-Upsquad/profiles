@@ -20,6 +20,7 @@ import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
 import ProfileTrainingGate from '@/components/training/ProfileTrainingGate';
 import { useProfileGate } from '@/hooks/useTraining';
 import type { Category, CategoryField } from '@/types';
+import { categoryHasPortfolio } from '../../../../shared/src/portfolio';
 
 const BUILTIN_EXPERIENCE_FIELD: CategoryField = {
   id: '_experience',
@@ -120,7 +121,7 @@ export default function ProfileCreate() {
     if (draftProfileId) return;
     if (autoSaveInFlight.current) return;
     if (!selectedCategory) return;
-    if (selectedCategory.slug === 'sales') return; // sales has no portfolio — skip early draft
+    if (!categoryHasPortfolio(selectedCategory.slug)) return; // no portfolio — skip early draft
 
     autoSaveInFlight.current = true;
     setAutoSaving(true);
@@ -181,7 +182,7 @@ export default function ProfileCreate() {
       newErrors._languages = 'At least one language must be set as native';
     }
 
-    if (selectedCategory?.slug !== 'sales' && (!portfolioItems || portfolioItems.length === 0)) {
+    if (categoryHasPortfolio(selectedCategory?.slug) && (!portfolioItems || portfolioItems.length === 0)) {
       newErrors._portfolio = 'At least one portfolio item is required';
     }
     if (belowPortfolioMin) {
@@ -465,8 +466,8 @@ export default function ProfileCreate() {
             )}
           </section>
 
-          {/* Portfolio — not required for sales profiles */}
-          {selectedCategory.slug !== 'sales' && (
+          {/* Portfolio — not part of sales or accountant profiles */}
+          {categoryHasPortfolio(selectedCategory.slug) && (
           <section className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-pink flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>

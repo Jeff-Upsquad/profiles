@@ -7,6 +7,8 @@ import type {
   ApplyPartnerProgramInput,
 } from '../validators/talent.validators.js';
 import { parseVideoUrl, type VideoProvider } from '../../../shared/src/videoEmbed.js';
+import { portfolioRequiredFor } from '../../../shared/src/portfolio.js';
+import { formTypesForTalent } from '../lib/signup-category.js';
 import {
   isGhostCategory,
   isGhostSourceCategory,
@@ -372,6 +374,8 @@ export async function computeOnboardingProgress(userId: string): Promise<{
   basic_profile_completed: boolean;
   job_profile_completed: boolean;
   portfolio_completed: boolean;
+  /** False when every category the talent applied for has no portfolio. */
+  portfolio_required: boolean;
   timestamps: {
     basic_created_at: string | null;
     earliest_submitted_profile_at: string | null;
@@ -385,6 +389,7 @@ export async function computeOnboardingProgress(userId: string): Promise<{
     basic_profile_completed: false,
     job_profile_completed: false,
     portfolio_completed: false,
+    portfolio_required: true,
     timestamps: {
       basic_created_at: null,
       earliest_submitted_profile_at: null,
@@ -399,7 +404,7 @@ export async function computeOnboardingProgress(userId: string): Promise<{
     .maybeSingle();
   if (!talent) return empty;
 
-  const [basicRes, profilesRes] = await Promise.all([
+  const [basicRes, profilesRes, formTypes] = await Promise.all([
     supabaseAdmin
       .from('talent_profiles_basic')
       .select(BASIC_PROFILE_MANDATORY_COLUMNS)
@@ -411,6 +416,7 @@ export async function computeOnboardingProgress(userId: string): Promise<{
       .eq('talent_user_id', userId)
       .is('deleted_at', null)
       .order('created_at', { ascending: true }),
+    formTypesForTalent(userId),
   ]);
 
   const basic = (basicRes.data ?? null) as Record<string, any> | null;
@@ -446,6 +452,7 @@ export async function computeOnboardingProgress(userId: string): Promise<{
     }),
     job_profile_completed: submittedProfiles.length > 0,
     portfolio_completed: !!earliestPortfolioCreatedAt,
+    portfolio_required: portfolioRequiredFor(formTypes),
     timestamps: {
       basic_created_at: (basic?.created_at ?? null) as string | null,
       earliest_submitted_profile_at: submittedProfiles[0]?.created_at ?? null,
@@ -464,20 +471,21 @@ export async function getMyOnboardingProgress(userId: string) {
     basic_profile_completed: p.basic_profile_completed,
     job_profile_completed: p.job_profile_completed,
     portfolio_completed: p.portfolio_completed,
+    portfolio_required: p.portfolio_required,
   };
 
   const allCompleted =
     progress.onboarding_completed &&
     progress.basic_profile_completed &&
     progress.job_profile_completed &&
-    progress.portfolio_completed;
+    (progress.portfolio_completed || !progress.portfolio_required);
 
   let allCompletedAt: string | null = null;
   if (allCompleted) {
     const candidates = [
       p.timestamps.basic_created_at,
       p.timestamps.earliest_submitted_profile_at,
-      p.timestamps.earliest_portfolio_at,
+      p.portfolio_required ? p.timestamps.earliest_portfolio_at : null,
     ].filter((t): t is string => !!t);
     if (candidates.length > 0) {
       allCompletedAt = candidates.reduce((max, t) =>

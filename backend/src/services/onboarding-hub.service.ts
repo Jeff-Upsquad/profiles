@@ -23,6 +23,7 @@ import { normalizeStage, type CrmStage } from './crm-stage-mapping.js';
 import { isJobsKey, jobsPipelineKey } from './linked-tracks.service.js';
 import { programProgressFor, type ProgramProgress } from './program-training-progress.service.js';
 import { openChangeRequests, rcStatusFor } from './request-change-reminders.service.js';
+import { portfolioRequiredFor } from '../../../shared/src/portfolio.js';
 
 // Graduated talents (talent-board "Onboarding completed") no longer belong in
 // the onboarding queue — they live in Partner Program / Jobs modules where the
@@ -276,6 +277,8 @@ interface JourneySummary {
   /** Set when a profile was resubmitted after a request and is back in review. */
   resubmitted_at: string | null;
   portfolio_completed: boolean;
+  /** False when every category the talent applied for has no portfolio. */
+  portfolio_required: boolean;
   portfolio_items: number;
   talent_board: TalentBoardChecklist;
 }
@@ -337,7 +340,7 @@ async function journeysFor(
   const ids = talents.map((t) => t.id);
   if (ids.length === 0) return out;
 
-  const [basicRes, profRes, startsRes, programProgress, installs] = await Promise.all([
+  const [basicRes, profRes, startsRes, programProgress, installs, formTypes] = await Promise.all([
     supabaseAdmin.from('talent_profiles_basic').select(BASIC_COLUMNS).in('talent_user_id', ids),
     supabaseAdmin
       .from('talent_profiles')
@@ -347,6 +350,7 @@ async function journeysFor(
     supabaseAdmin.from('training_course_starts').select('talent_user_id').in('talent_user_id', ids),
     programProgressFor(ids),
     appInstallsFor(ids),
+    signupCategoriesByTalentIds(ids),
   ]);
 
   const basicBy = new Map<string, Record<string, any>>();
@@ -450,6 +454,7 @@ async function journeysFor(
       requested_change_labels: requestedLabels,
       resubmitted_at: resubmittedAt,
       portfolio_completed: portfolioItems > 0,
+      portfolio_required: portfolioRequiredFor(formTypes.get(t.id) ?? []),
       portfolio_items: portfolioItems,
       talent_board: talentBoardChecklist(installs.get(t.id), t.onboarding_webinar_attended_at),
     });
@@ -1054,6 +1059,7 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
         (p) => p.status === 'approved' || p.status === 'pending_review',
       ),
       portfolio_completed: portfolioItems > 0,
+      portfolio_required: portfolioRequiredFor(cats.get(userId) ?? []),
       portfolio_items: portfolioItems,
       talent_board: talentBoardChecklist(installs.get(userId), t.onboarding_webinar_attended_at),
     },

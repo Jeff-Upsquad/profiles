@@ -64,16 +64,20 @@ const STAGE_TO_LEAD_KEY: Record<PipelineStage, string> = {
   rejected: 'rejected',
 };
 
-/** Compact 5-dot journey strip for a row. */
+/** Compact journey strip for a row (4 dots when there's no portfolio step). */
 function JourneyDots({ row }: { row: HubRow }) {
   const j = row.journey;
+  // Sales and accountant talents have no portfolio step.
+  const steps = JOURNEY_STEPS.filter(
+    (s) => s.key !== 'portfolio_completed' || j?.portfolio_required !== false,
+  );
   return (
     <div className="flex items-center gap-1" title={
-      JOURNEY_STEPS.map((s) => `${s.label}: ${j?.[s.key] ? 'done' : 'pending'}`).join('\n')
+      steps.map((s) => `${s.label}: ${j?.[s.key] ? 'done' : 'pending'}`).join('\n')
     }>
-      {JOURNEY_STEPS.map((s, i) => {
+      {steps.map((s, i) => {
         const done = !!j?.[s.key];
-        const prevDone = i === 0 || !!j?.[JOURNEY_STEPS[i - 1].key];
+        const prevDone = i === 0 || !!j?.[steps[i - 1].key];
         const current = !done && prevDone;
         return (
           <div key={s.key} className="flex items-center gap-1">
@@ -89,7 +93,7 @@ function JourneyDots({ row }: { row: HubRow }) {
             >
               {done ? '✓' : i + 1}
             </span>
-            {i < JOURNEY_STEPS.length - 1 && (
+            {i < steps.length - 1 && (
               <span className={`h-0.5 w-3 ${done ? 'bg-green-300' : 'bg-gray-200'}`} />
             )}
           </div>
@@ -694,7 +698,7 @@ export default function OnboardingHub({
                             ? `Waiting on talent · ${timeAgo(j.changes_requested_at)}${j.requested_change_labels.length ? ` · ${j.requested_change_labels.slice(0, 3).join(', ')}${j.requested_change_labels.length > 3 ? ` +${j.requested_change_labels.length - 3}` : ''}` : ''}`
                             : j.job_profiles.pending_review > 0
                               ? j.resubmitted_at ? `Resubmitted ${timeAgo(j.resubmitted_at)} · review` : 'Profile awaiting review'
-                              : !j.portfolio_completed
+                              : !j.portfolio_completed && j.portfolio_required !== false
                               ? 'No portfolio yet'
                               : 'Journey complete'
                     : '';

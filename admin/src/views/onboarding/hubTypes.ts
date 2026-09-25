@@ -100,6 +100,8 @@ export interface JourneySummary {
   requested_change_labels: string[];
   resubmitted_at: string | null;
   portfolio_completed: boolean;
+  /** False for sales and accountant talents, whose profiles have no portfolio. */
+  portfolio_required?: boolean;
   portfolio_items: number;
   talent_board?: TalentBoardChecklist;
 }

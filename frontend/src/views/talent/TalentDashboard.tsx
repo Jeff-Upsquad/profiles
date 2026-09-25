@@ -12,7 +12,7 @@ import PartnerLockedView from '@/components/partner/PartnerLockedView';
 
 type OnboardingStageKey = keyof OnboardingProgress;
 
-const ONBOARDING_STAGES: { key: OnboardingStageKey; label: string; short: string; pendingHint: string }[] = [
+const ONBOARDING_STAGES: { key: Exclude<OnboardingStageKey, 'portfolio_required'>; label: string; short: string; pendingHint: string }[] = [
   { key: 'signed_up', label: 'Sign-up', short: 'Sign-up', pendingHint: 'Sign up to get started' },
   { key: 'onboarding_completed', label: 'Onboarding Course', short: 'Course', pendingHint: 'Complete the onboarding course' },
   { key: 'basic_profile_completed', label: 'Basic Profile', short: 'Basic', pendingHint: 'Fill in every required section of your basic profile' },
@@ -23,11 +23,15 @@ const ONBOARDING_STAGES: { key: OnboardingStageKey; label: string; short: string
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 function OnboardingStageStrip({ progress }: { progress: OnboardingProgress }) {
+  // Sales and accountant profiles have no portfolio step.
+  const stages = ONBOARDING_STAGES.filter(
+    (stage) => stage.key !== 'portfolio_completed' || progress.portfolio_required !== false,
+  );
   return (
     <div className="flex items-start justify-between gap-2 sm:justify-start sm:gap-4">
-      {ONBOARDING_STAGES.map((stage, i) => {
+      {stages.map((stage, i) => {
         const done = progress[stage.key];
-        const isLast = i === ONBOARDING_STAGES.length - 1;
+        const isLast = i === stages.length - 1;
         return (
           <div
             key={stage.key}
