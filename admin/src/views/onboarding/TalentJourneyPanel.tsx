@@ -1144,7 +1144,16 @@ export default function TalentJourneyPanel({
                     <li key={s.key} className="flex items-start gap-3">
                       <StepIcon done={s.done} active={!s.done && all.slice(0, i).every((p) => p.done)} />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900">{s.label}</p>
+                        <p className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                          {s.label}
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                              s.done ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'
+                            }`}
+                          >
+                            {s.done ? 'Done' : 'Pending'}
+                          </span>
+                        </p>
                         <p className="text-xs text-gray-500">
                           {s.detail}
                           {s.key === 'app' && !s.done ? ' · ticks itself on first sign-in' : ''}
