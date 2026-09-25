@@ -1452,6 +1452,11 @@ export async function suspendUser(userId: string, suspend: boolean, reason?: str
   });
   if (error) throw new AppError(400, error.message);
 
+  if (talentRows?.length) {
+    const { syncCrmHold } = await import('./automation.service.js');
+    await syncCrmHold(userId, 'admin').catch((e) => console.error('[suspend] CRM hold sync failed:', e));
+  }
+
   return {
     message: suspend ? 'User suspended' : 'User unsuspended',
     suspended: suspend,
@@ -1482,6 +1487,11 @@ export async function blacklistUser(userId: string, blacklist: boolean, reason?:
     user_metadata: { blacklisted: blacklist },
   });
   if (error) throw new AppError(400, error.message);
+
+  if (talentRows?.length) {
+    const { syncCrmHold } = await import('./automation.service.js');
+    await syncCrmHold(userId, 'admin').catch((e) => console.error('[blacklist] CRM hold sync failed:', e));
+  }
 
   return {
     message: blacklist ? 'User blacklisted' : 'User unblacklisted',

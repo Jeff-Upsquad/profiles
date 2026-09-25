@@ -777,6 +777,91 @@ export async function notifyCrmTalentStageChanged(input: {
   });
 }
 
+// CRM holding boards. Partner pipelines reuse the category's candidates-board
+// name (crm_status_mapping), so "Designers and Editors" / "Accountants".
+const CANCELLED_APPLICANTS_PIPELINE = 'Cancelled Applicants';
+const CANCELLED_APPLICANTS_STAGE = 'Cancelled';
+const HOLD_CATEGORY_ORDER = ['creative', 'accountant', 'sales'];
+
+/**
+ * Park or release a talent's CRM card to match their current hold state:
+ * blacklisted → Partners › <category> › Blacklisted, suspended → … › Suspended,
+ * cancelled → Candidates › Cancelled Applicants, none → back to the board they
+ * came from. Idempotent — call it after any change to those flags. The CRM
+ * moves the card silently (no automations, so no WhatsApp to the talent).
+ */
+export async function syncCrmHold(talentUserId: string, triggeredBy = 'system'): Promise<void> {
+  const { data: t } = await supabaseAdmin
+    .from('talent_users')
+    .select('full_name, phone, suspended, blacklisted, suspended_reason, blacklisted_reason, ' +
+      'application_cancelled_at, application_cancelled_reason')
+    .eq('id', talentUserId)
+    .maybeSingle();
+  if (!t) return;
+  const talent = t as any;
+  const phone = talent.phone?.trim() || '';
+  const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(talentUserId);
+  const email = authUser?.user?.email?.trim().toLowerCase() || '';
+  if (!phone && !email) return;
+
+  const mapping = await getCrmStatusMapping();
+  let webhookUrl = mapping?.crm_webhook_url || '';
+  if (!webhookUrl) {
+    const { env } = await import('../config/env.js');
+    const explicit = (env.SQUADHIRE_CRM_API_URL || '').replace(/\/$/, '');
+    const derived = env.SQUADHIRE_CRM_SYSTEM_EVENTS_URL
+      ? new URL(env.SQUADHIRE_CRM_SYSTEM_EVENTS_URL).origin
+      : '';
+    const origin = explicit || derived;
+    if (origin) webhookUrl = `${origin}/integrations/profiles/leads`;
+  }
+  if (!webhookUrl) return;
+  webhookUrl = webhookUrl.replace(/\/profiles\/leads\/?$/, '/profiles/hold');
+
+  let hold: { pipeline_kind: 'candidates' | 'partners'; pipeline_name: string; pipeline_stage: string } | null = null;
+  let reason: string | null = null;
+  if (talent.blacklisted || talent.suspended) {
+    const { formTypesForTalent } = await import('../lib/signup-category.js');
+    const types = await formTypesForTalent(talentUserId);
+    const formType = HOLD_CATEGORY_ORDER.find((ft) => types.includes(ft)) ?? null;
+    const pipelineName = formType ? mapping?.pipelines?.[formType]?.pipeline_name : null;
+    if (!pipelineName) {
+      await logEvent({
+        event_type: 'crm_hold_sync_failed',
+        talent_user_id: talentUserId,
+        triggered_by: triggeredBy,
+        metadata: { error: 'no_partner_category', form_types: types },
+      });
+      return;
+    }
+    hold = {
+      pipeline_kind: 'partners',
+      pipeline_name: pipelineName,
+      pipeline_stage: talent.blacklisted ? 'Blacklisted' : 'Suspended',
+    };
+    reason = (talent.blacklisted ? talent.blacklisted_reason : talent.suspended_reason) ?? null;
+  } else if (talent.application_cancelled_at) {
+    hold = {
+      pipeline_kind: 'candidates',
+      pipeline_name: CANCELLED_APPLICANTS_PIPELINE,
+      pipeline_stage: CANCELLED_APPLICANTS_STAGE,
+    };
+    reason = talent.application_cancelled_reason ?? null;
+  }
+
+  const result = await sendCrmWebhook(webhookUrl, {
+    lead: { name: talent.full_name ?? null, email: email || null, phone: phone || null },
+    hold,
+    reason,
+  });
+  await logEvent({
+    event_type: result.sent ? 'crm_hold_sync_sent' : 'crm_hold_sync_failed',
+    talent_user_id: talentUserId,
+    triggered_by: triggeredBy,
+    metadata: { hold, error: result.error },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Backfill: push existing leads (all form types) to CRM with their current stage
 // ---------------------------------------------------------------------------

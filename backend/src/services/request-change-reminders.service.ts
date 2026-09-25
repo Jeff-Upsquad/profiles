@@ -23,6 +23,7 @@ import { AppError } from '../middleware/errorHandler.middleware.js';
 import { deliverCrmSystemEvent } from '../lib/crm-system-event.js';
 import { normalizeStage } from './crm-stage-mapping.js';
 import { talentAccountUrl } from './profile-review-changes.service.js';
+import { syncCrmHold } from './automation.service.js';
 
 export const CHANGES_REMINDER_EVENT = 'talent_changes_reminder';
 export const CANCEL_WARNING_EVENT = 'talent_application_cancel_warning';
@@ -222,7 +223,7 @@ async function cancelApplication(t: any) {
     'Your application has been cancelled',
     'The requested profile updates were not made in time, so your application has been cancelled. Please contact support if you would like to continue.',
     '/talent/contact-support',
-  );
+  );  await syncCrmHold(t.id).catch((e) => console.error(`[rc-reminders] CRM hold sync failed for ${t.id}`, e));
 }
 
 const TALENT_COLUMNS =
@@ -345,5 +346,6 @@ export async function restoreCancelledApplication(talentId: string) {
     .select('id, application_cancelled_at')
     .single();
   if (upErr) throw new AppError(500, upErr.message);
+  await syncCrmHold(talentId, 'admin').catch((e) => console.error(`[rc-reminders] CRM hold sync failed for ${talentId}`, e));
   return data;
 }
