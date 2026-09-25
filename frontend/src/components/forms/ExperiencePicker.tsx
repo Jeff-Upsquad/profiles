@@ -1,6 +1,6 @@
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
-import { formatTotalExperience } from '../../../../shared/src/experienceTotal';
+import { formatTotalExperience, isRangeReversed } from '../../../../shared/src/experienceTotal';
 
 export interface ExperienceEntry {
   from_year: number | '';
@@ -121,6 +121,9 @@ export default function ExperiencePicker({ value, onChange }: ExperiencePickerPr
                     </div>
                   </div>
                 </div>
+                {isRangeReversed(entry) && (
+                  <p className="-mt-2 text-xs text-red-600">To date can&apos;t be before the From date.</p>
+                )}
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Input

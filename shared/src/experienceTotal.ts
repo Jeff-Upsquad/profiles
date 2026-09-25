@@ -14,6 +14,17 @@ const num = (v: unknown): number | null => {
   return typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : null;
 };
 
+/** True when both ends are filled and To falls before From. Used by the
+ *  education + experience pickers, the basic-profile save, and the API. */
+export function isRangeReversed(e: ExperienceRange | null | undefined): boolean {
+  const fy = num(e?.from_year);
+  const fm = num(e?.from_month);
+  const ty = num(e?.to_year);
+  const tm = num(e?.to_month);
+  if (!fy || !fm || !ty || !tm) return false;
+  return ty * 12 + tm < fy * 12 + fm;
+}
+
 /** Total distinct months covered. Entries missing a From or To month/year
  *  (e.g. half-filled while the talent is typing) are skipped. */
 export function totalExperienceMonths(entries: ExperienceRange[] | null | undefined): number {

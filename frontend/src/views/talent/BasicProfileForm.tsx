@@ -22,6 +22,7 @@ import { hasOpenBasicChanges, needsBasicResubmission } from '@/lib/profileChange
 import type { RequestedChange } from '@/types';
 import PendingTag from '@/components/talent/PendingTag';
 import { basicSectionCompletion, type BasicSectionId } from '@/lib/talentCompletion';
+import { isRangeReversed } from '../../../../shared/src/experienceTotal';
 
 /** Age in completed years (years only, never months) from a YYYY-MM-DD date. */
 function ageFromDob(dob: string): number | null {
@@ -469,6 +470,10 @@ export default function BasicProfileForm() {
         toast.error('Select From and To month & year for every education entry');
         return;
       }
+      if (validEntries.some(isRangeReversed)) {
+        toast.error("An education entry's To date is before its From date");
+        return;
+      }
       saveMutation.mutate({ education_courses: validEntries.length > 0 ? validEntries : null } as any);
       return;
     }
@@ -482,6 +487,10 @@ export default function BasicProfileForm() {
       );
       if (missingDates) {
         toast.error('Select From and To month & year for every experience entry');
+        return;
+      }
+      if (validEntries.some(isRangeReversed)) {
+        toast.error("An experience entry's To date is before its From date");
         return;
       }
       saveMutation.mutate({ experience: validEntries.length > 0 ? validEntries : null } as any);

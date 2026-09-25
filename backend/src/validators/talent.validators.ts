@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isRangeReversed } from '../../../shared/src/experienceTotal.js';
 
 export const createProfileSchema = z.object({
   category_id: z.string().uuid('Valid category ID is required'),
@@ -89,6 +90,7 @@ export const updateBasicProfileSchema = z.object({
         course_name: z.string().max(300),
         institution: z.string().max(300),
       })
+      .refine((e) => !isRangeReversed(e), { message: 'To date cannot be before From date', path: ['to_year'] })
     )
     .max(20)
     .nullable()
@@ -105,6 +107,7 @@ export const updateBasicProfileSchema = z.object({
         company_name: z.string().max(300),
         designation: z.string().max(300),
       })
+      .refine((e) => !isRangeReversed(e), { message: 'To date cannot be before From date', path: ['to_year'] })
     )
     .max(20)
     .nullable()

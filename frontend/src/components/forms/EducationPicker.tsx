@@ -1,5 +1,6 @@
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
+import { isRangeReversed } from '../../../../shared/src/experienceTotal';
 
 export interface EducationEntry {
   from_year: number | '';
@@ -110,6 +111,9 @@ export default function EducationPicker({ value, onChange }: EducationPickerProp
                     </div>
                   </div>
                 </div>
+                {isRangeReversed(entry) && (
+                  <p className="-mt-2 text-xs text-red-600">To date can&apos;t be before the From date.</p>
+                )}
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Input
