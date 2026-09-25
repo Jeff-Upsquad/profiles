@@ -29,6 +29,7 @@ import {
   requestChangesStepLabel,
   talentBoardSteps,
   type ProgramCourseProgress,
+  type MessageFailed,
   type RequestChangesStatus,
   type TalentBoardChecklist,
 } from './hubTypes';
@@ -92,6 +93,7 @@ interface Journey {
     application_cancelled_at?: string | null;
     application_cancelled_reason?: string | null;
     request_changes?: RequestChangesStatus | null;
+    message_failed?: MessageFailed | null;
     is_active: boolean;
     suspended: boolean;
     blacklisted: boolean;
@@ -498,6 +500,15 @@ export default function TalentJourneyPanel({
     onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to update webinar'),
   });
 
+  const clearFailedMut = useMutation({
+    mutationFn: async () => (await api.delete(`/admin/user-approvals/${userId}/message-failed`)).data,
+    onSuccess: () => {
+      toast.success('Flag dismissed');
+      refresh();
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to dismiss'),
+  });
+
   const talentStageMut = useMutation({
     mutationFn: async (stage_id: string) =>
       (await api.patch(`/admin/user-approvals/${userId}/talent-stage`, { stage_id, track })).data,
@@ -769,6 +780,25 @@ export default function TalentJourneyPanel({
                     <span className="font-semibold">Under request changes</span> since {timeAgo(u.request_changes.requested_at)}
                     {' · '}{requestChangesStepLabel(u.request_changes)}
                   </p>
+                )}
+                {u.message_failed && (
+                  <div className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+                    <span>
+                      <span className="font-semibold">WhatsApp message failed</span> {timeAgo(u.message_failed.at)}
+                      {u.message_failed.template ? ` · ${u.message_failed.template}` : ''}
+                      {u.message_failed.reason ? ` · ${u.message_failed.reason}` : ''}
+                    </span>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => clearFailedMut.mutate()}
+                        disabled={clearFailedMut.isPending}
+                        className="shrink-0 rounded-md border border-red-200 bg-white px-2 py-1 font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
+                      >
+                        Dismiss
+                      </button>
+                    )}
+                  </div>
                 )}
                 {isRejected && (
                   <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">

@@ -148,12 +148,76 @@ async function resolveInternalStatus(
   return { internalStatus, validForType };
 }
 
+const messageFailedSchema = z.object({
+  event: z.literal('message_failed'),
+  external_lead_id: z.string().uuid().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  template_name: z.string().nullable().optional(),
+  error_code: z.string().nullable().optional(),
+  error_message: z.string().nullable().optional(),
+  timestamp: z.string().optional(),
+});
+
+// Plain-language reason for the Onboarding hub flag.
+function messageFailureReason(code: string | null | undefined, message: string | null | undefined): string {
+  if (code === 'outside_24h_window') return '24-hour WhatsApp window closed';
+  if (code === 'whatsapp_not_configured') return 'WhatsApp is not configured in the CRM';
+  const m = (message ?? '').trim();
+  return (m || 'WhatsApp send failed').slice(0, 300);
+}
+
+/** CRM says a WhatsApp message to this person failed — flag the talent. */
+async function handleMessageFailed(body: unknown, res: Response): Promise<void> {
+  const parsed = messageFailedSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new AppError(400, parsed.error.issues.map((i) => i.message).join('; '));
+  }
+  const { external_lead_id, phone, template_name, error_code, error_message } = parsed.data;
+  const lead = await findLead(external_lead_id ?? null, phone ?? null);
+  const talentUserId =
+    (await linkedTalentForLead(lead?.id ?? null)) ?? (await findTalentUserIdByPhone(phone ?? null));
+  if (!talentUserId) {
+    res.json({ ok: true, skipped: 'talent_not_found' });
+    return;
+  }
+  const reason = messageFailureReason(error_code, error_message);
+  const { error } = await supabaseAdmin
+    .from('talent_users')
+    .update({
+      crm_message_failed_at: new Date().toISOString(),
+      crm_message_failed_template: template_name ?? null,
+      crm_message_failed_reason: reason,
+    })
+    .eq('id', talentUserId);
+  if (error) throw new AppError(500, error.message);
+  await supabaseAdmin
+    .from('automation_events')
+    .insert({
+      event_type: 'crm_message_failed',
+      lead_id: lead?.id ?? null,
+      talent_user_id: talentUserId,
+      triggered_by: 'system',
+      metadata: { template_name: template_name ?? null, error_code: error_code ?? null, error_message: error_message ?? null },
+    })
+    .then(
+      () => {},
+      () => {},
+    );
+  res.json({ ok: true, talentUserId, flagged: true });
+}
+
 export async function handleLeadStageChanged(
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
   try {
+    // The CRM posts every event to this one URL; message failures aren't
+    // stage moves.
+    if ((req.body as { event?: unknown } | null)?.event === 'message_failed') {
+      await handleMessageFailed(req.body, res);
+      return;
+    }
     const parsed = leadStageWebhookSchema.safeParse(req.body);
     if (!parsed.success) {
       throw new AppError(400, parsed.error.issues.map((i) => i.message).join('; '));

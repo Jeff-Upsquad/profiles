@@ -76,7 +76,8 @@ export type HubAttention =
   | 'waiting_on_talent'
   | 'course_pending'
   | 'basic_incomplete'
-  | 'no_job_profile';
+  | 'no_job_profile'
+  | 'message_failed';
 
 export interface JourneySummary {
   signed_up: boolean;
@@ -192,6 +193,13 @@ export interface RequestChangesStatus {
   next_step: 'reminder' | 'final_warning' | 'cancel' | null;
 }
 
+/** Latest WhatsApp message the CRM failed to send this talent (until dismissed). */
+export interface MessageFailed {
+  at: string;
+  template: string | null;
+  reason: string | null;
+}
+
 export interface HubRow {
   id: string;
   full_name: string;
@@ -215,6 +223,7 @@ export interface HubRow {
   application_cancelled_reason: string | null;
   under_request_changes: boolean;
   request_changes: RequestChangesStatus | null;
+  message_failed?: MessageFailed | null;
   crm_talent_pipeline_name: string | null;
   crm_talent_stage_id: string | null;
   crm_talent_stage_name: string | null;
@@ -236,7 +245,7 @@ export interface HubStats {
   /** Per stage: how many of that stage's talents are under request changes. */
   rc_by_pipeline_stage?: Record<string, number>;
   rc_live_by_talent_stage?: Record<string, number>;
-  attention: { pending_approval: number; needs_review: number; waiting_on_talent: number };
+  attention: { pending_approval: number; needs_review: number; waiting_on_talent: number; message_failed?: number };
 }
 
 export interface CrmStage {

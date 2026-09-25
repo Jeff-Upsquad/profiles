@@ -47,6 +47,7 @@ const ATTENTION_CHIPS: { value: HubAttention; label: string; hint: string }[] = 
   { value: 'course_pending', label: 'Course not done', hint: 'Still on the onboarding course' },
   { value: 'basic_incomplete', label: 'Basic incomplete', hint: 'Course done, basic profile still missing sections' },
   { value: 'no_job_profile', label: 'No job profile', hint: 'Basic profile done, no job profile submitted yet' },
+  { value: 'message_failed', label: 'WhatsApp failed', hint: 'A CRM WhatsApp message to this talent failed to send (24-hour window, Meta or technical issue)' },
 ];
 
 // pipeline_stage → lead status key, so CRM stage names from the mapping apply.
@@ -563,7 +564,7 @@ export default function OnboardingHub({
           <p className="rounded-lg border border-dashed border-gray-200 bg-white px-3 py-2 text-xs text-gray-500">
             Link the CRM talent pipeline for each category under{' '}
             <Link href="/crm-mapping" className="text-indigo-600 underline">CRM Mapping</Link> to see and move
-            talents through Welcome → Download App → Onboarding webinar here. Completed talents graduate to {track === 'jobs' ? 'Jobs' : 'Partner Program'}.
+            talents through Welcome → Download App → Onboarding webinar → Webinar registered here. Completed talents graduate to {track === 'jobs' ? 'Jobs' : 'Partner Program'}.
           </p>
         )}
       </div>
@@ -582,7 +583,9 @@ export default function OnboardingHub({
                   ? stats?.attention.needs_review
                   : c.value === 'waiting_on_talent'
                     ? stats?.attention.waiting_on_talent
-                    : undefined;
+                    : c.value === 'message_failed'
+                      ? stats?.attention.message_failed
+                      : undefined;
             return (
               <button
                 key={c.value}
@@ -597,7 +600,7 @@ export default function OnboardingHub({
               >
                 {c.label}
                 {typeof n === 'number' && n > 0 && (
-                  <span className={`rounded-full px-1.5 text-[10px] ${active ? 'bg-white/20' : 'bg-amber-100 text-amber-800'}`}>{n}</span>
+                  <span className={`rounded-full px-1.5 text-[10px] ${active ? 'bg-white/20' : c.value === 'message_failed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}>{n}</span>
                 )}
               </button>
             );
@@ -765,6 +768,14 @@ export default function OnboardingHub({
                           {u.crm_talent_stage_name && (
                             <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700" title={`Talent board · ${u.crm_talent_pipeline_name ?? ''}`}>
                               {u.crm_talent_stage_name}
+                            </span>
+                          )}
+                          {u.message_failed && (
+                            <span
+                              className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700"
+                              title={`${u.message_failed.reason ?? 'WhatsApp send failed'}${u.message_failed.template ? ` · ${u.message_failed.template}` : ''} · ${timeAgo(u.message_failed.at)}`}
+                            >
+                              WhatsApp failed
                             </span>
                           )}
                         </div>

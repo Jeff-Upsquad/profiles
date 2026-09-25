@@ -215,7 +215,8 @@ export type HubAttention =
   | 'waiting_on_talent'
   | 'course_pending'
   | 'basic_incomplete'
-  | 'no_job_profile';
+  | 'no_job_profile'
+  | 'message_failed';
 
 export interface HubListFilters {
   track?: 'partner' | 'jobs';
@@ -454,7 +455,14 @@ const TALENT_LIST_COLUMNS =
   'crm_jobs_pipeline_name, crm_jobs_stage_id, crm_jobs_stage_name, crm_jobs_stage_changed_at, ' +
   'rejection_reason, rejected_at, partner_rejection_reason, partner_rejected_at, jobs_rejection_reason, jobs_rejected_at, ' +
   'application_cancelled_at, application_cancelled_reason, rc_anchor_at, rc_reminders_sent, rc_last_sent_at, ' +
-  'onboarding_webinar_attended_at';
+  'onboarding_webinar_attended_at, crm_message_failed_at, crm_message_failed_template, crm_message_failed_reason';
+
+/** Latest failed CRM WhatsApp send, or null (see crm_message_failed_* columns). */
+function messageFailedFor(u: any): { at: string; template: string | null; reason: string | null } | null {
+  return u.crm_message_failed_at
+    ? { at: u.crm_message_failed_at, template: u.crm_message_failed_template ?? null, reason: u.crm_message_failed_reason ?? null }
+    : null;
+}
 
 /**
  * Talent ids matching an "attention" filter. Each is a cheap id-set query so
@@ -490,6 +498,15 @@ async function attentionIds(attention: HubAttention | undefined, track?: 'partne
       .is('reviewed_at', null)
       .filter('resubmitted_at', attention === 'needs_review' ? 'not.is' : 'is', null);
     for (const r of basicRows ?? []) ids.add((r as any).talent_user_id);
+    return [...ids];
+  }
+
+  if (attention === 'message_failed') {
+    const { data } = await supabaseAdmin
+      .from('talent_users')
+      .select('id')
+      .not('crm_message_failed_at', 'is', null);
+    for (const r of data ?? []) ids.add((r as any).id);
     return [...ids];
   }
 
@@ -691,6 +708,7 @@ export async function listHub(filters: HubListFilters) {
     application_cancelled_reason: u.application_cancelled_reason ?? null,
     under_request_changes: open.has(u.id),
     request_changes: rcStatusFor(open.get(u.id), u),
+    message_failed: messageFailedFor(u),
     crm_talent_pipeline_name: (filters.track === 'jobs' ? u.crm_jobs_pipeline_name : u.crm_talent_pipeline_name) ?? null,
     crm_talent_stage_id: (filters.track === 'jobs' ? u.crm_jobs_stage_id : u.crm_talent_stage_id) ?? null,
     crm_talent_stage_name: (filters.track === 'jobs' ? u.crm_jobs_stage_name : u.crm_talent_stage_name) ?? null,
@@ -768,13 +786,13 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
     cancelled: 0,
     rc_by_pipeline_stage: {} as Record<string, number>,
     rc_live_by_talent_stage: {} as Record<string, number>,
-    attention: { pending_approval: 0, needs_review: 0, waiting_on_talent: 0 },
+    attention: { pending_approval: 0, needs_review: 0, waiting_on_talent: 0, message_failed: 0 },
   };
   if (categoryIds && categoryIds.length === 0) return empty;
 
   let qb = supabaseAdmin
     .from('talent_users')
-    .select('id, approval_status, partner_approval_status, wants_jobs, pipeline_stage, jobs_pipeline_stage, crm_talent_stage_id, crm_jobs_stage_id, crm_talent_stage_name, crm_jobs_stage_name, application_cancelled_at')
+    .select('id, approval_status, partner_approval_status, wants_jobs, pipeline_stage, jobs_pipeline_stage, crm_talent_stage_id, crm_jobs_stage_id, crm_talent_stage_name, crm_jobs_stage_name, application_cancelled_at, crm_message_failed_at')
     .not('suspended', 'is', true)
     .not('blacklisted', 'is', true);
   if (categoryIds) qb = qb.in('id', categoryIds);
@@ -808,6 +826,7 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
   const rcByStage: Record<string, number> = {};
   const rcLiveByTalentStage: Record<string, number> = {};
   let waitingOnTalent = 0;
+  let messageFailed = 0;
   let pending = 0;
   let inTalent = 0;
   for (const r of rows) {
@@ -819,6 +838,7 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
       inTalent += 1;
       byTalentStage[talentStageId] = (byTalentStage[talentStageId] ?? 0) + 1;
     }
+    if (r.crm_message_failed_at) messageFailed += 1;
     const rc = open.has(r.id);
     if (rc) {
       waitingOnTalent += 1;
@@ -859,6 +879,7 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
       pending_approval: pending,
       needs_review: needsReview.size,
       waiting_on_talent: waitingOnTalent,
+      message_failed: messageFailed,
     },
   };
 }
@@ -991,6 +1012,7 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
       application_cancelled_at: t.application_cancelled_at ?? null,
       application_cancelled_reason: t.application_cancelled_reason ?? null,
       request_changes: rcStatusFor((await openChangeRequests([userId])).get(userId), t),
+      message_failed: messageFailedFor(t),
       is_active: t.is_active,
       suspended: t.suspended,
       blacklisted: t.blacklisted,
@@ -1107,7 +1129,7 @@ export async function clearTalentStage(talentUserId: string) {
 export async function setTalentStage(
   talentUserId: string,
   input: { stage_id: string; track?: 'partner' | 'jobs' },
-  adminUserId: string,
+  adminUserId: string | null,
 ) {
   const { data: talent, error } = await supabaseAdmin
     .from('talent_users')
@@ -1153,6 +1175,53 @@ export async function setTalentStage(
   }
 
   return { stage_id: stage.id, stage_name: stage.name, pipeline_name: config.pipeline_name };
+}
+
+/** The talent-board stages the webinar-registration auto-move connects. */
+const WEBINAR_STAGE = 'onboarding webinar';
+const WEBINAR_REGISTERED_STAGE = 'webinar registered';
+
+/**
+ * A talent registered for a webinar in the Training module. Anyone sitting on
+ * the talent board's "Onboarding webinar" stage moves on to "Webinar
+ * registered" (and the CRM card follows) — same outcome as tapping the
+ * Registered button on the WhatsApp message. Other stages are left alone.
+ */
+export async function advanceOnWebinarRegistration(talentUserId: string): Promise<void> {
+  const { data: t } = await supabaseAdmin
+    .from('talent_users')
+    .select('crm_talent_pipeline_name, crm_talent_stage_name, crm_jobs_pipeline_name, crm_jobs_stage_name')
+    .eq('id', talentUserId)
+    .maybeSingle();
+  if (!t) return;
+  const tracks: Array<{ track: 'partner' | 'jobs'; pipeline: string | null; stage: string | null }> = [
+    { track: 'partner', pipeline: (t as any).crm_talent_pipeline_name, stage: (t as any).crm_talent_stage_name },
+    { track: 'jobs', pipeline: (t as any).crm_jobs_pipeline_name, stage: (t as any).crm_jobs_stage_name },
+  ];
+  for (const { track, pipeline, stage } of tracks) {
+    if (normalizeStage(stage ?? '') !== WEBINAR_STAGE) continue;
+    const { config } = await talentPipelineFor(talentUserId, pipeline, track);
+    const target = config?.stages.find((s) => normalizeStage(s.name) === WEBINAR_REGISTERED_STAGE);
+    if (!target) continue;
+    try {
+      await setTalentStage(talentUserId, { stage_id: target.id, track }, null);
+    } catch (err) {
+      console.error('[onboarding-hub] webinar-registered auto-move failed:', err);
+    }
+  }
+}
+
+/** Admin dismissed the "WhatsApp message failed" flag. */
+export async function clearMessageFailed(talentUserId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('talent_users')
+    .update({ crm_message_failed_at: null, crm_message_failed_template: null, crm_message_failed_reason: null })
+    .eq('id', talentUserId)
+    .select('id')
+    .maybeSingle();
+  if (error) throw new AppError(500, error.message);
+  if (!data) throw new AppError(404, 'Talent not found');
+  return { success: true };
 }
 
 /**

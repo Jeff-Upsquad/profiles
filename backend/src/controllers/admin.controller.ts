@@ -505,6 +505,15 @@ export async function setWebinarAttended(req: Request, res: Response, next: Next
   }
 }
 
+export async function clearMessageFailed(req: Request, res: Response, next: NextFunction) {
+  try {
+    const hub = await import('../services/onboarding-hub.service.js');
+    res.json(await hub.clearMessageFailed(req.params.userId as string));
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Pipeline Stage Management
 // ---------------------------------------------------------------------------

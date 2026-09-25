@@ -210,6 +210,13 @@ export async function registerForWebinar(talentUserId: string, webinarId: string
   } catch (e) {
     console.error('[webinars] registration confirm notify failed:', e);
   }
+  // Talent-board follow-through: "Onboarding webinar" → "Webinar registered".
+  try {
+    const { advanceOnWebinarRegistration } = await import('./onboarding-hub.service.js');
+    await advanceOnWebinarRegistration(talentUserId);
+  } catch (e) {
+    console.error('[webinars] talent-board advance failed:', e);
+  }
   return { success: true };
 }
 

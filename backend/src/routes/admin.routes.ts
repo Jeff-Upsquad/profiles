@@ -221,6 +221,8 @@ router.get('/user-approvals/talent-pipelines', adminController.getTalentPipeline
 router.get('/user-approvals/:userId/journey', adminController.getTalentJourney);
 router.patch('/user-approvals/:userId/talent-stage', adminController.setTalentStage);
 router.patch('/user-approvals/:userId/webinar-attended', adminController.setWebinarAttended);
+// Dismiss the "WhatsApp message failed" flag the CRM raised for this talent.
+router.delete('/user-approvals/:userId/message-failed', adminController.clearMessageFailed);
 // Basic profile change requests — one common request per talent (the basic
 // profile is always live; resubmits come back here for accept).
 router.patch('/user-approvals/:userId/basic/request-changes', adminController.requestBasicChanges);
