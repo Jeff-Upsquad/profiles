@@ -1145,9 +1145,9 @@ export async function applyInboundTalentStage(
 /**
  * A linked Jobs + Partner talent moved on one track's talent board — put the
  * other track's card on the same-named stage. The Partner Program card
- * messages; the Jobs card moves silently. Skipped until the other track is
- * Live itself (its own qualify handoff puts it on the board), and when it is
- * already there — which is also what stops CRM echoes from looping.
+ * messages; the Jobs card moves silently. Skipped until the other card is on
+ * its own talent board (its qualify handoff puts it there), and when it is
+ * already on that stage — which is also what stops CRM echoes from looping.
  */
 async function mirrorTalentStage(
   talentUserId: string,
@@ -1167,7 +1167,11 @@ async function mirrorTalentStage(
     .eq('id', talentUserId)
     .maybeSingle();
   const currentName = other === 'jobs' ? (cur as any)?.crm_jobs_stage_name : (cur as any)?.crm_talent_stage_name;
-  if (normalizeStage(currentName ?? '') === normalizeStage(stageName)) return;
+  // Only a card already on its talent board follows. Its own qualify handoff
+  // puts it there — mirroring an arrival would re-home it from wherever it is
+  // (even a holding board) and run the Partner board's welcome messages.
+  if (!currentName) return;
+  if (normalizeStage(currentName) === normalizeStage(stageName)) return;
 
   const { config } = await talentPipelineFor(talentUserId,
     other === 'jobs' ? (cur as any)?.crm_jobs_pipeline_name ?? null : (cur as any)?.crm_talent_pipeline_name ?? null,
