@@ -133,11 +133,6 @@ const ROLE_TABS: { value: string; label: string }[] = [
   { value: 'Editor + Designer', label: 'Editor + Designer' },
 ];
 
-const SIGNED_UP_TABS: { value: string; label: string }[] = [
-  { value: '', label: 'Candidates' },
-  { value: 'true', label: 'Signed Up' },
-];
-
 const VIEW_TABS: { value: string; label: string }[] = [
   { value: '', label: 'Active' },
   { value: 'true', label: 'Recycle Bin' },
@@ -155,7 +150,6 @@ export default function LeadList() {
   const profileType = searchParams.get('profile_type') || '';
   const search = searchParams.get('search') || '';
   const role = searchParams.get('role') || '';
-  const signedUp = searchParams.get('signed_up') || '';
   const deleted = searchParams.get('deleted') || '';
   const page = Number(searchParams.get('page') || '1');
   const selectedId = searchParams.get('selected');
@@ -191,7 +185,7 @@ export default function LeadList() {
   const categoryBlocked = !isHubMode && !canCandidateCategory(formType);
 
   const { data, isLoading, isPlaceholderData } = useQuery<LeadsResponse>({
-    queryKey: ['admin-leads', formType, status, profileType, search, page, role, signedUp, deleted, formDataFilterParam],
+    queryKey: ['admin-leads', formType, status, profileType, search, page, role, deleted, formDataFilterParam],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (formType) params.set('form_type', formType);
@@ -199,7 +193,6 @@ export default function LeadList() {
       if (profileType) params.set('profile_type', profileType);
       if (search) params.set('search', search);
       if (role) params.set('role', role);
-      if (signedUp) params.set('signed_up', signedUp);
       if (deleted) params.set('deleted', deleted);
       if (formDataFilterParam) params.set('form_data_filter', formDataFilterParam);
       params.set('page', String(page));
@@ -327,23 +320,8 @@ export default function LeadList() {
         </p>
       </div>
 
-      {/* Signed Up Toggle + View Toggle */}
+      {/* View Toggle */}
       <div className="flex flex-wrap gap-3">
-        <div className="flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
-          {SIGNED_UP_TABS.map((tab) => (
-            <button
-              key={tab.value || 'candidates'}
-              onClick={() => updateQuery({ signed_up: tab.value, page: '1' })}
-              className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                signedUp === tab.value
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-900'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
         <div className="flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
           {VIEW_TABS.map((tab) => (
             <button

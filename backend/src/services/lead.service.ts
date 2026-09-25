@@ -169,6 +169,16 @@ export async function getLeadSubmissions(filters: {
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
+  // A linked application belongs to the talent's onboarding journey. Keep
+  // the row (including form_data, notes and attribution) as the permanent
+  // source record, but remove it from the Candidates queue by default.
+  // signed_up=true still lists them for SquadHub's "Signed Up" tab.
+  if (filters.signed_up === 'true') {
+    query = query.not('linked_talent_user_id', 'is', null);
+  } else {
+    query = query.is('linked_talent_user_id', null);
+  }
+
   // Soft-delete filter: by default exclude deleted leads. Pass deleted=true to
   // see only deleted ones (recycle bin), or deleted=any to include both.
   if (filters.deleted === 'true') {
@@ -195,11 +205,6 @@ export async function getLeadSubmissions(filters: {
   }
   if (filters.role) {
     query = query.filter('form_data->role', 'cs', JSON.stringify([filters.role]));
-  }
-  if (filters.signed_up === 'true') {
-    query = query.not('linked_talent_user_id', 'is', null);
-  } else if (filters.signed_up === 'false') {
-    query = query.is('linked_talent_user_id', null);
   }
   if (filters.search) {
     query = query.or(

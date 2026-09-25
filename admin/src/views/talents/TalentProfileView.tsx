@@ -25,7 +25,7 @@ const TIER_OPTIONS: { value: Tier | null; label: string }[] = [
 
 interface LinkedLead {
   id: string;
-  form_type: 'creative' | 'accountant';
+  form_type: 'creative' | 'accountant' | 'sales';
   status: string;
   created_at: string;
   utm_source: string | null;
@@ -563,7 +563,11 @@ export default function TalentProfileView({
                     <div className="space-y-1 text-sm">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium text-gray-900">
-                          {lead.form_type === 'creative' ? 'Creative form' : 'Accountant form'}
+                          {lead.form_type === 'creative'
+                            ? 'Creative form'
+                            : lead.form_type === 'accountant'
+                              ? 'Accountant form'
+                              : 'Sales form'}
                         </span>
                         <Badge variant={lead.status === 'archived' ? 'gray' : 'indigo'}>
                           {lead.status.replace(/_/g, ' ')}
