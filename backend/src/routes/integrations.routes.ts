@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as integrationsController from '../controllers/integrations.controller.js';
 import * as candidatesController from '../controllers/integrations-candidates.controller.js';
+import * as knowledgeController from '../controllers/knowledge.controller.js';
 import {
   verifySquadhubSecret,
   verifySquadcrmSecret,
@@ -246,5 +247,11 @@ router.post(
   verifySquadhubSecret,
   integrationsController.syncTrainingItem,
 );
+
+// Knowledge Center (Squad Bot's knowledge) — SquadHub Resources items on the
+// 'knowledge' track. Categories = General, Tech & App Help + live talent
+// categories, for SquadHub's category picker.
+router.get('/squadhub/knowledge/categories', verifySquadhubSecret, knowledgeController.categoriesForSquadhub);
+router.post('/squadhub/knowledge/sync', verifySquadhubSecret, knowledgeController.syncFromSquadhub);
 
 export default router;
