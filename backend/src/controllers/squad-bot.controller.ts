@@ -70,6 +70,15 @@ export async function reply(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+export async function instruct(req: Request, res: Response, next: NextFunction) {
+  try {
+    const svc = await import('../services/squad-bot.service.js');
+    res.json(await svc.instructBot(req.params.id as string, actor(req), parseBody(req)));
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function handBack(req: Request, res: Response, next: NextFunction) {
   try {
     const svc = await import('../services/squad-bot.service.js');

@@ -16,10 +16,15 @@ import { AppError } from '../middleware/errorHandler.middleware.js';
 import {
   HANDOFF_MESSAGE,
   SQUAD_BOT_INSTRUCTIONS,
+  ACT_ON_INSTRUCTION,
+  fetchDomains,
   historyToMessages,
+  introNote,
+  isNewConversation,
   knowledgeBlock,
   knowledgeKeysFor,
   talentContext,
+  teamInstructions,
   formTypeForPipeline,
   prospectContext,
   WHATSAPP_NOTE,
@@ -236,7 +241,9 @@ export async function getTalentChat(talentUserId: string) {
   const conv = await conversationFor(talentUserId);
   // The app shows the app side only; WhatsApp lines (incl. drafts a recruiter
   // may have dismissed) live in the CRM chat. Squad Bot still reads both.
-  const messages = (await recentLines(conv.id, 100)).filter((m: any) => m.sender !== 'system' && m.channel !== 'whatsapp');
+  const messages = (await recentLines(conv.id, 100)).filter(
+    (m: any) => ['talent', 'bot', 'staff'].includes(m.sender) && m.channel !== 'whatsapp',
+  );
   return { status: conv.status, messages };
 }
 
@@ -278,9 +285,23 @@ async function subjectFor(conv: ConversationRow): Promise<{ context: string; kno
   };
 }
 
-async function answer(conv: ConversationRow, channel: 'app' | 'whatsapp', extraMeta: Record<string, unknown> = {}) {
+/** Pause/resume rounds for a long server-tool (web_fetch) turn. */
+const MAX_CONTINUATIONS = 3;
+
+/**
+ * Squad Bot writes its next message. `instructed`: the team just gave it a
+ * private instruction; if it can't carry it out, it tells the team (a note in
+ * the inbox) instead of writing to the talent.
+ */
+async function answer(
+  conv: ConversationRow,
+  channel: 'app' | 'whatsapp',
+  extraMeta: Record<string, unknown> = {},
+  opts: { instructed?: boolean } = {},
+) {
   const api = squadBotClient();
   if (!api) {
+    if (opts.instructed) throw new AppError(503, 'Squad Bot is not switched on yet (no ANTHROPIC_API_KEY).');
     await handOff(conv, 'other', 'Squad Bot is not switched on yet (no ANTHROPIC_API_KEY), so this came straight to the team.');
     return {
       status: 'handoff' as const,
@@ -289,53 +310,79 @@ async function answer(conv: ConversationRow, channel: 'app' | 'whatsapp', extraM
     };
   }
 
-  const [subject, lines] = await Promise.all([subjectFor(conv), recentLines(conv.id, HISTORY_TURNS)]);
+  const [subject, rawLines] = await Promise.all([subjectFor(conv), recentLines(conv.id, HISTORY_TURNS)]);
+  const lines = rawLines as Array<ChatLine & { created_at: string }>;
   const { data: knowledge } = await supabaseAdmin
     .from('knowledge_items')
     .select('title, body_text')
     .overlaps('categories', subject.knowledgeKeys)
     .order('title', { ascending: true });
 
+  const instructions = teamInstructions(lines);
+  const messages: Anthropic.Beta.BetaMessageParam[] = historyToMessages(lines);
+  if (opts.instructed && messages[messages.length - 1]?.role !== 'user') {
+    messages.push({ role: 'user', content: ACT_ON_INSTRUCTION });
+  }
+  const webFetch: Anthropic.Beta.BetaWebFetchTool20260209 = {
+    type: 'web_fetch_20260209',
+    name: 'web_fetch',
+    max_uses: 3,
+    allowed_domains: fetchDomains([
+      ...(knowledge ?? []).map((k: { body_text: string }) => k.body_text),
+      ...lines.filter((l) => l.sender === 'instruction').map((l) => l.body),
+    ]),
+  };
+
   let text = '';
   let handoff: { reason: string; summary: string } | null = null;
   const meta: Record<string, unknown> = { ...extraMeta, knowledge_items: knowledge?.length ?? 0 };
 
   try {
-    const response = await api.beta.messages.create({
-      model: env.SQUAD_BOT_MODEL,
-      max_tokens: 4000,
-      // Classifier declines re-run on Anthropic's recommended fallback model.
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      thinking: { type: 'adaptive' },
-      output_config: { effort: 'low' },
-      system: [
-        { type: 'text', text: SQUAD_BOT_INSTRUCTIONS },
-        // Same for every talent in these categories → cached across chats.
-        { type: 'text', text: knowledgeBlock(knowledge ?? []), cache_control: { type: 'ephemeral' } },
-        {
-          type: 'text',
-          text: `The person you're chatting with:\n${subject.context}${channel === 'whatsapp' ? `\n\n${WHATSAPP_NOTE}` : ''}`,
-        },
-      ],
-      tools: [HANDOFF_TOOL],
-      messages: historyToMessages(lines as ChatLine[]),
-    });
+    const usage = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
+    let fetches = 0;
+    for (let round = 0; ; round++) {
+      const response = await api.beta.messages.create({
+        model: env.SQUAD_BOT_MODEL,
+        max_tokens: 4000,
+        // Classifier declines re-run on Anthropic's recommended fallback model.
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default',
+        thinking: { type: 'adaptive' },
+        output_config: { effort: 'low' },
+        system: [
+          { type: 'text', text: SQUAD_BOT_INSTRUCTIONS },
+          // Same for every talent in these categories → cached across chats.
+          { type: 'text', text: knowledgeBlock(knowledge ?? []), cache_control: { type: 'ephemeral' } },
+          {
+            type: 'text',
+            text: [
+              `The person you're chatting with:\n${subject.context}`,
+              introNote(isNewConversation(lines)),
+              instructions,
+              opts.instructed ? 'The newest team instruction was just given: act on it in this reply.' : '',
+              channel === 'whatsapp' ? WHATSAPP_NOTE : '',
+            ].filter(Boolean).join('\n\n'),
+          },
+        ],
+        tools: [HANDOFF_TOOL, webFetch],
+        messages,
+      });
 
-    meta.model = response.model;
-    meta.stop_reason = response.stop_reason;
-    meta.usage = {
-      input: response.usage.input_tokens,
-      output: response.usage.output_tokens,
-      cache_read: response.usage.cache_read_input_tokens ?? 0,
-      cache_write: response.usage.cache_creation_input_tokens ?? 0,
-    };
+      meta.model = response.model;
+      meta.stop_reason = response.stop_reason;
+      usage.input += response.usage.input_tokens;
+      usage.output += response.usage.output_tokens;
+      usage.cache_read += response.usage.cache_read_input_tokens ?? 0;
+      usage.cache_write += response.usage.cache_creation_input_tokens ?? 0;
 
-    if (response.stop_reason === 'refusal') {
-      handoff = { reason: 'other', summary: 'Squad Bot declined to answer this message.' };
-    } else {
+      if (response.stop_reason === 'refusal') {
+        handoff = { reason: 'other', summary: 'Squad Bot declined to answer this message.' };
+        text = '';
+        break;
+      }
       for (const block of response.content) {
         if (block.type === 'text') text += block.text;
+        if (block.type === 'server_tool_use' && block.name === 'web_fetch') fetches++;
         if (block.type === 'tool_use' && block.name === 'hand_off_to_team') {
           const input = block.input as { reason?: unknown; summary?: unknown };
           handoff = {
@@ -344,16 +391,30 @@ async function answer(conv: ConversationRow, channel: 'app' | 'whatsapp', extraM
           };
         }
       }
-      if (!text.trim() && !handoff) handoff = { reason: 'not_in_knowledge', summary: 'Squad Bot had no answer.' };
+      // A long web_fetch turn pauses; send it back as-is to let it finish.
+      if (response.stop_reason === 'pause_turn' && round < MAX_CONTINUATIONS) {
+        messages.push({ role: 'assistant', content: response.content });
+        continue;
+      }
+      break;
     }
+    meta.usage = usage;
+    if (fetches) meta.web_fetches = fetches;
+    if (!text.trim() && !handoff) handoff = { reason: 'not_in_knowledge', summary: 'Squad Bot had no answer.' };
   } catch (err) {
     const status = err instanceof Anthropic.APIError ? err.status : undefined;
     console.error('[squad-bot] Claude call failed:', status ?? '', (err as Error)?.message ?? err);
+    if (opts.instructed) throw new AppError(502, 'Squad Bot could not run that instruction (service error). Try again.');
     meta.error = status ? `api_${status}` : 'network';
     handoff = { reason: 'other', summary: 'Squad Bot could not answer (service error), so this came straight to the team.' };
     text = '';
   }
 
+  if (opts.instructed && handoff) {
+    // Couldn't do it: tell the team, not the talent.
+    await addMessage(conv.id, { sender: 'system', body: `Squad Bot couldn't do that: ${handoff.summary}`, meta });
+    return { status: 'handoff' as const, message: null, handoff };
+  }
   if (handoff) await handOff(conv, handoff.reason, handoff.summary);
   const message = await addMessage(conv.id, { sender: 'bot', body: text.trim() || HANDOFF_MESSAGE, channel, meta });
   return { status: handoff ? ('handoff' as const) : ('bot' as const), message, handoff };
@@ -420,6 +481,7 @@ export async function handleWhatsAppMessage(msg: WhatsAppInbound): Promise<void>
     if (conv.status === 'handoff') return;
 
     const reply = await answer(conv, 'whatsapp', { mode: settings.mode });
+    if (!reply.message) return;
     await crmPost('reply', {
       lead_id: msg.lead_id,
       reply_to_message_id: msg.message_id,
@@ -552,6 +614,44 @@ export async function staffReply(id: string, staff: { id: string; name: string }
     void notifyTalentsInApp([conv.talent_user_id], 'squad_bot_reply', 'The UpSquad team replied', body.slice(0, 140), TALENT_CHAT_LINK);
   }
   return message;
+}
+
+/**
+ * The team tells Squad Bot what to do in this chat (e.g. "check their portfolio
+ * and tell them what's missing", "the webinar details are at <link>"). The
+ * instruction stays private; Squad Bot carries it out and replies to the talent
+ * where they last wrote. Instructions also feed the learning loop.
+ */
+export async function instructBot(id: string, staff: { id: string; name: string }, text: string) {
+  const body = text.trim();
+  if (!body) throw new AppError(400, 'Instruction is empty');
+  const conv = (await getConversation(id)) as ConversationRow & { messages: Array<{ sender: string; channel?: string }> };
+  const instruction = await addMessage(id, { sender: 'instruction', body, staff_user_id: staff.id, staff_name: staff.name });
+
+  const lastFromThem = [...conv.messages].reverse().find((m) => m.sender === 'talent');
+  const channel = lastFromThem?.channel === 'whatsapp' && conv.crm_lead_id ? 'whatsapp' : 'app';
+  const reply = await answer(conv, channel, { instructed_by: staff.name }, { instructed: true });
+
+  if (reply.message) {
+    if (channel === 'whatsapp') {
+      const sent = await crmPost('reply', { lead_id: conv.crm_lead_id, text: reply.message.body, mode: 'send' });
+      if (!sent?.ok) {
+        await addMessage(id, { sender: 'system', body: `Squad Bot's reply was not sent on WhatsApp (${sent?.error ?? 'CRM not connected'}).` });
+        throw new AppError(502, sent?.error === 'outside_24h_window'
+          ? "Squad Bot wrote the reply, but their last WhatsApp message was over 24 hours ago, so WhatsApp only allows a template. Send one from the CRM."
+          : 'Squad Bot wrote the reply, but it could not be sent on WhatsApp through the CRM.');
+      }
+    } else if (conv.talent_user_id) {
+      const { notifyTalentsInApp } = await import('./jobs.service.js');
+      void notifyTalentsInApp([conv.talent_user_id], 'squad_bot_reply', 'Squad Bot replied', reply.message.body.slice(0, 140), TALENT_CHAT_LINK);
+    }
+  }
+  // A handed-off chat is learned from when it's handed back; otherwise learn now.
+  if (conv.status === 'bot' && reply.message) {
+    const { draftFromHandoff } = await import('./knowledge-learning.service.js');
+    void draftFromHandoff(id, (instruction as { created_at: string }).created_at);
+  }
+  return { message: reply.message, handoff: reply.handoff ?? null };
 }
 
 /** Done with a handoff: Squad Bot answers this talent again. */

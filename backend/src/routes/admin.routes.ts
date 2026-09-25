@@ -753,6 +753,7 @@ router.delete('/training/webinars/:id', webinarsController.deleteAdmin);
 router.get('/squad-bot/conversations', squadBotController.listConversations);
 router.get('/squad-bot/conversations/:id', squadBotController.getConversation);
 router.post('/squad-bot/conversations/:id/reply', squadBotController.reply);
+router.post('/squad-bot/conversations/:id/instruct', squadBotController.instruct);
 router.post('/squad-bot/conversations/:id/hand-back', squadBotController.handBack);
 // WhatsApp via SquadHire CRM: off, draft (recruiter sends) or auto.
 router.get('/squad-bot/settings', squadBotController.getWhatsAppSettings);

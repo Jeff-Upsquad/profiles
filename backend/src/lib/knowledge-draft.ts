@@ -6,6 +6,8 @@ export const DRAFT_INSTRUCTIONS = `You help maintain the Knowledge Center that S
 
 You'll see a talent chat that Squad Bot handed to the UpSquad team, and how the team answered. Decide whether the team's answer teaches something every talent in these categories could be told next time, and if so draft it as one knowledge entry.
 
+The team may answer by giving Squad Bot a private instruction instead of replying themselves: a fact, what to check, or where to find it. Treat the instruction and the Squad Bot reply that follows it as the team's answer. When the instruction points to a source (a link or a page), keep that link in the answer, e.g. "Details are at <link>", so Squad Bot knows where to look next time.
+
 Save it only when it's a general fact or instruction: a policy, a process, where something is in the app, a rule about payments or fees. Don't save it when the answer is about this talent only (their payment, their account, a specific client or opportunity, a date for them), is small talk, or is already covered by an existing entry with the same facts.
 
 When you save it:
@@ -36,13 +38,14 @@ export interface DraftResult {
   categories: string[];
 }
 
-export interface TranscriptLine { sender: 'talent' | 'bot' | 'staff' | 'system'; body: string }
+export interface TranscriptLine { sender: 'talent' | 'bot' | 'staff' | 'system' | 'instruction'; body: string }
 
 const WHO: Record<TranscriptLine['sender'], string> = {
   talent: 'Talent',
   bot: 'Squad Bot',
   staff: 'UpSquad team',
   system: 'Note',
+  instruction: 'UpSquad team (private instruction to Squad Bot)',
 };
 
 export function transcript(lines: TranscriptLine[]): string {

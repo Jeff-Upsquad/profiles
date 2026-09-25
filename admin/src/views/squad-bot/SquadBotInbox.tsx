@@ -8,8 +8,8 @@ import toast from 'react-hot-toast';
 import api from '@/services/api';
 
 // Squad Bot Inbox — talent chats Squad Bot handed to the team. Reply here (the
-// talent sees it in their Help & Support chat) and hand the chat back to the
-// bot when done.
+// talent sees it in their Help & Support chat), or instruct Squad Bot to find
+// the answer and reply itself, and hand the chat back to the bot when done.
 
 interface ConversationSummary {
   id: string;
@@ -28,7 +28,7 @@ interface ConversationSummary {
 
 interface InboxMessage {
   id: string;
-  sender: 'talent' | 'bot' | 'staff' | 'system';
+  sender: 'talent' | 'bot' | 'staff' | 'system' | 'instruction';
   body: string;
   channel?: 'app' | 'whatsapp';
   staff_name: string | null;
@@ -156,6 +156,8 @@ export default function SquadBotInbox() {
 function ConversationPane({ id }: { id: string }) {
   const qc = useQueryClient();
   const [draft, setDraft] = useState('');
+  // 'reply': the team writes to the talent. 'instruct': a private note telling Squad Bot what to do.
+  const [mode, setMode] = useState<'reply' | 'instruct'>('reply');
   const bottomRef = useRef<HTMLDivElement>(null);
   const key = ['admin', 'squad-bot', 'conversation', id];
 
@@ -178,6 +180,25 @@ function ConversationPane({ id }: { id: string }) {
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Reply failed'),
   });
+
+  const instruct = useMutation({
+    mutationFn: async (body: string) =>
+      (await api.post(`/admin/squad-bot/conversations/${id}/instruct`, { body }, { timeout: 120_000 })).data as {
+        message: InboxMessage | null;
+        handoff: { summary: string } | null;
+      },
+    onSuccess: (res) => {
+      setDraft('');
+      if (res.message) toast.success('Squad Bot replied');
+      else toast.error(`Squad Bot couldn't do that${res.handoff ? `: ${res.handoff.summary}` : ''}`, { duration: 8000 });
+      refresh();
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Squad Bot could not run that');
+      refresh();
+    },
+  });
+  const sending = reply.isPending || instruct.isPending;
 
   const handBack = useMutation({
     mutationFn: async () => (await api.post(`/admin/squad-bot/conversations/${id}/hand-back`)).data,
@@ -237,6 +258,17 @@ function ConversationPane({ id }: { id: string }) {
             <p key={m.id} className="text-center text-[11px] text-gray-400">
               {m.body} · {when(m.created_at)}
             </p>
+          ) : m.sender === 'instruction' ? (
+            <div key={m.id} className="flex justify-end">
+              <div className="max-w-[80%]">
+                <p className="mb-0.5 text-right text-[11px] text-amber-700">
+                  {m.staff_name || 'Team'} → Squad Bot · private · {when(m.created_at)}
+                </p>
+                <div className="whitespace-pre-wrap rounded-2xl border border-dashed border-amber-300 bg-amber-50 px-3.5 py-2 text-sm text-amber-950">
+                  {m.body}
+                </div>
+              </div>
+            </div>
           ) : (
             <div key={m.id} className={`flex ${m.sender === 'talent' ? 'justify-start' : 'justify-end'}`}>
               <div className="max-w-[80%]">
@@ -261,25 +293,60 @@ function ConversationPane({ id }: { id: string }) {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (draft.trim()) reply.mutate(draft.trim());
+          const body = draft.trim();
+          if (!body) return;
+          if (mode === 'instruct') instruct.mutate(body);
+          else reply.mutate(body);
         }}
-        className="flex items-end gap-2 border-t border-gray-200 p-3"
+        className="border-t border-gray-200 p-3"
       >
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          rows={2}
-          maxLength={2000}
-          placeholder="Reply to the talent…"
-          className="flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-        />
-        <button
-          type="submit"
-          disabled={!draft.trim() || reply.isPending}
-          className="h-10 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {reply.isPending ? 'Sending…' : 'Send'}
-        </button>
+        <div className="mb-2 flex items-center gap-2">
+          <div className="flex rounded-lg border border-gray-200 p-0.5">
+            {([
+              ['reply', 'Reply to talent'],
+              ['instruct', 'Instruct Squad Bot'],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setMode(value)}
+                className={`rounded-md px-3 py-1 text-xs font-medium ${mode === value ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {mode === 'instruct' && (
+            <span className="text-xs text-gray-500">
+              Private. Squad Bot follows it, replies to the talent, and learns from it.
+            </span>
+          )}
+        </div>
+        <div className="flex items-end gap-2">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={2}
+            maxLength={2000}
+            placeholder={
+              mode === 'instruct'
+                ? 'Tell Squad Bot what to do, e.g. "Check their portfolio and tell them what\'s missing" or "The webinar details are at https://…"'
+                : 'Reply to the talent…'
+            }
+            className={`flex-1 resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+              mode === 'instruct' ? 'border-amber-300 bg-amber-50/40 focus:border-amber-500' : 'border-gray-200 focus:border-indigo-500'
+            }`}
+          />
+          <button
+            type="submit"
+            disabled={!draft.trim() || sending}
+            className={`h-10 rounded-lg px-4 text-sm font-medium text-white disabled:opacity-50 ${
+              mode === 'instruct' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'
+            }`}
+          >
+            {instruct.isPending ? 'Squad Bot is working…' : reply.isPending ? 'Sending…' : mode === 'instruct' ? 'Instruct' : 'Send'}
+          </button>
+        </div>
       </form>
     </div>
   );

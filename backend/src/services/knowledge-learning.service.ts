@@ -37,8 +37,8 @@ export async function draftFromHandoff(conversationId: string, handoffAt: string
       .order('created_at', { ascending: false })
       .limit(TRANSCRIPT_LIMIT);
     const lines = ((rows ?? []) as Array<TranscriptLine & { created_at: string }>).reverse();
-    // Nothing to learn unless a person actually answered after the handoff.
-    if (!lines.some((l) => l.sender === 'staff' && l.created_at >= handoffAt)) return;
+    // Nothing to learn unless a person answered (or instructed Squad Bot) after the handoff.
+    if (!lines.some((l) => (l.sender === 'staff' || l.sender === 'instruction') && l.created_at >= handoffAt)) return;
 
     const { squadBotClient } = await import('./squad-bot.service.js');
     const api = squadBotClient();
