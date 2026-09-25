@@ -61,6 +61,7 @@ export const MODULE_ROUTE_RULES: ModuleRule[] = [
   { prefix: '/forms', module: 'forms' },
   { prefix: '/training', module: 'training' },
   { prefix: '/knowledge', module: 'training' },
+  { prefix: '/squad-bot', module: 'talents' },
   { prefix: '/how-it-works', module: 'how-it-works' },
 
   // Automations = automation settings/events + CRM-sync action

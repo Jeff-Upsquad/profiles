@@ -37,3 +37,11 @@ test('nested pages come out in tree order with headings', () => {
   ] as any);
   assert.equal(out, 'App help\n\nCommon fixes\n\n## Login\n\n[video_embed] Walkthrough\n\n### Reset password\n\n## Uploads');
 });
+
+test('numbered lists keep their numbers', () => {
+  const text = tiptapToText(doc({ type: 'orderedList', content: [
+    { type: 'listItem', content: [p('Sign up.')] },
+    { type: 'listItem', content: [p('Wait for approval.')] },
+  ] }));
+  assert.equal(text, '1. Sign up.\n2. Wait for approval.');
+});

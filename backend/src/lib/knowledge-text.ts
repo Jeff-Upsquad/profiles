@@ -3,7 +3,7 @@
 
 import type { SyncPage } from '../services/training-sync.service.js';
 
-/** Plain text of a Tiptap/ProseMirror doc: one line per paragraph/heading, "- " for list items. */
+/** Plain text of a Tiptap/ProseMirror doc: one line per paragraph/heading; "- " bullets, "1. " numbered items. */
 export function tiptapToText(doc: unknown): string {
   const lines: string[] = [];
   const inline = (n: any): string =>
@@ -22,8 +22,14 @@ export function tiptapToText(doc: unknown): string {
       if (n.text?.trim()) lines.push(prefix + n.text.trim());
       return;
     }
-    const bullet = n.type === 'listItem' || n.type === 'taskItem';
-    children.forEach((c, i) => walk(c, bullet && i === 0 ? '- ' : ''));
+    if (n.type === 'orderedList' || n.type === 'bulletList' || n.type === 'taskList') {
+      const start = typeof n.attrs?.start === 'number' ? n.attrs.start : 1;
+      children.forEach((c, i) => walk(c, n.type === 'orderedList' ? `${start + i}. ` : '- '));
+      return;
+    }
+    // A list item's marker goes on its first paragraph only.
+    const item = n.type === 'listItem' || n.type === 'taskItem';
+    children.forEach((c, i) => walk(c, item && i === 0 ? prefix : ''));
   };
   walk(doc, '');
   return lines.join('\n');

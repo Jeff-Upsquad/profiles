@@ -30,6 +30,13 @@ const envSchema = z.object({
   // CORS
   CORS_ORIGIN: z.string().default('http://localhost:5173,http://localhost:5174'),
 
+  // Squad Bot (talent help chat). Without a key every message goes straight
+  // to the team's Squad Bot Inbox instead of being answered by the bot.
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  // Needed only when the key isn't scoped to a workspace (the API then asks for one).
+  ANTHROPIC_WORKSPACE_ID: z.string().min(1).optional(),
+  SQUAD_BOT_MODEL: z.string().default('claude-opus-5'),
+
   // SquadHub integration (inbound webhook + outbound callback for subscription cards).
   // All three are optional at startup — if the inbound secret is unset the webhook
   // endpoint returns 503; if the callback URL is unset outbound deliveries are

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as talentController from '../controllers/talent.controller.js';
+import * as squadBotController from '../controllers/squad-bot.controller.js';
 import * as trainingController from '../controllers/training.controller.js';
 import * as webinarsController from '../controllers/webinars.controller.js';
 import * as notificationsController from '../controllers/notifications.controller.js';
@@ -49,6 +50,10 @@ router.post('/squadhub/sso/authorize', requirePartnerAccess, talentController.au
 // App install/version check-in — fired by the mobile app once per launch so the
 // admin panel can see who has the talent app and which build they run.
 router.post('/app-checkin', validate({ body: appCheckinSchema }), appInstallController.checkin);
+
+// Squad Bot — the help chat (answers from the Knowledge Center, hands off to the team).
+router.get('/squad-bot', squadBotController.getMyChat);
+router.post('/squad-bot/messages', squadBotController.sendMyMessage);
 
 // Talent user (self)
 router.get('/me', talentController.getMe);

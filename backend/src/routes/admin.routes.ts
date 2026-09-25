@@ -8,6 +8,7 @@ import * as interviewController from '../controllers/interview.controller.js';
 import * as talentAccessController from '../controllers/talent-access.controller.js';
 import * as trainingController from '../controllers/training.controller.js';
 import * as webinarsController from '../controllers/webinars.controller.js';
+import * as squadBotController from '../controllers/squad-bot.controller.js';
 import * as knowledgeController from '../controllers/knowledge.controller.js';
 import * as howItWorksController from '../controllers/how-it-works.controller.js';
 import * as accessRequestsController from '../controllers/access-requests.controller.js';
@@ -747,6 +748,12 @@ router.post(
   webinarsController.rescheduleAdmin,
 );
 router.delete('/training/webinars/:id', webinarsController.deleteAdmin);
+
+// Squad Bot Inbox — talent chats Squad Bot handed to the team. Gated by `talents`.
+router.get('/squad-bot/conversations', squadBotController.listConversations);
+router.get('/squad-bot/conversations/:id', squadBotController.getConversation);
+router.post('/squad-bot/conversations/:id/reply', squadBotController.reply);
+router.post('/squad-bot/conversations/:id/hand-back', squadBotController.handBack);
 
 // Knowledge Center — Squad Bot's knowledge, written in SquadHub Resources and
 // synced here. Read-only: edits happen in SquadHub. Gated by `training`.

@@ -347,7 +347,7 @@ export default function TalentLayout({
       badge: incompleteTrainingCount > 0 ? <Badge variant="indigo">{incompleteTrainingCount}</Badge> : undefined,
     },
     {
-      label: 'Contact Support',
+      label: 'Help & Support',
       to: '/talent/contact-support',
       icon: (
         <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
