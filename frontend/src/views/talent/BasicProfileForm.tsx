@@ -20,6 +20,8 @@ import { GENDER_OPTIONS } from '@/constants/lead-form-options';
 import RequestedChangesBanner from '@/components/profile/RequestedChangesBanner';
 import { hasOpenBasicChanges, needsBasicResubmission } from '@/lib/profileChanges';
 import type { RequestedChange } from '@/types';
+import PendingTag from '@/components/talent/PendingTag';
+import { basicSectionCompletion, type BasicSectionId } from '@/lib/talentCompletion';
 
 /** Age in completed years (years only, never months) from a YYYY-MM-DD date. */
 function ageFromDob(dob: string): number | null {
@@ -131,19 +133,7 @@ const WORK_PREFERENCE_GROUPS: {
   },
 ];
 
-type SectionId =
-  | 'basic_details'
-  | 'language'
-  | 'address'
-  | 'education'
-  | 'experience'
-  | 'job_preference'
-  | 'freelance_preference'
-  | 'partner_program_preference'
-  | 'profile_picture'
-  | 'id_proofs'
-  | 'bank_account'
-  | 'resume';
+type SectionId = BasicSectionId;
 
 interface SectionDef {
   id: SectionId;
@@ -155,7 +145,7 @@ interface SectionDef {
   optional?: boolean;
 }
 
-function SectionHeader({ section }: { section: SectionDef }) {
+function SectionHeader({ section, needsCompletion }: { section: SectionDef; needsCompletion: boolean }) {
   return (
     <div className="mb-6 flex items-start gap-4">
       <div
@@ -172,6 +162,7 @@ function SectionHeader({ section }: { section: SectionDef }) {
           ) : (
             <span className="ml-1 text-red-500">*</span>
           )}
+          {needsCompletion && <PendingTag label="Needs completion" className="ml-2 align-middle" />}
         </h2>
         <p className="mt-0.5 text-sm text-[#737373]">{section.description}</p>
       </div>
@@ -528,24 +519,13 @@ export default function BasicProfileForm() {
   const wantsFreelance = (form.employment_type || []).includes('freelance');
   const wantsPartner = (form.employment_type || []).includes('partner_program');
 
-  // Per-section completion heuristics. Mirrors isBasicProfileMandatoryComplete
-  // in backend/src/services/talent.service.ts — keep the two in sync.
-  const completion: Record<SectionId, boolean> = {
-    basic_details: !!firstName,
-    language: languages.length > 0 && languages.some((l) => l.proficiency === 'native'),
-    address: !!(form.permanent_country && form.permanent_state && form.permanent_district && form.permanent_city),
-    education: educationCourses.length > 0 && educationCourses.some((e) => !!e.course_name && !!e.institution),
-    experience: experienceEntries.length > 0 && experienceEntries.some((e) => !!e.company_name && !!e.designation),
-    job_preference: (form.availability || []).length > 0 && (form.job_type || []).length > 0,
-    freelance_preference: !!form.freelance_available,
-    partner_program_preference:
-      (form.virtual_office_hours || []).some((h) => !!h.from && !!h.to) &&
-      (form.daily_available_hours || []).some((d) => d.hours > 0),
-    profile_picture: !!form.profile_picture_url,
-    id_proofs: !!(form.aadhaar_number || form.pan_number),
-    bank_account: !!(form.bank_account_holder && form.bank_account_number && form.bank_ifsc_code),
-    resume: !!form.resume_url,
-  };
+  // Per-section completion — the same rule the sidebar "Pending" tag uses
+  // (lib/talentCompletion.ts), evaluated against the live form state.
+  const completion = basicSectionCompletion({
+    fullName: firstName,
+    languages,
+    basic: { ...form, education_courses: educationCourses, experience: experienceEntries },
+  });
 
   const sections: SectionDef[] = [
     {
@@ -641,6 +621,11 @@ export default function BasicProfileForm() {
   ];
 
   const activeId = sections[activeSection]?.id;
+
+  // Mandatory (enabled, non-optional) sections still missing required details.
+  const needsCompletion = (section: SectionDef) =>
+    !section.disabled && !section.optional && !completion[section.id];
+  const pendingCount = sections.filter(needsCompletion).length;
 
   const goToSection = (delta: 1 | -1) => {
     let i = activeSection + delta;
@@ -834,6 +819,12 @@ export default function BasicProfileForm() {
             <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252]">
               These details are shared across all your job profiles.
             </p>
+            {pendingCount > 0 && (
+              <PendingTag
+                className="mt-2.5"
+                label={`${pendingCount} required ${pendingCount === 1 ? 'section needs' : 'sections need'} completion`}
+              />
+            )}
           </div>
 
           {/* Progress ring */}
@@ -910,7 +901,7 @@ export default function BasicProfileForm() {
                       ? 'Complete'
                       : section.optional
                         ? 'Optional'
-                        : 'Not started'
+                        : 'Needs completion'
                 }
                 className={`flex shrink-0 items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 font-[family-name:var(--font-inter)] text-[12px] font-semibold whitespace-nowrap transition-all duration-200 ${
                   section.disabled
@@ -946,6 +937,9 @@ export default function BasicProfileForm() {
                 {section.name}
                 {!isComplete && !isActive && section.optional && (
                   <span className="text-[10px] font-medium opacity-60">· Optional</span>
+                )}
+                {needsCompletion(section) && (
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-label="Needs completion" />
                 )}
               </button>
             );
@@ -1018,15 +1012,17 @@ export default function BasicProfileForm() {
                       }`}>
                         {section.name}
                       </p>
-                      <p className="font-[family-name:var(--font-inter)] text-[11px] text-[#a3a3a3] truncate">
-                        {section.disabled
-                          ? 'Locked'
-                          : isComplete
-                            ? 'Complete'
-                            : section.optional
-                              ? 'Optional'
-                              : 'Not started'}
-                      </p>
+                      {needsCompletion(section) ? (
+                        <PendingTag size="xs" label="Needs completion" className="mt-0.5" />
+                      ) : (
+                        <p className="font-[family-name:var(--font-inter)] text-[11px] text-[#a3a3a3] truncate">
+                          {section.disabled
+                            ? 'Locked'
+                            : isComplete
+                              ? 'Complete'
+                              : 'Optional'}
+                        </p>
+                      )}
                     </div>
                   </button>
                 );
@@ -1038,7 +1034,7 @@ export default function BasicProfileForm() {
         {/* Form Content */}
         <form onSubmit={handleSave} className="min-w-0 space-y-6">
           <div className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-8 shadow-[0_1px_2px_rgba(0,0,0,0.04)] section-rise" key={activeSection}>
-            <SectionHeader section={sections[activeSection]} />
+            <SectionHeader section={sections[activeSection]} needsCompletion={needsCompletion(sections[activeSection])} />
 
             {/* Basic Details */}
             {activeId === 'basic_details' && (

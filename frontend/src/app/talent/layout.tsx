@@ -15,6 +15,8 @@ import { useConversationUnread } from '@/hooks/useConversations';
 import { useIncompleteTrainingCount, useModuleAccess } from '@/hooks/useTraining';
 import ModuleUnlockGate from '@/components/training/ModuleUnlockGate';
 import { useTalentHasAssignedCard } from '@/hooks/useMyClients';
+import { useTalentPendingTasks } from '@/hooks/useTalentPendingTasks';
+import PendingTag from '@/components/talent/PendingTag';
 
 // A cancelled application (requested changes never made) can only reach support.
 const CANCELLED_ACCESSIBLE = '/talent/contact-support';
@@ -125,6 +127,8 @@ export default function TalentLayout({
   // Badge = incomplete training assignments (courses + SOPs once assigned).
   // Completing the resource clears the linked notification and drops this count.
   const { data: incompleteTrainingCount = 0 } = useIncompleteTrainingCount({ enabled: isTalent });
+  // "Pending" tags: mandatory basic-profile sections left, job profiles not yet submitted.
+  const pendingTasks = useTalentPendingTasks({ enabled: isTalent && !cancelled });
 
   if (isLoading) {
     return (
@@ -251,6 +255,12 @@ export default function TalentLayout({
           <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
         </svg>
       ),
+      badge: pendingTasks.basicPending ? (
+        <PendingTag
+          size="xs"
+          title={`${pendingTasks.basicSections.length} required ${pendingTasks.basicSections.length === 1 ? 'section' : 'sections'} to complete`}
+        />
+      ) : undefined,
     },
     {
       label: 'Job Profiles',
@@ -260,6 +270,16 @@ export default function TalentLayout({
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
         </svg>
       ),
+      badge: pendingTasks.profilesPending ? (
+        <PendingTag
+          size="xs"
+          title={
+            pendingTasks.noProfiles
+              ? 'Create your first job profile'
+              : `${pendingTasks.pendingProfiles} job ${pendingTasks.pendingProfiles === 1 ? 'profile' : 'profiles'} not submitted for review`
+          }
+        />
+      ) : undefined,
     },
     {
       label: 'My Clients',

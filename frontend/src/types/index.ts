@@ -123,6 +123,8 @@ export interface Profile {
   source_profiles?: GhostSourceProfile[];
   tier?: 'junior' | 'pro' | 'Top Talents' | 'custom' | null;
   tier_custom?: string | null;
+  /** Only on the talent's own profile list (GET /talent/profiles). */
+  portfolio_count?: number;
 }
 
 export interface TalentSignupData {

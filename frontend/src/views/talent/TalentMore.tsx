@@ -5,6 +5,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useIncompleteTrainingCount, useModuleAccess } from '@/hooks/useTraining';
 import { useTalentHasAssignedCard } from '@/hooks/useMyClients';
 import Badge from '@/components/ui/Badge';
+import PendingTag from '@/components/talent/PendingTag';
+import { useTalentPendingTasks } from '@/hooks/useTalentPendingTasks';
 
 interface MoreItem {
   label: string;
@@ -12,6 +14,8 @@ interface MoreItem {
   description: string;
   module?: string;
   badge?: number;
+  /** Tooltip for the "Pending" tag; set only when something needs completion. */
+  pending?: string;
   icon: React.ReactNode;
 }
 
@@ -21,6 +25,7 @@ export default function TalentMore() {
   const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
   const { data: incompleteTraining = 0 } = useIncompleteTrainingCount();
   const { hasAssignedCard } = useTalentHasAssignedCard();
+  const pendingTasks = useTalentPendingTasks();
 
   const unlockedSet = new Set(moduleAccess?.unlocked ?? []);
   const lockedMap = new Map((moduleAccess?.locked ?? []).map((l) => [l.module, l]));
@@ -63,6 +68,9 @@ export default function TalentMore() {
           to: '/talent/basic-profile',
           description: 'Your personal details and job preferences',
           module: 'basic-profile',
+          pending: pendingTasks.basicPending
+            ? `${pendingTasks.basicSections.length} required ${pendingTasks.basicSections.length === 1 ? 'section' : 'sections'} to complete`
+            : undefined,
           icon: (
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -74,6 +82,11 @@ export default function TalentMore() {
           to: '/talent/profiles',
           description: 'Role-specific profiles businesses discover',
           module: 'profiles',
+          pending: pendingTasks.profilesPending
+            ? pendingTasks.noProfiles
+              ? 'Create your first job profile'
+              : `${pendingTasks.pendingProfiles} job ${pendingTasks.pendingProfiles === 1 ? 'profile' : 'profiles'} not submitted for review`
+            : undefined,
           icon: (
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -173,6 +186,7 @@ export default function TalentMore() {
                         {item.badge != null && item.badge > 0 && (
                           <Badge variant="indigo">{item.badge}</Badge>
                         )}
+                        {item.pending && !locked && <PendingTag title={item.pending} />}
                         {locked && (
                           <span className="inline-flex items-center text-[#a3a3a3]" title={lock ? `Complete "${lock.chapter_title}" to unlock` : 'Complete training to unlock'}>
                             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -181,8 +195,9 @@ export default function TalentMore() {
                           </span>
                         )}
                       </span>
-                      <span className="mt-0.5 block truncate text-xs text-[#737373]">
-                        {item.description}
+                      {/* Tooltips don't exist on touch — spell the pending detail out. */}
+                      <span className={`mt-0.5 block truncate text-xs ${item.pending && !locked ? 'text-amber-700' : 'text-[#737373]'}`}>
+                        {item.pending && !locked ? item.pending : item.description}
                       </span>
                     </span>
                     <svg className="h-4 w-4 shrink-0 text-[#a3a3a3]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -9,6 +9,8 @@ import { useTalentMe } from '@/hooks/useTalentMe';
 import DynamicFormRenderer from '@/components/forms/DynamicFormRenderer';
 import DesignerExtras from '@/components/forms/DesignerExtras';
 import PortfolioUploader from '@/components/forms/PortfolioUploader';
+import PortfolioMinimumNotice from '@/components/talent/PortfolioMinimumNotice';
+import { minPortfolioItems } from '@/lib/talentCompletion';
 import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
 import Button from '@/components/ui/Button';
 import { SkeletonCard } from '@/components/ui/Skeleton';
@@ -75,6 +77,10 @@ export default function ProfileCreate() {
   // lets the form through immediately.
   const { data: profileGate, isLoading: gateLoading } = useProfileGate(selectedCategory?.id);
   const { data: portfolioItems } = usePortfolioItems(draftProfileId ?? undefined);
+  // Designer / Video Editor must reach a minimum portfolio before submitting.
+  const minItems = minPortfolioItems(selectedCategory?.slug);
+  const portfolioCount = portfolioItems?.length ?? 0;
+  const belowPortfolioMin = minItems > 0 && portfolioCount < minItems;
 
   useEffect(() => {
     if (!talentMe || hasInitializedLangs.current) return;
@@ -177,6 +183,9 @@ export default function ProfileCreate() {
 
     if (selectedCategory?.slug !== 'sales' && (!portfolioItems || portfolioItems.length === 0)) {
       newErrors._portfolio = 'At least one portfolio item is required';
+    }
+    if (belowPortfolioMin) {
+      newErrors._portfolio = `Upload at least ${minItems} portfolio items to submit (${portfolioCount}/${minItems})`;
     }
 
     setErrors(newErrors);
@@ -476,6 +485,14 @@ export default function ProfileCreate() {
                 </p>
               </div>
             </div>
+            {minItems > 0 && (
+              <PortfolioMinimumNotice
+                categoryName={selectedCategory.name}
+                count={portfolioCount}
+                min={minItems}
+                className="mb-5"
+              />
+            )}
             {draftProfileId && portfolioReady ? (
               <PortfolioUploader
                 profileId={draftProfileId}
@@ -511,7 +528,9 @@ export default function ProfileCreate() {
         <div className="text-xs text-[#737373] px-2">
           {isRejected
             ? 'Submitting is locked because this account was not approved.'
-            : 'Save as draft, or submit for review when ready.'}
+            : belowPortfolioMin
+              ? `Upload ${minItems - portfolioCount} more portfolio ${minItems - portfolioCount === 1 ? 'item' : 'items'} to submit — or save as draft for now.`
+              : 'Save as draft, or submit for review when ready.'}
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -525,7 +544,8 @@ export default function ProfileCreate() {
           <button
             type="button"
             onClick={handleSaveAndSubmit}
-            disabled={!canSubmit || autoSaving || createProfile.isPending || updateProfile.isPending || submitProfile.isPending}
+            disabled={!canSubmit || belowPortfolioMin || autoSaving || createProfile.isPending || updateProfile.isPending || submitProfile.isPending}
+            title={belowPortfolioMin ? `${selectedCategory.name} profiles need at least ${minItems} portfolio items` : undefined}
             className="btn-iridescent disabled:opacity-50"
           >
             {(createProfile.isPending || updateProfile.isPending || submitProfile.isPending) ? 'Saving…' : 'Save & Submit'}

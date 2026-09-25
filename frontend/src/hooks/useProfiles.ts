@@ -3,13 +3,14 @@ import api from '@/services/api';
 import type { Profile, PortfolioItem } from '@/types';
 import toast from 'react-hot-toast';
 
-export function useMyProfiles() {
+export function useMyProfiles({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery<Profile[]>({
     queryKey: ['myProfiles'],
     queryFn: async () => {
       const { data } = await api.get('/talent/profiles');
       return data.profiles ?? data;
     },
+    enabled,
   });
 }
 
@@ -152,6 +153,8 @@ export function useAddPortfolioItem() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['portfolio', variables.profileId] });
+      // Keeps portfolio_count (and the "Pending" tags built on it) current.
+      queryClient.invalidateQueries({ queryKey: ['myProfiles'] });
       toast.success('Portfolio item added');
     },
     onError: (err: any) => {
@@ -196,6 +199,8 @@ export function useDeletePortfolioItem() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['portfolio', variables.profileId] });
+      // Keeps portfolio_count (and the "Pending" tags built on it) current.
+      queryClient.invalidateQueries({ queryKey: ['myProfiles'] });
       toast.success('Portfolio item removed');
     },
     onError: (err: any) => {

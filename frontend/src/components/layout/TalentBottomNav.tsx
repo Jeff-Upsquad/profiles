@@ -7,6 +7,7 @@ import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { useIncompleteTrainingCount } from '@/hooks/useTraining';
 import { useTalentHasAssignedCard } from '@/hooks/useMyClients';
 import { useAuth } from '@/context/AuthContext';
+import { useTalentPendingTasks } from '@/hooks/useTalentPendingTasks';
 
 interface NavItem {
   href: string;
@@ -14,6 +15,8 @@ interface NavItem {
   icon: React.ReactNode;
   matchPrefixes?: string[];
   badge?: number;
+  /** Amber dot when something inside needs completion (and no count badge). */
+  pending?: boolean;
   disabled?: boolean;
   tooltip?: string;
 }
@@ -36,8 +39,15 @@ const MORE_PREFIXES = [
   '/talent/contact-support',
 ];
 
-function NavBadge({ count }: { count: number }) {
-  if (count <= 0) return null;
+function NavBadge({ count, pending }: { count: number; pending?: boolean }) {
+  if (count <= 0) {
+    return pending ? (
+      <span
+        className="absolute -right-1 -top-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white"
+        title="Something needs completion"
+      />
+    ) : null;
+  }
   return (
     <span className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#0a0a0a] px-1 text-[9px] font-bold text-white">
       {count > 99 ? '99+' : count}
@@ -54,6 +64,8 @@ export default function TalentBottomNav() {
   // the whole app down once already (see the rules-of-hooks note in CLAUDE.md).
   const { hasAssignedCard } = useTalentHasAssignedCard();
   const { user } = useAuth();
+  const cancelled = !!user?.application_cancelled_at;
+  const { anyPending } = useTalentPendingTasks({ enabled: !cancelled });
   const partnerOnlyPending = user?.wants_jobs === false && user.partner_approval_status !== 'approved';
   const onboarded = user?.onboarding_completed === true || user?.skip_onboarding === true;
   if (/^\/talent\/messages\/[^/]+/.test(pathname)) return null;
@@ -96,6 +108,7 @@ export default function TalentBottomNav() {
       label: 'More',
       matchPrefixes: MORE_PREFIXES,
       badge: incompleteTraining,
+      pending: anyPending,
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
@@ -179,7 +192,7 @@ export default function TalentBottomNav() {
               >
                 <span className="relative">
                   {item.icon}
-                  <NavBadge count={item.badge ?? 0} />
+                  <NavBadge count={item.badge ?? 0} pending={item.pending} />
                 </span>
                 {item.label}
               </Link>

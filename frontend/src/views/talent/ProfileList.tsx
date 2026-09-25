@@ -12,6 +12,9 @@ import { needsProfileResubmission } from '@/lib/profileChanges';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
 import { formatDate } from '@/lib/formatDate';
+import { minPortfolioItems, profilePendingState } from '@/lib/talentCompletion';
+import PendingTag from '@/components/talent/PendingTag';
+import PortfolioMinimumNotice from '@/components/talent/PortfolioMinimumNotice';
 
 const TINTS = ['tint-purple', 'tint-blue', 'tint-orange', 'tint-green', 'tint-pink', 'tint-amber'] as const;
 
@@ -36,6 +39,11 @@ export default function ProfileList() {
   // and the talent misses broadcasts they think they're getting.
   const isProfileLive = (p: { status: string; is_active?: boolean }) =>
     p.status === 'approved' && p.is_active !== false;
+
+  // Drafts / change requests still waiting on the talent, and — of those — the
+  // Designer / Video Editor ones that can't be submitted yet for lack of portfolio.
+  const pendingProfiles = visibleProfiles.filter((p) => profilePendingState(p) !== null);
+  const shortPortfolio = pendingProfiles.filter((p) => (profilePendingState(p)?.portfolioShortfall ?? 0) > 0);
 
   const stats = {
     total: visibleProfiles.length,
@@ -91,6 +99,36 @@ export default function ProfileList() {
 
       <PendingApprovalBanner />
 
+      {pendingProfiles.length > 0 && (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 sm:p-5" role="status">
+          <div className="flex flex-wrap items-center gap-2">
+            <PendingTag label="Needs completion" />
+            <p className="text-sm font-semibold text-amber-900">
+              {pendingProfiles.length === 1
+                ? '1 job profile hasn\'t been submitted for review yet'
+                : `${pendingProfiles.length} job profiles haven't been submitted for review yet`}
+            </p>
+          </div>
+          <p className="mt-1.5 text-sm text-amber-900/80">
+            Brands only discover profiles once they&apos;re submitted and approved. Finish and submit them below.
+          </p>
+          {shortPortfolio.length > 0 && (
+            <div className="mt-3 space-y-2.5">
+              {shortPortfolio.map((p) => (
+                <Link key={p.id} href={`/talent/profiles/${p.id}/edit#portfolio`} className="block">
+                  <PortfolioMinimumNotice
+                    categoryName={p.category?.name ?? 'This'}
+                    count={p.portfolio_count ?? 0}
+                    min={minPortfolioItems(p.category?.slug)}
+                    className="bg-white transition-shadow hover:shadow-sm"
+                  />
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {visibleProfiles.length === 0 ? (
         <div className="relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-6 py-16 text-center">
           <div className="hero-glow-orange absolute inset-0 pointer-events-none" />
@@ -122,6 +160,7 @@ export default function ProfileList() {
             const tint = tintFor(profile.category?.name ?? profile.id);
             const isLive = isProfileLive(profile);
             const isPaused = profile.is_active === false || profile.status === 'inactive';
+            const pending = profilePendingState(profile);
             return (
               <article
                 key={profile.id}
@@ -158,6 +197,17 @@ export default function ProfileList() {
                       </Badge>
                     )}
                   </div>
+
+                  {pending && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <PendingTag label={pending.label} />
+                      {pending.portfolioShortfall > 0 && (
+                        <span className="text-xs text-amber-800">
+                          {pending.portfolioShortfall} more portfolio {pending.portfolioShortfall === 1 ? 'item' : 'items'} needed
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {profile.is_ghost ? (
                     <p className="mt-1 text-xs text-[#a3a3a3]">

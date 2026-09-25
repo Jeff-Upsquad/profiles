@@ -483,6 +483,27 @@ export async function getMyOnboardingProgress(userId: string) {
 // Talent Profiles
 // ---------------------------------------------------------------------------
 
+// Designer and Video Editor profiles need a fuller portfolio before they can
+// go to review. Mirrored in frontend/src/lib/talentCompletion.ts.
+export const MIN_PORTFOLIO_ITEMS_BY_SLUG: Record<string, number> = {
+  designer: 10,
+  'video-editor': 10,
+};
+
+async function countPortfolioItems(profileIds: string[]): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {};
+  if (profileIds.length === 0) return counts;
+  const { data, error } = await supabaseAdmin
+    .from('portfolio_items')
+    .select('profile_id')
+    .in('profile_id', profileIds);
+  if (error) throw new AppError(500, 'Failed to count portfolio items');
+  for (const row of (data ?? []) as { profile_id: string }[]) {
+    counts[row.profile_id] = (counts[row.profile_id] ?? 0) + 1;
+  }
+  return counts;
+}
+
 export async function getMyProfiles(userId: string) {
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')
@@ -492,7 +513,11 @@ export async function getMyProfiles(userId: string) {
     .order('created_at', { ascending: false });
 
   if (error) throw new AppError(500, 'Failed to fetch profiles');
-  return data;
+
+  // portfolio_count lets the talent portal flag profiles that still need
+  // uploads (e.g. the 10-item minimum for Designer / Video Editor).
+  const counts = await countPortfolioItems((data ?? []).map((p: any) => p.id));
+  return (data ?? []).map((p: any) => ({ ...p, portfolio_count: counts[p.id] ?? 0 }));
 }
 
 export async function getProfile(profileId: string, userId: string) {
@@ -712,6 +737,26 @@ export async function submitProfile(profileId: string, userId: string) {
   const errors = await validateRequiredFields(profile.category_id, profile.field_data || {});
   if (errors.length > 0) {
     throw new AppError(400, `Cannot submit: ${errors.join('; ')}`);
+  }
+
+  // A live profile answering a change request is already approved — the
+  // portfolio minimum only gates getting into review in the first place.
+  if (!liveChangesOpen) {
+    const { data: category } = await supabaseAdmin
+      .from('categories')
+      .select('name, slug')
+      .eq('id', profile.category_id)
+      .maybeSingle();
+    const minItems = category?.slug ? MIN_PORTFOLIO_ITEMS_BY_SLUG[category.slug] : undefined;
+    if (minItems) {
+      const count = (await countPortfolioItems([profileId]))[profileId] ?? 0;
+      if (count < minItems) {
+        throw new AppError(
+          400,
+          `Cannot submit: ${category!.name} profiles need at least ${minItems} portfolio items (you have ${count})`,
+        );
+      }
+    }
   }
 
   const { data, error } = await supabaseAdmin

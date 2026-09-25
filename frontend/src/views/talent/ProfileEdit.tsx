@@ -13,6 +13,8 @@ import toast from 'react-hot-toast';
 import DynamicFormRenderer from '@/components/forms/DynamicFormRenderer';
 import DesignerExtras from '@/components/forms/DesignerExtras';
 import PortfolioUploader from '@/components/forms/PortfolioUploader';
+import PortfolioMinimumNotice from '@/components/talent/PortfolioMinimumNotice';
+import { minPortfolioItems } from '@/lib/talentCompletion';
 import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
 import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
 import Button from '@/components/ui/Button';
@@ -53,6 +55,11 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   const updateProfile = useUpdateProfile();
   const submitProfile = useSubmitProfile();
   const { data: portfolioItems } = usePortfolioItems(profileId);
+  // Designer / Video Editor must reach a minimum portfolio before going to
+  // review. A live profile answering a change request is already approved.
+  const minItems = profile?.status === 'approved' ? 0 : minPortfolioItems(profile?.category?.slug);
+  const portfolioCount = portfolioItems?.length ?? 0;
+  const belowPortfolioMin = minItems > 0 && portfolioCount < minItems;
 
   const { data: talentMe } = useTalentMe();
   const [values, setValues] = useState<Record<string, any>>({});
@@ -166,6 +173,9 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
 
     if (profile?.category?.slug !== 'sales' && (!portfolioItems || portfolioItems.length === 0)) {
       newErrors._portfolio = 'At least one portfolio item is required';
+    }
+    if (belowPortfolioMin) {
+      newErrors._portfolio = `Upload at least ${minItems} portfolio items to submit (${portfolioCount}/${minItems})`;
     }
 
     setErrors(newErrors);
@@ -291,8 +301,12 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
           onEditPage
           onResubmit={handleSaveAndSubmit}
           resubmitting={updateProfile.isPending || submitProfile.isPending}
-          resubmitDisabled={isRejected}
-          resubmitDisabledReason="Submitting is locked because this account was not approved"
+          resubmitDisabled={isRejected || belowPortfolioMin}
+          resubmitDisabledReason={
+            isRejected
+              ? 'Submitting is locked because this account was not approved'
+              : `Upload at least ${minItems} portfolio items first (${portfolioCount}/${minItems})`
+          }
         />
       )}
 
@@ -429,6 +443,14 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
                 </p>
               </div>
             </div>
+            {minItems > 0 && (
+              <PortfolioMinimumNotice
+                categoryName={profile.category?.name ?? 'This'}
+                count={portfolioCount}
+                min={minItems}
+                className="mb-5"
+              />
+            )}
             {(values._skills ?? []).length > 0 || (values._categories ?? []).length > 0 ? (
               <PortfolioUploader
                 profileId={profileId}
@@ -453,7 +475,9 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
       {/* Sticky action bar */}
       <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E7E7EA] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
         <div className="text-xs text-[#737373] px-2">
-          {dirty ? 'You have unsaved changes' : 'No changes yet'}
+          {belowPortfolioMin && (profile.status === 'draft' || profile.status === 'rejected' || needsProfileResubmission(profile))
+            ? `Upload ${minItems - portfolioCount} more portfolio ${minItems - portfolioCount === 1 ? 'item' : 'items'} to submit`
+            : dirty ? 'You have unsaved changes' : 'No changes yet'}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={handleSave} loading={updateProfile.isPending}>
@@ -463,8 +487,14 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
             <button
               type="button"
               onClick={handleSaveAndSubmit}
-              disabled={isRejected || updateProfile.isPending || submitProfile.isPending}
-              title={isRejected ? 'Submitting is locked because this account was not approved' : undefined}
+              disabled={isRejected || belowPortfolioMin || updateProfile.isPending || submitProfile.isPending}
+              title={
+                isRejected
+                  ? 'Submitting is locked because this account was not approved'
+                  : belowPortfolioMin
+                    ? `${profile.category?.name ?? 'This'} profiles need at least ${minItems} portfolio items`
+                    : undefined
+              }
               className="btn-iridescent disabled:opacity-50"
             >
               {(updateProfile.isPending || submitProfile.isPending)

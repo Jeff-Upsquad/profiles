@@ -12,13 +12,14 @@ interface TalentUserInfo {
   whatsapp_subscription_updates_enabled?: boolean;
 }
 
-export function useTalentMe() {
+export function useTalentMe({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery<TalentUserInfo>({
     queryKey: ['talentMe'],
     queryFn: async () => {
       const { data } = await api.get('/talent/me');
       return data.talent ?? data;
     },
+    enabled,
   });
 }
 
