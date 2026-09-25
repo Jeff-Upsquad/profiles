@@ -1,5 +1,6 @@
 import { getFirebaseApp } from '../config/firebase.js';
 import { supabaseAdmin } from '../config/supabase.js';
+import { forwardTalentPushToSquadHub } from './squadhub-partner-push.service.js';
 
 // Jobs-module push types. Reuse the existing Android `subscription_offers`
 // channel (high-importance, heads-up + sound) — no app-side channel change.
@@ -46,6 +47,25 @@ function buildCardBody(
 }
 
 async function sendToUsers(userIds: string[], payload: PushPayload): Promise<void> {
+  // Group Meet has its own SquadHub bridge (group-meets.service) carrying the
+  // meeting id + RSVP actions; everything else mirrors from here.
+  if (!payload.type.startsWith('group_meet_')) {
+    forwardTalentPushToSquadHub(userIds, {
+      type: payload.type,
+      title: payload.title,
+      body: payload.body,
+      card_id: payload.card_id,
+      route: payload.route,
+      notification_kind:
+        payload.notification_kind === 'shortlist' || payload.notification_kind === 'selection'
+          ? payload.notification_kind
+          : undefined,
+      recipient_id: payload.recipient_id || undefined,
+      business_name: payload.business_name || undefined,
+      card_title: payload.card_title || undefined,
+    });
+  }
+
   const firebase = getFirebaseApp();
   if (!firebase) return;
   if (userIds.length === 0) return;
@@ -157,6 +177,32 @@ export async function notifySelected(
     body: buildCardBody("Congratulations! You were selected for {brand_name}'s opportunity", content),
     card_id: cardId,
     route: '/home',
+    notification_kind: 'selection',
+    business_name: typeof content.brand_name === 'string' ? content.brand_name : '',
+  });
+}
+
+/**
+ * A business shortlisted the talent on a subscription/assignment card. Goes to
+ * the partner app only: the retired talent app never had a shortlist push and
+ * doesn't know the type.
+ */
+export function notifyShortlisted(
+  cardId: string,
+  talentUserId: string,
+  recipientId: string,
+  content: Record<string, unknown>,
+): void {
+  const brandName = typeof content.brand_name === 'string' ? content.brand_name : '';
+  forwardTalentPushToSquadHub([talentUserId], {
+    type: 'shortlisted',
+    title: "You've been shortlisted!",
+    body: `${brandName || 'A business'} shortlisted you for their opportunity. Choose an action to continue.`,
+    card_id: cardId,
+    route: '/home',
+    notification_kind: 'shortlist',
+    recipient_id: recipientId,
+    business_name: brandName || undefined,
   });
 }
 
@@ -187,6 +233,9 @@ export async function notifyJobEvent(
     body: string;
     cardId: string;
     route?: string;
+    /** Shortlist / final-selection stage → partner app confirm/decline alert. */
+    kind?: 'shortlist' | 'selection';
+    recipientId?: string;
   },
 ): Promise<void> {
   await sendToUsers(talentUserIds, {
@@ -195,6 +244,8 @@ export async function notifyJobEvent(
     body: input.body,
     card_id: input.cardId,
     route: input.route ?? '/jobs',
+    ...(input.kind ? { notification_kind: input.kind } : {}),
+    ...(input.recipientId ? { recipient_id: input.recipientId } : {}),
   });
 }
 

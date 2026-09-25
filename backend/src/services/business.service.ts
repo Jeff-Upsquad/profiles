@@ -9,6 +9,7 @@ import { cancelPaymentLink as cancelRazorpayPaymentLink } from './razorpay.servi
 import { cancelPaymentLink as cancelCashfreePaymentLink } from './cashfree.service.js';
 import { pushCrmIdentityNames } from '../lib/crm-identity-names.js';
 import { rearmBusinessCardAlerts } from './business-card-alerts.service.js';
+import { notifyShortlisted } from './push.service.js';
 
 // ─── Business User ──────────────────────────────────────────────────────────
 
@@ -1936,7 +1937,7 @@ export async function reviewCardRecipient(
 
   const { data: recipient, error: recErr } = await supabaseAdmin
     .from('subscription_card_recipients')
-    .select('id, status, cancelled_at, card_id')
+    .select('id, status, cancelled_at, card_id, talent_user_id, business_review_status')
     .eq('id', recipientId)
     .in('card_id', groupCardIds)
     .maybeSingle();
@@ -1969,6 +1970,16 @@ export async function reviewCardRecipient(
     .eq('id', recipientId);
 
   if (updErr) throw new AppError(500, updErr.message);
+
+  // Only a fresh shortlist notifies — re-clicking an existing one stays quiet.
+  if (action === 'shortlist' && (recipient as any).business_review_status !== 'shortlisted') {
+    notifyShortlisted(
+      (recipient as any).card_id as string,
+      (recipient as any).talent_user_id as string,
+      recipientId,
+      ((ownCard as any)?.content ?? {}) as Record<string, unknown>,
+    );
+  }
 }
 
 /**

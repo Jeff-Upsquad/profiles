@@ -1689,6 +1689,9 @@ export async function reviewCandidate(
     title: copy[input.action].title,
     body: copy[input.action].body,
     cardId,
+    route: `/talent/job-openings/${candidate.recipient_id}`,
+    kind: input.action === 'shortlist' ? 'shortlist' : input.action === 'select' ? 'selection' : undefined,
+    recipientId: candidate.recipient_id ?? undefined,
   }).catch((err) => console.error('[jobs] review push threw', err));
   if (input.action === 'reject') {
     fireJobsCrmEvent('talent_job_rejected', candidate.talent_user_id, {
