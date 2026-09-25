@@ -591,7 +591,11 @@ export default function OnboardingHub({
                 key={c.value}
                 type="button"
                 title={c.hint}
-                onClick={() => updateQuery({ attention: active ? null : c.value, page: null })}
+                // Chip counts span the whole funnel, so a chip lists every match —
+                // drop the stage / talent-board tab or the list can come up empty.
+                onClick={() => updateQuery(active
+                  ? { attention: null, page: null }
+                  : { attention: c.value, stage: null, talent_stage: null, page: null })}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
                   active
                     ? 'border-gray-900 bg-gray-900 text-white'
