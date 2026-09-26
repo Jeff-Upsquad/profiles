@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -81,7 +81,7 @@ export default function SquadBotInbox() {
         </p>
       </div>
 
-      <WhatsAppModeSwitch />
+      <BotJobs />
 
       <div className="mb-4 flex gap-2">
         {([
@@ -363,8 +363,51 @@ const MODES: Array<{ value: 'off' | 'draft' | 'auto'; label: string; hint: strin
   { value: 'auto', label: 'Auto', hint: 'Squad Bot replies on WhatsApp by itself (handoffs still go to the team).' },
 ];
 
-/** WhatsApp mode for Squad Bot (Designers & Editors and Accountants boards in the CRM). */
-function WhatsAppModeSwitch() {
+/** Squad Bot's jobs, each switched on and off on its own. */
+function BotJobs() {
+  return (
+    <div className="mb-5 grid gap-3 lg:grid-cols-2">
+      <AnswerTalentsJob />
+      <SortContactsJob />
+    </div>
+  );
+}
+
+function JobCard({ number, title, blurb, children }: { number: number; title: string; blurb: string; children: ReactNode }) {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-3">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Job {number}</p>
+      <p className="text-sm font-semibold text-gray-900">{title}</p>
+      <p className="mt-0.5 text-xs text-gray-500">{blurb}</p>
+      <div className="mt-2.5">{children}</div>
+    </div>
+  );
+}
+
+function ModeButtons<M extends string>({ modes, value, disabled, onPick }: {
+  modes: Array<{ value: M; label: string }>;
+  value: M | undefined;
+  disabled: boolean;
+  onPick: (m: M) => void;
+}) {
+  return (
+    <div className="inline-flex rounded-lg border border-gray-200 p-0.5">
+      {modes.map((m) => (
+        <button
+          key={m.value}
+          onClick={() => onPick(m.value)}
+          disabled={disabled}
+          className={`rounded-md px-3 py-1 text-xs font-medium ${value === m.value ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+        >
+          {m.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Job 1: answer talents on WhatsApp (Designers & Editors and Accountants boards in the CRM). */
+function AnswerTalentsJob() {
   const qc = useQueryClient();
   const { data } = useQuery<{ mode: 'off' | 'draft' | 'auto'; pipelines: string[] }>({
     queryKey: ['admin', 'squad-bot', 'settings'],
@@ -374,33 +417,121 @@ function WhatsAppModeSwitch() {
     mutationFn: async (mode: 'off' | 'draft' | 'auto') => (await api.put('/admin/squad-bot/settings', { mode })).data,
     onSuccess: (next) => {
       qc.setQueryData(['admin', 'squad-bot', 'settings'], next);
-      toast.success(`WhatsApp: ${MODES.find((m) => m.value === next.mode)?.label}`);
+      toast.success(`Answer talents on WhatsApp: ${MODES.find((m) => m.value === next.mode)?.label}`);
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Could not change the mode'),
   });
   const current = MODES.find((m) => m.value === data?.mode);
   return (
-    <div className="mb-5 rounded-lg border border-gray-200 bg-white p-3">
+    <JobCard
+      number={1}
+      title="Answer talents"
+      blurb="Answers questions in the app and on WhatsApp from the Knowledge Center, and hands off what it can't answer."
+    >
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-medium text-gray-900">Squad Bot on WhatsApp</span>
-        <div className="flex rounded-lg border border-gray-200 p-0.5">
-          {MODES.map((m) => (
-            <button
-              key={m.value}
-              onClick={() => {
-                if (m.value === 'auto' && !confirm('Squad Bot will send WhatsApp replies without a recruiter checking them first. Switch to Auto?')) return;
-                save.mutate(m.value);
-              }}
-              disabled={save.isPending || !data}
-              className={`rounded-md px-3 py-1 text-xs font-medium ${data?.mode === m.value ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
+        <span className="text-xs font-medium text-gray-700">WhatsApp</span>
+        <ModeButtons
+          modes={MODES}
+          value={data?.mode}
+          disabled={save.isPending || !data}
+          onPick={(mode) => {
+            if (mode === 'auto' && !confirm('Squad Bot will send WhatsApp replies without a recruiter checking them first. Switch to Auto?')) return;
+            save.mutate(mode);
+          }}
+        />
         {data && <span className="text-xs text-gray-500">Boards: {data.pipelines.join(', ')}</span>}
       </div>
       {current && <p className="mt-1.5 text-xs text-gray-500">{current.hint}</p>}
-    </div>
+    </JobCard>
+  );
+}
+
+interface SortingSettings {
+  mode: 'off' | 'auto';
+  pipeline: string;
+  template: string;
+  roles: Array<{ key: string; label: string; pipeline: string; stage: string }>;
+  waiting: number | null;
+  on_board: number | null;
+}
+
+const SORT_MODES: Array<{ value: 'off' | 'auto'; label: string }> = [
+  { value: 'off', label: 'Off' },
+  { value: 'auto', label: 'On' },
+];
+
+/** Job 2: ask direct WhatsApp contacts which role they want and move them to that board. */
+function SortContactsJob() {
+  const qc = useQueryClient();
+  const key = ['admin', 'squad-bot', 'sorting'];
+  const { data } = useQuery<SortingSettings>({
+    queryKey: key,
+    queryFn: async () => (await api.get('/admin/squad-bot/sorting')).data,
+    refetchInterval: 60_000,
+  });
+  const save = useMutation({
+    mutationFn: async (mode: 'off' | 'auto') => (await api.put('/admin/squad-bot/sorting', { mode })).data,
+    onSuccess: (next) => {
+      qc.setQueryData(key, (prev: SortingSettings | undefined) => ({ ...prev, ...next }));
+      toast.success(`Sort new contacts: ${next.mode === 'auto' ? 'On' : 'Off'}`);
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Could not change the mode'),
+  });
+  const ask = useMutation({
+    mutationFn: async () => (await api.post('/admin/squad-bot/sorting/ask-waiting')).data as {
+      asked: number; by_template: number; failed: number; remaining: number; errors: string[];
+    },
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: key });
+      qc.invalidateQueries({ queryKey: ['admin', 'squad-bot', 'list'] });
+      const parts = [`Asked ${r.asked}${r.by_template ? ` (${r.by_template} by template)` : ''}`];
+      if (r.failed) parts.push(`${r.failed} not sent`);
+      if (r.remaining) parts.push(`${r.remaining} left, click again`);
+      (r.failed ? toast.error : toast.success)(parts.join(' · '));
+      if (r.errors.length) console.warn('[squad-bot] not asked:', r.errors);
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Could not ask the waiting contacts'),
+  });
+
+  const pipeline = data?.pipeline ?? 'Default Candidate Pipeline';
+  return (
+    <JobCard
+      number={2}
+      title="Sort new contacts"
+      blurb={`People who message WhatsApp directly land on the ${pipeline}. Squad Bot asks which role they're looking for and moves them to that board.`}
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <ModeButtons
+          modes={SORT_MODES}
+          value={data?.mode}
+          disabled={save.isPending || !data}
+          onPick={(mode) => save.mutate(mode)}
+        />
+        {data?.mode === 'auto' && (
+          <button
+            onClick={() => {
+              if (!confirm(`Send "Which role are you looking for?" on WhatsApp to the ${data.waiting ?? ''} contact(s) Squad Bot hasn't asked yet? Anyone outside WhatsApp's 24-hour window gets the ${data.template} template.`)) return;
+              ask.mutate();
+            }}
+            disabled={ask.isPending || !data.waiting}
+            className="rounded-md border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {ask.isPending ? 'Asking…' : `Ask everyone waiting${data.waiting != null ? ` (${data.waiting})` : ''}`}
+          </button>
+        )}
+      </div>
+      <p className="mt-1.5 text-xs text-gray-500">
+        {data?.mode === 'off'
+          ? 'Off: contacts stay on the board for the team.'
+          : data?.waiting == null
+            ? 'On: Squad Bot asks when a new contact writes in. (Could not reach the CRM to count who is waiting.)'
+            : `On: Squad Bot asks when a new contact writes in. ${data.on_board ?? 0} on the board, ${data.waiting} not asked yet.`}
+      </p>
+      {data && (
+        <p className="mt-1 text-xs text-gray-500">
+          Moves to: {data.roles.map((r) => r.label).join(' · ')}
+        </p>
+      )}
+    </JobCard>
   );
 }

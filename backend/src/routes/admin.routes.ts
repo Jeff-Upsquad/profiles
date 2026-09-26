@@ -758,6 +758,10 @@ router.post('/squad-bot/conversations/:id/hand-back', squadBotController.handBac
 // WhatsApp via SquadHire CRM: off, draft (recruiter sends) or auto.
 router.get('/squad-bot/settings', squadBotController.getWhatsAppSettings);
 router.put('/squad-bot/settings', squadBotController.setWhatsAppMode);
+// Job 2 — sort direct WhatsApp contacts on the Default Candidate Pipeline.
+router.get('/squad-bot/sorting', squadBotController.getSorting);
+router.put('/squad-bot/sorting', squadBotController.setSortingMode);
+router.post('/squad-bot/sorting/ask-waiting', squadBotController.askWaiting);
 
 // Knowledge Center — Squad Bot's knowledge, written in SquadHub Resources and
 // synced here. Edits happen in SquadHub; approving a Squad Bot suggestion

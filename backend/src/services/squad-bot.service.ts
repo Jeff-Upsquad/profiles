@@ -1,6 +1,13 @@
 // ---------------------------------------------------------------------------
-// Squad Bot — the talent help chat.
+// Squad Bot — UpSquad's assistant. It has two jobs:
 //
+//   Job 1 — answer talents (this file): in the app and on WhatsApp boards,
+//           answer from the Knowledge Center and hand off what it can't.
+//   Job 2 — sort new contacts (squad-bot-sorting.service.ts): people who
+//           message WhatsApp directly land on the CRM's Default Candidate
+//           Pipeline; ask which role they want and move them to that board.
+//
+// Job 1 in detail:
 // A talent writes in their account; Squad Bot (Claude) answers from the
 // Knowledge Center plus the talent's own onboarding state. When it can't, it
 // hands off: the conversation waits in the admin Squad Bot Inbox, the team
@@ -36,7 +43,7 @@ const HISTORY_TURNS = 30;
 const MAX_TALENT_MESSAGES_PER_HOUR = 40;
 const TALENT_CHAT_LINK = '/talent/contact-support';
 
-const HANDOFF_TOOL: Anthropic.Beta.BetaTool = {
+export const HANDOFF_TOOL: Anthropic.Beta.BetaTool = {
   name: 'hand_off_to_team',
   description:
     'Pass this conversation to the UpSquad team. Use it for anything on the always-hand-off list, or when the knowledge does not answer the question. The team replies in this same chat.',
@@ -83,7 +90,7 @@ export function squadBotClient(): Anthropic | null {
 // Storage
 // ---------------------------------------------------------------------------
 
-interface ConversationRow {
+export interface ConversationRow {
   id: string;
   talent_user_id: string | null;
   phone: string | null;
@@ -116,7 +123,7 @@ async function conversationFor(talentUserId: string): Promise<ConversationRow> {
   return created as ConversationRow;
 }
 
-async function addMessage(
+export async function addMessage(
   conversationId: string,
   msg: {
     sender: ChatLine['sender'];
@@ -141,7 +148,7 @@ async function addMessage(
   return data;
 }
 
-async function recentLines(conversationId: string, limit: number) {
+export async function recentLines(conversationId: string, limit: number) {
   const { data, error } = await supabaseAdmin
     .from('squad_bot_messages')
     .select(MESSAGE_COLUMNS)
@@ -152,7 +159,7 @@ async function recentLines(conversationId: string, limit: number) {
   return (data ?? []).reverse();
 }
 
-async function handOff(conv: ConversationRow, reason: string, summary: string) {
+export async function handOff(conv: ConversationRow, reason: string, summary: string) {
   await supabaseAdmin
     .from('squad_bot_conversations')
     .update({ status: 'handoff', handoff_reason: reason, handoff_summary: summary, handoff_at: new Date().toISOString() })
@@ -192,7 +199,7 @@ function crmCall(path: string): { url: string; headers: Record<string, string> }
   };
 }
 
-async function crmPost(path: string, body: Record<string, unknown>): Promise<Record<string, any> | null> {
+export async function crmPost(path: string, body: Record<string, unknown>): Promise<Record<string, any> | null> {
   const call = crmCall(path);
   if (!call) return null;
   try {
@@ -446,7 +453,7 @@ async function talentIdByPhone(phone: string): Promise<string | null> {
 }
 
 /** One conversation per person: the talent's (shared with the app) or, before signup, the phone's. */
-async function whatsappConversation(msg: WhatsAppInbound): Promise<ConversationRow> {
+export async function whatsappConversation(msg: WhatsAppInbound): Promise<ConversationRow> {
   const talentId = await talentIdByPhone(msg.phone);
   const link = { crm_lead_id: msg.lead_id, crm_pipeline_name: msg.pipeline_name, contact_name: msg.name };
   if (talentId) {
@@ -470,9 +477,13 @@ async function whatsappConversation(msg: WhatsAppInbound): Promise<ConversationR
  */
 export async function handleWhatsAppMessage(msg: WhatsAppInbound): Promise<void> {
   try {
+    const pipeline = (msg.pipeline_name ?? '').trim().toLowerCase();
+    // Job 2: a direct contact nobody has sorted yet.
+    const sorting = await import('./squad-bot-sorting.service.js');
+    if (await sorting.isSortingPipeline(pipeline)) return sorting.sortWhatsAppContact(msg);
+
     const settings = await getWhatsAppSettings();
     if (settings.mode === 'off') return;
-    const pipeline = (msg.pipeline_name ?? '').trim().toLowerCase();
     if (!settings.pipelines.some((p) => pipeline === p.trim().toLowerCase())) return;
 
     const conv = await whatsappConversation(msg);

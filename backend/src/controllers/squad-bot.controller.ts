@@ -111,3 +111,39 @@ export async function setWhatsAppMode(req: Request, res: Response, next: NextFun
     next(err);
   }
 }
+
+// --- Job 2: sort new contacts --------------------------------------------------
+
+export async function getSorting(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const svc = await import('../services/squad-bot-sorting.service.js');
+    const settings = await svc.getSortingSettings();
+    // The waiting count needs the CRM; the settings still load without it.
+    const waiting = await svc.waitingContacts().then((w) => ({ waiting: w.leads.length, on_board: w.total }), () => ({ waiting: null, on_board: null }));
+    res.json({ ...settings, ...waiting });
+  } catch (err) {
+    next(err);
+  }
+}
+
+const sortingModeSchema = z.object({ mode: z.enum(['off', 'auto']) });
+
+export async function setSortingMode(req: Request, res: Response, next: NextFunction) {
+  try {
+    const parsed = sortingModeSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError(400, 'Mode must be off or auto');
+    const svc = await import('../services/squad-bot-sorting.service.js');
+    res.json(await svc.setSortingMode(parsed.data.mode, actor(req).id));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function askWaiting(req: Request, res: Response, next: NextFunction) {
+  try {
+    const svc = await import('../services/squad-bot-sorting.service.js');
+    res.json(await svc.askWaitingContacts(actor(req)));
+  } catch (err) {
+    next(err);
+  }
+}
