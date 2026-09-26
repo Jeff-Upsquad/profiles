@@ -437,7 +437,8 @@ export async function unregisterFromWebinar(talentUserId: string, webinarId: str
  * next one" notice: notification panel + push + the `talent_webinar_missed`
  * WhatsApp template. Attendance is the talent's onboarding-webinar tick, so an
  * admin ticks attendees before marking the webinar completed. Talents already
- * registered for an upcoming webinar are skipped — they've acted already.
+ * registered for an upcoming webinar are skipped — they've acted already. The
+ * rest move back to "Onboarding webinar" on the talent board (silently).
  * `missed_notified_at` makes it exactly-once per registration, so toggling the
  * status back and forth never re-sends.
  */
@@ -478,6 +479,10 @@ export async function sendMissedWebinarNotices(webinar: WebinarRow): Promise<num
     try {
       const { pick, alreadyRegistered } = await pickUpcomingWebinar(t.id);
       if (alreadyRegistered) continue;
+      // Back to "Onboarding webinar" so the board is truthful and the
+      // template's Registered button can sign them up again.
+      const { revertOnMissedWebinar } = await import('./onboarding-hub.service.js');
+      await revertOnMissedWebinar(t.id);
       const next = pick ? `${pick.title}, ${formatWebinarTime(pick.starts_at, t.phone)}` : null;
       const copy = missedCopy(webinar.title, next);
 

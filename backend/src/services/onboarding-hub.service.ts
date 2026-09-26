@@ -1324,6 +1324,56 @@ export async function advanceOnWebinarRegistration(talentUserId: string): Promis
   }
 }
 
+/**
+ * A registrant missed the webinar (it was marked completed without them ticked
+ * as attended). Anyone on "Webinar registered" goes back to "Onboarding
+ * webinar", so the board is truthful and the missed-webinar WhatsApp's
+ * Registered button (which only acts on that stage) signs them up again.
+ * The CRM card moves silently: the missed notice is the message, and the
+ * stage's own entry automation would double it.
+ */
+export async function revertOnMissedWebinar(talentUserId: string): Promise<void> {
+  const { data: t } = await supabaseAdmin
+    .from('talent_users')
+    .select('full_name, phone, crm_talent_pipeline_name, crm_talent_stage_name, crm_jobs_pipeline_name, crm_jobs_stage_name')
+    .eq('id', talentUserId)
+    .maybeSingle();
+  if (!t) return;
+  const tracks: Array<{ track: 'partner' | 'jobs'; pipeline: string | null; stage: string | null }> = [
+    { track: 'partner', pipeline: (t as any).crm_talent_pipeline_name, stage: (t as any).crm_talent_stage_name },
+    { track: 'jobs', pipeline: (t as any).crm_jobs_pipeline_name, stage: (t as any).crm_jobs_stage_name },
+  ];
+  for (const { track, pipeline, stage } of tracks) {
+    if (normalizeStage(stage ?? '') !== WEBINAR_REGISTERED_STAGE) continue;
+    const { config } = await talentPipelineFor(talentUserId, pipeline, track);
+    const target = config?.stages.find((s) => normalizeStage(s.name) === WEBINAR_STAGE);
+    if (!config || !target) continue;
+    try {
+      // Each track is handled here, so no mirroring (it would move the other card loudly).
+      await applyInboundTalentStage(talentUserId, {
+        pipeline_name: config.pipeline_name,
+        stage_id: target.id,
+        stage_name: target.name,
+      }, { mirror: false });
+      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(talentUserId);
+      const { notifyCrmTalentStageChanged } = await import('./automation.service.js');
+      await notifyCrmTalentStageChanged({
+        talentUserId,
+        adminUserId: null,
+        silent: true,
+        name: (t as any).full_name ?? '',
+        email: authUser?.user?.email ?? null,
+        phone: (t as any).phone ?? null,
+        pipelineName: config.pipeline_name,
+        stageId: target.id,
+        stageName: target.name,
+      });
+    } catch (err) {
+      console.error('[onboarding-hub] missed-webinar stage revert failed:', err);
+    }
+  }
+}
+
 /** Admin dismissed the "WhatsApp message failed" flag. */
 export async function clearMessageFailed(talentUserId: string) {
   const { data, error } = await supabaseAdmin
