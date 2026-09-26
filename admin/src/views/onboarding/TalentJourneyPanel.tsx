@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
 import Badge from '@/components/ui/Badge';
+import WorkPreferenceBadges from '@/components/ui/WorkPreferenceBadges';
 import RequestChangesDialog from '@/views/profiles/RequestChangesDialog';
 import RejectDialog from './RejectDialog';
 import NotesSection from '@/views/leads/NotesSection';
@@ -276,12 +277,6 @@ function draftPrefillKeys(p: JobProfile): string[] {
   for (const f of p.missing_required_fields ?? []) keys.push(`field.${f}`);
   return keys;
 }
-const WORK_TYPE_LABEL: Record<string, string> = {
-  partner_program: 'Partner Program · Subscriptions',
-  freelance: 'Partner Program · Assignments',
-  salary: 'Jobs',
-};
-
 function KV({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
@@ -319,7 +314,7 @@ function BasicProfileView({ basic, user }: { basic: Record<string, any> | null; 
         ) : PLACEHOLDER}
       </KV>
       <KV label="Work preference">
-        {employment.length ? employment.map((e) => WORK_TYPE_LABEL[e] ?? TITLE(e)).join(' · ') : PLACEHOLDER}
+        <WorkPreferenceBadges employment={employment} />
       </KV>
       <KV label="Permanent address">{address || PLACEHOLDER}</KV>
       <KV label="Current location">{current || user.current_location || PLACEHOLDER}</KV>

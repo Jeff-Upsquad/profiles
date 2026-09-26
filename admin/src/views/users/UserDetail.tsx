@@ -11,6 +11,7 @@ import Button from '@/components/ui/Button';
 import DropdownMenu, { type DropdownMenuItem } from '@/components/ui/DropdownMenu';
 import CandidateActivityPanel from '@/views/leads/CandidateActivityPanel';
 import TierBadge from '@/components/ui/TierBadge';
+import WorkPreferenceBadges from '@/components/ui/WorkPreferenceBadges';
 import { cleanPhoneForLink, formatIndianPhone } from '@/lib/phone';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
 import { ALL_DAYS, monthlyOccurrences, fmt, format12 } from '@/lib/workHours';
@@ -715,7 +716,7 @@ export default function UserDetail({ userId }: { userId: string }) {
     { label: 'Last Name', value: name.last },
     { label: 'Email', value: user.email },
     { label: 'Phone Number', value: formatIndianPhone(user.phone) },
-    { label: 'Work Preference', value: <Tags items={basic?.employment_type ?? null} /> },
+    { label: 'Work Preference', value: <WorkPreferenceBadges employment={basic?.employment_type ?? null} /> },
   ];
 
   const officialAddressRows: FieldRow[] = [
