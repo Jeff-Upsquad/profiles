@@ -30,6 +30,7 @@ import { startCardEventsOutboxSweeper } from './services/card-events-outbox.serv
 import { startInterviewSweeper } from './services/jobs-sweepers.service.js';
 import { startCardPaymentsSweeper } from './services/card-payments.service.js';
 import { startTrackCatchUpSweeper } from './services/linked-tracks.service.js';
+import { startPartnerAppInstallSync } from './services/partner-app-install.service.js';
 import * as cardPaymentsController from './controllers/card-payments.controller.js';
 
 const app = express();
@@ -156,6 +157,7 @@ app.listen(env.PORT, () => {
   startInterviewSweeper();
   startCardPaymentsSweeper();
   startTrackCatchUpSweeper();
+  startPartnerAppInstallSync();
 });
 
 export default app;

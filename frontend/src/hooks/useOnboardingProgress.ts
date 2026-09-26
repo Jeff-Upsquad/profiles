@@ -9,7 +9,7 @@ export interface OnboardingProgress {
   portfolio_completed: boolean;
   /** False when the talent's categories have no portfolio (sales, accountant). */
   portfolio_required?: boolean;
-  /** Signed in on the SquadHire mobile app at least once. */
+  /** Signed in on the SquadHub Partner app at least once. */
   app_downloaded?: boolean;
   /** Registered for an onboarding webinar (attendance is ticked by an admin). */
   webinar_registered?: boolean;

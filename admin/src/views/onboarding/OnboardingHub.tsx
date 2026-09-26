@@ -104,7 +104,7 @@ function JourneyDots({ row }: { row: HubRow }) {
 }
 
 /**
- * Talent-board checklist strip for a Live row: App downloaded → Webinar
+ * Talent-board checklist strip for a Live row: Partner app downloaded → Webinar
  * attended → Partner and/or Jobs course (whichever the talent applied for).
  */
 function TalentBoardDots({ row }: { row: HubRow }) {

@@ -9,11 +9,17 @@ interface Install {
   user_id: string;
   full_name: string | null;
   phone: string | null;
-  version_name: string;
-  version_code: number;
+  /** null until the talent opens a partner app build that reports its version. */
+  version_name: string | null;
+  version_code: number | null;
   platform: 'android' | 'ios';
   first_seen_at: string;
   last_seen_at: string;
+}
+
+interface Release {
+  version_code: number;
+  version_name: string;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -28,35 +34,41 @@ function timeAgo(iso: string): string {
   return formatLongDate(iso);
 }
 
-export default function TalentAppInstalls() {
+export default function PartnerAppInstalls() {
   const [search, setSearch] = useState('');
 
-  const { data: installs, isLoading } = useQuery<Install[]>({
-    queryKey: ['admin-talent-app-installs'],
+  const { data, isLoading } = useQuery<{ installs: Install[]; latest: Release | null }>({
+    queryKey: ['admin-partner-app-installs'],
     queryFn: async () => {
-      const { data } = await api.get('/admin/talent-app/installs');
-      return data.installs ?? data;
+      const { data } = await api.get('/admin/partner-app/installs');
+      return data;
     },
   });
 
-  const rows = installs ?? [];
+  const rows = data?.installs ?? [];
   const total = rows.length;
-  const latestCode = rows.reduce((max, r) => Math.max(max, r.version_code), 0);
-  const latestName = rows.find((r) => r.version_code === latestCode)?.version_name ?? '—';
-  const onLatest = rows.filter((r) => r.version_code === latestCode).length;
+  // "Latest" is the build SquadHub's in-app updater currently offers. Fall back
+  // to the newest build seen only if SquadHub couldn't be reached.
+  const seenMax = rows.reduce((max, r) => Math.max(max, r.version_code ?? 0), 0);
+  const latestCode = data?.latest?.version_code ?? seenMax;
+  const latestName =
+    data?.latest?.version_name ?? rows.find((r) => r.version_code === latestCode)?.version_name ?? '—';
+  const onLatest = rows.filter((r) => latestCode > 0 && (r.version_code ?? 0) >= latestCode).length;
   const latestPct = total ? Math.round((onLatest / total) * 100) : 0;
   const active7 = rows.filter((r) => Date.now() - new Date(r.last_seen_at).getTime() < 7 * DAY_MS).length;
 
   // Current version distribution (how many users sit on each build right now).
+  // Installs that haven't reported a version yet are grouped under code 0.
   const distMap = new Map<number, { version_name: string; version_code: number; count: number }>();
   for (const r of rows) {
-    const entry = distMap.get(r.version_code) ?? {
-      version_name: r.version_name,
-      version_code: r.version_code,
+    const code = r.version_code ?? 0;
+    const entry = distMap.get(code) ?? {
+      version_name: r.version_name ?? 'Unknown',
+      version_code: code,
       count: 0,
     };
     entry.count += 1;
-    distMap.set(r.version_code, entry);
+    distMap.set(code, entry);
   }
   const distribution = Array.from(distMap.values()).sort((a, b) => b.version_code - a.version_code);
 
@@ -65,15 +77,15 @@ export default function TalentAppInstalls() {
       !search ||
       r.full_name?.toLowerCase().includes(search.toLowerCase()) ||
       r.phone?.includes(search) ||
-      r.version_name.includes(search),
+      r.version_name?.includes(search),
   );
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Talent App</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Partner App</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Who has the talent mobile app installed and which version they&apos;re running
+          Which talents have the SquadHub Partner app installed and which version they&apos;re running
         </p>
       </div>
 
@@ -92,12 +104,12 @@ export default function TalentAppInstalls() {
           <div className="mt-4 space-y-3">
             {distribution.map((d) => {
               const pct = total ? Math.round((d.count / total) * 100) : 0;
-              const isLatest = d.version_code === latestCode;
+              const isLatest = latestCode > 0 && d.version_code >= latestCode;
               return (
                 <div key={d.version_code} className="flex items-center gap-3">
                   <div className="w-24 shrink-0 text-sm font-medium text-gray-700">
                     {d.version_name}
-                    <span className="ml-1 text-xs text-gray-400">({d.version_code})</span>
+                    {d.version_code > 0 && <span className="ml-1 text-xs text-gray-400">({d.version_code})</span>}
                   </div>
                   <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-gray-100">
                     <div
@@ -137,7 +149,7 @@ export default function TalentAppInstalls() {
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
             {total === 0
-              ? 'No app installs recorded yet. Users appear here after they open an app build that reports its version.'
+              ? 'No partner app installs yet. Talents appear here after they sign in to the SquadHub Partner app.'
               : 'No matches found'}
           </div>
         ) : (
@@ -162,11 +174,15 @@ export default function TalentAppInstalls() {
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
                     <div className="flex items-center gap-2">
-                      <span>
-                        {r.version_name}
-                        <span className="ml-1 text-xs text-gray-400">({r.version_code})</span>
-                      </span>
-                      {r.version_code === latestCode && total > 0 && (
+                      {r.version_code == null ? (
+                        <span className="text-gray-400">Unknown</span>
+                      ) : (
+                        <span>
+                          {r.version_name}
+                          <span className="ml-1 text-xs text-gray-400">({r.version_code})</span>
+                        </span>
+                      )}
+                      {latestCode > 0 && (r.version_code ?? 0) >= latestCode && (
                         <Badge variant="green">latest</Badge>
                       )}
                     </div>

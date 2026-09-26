@@ -468,7 +468,7 @@ export async function computeOnboardingProgress(userId: string): Promise<{
 /**
  * The talent-board stages that follow sign-up, read from the same sources as
  * the admin Onboarding hub (onboarding-hub.service talentBoardChecklist /
- * talentBoardSteps): first mobile-app sign-in, the admin-ticked onboarding
+ * talentBoardSteps): first SquadHub Partner app sign-in, the admin-ticked onboarding
  * webinar, and the Partner / Jobs course for each track the talent applied to.
  */
 async function talentBoardProgress(userId: string) {
@@ -479,10 +479,9 @@ async function talentBoardProgress(userId: string) {
       .eq('id', userId)
       .maybeSingle(),
     supabaseAdmin
-      .from('talent_app_installs')
+      .from('partner_app_installs')
       .select('first_seen_at')
-      .eq('user_id', userId)
-      .order('first_seen_at', { ascending: true })
+      .eq('talent_user_id', userId)
       .limit(1),
     supabaseAdmin
       .from('training_webinar_registrations')
