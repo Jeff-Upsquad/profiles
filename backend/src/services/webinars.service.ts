@@ -11,6 +11,7 @@ import type {
 
 export const WEBINAR_WHATSAPP_EVENT = 'talent_webinar_reminder';
 export const WEBINAR_RESCHEDULED_EVENT = 'talent_webinar_rescheduled';
+export const WEBINAR_MISSED_EVENT = 'talent_webinar_missed';
 
 export type WebinarReminderStage = 'day' | 't30' | 't5';
 
@@ -86,7 +87,7 @@ export async function updateWebinar(id: string, input: UpdateWebinarInput) {
   if (input.status !== undefined) patch.status = input.status;
   if (Object.keys(patch).length === 0) throw new AppError(400, 'Nothing to update');
   patch.updated_at = new Date().toISOString();
-  const { data: before } = await supabaseAdmin.from('training_webinars').select('starts_at').eq('id', id).maybeSingle();
+  const { data: before } = await supabaseAdmin.from('training_webinars').select('starts_at, status').eq('id', id).maybeSingle();
   const { data, error } = await supabaseAdmin
     .from('training_webinars')
     .update(patch)
@@ -97,6 +98,12 @@ export async function updateWebinar(id: string, input: UpdateWebinarInput) {
   // A moved start time means the old reminder stamps are for the wrong slot.
   if (before && new Date((before as any).starts_at).getTime() !== new Date(data.starts_at).getTime()) {
     await resetReminderStamps(id);
+  }
+  // Marked completed → tell registrants who weren't ticked as attended.
+  if (before && (before as any).status !== 'completed' && data.status === 'completed') {
+    void sendMissedWebinarNotices(data as WebinarRow).catch((e) =>
+      console.error('[webinars] missed notices failed for', id, e),
+    );
   }
   return data;
 }
@@ -377,10 +384,24 @@ const normLanguage = (l: string) => {
  * No-op when they already hold a registration for an upcoming webinar.
  */
 export async function ensureRegisteredForUpcomingWebinar(talentUserId: string): Promise<void> {
+  const { pick, alreadyRegistered } = await pickUpcomingWebinar(talentUserId);
+  if (!pick || alreadyRegistered) return;
+  await registerForWebinar(talentUserId, pick.id);
+}
+
+/**
+ * The next published webinar a talent should attend: native language first,
+ * then any language they speak, then English, then the soonest.
+ * `alreadyRegistered` is true when they hold a registration for any upcoming one.
+ */
+async function pickUpcomingWebinar(
+  talentUserId: string,
+): Promise<{ pick: { id: string; title: string; starts_at: string } | null; alreadyRegistered: boolean }> {
   const upcoming = (await listUpcomingForTalent(talentUserId)).filter(
     (w: any) => new Date(w.starts_at).getTime() > Date.now(),
   );
-  if (upcoming.length === 0 || upcoming.some((w: any) => w.registered)) return;
+  if (upcoming.length === 0) return { pick: null, alreadyRegistered: false };
+  if (upcoming.some((w: any) => w.registered)) return { pick: null, alreadyRegistered: true };
 
   const { data: t } = await supabaseAdmin
     .from('talent_users')
@@ -395,7 +416,7 @@ export async function ensureRegisteredForUpcomingWebinar(talentUserId: string): 
   const pick =
     preferences.map((lang) => upcoming.find((w: any) => normLanguage(w.language ?? '') === lang)).find(Boolean) ??
     upcoming[0];
-  await registerForWebinar(talentUserId, (pick as any).id);
+  return { pick: pick as any, alreadyRegistered: false };
 }
 
 export async function unregisterFromWebinar(talentUserId: string, webinarId: string) {
@@ -405,6 +426,97 @@ export async function unregisterFromWebinar(talentUserId: string, webinarId: str
     .eq('webinar_id', webinarId)
     .eq('talent_user_id', talentUserId);
   return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Missed webinar — sent once when an admin marks the webinar completed
+// ---------------------------------------------------------------------------
+
+/**
+ * Registrants not ticked as attended get a "you missed it — register for the
+ * next one" notice: notification panel + push + the `talent_webinar_missed`
+ * WhatsApp template. Attendance is the talent's onboarding-webinar tick, so an
+ * admin ticks attendees before marking the webinar completed. Talents already
+ * registered for an upcoming webinar are skipped — they've acted already.
+ * `missed_notified_at` makes it exactly-once per registration, so toggling the
+ * status back and forth never re-sends.
+ */
+export async function sendMissedWebinarNotices(webinar: WebinarRow): Promise<number> {
+  const { data: regs, error } = await supabaseAdmin
+    .from('training_webinar_registrations')
+    .select('talent_user_id, talent:talent_users(onboarding_webinar_attended_at)')
+    .eq('webinar_id', webinar.id)
+    .is('missed_notified_at', null)
+    .limit(2000);
+  if (error) {
+    console.error('[webinars] missed lookup failed:', error.message);
+    return 0;
+  }
+  const absent = (regs ?? [])
+    .filter((r: any) => !r.talent?.onboarding_webinar_attended_at)
+    .map((r: any) => r.talent_user_id as string);
+  if (absent.length === 0) return 0;
+
+  // Claim first so a concurrent completion can't double-send.
+  const { data: claimed } = await supabaseAdmin
+    .from('training_webinar_registrations')
+    .update({ missed_notified_at: new Date().toISOString() })
+    .eq('webinar_id', webinar.id)
+    .in('talent_user_id', absent)
+    .is('missed_notified_at', null)
+    .select('talent_user_id');
+  const ids = (claimed ?? []).map((r: any) => r.talent_user_id as string);
+  if (ids.length === 0) return 0;
+
+  const { data: talents } = await supabaseAdmin
+    .from('talent_users')
+    .select('id, full_name, phone')
+    .in('id', ids);
+
+  let sent = 0;
+  for (const t of (talents ?? []) as Array<{ id: string; full_name: string | null; phone: string | null }>) {
+    try {
+      const { pick, alreadyRegistered } = await pickUpcomingWebinar(t.id);
+      if (alreadyRegistered) continue;
+      const next = pick ? `${pick.title}, ${formatWebinarTime(pick.starts_at, t.phone)}` : null;
+      const copy = missedCopy(webinar.title, next);
+
+      await notifyTalentsInApp([t.id], 'webinar_missed', copy.title, copy.body, '/talent/training');
+      notifyBroadcast([t.id], { title: copy.title, body: copy.body, route: '/talent/training' }).catch((e) =>
+        console.error('[webinars] missed push failed:', e),
+      );
+      if (t.phone) {
+        const first = String(t.full_name ?? '').trim().split(/\s+/)[0] || 'there';
+        void deliverCrmSystemEvent({
+          audience: 'talent',
+          event: WEBINAR_MISSED_EVENT,
+          // Full name keeps the CRM card's name intact; the template greets by first name.
+          name: t.full_name ?? null,
+          phone: t.phone,
+          data: {
+            talent_name: first,
+            webinar_name: webinar.title,
+            next_webinar_text: next ?? 'to be announced soon',
+            next_webinar_name: pick?.title ?? null,
+            next_date_time: pick?.starts_at ?? null,
+          },
+        }).catch((e) => console.error('[webinars] missed WA threw:', e));
+      }
+      sent++;
+    } catch (err) {
+      console.error('[webinars] missed notice failed for', t.id, err);
+    }
+  }
+  return sent;
+}
+
+export function missedCopy(webinarTitle: string, next: string | null): { title: string; body: string } {
+  return {
+    title: `You missed: ${webinarTitle}`,
+    body: next
+      ? `You didn't attend "${webinarTitle}". Register for the next onboarding webinar in Training — next session: ${next}.`
+      : `You didn't attend "${webinarTitle}". Register for the next onboarding webinar in Training as soon as a new session is announced.`,
+  };
 }
 
 // ---------------------------------------------------------------------------

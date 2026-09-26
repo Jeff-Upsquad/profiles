@@ -536,7 +536,10 @@ export default function WebinarsManager({ hideHeading = false }: { hideHeading?:
                           size="sm"
                           disabled={setCompleted.isPending}
                           onClick={() => {
-                            if (confirm(`Mark "${w.title}" as completed? It moves to the Completed tab and stops reminders.`))
+                            if (confirm(
+                                `Mark "${w.title}" as completed? It moves to the Completed tab and stops reminders.\n\n` +
+                                  `Registrants not ticked as Attended will get a "you missed it — register for the next webinar" message, so tick attendees first.`,
+                              ))
                               setCompleted.mutate({ id: w.id, completed: true });
                           }}
                         >
