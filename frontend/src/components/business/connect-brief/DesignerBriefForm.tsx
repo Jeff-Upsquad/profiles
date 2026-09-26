@@ -102,7 +102,7 @@ const AVAILABILITY_INFO = 'Availability shows the number of hours your selected 
 // The "Access to Our Platform" cell — identical across all plans.
 const ACCESS_CELL = (
   <span className="text-[12px] leading-snug text-[#3A3A3A]">
-    <span className="font-semibold text-[#0a0a0a]">One user:</span> free access
+    <span className="font-semibold text-[#0a0a0a]">5 users:</span> free access
     <br />
     <span className="font-semibold text-[#0a0a0a]">Additional user:</span> ₹500 per month
   </span>
