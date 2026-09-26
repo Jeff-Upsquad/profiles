@@ -9,6 +9,10 @@ import { currencyPrefix, isCurrencyCode, saveDefaultCurrency, type CurrencyCode 
 import AdditionalRequirementsField, {
   type AdditionalRequirements,
 } from './AdditionalRequirementsField';
+import SubmitErrorSummary, {
+  showBriefErrors,
+  type SubmitError,
+} from './SubmitErrorSummary';
 
 // Kept in sync with admin/locationLanguageOptions.ts.
 // Inlined here because /web has no /admin dependency by design.
@@ -328,7 +332,7 @@ export default function DesignerBriefForm({
   // draft we just cleared (which would resurrect stale roles/step/brand into
   // the next brief and defeat a clean autofill).
   const submittedRef = useRef(false);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<SubmitError[]>([]);
   // Assignment only: whether the card is broadcast WITH a price (talents
   // accept/decline/counter) or WITHOUT (talents submit an offer). Brief-level.
   const [pricingMode, setPricingMode] = useState<'priced' | 'unpriced'>('priced');
@@ -594,46 +598,60 @@ export default function DesignerBriefForm({
       setStep(1);
       return;
     }
-    setError('');
+    setErrors([]);
 
+    const validationErrors: SubmitError[] = [];
     if (!form.email.trim() || !form.phone.trim()) {
-      setError('Please enter your email and phone number.');
-      if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
-      return;
+      validationErrors.push({
+        message: 'Add your email and phone number in Customer details.',
+        targetId: 'brief-contact',
+      });
     }
 
     // Requirement is mandatory — a voice note OR a typed note (either is fine).
     if (!audioBlobRef.current && !requirementNote.trim()) {
-      setError('Please describe your requirement — record a voice note or type it in.');
-      if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
-      return;
+      validationErrors.push({
+        message: 'Describe your requirement — record a voice note or type it in.',
+        targetId: 'brief-requirement',
+      });
     }
     if (form.languages.length === 0) {
-      setError('Please pick at least one language.');
-      return;
+      validationErrors.push({
+        message: 'Pick at least one language in Talent preferences.',
+        targetId: 'brief-preferences',
+      });
     }
     if (!isOneOff && form.working_days.length === 0) {
-      setError('Please pick at least one working day.');
-      return;
+      validationErrors.push({
+        message: 'Pick at least one working day in Talent preferences.',
+        targetId: 'brief-preferences',
+      });
     }
     if (isServiceRequest) {
       const incompleteRole = roles.find((r) => !roleRequirements[r]?.scopeType.trim());
       if (incompleteRole) {
-        setError('Please select a service type for each service.');
-        return;
+        validationErrors.push({
+          message: 'Select a service type for each service in Requirement.',
+          targetId: 'brief-requirement',
+        });
       }
     }
     // Subscription briefs require a weekly plan per selected role.
     if (!isOneOff) {
       const missingPlan = roles.filter((r) => !roleRequirements[r]?.plan);
       if (missingPlan.length > 0) {
-        setError(
-          missingPlan.length === 1
-            ? 'Please select a weekly plan.'
-            : 'Please select a weekly plan for each role.',
-        );
-        return;
+        validationErrors.push({
+          message:
+            missingPlan.length === 1
+              ? 'Select a weekly plan in Plan, levels & budget.'
+              : 'Select a weekly plan for each role in Plan, levels & budget.',
+          targetId: 'brief-plan',
+        });
       }
+    }
+    if (validationErrors.length > 0) {
+      showBriefErrors(validationErrors, setErrors);
+      return;
     }
 
     // Build the per-role payload from current selections only. Skips roles
@@ -756,8 +774,14 @@ export default function DesignerBriefForm({
           requirementVoiceUrl = await uploadVoiceNote(audioBlobRef.current);
         } catch (e) {
           console.error('voice note upload failed', e);
-          setError(
-            'Your voice note couldn’t be uploaded. Please check your connection and try again — or remove the voice note to submit with just the typed note.',
+          showBriefErrors(
+            [
+              {
+                message:
+                  'Your voice note couldn’t be uploaded. Please check your connection and try again — or remove the voice note to submit with just the typed note.',
+              },
+            ],
+            setErrors,
           );
           return;
         }
@@ -786,7 +810,10 @@ export default function DesignerBriefForm({
       });
       const data = res.data;
       if (!data.success) {
-        setError(data.error || 'Something went wrong. Please try again.');
+        showBriefErrors(
+          [{ message: data.error || 'Something went wrong. Please try again.' }],
+          setErrors,
+        );
         return;
       }
       // Latch before clearing so the post-submit refetch/refill can't re-save it.
@@ -800,7 +827,10 @@ export default function DesignerBriefForm({
       if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
     } catch (err) {
       const apiErr = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(apiErr || 'Failed to submit. Please check your connection and try again.');
+      showBriefErrors(
+        [{ message: apiErr || 'Failed to submit. Please check your connection and try again.' }],
+        setErrors,
+      );
     } finally {
       setSubmitting(false);
     }
@@ -906,7 +936,7 @@ export default function DesignerBriefForm({
         )}
 
         {step === 2 && (
-          <form onSubmit={handleSubmit} className="space-y-5 pb-8">
+          <form onSubmit={handleSubmit} noValidate className="space-y-5 pb-8">
             {/* Step 1 is bypassed when the brief was opened from the category
                 browser — the drawer's own back control returns to categories,
                 and "Change" on the banner reopens the picker. */}
@@ -930,10 +960,8 @@ export default function DesignerBriefForm({
               </div>
             )}
 
-            {error && (
-              <div className="rounded-lg bg-[#FBEFE9] border border-[#E0B7A2] px-4 py-3 text-sm text-[#8B3A1A]">
-                {error}
-              </div>
+            {errors.length > 0 && (
+              <SubmitErrorSummary errors={errors} id="brief-errors-top" />
             )}
 
             {/* Selected category — always visible on top. */}
@@ -948,6 +976,7 @@ export default function DesignerBriefForm({
 
             {/* Section: Contact — locked when on account; editable when missing */}
             <Section
+              id="brief-contact"
               eyebrow=""
               title="Customer details"
               hint=""
@@ -1039,6 +1068,7 @@ export default function DesignerBriefForm({
 
             {/* Section: Brand */}
             <Section
+              id="brief-brand"
               eyebrow=""
               title="Brand details"
               hint=""
@@ -1093,6 +1123,7 @@ export default function DesignerBriefForm({
 
             {/* Requirement description — voice note + typed note together. */}
             <Section
+              id="brief-requirement"
               eyebrow="Requirement"
               title="What should your creative talent own?"
               hint="Be specific about the outcome, recurring work, and day-to-day responsibility. Add a written brief, a voice note, or both."
@@ -1191,6 +1222,7 @@ export default function DesignerBriefForm({
 
             {/* Section: Subscription — plan + levels + per-level budgets. */}
             <Section
+              id="brief-plan"
               eyebrow={product === 'assignment' ? 'Assignment' : 'Subscription'}
               title={product === 'assignment' ? 'Scope, budget & timeline' : 'Plan, levels & budget'}
               hint={
@@ -1412,6 +1444,7 @@ export default function DesignerBriefForm({
 
             {/* Section: Talent preferences */}
             <Section
+              id="brief-preferences"
               eyebrow="Talent preferences"
               title="Who you'd like to work with"
               hint="Where the talent should be based, what they should speak, and when they should work."
@@ -1487,6 +1520,7 @@ export default function DesignerBriefForm({
 
             {/* Submit (sticky on mobile) */}
             <div className="connect-submit-wrap">
+              <SubmitErrorSummary errors={errors} id="brief-errors-submit" />
               <button
                 type="submit"
                 disabled={submitting}
@@ -1888,7 +1922,7 @@ function AudioNote({
 }
 
 function Section({
-  eyebrow, title, hint, children, compact = false, action, summary,
+  eyebrow, title, hint, children, compact = false, action, summary, id,
 }: {
   eyebrow: string;
   title: string;
@@ -1897,9 +1931,10 @@ function Section({
   compact?: boolean;
   action?: { label: string; onClick: () => void };
   summary?: React.ReactNode;
+  id?: string;
 }) {
   return (
-    <section className={`rounded-2xl bg-white border border-[#E8E5DD] shadow-sm ${compact ? 'px-4 py-3.5 sm:px-5' : 'p-5 sm:p-6'}`}>
+    <section id={id} className={`scroll-mt-24 rounded-2xl bg-white border border-[#E8E5DD] shadow-sm ${compact ? 'px-4 py-3.5 sm:px-5' : 'p-5 sm:p-6'}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
           {eyebrow && <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#7A7568]">{eyebrow}</p>}

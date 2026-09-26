@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import CurrencyField from '@/components/business/CurrencyField';
 import { CURRENCIES, isCurrencyCode, saveDefaultCurrency, type CurrencyCode } from '@/lib/currency';
 import AdditionalRequirementsField, { type AdditionalRequirements } from './AdditionalRequirementsField';
+import SubmitErrorSummary, { showBriefErrors, type SubmitError } from './SubmitErrorSummary';
 
 type Product = 'subscription' | 'assignment';
 type Country = { id: string; name: string; currency: string; sort_order: number };
@@ -99,7 +100,7 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
       ? 'Audit our paid acquisition setup, rebuild conversion tracking, launch Q4 campaigns on Meta and Google, and deliver a 30-day scale playbook.'
       : 'Own paid acquisition across Meta and Google. Improve qualified demo bookings by 20% while keeping blended CAC below ₹3,200.',
   } : emptyForm);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<SubmitError[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [countries, setCountries] = useState<Country[]>(() => preview ? PREVIEW_COUNTRIES : []);
@@ -176,15 +177,21 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    setError('');
-    if (!form.contactName.trim() || !form.email.trim() || !form.phone.trim()) return setError('Add your contact name, email, and phone number.');
-    if (!form.brandName.trim() || !form.businessNature.trim() || !form.businessNote.trim()) return setError('Complete the brand details before submitting.');
-    if (!form.requirement.trim()) return setError('Describe what you need the Ads Specialist to own.');
+    setErrors([]);
+    const validationErrors: SubmitError[] = [];
+    if (!form.contactName.trim() || !form.email.trim() || !form.phone.trim()) validationErrors.push({ message: 'Add your contact name, email, and phone number in Customer details.', targetId: 'brief-contact' });
+    if (!form.brandName.trim() || !form.businessNature.trim() || !form.businessNote.trim()) validationErrors.push({ message: 'Complete the brand details before submitting.', targetId: 'brief-brand' });
+    if (!form.requirement.trim()) validationErrors.push({ message: 'Describe what you need the Ads Specialist to own.', targetId: 'brief-requirement' });
     const mediaSpendAmount = Number(form.mediaSpend);
-    if (!Number.isFinite(mediaSpendAmount) || mediaSpendAmount <= 0) return setError('Enter your current monthly ad spend.');
-    if (form.channels.length === 0 || form.objectives.length === 0 || form.tiers.length === 0) return setError('Choose at least one channel, objective, and specialist level.');
-    if (!isAssignment && (!form.plan || form.workingDays.length === 0)) return setError('Choose a monthly plan and working days.');
-    if (form.languages.length === 0) return setError('Choose at least one language.');
+    if (!Number.isFinite(mediaSpendAmount) || mediaSpendAmount <= 0) validationErrors.push({ message: 'Enter your current monthly ad spend in Requirement.', targetId: 'brief-requirement' });
+    if (form.channels.length === 0 || form.objectives.length === 0 || form.tiers.length === 0) validationErrors.push({ message: 'Choose at least one channel, objective, and specialist level in Requirement.', targetId: 'brief-requirement' });
+    if (!isAssignment && !form.plan) validationErrors.push({ message: 'Choose a monthly plan in Plan, level & budget.', targetId: 'brief-plan' });
+    if (!isAssignment && form.workingDays.length === 0) validationErrors.push({ message: 'Choose working days in Talent preferences.', targetId: 'brief-preferences' });
+    if (form.languages.length === 0) validationErrors.push({ message: 'Choose at least one language in Talent preferences.', targetId: 'brief-preferences' });
+    if (validationErrors.length > 0) {
+      showBriefErrors(validationErrors, setErrors);
+      return;
+    }
     const tierBudgets = Object.fromEntries(form.tiers.flatMap((tier) => {
       const amount = Number(form.tierBudgets[tier]);
       return Number.isFinite(amount) && amount > 0 ? [[tier, Math.round(amount)]] : [];
@@ -207,7 +214,10 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
           requirementVoiceUrl = await uploadVoiceNote(audioBlobRef.current);
         } catch (uploadError) {
           console.error('voice note upload failed', uploadError);
-          setError('Your voice note couldn’t be uploaded. Check your connection and try again, or remove it to submit without audio.');
+          showBriefErrors(
+            [{ message: 'Your voice note couldn’t be uploaded. Check your connection and try again, or remove it to submit without audio.' }],
+            setErrors,
+          );
           return;
         }
       }
@@ -248,7 +258,10 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (caught) {
       const message = (caught as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(message || 'Failed to submit. Please check the details and try again.');
+      showBriefErrors(
+        [{ message: message || 'Failed to submit. Please check the details and try again.' }],
+        setErrors,
+      );
     } finally {
       setSubmitting(false);
     }
@@ -263,12 +276,13 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
       <div className="mx-auto max-w-[44rem]">
         <header className="mb-4 text-center"><h1 className="text-[18px] font-semibold tracking-tight text-[#222] sm:text-[20px]">Tell us about your brand</h1><p className="mt-1 text-[13px] text-[#5C5C5C]">A few quick details so we can match you with the right Ads Specialist.</p></header>
 
-        <form onSubmit={handleSubmit} className="space-y-5 pb-8">
+        <form onSubmit={handleSubmit} noValidate className="space-y-5 pb-8">
           <CategoryBanner product={product} />
-          {error && <div className="rounded-xl border border-[#E0B7A2] bg-[#FBEFE9] px-4 py-3 text-sm text-[#8B3A1A]">{error}</div>}
+          {errors.length > 0 && <SubmitErrorSummary errors={errors} id="brief-errors-top" />}
 
           <GroupHeader index={1} title="Business details" subtitle="Who you are and how we reach you." />
           <Section
+            id="brief-contact"
             eyebrow=""
             title="Customer details"
             hint=""
@@ -280,6 +294,7 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
             <Field label="Contact Person Name" required><input className="shb-input" value={form.contactName} onChange={(e) => update('contactName', e.target.value)} /></Field>
           </Section>
           <Section
+            id="brief-brand"
             eyebrow=""
             title="Brand details"
             hint=""
@@ -293,7 +308,7 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
           </Section>
 
           <GroupHeader index={2} title="Ads requirement" subtitle="The outcome, channels, and ownership you need." />
-          <Section eyebrow="Requirement" title="What should your Ads Specialist own?" hint="Be specific about the commercial outcome and day-to-day responsibility.">
+          <Section id="brief-requirement" eyebrow="Requirement" title="What should your Ads Specialist own?" hint="Be specific about the commercial outcome and day-to-day responsibility.">
             <Field label="Describe your requirement" required><textarea className="shb-input min-h-32 resize-y" value={form.requirement} onChange={(e) => update('requirement', e.target.value)} placeholder="e.g. Own our Meta and Google acquisition, improve qualified leads, and report weekly on CAC and revenue." /></Field>
             <AudioNote
               audioUrl={audioUrl}
@@ -315,7 +330,7 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
             </div>
           </Section>
 
-          <Section eyebrow={isAssignment ? 'Assignment' : 'Subscription'} title={isAssignment ? 'Budget & timeline' : 'Plan, level & budget'} hint={isAssignment ? 'Set a clear project finish line.' : 'Choose how much specialist capacity you need each month.'}>
+          <Section id="brief-plan" eyebrow={isAssignment ? 'Assignment' : 'Subscription'} title={isAssignment ? 'Budget & timeline' : 'Plan, level & budget'} hint={isAssignment ? 'Set a clear project finish line.' : 'Choose how much specialist capacity you need each month.'}>
             {!isAssignment && <div><div className="mb-2 flex items-center justify-between gap-3"><p className="text-sm font-medium text-[#222]">Monthly plan<b className="text-[#D04A2C]">*</b></p><button type="button" onClick={() => setComparePlanOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border-2 border-[#0a0a0a] bg-[#F2FCBC] px-3 py-1.5 text-xs font-bold text-[#0a0a0a] shadow-[2px_2px_0_#0a0a0a]"><CompareIcon />Compare all plans</button></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-5">{PLANS.map((plan) => { const selected = form.plan === plan.name; return <button key={plan.name} type="button" aria-pressed={selected} onClick={() => update('plan', plan.name)} className={`shb-choice ${selected ? 'shb-choice-on' : ''}`}><strong>{plan.name}</strong><span className="shb-choice-daily">{plan.dailyHours} / day</span><span className="shb-choice-cap">{plan.weeklyMax} weekly max</span><span className="shb-choice-cap">{plan.monthlyMax} monthly max</span>{plan.recommended && <em>Popular</em>}</button>; })}</div><div className="shb-plan-note"><InfoIcon /><p><strong>Daily hours come first.</strong> Weekly and monthly figures are maximum caps, not saved-up balances. Unused time doesn&apos;t roll over.</p></div></div>}
             <Field label="Budget currency" required><CurrencyField label="Budget currency" value={form.currency as CurrencyCode} onChange={(code) => { currencyTouchedRef.current = true; update('currency', code); }} accountDefault={user?.default_currency} saveDefault={saveDefaultCur} onSaveDefaultChange={setSaveDefaultCur} /></Field>
             <TierSelector product={product} currency={form.currency} selected={form.tiers} values={form.tierBudgets} onToggle={(value) => toggle('tiers', value)} onBudgetChange={updateTierBudget} />
@@ -324,7 +339,7 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
           </Section>
 
           <GroupHeader index={3} title="Talent preferences" subtitle="Skills, tools, language, and working fit." />
-          <Section eyebrow="Matching" title="Who you'd like to work with" hint="These preferences help us prioritise the best-fit profiles.">
+          <Section id="brief-preferences" eyebrow="Matching" title="Who you'd like to work with" hint="These preferences help us prioritise the best-fit profiles.">
             <Field label="Country" optional>
               <select aria-label="Country" className="shb-input" value={form.countryId} onChange={(e) => changeCountry(e.target.value)}>
                 <option value="">Anywhere (no preference)</option>
@@ -345,7 +360,7 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
             />
           </Section>
 
-          <div className="shb-submit-wrap"><button type="submit" disabled={submitting} className="shb-submit">{submitting ? 'Submitting…' : `Submit ${product} brief`}</button></div>
+          <div className="shb-submit-wrap"><SubmitErrorSummary errors={errors} id="brief-errors-submit" /><button type="submit" disabled={submitting} className="shb-submit">{submitting ? 'Submitting…' : `Submit ${product} brief`}</button></div>
         </form>
       </div>
       {comparePlanOpen && <PlanCompareModal selectedPlan={form.plan} onSelect={(name) => update('plan', name)} onClose={() => setComparePlanOpen(false)} />}
@@ -469,7 +484,7 @@ function AudioNote({ audioUrl, onChange }: {
 
 function CategoryBanner({ product }: { product: Product }) { return <div className="shb-category"><div><p>{product} brief · category</p><span>✓ &nbsp;Ads Specialist</span></div><button type="button">Change</button></div>; }
 function GroupHeader({ index, title, subtitle }: { index: number; title: string; subtitle: string }) { return <div className="flex items-start gap-3 pt-2"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[#0a0a0a] bg-[#FCF487] text-base font-bold shadow-[2px_2px_0_#0a0a0a]">{index}</span><div><h2 className="text-lg font-bold text-[#0a0a0a]">{title}</h2><p className="text-sm text-[#7A7568]">{subtitle}</p></div></div>; }
-function Section({ eyebrow, title, hint, children, compact = false, action, summary }: {
+function Section({ eyebrow, title, hint, children, compact = false, action, summary, id }: {
   eyebrow: string;
   title: string;
   hint: string;
@@ -477,7 +492,8 @@ function Section({ eyebrow, title, hint, children, compact = false, action, summ
   compact?: boolean;
   action?: { label: string; onClick: () => void };
   summary?: React.ReactNode;
-}) { return <section className={`shb-section ${compact ? 'shb-section-compact' : ''}`}><div className="flex items-start justify-between gap-4"><div>{eyebrow && <p className="shb-eyebrow">{eyebrow}</p>}{title && <h3>{title}</h3>}{hint && <p className="shb-hint">{hint}</p>}</div>{action && <button type="button" onClick={action.onClick} className="shb-edit-button">{action.label}</button>}</div>{compact ? <div className="shb-compact-summary">{summary}</div> : <div className="mt-5 space-y-4">{children}</div>}</section>; }
+  id?: string;
+}) { return <section id={id} className={`shb-section scroll-mt-24 ${compact ? 'shb-section-compact' : ''}`}><div className="flex items-start justify-between gap-4"><div>{eyebrow && <p className="shb-eyebrow">{eyebrow}</p>}{title && <h3>{title}</h3>}{hint && <p className="shb-hint">{hint}</p>}</div>{action && <button type="button" onClick={action.onClick} className="shb-edit-button">{action.label}</button>}</div>{compact ? <div className="shb-compact-summary">{summary}</div> : <div className="mt-5 space-y-4">{children}</div>}</section>; }
 function CompactSummary({ title, details }: { title: string; details: string[] }) { return <div><strong>{title}</strong><p>{details.filter(Boolean).join(' · ')}</p></div>; }
 function Field({ label, required, optional, children }: { label: string; required?: boolean; optional?: boolean; children: React.ReactNode }) { return <label className="block"><span className="mb-1.5 block text-sm font-medium text-[#222]">{label}{required && <b className="text-[#D04A2C]">*</b>}{optional && <small className="ml-1 font-normal text-[#9C9486]">(optional)</small>}</span>{children}</label>; }
 function Readonly({ value }: { value: string }) { return <div className="shb-readonly">{value || '—'}</div>; }
