@@ -9,6 +9,7 @@ import TalentOffersView, { WhatsAppUpdatesToggle } from '@/components/subscripti
 import TalentJobsView from '@/components/jobs/talent/TalentJobsView';
 import ModuleUnlockGate from '@/components/training/ModuleUnlockGate';
 import PartnerLockedView from '@/components/partner/PartnerLockedView';
+import TalentDesktopOverview from '@/components/talent/TalentDesktopOverview';
 
 type OnboardingStageKey = keyof OnboardingProgress;
 
@@ -84,6 +85,31 @@ const TAB_LABEL: Record<TalentHomeTab, string> = {
   jobs: 'Job Openings',
 };
 
+/**
+ * Desktop (md+, where the talent sidebar is visible) gets an overview; mobile
+ * and the native app's WebView (no sidebar) get the tabbed work feeds, since
+ * Home is their only way into Subscriptions / Assignments / Jobs. null until
+ * measured, so neither body renders — and fetches — on the wrong screen.
+ */
+function useHomeLayout(): 'overview' | 'feeds' | null {
+  const [layout, setLayout] = useState<'overview' | 'feeds' | null>(null);
+  useEffect(() => {
+    let inApp = false;
+    try {
+      inApp = new URLSearchParams(window.location.search).get('in_app') === '1'
+        || sessionStorage.getItem('squadhire_in_app') === '1';
+    } catch {
+      inApp = false;
+    }
+    const mq = window.matchMedia('(min-width: 768px)');
+    const update = () => setLayout(!inApp && mq.matches ? 'overview' : 'feeds');
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+  return layout;
+}
+
 function isHomeTab(v: string | null): v is TalentHomeTab {
   return v === 'subscriptions' || v === 'assignments' || v === 'jobs';
 }
@@ -93,6 +119,7 @@ export default function TalentDashboard() {
   const router = useRouter();
   const { data: onboardingProgress } = useMyOnboardingProgress();
   const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
+  const layout = useHomeLayout();
   const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
   const partnerAvailable = user?.partner_approval_status === undefined || user.partner_approval_status === 'approved';
   // A talent who never asked for Jobs has no Jobs tab; everyone else keeps all
@@ -165,27 +192,43 @@ export default function TalentDashboard() {
     );
   }
 
+  const onboardingStrip = showOnboardingStrip && onboardingProgress ? (
+    <section className="rounded-2xl border border-[#E7E7EA] bg-white px-5 py-5 sm:px-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="font-[family-name:var(--font-jakarta)] text-base font-semibold tracking-[-0.015em] text-[#0a0a0a]">
+            Your onboarding journey
+          </h2>
+          <p className="mt-0.5 font-[family-name:var(--font-inter)] text-xs text-[#737373]">
+            {onboardingProgress.all_completed_at
+              ? 'You’ve completed every stage. Nice work!'
+              : 'Complete each stage to unlock the full talent workspace.'}
+          </p>
+        </div>
+      </div>
+      <OnboardingStageStrip progress={onboardingProgress.progress} />
+    </section>
+  ) : null;
+
+  // Not measured yet — render nothing rather than the wrong body.
+  if (!layout) return null;
+
+  if (layout === 'overview') {
+    return (
+      <div className="space-y-6">
+        <TalentDesktopOverview wantsJobs={wantsJobs}>
+          {partnerAvailable && <WhatsAppUpdatesToggle />}
+          {onboardingStrip}
+        </TalentDesktopOverview>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {partnerAvailable && <WhatsAppUpdatesToggle />}
 
-      {showOnboardingStrip && onboardingProgress && (
-        <section className="rounded-2xl border border-[#E7E7EA] bg-white px-5 py-5 sm:px-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="font-[family-name:var(--font-jakarta)] text-base font-semibold tracking-[-0.015em] text-[#0a0a0a]">
-                Your onboarding journey
-              </h2>
-              <p className="mt-0.5 font-[family-name:var(--font-inter)] text-xs text-[#737373]">
-                {onboardingProgress.all_completed_at
-                  ? 'You’ve completed every stage. Nice work!'
-                  : 'Complete each stage to unlock the full talent workspace.'}
-              </p>
-            </div>
-          </div>
-          <OnboardingStageStrip progress={onboardingProgress.progress} />
-        </section>
-      )}
+      {onboardingStrip}
 
       <div className="-mx-4 bg-transparent px-4 py-2 md:mx-0 md:px-0 md:py-0">
         <TalentHomeTabs active={tab} onChange={handleTab} tabs={homeTabs} />
