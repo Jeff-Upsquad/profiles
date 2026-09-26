@@ -1,7 +1,7 @@
 'use client';
 
-import TalentAppInstalls from '@/views/talent-app/TalentAppInstalls';
+import PartnerAppInstalls from '@/views/talent-app/PartnerAppInstalls';
 
-export default function TalentAppPage() {
-  return <TalentAppInstalls />;
+export default function PartnerAppPage() {
+  return <PartnerAppInstalls />;
 }

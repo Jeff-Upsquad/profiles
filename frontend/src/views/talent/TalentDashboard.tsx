@@ -26,7 +26,7 @@ const ONBOARDING_STAGES: { key: BooleanStageKey; label: string; short: string; p
   { key: 'basic_profile_completed', label: 'Basic Profile', short: 'Basic', pendingHint: 'Fill in every required section of your basic profile' },
   { key: 'job_profile_completed', label: 'Job Profile', short: 'Job', pendingHint: 'Create a job profile and submit it for review' },
   { key: 'portfolio_completed', label: 'Portfolio', short: 'Portfolio', pendingHint: 'Add at least one item to a job profile' },
-  { key: 'app_downloaded', label: 'App downloaded', short: 'App', pendingHint: 'Download the SquadHire app and sign in' },
+  { key: 'app_downloaded', label: 'Partner app downloaded', short: 'App', pendingHint: 'Download the SquadHub Partner app and sign in' },
   { key: 'webinar_attended', label: 'Webinar attended', short: 'Webinar', pendingHint: 'Register for the onboarding webinar in Training and attend it' },
 ];
 

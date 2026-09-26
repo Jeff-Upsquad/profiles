@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import * as appInstallService from '../services/app-install.service.js';
+import * as partnerAppInstallService from '../services/partner-app-install.service.js';
 import type { AppCheckinInput } from '../validators/app-install.validators.js';
 
 /** Talent app → POST /api/talent/app-checkin (talent role). Records the build
@@ -15,11 +16,12 @@ export async function checkin(req: Request, res: Response, next: NextFunction): 
   }
 }
 
-/** Admin panel → GET /api/admin/talent-app/installs (admin role). */
-export async function listInstalls(_req: Request, res: Response, next: NextFunction): Promise<void> {
+/** Admin panel → GET /api/admin/partner-app/installs (admin role). Lists the
+ *  SquadHub Partner app installs; the talent-app check-ins above are recorded
+ *  but no longer shown. */
+export async function listPartnerInstalls(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const installs = await appInstallService.listInstalls();
-    res.json({ installs });
+    res.json(await partnerAppInstallService.listInstalls());
   } catch (err) {
     next(err);
   }

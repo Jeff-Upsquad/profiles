@@ -37,28 +37,3 @@ export async function recordCheckin(userId: string, input: AppCheckinInput) {
     if (evErr) throw new AppError(500, evErr.message);
   }
 }
-
-/**
- * List every talent user that has checked in from the app, joined to their
- * profile (name + phone), most-recently-active first.
- */
-export async function listInstalls() {
-  const { data, error } = await supabaseAdmin
-    .from('talent_app_installs')
-    .select(
-      'user_id, version_name, version_code, platform, first_seen_at, last_seen_at, talent_users(full_name, phone)',
-    )
-    .order('last_seen_at', { ascending: false });
-  if (error) throw new AppError(500, error.message);
-
-  return (data ?? []).map((row: any) => ({
-    user_id: row.user_id,
-    full_name: row.talent_users?.full_name ?? null,
-    phone: row.talent_users?.phone ?? null,
-    version_name: row.version_name,
-    version_code: row.version_code,
-    platform: row.platform,
-    first_seen_at: row.first_seen_at,
-    last_seen_at: row.last_seen_at,
-  }));
-}

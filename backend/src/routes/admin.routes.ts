@@ -546,10 +546,10 @@ router.post('/users/:id/reset-password', adminController.resetUserPassword);
 router.delete('/users/:id', adminController.deleteUser);
 
 // ---------------------------------------------------------------------------
-// Talent App — install/version tracking
+// Partner App — SquadHub Partner app install/version tracking
 // ---------------------------------------------------------------------------
 
-router.get('/talent-app/installs', appInstallController.listInstalls);
+router.get('/partner-app/installs', appInstallController.listPartnerInstalls);
 
 // ---------------------------------------------------------------------------
 // Recycle Bin

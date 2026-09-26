@@ -303,8 +303,8 @@ interface JourneySummary {
 /**
  * Talent-board (post-live) checklist inputs. The courses come from
  * `program_courses`; these are the other two ticks.
- *  - App downloaded: first check-in from the talent mobile app, which fires on
- *    every sign-in — so the first login ticks it with no admin action.
+ *  - App downloaded: first sign-in on the SquadHub Partner app (synced from
+ *    SquadHub into partner_app_installs) — ticks itself, no admin action.
  *  - Webinar attended: marked by an admin (one common webinar for both tracks).
  */
 export interface TalentBoardChecklist {
@@ -313,19 +313,19 @@ export interface TalentBoardChecklist {
   webinar_attended_at: string | null;
 }
 
-/** Batch first-app-login lookup: talent id -> { first_seen_at, platform }. */
+/** Batch first partner-app sign-in lookup: talent id -> { first_seen_at, platform }. */
 async function appInstallsFor(ids: string[]): Promise<Map<string, { first_seen_at: string; platform: string }>> {
   const out = new Map<string, { first_seen_at: string; platform: string }>();
   if (ids.length === 0) return out;
   const { data, error } = await supabaseAdmin
-    .from('talent_app_installs')
-    .select('user_id, first_seen_at, platform')
-    .in('user_id', ids);
+    .from('partner_app_installs')
+    .select('talent_user_id, first_seen_at, platform')
+    .in('talent_user_id', ids);
   if (error) {
-    console.error('[onboarding-hub] app installs lookup failed:', error.message);
+    console.error('[onboarding-hub] partner app installs lookup failed:', error.message);
     return out;
   }
-  for (const r of data ?? []) out.set((r as any).user_id, { first_seen_at: (r as any).first_seen_at, platform: (r as any).platform });
+  for (const r of data ?? []) out.set((r as any).talent_user_id, { first_seen_at: (r as any).first_seen_at, platform: (r as any).platform });
   return out;
 }
 

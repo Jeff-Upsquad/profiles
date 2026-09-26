@@ -108,7 +108,7 @@ export interface JourneySummary {
 
 /** Post-live checklist inputs (courses come from `program_courses`). */
 export interface TalentBoardChecklist {
-  /** First sign-in on the talent mobile app — ticks itself. */
+  /** First sign-in on the SquadHub Partner app — ticks itself. */
   app_downloaded_at: string | null;
   app_platform: string | null;
   /** The one common onboarding webinar, ticked by an admin. */
@@ -124,7 +124,7 @@ export interface TalentBoardStep {
 }
 
 /**
- * The talent-board checklist, in order: App downloaded → Webinar attended →
+ * The talent-board checklist, in order: Partner app downloaded → Webinar attended →
  * the course for each track the talent applied to (Partner and/or Jobs).
  */
 export function talentBoardSteps(input: {
@@ -144,12 +144,12 @@ export function talentBoardSteps(input: {
   return [
     {
       key: 'app',
-      label: 'App downloaded',
+      label: 'Partner app downloaded',
       short: 'App',
       done: !!tb?.app_downloaded_at,
       detail: tb?.app_downloaded_at
         ? `First signed in ${formatDate(tb.app_downloaded_at)}${platform ? ` · ${platform}` : ''}`
-        : 'Not signed in on the mobile app yet',
+        : 'Not signed in on the SquadHub Partner app yet',
     },
     {
       key: 'webinar',

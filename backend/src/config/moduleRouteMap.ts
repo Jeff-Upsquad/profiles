@@ -34,7 +34,9 @@ export const MODULE_ROUTE_RULES: ModuleRule[] = [
   { prefix: '/settings/auto-approve', module: 'approvals' },
 
   { prefix: '/talent-access', module: 'talent-access' },
-  { prefix: '/talent-app', module: 'talent-app' },
+  // The "Partner App" page kept its original module key so existing staff
+  // grants still apply.
+  { prefix: '/partner-app', module: 'talent-app' },
   { prefix: '/talents', module: 'talents' },
 
   { prefix: '/invitations', module: 'invitations' },
