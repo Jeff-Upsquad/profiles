@@ -36,6 +36,10 @@ const envSchema = z.object({
   // Needed only when the key isn't scoped to a workspace (the API then asks for one).
   ANTHROPIC_WORKSPACE_ID: z.string().min(1).optional(),
   SQUAD_BOT_MODEL: z.string().default('claude-opus-5'),
+  // Squad Hiring Bot's key from SquadHub admin (Squad Bots → Connect the bot's
+  // app). With it, SquadHub's on/off switch, model and extra instructions apply
+  // and each Claude call shows in SquadHub. Unset → this app's settings only.
+  SQUADHUB_BOT_KEY: z.string().startsWith('sbk_').optional(),
 
   // SquadHub integration (inbound webhook + outbound callback for subscription cards).
   // All three are optional at startup — if the inbound secret is unset the webhook

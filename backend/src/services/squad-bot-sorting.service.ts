@@ -37,6 +37,8 @@ import {
   type ConversationRow,
   type WhatsAppInbound,
 } from './squad-bot.service.js';
+import { adminInstructions, botModel } from '../lib/squadhub-bot.js';
+import { hubBotConfig, reportUsage } from './squadhub-bot.service.js';
 
 const HISTORY_TURNS = 20;
 const MAX_ASK_PER_RUN = 25;
@@ -138,10 +140,13 @@ async function decide(conv: ConversationRow, settings: SortingSettings): Promise
     .overlaps('categories', ['general'])
     .order('title', { ascending: true });
   const accountCategories = conv.talent_user_id ? await accountCategoriesOf(conv.talent_user_id) : null;
+  const hub = await hubBotConfig();
+  const model = botModel(hub, env.SQUAD_BOT_MODEL);
+  const startedAt = Date.now();
 
   try {
     const response = await api.beta.messages.create({
-      model: env.SQUAD_BOT_MODEL,
+      model,
       max_tokens: 2000,
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
@@ -155,7 +160,8 @@ async function decide(conv: ConversationRow, settings: SortingSettings): Promise
           text: [
             `The person you're chatting with:\n${sortingContext({ name: conv.contact_name, accountCategories })}`,
             introNote(isNewConversation(lines)),
-          ].join('\n\n'),
+            adminInstructions(hub),
+          ].filter(Boolean).join('\n\n'),
         },
       ],
       tools: [moveTool(settings.roles), HANDOFF_TOOL],
@@ -163,6 +169,14 @@ async function decide(conv: ConversationRow, settings: SortingSettings): Promise
     });
     meta.model = response.model;
     meta.usage = { input: response.usage.input_tokens, output: response.usage.output_tokens, cache_read: response.usage.cache_read_input_tokens ?? 0 };
+    reportUsage({
+      ok: true,
+      status: hub?.status ?? null,
+      model: response.model,
+      input_tokens: response.usage.input_tokens,
+      output_tokens: response.usage.output_tokens,
+      latency_ms: Date.now() - startedAt,
+    });
 
     if (response.stop_reason === 'refusal') {
       return { text: HANDOFF_MESSAGE, move: null, handoff: { reason: 'other', summary: 'Squad Bot declined to answer this new contact.' }, meta };
@@ -194,6 +208,7 @@ async function decide(conv: ConversationRow, settings: SortingSettings): Promise
     const status = err instanceof Anthropic.APIError ? err.status : undefined;
     console.error('[squad-bot] sorting call failed:', status ?? '', (err as Error)?.message ?? err);
     meta.error = status ? `api_${status}` : 'network';
+    reportUsage({ ok: false, status: hub?.status ?? null, model, error: String(meta.error), latency_ms: Date.now() - startedAt });
     return { text: HANDOFF_MESSAGE, move: null, handoff: { reason: 'other', summary: 'Squad Bot could not sort this new contact (service error), so it came to the team.' }, meta };
   }
 }

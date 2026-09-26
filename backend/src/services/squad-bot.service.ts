@@ -38,6 +38,8 @@ import {
   type ChatLine,
   type TalentBrief,
 } from '../lib/squad-bot-prompt.js';
+import { adminInstructions, appDelivery, botModel, whatsappDelivery, type HubStatus } from '../lib/squadhub-bot.js';
+import { hubBotConfig, hubStatus, reportUsage } from './squadhub-bot.service.js';
 
 const HISTORY_TURNS = 30;
 const MAX_TALENT_MESSAGES_PER_HOUR = 40;
@@ -275,6 +277,23 @@ export async function sendTalentMessage(talentUserId: string, text: string) {
   // Waiting on the team: they see it in the inbox; the bot stays quiet.
   if (conv.status === 'handoff') return { status: conv.status, messages: [talentMsg] };
 
+  // SquadHub admin can hold the bot back: off, or practice / approval, where
+  // its suggested reply goes to the team as a note instead of to the talent.
+  const status = await hubStatus();
+  const delivery = appDelivery(status);
+  if (delivery !== 'reply') {
+    if (delivery === 'note') await answer(conv, 'app', {}, { deliver: 'note', hubStatus: status });
+    await handOff(
+      conv,
+      'other',
+      delivery === 'off'
+        ? 'Squad Hiring Bot is turned off in SquadHub admin, so this came straight to the team.'
+        : `Squad Hiring Bot is in ${status === 'practice' ? 'Practice' : 'Needs approval'} mode in SquadHub admin, so the team replies. Its suggested reply is in the chat.`,
+    );
+    const notice = await addMessage(conv.id, { sender: 'bot', body: HANDOFF_MESSAGE, channel: 'app' });
+    return { status: 'handoff' as const, messages: [talentMsg, notice] };
+  }
+
   const reply = await answer(conv, 'app');
   return { status: reply.status, messages: [talentMsg, reply.message] };
 }
@@ -298,15 +317,17 @@ const MAX_CONTINUATIONS = 3;
 /**
  * Squad Bot writes its next message. `instructed`: the team just gave it a
  * private instruction; if it can't carry it out, it tells the team (a note in
- * the inbox) instead of writing to the talent.
+ * the inbox) instead of writing to the talent. `deliver: 'note'` (SquadHub
+ * practice / approval mode): the reply is written as a note for the team only.
  */
 async function answer(
   conv: ConversationRow,
   channel: 'app' | 'whatsapp',
   extraMeta: Record<string, unknown> = {},
-  opts: { instructed?: boolean } = {},
+  opts: { instructed?: boolean; deliver?: 'reply' | 'note'; hubStatus?: HubStatus | null } = {},
 ) {
   const api = squadBotClient();
+  if (!api && opts.deliver === 'note') return { status: conv.status, message: null, handoff: null };
   if (!api) {
     if (opts.instructed) throw new AppError(503, 'Squad Bot is not switched on yet (no ANTHROPIC_API_KEY).');
     await handOff(conv, 'other', 'Squad Bot is not switched on yet (no ANTHROPIC_API_KEY), so this came straight to the team.');
@@ -317,7 +338,9 @@ async function answer(
     };
   }
 
-  const [subject, rawLines] = await Promise.all([subjectFor(conv), recentLines(conv.id, HISTORY_TURNS)]);
+  const [subject, rawLines, hub] = await Promise.all([subjectFor(conv), recentLines(conv.id, HISTORY_TURNS), hubBotConfig()]);
+  const model = botModel(hub, env.SQUAD_BOT_MODEL);
+  const startedAt = Date.now();
   const lines = rawLines as Array<ChatLine & { created_at: string }>;
   const { data: knowledge } = await supabaseAdmin
     .from('knowledge_items')
@@ -349,7 +372,7 @@ async function answer(
     let fetches = 0;
     for (let round = 0; ; round++) {
       const response = await api.beta.messages.create({
-        model: env.SQUAD_BOT_MODEL,
+        model,
         max_tokens: 4000,
         // Classifier declines re-run on Anthropic's recommended fallback model.
         betas: ['server-side-fallback-2026-07-01'],
@@ -365,6 +388,7 @@ async function answer(
             text: [
               `The person you're chatting with:\n${subject.context}`,
               introNote(isNewConversation(lines)),
+              adminInstructions(hub),
               instructions,
               opts.instructed ? 'The newest team instruction was just given: act on it in this reply.' : '',
               channel === 'whatsapp' ? WHATSAPP_NOTE : '',
@@ -406,6 +430,14 @@ async function answer(
       break;
     }
     meta.usage = usage;
+    reportUsage({
+      ok: true,
+      status: hub?.status ?? null,
+      model: (meta.model as string | undefined) ?? model,
+      input_tokens: usage.input,
+      output_tokens: usage.output,
+      latency_ms: Date.now() - startedAt,
+    });
     if (fetches) meta.web_fetches = fetches;
     if (!text.trim() && !handoff) handoff = { reason: 'not_in_knowledge', summary: 'Squad Bot had no answer.' };
   } catch (err) {
@@ -413,8 +445,19 @@ async function answer(
     console.error('[squad-bot] Claude call failed:', status ?? '', (err as Error)?.message ?? err);
     if (opts.instructed) throw new AppError(502, 'Squad Bot could not run that instruction (service error). Try again.');
     meta.error = status ? `api_${status}` : 'network';
+    reportUsage({ ok: false, status: hub?.status ?? null, model, error: String(meta.error), latency_ms: Date.now() - startedAt });
+    if (opts.deliver === 'note') return { status: conv.status, message: null, handoff: null };
     handoff = { reason: 'other', summary: 'Squad Bot could not answer (service error), so this came straight to the team.' };
     text = '';
+  }
+
+  if (opts.deliver === 'note') {
+    // SquadHub practice / approval mode: the team sees what the bot would say.
+    const mode = opts.hubStatus === 'approval' ? 'Needs approval' : 'Practice';
+    const would = text.trim() ? `"${text.trim()}"` : '(no reply)';
+    const handoffNote = handoff ? ` It would also hand off (${handoff.reason.replace(/_/g, ' ')}): ${handoff.summary}` : '';
+    await addMessage(conv.id, { sender: 'system', body: `Squad Bot (${mode} mode) would reply: ${would}.${handoffNote}`, channel, meta });
+    return { status: conv.status, message: null, handoff: null };
   }
 
   if (opts.instructed && handoff) {
@@ -478,12 +521,20 @@ export async function whatsappConversation(msg: WhatsAppInbound): Promise<Conver
 export async function handleWhatsAppMessage(msg: WhatsAppInbound): Promise<void> {
   try {
     const pipeline = (msg.pipeline_name ?? '').trim().toLowerCase();
-    // Job 2: a direct contact nobody has sorted yet.
+    // SquadHub admin's switch comes first: off means the bot does nothing.
+    const status = await hubStatus();
+    if (status === 'off') return;
+    // Job 2: a direct contact nobody has sorted yet. Sorting moves cards on its
+    // own, so it only runs while the bot is Live in SquadHub.
     const sorting = await import('./squad-bot-sorting.service.js');
-    if (await sorting.isSortingPipeline(pipeline)) return sorting.sortWhatsAppContact(msg);
+    if (await sorting.isSortingPipeline(pipeline)) {
+      if (status && status !== 'live') return;
+      return sorting.sortWhatsAppContact(msg);
+    }
 
     const settings = await getWhatsAppSettings();
-    if (settings.mode === 'off') return;
+    const delivery = whatsappDelivery(settings.mode, status);
+    if (delivery === 'off') return;
     if (!settings.pipelines.some((p) => pipeline === p.trim().toLowerCase())) return;
 
     const conv = await whatsappConversation(msg);
@@ -491,13 +542,18 @@ export async function handleWhatsAppMessage(msg: WhatsAppInbound): Promise<void>
     // Handed to the team: recruiters answer in the CRM; the bot stays quiet.
     if (conv.status === 'handoff') return;
 
-    const reply = await answer(conv, 'whatsapp', { mode: settings.mode });
+    const reply = await answer(
+      conv,
+      'whatsapp',
+      { mode: delivery },
+      { deliver: delivery === 'note' ? 'note' : 'reply', hubStatus: status },
+    );
     if (!reply.message) return;
     await crmPost('reply', {
       lead_id: msg.lead_id,
       reply_to_message_id: msg.message_id,
       text: reply.message.body,
-      mode: settings.mode === 'auto' ? 'send' : 'draft',
+      mode: delivery === 'auto' ? 'send' : 'draft',
       handoff: reply.handoff ?? null,
     });
   } catch (err) {
@@ -636,6 +692,7 @@ export async function staffReply(id: string, staff: { id: string; name: string }
 export async function instructBot(id: string, staff: { id: string; name: string }, text: string) {
   const body = text.trim();
   if (!body) throw new AppError(400, 'Instruction is empty');
+  if ((await hubStatus()) === 'off') throw new AppError(409, 'Squad Hiring Bot is turned off in SquadHub admin. Switch it on there first.');
   const conv = (await getConversation(id)) as ConversationRow & { messages: Array<{ sender: string; channel?: string }> };
   const instruction = await addMessage(id, { sender: 'instruction', body, staff_user_id: staff.id, staff_name: staff.name });
 
