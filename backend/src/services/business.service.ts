@@ -46,6 +46,18 @@ export async function updateBusinessUser(userId: string, input: UpdateBusinessUs
   return data;
 }
 
+/**
+ * Remember the currency of the business's latest brief. Card ingest falls back
+ * to it when SquadHub publishes a card without a currency. Not user-editable.
+ */
+export async function setLastBriefCurrency(userId: string, currency: string) {
+  const { error } = await supabaseAdmin
+    .from('business_users')
+    .update({ last_brief_currency: currency })
+    .eq('id', userId);
+  if (error) throw new AppError(400, error.message);
+}
+
 // ─── Subscribed Categories & Shared Profiles ────────────────────────────────
 
 export async function getSubscribedCategories(businessUserId: string) {

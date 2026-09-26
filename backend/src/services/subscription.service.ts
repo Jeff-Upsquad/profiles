@@ -482,6 +482,34 @@ async function resolveBusinessUserForCardIngest(input: {
 }
 
 /** Ensure list/detail fields resolve even when CRM sends `title` for assignments. */
+const CARD_CURRENCIES = new Set(['INR', 'USD', 'EUR', 'GBP', 'AED', 'AUD', 'CAD', 'SGD']);
+
+/**
+ * SquadHub leaves `content.currency` off unpriced (invite-offers / quote)
+ * cards, so talents would quote in ₹ whatever the business asked for. Fill it
+ * from the business: the currency of their latest brief, else their saved
+ * default. A currency SquadHub did send always wins. Hiring cards carry their
+ * own package currency and are left alone.
+ */
+async function withBusinessCurrency(
+  content: Record<string, unknown>,
+  businessUserId: string | null,
+  cardType: string | null | undefined,
+): Promise<Record<string, unknown>> {
+  if (cardType === 'hiring' || !businessUserId) return content;
+  if (typeof content.currency === 'string' && content.currency.trim()) return content;
+  const { data } = await supabaseAdmin
+    .from('business_users')
+    .select('last_brief_currency, default_currency')
+    .eq('id', businessUserId)
+    .maybeSingle();
+  const row = data as { last_brief_currency?: string | null; default_currency?: string | null } | null;
+  const currency = [row?.last_brief_currency, row?.default_currency].find(
+    (c): c is string => typeof c === 'string' && CARD_CURRENCIES.has(c),
+  );
+  return currency ? { ...content, currency } : content;
+}
+
 function normalizePendingBriefContent(
   content: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -512,7 +540,11 @@ export async function ingestPendingBrief(
     business_company: input.business_company,
   });
 
-  const content = normalizePendingBriefContent(input.content ?? {});
+  const content = await withBusinessCurrency(
+    normalizePendingBriefContent(input.content ?? {}),
+    businessUserId,
+    input.card_type,
+  );
 
   const { data: existing } = await supabaseAdmin
     .from('subscription_cards')
@@ -606,9 +638,15 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
   // them only when a separate /manual-assignments call hand-picks them.
   const skipAutoFanOut = input.distribution === 'manual';
 
+  const content = await withBusinessCurrency(
+    (input.content ?? {}) as Record<string, unknown>,
+    businessUserId,
+    input.card_type,
+  );
+
   const row = {
     external_id: input.external_id,
-    content: input.content,
+    content,
     match_rules: input.match_rules,
     published_at: input.published_at ?? new Date().toISOString(),
     expires_at: input.expires_at ?? null,
@@ -831,7 +869,7 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
             // (push + WhatsApp) on an explicit broadcast. Flip
             // NOTIFY_TALENT_ON_INGEST=true to also notify on ingest/edit.
             if (env.NOTIFY_TALENT_ON_INGEST) {
-              const updateContent = input.content ?? {};
+              const updateContent = content;
               notifyNewCard(existing.id, newTalentIds, updateContent).catch((err) => {
                 console.error('[subscription] notifyNewCard (update) threw', err);
               });
@@ -964,7 +1002,7 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       // queues, but talents are only notified on an explicit broadcast. Flip
       // NOTIFY_TALENT_ON_INGEST=true to also notify on ingest.
       if (env.NOTIFY_TALENT_ON_INGEST) {
-        const insertContent = input.content ?? {};
+        const insertContent = content;
         notifyNewCard(inserted.id, talentIds, insertContent).catch((err) => {
           console.error('[subscription] notifyNewCard threw', err);
         });

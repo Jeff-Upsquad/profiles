@@ -116,6 +116,15 @@ export async function submitBrief(req: Request, res: Response, next: NextFunctio
       /* ignore profile sync failures */
     }
 
+    // Remember this brief's currency so the card SquadHub publishes from it
+    // shows talents the right currency even if SquadHub drops it.
+    const briefCurrency = Object.values(body.role_requirements ?? {}).find((r) => r?.currency)?.currency;
+    if (briefCurrency) {
+      await businessService.setLastBriefCurrency(req.user!.id, briefCurrency).catch(() => {
+        /* non-fatal — the lead already landed */
+      });
+    }
+
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);
