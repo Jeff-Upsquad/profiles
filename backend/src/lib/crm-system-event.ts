@@ -99,8 +99,13 @@ export async function deliverCrmSystemEvent(args: {
       return false;
     }
     try {
-      const body = (await res.json()) as { data?: { skipped?: boolean } };
-      if (body?.data?.skipped === true) return false;
+      const body = (await res.json()) as { data?: { skipped?: boolean; reason?: string } };
+      if (body?.data?.skipped === true) {
+        // Accepted but not sent (e.g. template_not_approved) — surface it, or a
+        // WhatsApp outage looks identical to a successful send in the logs.
+        console.warn(`[crm-event] ${args.audience}/${args.event} skipped: ${body.data.reason ?? 'unknown'}`);
+        return false;
+      }
     } catch {
       // Non-JSON / empty body → treat as a real send.
     }
