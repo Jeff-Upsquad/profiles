@@ -445,7 +445,7 @@ export default function BusinessAssignmentOffers({
             { onSuccess: () => setSendOpen(false) },
           );
         }}
-        hint="Starts at this talent's accepted price. Increase or decrease in steps of ₹500. They will be shortlisted automatically."
+        hint={`Starts at this talent's accepted price. Increase or decrease in steps of ${currency && currency !== 'INR' ? `${currency} ` : '₹'}500. They will be shortlisted automatically.`}
       />
     </div>
   );

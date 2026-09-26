@@ -91,8 +91,8 @@ class _SubscriptionDetailScreenState
     final isAssignment = card?.isAssignment ?? false;
     final isRequestQuote = card?.isRequestQuote ?? false;
     final period = isAssignment ? 'project' : 'per_month';
-    // All quotes are in ₹ INR for now, whatever the card says.
-    const cur = '₹';
+    // The business sets the currency; talents quote in it and can't change it.
+    final cur = currencySymbol(card?.currency);
     // No client price and no figure on the table yet: the talent types their
     // own price instead of clicking + up from ₹500.
     final existing =
@@ -137,7 +137,7 @@ class _SubscriptionDetailScreenState
                   const SizedBox(height: 8),
                   Text(
                     typed
-                        ? 'Enter your price in INR. Rounds to the nearest $cur$_offerStep.'
+                        ? 'Enter your price in ${card?.currency ?? 'INR'}. Rounds to the nearest $cur$_offerStep.'
                         : 'Adjust in steps of $cur$_offerStep',
                     style: const TextStyle(
                       fontSize: 13,
@@ -219,7 +219,7 @@ class _SubscriptionDetailScreenState
       await ref.read(subscriptionServiceProvider).submitOffer(
             recipient.id,
             amount: submitted,
-            currency: 'INR',
+            currency: card?.currency ?? 'INR',
             period: period,
           );
       ref.invalidate(subscriptionListProvider);

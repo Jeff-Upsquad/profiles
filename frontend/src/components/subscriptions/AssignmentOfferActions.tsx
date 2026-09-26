@@ -272,8 +272,8 @@ export default function AssignmentOfferActions({
               ? isRequestQuote ? 'Submit quote' : 'Submit offer'
               : bidLabel ? 'Submit bid' : 'Send counter'
           }
-          // All quotes are in ₹ INR for now, whatever the card says.
-          currency="INR"
+          // The business sets the currency; talents quote in it and can't change it.
+          currency={currency}
           period={period}
           quantity={quantity}
           unit={unit}
@@ -292,7 +292,7 @@ export default function AssignmentOfferActions({
           entry={firstQuote ? 'input' : 'stepper'}
           hint={
             !firstQuote && bidLabel
-              ? `Increase or decrease the ${unit ? `price per ${unit}` : 'set price'} in steps of ₹500, then submit your bid.`
+              ? `Increase or decrease the ${unit ? `price per ${unit}` : 'set price'} in steps of ${currency && currency !== 'INR' ? `${currency} ` : '₹'}500, then submit your bid.`
               : undefined
           }
         />
@@ -521,8 +521,8 @@ export default function AssignmentOfferActions({
               ? isRequestQuote ? 'Submit quote' : 'Submit offer'
               : bidLabel ? 'Submit bid' : 'Send counter'
         }
-        // All quotes are in ₹ INR for now, whatever the card says.
-        currency="INR"
+        // The business sets the currency; talents quote in it and can't change it.
+        currency={currency}
         period={period}
         quantity={quantity}
         unit={unit}
@@ -541,7 +541,7 @@ export default function AssignmentOfferActions({
         entry={firstQuote ? 'input' : 'stepper'}
         hint={
           !firstQuote && bidLabel
-            ? `Increase or decrease the ${unit ? `price per ${unit}` : 'set price'} in steps of ₹500, then submit your bid.`
+            ? `Increase or decrease the ${unit ? `price per ${unit}` : 'set price'} in steps of ${currency && currency !== 'INR' ? `${currency} ` : '₹'}500, then submit your bid.`
             : undefined
         }
       />
