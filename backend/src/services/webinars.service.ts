@@ -479,8 +479,8 @@ export async function sendMissedWebinarNotices(webinar: WebinarRow): Promise<num
     try {
       const { pick, alreadyRegistered } = await pickUpcomingWebinar(t.id);
       if (alreadyRegistered) continue;
-      // Back to "Onboarding webinar" so the board is truthful and the
-      // template's Registered button can sign them up again.
+      // Back to "Onboarding webinar" so the board is truthful; registering
+      // in Training moves them forward again.
       const { revertOnMissedWebinar } = await import('./onboarding-hub.service.js');
       await revertOnMissedWebinar(t.id);
       const next = pick ? `${pick.title}, ${formatWebinarTime(pick.starts_at, t.phone)}` : null;

@@ -1327,8 +1327,9 @@ export async function advanceOnWebinarRegistration(talentUserId: string): Promis
 /**
  * A registrant missed the webinar (it was marked completed without them ticked
  * as attended). Anyone on "Webinar registered" goes back to "Onboarding
- * webinar", so the board is truthful and the missed-webinar WhatsApp's
- * Registered button (which only acts on that stage) signs them up again.
+ * webinar", so the board is truthful. They move forward again only by
+ * registering in Training (the WhatsApp Registered button just notes the
+ * tap on the CRM card for the team).
  * The CRM card moves silently: the missed notice is the message, and the
  * stage's own entry automation would double it.
  */
