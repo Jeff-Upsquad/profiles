@@ -136,7 +136,7 @@ export function basicProfileChecklist(
         Array.isArray(b.job_type) && b.job_type.length > 0,
       required: salary,
     },
-    { key: 'resume', label: 'Resume', done: !!b.resume_url, required: salary },
+    { key: 'resume', label: 'Resume', done: !!b.resume_url, required: salary || partner },
     {
       key: 'freelance',
       label: 'Freelance availability',

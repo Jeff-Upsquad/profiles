@@ -623,9 +623,12 @@ export default function BasicProfileForm() {
     {
       id: 'resume',
       name: 'Resume',
-      description: 'Upload your resume in PDF format',
+      description:
+        wantsSalary || wantsPartner
+          ? 'Required for jobs and the Partner Program — upload in PDF format'
+          : 'Upload your resume in PDF format',
       tint: 'tint-orange',
-      optional: !wantsSalary,
+      optional: !(wantsSalary || wantsPartner),
       icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>,
     },
   ];
@@ -636,6 +639,137 @@ export default function BasicProfileForm() {
   const needsCompletion = (section: SectionDef) =>
     !section.disabled && !section.optional && !completion[section.id];
   const pendingCount = sections.filter(needsCompletion).length;
+
+  // Sidebar grouping: required sections first, then a clear "Optional"
+  // divider. Resume moves between the groups — mandatory when the talent
+  // opted into jobs (salary) or the Partner Program, optional otherwise.
+  // Bank account and ID proofs are always optional.
+  const indexedSections = sections.map((section, index) => ({ section, index }));
+  const requiredEntries = indexedSections.filter(({ section }) => !section.optional);
+  const optionalEntries = indexedSections.filter(({ section }) => section.optional);
+
+  const renderMobileChip = ({ section, index }: { section: SectionDef; index: number }) => {
+    const isActive = activeSection === index;
+    const isComplete = completion[section.id];
+    return (
+      <button
+        key={section.id}
+        ref={(el) => { tabRefs.current[index] = el; }}
+        type="button"
+        role="tab"
+        aria-selected={isActive}
+        onClick={() => !section.disabled && setActiveSection(index)}
+        disabled={section.disabled}
+        title={
+          section.disabled
+            ? 'Select the matching work preference to enable this section'
+            : isComplete
+              ? 'Complete'
+              : section.optional
+                ? 'Optional'
+                : 'Needs completion'
+        }
+        className={`flex shrink-0 items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 font-[family-name:var(--font-inter)] text-[12px] font-semibold whitespace-nowrap transition-all duration-200 ${
+          section.disabled
+            ? 'cursor-not-allowed border-[#E7E7EA] bg-[#F5F5F6] text-[#a3a3a3] opacity-70'
+            : isActive
+              ? 'border-[#0a0a0a] bg-[#0a0a0a] text-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.25)]'
+              : isComplete
+                ? 'border-[#BBE5CD] bg-[#EFFAF3] text-[#147A44]'
+                : 'border-[#E7E7EA] bg-white text-[#525252]'
+        }`}
+      >
+        <span
+          className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+            section.disabled
+              ? 'bg-[#E7E7EA] text-[#a3a3a3]'
+              : isActive
+                ? isComplete
+                  ? 'bg-emerald-400 text-[#0a0a0a]'
+                  : 'bg-white/25 text-white'
+                : isComplete
+                  ? 'bg-[#147A44] text-white'
+                  : 'bg-[#EFEFEF] text-[#737373]'
+          }`}
+        >
+          {isComplete ? (
+            <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            index + 1
+          )}
+        </span>
+        {section.name}
+        {!isComplete && !isActive && section.optional && (
+          <span className="text-[10px] font-medium opacity-60">· Optional</span>
+        )}
+        {needsCompletion(section) && (
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-label="Needs completion" />
+        )}
+      </button>
+    );
+  };
+
+  const renderSidebarItem = ({ section, index }: { section: SectionDef; index: number }) => {
+    const isActive = activeSection === index;
+    const isComplete = completion[section.id];
+    return (
+      <button
+        key={section.id}
+        type="button"
+        onClick={() => !section.disabled && setActiveSection(index)}
+        disabled={section.disabled}
+        title={section.disabled ? 'Select the matching work preference to enable this section' : undefined}
+        className={`group flex items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-all duration-200 ${
+          section.disabled
+            ? 'cursor-not-allowed opacity-40'
+            : isActive
+              ? 'bg-[#F5F5F6] shadow-[0_1px_3px_0_rgba(0,0,0,0.08)]'
+              : 'hover:bg-[#F5F5F6]'
+        }`}
+      >
+        <div
+          className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg transition-colors ${
+            isComplete
+              ? 'bg-emerald-50 text-emerald-600'
+              : isActive
+                ? `${section.tint}`
+                : 'bg-[#f0f0f0] text-[#a3a3a3] group-hover:bg-[#E7E7EA]'
+          }`}
+          style={isActive && !isComplete ? { color: 'var(--tint-icon)' } : undefined}
+        >
+          {isComplete ? (
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <span className="font-[family-name:var(--font-inter)] text-xs font-semibold">
+              {index + 1}
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className={`font-[family-name:var(--font-inter)] text-[13px] font-semibold truncate ${
+            isActive ? 'text-[#0a0a0a]' : 'text-[#525252]'
+          }`}>
+            {section.name}
+          </p>
+          {needsCompletion(section) ? (
+            <PendingTag size="xs" label="Needs completion" className="mt-0.5" />
+          ) : (
+            <p className="font-[family-name:var(--font-inter)] text-[11px] text-[#a3a3a3] truncate">
+              {section.disabled
+                ? 'Locked'
+                : isComplete
+                  ? 'Complete'
+                  : 'Optional'}
+            </p>
+          )}
+        </div>
+      </button>
+    );
+  };
 
   const goToSection = (delta: 1 | -1) => {
     let i = activeSection + delta;
@@ -892,68 +1026,17 @@ export default function BasicProfileForm() {
           onClickCapture={onStripClickCapture}
           className="flex w-full flex-nowrap items-center gap-1.5 touch-pan-y overflow-x-auto overscroll-x-contain py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {sections.map((section, i) => {
-            const isActive = activeSection === i;
-            const isComplete = completion[section.id];
-            return (
-              <button
-                key={section.id}
-                ref={(el) => { tabRefs.current[i] = el; }}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => !section.disabled && setActiveSection(i)}
-                disabled={section.disabled}
-                title={
-                  section.disabled
-                    ? 'Select the matching work preference to enable this section'
-                    : isComplete
-                      ? 'Complete'
-                      : section.optional
-                        ? 'Optional'
-                        : 'Needs completion'
-                }
-                className={`flex shrink-0 items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 font-[family-name:var(--font-inter)] text-[12px] font-semibold whitespace-nowrap transition-all duration-200 ${
-                  section.disabled
-                    ? 'cursor-not-allowed border-[#E7E7EA] bg-[#F5F5F6] text-[#a3a3a3] opacity-70'
-                    : isActive
-                      ? 'border-[#0a0a0a] bg-[#0a0a0a] text-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.25)]'
-                      : isComplete
-                        ? 'border-[#BBE5CD] bg-[#EFFAF3] text-[#147A44]'
-                        : 'border-[#E7E7EA] bg-white text-[#525252]'
-                }`}
-              >
-                <span
-                  className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                    section.disabled
-                      ? 'bg-[#E7E7EA] text-[#a3a3a3]'
-                      : isActive
-                        ? isComplete
-                          ? 'bg-emerald-400 text-[#0a0a0a]'
-                          : 'bg-white/25 text-white'
-                        : isComplete
-                          ? 'bg-[#147A44] text-white'
-                          : 'bg-[#EFEFEF] text-[#737373]'
-                  }`}
-                >
-                  {isComplete ? (
-                    <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    i + 1
-                  )}
-                </span>
-                {section.name}
-                {!isComplete && !isActive && section.optional && (
-                  <span className="text-[10px] font-medium opacity-60">· Optional</span>
-                )}
-                {needsCompletion(section) && (
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-label="Needs completion" />
-                )}
-              </button>
-            );
-          })}
+          {requiredEntries.map(renderMobileChip)}
+          {optionalEntries.length > 0 && (
+            <span
+              aria-hidden="true"
+              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap pl-1 font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#a3a3a3]"
+            >
+              <span className="h-4 w-px bg-[#E7E7EA]" />
+              Optional
+            </span>
+          )}
+          {optionalEntries.map(renderMobileChip)}
         </div>
         {scrollState.right && (
           <>
@@ -975,69 +1058,25 @@ export default function BasicProfileForm() {
         <aside className="hidden lg:sticky lg:top-6 lg:self-start lg:block">
           <div className="rounded-2xl border border-[#E7E7EA] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <h3 className="mb-2 px-2 pt-1 font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
-              Sections
+              Required
             </h3>
             <nav className="flex flex-col gap-0.5">
-              {sections.map((section, i) => {
-                const isActive = activeSection === i;
-                const isComplete = completion[section.id];
-                return (
-                  <button
-                    key={section.name}
-                    type="button"
-                    onClick={() => !section.disabled && setActiveSection(i)}
-                    disabled={section.disabled}
-                    title={section.disabled ? 'Select the matching work preference to enable this section' : undefined}
-                    className={`group flex items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-all duration-200 ${
-                      section.disabled
-                        ? 'cursor-not-allowed opacity-40'
-                        : isActive
-                          ? 'bg-[#F5F5F6] shadow-[0_1px_3px_0_rgba(0,0,0,0.08)]'
-                          : 'hover:bg-[#F5F5F6]'
-                    }`}
-                  >
-                    <div
-                      className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg transition-colors ${
-                        isComplete
-                          ? 'bg-emerald-50 text-emerald-600'
-                          : isActive
-                            ? `${section.tint}`
-                            : 'bg-[#f0f0f0] text-[#a3a3a3] group-hover:bg-[#E7E7EA]'
-                      }`}
-                      style={isActive && !isComplete ? { color: 'var(--tint-icon)' } : undefined}
-                    >
-                      {isComplete ? (
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        <span className="font-[family-name:var(--font-inter)] text-xs font-semibold">
-                          {i + 1}
-                        </span>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={`font-[family-name:var(--font-inter)] text-[13px] font-semibold truncate ${
-                        isActive ? 'text-[#0a0a0a]' : 'text-[#525252]'
-                      }`}>
-                        {section.name}
-                      </p>
-                      {needsCompletion(section) ? (
-                        <PendingTag size="xs" label="Needs completion" className="mt-0.5" />
-                      ) : (
-                        <p className="font-[family-name:var(--font-inter)] text-[11px] text-[#a3a3a3] truncate">
-                          {section.disabled
-                            ? 'Locked'
-                            : isComplete
-                              ? 'Complete'
-                              : 'Optional'}
-                        </p>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
+              {requiredEntries.map(renderSidebarItem)}
             </nav>
+            {optionalEntries.length > 0 && (
+              <>
+                <div className="my-2 flex items-center gap-2 px-2" aria-hidden="true">
+                  <span className="h-px flex-1 bg-[#E7E7EA]" />
+                  <span className="font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
+                    Optional
+                  </span>
+                  <span className="h-px flex-1 bg-[#E7E7EA]" />
+                </div>
+                <nav className="flex flex-col gap-0.5" aria-label="Optional sections">
+                  {optionalEntries.map(renderSidebarItem)}
+                </nav>
+              </>
+            )}
           </div>
         </aside>
 

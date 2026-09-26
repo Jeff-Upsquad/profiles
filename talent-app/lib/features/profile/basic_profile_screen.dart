@@ -267,8 +267,13 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
 
   /// Sections in form order; the assignment tab only appears when Assignments
   /// is selected. Completion checks
-  /// mirror the web's BasicProfileForm heuristics.
-  List<_SectionSpec> get _sections => [
+  /// mirror the web's BasicProfileForm heuristics. ID proofs and bank account
+  /// are always optional; resume is mandatory for jobs (salary) and Partner
+  /// Program talent, optional otherwise.
+  List<_SectionSpec> get _sections {
+    final resumeRequired = _p.employmentType.contains('salary') ||
+        _p.employmentType.contains('partner_program');
+    return [
         _SectionSpec(
           label: 'Basic details',
           icon: Icons.person_outline,
@@ -346,9 +351,10 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
           icon: Icons.description_outlined,
           build: _resumeSection,
           done: () => _p.resumeUrl?.isNotEmpty ?? false,
-          optional: true,
+          optional: !resumeRequired,
         ),
       ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -460,8 +466,19 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
     );
   }
 
-  /// Horizontally scrollable section tabs — tap to open that section.
+  /// Horizontally scrollable section tabs — required sections first, then a
+  /// clear "Optional" divider (ID proofs, bank account, and resume unless it
+  /// is mandatory for jobs / Partner Program). Tap to open that section.
   Widget _tabStrip(List<_SectionSpec> sections, int active) {
+    final requiredIndexes = <int>[];
+    final optionalIndexes = <int>[];
+    for (var i = 0; i < sections.length; i++) {
+      if (sections[i].optional) {
+        optionalIndexes.add(i);
+      } else {
+        requiredIndexes.add(i);
+      }
+    }
     return SizedBox(
       height: 40,
       child: SingleChildScrollView(
@@ -469,7 +486,32 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            for (var i = 0; i < sections.length; i++) _tabChip(sections, i, active),
+            for (final i in requiredIndexes) _tabChip(sections, i, active),
+            if (optionalIndexes.isNotEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      height: 16,
+                      child: VerticalDivider(width: 1, thickness: 1),
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'OPTIONAL',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                  ],
+                ),
+              ),
+            for (final i in optionalIndexes) _tabChip(sections, i, active),
           ],
         ),
       ),

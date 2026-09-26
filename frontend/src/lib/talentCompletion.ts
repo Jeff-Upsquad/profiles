@@ -57,7 +57,9 @@ export function basicSectionCompletion({ fullName, languages, basic }: BasicComp
 /**
  * Whether a section counts toward "basic profile complete" for this talent.
  * ID proofs and bank account are always optional; the preference sections
- * and the resume only apply to the matching work preference.
+ * only apply to the matching work preference. Resume is mandatory for
+ * job-seekers (salary) and Partner Program (partner_program) talent, and
+ * optional for everyone else.
  */
 export function isBasicSectionRequired(id: BasicSectionId, employmentType: string[] | null | undefined): boolean {
   const employment = employmentType ?? [];
@@ -66,8 +68,9 @@ export function isBasicSectionRequired(id: BasicSectionId, employmentType: strin
     case 'bank_account':
       return false;
     case 'job_preference':
-    case 'resume':
       return employment.includes('salary');
+    case 'resume':
+      return employment.includes('salary') || employment.includes('partner_program');
     case 'freelance_preference':
       return employment.includes('freelance');
     case 'partner_program_preference':

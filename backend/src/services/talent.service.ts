@@ -339,7 +339,7 @@ export function isBasicProfileMandatoryComplete(
   if (!basic.profile_picture_url) return false;
 
   // Work-preference-gated sections. ID proofs and bank account are always
-  // optional; resume is mandatory only for salary (job-seeking) talent.
+  // optional; resume is mandatory for jobs (salary) and Partner Program talent.
   const employment = Array.isArray(basic.employment_type)
     ? (basic.employment_type as string[])
     : [];
@@ -347,6 +347,9 @@ export function isBasicProfileMandatoryComplete(
   if (employment.includes('salary')) {
     if (!Array.isArray(basic.availability) || basic.availability.length === 0) return false;
     if (!Array.isArray(basic.job_type) || basic.job_type.length === 0) return false;
+  }
+
+  if (employment.includes('salary') || employment.includes('partner_program')) {
     if (!basic.resume_url) return false;
   }
 
