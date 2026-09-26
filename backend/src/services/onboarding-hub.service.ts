@@ -25,6 +25,23 @@ import { programProgressFor, type ProgramProgress } from './program-training-pro
 import { openChangeRequests, rcStatusFor } from './request-change-reminders.service.js';
 import { portfolioRequiredFor } from '../../../shared/src/portfolio.js';
 
+// Ghost Designer + Editor rows hold no portfolio_items of their own — their
+// items live on the two source profiles. Resolve the display count as the
+// sum of the sources so the hub doesn't show 0.
+function ghostPortfolioCount(
+  p: { id: string; is_ghost?: boolean | null; source_designer_profile_id?: string | null; source_editor_profile_id?: string | null },
+  counts: Map<string, number> | Record<string, number>,
+): number {
+  if (p.is_ghost !== true) {
+    return counts instanceof Map ? (counts.get(p.id) ?? 0) : ((counts as Record<string, number>)[p.id] ?? 0);
+  }
+  const get = (id: string | null | undefined) => {
+    if (!id) return 0;
+    return counts instanceof Map ? (counts.get(id) ?? 0) : ((counts as Record<string, number>)[id] ?? 0);
+  };
+  return get(p.source_designer_profile_id) + get(p.source_editor_profile_id);
+}
+
 // Graduated talents (talent-board "Onboarding completed") no longer belong in
 // the onboarding queue — they live in Partner Program / Jobs modules where the
 // live profiles appear. Match by normalized stage name so CRM renames/casing
@@ -344,7 +361,7 @@ async function journeysFor(
     supabaseAdmin.from('talent_profiles_basic').select(BASIC_COLUMNS).in('talent_user_id', ids),
     supabaseAdmin
       .from('talent_profiles')
-      .select('id, talent_user_id, status, requested_changes, changes_requested_at, resubmitted_at, reviewed_at')
+      .select('id, talent_user_id, status, requested_changes, changes_requested_at, resubmitted_at, reviewed_at, is_ghost, source_designer_profile_id, source_editor_profile_id')
       .in('talent_user_id', ids)
       .is('deleted_at', null),
     supabaseAdmin.from('training_course_starts').select('talent_user_id').in('talent_user_id', ids),
@@ -363,6 +380,9 @@ async function journeysFor(
     changes_requested_at: string | null;
     resubmitted_at: string | null;
     reviewed_at: string | null;
+    is_ghost: boolean;
+    source_designer_profile_id: string | null;
+    source_editor_profile_id: string | null;
   }
   const profilesBy = new Map<string, ProfileLite[]>();
   for (const row of profRes.data ?? []) {
@@ -375,6 +395,9 @@ async function journeysFor(
       changes_requested_at: r.changes_requested_at ?? null,
       resubmitted_at: r.resubmitted_at ?? null,
       reviewed_at: r.reviewed_at ?? null,
+      is_ghost: r.is_ghost === true,
+      source_designer_profile_id: (r.source_designer_profile_id as string | null) ?? null,
+      source_editor_profile_id: (r.source_editor_profile_id as string | null) ?? null,
     });
     profilesBy.set(r.talent_user_id, arr);
   }
@@ -431,8 +454,10 @@ async function journeysFor(
         if (!resubmittedAt || p.resubmitted_at > resubmittedAt) resubmittedAt = p.resubmitted_at;
       }
     }
+    // Total counts unique items only — exclude ghosts or their sources would
+    // be double-counted once the ghost displays the combined sum.
     const portfolioItems = profiles.reduce(
-      (sum, p) => sum + (portfolioCountByProfile.get(p.id) ?? 0),
+      (sum, p) => sum + (p.is_ghost ? 0 : (portfolioCountByProfile.get(p.id) ?? 0)),
       0,
     );
     out.set(t.id, {
@@ -920,7 +945,7 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
     supabaseAdmin.from('talent_profiles_basic').select('*').eq('talent_user_id', userId).maybeSingle(),
     supabaseAdmin
       .from('talent_profiles')
-      .select('id, category_id, status, is_active, tier, tier_custom, field_data, created_at, updated_at, requested_changes, changes_requested_at, resubmitted_at, reviewed_at, changes_whatsapp_sent, paused_at, paused_by_role, paused_by_name, categories(name, slug)')
+      .select('id, category_id, status, is_active, is_ghost, source_designer_profile_id, source_editor_profile_id, tier, tier_custom, field_data, created_at, updated_at, requested_changes, changes_requested_at, resubmitted_at, reviewed_at, changes_whatsapp_sent, paused_at, paused_by_role, paused_by_name, categories(name, slug)')
       .eq('talent_user_id', userId)
       .is('deleted_at', null)
       .order('updated_at', { ascending: false }),
@@ -1005,7 +1030,12 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
     full_name: t.full_name ?? null,
     languages_spoken: t.languages_spoken,
   });
-  const portfolioItems = profileIds.reduce((s, id) => s + (portfolioByProfile.get(id) ?? 0), 0);
+  // Total counts unique items only — exclude ghosts or their sources would
+  // be double-counted once the ghost displays the combined sum.
+  const portfolioItems = profiles.reduce(
+    (s, p) => s + (p.is_ghost === true ? 0 : (portfolioByProfile.get(p.id) ?? 0)),
+    0,
+  );
 
   const talentPipeline = await talentPipelineFor(userId, track === 'jobs' ? t.crm_jobs_pipeline_name : t.crm_talent_pipeline_name, track);
 
@@ -1071,9 +1101,10 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
       category_slug: p.categories?.slug ?? null,
       status: p.status,
       is_active: p.is_active,
+      is_ghost: p.is_ghost === true,
       tier: p.tier ?? null,
       tier_custom: p.tier_custom ?? null,
-      portfolio_items: portfolioByProfile.get(p.id) ?? 0,
+      portfolio_items: ghostPortfolioCount(p, portfolioByProfile),
       missing_required_fields: p.status === 'draft'
         ? (requiredByCategory.get(p.category_id) ?? []).filter((k) => isEmpty(p.field_data?.[k]))
         : [],
