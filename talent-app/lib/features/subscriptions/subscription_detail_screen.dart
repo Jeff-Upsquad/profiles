@@ -91,6 +91,17 @@ class _SubscriptionDetailScreenState
     final isAssignment = card?.isAssignment ?? false;
     final isRequestQuote = card?.isRequestQuote ?? false;
     final period = isAssignment ? 'project' : 'per_month';
+    final cur = currencySymbol(card?.currency);
+    // No client price and no figure on the table yet: the talent types their
+    // own price instead of clicking + up from ₹500.
+    final existing =
+        ref.read(offerDetailProvider(recipient.id)).value?['offer'] as Map<String, dynamic>?;
+    final hasOpenOffer = existing != null &&
+        _OfferDetailSection._openStatuses.contains(existing['status']);
+    final typed = (card?.isUnpriced ?? false) && !hasOpenOffer;
+    if (typed) amount = 0;
+    int snap(int n) =>
+        n <= 0 ? _offerStep : ((n / _offerStep).round() * _offerStep).clamp(_offerStep, 1 << 30);
 
     final submitted = await showModalBottomSheet<int>(
       context: context,
@@ -124,13 +135,36 @@ class _SubscriptionDetailScreenState
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Adjust in steps of ₹$_offerStep',
+                    typed
+                        ? 'Enter your price in ${card?.currency ?? 'INR'}. Rounds to the nearest $cur$_offerStep.'
+                        : 'Adjust in steps of $cur$_offerStep',
                     style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 16),
+                  if (typed)
+                    TextField(
+                      autofocus: true,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+                      decoration: InputDecoration(
+                        prefixText: cur,
+                        hintText: 'Enter amount',
+                        helperText: amount > 0 && amount % _offerStep != 0
+                            ? 'Rounds to $cur${snap(amount)}'
+                            : null,
+                      ),
+                      onChanged: (v) => setModal(() {
+                        final digits = v.replaceAll(RegExp(r'[^0-9]'), '');
+                        amount = digits.isEmpty
+                            ? 0
+                            : int.parse(digits.length > 9 ? digits.substring(0, 9) : digits);
+                      }),
+                    )
+                  else
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -143,7 +177,7 @@ class _SubscriptionDetailScreenState
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Text(
-                          '₹${amount.toStringAsFixed(0)}',
+                          '$cur${amount.toStringAsFixed(0)}',
                           style: const TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w700,
@@ -160,7 +194,9 @@ class _SubscriptionDetailScreenState
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () => Navigator.of(ctx).pop(amount),
+                      onPressed: typed && amount <= 0
+                          ? null
+                          : () => Navigator.of(ctx).pop(typed ? snap(amount) : amount),
                       child: Text(isRequestQuote
                           ? 'Submit quote'
                           : isAssignment

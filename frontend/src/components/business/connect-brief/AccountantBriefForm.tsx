@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import CurrencyField from '@/components/business/CurrencyField';
+import { currencyPrefix, isCurrencyCode, saveDefaultCurrency, type CurrencyCode } from '@/lib/currency';
 import AdditionalRequirementsField, {
   type AdditionalRequirements,
 } from './AdditionalRequirementsField';
@@ -292,6 +294,21 @@ export default function AccountantBriefForm({
   }, []);
 
   const { user, refetchUser } = useAuth();
+  // Budget currency — prefilled from the account default; ticking "save as
+  // default" stores it on the account on submit so later forms reuse it.
+  const [currency, setCurrency] = useState<CurrencyCode>('INR');
+  const [saveDefaultCur, setSaveDefaultCur] = useState(false);
+  const currencyTouchedRef = useRef(false);
+  useEffect(() => {
+    if (currencyTouchedRef.current || !user) return;
+    if (isCurrencyCode(user.default_currency)) {
+      setCurrency(user.default_currency);
+      setSaveDefaultCur(false);
+    } else {
+      // No default yet — offer to save the first one they use.
+      setSaveDefaultCur(true);
+    }
+  }, [user]);
   // Draft key is scoped per account + product + category so subscription and
   // assignment (and future categories) each keep their own auto-saved draft.
   const draftKey = `connectBriefDraft:v1:${user?.id ?? 'anon'}:${product}:accountant`;
@@ -399,8 +416,7 @@ export default function AccountantBriefForm({
 
   const selectedCountryName = countries.find((c) => c.id === form.country_id)?.name || '';
   const stateOptions = STATES_BY_COUNTRY_NAME[selectedCountryName] || [];
-  // ₹ for India (default), $ for the other countries we serve.
-  const currencySymbol = selectedCountryName && selectedCountryName !== 'India' ? '$' : '₹';
+  const currencySymbol = currencyPrefix(currency);
 
   function update<K extends keyof FormData>(field: K, value: FormData[K]) {
     setForm((prev) => {
@@ -549,10 +565,12 @@ export default function AccountantBriefForm({
       duration?: string;
       start_date?: string;
       deadline?: string;
+      currency?: CurrencyCode;
       pricing_mode?: 'priced' | 'unpriced';
       additional_requirements?: AdditionalRequirements;
     } = isAssignment
       ? {
+          currency,
           ...(combinedNote ? { note: combinedNote } : {}),
           ...(tiers.length ? { tiers } : {}),
           ...(budget !== undefined ? { budget } : {}),
@@ -563,6 +581,7 @@ export default function AccountantBriefForm({
           pricing_mode: pricingMode,
         }
       : {
+          currency,
           ...(combinedNote ? { note: combinedNote } : {}),
           ...(tiers.length ? { tiers } : {}),
           ...(subscription.plan ? { plan: subscription.plan } : {}),
@@ -623,6 +642,9 @@ export default function AccountantBriefForm({
       submittedRef.current = true;
       setSubmitted(true);
       clearDraft();
+      if (saveDefaultCur && currency !== user?.default_currency) {
+        try { await saveDefaultCurrency(currency); } catch { /* non-fatal — brief already landed */ }
+      }
       try { await refetchUser(); } catch { /* non-fatal — next page load will pick up */ }
       if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
     } catch (err) {
@@ -1040,6 +1062,20 @@ export default function AccountantBriefForm({
                     </div>
                   </div>
                   )}
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-[#222]">Budget currency</label>
+                    <p className="mb-2 text-xs text-[#7A7568]">Budgets and accountant quotes use this currency.</p>
+                    <CurrencyField
+                      label="Budget currency"
+                      className="connect-input"
+                      value={currency}
+                      onChange={(code) => { currencyTouchedRef.current = true; setCurrency(code); }}
+                      accountDefault={user?.default_currency}
+                      saveDefault={saveDefaultCur}
+                      onSaveDefaultChange={setSaveDefaultCur}
+                    />
+                  </div>
 
                   <div>
                     <label className="mb-1 flex items-baseline gap-2 text-sm font-medium text-[#222]">

@@ -97,6 +97,12 @@ class SubscriptionCard {
     return label is! String || label.trim().isEmpty;
   }
 
+  /// No client price: a request-quote subscription, or an assignment the
+  /// business sent to invite offers. The talent names the first figure.
+  bool get isUnpriced =>
+      isRequestQuote ||
+      (isAssignment && assignmentDetails['pricing_mode'] == 'unpriced');
+
   /// Partner (talent) price. If margin fields are present, compute from the
   /// business budget so the talent always sees their actual pay, regardless of
   /// what was stamped into `monthly_price` by the upstream system.

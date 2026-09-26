@@ -21,6 +21,8 @@ import {
 import type { OfferCompensation, OfferLetter } from '@/hooks/useJobOffers';
 import { useUpload } from '@/hooks/useUpload';
 import { currencySymbol } from '@/components/jobs/shared';
+import { useAuth } from '@/context/AuthContext';
+import { CURRENCIES, isCurrencyCode, saveDefaultCurrency } from '@/lib/currency';
 
 // Offer composer. The letter TEMPLATE is canonical on SquadHub — pulled here
 // via the signed integration GET, then the business edits sections + package
@@ -180,6 +182,9 @@ export default function OfferComposer({
   const sendOffer = useSendOffer(cardId);
   const markSentManually = useMarkOfferSentManually(cardId);
   const { uploadFile, uploading: pdfUploading } = useUpload();
+  const { user, refetchUser } = useAuth();
+  const accountCurrency = isCurrencyCode(user?.default_currency) ? user.default_currency : null;
+  const [savingDefaultCur, setSavingDefaultCur] = useState(false);
 
   const template = templatePull?.data?.template ?? null;
   const mergeContext = templatePull?.data?.merge_context ?? null;
@@ -256,7 +261,7 @@ export default function OfferComposer({
     } else {
       setPositionTitle(mergeContext?.position ?? '');
       setJoinByDate(mergeContext?.join_by_date ?? '');
-      setCurrency(mergeContext?.package_currency ?? 'INR');
+      setCurrency(mergeContext?.package_currency ?? accountCurrency ?? 'INR');
       const seeded: Record<string, CompRowState> = {};
       for (const row of schema) {
         seeded[row.key] = {
@@ -516,16 +521,38 @@ export default function OfferComposer({
         <div>
           <div className="mb-1.5 flex items-center justify-between">
             <p className="text-[13px] font-medium text-[#3F3F46]">Compensation</p>
-            <Select
-              options={[
-                { label: 'INR (₹)', value: 'INR' },
-                { label: 'USD ($)', value: 'USD' },
-                { label: 'AED', value: 'AED' },
-              ]}
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className="!w-auto !py-1.5"
-            />
+            <div className="flex items-center gap-2">
+              {isCurrencyCode(currency) && currency !== accountCurrency && (
+                <button
+                  type="button"
+                  disabled={savingDefaultCur}
+                  onClick={async () => {
+                    setSavingDefaultCur(true);
+                    try {
+                      await saveDefaultCurrency(currency);
+                      await refetchUser();
+                      toast.success(`${currency} is now your default currency`);
+                    } catch {
+                      toast.error('Could not save your default currency');
+                    } finally {
+                      setSavingDefaultCur(false);
+                    }
+                  }}
+                  className="text-xs font-medium text-[#525252] underline underline-offset-2 hover:text-[#0a0a0a] disabled:opacity-50"
+                >
+                  Set as default
+                </button>
+              )}
+              <Select
+                options={[
+                  ...CURRENCIES.map((c) => ({ label: c.code === 'INR' ? 'INR (₹)' : c.code, value: c.code })),
+                  ...(isCurrencyCode(currency) ? [] : [{ label: currency, value: currency }]),
+                ]}
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className="!w-auto !py-1.5"
+              />
+            </div>
           </div>
           <CompensationTable
             schema={schema}

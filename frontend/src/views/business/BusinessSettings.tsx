@@ -9,6 +9,7 @@ import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
 import LoginDetailsModal, { type LoginField } from '@/components/business/LoginDetailsModal';
 import toast from 'react-hot-toast';
+import { CURRENCIES, isCurrencyCode } from '@/lib/currency';
 
 const COUNTRY_CODES = [
   { code: '+91', flag: '🇮🇳' },
@@ -51,6 +52,7 @@ export default function BusinessSettings() {
     company_size: '',
     business_note: '',
     business_location: '',
+    default_currency: '',
     contact_person_name: '',
     contact_email: '',
     country_code: '+91',
@@ -71,6 +73,7 @@ export default function BusinessSettings() {
         company_size: info.company_size ?? '',
         business_note: info.business_note ?? '',
         business_location: info.business_location ?? '',
+        default_currency: isCurrencyCode(info.default_currency) ? info.default_currency : '',
         contact_person_name: info.contact_person_name ?? '',
         contact_email: info.contact_email ?? '',
         country_code: phone.code,
@@ -104,6 +107,7 @@ export default function BusinessSettings() {
         company_size: form.company_size || undefined,
         business_note: form.business_note,
         business_location: form.business_location,
+        ...(isCurrencyCode(form.default_currency) ? { default_currency: form.default_currency } : {}),
         contact_person_name: form.contact_person_name,
         contact_email: form.contact_email,
         contact_phone,
@@ -196,6 +200,18 @@ export default function BusinessSettings() {
               onChange={(e) => setForm((p) => ({ ...p, business_location: e.target.value }))}
               placeholder="City, area"
             />
+            <div>
+              <Select
+                label="Default Currency"
+                value={form.default_currency}
+                onChange={(e) => setForm((p) => ({ ...p, default_currency: e.target.value }))}
+                placeholder="Select a currency"
+                options={CURRENCIES.map((c) => ({ label: c.label, value: c.code }))}
+              />
+              <p className="mt-1.5 text-xs text-[#737373]">
+                Used for budgets on requirement forms and the quotes talents send you.
+              </p>
+            </div>
             <Select
               label="Company Size"
               value={form.company_size}

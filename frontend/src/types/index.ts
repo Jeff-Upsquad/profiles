@@ -10,6 +10,7 @@ export interface User {
   industry?: string;
   business_note?: string;
   business_location?: string;
+  default_currency?: string | null;
   approval_status?: ApprovalStatus;
   wants_jobs?: boolean;
   partner_approval_status?: ApprovalStatus | null;

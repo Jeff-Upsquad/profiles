@@ -109,6 +109,10 @@ export default function AssignmentOfferActions({
     (typeof openOffer?.current_amount?.amount === 'number' ? openOffer.current_amount.amount : null) ??
     listPrice;
 
+  // No client price and no figure on the table yet: the talent names their own
+  // price, so open a typed amount box instead of a ₹500 stepper.
+  const firstQuote = pricingMode === 'unpriced' && !openOffer && modal === 'submit';
+
   const doSubmit = (amount: OfferAmount, note?: string) =>
     submitOffer.mutate({ amount, ...(note ? { note } : {}) }, { onSuccess: () => setModal(null) });
 
@@ -284,8 +288,9 @@ export default function AssignmentOfferActions({
           pending={submitOffer.isPending}
           onClose={() => setModal(null)}
           onSubmit={doSubmit}
+          entry={firstQuote ? 'input' : 'stepper'}
           hint={
-            bidLabel
+            !firstQuote && bidLabel
               ? `Increase or decrease the ${unit ? `price per ${unit}` : 'set price'} in steps of ₹500, then submit your bid.`
               : undefined
           }
@@ -531,8 +536,9 @@ export default function AssignmentOfferActions({
         pending={submitOffer.isPending}
         onClose={() => setModal(null)}
         onSubmit={doSubmit}
+        entry={firstQuote ? 'input' : 'stepper'}
         hint={
-          bidLabel
+          !firstQuote && bidLabel
             ? `Increase or decrease the ${unit ? `price per ${unit}` : 'set price'} in steps of ₹500, then submit your bid.`
             : undefined
         }

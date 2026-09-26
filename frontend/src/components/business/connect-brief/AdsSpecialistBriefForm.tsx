@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import CurrencyField from '@/components/business/CurrencyField';
+import { CURRENCIES, isCurrencyCode, saveDefaultCurrency, type CurrencyCode } from '@/lib/currency';
 import AdditionalRequirementsField, { type AdditionalRequirements } from './AdditionalRequirementsField';
 
 type Product = 'subscription' | 'assignment';
@@ -67,16 +69,6 @@ const PLANS = [
   { name: 'Pro', dailyHours: '6 hrs', weeklyMax: '30 hrs', monthlyMax: '120 hrs', pct: '80%', capacity: 'Nearly full-time specialist', tagline: 'High-volume execution and optimisation.', bestFor: 'Growing businesses' },
   { name: 'Personal', dailyHours: '8 hrs', weeklyMax: '40 hrs', monthlyMax: '160 hrs', pct: '100%', capacity: 'Dedicated full-time equivalent', tagline: 'Your own dedicated ads specialist.', bestFor: 'Performance-led organisations' },
 ];
-const CURRENCIES = [
-  { code: 'INR', label: 'INR — Indian Rupee' },
-  { code: 'USD', label: 'USD — US Dollar' },
-  { code: 'EUR', label: 'EUR — Euro' },
-  { code: 'GBP', label: 'GBP — British Pound' },
-  { code: 'AED', label: 'AED — UAE Dirham' },
-  { code: 'AUD', label: 'AUD — Australian Dollar' },
-  { code: 'CAD', label: 'CAD — Canadian Dollar' },
-  { code: 'SGD', label: 'SGD — Singapore Dollar' },
-];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const LANGUAGES = ['English', 'Hindi', 'Tamil', 'Telugu', 'Malayalam', 'Kannada', 'Marathi', 'Bengali', 'Gujarati', 'Punjabi', 'Urdu', 'Arabic', 'Spanish', 'French', 'German', 'Mandarin'];
 
@@ -90,7 +82,10 @@ const emptyForm: FormState = {
 };
 
 export default function AdsSpecialistBriefForm({ product = 'subscription', preview = false }: { product?: Product; preview?: boolean }) {
-  const { user } = useAuth();
+  const { user, refetchUser } = useAuth();
+  // "Save as my default currency" — defaults on when the account has none yet.
+  const [saveDefaultCur, setSaveDefaultCur] = useState(false);
+  const currencyTouchedRef = useRef(false);
   const isAssignment = product === 'assignment';
   const [form, setForm] = useState<FormState>(() => preview ? {
     ...emptyForm,
@@ -139,8 +134,13 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
     setBrandAutoFilled(hasBrand);
     setEditingContact(!hasContact);
     setEditingBrand(!hasBrand);
+    const savedCurrency = isCurrencyCode(user.default_currency) ? user.default_currency : null;
+    setSaveDefaultCur(!savedCurrency);
     setForm((current) => ({
       ...current,
+      ...(savedCurrency && !currencyTouchedRef.current
+        ? { currency: savedCurrency, mediaSpendCurrency: savedCurrency }
+        : {}),
       contactName: current.contactName || savedContactName,
       email: current.email || savedEmail,
       phone: current.phone || savedPhone,
@@ -238,6 +238,12 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
           },
         },
       });
+      if (saveDefaultCur && form.currency !== user?.default_currency && isCurrencyCode(form.currency)) {
+        try {
+          await saveDefaultCurrency(form.currency);
+          await refetchUser();
+        } catch { /* non-fatal — brief already landed */ }
+      }
       setSubmitted(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (caught) {
@@ -311,7 +317,7 @@ export default function AdsSpecialistBriefForm({ product = 'subscription', previ
 
           <Section eyebrow={isAssignment ? 'Assignment' : 'Subscription'} title={isAssignment ? 'Budget & timeline' : 'Plan, level & budget'} hint={isAssignment ? 'Set a clear project finish line.' : 'Choose how much specialist capacity you need each month.'}>
             {!isAssignment && <div><div className="mb-2 flex items-center justify-between gap-3"><p className="text-sm font-medium text-[#222]">Monthly plan<b className="text-[#D04A2C]">*</b></p><button type="button" onClick={() => setComparePlanOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border-2 border-[#0a0a0a] bg-[#F2FCBC] px-3 py-1.5 text-xs font-bold text-[#0a0a0a] shadow-[2px_2px_0_#0a0a0a]"><CompareIcon />Compare all plans</button></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-5">{PLANS.map((plan) => { const selected = form.plan === plan.name; return <button key={plan.name} type="button" aria-pressed={selected} onClick={() => update('plan', plan.name)} className={`shb-choice ${selected ? 'shb-choice-on' : ''}`}><strong>{plan.name}</strong><span className="shb-choice-daily">{plan.dailyHours} / day</span><span className="shb-choice-cap">{plan.weeklyMax} weekly max</span><span className="shb-choice-cap">{plan.monthlyMax} monthly max</span>{plan.recommended && <em>Popular</em>}</button>; })}</div><div className="shb-plan-note"><InfoIcon /><p><strong>Daily hours come first.</strong> Weekly and monthly figures are maximum caps, not saved-up balances. Unused time doesn&apos;t roll over.</p></div></div>}
-            <Field label="Budget currency" required><select aria-label="Budget currency" className="shb-input" value={form.currency} onChange={(e) => update('currency', e.target.value)}>{CURRENCIES.map((currency) => <option key={currency.code} value={currency.code}>{currency.label}</option>)}</select></Field>
+            <Field label="Budget currency" required><CurrencyField label="Budget currency" value={form.currency as CurrencyCode} onChange={(code) => { currencyTouchedRef.current = true; update('currency', code); }} accountDefault={user?.default_currency} saveDefault={saveDefaultCur} onSaveDefaultChange={setSaveDefaultCur} /></Field>
             <TierSelector product={product} currency={form.currency} selected={form.tiers} values={form.tierBudgets} onToggle={(value) => toggle('tiers', value)} onBudgetChange={updateTierBudget} />
             {isAssignment && <Field label="Duration"><input className="shb-input" value={form.duration} onChange={(e) => update('duration', e.target.value)} /></Field>}
             {isAssignment && <div className="grid gap-4 sm:grid-cols-2"><Field label="Start date"><input type="date" className="shb-input" value={form.startDate} onChange={(e) => update('startDate', e.target.value)} /></Field><Field label="Deadline"><input type="date" className="shb-input" value={form.deadline} onChange={(e) => update('deadline', e.target.value)} /></Field></div>}

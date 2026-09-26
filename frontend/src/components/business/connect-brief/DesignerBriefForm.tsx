@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import CurrencyField from '@/components/business/CurrencyField';
+import { currencyPrefix, isCurrencyCode, saveDefaultCurrency, type CurrencyCode } from '@/lib/currency';
 import AdditionalRequirementsField, {
   type AdditionalRequirements,
 } from './AdditionalRequirementsField';
@@ -361,6 +363,21 @@ export default function DesignerBriefForm({
   }, []);
 
   const { user, refetchUser } = useAuth();
+  // Budget currency — prefilled from the account default; ticking "save as
+  // default" stores it on the account on submit so later forms reuse it.
+  const [currency, setCurrency] = useState<CurrencyCode>('INR');
+  const [saveDefaultCur, setSaveDefaultCur] = useState(false);
+  const currencyTouchedRef = useRef(false);
+  useEffect(() => {
+    if (currencyTouchedRef.current || !user) return;
+    if (isCurrencyCode(user.default_currency)) {
+      setCurrency(user.default_currency);
+      setSaveDefaultCur(false);
+    } else {
+      // No default yet — offer to save the first one they use.
+      setSaveDefaultCur(true);
+    }
+  }, [user]);
   // Draft key is scoped per account + product + category so subscription and
   // assignment (and future categories) each keep their own auto-saved draft.
   const draftKey = `connectBriefDraft:v1:${user?.id ?? 'anon'}:${product}:designer`;
@@ -480,8 +497,7 @@ export default function DesignerBriefForm({
 
   const selectedCountryName = countries.find((c) => c.id === form.country_id)?.name || '';
   const stateOptions = STATES_BY_COUNTRY_NAME[selectedCountryName] || [];
-  // ₹ for India (default), $ for the other countries we serve.
-  const currencySymbol = selectedCountryName && selectedCountryName !== 'India' ? '$' : '₹';
+  const currencySymbol = currencyPrefix(currency);
 
   function update<K extends keyof FormData>(field: K, value: FormData[K]) {
     setForm((prev) => {
@@ -629,6 +645,7 @@ export default function DesignerBriefForm({
         tier_budgets?: Record<string, number>;
         budget?: number; duration?: string; start_date?: string; deadline?: string;
         scope_type?: string;
+        currency?: CurrencyCode;
         pricing_mode?: 'priced' | 'unpriced';
         request_type?: 'fixed' | 'business_service';
         work_type?: string;
@@ -673,6 +690,7 @@ export default function DesignerBriefForm({
           : [note, entry.note.trim()].filter(Boolean).join('\n');
         if (serviceNote || tiers.length || budgetValues.length || duration || startDate || deadline || scopeType) {
           roleReqsPayload[roleToServiceTypeSlug(r)] = {
+            currency,
             ...(serviceNote ? { note: serviceNote } : {}),
             ...(tiers.length ? { tiers } : {}),
             ...(budget !== undefined ? { budget } : {}),
@@ -708,6 +726,7 @@ export default function DesignerBriefForm({
         budgetValues.length > 0 && budgetValues.every((v) => v === budgetValues[0]);
       const budget = allSame ? budgetValues[0] : undefined;
       roleReqsPayload[roleToServiceTypeSlug(r)] = {
+        currency,
         ...(note ? { note } : {}),
         ...(tiers.length ? { tiers } : {}),
         ...(plan ? { plan } : {}),
@@ -774,6 +793,9 @@ export default function DesignerBriefForm({
       submittedRef.current = true;
       setSubmitted(true);
       clearDraft();
+      if (saveDefaultCur && currency !== user?.default_currency) {
+        try { await saveDefaultCurrency(currency); } catch { /* non-fatal — brief already landed */ }
+      }
       try { await refetchUser(); } catch { /* non-fatal — next page load will pick up */ }
       if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
     } catch (err) {
@@ -1179,6 +1201,19 @@ export default function DesignerBriefForm({
                   : 'Pick a weekly plan (required), then choose experience levels and a monthly budget for each if you know them.'
               }
             >
+              <div className="mb-5">
+                <label className="mb-1 block text-sm font-medium text-[#222]">Budget currency</label>
+                <p className="mb-2 text-xs text-[#7A7568]">Budgets and talent quotes use this currency.</p>
+                <CurrencyField
+                  label="Budget currency"
+                  className="connect-input"
+                  value={currency}
+                  onChange={(code) => { currencyTouchedRef.current = true; setCurrency(code); }}
+                  accountDefault={user?.default_currency}
+                  saveDefault={saveDefaultCur}
+                  onSaveDefaultChange={setSaveDefaultCur}
+                />
+              </div>
               {product === 'assignment' && (
                 <div className="mb-5 rounded-xl border border-[#E0DCCE] bg-white p-4">
                   <label className="mb-1 block text-sm font-medium text-[#222]">How do you want to price this?</label>

@@ -13,6 +13,8 @@ export const updateBusinessUserSchema = z.object({
   // Persisted from the requirement brief form so later briefs can prefill.
   business_note: z.string().max(2000).optional().or(z.literal('')),
   business_location: z.string().max(500).optional().or(z.literal('')),
+  // Prefills currency on requirement forms and other amount fields.
+  default_currency: z.enum(['INR', 'USD', 'EUR', 'GBP', 'AED', 'AUD', 'CAD', 'SGD']).optional(),
 });
 
 export const discoverQuerySchema = z.object({
