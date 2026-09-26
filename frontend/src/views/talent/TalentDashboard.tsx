@@ -11,33 +11,90 @@ import ModuleUnlockGate from '@/components/training/ModuleUnlockGate';
 import PartnerLockedView from '@/components/partner/PartnerLockedView';
 import TalentDesktopOverview from '@/components/talent/TalentDesktopOverview';
 
-type OnboardingStageKey = keyof OnboardingProgress;
+type BooleanStageKey =
+  | 'signed_up'
+  | 'onboarding_completed'
+  | 'basic_profile_completed'
+  | 'job_profile_completed'
+  | 'portfolio_completed'
+  | 'app_downloaded'
+  | 'webinar_attended';
 
-const ONBOARDING_STAGES: { key: Exclude<OnboardingStageKey, 'portfolio_required'>; label: string; short: string; pendingHint: string }[] = [
+const ONBOARDING_STAGES: { key: BooleanStageKey; label: string; short: string; pendingHint: string }[] = [
   { key: 'signed_up', label: 'Sign-up', short: 'Sign-up', pendingHint: 'Sign up to get started' },
   { key: 'onboarding_completed', label: 'Onboarding Course', short: 'Course', pendingHint: 'Complete the onboarding course' },
   { key: 'basic_profile_completed', label: 'Basic Profile', short: 'Basic', pendingHint: 'Fill in every required section of your basic profile' },
   { key: 'job_profile_completed', label: 'Job Profile', short: 'Job', pendingHint: 'Create a job profile and submit it for review' },
   { key: 'portfolio_completed', label: 'Portfolio', short: 'Portfolio', pendingHint: 'Add at least one item to a job profile' },
+  { key: 'app_downloaded', label: 'App downloaded', short: 'App', pendingHint: 'Download the SquadHire app and sign in' },
+  { key: 'webinar_attended', label: 'Webinar attended', short: 'Webinar', pendingHint: 'Register for the onboarding webinar in Training and attend it' },
 ];
+
+interface StripStage {
+  key: string;
+  label: string;
+  short: string;
+  done: boolean;
+  /** Started but not done — e.g. registered for the webinar, course half-way. */
+  inProgress: boolean;
+  hint: string;
+}
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
+function stripStages(progress: OnboardingProgress): StripStage[] {
+  const stages: StripStage[] = ONBOARDING_STAGES
+    // Sales and accountant profiles have no portfolio step.
+    .filter((stage) => stage.key !== 'portfolio_completed' || progress.portfolio_required !== false)
+    // Older API responses have no talent-board fields — hide those stages
+    // rather than show them as permanently pending.
+    .filter((stage) => progress[stage.key] !== undefined)
+    .map((stage) => {
+      const done = !!progress[stage.key];
+      const registered = stage.key === 'webinar_attended' && !done && !!progress.webinar_registered;
+      return {
+        key: stage.key,
+        label: stage.label,
+        short: stage.short,
+        done,
+        inProgress: registered,
+        hint: done ? 'Done' : registered ? 'You’re registered — attend the webinar to complete this step' : stage.pendingHint,
+      };
+    });
+  const courses = [
+    { key: 'partner_course', label: 'Partner Program course', short: 'Partner course', course: progress.partner_course },
+    { key: 'jobs_course', label: 'Jobs course', short: 'Jobs course', course: progress.jobs_course },
+  ] as const;
+  for (const { key, label, short, course } of courses) {
+    if (!course) continue;
+    stages.push({
+      key,
+      label,
+      short,
+      done: course.done,
+      inProgress: !course.done && course.completed > 0,
+      hint: course.done
+        ? 'Done'
+        : `${course.completed} of ${course.total} pages complete — finish it in Training`,
+    });
+  }
+  return stages;
+}
+
 function OnboardingStageStrip({ progress }: { progress: OnboardingProgress }) {
-  // Sales and accountant profiles have no portfolio step.
-  const stages = ONBOARDING_STAGES.filter(
-    (stage) => stage.key !== 'portfolio_completed' || progress.portfolio_required !== false,
-  );
+  const stages = stripStages(progress);
   return (
-    <div className="flex items-start justify-between gap-2 sm:justify-start sm:gap-4">
+    // Phones: a wrapping grid so every stage stays visible (a single row of up
+    // to nine would scroll off-screen). sm+: one connected row.
+    <div className="grid grid-cols-5 gap-x-1 gap-y-4 sm:flex sm:flex-wrap sm:items-start sm:gap-4">
       {stages.map((stage, i) => {
-        const done = progress[stage.key];
+        const { done, inProgress } = stage;
         const isLast = i === stages.length - 1;
         return (
           <div
             key={stage.key}
-            className="flex items-start gap-2 sm:gap-4"
-            title={done ? `${stage.label}: Done` : `${stage.label}: ${stage.pendingHint}`}
+            className="flex shrink-0 items-start justify-center sm:justify-start sm:gap-4"
+            title={`${stage.label}: ${stage.hint}`}
           >
             <div className="flex flex-col items-center gap-1.5">
               <span className="relative z-10 flex h-6 w-6 items-center justify-center">
@@ -49,13 +106,17 @@ function OnboardingStageStrip({ progress }: { progress: OnboardingProgress }) {
                       clipRule="evenodd"
                     />
                   </svg>
+                ) : inProgress ? (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-amber-400 bg-white">
+                    <span className="h-2 w-2 rounded-full bg-amber-400" />
+                  </span>
                 ) : (
                   <span className="h-5 w-5 rounded-full border-2 border-gray-300 bg-white" />
                 )}
               </span>
               <span
-                className={`font-[family-name:var(--font-inter)] text-[11px] font-medium leading-none ${
-                  done ? 'text-[#0a0a0a]' : 'text-[#a3a3a3]'
+                className={`text-center font-[family-name:var(--font-inter)] text-[11px] font-medium leading-tight sm:whitespace-nowrap sm:leading-none ${
+                  done || inProgress ? 'text-[#0a0a0a]' : 'text-[#a3a3a3]'
                 }`}
               >
                 {stage.short}
@@ -63,7 +124,7 @@ function OnboardingStageStrip({ progress }: { progress: OnboardingProgress }) {
             </div>
             {!isLast && (
               <span
-                className={`mt-3 h-0.5 w-6 sm:w-10 ${done ? 'bg-green-300' : 'bg-gray-200'}`}
+                className={`mt-3 hidden h-0.5 sm:block sm:w-8 lg:w-10 ${done ? 'bg-green-300' : 'bg-gray-200'}`}
               />
             )}
           </div>

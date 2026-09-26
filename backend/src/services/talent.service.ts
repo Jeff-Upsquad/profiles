@@ -9,6 +9,7 @@ import type {
 import { parseVideoUrl, type VideoProvider } from '../../../shared/src/videoEmbed.js';
 import { portfolioRequiredFor } from '../../../shared/src/portfolio.js';
 import { formTypesForTalent } from '../lib/signup-category.js';
+import { programProgressFor, type ProgramCourseProgress, type ProgramProgress } from './program-training-progress.service.js';
 import {
   isGhostCategory,
   isGhostSourceCategory,
@@ -461,8 +462,56 @@ export async function computeOnboardingProgress(userId: string): Promise<{
   };
 }
 
+/**
+ * The talent-board stages that follow sign-up, read from the same sources as
+ * the admin Onboarding hub (onboarding-hub.service talentBoardChecklist /
+ * talentBoardSteps): first mobile-app sign-in, the admin-ticked onboarding
+ * webinar, and the Partner / Jobs course for each track the talent applied to.
+ */
+async function talentBoardProgress(userId: string) {
+  const [talentRes, installRes, regRes, programs] = await Promise.all([
+    supabaseAdmin
+      .from('talent_users')
+      .select('wants_jobs, partner_approval_status, onboarding_webinar_attended_at')
+      .eq('id', userId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('talent_app_installs')
+      .select('first_seen_at')
+      .eq('user_id', userId)
+      .order('first_seen_at', { ascending: true })
+      .limit(1),
+    supabaseAdmin
+      .from('training_webinar_registrations')
+      .select('webinar_id')
+      .eq('talent_user_id', userId)
+      .limit(1),
+    programProgressFor([userId]).catch((err) => {
+      console.error('[talent] program course progress failed:', err);
+      return new Map<string, ProgramProgress>();
+    }),
+  ]);
+  const t = (talentRes.data ?? {}) as {
+    wants_jobs?: boolean | null;
+    partner_approval_status?: string | null;
+    onboarding_webinar_attended_at?: string | null;
+  };
+  const program = programs.get(userId) ?? { jobs: null, partner: null };
+  // A course only counts once it's published with lessons — until then the
+  // talent can't finish it, so it neither shows nor blocks completion.
+  const course = (applies: boolean, c: ProgramCourseProgress | null) =>
+    applies && c?.published && c.total > 0 ? { done: c.done, completed: c.completed, total: c.total } : null;
+  return {
+    app_downloaded_at: (installRes.data?.[0]?.first_seen_at as string | undefined) ?? null,
+    webinar_registered: (regRes.data?.length ?? 0) > 0,
+    webinar_attended_at: t.onboarding_webinar_attended_at ?? null,
+    partner_course: course(t.partner_approval_status != null, program.partner),
+    jobs_course: course(t.wants_jobs !== false, program.jobs),
+  };
+}
+
 export async function getMyOnboardingProgress(userId: string) {
-  const p = await computeOnboardingProgress(userId);
+  const [p, board] = await Promise.all([computeOnboardingProgress(userId), talentBoardProgress(userId)]);
   if (!p.signed_up) throw new AppError(404, 'Talent user not found');
 
   const progress = {
@@ -472,13 +521,23 @@ export async function getMyOnboardingProgress(userId: string) {
     job_profile_completed: p.job_profile_completed,
     portfolio_completed: p.portfolio_completed,
     portfolio_required: p.portfolio_required,
+    app_downloaded: !!board.app_downloaded_at,
+    webinar_registered: board.webinar_registered,
+    webinar_attended: !!board.webinar_attended_at,
+    // null = no such course for this talent (track not applied, or not published).
+    partner_course: board.partner_course,
+    jobs_course: board.jobs_course,
   };
 
   const allCompleted =
     progress.onboarding_completed &&
     progress.basic_profile_completed &&
     progress.job_profile_completed &&
-    (progress.portfolio_completed || !progress.portfolio_required);
+    (progress.portfolio_completed || !progress.portfolio_required) &&
+    progress.app_downloaded &&
+    progress.webinar_attended &&
+    (progress.partner_course?.done ?? true) &&
+    (progress.jobs_course?.done ?? true);
 
   let allCompletedAt: string | null = null;
   if (allCompleted) {
@@ -486,6 +545,8 @@ export async function getMyOnboardingProgress(userId: string) {
       p.timestamps.basic_created_at,
       p.timestamps.earliest_submitted_profile_at,
       p.portfolio_required ? p.timestamps.earliest_portfolio_at : null,
+      board.app_downloaded_at,
+      board.webinar_attended_at,
     ].filter((t): t is string => !!t);
     if (candidates.length > 0) {
       allCompletedAt = candidates.reduce((max, t) =>
