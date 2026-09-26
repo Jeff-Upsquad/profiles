@@ -272,7 +272,8 @@ export default function AssignmentOfferActions({
               ? isRequestQuote ? 'Submit quote' : 'Submit offer'
               : bidLabel ? 'Submit bid' : 'Send counter'
           }
-          currency={currency}
+          // All quotes are in ₹ INR for now, whatever the card says.
+          currency="INR"
           period={period}
           quantity={quantity}
           unit={unit}
@@ -520,7 +521,8 @@ export default function AssignmentOfferActions({
               ? isRequestQuote ? 'Submit quote' : 'Submit offer'
               : bidLabel ? 'Submit bid' : 'Send counter'
         }
-        currency={currency}
+        // All quotes are in ₹ INR for now, whatever the card says.
+        currency="INR"
         period={period}
         quantity={quantity}
         unit={unit}
