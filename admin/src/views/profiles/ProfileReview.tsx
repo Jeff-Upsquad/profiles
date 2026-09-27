@@ -28,6 +28,8 @@ interface ReviewProfile {
   talent_user_id: string;
   category_id: string;
   status: string;
+  tier: 'junior' | 'pro' | 'Top Talents' | 'custom' | null;
+  tier_custom: string | null;
   field_data: Record<string, any>;
   previous_field_data?: Record<string, any> | null;
   rejection_reason?: string;
@@ -310,6 +312,27 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
     },
   });
 
+  const setLevel = useMutation({
+    mutationFn: async (tier: Exclude<ReviewProfile['tier'], 'custom'>) => {
+      await api.patch(`/admin/talents/profiles/${profileId}/tier`, { tier, tier_custom: null });
+    },
+    onSuccess: async (_, tier) => {
+      queryClient.setQueryData<ReviewProfile>(['review', profileId], (current) =>
+        current ? { ...current, tier, tier_custom: null } : current,
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['review', profileId] }),
+        queryClient.invalidateQueries({ queryKey: ['reviews'] }),
+        queryClient.invalidateQueries({ queryKey: ['talent-profile', profileId] }),
+        queryClient.invalidateQueries({ queryKey: ['talent-profiles'] }),
+      ]);
+      toast.success('Job profile level updated');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || err.response?.data?.message || 'Failed to update level');
+    },
+  });
+
   const reject = useMutation({
     mutationFn: async (reason: string) => {
       await api.patch(`/admin/reviews/${profileId}/reject`, { reason });
@@ -428,7 +451,7 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <button
             onClick={() => router.push('/reviews')}
@@ -440,34 +463,78 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
             <h1 className="text-2xl font-bold text-gray-900">
               Review: {talentUser?.full_name ?? 'Profile'}
             </h1>
-            {/* Latest tier from linked leads, sorted DESC by created_at on the API */}
             <TierBadge
-              tier={profile.linked_leads?.[0]?.profile_type ?? null}
-              tierCustom={null}
+              tier={profile.tier ?? null}
+              tierCustom={profile.tier_custom}
             />
           </div>
           <p className="mt-1 text-sm text-gray-500">
             Category: {profile.categories?.name ?? 'N/A'}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/talents/${profile.category_id}/${profileId}/preview`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Preview the public profile in a new tab, including before approval"
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            View public profile
+            <span aria-hidden="true">↗</span>
+            <span className="sr-only"> (opens in a new tab)</span>
+          </Link>
           {!profile.is_ghost && profile.status === 'pending_review' && (
-            <Button variant="danger" onClick={() => setRejectModalOpen(true)}>
+            <Button variant="danger" disabled={setLevel.isPending} onClick={() => setRejectModalOpen(true)}>
               Reject
             </Button>
           )}
           {!profile.is_ghost && (profile.status === 'pending_review' || (profile.status === 'approved' && profile.reviewed_at == null && !!profile.resubmitted_at)) && (
-            <Button variant="secondary" onClick={() => setChangesOpen(true)}>
+            <Button variant="secondary" disabled={setLevel.isPending} onClick={() => setChangesOpen(true)}>
               Request changes
             </Button>
           )}
           {!profile.is_ghost && (profile.status === 'pending_review' || (profile.status === 'approved' && profile.reviewed_at == null && !!profile.resubmitted_at)) && (
-            <Button loading={approve.isPending} onClick={() => approve.mutate()}>
+            <Button loading={approve.isPending} disabled={setLevel.isPending} onClick={() => approve.mutate()}>
               {profile.status === 'approved' ? 'Accept updates' : 'Approve'}
             </Button>
           )}
         </div>
       </div>
+
+      {!profile.is_ghost && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <label htmlFor="job-profile-level" className="block text-lg font-semibold text-gray-900">
+            Job profile level
+          </label>
+          <p id="job-profile-level-help" className="mt-1 text-sm text-gray-500">
+            Applies to this {profile.categories?.name ?? 'job'} profile. Changes save automatically.
+          </p>
+          <div className="mt-3 flex items-center gap-3">
+            <select
+              id="job-profile-level"
+              aria-describedby="job-profile-level-help"
+              value={profile.tier ?? ''}
+              disabled={setLevel.isPending || approve.isPending || reject.isPending || changesOpen || rejectModalOpen}
+              onChange={(event) => setLevel.mutate(
+                (event.target.value || null) as Exclude<ReviewProfile['tier'], 'custom'>,
+              )}
+              className="w-full max-w-xs rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+            >
+              <option value="">Not set</option>
+              <option value="junior">Junior</option>
+              <option value="pro">Pro</option>
+              <option value="Top Talents">Top Talents</option>
+              {profile.tier === 'custom' && (
+                <option value="custom" disabled>{profile.tier_custom || 'Custom'}</option>
+              )}
+            </select>
+            <span role="status" className="text-sm text-gray-500">
+              {setLevel.isPending ? 'Saving…' : ''}
+            </span>
+          </div>
+        </div>
+      )}
 
       {profile.is_ghost && (
         <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900">
