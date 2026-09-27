@@ -57,6 +57,7 @@ export interface TalentBrief {
   wants_jobs: boolean;
   partner_approval: string | null;
   application_cancelled: boolean;
+  application_cancellations?: Record<string, { reason: string }>;
   account_inactive: boolean;
   onboarding_course_done: boolean;
   basic_missing: string[];
@@ -75,8 +76,9 @@ export function talentContext(t: TalentBrief): string {
   lines.push(`Name: ${t.first_name ?? 'unknown'}`);
   lines.push(`Categories: ${t.categories.length ? t.categories.join(', ') : 'not chosen yet'}`);
   lines.push(`Programs: Partner Program${t.wants_jobs ? ' and Jobs' : ''}`);
-  if (t.application_cancelled) lines.push('Application: CANCELLED (requested changes not made in time)');
-  else if (t.partner_approval) lines.push(`Partner Program application: ${t.partner_approval}`);
+  if (t.application_cancelled) lines.push('Applications: CANCELLED (the team can help restore them)');
+  for (const [track, c] of Object.entries(t.application_cancellations ?? {})) lines.push(`${track === 'partner' ? 'Partner Program' : 'Jobs'}: cancelled (${c.reason.replace(/_/g, ' ')})`);
+  if (!t.application_cancelled && !t.application_cancellations?.partner && t.partner_approval) lines.push(`Partner Program application: ${t.partner_approval}`);
   if (t.account_inactive) lines.push('Account: marked inactive by the team');
 
   const job = t.job_profiles.length

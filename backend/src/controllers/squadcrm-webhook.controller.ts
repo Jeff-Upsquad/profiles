@@ -229,6 +229,7 @@ async function mirrorPartnerStatus(talentUserId: string | null, leadStatus: stri
 
 const squadBotMessageSchema = z.object({
   event: z.literal('squad_bot_message'),
+  button_id: z.string().max(256).nullable().optional(),
   lead_id: z.string().uuid(),
   phone: z.string().min(5),
   name: z.string().nullable().optional().transform((v) => v ?? null),

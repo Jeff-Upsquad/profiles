@@ -23,7 +23,7 @@ const SWEEP_INTERVAL_MS = 15 * 60_000;
 
 const TRACK_STATE_COLUMNS =
   'id, full_name, phone, tracks_linked, wants_jobs, partner_approval_status, pipeline_stage, ' +
-  'jobs_pipeline_stage, partner_stage_changed_at, jobs_stage_changed_at';
+  'jobs_pipeline_stage, partner_stage_changed_at, jobs_stage_changed_at, application_cancellations';
 
 export async function loadTrackState(talentUserId: string): Promise<TrackState | null> {
   const { data } = await supabaseAdmin
@@ -99,6 +99,7 @@ export async function pushCandidateStage(
   stage: string,
   opts: { silent?: boolean } = {},
 ): Promise<void> {
+  if (t.application_cancellations?.[track]) return;
   const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(t.id);
   const email = authUser?.user?.email ?? null;
   const { notifyCrmPipelineStageChanged, onLeadStatusChanged, orderedStagesForFormType } =

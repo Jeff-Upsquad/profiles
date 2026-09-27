@@ -17,6 +17,8 @@
 // ---------------------------------------------------------------------------
 
 import Anthropic from '@anthropic-ai/sdk';
+import { CANCELLATION_QUESTION, CANCELLATION_BUTTONS, CANCELLATION_INSTRUCTIONS, cancellationChoice, pendingCancellation } from '../lib/applicant-cancellation.js';
+import { cancelApplicantTracks } from './applicant-cancellation.service.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
@@ -88,12 +90,57 @@ export function squadBotClient(): Anthropic | null {
   return client;
 }
 
+const CANCELLATION_TOOLS: Anthropic.Beta.BetaTool[] = [
+  { name: 'ask_cancellation_scope', description: 'The applicant says they are not interested in continuing an application. Ask which program using Partner Program / Jobs / Both. This only asks; it does not cancel anything.', strict: true,
+    input_schema: { type: 'object', properties: {}, required: [], additionalProperties: false } },
+  { name: 'dismiss_cancellation_question', description: 'The applicant changed their mind or says they want to continue. Clear the pending cancellation question without cancelling.', strict: true,
+    input_schema: { type: 'object', properties: {}, required: [], additionalProperties: false } },
+];
+
+async function confirmCancellation(conv: ConversationRow, text: string, channel: 'app' | 'whatsapp', delivery: string,
+  buttonId?: string | null, messageId?: string) {
+  if (!pendingCancellation(conv.cancellation_pending_at)) return null;
+  const scope = cancellationChoice(text, buttonId);
+  if (!scope) return null;
+  if (delivery !== 'auto') {
+    await addMessage(conv.id, { sender: 'system', body: `Applicant selected ${scope} for cancellation. Automatic changes are disabled in ${delivery} mode; team action is required.`, channel });
+    return { status: conv.status, message: null, handoff: null };
+  }
+  const { data: claimed, error: claimError } = await supabaseAdmin.from('squad_bot_conversations')
+    .update({ cancellation_pending_at: null }).eq('id', conv.id).eq('cancellation_pending_at', conv.cancellation_pending_at).select('id');
+  if (claimError) throw claimError;
+  if (!claimed?.length) return { status: conv.status, message: null, handoff: null };
+  let handoff: { reason: string; summary: string } | null = null;
+  let body: string;
+  try {
+    let tracks: string[];
+    if (conv.talent_user_id) tracks = await cancelApplicantTracks(conv.talent_user_id, scope, 'not_interested');
+    else {
+      const result = await crmPost('cancel-application', { lead_id: conv.crm_lead_id, scope });
+      if (!result?.ok || result.success === false) throw new Error(result?.error ?? 'CRM unavailable');
+      tracks = (result.data ?? []).filter((r: any) => r.lead_id && !r.skipped).map((r: any) => r.track);
+      if (!tracks.length) throw new Error('No matching application card was found');
+    }
+    const label = tracks.length === 2 ? 'Partner Program and Jobs applications' : tracks[0] === 'jobs' ? 'Jobs application' : 'Partner Program application';
+    body = `Your ${label} ${tracks.length === 2 ? 'have' : 'has'} been cancelled as requested.`;
+    await supabaseAdmin.from('squad_bot_conversations').update({ cancellation_pending_at: null }).eq('id', conv.id);
+  } catch (err) {
+    handoff = { reason: 'account_status', summary: `Applicant selected ${scope} to cancel, but the update needs checking: ${(err as Error).message}` };
+    await handOff(conv, handoff.reason, handoff.summary);
+    body = "I've asked the team to check your cancellation request. They'll confirm it here.";
+  }
+  const message = await addMessage(conv.id, { sender: 'bot', body, channel, meta: { cancellation_scope: scope } });
+  if (channel === 'whatsapp') await crmPost('reply', { lead_id: conv.crm_lead_id, reply_to_message_id: messageId, text: body, mode: 'send' });
+  return { status: handoff ? 'handoff' as const : 'bot' as const, message, handoff };
+}
+
 // ---------------------------------------------------------------------------
 // Storage
 // ---------------------------------------------------------------------------
 
 export interface ConversationRow {
   id: string;
+  cancellation_pending_at?: string | null;
   talent_user_id: string | null;
   phone: string | null;
   contact_name: string | null;
@@ -326,6 +373,13 @@ async function answer(
   extraMeta: Record<string, unknown> = {},
   opts: { instructed?: boolean; deliver?: 'reply' | 'note'; hubStatus?: HubStatus | null } = {},
 ) {
+  if (channel === 'app' && !opts.instructed && opts.deliver !== 'note' && pendingCancellation(conv.cancellation_pending_at)) {
+    const last = (await recentLines(conv.id, 1))[0];
+    if (last?.sender === 'talent') {
+      const confirmation = await confirmCancellation(conv, last.body, 'app', 'auto');
+      if (confirmation) return confirmation;
+    }
+  }
   const api = squadBotClient();
   if (!api && opts.deliver === 'note') return { status: conv.status, message: null, handoff: null };
   if (!api) {
@@ -363,6 +417,7 @@ async function answer(
     ]),
   };
 
+  let cancellationAction: 'ask' | 'dismiss' | null = null;
   let text = '';
   let handoff: { reason: string; summary: string } | null = null;
   const meta: Record<string, unknown> = { ...extraMeta, knowledge_items: knowledge?.length ?? 0 };
@@ -380,7 +435,7 @@ async function answer(
         thinking: { type: 'adaptive' },
         output_config: { effort: 'low' },
         system: [
-          { type: 'text', text: SQUAD_BOT_INSTRUCTIONS },
+          { type: 'text', text: SQUAD_BOT_INSTRUCTIONS + '\n\n' + CANCELLATION_INSTRUCTIONS },
           // Same for every talent in these categories → cached across chats.
           { type: 'text', text: knowledgeBlock(knowledge ?? []), cache_control: { type: 'ephemeral' } },
           {
@@ -388,6 +443,7 @@ async function answer(
             text: [
               `The person you're chatting with:\n${subject.context}`,
               introNote(isNewConversation(lines)),
+              pendingCancellation(conv.cancellation_pending_at) ? 'A cancellation-scope question was sent less than 24 hours ago. Await a clear Partner Program / Jobs / Both choice; never infer Both from a vague yes or no.' : '',
               adminInstructions(hub),
               instructions,
               opts.instructed ? 'The newest team instruction was just given: act on it in this reply.' : '',
@@ -395,7 +451,7 @@ async function answer(
             ].filter(Boolean).join('\n\n'),
           },
         ],
-        tools: [HANDOFF_TOOL, webFetch],
+        tools: [HANDOFF_TOOL, ...CANCELLATION_TOOLS, webFetch],
         messages,
       });
 
@@ -413,6 +469,8 @@ async function answer(
       }
       for (const block of response.content) {
         if (block.type === 'text') text += block.text;
+        if (block.type === 'tool_use' && block.name === 'ask_cancellation_scope') cancellationAction = 'ask';
+        if (block.type === 'tool_use' && block.name === 'dismiss_cancellation_question') cancellationAction = 'dismiss';
         if (block.type === 'server_tool_use' && block.name === 'web_fetch') fetches++;
         if (block.type === 'tool_use' && block.name === 'hand_off_to_team') {
           const input = block.input as { reason?: unknown; summary?: unknown };
@@ -439,6 +497,8 @@ async function answer(
       latency_ms: Date.now() - startedAt,
     });
     if (fetches) meta.web_fetches = fetches;
+    if (cancellationAction === 'ask') { text = CANCELLATION_QUESTION; handoff = null; }
+    if (cancellationAction === 'dismiss') { text = 'Your applications will stay as they are. How can I help?'; handoff = null; }
     if (!text.trim() && !handoff) handoff = { reason: 'not_in_knowledge', summary: 'Squad Bot had no answer.' };
   } catch (err) {
     const status = err instanceof Anthropic.APIError ? err.status : undefined;
@@ -460,6 +520,9 @@ async function answer(
     return { status: conv.status, message: null, handoff: null };
   }
 
+  if (cancellationAction === 'dismiss') await supabaseAdmin.from('squad_bot_conversations').update({ cancellation_pending_at: null }).eq('id', conv.id);
+  if (cancellationAction === 'ask' && channel === 'app') await supabaseAdmin.from('squad_bot_conversations').update({ cancellation_pending_at: new Date().toISOString() }).eq('id', conv.id);
+  if (cancellationAction === 'ask') meta.cancellation_question = true;
   if (opts.instructed && handoff) {
     // Couldn't do it: tell the team, not the talent.
     await addMessage(conv.id, { sender: 'system', body: `Squad Bot couldn't do that: ${handoff.summary}`, meta });
@@ -467,7 +530,8 @@ async function answer(
   }
   if (handoff) await handOff(conv, handoff.reason, handoff.summary);
   const message = await addMessage(conv.id, { sender: 'bot', body: text.trim() || HANDOFF_MESSAGE, channel, meta });
-  return { status: handoff ? ('handoff' as const) : ('bot' as const), message, handoff };
+  return { status: handoff ? ('handoff' as const) : ('bot' as const), message, handoff,
+    reply_buttons: cancellationAction === 'ask' ? CANCELLATION_BUTTONS : undefined };
 }
 
 // ---------------------------------------------------------------------------
@@ -481,6 +545,7 @@ export interface WhatsAppInbound {
   pipeline_name: string | null;
   message_id: string;
   text: string;
+  button_id?: string | null;
 }
 
 async function talentIdByPhone(phone: string): Promise<string | null> {
@@ -535,13 +600,17 @@ export async function handleWhatsAppMessage(msg: WhatsAppInbound): Promise<void>
     const settings = await getWhatsAppSettings();
     const delivery = whatsappDelivery(settings.mode, status);
     if (delivery === 'off') return;
-    if (!settings.pipelines.some((p) => pipeline === p.trim().toLowerCase())) return;
+    const { getCrmStatusMapping } = await import('./automation.service.js');
+    const mapping = await getCrmStatusMapping();
+    const applicantBoards = Object.values(mapping?.pipelines ?? {}).map(p => p.pipeline_name?.trim().toLowerCase());
+    if (!settings.pipelines.some((p) => pipeline === p.trim().toLowerCase()) && !applicantBoards.includes(pipeline) && !pipeline.startsWith('cancelled applicants')) return;
 
     const conv = await whatsappConversation(msg);
     await addMessage(conv.id, { sender: 'talent', body: msg.text, channel: 'whatsapp', crm_message_id: msg.message_id });
     // Handed to the team: recruiters answer in the CRM; the bot stays quiet.
     if (conv.status === 'handoff') return;
 
+    if (await confirmCancellation(conv, msg.text, 'whatsapp', delivery, msg.button_id, msg.message_id)) return;
     const reply = await answer(
       conv,
       'whatsapp',
@@ -549,13 +618,17 @@ export async function handleWhatsAppMessage(msg: WhatsAppInbound): Promise<void>
       { deliver: delivery === 'note' ? 'note' : 'reply', hubStatus: status },
     );
     if (!reply.message) return;
-    await crmPost('reply', {
+    const sent = await crmPost('reply', {
       lead_id: msg.lead_id,
       reply_to_message_id: msg.message_id,
       text: reply.message.body,
       mode: delivery === 'auto' ? 'send' : 'draft',
       handoff: reply.handoff ?? null,
+      reply_buttons: 'reply_buttons' in reply ? reply.reply_buttons : undefined,
     });
+    if (sent?.ok && delivery === 'auto' && 'reply_buttons' in reply && reply.reply_buttons) {
+      await supabaseAdmin.from('squad_bot_conversations').update({ cancellation_pending_at: new Date().toISOString() }).eq('id', conv.id);
+    }
   } catch (err) {
     console.error('[squad-bot] WhatsApp message failed:', (err as Error)?.message ?? err);
   }
@@ -572,6 +645,7 @@ async function talentBrief(talentUserId: string): Promise<{ brief: TalentBrief; 
     wants_jobs: !!j.user?.wants_jobs,
     partner_approval: j.user?.partner_approval_status ?? null,
     application_cancelled: !!j.user?.application_cancelled_at,
+    application_cancellations: j.user?.application_cancellations ?? {},
     account_inactive: j.user?.is_active === false,
     onboarding_course_done: !!j.journey?.onboarding_completed,
     basic_missing: (j.journey?.basic_checklist ?? []).filter((c: any) => c.required && !c.done).map((c: any) => c.label),

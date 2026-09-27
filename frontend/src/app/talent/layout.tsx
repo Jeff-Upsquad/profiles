@@ -18,15 +18,15 @@ import { useTalentHasAssignedCard } from '@/hooks/useMyClients';
 import { useTalentPendingTasks } from '@/hooks/useTalentPendingTasks';
 import PendingTag from '@/components/talent/PendingTag';
 
-// A cancelled application (requested changes never made) can only reach support.
+// When every application is cancelled, only support remains accessible.
 const CANCELLED_ACCESSIBLE = '/talent/contact-support';
 
-function CancelledNotice() {
+function CancelledNotice({ reason }: { reason?: string | null }) {
   return (
     <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 sm:p-5" role="alert">
       <p className="text-[15px] font-semibold text-rose-800">Your application has been cancelled</p>
       <p className="mt-1 text-sm text-rose-700">
-        The profile updates we requested weren&apos;t made in time, so your application was cancelled.
+        {reason || 'Your application is currently cancelled.'}{' '}
         Please contact support below to continue — everything else stays locked until our team restores your account.
       </p>
     </div>
@@ -407,7 +407,7 @@ export default function TalentLayout({
 
   const content = cancelled ? (
       <>
-        <CancelledNotice />
+        <CancelledNotice reason={user.application_cancelled_reason} />
         {children}
       </>
     ) : currentRouteLocked && currentLock ? (

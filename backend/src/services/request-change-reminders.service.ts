@@ -223,7 +223,7 @@ async function cancelApplication(t: any) {
     'Your application has been cancelled',
     'The requested profile updates were not made in time, so your application has been cancelled. Please contact support if you would like to continue.',
     '/talent/contact-support',
-  );  await syncCrmHold(t.id).catch((e) => console.error(`[rc-reminders] CRM hold sync failed for ${t.id}`, e));
+  );
 }
 
 const TALENT_COLUMNS =
@@ -240,6 +240,11 @@ export async function sweepRequestChangeReminders(now = Date.now()): Promise<voi
   if (now - lastSweepAt < SWEEP_EVERY_MS) return;
   lastSweepAt = now;
 
+  // Cancelled rows no longer enter the reminder loop; retry their CRM sync separately.
+  const { data: pendingSync } = await supabaseAdmin.from('talent_users').select('id').eq('crm_hold_sync_pending', true).limit(100);
+  for (const row of pendingSync ?? []) {
+    await syncCrmHold(row.id).catch(e => console.error('[rc-reminders] hold retry failed', (e as Error).message));
+  }
   const open = await openChangeRequests();
 
   // Asks resolved (resubmitted / accepted / profile deleted) → clear the sequence.
@@ -301,10 +306,7 @@ async function stepTalent(t: any, req: OpenChangeRequest, now: number) {
   // Claim the step first so an overlapping tick can't double-send.
   const nowIso = new Date(now).toISOString();
   const claim: Record<string, unknown> = { rc_reminders_sent: step + 1, rc_last_sent_at: nowIso };
-  if (step === CANCEL_STEP) {
-    claim.application_cancelled_at = nowIso;
-    claim.application_cancelled_reason = AUTO_CANCEL_REASON;
-  }
+
   const { data: claimed } = await supabaseAdmin
     .from('talent_users')
     .update(claim)
@@ -316,7 +318,17 @@ async function stepTalent(t: any, req: OpenChangeRequest, now: number) {
 
   if (step < FINAL_WARNING_STEP) await sendReminder(t, req, step + 1);
   else if (step === FINAL_WARNING_STEP) await sendFinalWarning(t, req);
-  else await cancelApplication(t);
+  else {
+    const { cancelApplicantTracks } = await import('./applicant-cancellation.service.js');
+    try {
+      await cancelApplicantTracks(t.id, 'both', 'no_response');
+      await cancelApplication(t);
+    } catch (error) {
+      // Retry a failed CRM delivery on the next sweep.
+      await supabaseAdmin.from('talent_users').update({ rc_reminders_sent: CANCEL_STEP }).eq('id', t.id);
+      throw error;
+    }
+  }
 }
 
 /** Admin restores a cancelled applicant back into the onboarding hub. */
@@ -336,6 +348,7 @@ export async function restoreCancelledApplication(talentId: string) {
   const { data, error: upErr } = await supabaseAdmin
     .from('talent_users')
     .update({
+      application_cancellations: {},
       application_cancelled_at: null,
       application_cancelled_reason: null,
       rc_anchor_at: req?.anchor ?? null,

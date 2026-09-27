@@ -5,6 +5,7 @@ export type Track = 'partner' | 'jobs';
 export const CATCH_UP_GAP_MS = 60 * 60_000;
 
 export interface TrackState {
+  application_cancellations?: Record<string, unknown>;
   id: string;
   full_name: string | null;
   phone: string | null;
@@ -19,7 +20,7 @@ export interface TrackState {
 
 /** Both tracks requested and neither rejected. */
 export function bothOpen(t: Partial<TrackState> | null | undefined): boolean {
-  return !!t && t.wants_jobs === true && t.jobs_pipeline_stage !== 'rejected' &&
+  return !!t && !t.application_cancellations?.partner && !t.application_cancellations?.jobs && t.wants_jobs === true && t.jobs_pipeline_stage !== 'rejected' &&
     t.partner_approval_status != null && t.partner_approval_status !== 'rejected' &&
     t.pipeline_stage !== 'rejected';
 }

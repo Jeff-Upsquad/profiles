@@ -373,9 +373,10 @@ export async function syncOnboardingStage(talentUserId: string) {
   const { data: intent } = await supabaseAdmin
     .from('talent_users')
     .select('tracks_linked, wants_jobs, partner_approval_status, pipeline_stage, jobs_pipeline_stage, ' +
-      'partner_stage_changed_at, jobs_stage_changed_at')
+      'partner_stage_changed_at, jobs_stage_changed_at, application_cancellations')
     .eq('id', talentUserId)
     .maybeSingle<{
+      application_cancellations: Record<string, unknown>;
       tracks_linked: boolean | null; wants_jobs: boolean | null; partner_approval_status: string | null;
       pipeline_stage: string | null; jobs_pipeline_stage: string | null;
       partner_stage_changed_at: string | null; jobs_stage_changed_at: string | null;
@@ -387,9 +388,9 @@ export async function syncOnboardingStage(talentUserId: string) {
   if (intent?.partner_approval_status === 'pending' && !intent.wants_jobs) return;
   // Rejected / disqualified is terminal: progress never pulls a talent back
   // into the funnel. Only an admin approve (reinstate) moves them out.
-  const jobsClosed = !intent?.wants_jobs || intent.jobs_pipeline_stage === 'rejected';
+  const jobsClosed = !intent?.wants_jobs || intent.jobs_pipeline_stage === 'rejected' || !!intent.application_cancellations?.jobs;
   const partnerClosed = intent?.partner_approval_status == null ||
-    intent.partner_approval_status === 'rejected' || intent.pipeline_stage === 'rejected';
+    intent.partner_approval_status === 'rejected' || intent.pipeline_stage === 'rejected' || !!intent.application_cancellations?.partner;
   if (jobsClosed && partnerClosed) return;
 
   // Furthest completed step wins (STEP_STAGES is ascending). The portfolio
@@ -425,7 +426,7 @@ export async function syncOnboardingStage(talentUserId: string) {
   const partnerPaced = catchUp && catchUpPaced(intent?.partner_stage_changed_at);
 
   for (const lead of (leads ?? []) as Array<{ id: string; status: string; form_type: string | null; form_data: any }>) {
-    if (intent?.partner_approval_status === null) continue;
+    if (partnerClosed) continue;
     // Linked tracks move together even while Partner approval is pending.
     if (!linked && intent?.partner_approval_status === 'pending' &&
         Array.isArray(lead.form_data?.work_type_seeking) &&
@@ -461,7 +462,7 @@ export async function syncOnboardingStage(talentUserId: string) {
   // No linked candidate card (or none in this funnel) — still move Sign-ups
   // and the CRM WhatsApp card from talent progress.
   if (advancedAny && !intent?.wants_jobs) return;
-  if (intent?.wants_jobs && intent.jobs_pipeline_stage === 'rejected') return;
+  if (intent?.wants_jobs && jobsClosed) return;
   try {
     const { data: talent } = await supabaseAdmin
       .from('talent_users')
@@ -520,7 +521,7 @@ export interface CrmStatusMapping {
   pipelines: Record<string, CrmPipelineConfig>;
 }
 
-async function getCrmStatusMapping(): Promise<CrmStatusMapping | null> {
+export async function getCrmStatusMapping(): Promise<CrmStatusMapping | null> {
   return getAdminSetting<CrmStatusMapping>('crm_status_mapping');
 }
 
@@ -837,8 +838,7 @@ export async function notifyCrmTalentStageChanged(input: {
 
 // CRM holding boards. Partner pipelines reuse the category's candidates-board
 // name (crm_status_mapping), so "Designers and Editors" / "Accountants".
-const CANCELLED_APPLICANTS_PIPELINE = 'Cancelled Applicants';
-const CANCELLED_APPLICANTS_STAGE = 'Cancelled';
+const CANCELLED_APPLICANTS_PIPELINES = { partner: 'Cancelled Applicants Partner Program', jobs: 'Cancelled Applicants Jobs' };
 const HOLD_CATEGORY_ORDER = ['creative', 'accountant', 'sales'];
 
 /**
@@ -852,7 +852,7 @@ export async function syncCrmHold(talentUserId: string, triggeredBy = 'system'):
   const { data: t } = await supabaseAdmin
     .from('talent_users')
     .select('full_name, phone, suspended, blacklisted, suspended_reason, blacklisted_reason, ' +
-      'application_cancelled_at, application_cancelled_reason')
+      'application_cancelled_at, application_cancelled_reason, application_cancellations')
     .eq('id', talentUserId)
     .maybeSingle();
   if (!t) return;
@@ -873,7 +873,7 @@ export async function syncCrmHold(talentUserId: string, triggeredBy = 'system'):
     const origin = explicit || derived;
     if (origin) webhookUrl = `${origin}/integrations/profiles/leads`;
   }
-  if (!webhookUrl) return;
+  if (!webhookUrl) throw new Error('CRM hold sync is not configured');
   webhookUrl = webhookUrl.replace(/\/profiles\/leads\/?$/, '/profiles/hold');
 
   let hold: { pipeline_kind: 'candidates' | 'partners'; pipeline_name: string; pipeline_stage: string } | null = null;
@@ -898,13 +898,27 @@ export async function syncCrmHold(talentUserId: string, triggeredBy = 'system'):
       pipeline_stage: talent.blacklisted ? 'Blacklisted' : 'Suspended',
     };
     reason = (talent.blacklisted ? talent.blacklisted_reason : talent.suspended_reason) ?? null;
-  } else if (talent.application_cancelled_at) {
-    hold = {
-      pipeline_kind: 'candidates',
-      pipeline_name: CANCELLED_APPLICANTS_PIPELINE,
-      pipeline_stage: CANCELLED_APPLICANTS_STAGE,
-    };
-    reason = talent.application_cancelled_reason ?? null;
+  } else {
+    // Each track has its own card, destination and release. An untouched track
+    // receives a release only if it was actually held (CRM checks hold_origin).
+    for (const track of ['partner', 'jobs'] as const) {
+      const cancellation = talent.application_cancellations?.[track];
+      const trackHold = cancellation ? {
+        pipeline_kind: 'candidates', pipeline_name: CANCELLED_APPLICANTS_PIPELINES[track],
+        pipeline_stage: cancellation.reason === 'not_interested' ? 'Cancelled Not Interested' : 'Cancelled No Response',
+      } : null;
+      const result = await sendCrmWebhook(webhookUrl, {
+        lead: { name: talent.full_name ?? null, email: email || null, phone: phone || null },
+        track, hold: trackHold,
+        reason: cancellation ? (cancellation.reason === 'not_interested' ? 'Applicant confirmed they are not interested' : 'Requested changes were not made within the deadline') : null,
+      });
+      await logEvent({ event_type: result.sent ? 'crm_hold_sync_sent' : 'crm_hold_sync_failed',
+        talent_user_id: talentUserId, triggered_by: triggeredBy, metadata: { track, hold: trackHold, error: result.error } });
+      if (!result.sent) throw new Error(result.error || 'CRM cancellation sync failed');
+    }
+    await supabaseAdmin.from('talent_users').update({ crm_hold_sync_pending: false }).eq('id', talentUserId)
+      .eq('application_cancellations', JSON.stringify(talent.application_cancellations));
+    return;
   }
 
   const result = await sendCrmWebhook(webhookUrl, {

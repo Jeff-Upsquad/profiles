@@ -493,7 +493,7 @@ const TALENT_LIST_COLUMNS =
   'crm_talent_pipeline_name, crm_talent_stage_id, crm_talent_stage_name, crm_talent_stage_changed_at, ' +
   'crm_jobs_pipeline_name, crm_jobs_stage_id, crm_jobs_stage_name, crm_jobs_stage_changed_at, ' +
   'rejection_reason, rejected_at, partner_rejection_reason, partner_rejected_at, jobs_rejection_reason, jobs_rejected_at, ' +
-  'application_cancelled_at, application_cancelled_reason, rc_anchor_at, rc_reminders_sent, rc_last_sent_at, ' +
+  'application_cancellations, application_cancelled_at, application_cancelled_reason, rc_anchor_at, rc_reminders_sent, rc_last_sent_at, ' +
   'onboarding_webinar_attended_at, crm_message_failed_at, crm_message_failed_template, crm_message_failed_reason';
 
 /** Latest failed CRM WhatsApp send, or null (see crm_message_failed_* columns). */
@@ -1054,6 +1054,7 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
       rejected_at: rejectionFor(t, track).at,
       partner_rejected: t.partner_approval_status === 'rejected' || t.pipeline_stage === 'rejected',
       jobs_rejected: t.jobs_pipeline_stage === 'rejected',
+      application_cancellations: t.application_cancellations ?? {},
       application_cancelled_at: t.application_cancelled_at ?? null,
       application_cancelled_reason: t.application_cancelled_reason ?? null,
       request_changes: rcStatusFor((await openChangeRequests([userId])).get(userId), t),
