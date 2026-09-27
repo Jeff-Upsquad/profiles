@@ -34,27 +34,52 @@ export interface WebinarLanguage {
   sort_order: number;
 }
 
+/** True when Supabase says the relation doesn't exist (code 42P01). */
+function isMissingTable(error: unknown): boolean {
+  const e = error as { code?: string; message?: string } | null;
+  return e?.code === '42P01' || /does not exist|relation .* not found/i.test(e?.message ?? '');
+}
+
+/** Seed-equivalent fallback while the notify-me migration hasn't been applied. */
+const DEFAULT_WEBINAR_LANGUAGES: WebinarLanguage[] = [
+  { code: 'en', label: 'English', is_active: true, sort_order: 1 },
+  { code: 'ml', label: 'Malayalam', is_active: true, sort_order: 2 },
+];
+
 /** Active codes only — what the talent Notify-me picker and the webinar form offer. */
 export async function listActiveWebinarLanguages(): Promise<WebinarLanguage[]> {
-  const { data, error } = await supabaseAdmin
-    .from('webinar_languages')
-    .select('code, label, is_active, sort_order')
-    .eq('is_active', true)
-    .order('sort_order', { ascending: true })
-    .order('label', { ascending: true });
-  if (error) throw new AppError(500, `Failed to load webinar languages: ${error.message}`);
-  return (data ?? []) as WebinarLanguage[];
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('webinar_languages')
+      .select('code, label, is_active, sort_order')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .order('label', { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as WebinarLanguage[];
+  } catch (e) {
+    // Migration not applied yet — serve the seeded pair so reads never break.
+    if (isMissingTable(e)) return DEFAULT_WEBINAR_LANGUAGES;
+    const msg = (e as { message?: string })?.message ?? 'unknown error';
+    throw new AppError(500, `Failed to load webinar languages: ${msg}`);
+  }
 }
 
 /** All codes, active first — the admin Languages tab. */
 export async function listAllWebinarLanguages(): Promise<WebinarLanguage[]> {
-  const { data, error } = await supabaseAdmin
-    .from('webinar_languages')
-    .select('code, label, is_active, sort_order')
-    .order('sort_order', { ascending: true })
-    .order('label', { ascending: true });
-  if (error) throw new AppError(500, `Failed to load webinar languages: ${error.message}`);
-  return (data ?? []) as WebinarLanguage[];
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('webinar_languages')
+      .select('code, label, is_active, sort_order')
+      .order('sort_order', { ascending: true })
+      .order('label', { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as WebinarLanguage[];
+  } catch (e) {
+    if (isMissingTable(e)) return DEFAULT_WEBINAR_LANGUAGES;
+    const msg = (e as { message?: string })?.message ?? 'unknown error';
+    throw new AppError(500, `Failed to load webinar languages: ${msg}`);
+  }
 }
 
 export async function upsertWebinarLanguage(code: string, label: string): Promise<WebinarLanguage> {
@@ -62,12 +87,14 @@ export async function upsertWebinarLanguage(code: string, label: string): Promis
   const name = label.trim();
   if (!/^[a-z]{2,10}$/.test(clean)) throw new AppError(400, 'Language code must be 2-10 lowercase letters');
   if (!name) throw new AppError(400, 'Language label is required');
-  const { data: existing } = await supabaseAdmin
-    .from('webinar_languages')
-    .select('code')
-    .eq('code', clean)
-    .maybeSingle();
-  if (existing) {
+  try {
+    const { data: existing, error: lookupErr } = await supabaseAdmin
+      .from('webinar_languages')
+      .select('code')
+      .eq('code', clean)
+      .maybeSingle();
+    if (lookupErr) throw lookupErr;
+    if (existing) {
     const { data, error } = await supabaseAdmin
       .from('webinar_languages')
       .update({ label: name, updated_at: new Date().toISOString() })
@@ -91,18 +118,35 @@ export async function upsertWebinarLanguage(code: string, label: string): Promis
     .single();
   if (error || !data) throw new AppError(500, error?.message ?? 'Could not add language');
   return data as WebinarLanguage;
+  } catch (e) {
+    if (e instanceof AppError) throw e;
+    if (isMissingTable(e)) {
+      throw new AppError(400, 'Webinar languages are not set up yet — run the latest database migration first');
+    }
+    const msg = (e as { message?: string })?.message ?? 'unknown error';
+    throw new AppError(500, `Could not save language: ${msg}`);
+  }
 }
 
 export async function setWebinarLanguageActive(code: string, isActive: boolean): Promise<WebinarLanguage> {
   const clean = code.trim().toLowerCase();
-  const { data, error } = await supabaseAdmin
-    .from('webinar_languages')
-    .update({ is_active: isActive, updated_at: new Date().toISOString() })
-    .eq('code', clean)
-    .select('code, label, is_active, sort_order')
-    .single();
-  if (error || !data) throw new AppError(404, error?.message ?? 'Language not found');
-  return data as WebinarLanguage;
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('webinar_languages')
+      .update({ is_active: isActive, updated_at: new Date().toISOString() })
+      .eq('code', clean)
+      .select('code, label, is_active, sort_order')
+      .single();
+    if (error || !data) throw new AppError(404, error?.message ?? 'Language not found');
+    return data as WebinarLanguage;
+  } catch (e) {
+    if (e instanceof AppError) throw e;
+    if (isMissingTable(e)) {
+      throw new AppError(400, 'Webinar languages are not set up yet — run the latest database migration first');
+    }
+    const msg = (e as { message?: string })?.message ?? 'unknown error';
+    throw new AppError(500, `Could not update language: ${msg}`);
+  }
 }
 
 /**
@@ -112,10 +156,19 @@ export async function setWebinarLanguageActive(code: string, isActive: boolean):
  */
 async function assertWebinarLanguageAllowed(code: string): Promise<string> {
   const clean = code.trim().toLowerCase() || 'en';
-  const { data, error } = await supabaseAdmin.from('webinar_languages').select('code').eq('is_active', true);
-  if (error) throw new AppError(500, `Could not validate language: ${error.message}`);
-  if ((data ?? []).length > 0 && !(data ?? []).some((l: any) => l.code === clean)) {
-    throw new AppError(400, 'This language is not enabled for webinars — enable it under Webinars → Languages first');
+  try {
+    const { data, error } = await supabaseAdmin.from('webinar_languages').select('code').eq('is_active', true);
+    if (error) throw error;
+    if ((data ?? []).length > 0 && !(data ?? []).some((l: any) => l.code === clean)) {
+      throw new AppError(400, 'This language is not enabled for webinars — enable it under Webinars → Languages first');
+    }
+  } catch (e) {
+    if (e instanceof AppError) throw e;
+    // Migration not applied yet — don't block scheduling.
+    if (!isMissingTable(e)) {
+      const msg = (e as { message?: string })?.message ?? 'unknown error';
+      throw new AppError(500, `Could not validate language: ${msg}`);
+    }
   }
   return clean;
 }
@@ -125,32 +178,51 @@ async function assertWebinarLanguageAllowed(code: string): Promise<string> {
 // ---------------------------------------------------------------------------
 
 export async function getWebinarInterests(talentUserId: string): Promise<string[]> {
-  const { data, error } = await supabaseAdmin
-    .from('training_webinar_interests')
-    .select('language')
-    .eq('talent_user_id', talentUserId)
-    .order('created_at', { ascending: true });
-  if (error) throw new AppError(500, `Failed to load webinar interests: ${error.message}`);
-  return (data ?? []).map((r: any) => r.language as string);
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('training_webinar_interests')
+      .select('language')
+      .eq('talent_user_id', talentUserId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map((r: any) => r.language as string);
+  } catch (e) {
+    if (isMissingTable(e)) return [];
+    const msg = (e as { message?: string })?.message ?? 'unknown error';
+    throw new AppError(500, `Failed to load webinar interests: ${msg}`);
+  }
 }
 
 export async function addWebinarInterest(talentUserId: string, language: string) {
   const clean = language.trim().toLowerCase();
   await assertWebinarLanguageAllowed(clean);
-  const { error } = await supabaseAdmin
-    .from('training_webinar_interests')
-    .upsert({ talent_user_id: talentUserId, language: clean }, { onConflict: 'talent_user_id,language' });
-  if (error) throw new AppError(500, `Could not save preference: ${error.message}`);
+  try {
+    const { error } = await supabaseAdmin
+      .from('training_webinar_interests')
+      .upsert({ talent_user_id: talentUserId, language: clean }, { onConflict: 'talent_user_id,language' });
+    if (error) throw error;
+  } catch (e) {
+    if (isMissingTable(e)) throw new AppError(400, 'Notify-me is not available yet — please try again in a bit');
+    const msg = (e as { message?: string })?.message ?? 'unknown error';
+    throw new AppError(500, `Could not save preference: ${msg}`);
+  }
   return { success: true, interests: await getWebinarInterests(talentUserId) };
 }
 
 export async function removeWebinarInterest(talentUserId: string, language: string) {
-  const { error } = await supabaseAdmin
-    .from('training_webinar_interests')
-    .delete()
-    .eq('talent_user_id', talentUserId)
-    .eq('language', language.trim().toLowerCase());
-  if (error) throw new AppError(500, `Could not remove preference: ${error.message}`);
+  try {
+    const { error } = await supabaseAdmin
+      .from('training_webinar_interests')
+      .delete()
+      .eq('talent_user_id', talentUserId)
+      .eq('language', language.trim().toLowerCase());
+    if (error) throw error;
+  } catch (e) {
+    if (!isMissingTable(e)) {
+      const msg = (e as { message?: string })?.message ?? 'unknown error';
+      throw new AppError(500, `Could not remove preference: ${msg}`);
+    }
+  }
   return { success: true, interests: await getWebinarInterests(talentUserId) };
 }
 
@@ -582,13 +654,19 @@ export async function unregisterFromWebinar(talentUserId: string, webinarId: str
  */
 export async function sendNewWebinarNotices(webinar: WebinarRow): Promise<number> {
   const language = webinar.language.trim().toLowerCase();
-  const { data: interests, error } = await supabaseAdmin
-    .from('training_webinar_interests')
-    .select('talent_user_id')
-    .eq('language', language)
-    .limit(2000);
-  if (error) {
-    console.error('[webinars] new-scheduled interest lookup failed:', error.message);
+  let interests: Array<{ talent_user_id: string }> = [];
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('training_webinar_interests')
+      .select('talent_user_id')
+      .eq('language', language)
+      .limit(2000);
+    if (error) throw error;
+    interests = (data ?? []) as Array<{ talent_user_id: string }>;
+  } catch (e) {
+    // Migration not applied yet — nothing subscribed, nothing to send.
+    if (isMissingTable(e)) return 0;
+    console.error('[webinars] new-scheduled interest lookup failed:', (e as Error)?.message ?? e);
     return 0;
   }
   const ids = [...new Set((interests ?? []).map((r: any) => r.talent_user_id as string).filter(Boolean))];
