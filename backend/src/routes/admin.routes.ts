@@ -755,6 +755,7 @@ router.get('/squad-bot/conversations/:id', squadBotController.getConversation);
 router.post('/squad-bot/conversations/:id/reply', squadBotController.reply);
 router.post('/squad-bot/conversations/:id/instruct', squadBotController.instruct);
 router.post('/squad-bot/conversations/:id/hand-back', squadBotController.handBack);
+router.post('/squad-bot/conversations/:id/mark-done', squadBotController.markDone);
 // WhatsApp via SquadHire CRM: off, draft (recruiter sends) or auto.
 router.get('/squad-bot/settings', squadBotController.getWhatsAppSettings);
 router.put('/squad-bot/settings', squadBotController.setWhatsAppMode);

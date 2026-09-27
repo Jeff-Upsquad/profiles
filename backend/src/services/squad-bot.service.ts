@@ -740,3 +740,22 @@ export async function handBack(id: string, staff: { id: string; name: string }) 
   }
   return { status: 'bot' as const };
 }
+
+/** Handled outside the chat (e.g. reactivated the account): clear the handoff without handing back. */
+export async function markDone(id: string, staff: { id: string; name: string }) {
+  const { data: before } = await supabaseAdmin
+    .from('squad_bot_conversations').select('handoff_at').eq('id', id).maybeSingle();
+  const { error } = await supabaseAdmin
+    .from('squad_bot_conversations')
+    .update({ status: 'bot', handoff_reason: null, handoff_summary: null, handoff_at: null })
+    .eq('id', id);
+  if (error) throw new AppError(500, error.message);
+  await addMessage(id, { sender: 'system', body: `${staff.name} marked this chat as done.`, staff_user_id: staff.id, staff_name: staff.name });
+  // Learning loop: draft a knowledge entry from the team's answer, if it's reusable.
+  const handoffAt = (before as { handoff_at?: string | null } | null)?.handoff_at;
+  if (handoffAt) {
+    const { draftFromHandoff } = await import('./knowledge-learning.service.js');
+    void draftFromHandoff(id, handoffAt);
+  }
+  return { status: 'bot' as const };
+}

@@ -88,6 +88,15 @@ export async function handBack(req: Request, res: Response, next: NextFunction) 
   }
 }
 
+export async function markDone(req: Request, res: Response, next: NextFunction) {
+  try {
+    const svc = await import('../services/squad-bot.service.js');
+    res.json(await svc.markDone(req.params.id as string, actor(req)));
+  } catch (err) {
+    next(err);
+  }
+}
+
 // --- WhatsApp mode (off / draft / auto) ---------------------------------------
 
 export async function getWhatsAppSettings(_req: Request, res: Response, next: NextFunction) {

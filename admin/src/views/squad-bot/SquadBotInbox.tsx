@@ -71,6 +71,24 @@ export default function SquadBotInbox() {
     refetchInterval: 20_000,
   });
   const conversations = data?.conversations ?? [];
+  const qc = useQueryClient();
+  const [doneId, setDoneId] = useState<string | null>(null);
+
+  // Handled outside the chat (e.g. reactivated the account): clear it from
+  // "Waiting for the team" without handing it back to Squad Bot.
+  const markDone = async (id: string) => {
+    setDoneId(id);
+    try {
+      await api.post(`/admin/squad-bot/conversations/${id}/mark-done`);
+      toast.success('Marked as done');
+      qc.invalidateQueries({ queryKey: ['admin', 'squad-bot', 'list'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'squad-bot', 'conversation', id] });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Could not mark as done');
+    } finally {
+      setDoneId(null);
+    }
+  };
 
   return (
     <div>
@@ -110,31 +128,43 @@ export default function SquadBotInbox() {
             <ul className="divide-y divide-gray-100">
               {conversations.map((c) => (
                 <li key={c.id}>
-                  <button
-                    onClick={() => setOpenId(c.id)}
-                    className={`block w-full px-4 py-3 text-left hover:bg-gray-50 ${openId === c.id ? 'bg-indigo-50/60' : ''}`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate font-medium text-gray-900">{c.talent_name || c.talent_phone || 'Talent'}</span>
-                        <ChannelTag channel={c.last_message?.channel} />
-                        {c.has_account === false && (
-                          <span className="shrink-0 rounded bg-sky-50 px-1.5 py-px text-[10px] font-medium text-sky-700">New lead</span>
+                  <div className={`flex items-start hover:bg-gray-50 ${openId === c.id ? 'bg-indigo-50/60' : ''}`}>
+                    <button
+                      onClick={() => setOpenId(c.id)}
+                      className="block min-w-0 flex-1 px-4 py-3 text-left"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate font-medium text-gray-900">{c.talent_name || c.talent_phone || 'Talent'}</span>
+                          <ChannelTag channel={c.last_message?.channel} />
+                          {c.has_account === false && (
+                            <span className="shrink-0 rounded bg-sky-50 px-1.5 py-px text-[10px] font-medium text-sky-700">New lead</span>
+                          )}
+                        </p>
+                        {c.status === 'handoff' ? (
+                          <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                            {REASONS[c.handoff_reason ?? 'other'] ?? 'Waiting'}
+                          </span>
+                        ) : (
+                          <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">Squad Bot</span>
                         )}
-                      </p>
-                      {c.status === 'handoff' ? (
-                        <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800">
-                          {REASONS[c.handoff_reason ?? 'other'] ?? 'Waiting'}
-                        </span>
-                      ) : (
-                        <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">Squad Bot</span>
+                      </div>
+                      {c.last_message && (
+                        <p className="mt-0.5 line-clamp-1 text-sm text-gray-500">{c.last_message.body}</p>
                       )}
-                    </div>
-                    {c.last_message && (
-                      <p className="mt-0.5 line-clamp-1 text-sm text-gray-500">{c.last_message.body}</p>
+                      <p className="mt-0.5 text-[11px] text-gray-400">{when(c.last_message_at)}</p>
+                    </button>
+                    {c.status === 'handoff' && (
+                      <button
+                        onClick={() => markDone(c.id)}
+                        disabled={doneId === c.id}
+                        title="Mark as done — the team handled it"
+                        className="mr-2 mt-3 shrink-0 rounded-md border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-50"
+                      >
+                        {doneId === c.id ? '…' : 'Done'}
+                      </button>
                     )}
-                    <p className="mt-0.5 text-[11px] text-gray-400">{when(c.last_message_at)}</p>
-                  </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -209,6 +239,15 @@ function ConversationPane({ id }: { id: string }) {
     onError: (err: any) => toast.error(err.response?.data?.message || 'Could not hand back'),
   });
 
+  const markDone = useMutation({
+    mutationFn: async () => (await api.post(`/admin/squad-bot/conversations/${id}/mark-done`)).data,
+    onSuccess: () => {
+      toast.success('Marked as done');
+      refresh();
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Could not mark as done'),
+  });
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' });
   }, [conv?.messages.length]);
@@ -235,13 +274,22 @@ function ConversationPane({ id }: { id: string }) {
           </Link>
           )}
           {conv.status === 'handoff' && (
-            <button
-              onClick={() => handBack.mutate()}
-              disabled={handBack.isPending}
-              className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-            >
-              Hand back to Squad Bot
-            </button>
+            <>
+              <button
+                onClick={() => markDone.mutate()}
+                disabled={markDone.isPending}
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Mark as done
+              </button>
+              <button
+                onClick={() => handBack.mutate()}
+                disabled={handBack.isPending}
+                className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+              >
+                Hand back to Squad Bot
+              </button>
+            </>
           )}
         </div>
       </div>
