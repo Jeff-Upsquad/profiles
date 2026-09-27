@@ -588,12 +588,14 @@ export default function WebinarsManager({ hideHeading = false }: { hideHeading?:
                 <tr key={w.id} className="transition-colors hover:bg-gray-50">
                   <td className="px-6 py-4 font-medium text-gray-900">{w.title}</td>
                   <td className="px-6 py-4 text-gray-500">
-                    {new Date(w.starts_at).toLocaleString('en-GB', {
+                    {`${new Date(w.starts_at).toLocaleDateString('en-GB', {
                       day: 'numeric',
                       month: 'short',
-                      hour: '2-digit',
+                    })} · ${new Date(w.starts_at).toLocaleTimeString('en-US', {
+                      hour: 'numeric',
                       minute: '2-digit',
-                    })}
+                      hour12: true,
+                    })}`}
                   </td>
                   <td className="px-6 py-4 text-gray-500">{languageLabel(w.language, managedLanguages)}</td>
                   <td className="max-w-[200px] truncate px-6 py-4">

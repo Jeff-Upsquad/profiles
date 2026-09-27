@@ -1698,18 +1698,18 @@ function FullTrainingProgram() {
 
 function formatWebinarWhen(startsAt: string, now: Date): string {
   const start = new Date(startsAt);
-  const diffMs = start.getTime() - now.getTime();
-  if (diffMs <= 0) return 'Live now';
-  const mins = Math.floor(diffMs / 60_000);
-  if (mins < 60) return `In ${mins}m`;
-  const hours = Math.floor(mins / 60);
+  if (start.getTime() <= now.getTime()) return 'Live now';
   const sameDay = start.toDateString() === now.toDateString();
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toDateString() === start.toDateString();
-  const time = start.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-  if (sameDay) return `Today ${time}`;
-  if (tomorrow) return `Tomorrow ${time}`;
-  if (hours < 48) return `In ${hours}h`;
-  return `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} ${time}`;
+  const time = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const dateOpts: Intl.DateTimeFormatOptions =
+    start.getFullYear() === now.getFullYear()
+      ? { day: 'numeric', month: 'short' }
+      : { day: 'numeric', month: 'short', year: 'numeric' };
+  const date = start.toLocaleDateString('en-GB', dateOpts);
+  if (sameDay) return `Today, ${date} · ${time}`;
+  if (tomorrow) return `Tomorrow, ${date} · ${time}`;
+  return `${date} · ${time}`;
 }
 
 /** Notify-me picker — shown when nothing is scheduled. Pick a language, get told on all channels. */
