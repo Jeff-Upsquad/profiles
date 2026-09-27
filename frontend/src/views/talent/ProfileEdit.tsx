@@ -57,8 +57,16 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   const submitProfile = useSubmitProfile();
   const { data: portfolioItems } = usePortfolioItems(profileId);
   // Designer / Video Editor must reach a minimum portfolio before going to
-  // review. A live profile answering a change request is already approved.
-  const minItems = profile?.status === 'approved' ? 0 : minPortfolioItems(profile?.category?.slug);
+  // review. A live profile answering a change request is already approved,
+  // EXCEPT when the reviewer explicitly asked for portfolio items — then the
+  // minimum applies again so a resubmit can't sail through unchanged.
+  const portfolioRequested = (profile?.requested_changes ?? []).some(
+    (c) => c.key === 'job.portfolio_count' || c.key === 'job.portfolio_minimum',
+  );
+  const minItems =
+    profile?.status === 'approved' && !portfolioRequested
+      ? 0
+      : minPortfolioItems(profile?.category?.slug);
   const portfolioCount = portfolioItems?.length ?? 0;
   const belowPortfolioMin = minItems > 0 && portfolioCount < minItems;
 

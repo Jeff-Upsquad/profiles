@@ -118,7 +118,15 @@ export function profilePendingState(profile: Profile): ProfilePendingState | nul
   const draft = profile.status === 'draft';
   const updates = needsProfileResubmission(profile);
   if (!draft && !updates) return null;
-  const min = profile.status === 'approved' ? 0 : minPortfolioItems(profile.category?.slug);
+  // Live profiles skip the minimum — unless the reviewer asked for portfolio
+  // items, in which case the minimum gates the resubmit (backend enforces).
+  const portfolioRequested = (profile.requested_changes ?? []).some(
+    (c) => c.key === 'job.portfolio_count' || c.key === 'job.portfolio_minimum',
+  );
+  const min =
+    profile.status === 'approved' && !portfolioRequested
+      ? 0
+      : minPortfolioItems(profile.category?.slug);
   const shortfall = Math.max(0, min - (profile.portfolio_count ?? 0));
   return {
     label: updates && !draft ? 'Updates needed' : 'Not submitted',

@@ -588,6 +588,104 @@ async function countPortfolioItems(profileIds: string[]): Promise<Record<string,
   return counts;
 }
 
+// Requested-change keys that are satisfied by reaching the portfolio minimum.
+// `job.portfolio_minimum` is the draft-nudge variant of `job.portfolio_count`.
+export const PORTFOLIO_COUNT_KEYS = new Set(['job.portfolio_count', 'job.portfolio_minimum']);
+
+// Qualitative job-profile asks that can't be auto-verified by value alone
+// (bio rewrite, skills review, rate fix, ...). The talent must save an edit
+// after the request before resubmitting — otherwise a 21-second resubmit
+// with no changes sails through (the Nitheesh gap: 5 items, asked for 10).
+const TOUCH_REQUIRED_JOB_KEYS = new Set([
+  'job.portfolio_quality',
+  'job.bio',
+  'job.skills',
+  'job.experience_level',
+  'job.rate',
+  'job.contact',
+  'other',
+]);
+
+function isEmptyFieldValue(value: unknown): boolean {
+  if (value === undefined || value === null || value === '') return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === 'object') {
+    const o = value as Record<string, unknown>;
+    // { years, months } experience shape
+    if ('years' in o || 'months' in o) {
+      const years = o.years as unknown;
+      const months = o.months as unknown;
+      const yearsEmpty = typeof years !== 'number' || years < 0 || years > 50;
+      const monthsEmpty = typeof months !== 'number' || months < 0 || months > 11;
+      return yearsEmpty && monthsEmpty;
+    }
+    return Object.keys(o).length === 0;
+  }
+  return false;
+}
+
+/**
+ * Requested items still blocking a job-profile resubmit. Mirrors the
+ * basic-profile guard in basic-profile-changes.service.ts
+ * (unresolvedBasicChanges) — without it the system records a resubmission
+ * without verifying the reviewer's asks were fulfilled.
+ */
+export function unresolvedJobChanges(opts: {
+  profile: {
+    field_data?: Record<string, any> | null;
+    requested_changes?: Array<{ key: string; label?: string }> | null;
+    changes_requested_at?: string | null;
+    updated_at?: string | null;
+  };
+  categorySlug?: string | null;
+  portfolioCount: number;
+  portfolioTouched: boolean;
+}): string[] {
+  const { profile, categorySlug, portfolioCount, portfolioTouched } = opts;
+  const requested = Array.isArray(profile.requested_changes) ? profile.requested_changes : [];
+  if (requested.length === 0 || !profile.changes_requested_at) return [];
+
+  const requestedAt = new Date(profile.changes_requested_at).getTime();
+  const profileTouched =
+    !!profile.updated_at && new Date(profile.updated_at).getTime() > requestedAt;
+
+  const minItems = categorySlug ? (MIN_PORTFOLIO_ITEMS_BY_SLUG[categorySlug] ?? 10) : 10;
+  const unresolved: string[] = [];
+
+  for (const c of requested) {
+    const label = c.label || c.key;
+    if (PORTFOLIO_COUNT_KEYS.has(c.key)) {
+      if (portfolioCount < minItems) unresolved.push(label);
+      continue;
+    }
+    if (c.key === 'job.portfolio_quality') {
+      if (!portfolioTouched) unresolved.push(label);
+      continue;
+    }
+    if (c.key.startsWith('field.')) {
+      const fieldKey = c.key.slice('field.'.length);
+      const value = (profile.field_data ?? {})[fieldKey];
+      // A "Fix: X" ask means the current value is wrong, not just empty —
+      // require both a value and a save after the request.
+      if (isEmptyFieldValue(value) || !profileTouched) unresolved.push(label);
+      continue;
+    }
+    if (c.key === 'job.skills') {
+      const skills = (profile.field_data ?? {})._skills;
+      if (isEmptyFieldValue(skills) || !profileTouched) unresolved.push(label);
+      continue;
+    }
+    if (TOUCH_REQUIRED_JOB_KEYS.has(c.key)) {
+      if (!profileTouched && !portfolioTouched) unresolved.push(label);
+      continue;
+    }
+    // `job.submit_draft`, `basic.*`, `identity.*` and unknown keys: covered
+    // by the required-field gate / basic-profile flow — don't block here.
+  }
+
+  return [...new Set(unresolved)];
+}
+
 export async function getMyProfiles(userId: string) {
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')
@@ -823,21 +921,79 @@ export async function submitProfile(profileId: string, userId: string) {
     throw new AppError(400, `Cannot submit: ${errors.join('; ')}`);
   }
 
+  const { data: category } = await supabaseAdmin
+    .from('categories')
+    .select('name, slug')
+    .eq('id', profile.category_id)
+    .maybeSingle();
+  const minItems = category?.slug ? MIN_PORTFOLIO_ITEMS_BY_SLUG[category.slug] : undefined;
+
+  // Portfolio state is needed both for the minimum gate and for verifying
+  // requested portfolio changes below — fetch once.
+  let portfolioCount = 0;
+  let portfolioTouched = false;
+  if (minItems || profile.changes_requested_at) {
+    const { data: items, error: pfErr } = await supabaseAdmin
+      .from('portfolio_items')
+      .select('created_at, updated_at')
+      .eq('profile_id', profileId);
+    if (pfErr) throw new AppError(500, 'Failed to count portfolio items');
+    portfolioCount = (items ?? []).length;
+    if (profile.changes_requested_at) {
+      const requestedAt = new Date(profile.changes_requested_at).getTime();
+      portfolioTouched = (items ?? []).some((it: any) => {
+        const created = it.created_at ? new Date(it.created_at).getTime() : 0;
+        const updated = it.updated_at ? new Date(it.updated_at).getTime() : 0;
+        return created > requestedAt || updated > requestedAt;
+      });
+    }
+  }
+
+  const isResubmit =
+    profile.status === 'changes_requested' ||
+    liveChangesOpen ||
+    (profile.status === 'draft' && !!profile.changes_requested_at);
+
+  // Answering a change request must actually answer it. Without this, a
+  // talent can tap Resubmit seconds later with nothing changed and the
+  // dashboard flips to "updates ready for review" while keeping the
+  // Approved badge.
+  if (isResubmit) {
+    const unresolved = unresolvedJobChanges({
+      profile: {
+        field_data: profile.field_data,
+        requested_changes: profile.requested_changes,
+        changes_requested_at: profile.changes_requested_at,
+        updated_at: profile.updated_at,
+      },
+      categorySlug: category?.slug ?? null,
+      portfolioCount,
+      portfolioTouched,
+    });
+    if (unresolved.length > 0) {
+      throw new AppError(
+        400,
+        `Please fix and save: ${unresolved.join(', ')} — then tap Resubmit.`,
+      );
+    }
+  }
+
   // A live profile answering a change request is already approved — the
-  // portfolio minimum only gates getting into review in the first place.
-  if (!liveChangesOpen) {
-    const { data: category } = await supabaseAdmin
-      .from('categories')
-      .select('name, slug')
-      .eq('id', profile.category_id)
-      .maybeSingle();
-    const minItems = category?.slug ? MIN_PORTFOLIO_ITEMS_BY_SLUG[category.slug] : undefined;
+  // portfolio minimum only gates getting into review in the first place,
+  // EXCEPT when the reviewer explicitly asked for portfolio items. Then the
+  // minimum applies again, so a 5-item profile can't resubmit past a
+  // "add at least 10" request.
+  const requestedKeys = Array.isArray(profile.requested_changes)
+    ? (profile.requested_changes as Array<{ key?: string }>).map((c) => c?.key).filter(Boolean)
+    : [];
+  const portfolioRequested =
+    isResubmit && requestedKeys.some((k) => PORTFOLIO_COUNT_KEYS.has(k as string));
+  if (!liveChangesOpen || portfolioRequested) {
     if (minItems) {
-      const count = (await countPortfolioItems([profileId]))[profileId] ?? 0;
-      if (count < minItems) {
+      if (portfolioCount < minItems) {
         throw new AppError(
           400,
-          `Cannot submit: ${category!.name} profiles need at least ${minItems} portfolio items (you have ${count})`,
+          `Cannot submit: ${category!.name} profiles need at least ${minItems} portfolio items (you have ${portfolioCount})`,
         );
       }
     }
