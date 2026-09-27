@@ -29,3 +29,28 @@ export const rescheduleWebinarSchema = z.object({
 });
 
 export type RescheduleWebinarInput = z.infer<typeof rescheduleWebinarSchema>;
+
+export const webinarLanguageCodeSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z]{2,10}$/, 'Language code must be 2-10 lowercase letters');
+
+export const upsertWebinarLanguageSchema = z.object({
+  code: webinarLanguageCodeSchema,
+  label: z.string().trim().min(1).max(50),
+});
+
+export type UpsertWebinarLanguageInput = z.infer<typeof upsertWebinarLanguageSchema>;
+
+export const setWebinarLanguageActiveSchema = z.object({
+  is_active: z.boolean(),
+});
+
+export type SetWebinarLanguageActiveInput = z.infer<typeof setWebinarLanguageActiveSchema>;
+
+export const webinarInterestSchema = z.object({
+  language: webinarLanguageCodeSchema,
+});
+
+export type WebinarInterestInput = z.infer<typeof webinarInterestSchema>;

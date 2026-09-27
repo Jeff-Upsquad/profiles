@@ -13,6 +13,10 @@ import {
   useTrainingWebinars,
   useRegisterWebinar,
   useUnregisterWebinar,
+  useWebinarLanguages,
+  useWebinarInterests,
+  useSubscribeWebinarInterest,
+  useUnsubscribeWebinarInterest,
   pickLessonUrl,
   getCourseLanguages,
   getStoredCourseLanguage,
@@ -1708,6 +1712,123 @@ function formatWebinarWhen(startsAt: string, now: Date): string {
   return `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} ${time}`;
 }
 
+/** Notify-me picker — shown when nothing is scheduled. Pick a language, get told on all channels. */
+function WebinarNotifyMe({ compact = false }: { compact?: boolean }) {
+  const { data: languages, isLoading: langsLoading } = useWebinarLanguages();
+  const { data: interests } = useWebinarInterests();
+  const subscribe = useSubscribeWebinarInterest();
+  const unsubscribe = useUnsubscribeWebinarInterest();
+  const [open, setOpen] = useState(false);
+  const [busyLang, setBusyLang] = useState<string | null>(null);
+
+  const toggle = async (code: string, on: boolean) => {
+    if (busyLang) return;
+    setBusyLang(code);
+    try {
+      if (on) {
+        await unsubscribe.mutateAsync(code);
+        toast.success('You will no longer be notified for this language.');
+      } else {
+        await subscribe.mutateAsync(code);
+        toast.success("You're on the list — we'll notify you when a webinar is scheduled.");
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Could not update preference');
+    } finally {
+      setBusyLang(null);
+    }
+  };
+
+  const subscribedLabels = (interests ?? []).map(
+    (code) => languages?.find((l) => l.code === code)?.label ?? LANGUAGE_LABELS[code] ?? code,
+  );
+
+  if (!open) {
+    if (compact) {
+      return (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-1.5 text-[11px] font-medium text-[#525252] underline decoration-[#d4d4d4] underline-offset-2 hover:text-[#0a0a0a]"
+        >
+          {subscribedLabels.length > 0
+            ? `Notifying you about future webinars (${subscribedLabels.join(', ')}) — manage`
+            : 'No webinar in your language? Get notified about future webinars'}
+        </button>
+      );
+    }
+    return (
+      <div className="rounded-xl border border-dashed border-[#d4d4d4] bg-white p-4 text-center">
+        <div className="mx-auto mb-2 grid h-10 w-10 place-items-center rounded-xl bg-[#FFFAC2] text-lg">🎥</div>
+        <p className="text-[13px] font-semibold text-[#0a0a0a]">No upcoming webinars right now</p>
+        <p className="mx-auto mt-1 max-w-xs text-[12px] leading-relaxed text-[#737373]">
+          New sessions are added regularly. Tell us which language you plan to attend in and we&apos;ll notify you here
+          and on WhatsApp as soon as one is scheduled.
+        </p>
+        {subscribedLabels.length > 0 ? (
+          <p className="mx-auto mt-2 max-w-xs text-[12px] text-emerald-700">
+            🔔 You&apos;re on the list{subscribedLabels.length > 0 && ` (${subscribedLabels.join(', ')})`} — we&apos;ll
+            tell you when a new webinar is scheduled.
+          </p>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-3 rounded-lg bg-[#0a0a0a] px-4 py-2 text-[12.5px] font-semibold text-white hover:bg-[#0a0a0a]/85"
+        >
+          {subscribedLabels.length > 0 ? 'Manage notifications' : 'Notify me'}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-[#E7E7EA] bg-white p-3.5">
+      <p className="text-[13px] font-semibold text-[#0a0a0a]">Which language webinar are you planning to attend?</p>
+      <p className="mt-0.5 text-[11.5px] text-[#737373]">
+        We&apos;ll notify you here and on WhatsApp when a new webinar is scheduled in that language.
+      </p>
+      <div className="mt-2.5 space-y-2">
+        {langsLoading ? (
+          <div className="h-10 animate-pulse rounded-lg bg-[#f0f0f0]" />
+        ) : !languages || languages.length === 0 ? (
+          <p className="text-[12px] text-[#737373]">No webinar languages are available yet — check back soon.</p>
+        ) : (
+          languages.map((l) => {
+            const on = (interests ?? []).includes(l.code);
+            const busy = busyLang === l.code;
+            return (
+              <div key={l.code} className="flex items-center gap-2.5 rounded-lg border border-[#E7E7EA] px-3 py-2">
+                <span className="min-w-0 flex-1 text-[13px] font-medium text-[#0a0a0a]">{l.label}</span>
+                {on && <span className="text-[11px] font-medium text-emerald-700">🔔 On</span>}
+                <button
+                  type="button"
+                  onClick={() => toggle(l.code, on)}
+                  disabled={busy}
+                  className={`shrink-0 rounded-lg px-3 py-1.5 text-[11.5px] font-semibold transition disabled:opacity-40 ${
+                    on
+                      ? 'border border-[#E7E7EA] text-[#525252] hover:bg-[#F5F5F6]'
+                      : 'bg-[#0a0a0a] text-white hover:bg-[#0a0a0a]/85'
+                  }`}
+                >
+                  {busy ? '…' : on ? 'Mute' : 'Notify me'}
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => setOpen(false)}
+        className="mt-2.5 text-[11.5px] font-medium text-[#737373] hover:text-[#0a0a0a]"
+      >
+        Done
+      </button>
+    </div>
+  );
+}
+
 /** Compact Upcoming Webinars — one-click register, Join appears near start. */
 function WebinarsSection() {
   const { data: webinars, isLoading } = useTrainingWebinars();
@@ -1726,7 +1847,16 @@ function WebinarsSection() {
       </section>
     );
   }
-  if (!webinars || webinars.length === 0) return null;
+  if (!webinars || webinars.length === 0) {
+    return (
+      <section className="mt-4">
+        <h2 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
+          Upcoming webinars
+        </h2>
+        <WebinarNotifyMe />
+      </section>
+    );
+  }
 
   const act = async (w: TrainingWebinar) => {
     if (busyId) return;
@@ -1802,6 +1932,7 @@ function WebinarsSection() {
       <p className="mt-1.5 text-[11px] text-[#a3a3a3]">
         Registered talents get reminders on the day, 30 min and 5 min before — in notifications + WhatsApp.
       </p>
+      <WebinarNotifyMe compact />
     </section>
   );
 }

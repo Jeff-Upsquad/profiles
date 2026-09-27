@@ -772,3 +772,61 @@ export function useUnregisterWebinar() {
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Webinar Notify-me — empty-state language picker + per-language interests
+// ---------------------------------------------------------------------------
+
+export interface WebinarLanguage {
+  code: string;
+  label: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export function useWebinarLanguages() {
+  return useQuery<WebinarLanguage[]>({
+    queryKey: ['webinarLanguages'],
+    queryFn: async () => {
+      const { data } = await api.get('/talent/training/webinar-languages');
+      return data.languages ?? [];
+    },
+  });
+}
+
+export function useWebinarInterests() {
+  return useQuery<string[]>({
+    queryKey: ['webinarInterests'],
+    queryFn: async () => {
+      const { data } = await api.get('/talent/training/webinar-interests');
+      return data.interests ?? [];
+    },
+  });
+}
+
+export function useSubscribeWebinarInterest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (language: string) => {
+      const { data } = await api.post('/talent/training/webinar-interests', { language });
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['webinarInterests'] });
+      qc.invalidateQueries({ queryKey: ['talent-notifications'] });
+    },
+  });
+}
+
+export function useUnsubscribeWebinarInterest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (language: string) => {
+      const { data } = await api.delete(`/talent/training/webinar-interests/${language}`);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['webinarInterests'] });
+    },
+  });
+}

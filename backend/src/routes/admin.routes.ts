@@ -50,7 +50,9 @@ import {
 import {
   createWebinarSchema,
   rescheduleWebinarSchema,
+  setWebinarLanguageActiveSchema,
   updateWebinarSchema,
+  upsertWebinarLanguageSchema,
 } from '../validators/webinars.validators.js';
 import {
   createHowItWorksVideoSchema,
@@ -728,6 +730,18 @@ router.delete('/training/users/:userId/enrollments/:courseId', trainingControlle
 
 // Webinars — created in the SquadHire admin Training module (title, date/time,
 // language, meeting link). Talents register from Training → Upcoming Webinars.
+// Webinar languages are the admin-managed allow-list (active codes only).
+router.get('/training/webinar-languages', webinarsController.listLanguagesAdmin);
+router.post(
+  '/training/webinar-languages',
+  validate({ body: upsertWebinarLanguageSchema }),
+  webinarsController.upsertLanguageAdmin,
+);
+router.patch(
+  '/training/webinar-languages/:code',
+  validate({ body: setWebinarLanguageActiveSchema }),
+  webinarsController.setLanguageActiveAdmin,
+);
 router.get('/training/webinars', webinarsController.listAdmin);
 router.post(
   '/training/webinars',

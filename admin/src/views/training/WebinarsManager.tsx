@@ -14,8 +14,12 @@ import {
   useDeleteWebinar,
   useRescheduleWebinar,
   useSetWebinarCompleted,
+  useWebinarLanguages,
+  useUpsertWebinarLanguage,
+  useSetWebinarLanguageActive,
   type Webinar,
   type WebinarForm,
+  type WebinarLanguage,
 } from '@/hooks/useWebinars';
 
 export const LANGUAGES = [
@@ -32,8 +36,89 @@ export const LANGUAGES = [
   { value: 'pa', label: 'Punjabi' },
 ];
 
-export function languageLabel(code: string): string {
-  return LANGUAGES.find((l) => l.value === code)?.label ?? code;
+const STATIC_LABELS = new Map(LANGUAGES.map((l) => [l.value, l.label]));
+
+export function languageLabel(code: string, managed?: WebinarLanguage[]): string {
+  return managed?.find((l) => l.code === code)?.label ?? STATIC_LABELS.get(code) ?? code;
+}
+
+/** Admin-managed allow-list: add codes, rename labels, enable/disable. */
+function LanguagesView() {
+  const { data: languages, isLoading } = useWebinarLanguages();
+  const upsert = useUpsertWebinarLanguage();
+  const setActive = useSetWebinarLanguageActive();
+  const [code, setCode] = useState('');
+  const [label, setLabel] = useState('');
+
+  const submit = async () => {
+    const cleanCode = code.trim().toLowerCase();
+    if (!/^[a-z]{2,10}$/.test(cleanCode) || label.trim() === '') return;
+    await upsert.mutateAsync({ code: cleanCode, label: label.trim() });
+    setCode('');
+    setLabel('');
+  };
+
+  return (
+    <div className="p-6">
+      <p className="max-w-2xl text-sm text-gray-500">
+        Only enabled languages can be picked when creating a webinar, and only enabled languages are offered in the
+        talent “Notify me” picker. Disabling a language never touches existing webinars.
+      </p>
+      <div className="mt-4 max-w-2xl space-y-2">
+        {isLoading ? (
+          [1, 2].map((i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-gray-100" />)
+        ) : !languages?.length ? (
+          <p className="rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
+            No webinar languages yet — add English and Malayalam below to get started.
+          </p>
+        ) : (
+          languages.map((l) => (
+            <div
+              key={l.code}
+              className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-2.5 text-sm"
+            >
+              <span className="font-medium text-gray-900">{l.label}</span>
+              <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-500">{l.code}</span>
+              <span className="flex-1" />
+              <Badge variant={l.is_active ? 'green' : 'gray'}>{l.is_active ? 'enabled' : 'disabled'}</Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={setActive.isPending}
+                onClick={() => setActive.mutate({ code: l.code, is_active: !l.is_active })}
+              >
+                {l.is_active ? 'Disable' : 'Enable'}
+              </Button>
+            </div>
+          ))
+        )}
+      </div>
+      <div className="mt-4 flex max-w-2xl flex-wrap items-end gap-2">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">Code (2–10 lowercase letters)</label>
+          <input
+            value={code}
+            onChange={(e) => setCode(e.target.value.toLowerCase().replace(/[^a-z]/g, '').slice(0, 10))}
+            placeholder="e.g. ta"
+            className="w-32 rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-indigo-500 focus:outline-none"
+          />
+        </div>
+        <div className="min-w-40 flex-1">
+          <label className="mb-1 block text-xs font-medium text-gray-600">Label shown to talents</label>
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. Tamil"
+            maxLength={50}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+          />
+        </div>
+        <Button onClick={submit} disabled={upsert.isPending || !/^[a-z]{2,10}$/.test(code.trim()) || label.trim() === ''}>
+          {upsert.isPending ? 'Saving…' : 'Add language'}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function toLocalInput(iso: string): string {
@@ -266,6 +351,8 @@ const EMPTY_FORM: WebinarForm = {
 function WebinarFormView({ webinar, onClose }: { webinar?: Webinar | null; onClose: () => void }) {
   const create = useCreateWebinar();
   const update = useUpdateWebinar();
+  const { data: managedLanguages } = useWebinarLanguages();
+  const activeLanguages = (managedLanguages ?? []).filter((l) => l.is_active);
   const [form, setForm] = useState<WebinarForm>(
     webinar
       ? {
@@ -332,12 +419,18 @@ function WebinarFormView({ webinar, onClose }: { webinar?: Webinar | null; onClo
             <option value="" disabled>
               Select language…
             </option>
-            {LANGUAGES.map((l) => (
+            {(activeLanguages.length > 0
+              ? activeLanguages.map((l) => ({ value: l.code, label: l.label }))
+              : LANGUAGES
+            ).map((l) => (
               <option key={l.value} value={l.value}>
                 {l.label}
               </option>
             ))}
           </select>
+          {managedLanguages && activeLanguages.length === 0 && (
+            <p className="mt-1 text-xs text-red-600">No webinar language is enabled — enable one under Webinars → Languages.</p>
+          )}
         </div>
       </div>
       <div>
@@ -391,9 +484,10 @@ function WebinarFormView({ webinar, onClose }: { webinar?: Webinar | null; onClo
 
 export default function WebinarsManager({ hideHeading = false }: { hideHeading?: boolean } = {}) {
   const { data: webinars, isLoading } = useWebinars();
+  const { data: managedLanguages } = useWebinarLanguages();
   const del = useDeleteWebinar();
   const setCompleted = useSetWebinarCompleted();
-  const [tab, setTab] = useState<'upcoming' | 'completed'>('upcoming');
+  const [tab, setTab] = useState<'upcoming' | 'completed' | 'languages'>('upcoming');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Webinar | null>(null);
   const [viewing, setViewing] = useState<Webinar | null>(null);
@@ -437,6 +531,7 @@ export default function WebinarsManager({ hideHeading = false }: { hideHeading?:
           [
             ['upcoming', 'Upcoming', (webinars?.length ?? 0) - completedCount],
             ['completed', 'Completed', completedCount],
+            ['languages', 'Languages', managedLanguages?.filter((l) => l.is_active).length ?? ''],
           ] as const
         ).map(([key, label, count]) => (
           <button
@@ -453,7 +548,9 @@ export default function WebinarsManager({ hideHeading = false }: { hideHeading?:
       </div>
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        {isLoading ? (
+        {tab === 'languages' ? (
+          <LanguagesView />
+        ) : isLoading ? (
           <div className="space-y-3 p-8">
             {[1, 2].map((i) => (
               <div key={i} className="h-12 animate-pulse rounded bg-gray-100" />
@@ -498,7 +595,7 @@ export default function WebinarsManager({ hideHeading = false }: { hideHeading?:
                       minute: '2-digit',
                     })}
                   </td>
-                  <td className="px-6 py-4 text-gray-500">{languageLabel(w.language)}</td>
+                  <td className="px-6 py-4 text-gray-500">{languageLabel(w.language, managedLanguages)}</td>
                   <td className="max-w-[200px] truncate px-6 py-4">
                     <a
                       href={w.meeting_link}

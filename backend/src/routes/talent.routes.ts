@@ -20,6 +20,7 @@ import { requireApprovalOrAutoApprove } from '../middleware/approval.middleware.
 import { requireProfileAccess, requirePartnerAccess } from '../middleware/work-access.middleware.js';
 import { requestCourseReopenSchema } from '../validators/access-requests.validators.js';
 import { submitQuizSchema } from '../validators/training.validators.js';
+import { webinarInterestSchema } from '../validators/webinars.validators.js';
 import { appCheckinSchema } from '../validators/app-install.validators.js';
 import * as conversationsController from '../controllers/conversations.controller.js';
 import * as groupMeetsController from '../controllers/group-meets.controller.js';
@@ -151,6 +152,16 @@ router.post(
 router.get('/training/webinars', webinarsController.listForTalent);
 router.post('/training/webinars/:id/register', webinarsController.register);
 router.delete('/training/webinars/:id/register', webinarsController.unregister);
+
+// Webinar Notify-me: active language allow-list + per-language interests.
+router.get('/training/webinar-languages', webinarsController.listLanguagesForTalent);
+router.get('/training/webinar-interests', webinarsController.listInterests);
+router.post(
+  '/training/webinar-interests',
+  validate({ body: webinarInterestSchema }),
+  webinarsController.addInterest,
+);
+router.delete('/training/webinar-interests/:language', webinarsController.removeInterest);
 
 // Notifications
 router.get('/notifications', notificationsController.listTalent);

@@ -112,3 +112,57 @@ export function useDeleteWebinar() {
     onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to delete webinar'),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Webinar languages — admin allow-list; only active codes are selectable when
+// creating/editing a webinar and offered in the talent Notify-me picker.
+// ---------------------------------------------------------------------------
+
+export interface WebinarLanguage {
+  code: string;
+  label: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+const webinarLanguagesKey = ['admin', 'training', 'webinar-languages'];
+
+export function useWebinarLanguages() {
+  return useQuery<WebinarLanguage[]>({
+    queryKey: webinarLanguagesKey,
+    queryFn: async () => {
+      const { data } = await api.get('/admin/training/webinar-languages');
+      return data;
+    },
+  });
+}
+
+export function useUpsertWebinarLanguage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { code: string; label: string }) => {
+      const { data } = await api.post('/admin/training/webinar-languages', payload);
+      return data as WebinarLanguage;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: webinarLanguagesKey });
+      toast.success('Language saved');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to save language'),
+  });
+}
+
+export function useSetWebinarLanguageActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ code, is_active }: { code: string; is_active: boolean }) => {
+      const { data } = await api.patch(`/admin/training/webinar-languages/${code}`, { is_active });
+      return data as WebinarLanguage;
+    },
+    onSuccess: (lang) => {
+      qc.invalidateQueries({ queryKey: webinarLanguagesKey });
+      toast.success(lang.is_active ? `${lang.label} enabled` : `${lang.label} disabled`);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to update language'),
+  });
+}

@@ -80,6 +80,72 @@ export async function listForTalent(req: Request, res: Response, next: NextFunct
   }
 }
 
+export async function listLanguagesForTalent(req: Request, res: Response, next: NextFunction) {
+  try {
+    const svc = await import('../services/webinars.service.js');
+    res.json({ languages: await svc.listActiveWebinarLanguages() });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listInterests(req: Request, res: Response, next: NextFunction) {
+  try {
+    const svc = await import('../services/webinars.service.js');
+    res.json({ interests: await svc.getWebinarInterests(req.user!.id) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function addInterest(req: Request, res: Response, next: NextFunction) {
+  try {
+    const svc = await import('../services/webinars.service.js');
+    res.status(201).json(await svc.addWebinarInterest(req.user!.id, String((req.body as any)?.language ?? '')));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function removeInterest(req: Request, res: Response, next: NextFunction) {
+  try {
+    const svc = await import('../services/webinars.service.js');
+    res.json(await svc.removeWebinarInterest(req.user!.id, req.params.language as string));
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Admin — webinar language allow-list.
+export async function listLanguagesAdmin(req: Request, res: Response, next: NextFunction) {
+  try {
+    const svc = await import('../services/webinars.service.js');
+    res.json(await svc.listAllWebinarLanguages());
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function upsertLanguageAdmin(req: Request, res: Response, next: NextFunction) {
+  try {
+    const svc = await import('../services/webinars.service.js');
+    const { code, label } = req.body as { code: string; label: string };
+    res.status(201).json(await svc.upsertWebinarLanguage(code, label));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function setLanguageActiveAdmin(req: Request, res: Response, next: NextFunction) {
+  try {
+    const svc = await import('../services/webinars.service.js');
+    const { is_active } = req.body as { is_active: boolean };
+    res.json(await svc.setWebinarLanguageActive(req.params.code as string, is_active));
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function register(req: Request, res: Response, next: NextFunction) {
   try {
     const svc = await import('../services/webinars.service.js');

@@ -12,6 +12,7 @@ import type {
 export const WEBINAR_WHATSAPP_EVENT = 'talent_webinar_reminder';
 export const WEBINAR_RESCHEDULED_EVENT = 'talent_webinar_rescheduled';
 export const WEBINAR_MISSED_EVENT = 'talent_webinar_missed';
+export const WEBINAR_NEW_SCHEDULED_EVENT = 'talent_webinar_new_scheduled';
 
 export type WebinarReminderStage = 'day' | 't30' | 't5';
 
@@ -24,6 +25,133 @@ export interface WebinarRow {
   audience: string;
   status: string;
   created_at: string;
+}
+
+export interface WebinarLanguage {
+  code: string;
+  label: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+/** Active codes only — what the talent Notify-me picker and the webinar form offer. */
+export async function listActiveWebinarLanguages(): Promise<WebinarLanguage[]> {
+  const { data, error } = await supabaseAdmin
+    .from('webinar_languages')
+    .select('code, label, is_active, sort_order')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true })
+    .order('label', { ascending: true });
+  if (error) throw new AppError(500, `Failed to load webinar languages: ${error.message}`);
+  return (data ?? []) as WebinarLanguage[];
+}
+
+/** All codes, active first — the admin Languages tab. */
+export async function listAllWebinarLanguages(): Promise<WebinarLanguage[]> {
+  const { data, error } = await supabaseAdmin
+    .from('webinar_languages')
+    .select('code, label, is_active, sort_order')
+    .order('sort_order', { ascending: true })
+    .order('label', { ascending: true });
+  if (error) throw new AppError(500, `Failed to load webinar languages: ${error.message}`);
+  return (data ?? []) as WebinarLanguage[];
+}
+
+export async function upsertWebinarLanguage(code: string, label: string): Promise<WebinarLanguage> {
+  const clean = code.trim().toLowerCase();
+  const name = label.trim();
+  if (!/^[a-z]{2,10}$/.test(clean)) throw new AppError(400, 'Language code must be 2-10 lowercase letters');
+  if (!name) throw new AppError(400, 'Language label is required');
+  const { data: existing } = await supabaseAdmin
+    .from('webinar_languages')
+    .select('code')
+    .eq('code', clean)
+    .maybeSingle();
+  if (existing) {
+    const { data, error } = await supabaseAdmin
+      .from('webinar_languages')
+      .update({ label: name, updated_at: new Date().toISOString() })
+      .eq('code', clean)
+      .select('code, label, is_active, sort_order')
+      .single();
+    if (error || !data) throw new AppError(500, error?.message ?? 'Could not save language');
+    return data as WebinarLanguage;
+  }
+  const { data: maxRow } = await supabaseAdmin
+    .from('webinar_languages')
+    .select('sort_order')
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const sortOrder = ((maxRow as { sort_order?: number } | null)?.sort_order ?? 0) + 10;
+  const { data, error } = await supabaseAdmin
+    .from('webinar_languages')
+    .insert({ code: clean, label: name, is_active: true, sort_order: sortOrder })
+    .select('code, label, is_active, sort_order')
+    .single();
+  if (error || !data) throw new AppError(500, error?.message ?? 'Could not add language');
+  return data as WebinarLanguage;
+}
+
+export async function setWebinarLanguageActive(code: string, isActive: boolean): Promise<WebinarLanguage> {
+  const clean = code.trim().toLowerCase();
+  const { data, error } = await supabaseAdmin
+    .from('webinar_languages')
+    .update({ is_active: isActive, updated_at: new Date().toISOString() })
+    .eq('code', clean)
+    .select('code, label, is_active, sort_order')
+    .single();
+  if (error || !data) throw new AppError(404, error?.message ?? 'Language not found');
+  return data as WebinarLanguage;
+}
+
+/**
+ * New webinars (and the Notify-me picker) may only use active allow-list
+ * codes. Skipped when the table is empty — e.g. the migration hasn't run —
+ * so scheduling never hard-breaks.
+ */
+async function assertWebinarLanguageAllowed(code: string): Promise<string> {
+  const clean = code.trim().toLowerCase() || 'en';
+  const { data, error } = await supabaseAdmin.from('webinar_languages').select('code').eq('is_active', true);
+  if (error) throw new AppError(500, `Could not validate language: ${error.message}`);
+  if ((data ?? []).length > 0 && !(data ?? []).some((l: any) => l.code === clean)) {
+    throw new AppError(400, 'This language is not enabled for webinars — enable it under Webinars → Languages first');
+  }
+  return clean;
+}
+
+// ---------------------------------------------------------------------------
+// Notify-me interests (talent)
+// ---------------------------------------------------------------------------
+
+export async function getWebinarInterests(talentUserId: string): Promise<string[]> {
+  const { data, error } = await supabaseAdmin
+    .from('training_webinar_interests')
+    .select('language')
+    .eq('talent_user_id', talentUserId)
+    .order('created_at', { ascending: true });
+  if (error) throw new AppError(500, `Failed to load webinar interests: ${error.message}`);
+  return (data ?? []).map((r: any) => r.language as string);
+}
+
+export async function addWebinarInterest(talentUserId: string, language: string) {
+  const clean = language.trim().toLowerCase();
+  await assertWebinarLanguageAllowed(clean);
+  const { error } = await supabaseAdmin
+    .from('training_webinar_interests')
+    .upsert({ talent_user_id: talentUserId, language: clean }, { onConflict: 'talent_user_id,language' });
+  if (error) throw new AppError(500, `Could not save preference: ${error.message}`);
+  return { success: true, interests: await getWebinarInterests(talentUserId) };
+}
+
+export async function removeWebinarInterest(talentUserId: string, language: string) {
+  const { error } = await supabaseAdmin
+    .from('training_webinar_interests')
+    .delete()
+    .eq('talent_user_id', talentUserId)
+    .eq('language', language.trim().toLowerCase());
+  if (error) throw new AppError(500, `Could not remove preference: ${error.message}`);
+  return { success: true, interests: await getWebinarInterests(talentUserId) };
 }
 
 // ---------------------------------------------------------------------------
@@ -56,12 +184,13 @@ export async function createWebinar(input: CreateWebinarInput, createdBy: string
   const startsAt = new Date(input.starts_at);
   if (Number.isNaN(startsAt.getTime())) throw new AppError(400, 'Invalid date and time');
   if (startsAt.getTime() <= Date.now()) throw new AppError(400, 'Webinar must be scheduled in the future');
+  const language = await assertWebinarLanguageAllowed(input.language);
   const { data, error } = await supabaseAdmin
     .from('training_webinars')
     .insert({
       title: input.title.trim(),
       starts_at: startsAt.toISOString(),
-      language: input.language.trim() || 'en',
+      language,
       meeting_link: input.meeting_link.trim(),
       audience: input.audience,
       status: input.status,
@@ -70,6 +199,12 @@ export async function createWebinar(input: CreateWebinarInput, createdBy: string
     .select('id, title, starts_at, language, meeting_link, audience, status, created_at')
     .single();
   if (error || !data) throw new AppError(500, error?.message ?? 'Could not create webinar');
+  // A fresh published webinar fulfils waiting Notify-me subscribers.
+  if ((data as any).status === 'published') {
+    void sendNewWebinarNotices(data as WebinarRow).catch((e) =>
+      console.error('[webinars] new-scheduled notices failed for', (data as any).id, e),
+    );
+  }
   return data;
 }
 
@@ -81,7 +216,7 @@ export async function updateWebinar(id: string, input: UpdateWebinarInput) {
     if (Number.isNaN(startsAt.getTime())) throw new AppError(400, 'Invalid date and time');
     patch.starts_at = startsAt.toISOString();
   }
-  if (input.language !== undefined) patch.language = input.language.trim() || 'en';
+  if (input.language !== undefined) patch.language = await assertWebinarLanguageAllowed(input.language);
   if (input.meeting_link !== undefined) patch.meeting_link = input.meeting_link.trim();
   if (input.audience !== undefined) patch.audience = input.audience;
   if (input.status !== undefined) patch.status = input.status;
@@ -103,6 +238,12 @@ export async function updateWebinar(id: string, input: UpdateWebinarInput) {
   if (before && (before as any).status !== 'completed' && data.status === 'completed') {
     void sendMissedWebinarNotices(data as WebinarRow).catch((e) =>
       console.error('[webinars] missed notices failed for', id, e),
+    );
+  }
+  // Draft → published fulfils waiting Notify-me subscribers, same as a fresh publish.
+  if (before && (before as any).status !== 'published' && data.status === 'published') {
+    void sendNewWebinarNotices(data as WebinarRow).catch((e) =>
+      console.error('[webinars] new-scheduled notices failed for', id, e),
     );
   }
   return data;
@@ -426,6 +567,85 @@ export async function unregisterFromWebinar(talentUserId: string, webinarId: str
     .eq('webinar_id', webinarId)
     .eq('talent_user_id', talentUserId);
   return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// New webinar scheduled — fans out to Notify-me subscribers for the language
+// ---------------------------------------------------------------------------
+
+/**
+ * Talents who tapped "Notify me" for this webinar's language get a
+ * "new webinar scheduled — go register" notice: notification panel + push +
+ * the `talent_webinar_new_scheduled` WhatsApp template. Interests are kept
+ * (not consumed) so the talent hears about every future webinar until they
+ * unsubscribe. Talents already registered for this webinar are skipped.
+ */
+export async function sendNewWebinarNotices(webinar: WebinarRow): Promise<number> {
+  const language = webinar.language.trim().toLowerCase();
+  const { data: interests, error } = await supabaseAdmin
+    .from('training_webinar_interests')
+    .select('talent_user_id')
+    .eq('language', language)
+    .limit(2000);
+  if (error) {
+    console.error('[webinars] new-scheduled interest lookup failed:', error.message);
+    return 0;
+  }
+  const ids = [...new Set((interests ?? []).map((r: any) => r.talent_user_id as string).filter(Boolean))];
+  if (ids.length === 0) return 0;
+
+  const { data: regs } = await supabaseAdmin
+    .from('training_webinar_registrations')
+    .select('talent_user_id')
+    .eq('webinar_id', webinar.id)
+    .in('talent_user_id', ids);
+  const registered = new Set((regs ?? []).map((r: any) => r.talent_user_id as string));
+  const waiting = ids.filter((id) => !registered.has(id));
+  if (waiting.length === 0) return 0;
+
+  const { data: langs } = await supabaseAdmin
+    .from('webinar_languages')
+    .select('code, label')
+    .eq('code', language)
+    .maybeSingle();
+  const langLabel = ((langs as { label?: string } | null)?.label ?? webinar.language) as string;
+
+  const title = `New webinar: ${webinar.title}`;
+  const bodyFor = (phone: string | null) =>
+    `A new ${langLabel} webinar "${webinar.title}" is scheduled for ${formatWebinarTime(webinar.starts_at, phone)}. ` +
+    `Open Training → Upcoming webinars and register to save your seat.`;
+  try {
+    await notifyTalentsInApp(waiting, 'webinar_new_scheduled', title, bodyFor(null), '/talent/training');
+  } catch (e) {
+    console.error('[webinars] new-scheduled in-app notify failed:', e);
+  }
+  notifyBroadcast(waiting, { title, body: bodyFor(null), route: '/talent/training' }).catch((e) =>
+    console.error('[webinars] new-scheduled push failed:', e),
+  );
+
+  const { data: talents } = await supabaseAdmin
+    .from('talent_users')
+    .select('id, full_name, phone')
+    .in('id', waiting);
+  for (const t of (talents ?? []) as Array<{ id: string; full_name: string | null; phone: string | null }>) {
+    if (!t.phone) continue;
+    const first = String(t.full_name ?? '').trim().split(/\s+/)[0] || 'there';
+    void deliverCrmSystemEvent({
+      audience: 'talent',
+      event: WEBINAR_NEW_SCHEDULED_EVENT,
+      name: t.full_name ?? null,
+      phone: t.phone,
+      data: {
+        talent_name: first,
+        webinar_name: webinar.title,
+        language: langLabel,
+        date_time: webinar.starts_at,
+        date_time_text: formatWebinarTime(webinar.starts_at, t.phone),
+      },
+      bodyParams: [first, webinar.title, langLabel, formatWebinarTime(webinar.starts_at, t.phone)],
+    }).catch((e) => console.error('[webinars] new-scheduled WA threw:', e));
+  }
+  return waiting.length;
 }
 
 // ---------------------------------------------------------------------------
