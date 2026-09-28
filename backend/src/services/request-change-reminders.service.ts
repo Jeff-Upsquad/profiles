@@ -24,6 +24,7 @@ import { deliverCrmSystemEvent } from '../lib/crm-system-event.js';
 import { normalizeStage } from './crm-stage-mapping.js';
 import { talentAccountUrl } from './profile-review-changes.service.js';
 import { syncCrmHold } from './automation.service.js';
+import { hasExplicitOptOut, type ApplicationCancellations } from '../lib/applicant-cancellation.js';
 
 export const CHANGES_REMINDER_EVENT = 'talent_changes_reminder';
 export const CANCEL_WARNING_EVENT = 'talent_application_cancel_warning';
@@ -118,9 +119,10 @@ export interface RcStatus {
 /** Hub/journey view of where a talent is in the reminder sequence. */
 export function rcStatusFor(
   req: OpenChangeRequest | undefined,
-  t: { rc_anchor_at?: string | null; rc_reminders_sent?: number | null; rc_last_sent_at?: string | null },
+  t: { rc_anchor_at?: string | null; rc_reminders_sent?: number | null; rc_last_sent_at?: string | null;
+    application_cancellations?: ApplicationCancellations | null },
 ): RcStatus | null {
-  if (!req) return null;
+  if (!req || hasExplicitOptOut(t.application_cancellations)) return null;
   const sameCycle = !!t.rc_anchor_at && new Date(t.rc_anchor_at).getTime() === new Date(req.anchor).getTime();
   const sent = sameCycle ? t.rc_reminders_sent ?? 0 : 0;
   const last = sameCycle ? t.rc_last_sent_at ?? req.anchor : req.anchor;
@@ -138,7 +140,7 @@ const GRADUATED = 'onboarding completed';
 
 /** Still in the onboarding queue on at least one track and graduated on none. */
 function inOnboarding(t: any): boolean {
-  if (t.suspended || t.blacklisted || t.application_cancelled_at) return false;
+  if (t.suspended || t.blacklisted || t.application_cancelled_at || hasExplicitOptOut(t.application_cancellations)) return false;
   if (normalizeStage(t.crm_talent_stage_name ?? '') === GRADUATED) return false;
   if (normalizeStage(t.crm_jobs_stage_name ?? '') === GRADUATED) return false;
   const partner = t.partner_approval_status != null && t.partner_approval_status !== 'rejected' && t.pipeline_stage !== 'rejected';
@@ -228,7 +230,7 @@ async function cancelApplication(t: any) {
 
 const TALENT_COLUMNS =
   'id, full_name, phone, suspended, blacklisted, wants_jobs, partner_approval_status, pipeline_stage, jobs_pipeline_stage, ' +
-  'crm_talent_stage_name, crm_jobs_stage_name, application_cancelled_at, rc_anchor_at, rc_reminders_sent, rc_last_sent_at';
+  'crm_talent_stage_name, crm_jobs_stage_name, application_cancelled_at, application_cancellations, rc_anchor_at, rc_reminders_sent, rc_last_sent_at';
 
 /**
  * One pass of the reminder sequence. Cheap to call every tick — self-throttles.
@@ -250,10 +252,11 @@ export async function sweepRequestChangeReminders(now = Date.now()): Promise<voi
   // Asks resolved (resubmitted / accepted / profile deleted) → clear the sequence.
   const { data: tracked } = await supabaseAdmin
     .from('talent_users')
-    .select('id')
-    .not('rc_anchor_at', 'is', null)
-    .is('application_cancelled_at', null);
-  const resolved = (tracked ?? []).map((r: any) => r.id as string).filter((id) => !open.has(id));
+    .select('id, application_cancelled_at, application_cancellations')
+    .not('rc_anchor_at', 'is', null);
+  const resolved = (tracked ?? []).filter((r: any) =>
+    !open.has(r.id) || !!r.application_cancelled_at || hasExplicitOptOut(r.application_cancellations),
+  ).map((r: any) => r.id as string);
   for (let i = 0; i < resolved.length; i += 200) {
     await supabaseAdmin
       .from('talent_users')
@@ -292,6 +295,8 @@ async function stepTalent(t: any, req: OpenChangeRequest, now: number) {
       .update({ rc_anchor_at: req.anchor, rc_reminders_sent: 0, rc_last_sent_at: req.anchor })
       .eq('id', t.id)
       .is('application_cancelled_at', null)
+      .not('application_cancellations', 'cs', JSON.stringify({ partner: { reason: 'not_interested' } }))
+      .not('application_cancellations', 'cs', JSON.stringify({ jobs: { reason: 'not_interested' } }))
       .select('rc_anchor_at, rc_reminders_sent, rc_last_sent_at')
       .maybeSingle();
     if (!data) return;
@@ -313,6 +318,8 @@ async function stepTalent(t: any, req: OpenChangeRequest, now: number) {
     .eq('id', t.id)
     .eq('rc_reminders_sent', step)
     .is('application_cancelled_at', null)
+    .not('application_cancellations', 'cs', JSON.stringify({ partner: { reason: 'not_interested' } }))
+    .not('application_cancellations', 'cs', JSON.stringify({ jobs: { reason: 'not_interested' } }))
     .select('id');
   if (!claimed?.length) return;
 
@@ -340,17 +347,20 @@ export async function restoreCancelledApplication(talentId: string, track: 'part
     .maybeSingle();
   if (error) throw new AppError(500, error.message);
   if (!t) throw new AppError(404, 'Talent not found');
-  const cancellations = (t.application_cancellations ?? {}) as Record<string, unknown>;
+  const cancellations = (t.application_cancellations ?? {}) as ApplicationCancellations;
   if (!cancellations[track]) throw new AppError(400, 'This application is not cancelled');
 
   // Still-open asks restart their reminder sequence from now.
-  const req = t.application_cancelled_at ? (await openChangeRequests([talentId])).get(talentId) : null;
+  const remaining = Object.fromEntries(Object.entries(cancellations).filter(([key]) => key !== track)) as ApplicationCancellations;
+  const restartReminders = !!t.application_cancelled_at ||
+    (hasExplicitOptOut(cancellations) && !hasExplicitOptOut(remaining));
+  const req = restartReminders ? (await openChangeRequests([talentId])).get(talentId) : null;
   const now = new Date().toISOString();
   const { data, error: upErr } = await supabaseAdmin
     .from('talent_users')
     .update({
-      application_cancellations: Object.fromEntries(Object.entries(cancellations).filter(([key]) => key !== track)),
-      ...(t.application_cancelled_at ? {
+      application_cancellations: remaining,
+      ...(restartReminders ? {
         rc_anchor_at: req?.anchor ?? null,
         rc_reminders_sent: 0,
         rc_last_sent_at: req ? now : null,

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { cancellationChoice, pendingCancellation } from './applicant-cancellation.js';
+import { cancellationChoice, hasExplicitOptOut, pendingCancellation } from './applicant-cancellation.js';
 import { isLinked, isCatchUp } from './linked-tracks.js';
 
 test('accepts the three explicit choices, including authenticated button payloads', () => {
@@ -28,4 +28,10 @@ test('one cancelled track cannot be mirrored or caught up from the other track',
     assert.equal(isLinked({ ...t, tracks_linked: true, application_cancellations }), false);
     assert.equal(isCatchUp({ ...t, tracks_linked: false, application_cancellations }), false);
   }
+});
+test('an explicit opt-out pauses shared onboarding reminders even with Jobs active', () => {
+  assert.equal(hasExplicitOptOut({ partner: { reason: 'not_interested', at: '2026-09-28T00:00:00Z' } }), true);
+  assert.equal(hasExplicitOptOut({ jobs: { reason: 'not_interested', at: '2026-09-28T00:00:00Z' } }), true);
+  assert.equal(hasExplicitOptOut({ partner: { reason: 'no_response', at: '2026-09-28T00:00:00Z' } }), false);
+  assert.equal(hasExplicitOptOut({}), false);
 });

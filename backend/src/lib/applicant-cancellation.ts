@@ -1,6 +1,11 @@
 export type CancellationScope = 'partner' | 'jobs' | 'both';
 export type CancellationReason = 'no_response' | 'not_interested';
 export type ApplicationCancellations = Partial<Record<'partner' | 'jobs', { reason: CancellationReason; at: string }>>;
+/** The shared profile-change chase has no program label, so any explicit
+ * withdrawal pauses it even when the other application remains open. */
+export function hasExplicitOptOut(cancellations?: ApplicationCancellations | null): boolean {
+  return cancellations?.partner?.reason === 'not_interested' || cancellations?.jobs?.reason === 'not_interested';
+}
 export const CANCELLATION_QUESTION = "Which application are you no longer interested in? Please choose Partner Program, Jobs, or Both.";
 export const CANCELLATION_BUTTONS = [
   { id: 'cancel_application:partner', title: 'Partner Program' },
