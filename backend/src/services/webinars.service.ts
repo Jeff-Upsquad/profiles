@@ -863,6 +863,13 @@ async function sendStageReminder(
   stage: WebinarReminderStage,
 ): Promise<void> {
   if (talentIds.length === 0) return;
+  const { data: activeTalents, error: eligibilityError } = await supabaseAdmin
+    .from('talent_users').select('id, application_cancelled_at').in('id', talentIds);
+  if (eligibilityError) throw eligibilityError;
+  // General training reminders may still matter when one application remains
+  // open, but never send them after both applications are cancelled.
+  talentIds = (activeTalents ?? []).filter((t: any) => !t.application_cancelled_at).map((t: any) => t.id);
+  if (!talentIds.length) return;
   const copy = reminderCopy(stage, webinar.title, webinar.meeting_link);
   // 1) Notification panel (in-app rows).
   try {

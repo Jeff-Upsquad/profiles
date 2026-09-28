@@ -332,33 +332,36 @@ async function stepTalent(t: any, req: OpenChangeRequest, now: number) {
 }
 
 /** Admin restores a cancelled applicant back into the onboarding hub. */
-export async function restoreCancelledApplication(talentId: string) {
+export async function restoreCancelledApplication(talentId: string, track: 'partner' | 'jobs') {
   const { data: t, error } = await supabaseAdmin
     .from('talent_users')
-    .select('id, application_cancelled_at')
+    .select('id, application_cancellations, application_cancelled_at')
     .eq('id', talentId)
     .maybeSingle();
   if (error) throw new AppError(500, error.message);
   if (!t) throw new AppError(404, 'Talent not found');
-  if (!t.application_cancelled_at) throw new AppError(400, 'This application is not cancelled');
+  const cancellations = (t.application_cancellations ?? {}) as Record<string, unknown>;
+  if (!cancellations[track]) throw new AppError(400, 'This application is not cancelled');
 
   // Still-open asks restart their reminder sequence from now.
-  const req = (await openChangeRequests([talentId])).get(talentId);
+  const req = t.application_cancelled_at ? (await openChangeRequests([talentId])).get(talentId) : null;
   const now = new Date().toISOString();
   const { data, error: upErr } = await supabaseAdmin
     .from('talent_users')
     .update({
-      application_cancellations: {},
-      application_cancelled_at: null,
-      application_cancelled_reason: null,
-      rc_anchor_at: req?.anchor ?? null,
-      rc_reminders_sent: 0,
-      rc_last_sent_at: req ? now : null,
+      application_cancellations: Object.fromEntries(Object.entries(cancellations).filter(([key]) => key !== track)),
+      ...(t.application_cancelled_at ? {
+        rc_anchor_at: req?.anchor ?? null,
+        rc_reminders_sent: 0,
+        rc_last_sent_at: req ? now : null,
+      } : {}),
     })
     .eq('id', talentId)
+    .eq('application_cancellations', JSON.stringify(cancellations))
     .select('id, application_cancelled_at')
-    .single();
+    .maybeSingle();
   if (upErr) throw new AppError(500, upErr.message);
+  if (!data) throw new AppError(409, 'Application changed while restoring. Please retry.');
   await syncCrmHold(talentId, 'admin').catch((e) => console.error(`[rc-reminders] CRM hold sync failed for ${talentId}`, e));
   return data;
 }

@@ -29,3 +29,11 @@ Ask before moving any card, even when the first statement mentions a program. Do
 Confirm cancellation only after the update succeeds. If an update fails, send it to the team for checking. Automatic moves are disabled when the bot is off, in draft, practice, or approval mode. Administrators can restore cancelled applications; a bot must hand restoration requests to the team.
 
 The three-button question is a reusable interactive WhatsApp message sent in response to the applicant. It needs no approved Meta template within the open 24-hour reply window. Outside that window, do not send free-form messages.
+
+## Reminder handling after cancellation
+
+The SquadHire admin Cancelled Applicants module has Partner Program and Jobs tabs. A cancelled application appears in its tab and leaves that program's active onboarding queue. If only one application was cancelled, the other stays active. Restoring from a tab restores that application only.
+
+When a card enters either cancelled CRM pipeline, stop its scheduled one-to-one broadcasts, delayed stage moves, and rule-driven messages. Stop pending reply follow-ups on the shared WhatsApp thread too, because those messages do not identify a program. Stage-wide broadcasts continue for other candidates, but skip cancelled cards. Staff can still send a direct support reply or the cancellation confirmation. A cancellation answer should be processed before old queued follow-ups.
+
+The profile-change reminder sequence stops once all the person's applications are cancelled; if one application remains open, it can continue for that application. Jobs interview reminders stop when the Jobs application is cancelled. General webinar reminders stop once all applications are cancelled. A restored application can receive future relevant reminders; previously cancelled queued CRM sends do not resume automatically.

@@ -55,7 +55,12 @@ async function getAcceptedInviteTalents(roundId: string): Promise<string[]> {
     .select('talent_user_id')
     .eq('round_id', roundId)
     .eq('rsvp', 'accepted');
-  return (data ?? []).map((i: any) => i.talent_user_id as string);
+  const ids = (data ?? []).map((i: any) => i.talent_user_id as string);
+  if (!ids.length) return [];
+  const { data: talents, error } = await supabaseAdmin.from('talent_users')
+    .select('id, application_cancellations').in('id', ids);
+  if (error) throw error;
+  return (talents ?? []).filter((t: any) => !t.application_cancellations?.jobs?.at).map((t: any) => t.id);
 }
 
 async function sweepDayBeforeReminders(now: number): Promise<void> {

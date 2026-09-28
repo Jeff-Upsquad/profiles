@@ -653,10 +653,12 @@ export async function listHub(filters: HubListFilters) {
     if (filters.track === 'jobs') qb = qb.eq('wants_jobs', true);
     // Suspended / blacklisted talents live in Blocked Users, never the hub.
     qb = qb.not('suspended', 'is', true).not('blacklisted', 'is', true);
-    // Cancelled applicants live in their own section until restored.
+    // Each tab shows the status of that application, even when the other
+    // program is still active on the same talent account.
+    const cancellationKey = `application_cancellations->${filters.track === 'jobs' ? 'jobs' : 'partner'}->>at`;
     qb = view === 'cancelled'
-      ? qb.not('application_cancelled_at', 'is', null)
-      : qb.is('application_cancelled_at', null);
+      ? qb.not(cancellationKey, 'is', null)
+      : qb.is(cancellationKey, null);
     if (excludeIds.length > 0) qb = qb.not('id', 'in', `(${excludeIds.join(',')})`);
     if (view === 'rejected') {
       qb = filters.track === 'jobs'
@@ -744,8 +746,8 @@ export async function listHub(filters: HubListFilters) {
     rejected_at: rejectionFor(u, filters.track).at,
     partner_rejected: u.partner_approval_status === 'rejected' || u.pipeline_stage === 'rejected',
     jobs_rejected: u.jobs_pipeline_stage === 'rejected',
-    application_cancelled_at: u.application_cancelled_at ?? null,
-    application_cancelled_reason: u.application_cancelled_reason ?? null,
+    application_cancelled_at: u.application_cancellations?.[filters.track === 'jobs' ? 'jobs' : 'partner']?.at ?? null,
+    application_cancelled_reason: u.application_cancellations?.[filters.track === 'jobs' ? 'jobs' : 'partner']?.reason ?? null,
     under_request_changes: open.has(u.id),
     request_changes: rcStatusFor(open.get(u.id), u),
     message_failed: messageFailedFor(u),
@@ -832,7 +834,7 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
 
   let qb = supabaseAdmin
     .from('talent_users')
-    .select('id, approval_status, partner_approval_status, wants_jobs, pipeline_stage, jobs_pipeline_stage, crm_talent_stage_id, crm_jobs_stage_id, crm_talent_stage_name, crm_jobs_stage_name, application_cancelled_at, crm_message_failed_at')
+    .select('id, approval_status, partner_approval_status, wants_jobs, pipeline_stage, jobs_pipeline_stage, crm_talent_stage_id, crm_jobs_stage_id, crm_talent_stage_name, crm_jobs_stage_name, application_cancellations, crm_message_failed_at')
     .not('suspended', 'is', true)
     .not('blacklisted', 'is', true);
   if (categoryIds) qb = qb.in('id', categoryIds);
@@ -841,8 +843,9 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
   const [{ data: allRows, error }, open] = await Promise.all([qb, openChangeRequests()]);
   if (error) throw new AppError(500, error.message);
   // Cancelled applicants are counted for their own section only.
-  const cancelled = ((allRows ?? []) as any[]).filter((r) => r.application_cancelled_at).length;
-  const data = ((allRows ?? []) as any[]).filter((r) => !r.application_cancelled_at);
+  const cancellationTrack = track === 'jobs' ? 'jobs' : 'partner';
+  const cancelled = ((allRows ?? []) as any[]).filter((r) => r.application_cancellations?.[cancellationTrack]?.at).length;
+  const data = ((allRows ?? []) as any[]).filter((r) => !r.application_cancellations?.[cancellationTrack]?.at);
 
   // Same graduation rule as listHub: hide "Onboarding completed" from the queue.
   const visible = data.filter((r) => {

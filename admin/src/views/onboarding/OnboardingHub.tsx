@@ -315,7 +315,7 @@ export default function OnboardingHub({
   });
 
   const restoreCancelledMut = useMutation({
-    mutationFn: async (id: string) => (await api.patch(`/admin/user-approvals/${id}/restore-cancelled`)).data,
+    mutationFn: async (id: string) => (await api.patch(`/admin/user-approvals/${id}/restore-cancelled`, { track })).data,
     onSuccess: () => {
       toast.success('Restored to onboarding');
       updateQuery({ selected: null });
@@ -433,7 +433,7 @@ export default function OnboardingHub({
           <h1 className="text-2xl font-bold text-gray-900">{cancelledOnly ? 'Cancelled Applicants' : rejectedOnly ? 'Rejected / Disqualified' : track === 'partner' ? 'Partner Program Onboarding' : 'Jobs Onboarding'}</h1>
           <p className="mt-1 text-sm text-gray-500">
             {cancelledOnly
-              ? 'Applications cancelled after requested changes went unanswered (2 reminders + a final warning). The talent is locked out except Contact Support until you restore them.'
+              ? 'Applicants who stopped responding or said they are not interested. Each tab shows one program; its scheduled follow-ups stop until that application is restored.'
               : rejectedOnly
               ? 'Review rejection reasons, open the full talent journey, and restore applications to the start of onboarding.'
               : <>Every sign-up and how far they&apos;ve got — course, basic profile, job profile, portfolio —
@@ -757,7 +757,7 @@ export default function OnboardingHub({
                       {view === 'cancelled' ? (
                         <td className="max-w-xs px-3 py-2.5">
                           <span className="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">Cancelled</span>
-                          <p className="mt-1 text-sm text-gray-800">{u.application_cancelled_reason || '—'}</p>
+                          <p className="mt-1 text-sm text-gray-800">{u.application_cancelled_reason === 'not_interested' ? 'Not interested' : u.application_cancelled_reason === 'no_response' ? 'No response' : u.application_cancelled_reason || '—'}</p>
                           {u.application_cancelled_at && (
                             <p className="mt-0.5 text-[11px] text-gray-500" title={u.application_cancelled_at}>Cancelled {timeAgo(u.application_cancelled_at)}</p>
                           )}
@@ -837,7 +837,7 @@ export default function OnboardingHub({
                               type="button"
                               onClick={() => restoreCancelledMut.mutate(u.id)}
                               disabled={restoreCancelledMut.isPending}
-                              title="Restore to onboarding — reminders restart if changes are still open"
+                              title={`Restore ${track === 'jobs' ? 'Jobs' : 'Partner Program'} application`}
                               className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
                             >
                               Restore

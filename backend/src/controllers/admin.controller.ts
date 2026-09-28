@@ -380,7 +380,9 @@ export async function restoreRejectedUser(req: Request, res: Response, next: Nex
 export async function restoreCancelledUser(req: Request, res: Response, next: NextFunction) {
   try {
     const { restoreCancelledApplication } = await import('../services/request-change-reminders.service.js');
-    res.json(await restoreCancelledApplication(req.params.userId as string));
+    const track = req.body?.track;
+    if (track !== 'partner' && track !== 'jobs') { res.status(400).json({ message: 'Choose Partner Program or Jobs to restore' }); return; }
+    res.json(await restoreCancelledApplication(req.params.userId as string, track));
   } catch (err) { next(err); }
 }
 
