@@ -18,6 +18,15 @@ export interface HubBotConfig {
   status: HubStatus;
   ai: { provider: string | null; provider_kind: 'anthropic' | 'openai_compatible' | null; model: string | null; error: string | null };
   instructions: string;
+  jobs?: Array<{
+    id: string;
+    kind: 'conversation' | 'action';
+    audience: 'any' | 'candidates' | 'customers';
+    enabled: boolean;
+    person_ids: string[];
+    pipeline_id: string | null;
+    stage_id: string | null;
+  }>;
 }
 
 /** What to do with a WhatsApp reply, given the local mode and SquadHub's status. */

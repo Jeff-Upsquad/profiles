@@ -79,3 +79,83 @@ export function reportUsage(u: {
     signal: AbortSignal.timeout(TIMEOUT_MS),
   }).catch((err) => console.error('[squad-bot] usage report failed:', (err as Error)?.message ?? err));
 }
+
+export interface HubDoubt {
+  id: string;
+  event_id: string;
+  status: 'open' | 'instructed' | 'executing' | 'taken_over' | 'completed' | 'failed';
+  instruction: string | null;
+  execution_token: string | null;
+  resolved_by: string | null;
+}
+
+export function hubDoubtsConnected(): boolean {
+  return !!hubRequest('doubts');
+}
+
+async function hubJson<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+  const req = hubRequest(path);
+  if (!req) throw new Error('SquadHub bot key is not configured');
+  const response = await fetch(req.url, {
+    method,
+    headers: req.headers,
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  const json = await response.json() as { data?: T; error?: string };
+  if (!response.ok || json.data === undefined) throw new Error(json.error ?? `SquadHub http_${response.status}`);
+  return json.data;
+}
+
+export async function publishHubDoubt(body: {
+  event_id: string;
+  question: string;
+  context: string;
+  source_url: string;
+  job_id?: string;
+  target: { audience: 'candidates'; person_id?: string };
+}): Promise<HubDoubt> {
+  return hubJson<HubDoubt>('doubts', 'POST', body);
+}
+
+export async function pendingHubDoubts(page: number): Promise<HubDoubt[]> {
+  return hubJson<HubDoubt[]>(`doubts?status=instructed&page=${page}`);
+}
+
+export async function claimHubDoubt(id: string): Promise<HubDoubt | null> {
+  try {
+    return await hubJson<HubDoubt>(`doubts/${id}/claim`, 'POST', {});
+  } catch (error) {
+    // Another worker, a takeover, or a paused bot can leave this queued.
+    if (/already claimed|awaiting guidance|current mode|job is paused|outside its scope/i.test(String(error))) return null;
+    throw error;
+  }
+}
+
+export async function reportHubDoubtOutcome(id: string, token: string, status: 'completed' | 'failed', note: string): Promise<void> {
+  await hubJson<HubDoubt>(`doubts/${id}/outcome`, 'POST', { execution_token: token, status, note });
+}
+
+export interface HubLearning { id: string; question: string; instruction: string; created_at: string }
+let learningsCache: { at: number; rows: HubLearning[] } | null = null;
+/** Recent human guidance augments SquadHire's own Knowledge Center. */
+export async function hubLearnings(): Promise<HubLearning[]> {
+  if (!hubDoubtsConnected()) return [];
+  if (learningsCache && Date.now() - learningsCache.at < 60_000) return learningsCache.rows;
+  try {
+    const recent: HubLearning[] = [];
+    // SquadHub pages oldest first. Read through to the newest guidance while
+    // retaining only a bounded prompt-sized tail in memory.
+    for (let page = 0; page < 100; page++) {
+      const rows = await hubJson<HubLearning[]>(`learnings?page=${page}`);
+      recent.push(...rows);
+      if (recent.length > 50) recent.splice(0, recent.length - 50);
+      if (rows.length < 100) break;
+    }
+    learningsCache = { at: Date.now(), rows: recent };
+    return learningsCache.rows;
+  } catch (error) {
+    console.error('[squad-bot] SquadHub learnings unavailable:', (error as Error).message);
+    return learningsCache?.rows ?? [];
+  }
+}

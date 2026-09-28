@@ -41,7 +41,8 @@ import {
   type TalentBrief,
 } from '../lib/squad-bot-prompt.js';
 import { adminInstructions, appDelivery, botModel, whatsappDelivery, type HubStatus } from '../lib/squadhub-bot.js';
-import { hubBotConfig, hubStatus, reportUsage } from './squadhub-bot.service.js';
+import { handoffEventId, handoffSourceUrl, supportJobId } from '../lib/squad-bot-channel.js';
+import { hubBotConfig, hubDoubtsConnected, hubLearnings, hubStatus, publishHubDoubt, reportUsage } from './squadhub-bot.service.js';
 
 const HISTORY_TURNS = 30;
 const MAX_TALENT_MESSAGES_PER_HOUR = 40;
@@ -150,6 +151,8 @@ export interface ConversationRow {
   handoff_reason: string | null;
   handoff_summary: string | null;
   handoff_at: string | null;
+  hub_doubt_id?: string | null;
+  hub_doubt_handoff_at?: string | null;
   last_message_at: string;
 }
 
@@ -209,11 +212,20 @@ export async function recentLines(conversationId: string, limit: number) {
 }
 
 export async function handOff(conv: ConversationRow, reason: string, summary: string) {
-  await supabaseAdmin
+  const handoffAt = new Date().toISOString();
+  const { error } = await supabaseAdmin
     .from('squad_bot_conversations')
-    .update({ status: 'handoff', handoff_reason: reason, handoff_summary: summary, handoff_at: new Date().toISOString() })
+    .update({ status: 'handoff', handoff_reason: reason, handoff_summary: summary, handoff_at: handoffAt,
+      hub_doubt_id: null, hub_doubt_handoff_at: null, hub_execution_token: null,
+      hub_execution_outcome: null, hub_execution_note: null })
     .eq('id', conv.id);
+  if (error) throw new AppError(500, `Failed to hand off chat: ${error.message}`);
   await addMessage(conv.id, { sender: 'system', body: `Handed to the team (${reason.replace(/_/g, ' ')}): ${summary}` });
+  // The same saved handoff is retried by the sweeper if SquadHub is unavailable.
+  if (hubDoubtsConnected()) {
+    await publishHandoffToHub(conv.id).catch((err) =>
+      console.error('[squad-bot] channel handoff pending retry:', (err as Error).message));
+  }
   // Push to the team's CRM app so a person picks it up.
   const who = await contactOf(conv);
   void crmAlert({
@@ -222,6 +234,43 @@ export async function handOff(conv: ConversationRow, reason: string, summary: st
     lead_id: conv.crm_lead_id,
     phone: who.phone,
   });
+}
+
+/** Idempotent: a retry reuses the same event ID and never replaces guidance. */
+export async function publishHandoffToHub(conversationId: string): Promise<void> {
+  if (!hubDoubtsConnected()) return;
+  const { data, error } = await supabaseAdmin.from('squad_bot_conversations').select('*').eq('id', conversationId).maybeSingle();
+  if (error) throw error;
+  const conv = data as ConversationRow | null;
+  if (!conv || conv.status !== 'handoff' || !conv.handoff_at ||
+    (conv.hub_doubt_id && conv.hub_doubt_handoff_at === conv.handoff_at)) return;
+
+  const lines = await recentLines(conv.id, 8);
+  const lastTalent = [...lines].reverse().find((line: any) => line.sender === 'talent') as { body?: string } | undefined;
+  const context = [
+    `Reason: ${conv.handoff_reason ?? 'other'}`,
+    `Bot summary: ${conv.handoff_summary ?? ''}`,
+    ...lines.filter((line: any) => ['talent', 'bot', 'staff'].includes(line.sender))
+      .map((line: any) => `${line.sender}: ${line.body}`),
+  ].join('\n').slice(-12000);
+  const personId = conv.talent_user_id ?? conv.crm_lead_id;
+  const config = await hubBotConfig();
+  const jobId = supportJobId(config, personId);
+  // When jobs exist but none cover this conversation, still show the handoff
+  // by choosing a conversation job. SquadHub will block an out-of-scope claim.
+  const fallbackJobId = config?.jobs?.find((job) => job.kind === 'conversation')?.id;
+  const doubt = await publishHubDoubt({
+    event_id: handoffEventId(conv.id, conv.handoff_at),
+    question: (lastTalent?.body || conv.handoff_summary || 'A talent needs help').slice(0, 4000),
+    context,
+    source_url: handoffSourceUrl(env.SQUADHIRE_ADMIN_URL || 'https://squadhire.upsquadconnect.com', conv.id),
+    ...(jobId || fallbackJobId ? { job_id: jobId ?? fallbackJobId } : {}),
+    target: { audience: 'candidates', ...(personId ? { person_id: personId } : {}) },
+  });
+  const { error: updateError } = await supabaseAdmin.from('squad_bot_conversations')
+    .update({ hub_doubt_id: doubt.id, hub_doubt_handoff_at: conv.handoff_at })
+    .eq('id', conv.id).eq('status', 'handoff').eq('handoff_at', conv.handoff_at);
+  if (updateError) throw updateError;
 }
 
 async function contactOf(conv: ConversationRow): Promise<{ name: string; phone: string | null }> {
@@ -392,7 +441,7 @@ async function answer(
     };
   }
 
-  const [subject, rawLines, hub] = await Promise.all([subjectFor(conv), recentLines(conv.id, HISTORY_TURNS), hubBotConfig()]);
+  const [subject, rawLines, hub, learned] = await Promise.all([subjectFor(conv), recentLines(conv.id, HISTORY_TURNS), hubBotConfig(), hubLearnings()]);
   const model = botModel(hub, env.SQUAD_BOT_MODEL);
   const startedAt = Date.now();
   const lines = rawLines as Array<ChatLine & { created_at: string }>;
@@ -445,6 +494,8 @@ async function answer(
               introNote(isNewConversation(lines)),
               pendingCancellation(conv.cancellation_pending_at) ? 'A cancellation-scope question was sent less than 24 hours ago. Await a clear Partner Program / Jobs / Both choice; never infer Both from a vague yes or no.' : '',
               adminInstructions(hub),
+              learned.length ? 'Guidance saved by the UpSquad team. Apply only when relevant. Never reuse a person-specific account or payment fact for another person:\n' +
+                learned.slice(-20).map((row) => `Question: ${row.question}\nGuidance: ${row.instruction}`).join('\n\n').slice(-12000) : '',
               instructions,
               opts.instructed ? 'The newest team instruction was just given: act on it in this reply.' : '',
               channel === 'whatsapp' ? WHATSAPP_NOTE : '',
