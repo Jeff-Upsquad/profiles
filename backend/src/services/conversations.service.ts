@@ -1242,6 +1242,19 @@ export async function sweepMeetingReminders(): Promise<void> {
       .eq('id', row.conversation_id)
       .maybeSingle();
     if (!convo) continue;
+    const { data: applicant, error: eligibilityError } = await supabaseAdmin
+      .from('talent_users')
+      .select('application_cancellations')
+      .eq('id', (convo as ConversationRow).talent_user_id)
+      .maybeSingle();
+    if (eligibilityError) {
+      console.error('[intro] applicant cancellation check failed', eligibilityError.message);
+      continue;
+    }
+    if (applicant?.application_cancellations?.jobs?.at) {
+      await supabaseAdmin.from('intro_meetings').update({ reminder_sent_at: new Date().toISOString() }).eq('id', row.id);
+      continue;
+    }
     const when = new Date(row.starts_at as string).toLocaleString('en-IN', {
       dateStyle: 'medium',
       timeStyle: 'short',
