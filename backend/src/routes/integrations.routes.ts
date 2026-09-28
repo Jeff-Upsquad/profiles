@@ -1,3 +1,4 @@
+import * as supportChatController from '../controllers/support-chat.controller.js';
 import { Router } from 'express';
 import * as integrationsController from '../controllers/integrations.controller.js';
 import * as candidatesController from '../controllers/integrations-candidates.controller.js';
@@ -35,6 +36,11 @@ import {
  */
 
 const router = Router();
+
+// CRM's authenticated Support Chat module; uses the existing CRM shared secret.
+router.get('/squadcrm/support-chat', verifySquadcrmSecret, supportChatController.supportChats);
+router.get('/squadcrm/support-chat/:id', verifySquadcrmSecret, supportChatController.supportChat);
+router.post('/squadcrm/support-chat/:id/:action', verifySquadcrmSecret, supportChatController.supportChatAction);
 
 router.post(
   '/squadhub/partner-ios-waitlist',

@@ -20,3 +20,11 @@ export function supportJobId(config: HubBotConfig | null, personId: string | nul
     !job.pipeline_id && !job.stage_id);
   return (matches.find((job) => job.enabled) ?? matches[0])?.id;
 }
+
+/** Exact source for a handoff in the CRM's app or WhatsApp inbox. */
+export function supportSourceUrl(base: string, conversationId: string, channel: 'app' | 'whatsapp', leadId: string | null): string {
+  const useWhatsApp = channel === 'whatsapp' && !!leadId;
+  const url = new URL(useWhatsApp ? '/app/inbox' : '/app/support-chat', base);
+  url.searchParams.set(useWhatsApp ? 'lead' : 'chat', useWhatsApp ? leadId! : conversationId);
+  return url.toString();
+}

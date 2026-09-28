@@ -40,6 +40,7 @@ const envSchema = z.object({
   // app). With it, SquadHub's on/off switch, model and extra instructions apply
   // and each Claude call shows in SquadHub. Unset → this app's settings only.
   SQUADHUB_BOT_KEY: z.string().startsWith('sbk_').optional(),
+  SQUADHIRE_CRM_WEB_URL: z.string().url().default('https://shcrm.squadhub.in'),
 
   // SquadHub integration (inbound webhook + outbound callback for subscription cards).
   // All three are optional at startup — if the inbound secret is unset the webhook

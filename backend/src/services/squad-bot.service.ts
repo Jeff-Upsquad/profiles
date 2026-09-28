@@ -41,7 +41,7 @@ import {
   type TalentBrief,
 } from '../lib/squad-bot-prompt.js';
 import { adminInstructions, appDelivery, botModel, whatsappDelivery, type HubStatus } from '../lib/squadhub-bot.js';
-import { handoffEventId, handoffSourceUrl, supportJobId } from '../lib/squad-bot-channel.js';
+import { handoffEventId, handoffSourceUrl, supportJobId, supportSourceUrl } from '../lib/squad-bot-channel.js';
 import { hubBotConfig, hubDoubtsConnected, hubLearnings, hubStatus, publishHubDoubt, reportUsage } from './squadhub-bot.service.js';
 
 const HISTORY_TURNS = 30;
@@ -127,7 +127,7 @@ async function confirmCancellation(conv: ConversationRow, text: string, channel:
     await supabaseAdmin.from('squad_bot_conversations').update({ cancellation_pending_at: null }).eq('id', conv.id);
   } catch (err) {
     handoff = { reason: 'account_status', summary: `Applicant selected ${scope} to cancel, but the update needs checking: ${(err as Error).message}` };
-    await handOff(conv, handoff.reason, handoff.summary);
+    await handOff(conv, handoff.reason, handoff.summary, channel);
     body = "I've asked the team to check your cancellation request. They'll confirm it here.";
   }
   const message = await addMessage(conv.id, { sender: 'bot', body, channel, meta: { cancellation_scope: scope } });
@@ -153,6 +153,7 @@ export interface ConversationRow {
   handoff_at: string | null;
   hub_doubt_id?: string | null;
   hub_doubt_handoff_at?: string | null;
+  handoff_channel?: 'app' | 'whatsapp' | null;
   last_message_at: string;
 }
 
@@ -200,28 +201,30 @@ export async function addMessage(
   return data;
 }
 
-export async function recentLines(conversationId: string, limit: number) {
-  const { data, error } = await supabaseAdmin
+export async function recentLines(conversationId: string, limit: number, channel?: 'app' | 'whatsapp') {
+  let query = supabaseAdmin
     .from('squad_bot_messages')
     .select(MESSAGE_COLUMNS)
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: false })
     .limit(limit);
+  if (channel) query = query.eq('channel', channel);
+  const { data, error } = await query;
   if (error) throw new AppError(500, `Failed to load messages: ${error.message}`);
   return (data ?? []).reverse();
 }
 
-export async function handOff(conv: ConversationRow, reason: string, summary: string) {
+export async function handOff(conv: ConversationRow, reason: string, summary: string, channel: 'app' | 'whatsapp' = 'app') {
   const handoffAt = new Date().toISOString();
   const { error } = await supabaseAdmin
     .from('squad_bot_conversations')
     .update({ status: 'handoff', handoff_reason: reason, handoff_summary: summary, handoff_at: handoffAt,
-      hub_doubt_id: null, hub_doubt_handoff_at: null, hub_execution_token: null,
-      hub_execution_outcome: null, hub_execution_note: null })
+      handoff_channel: channel, hub_doubt_id: null, hub_doubt_handoff_at: null,
+      hub_execution_token: null, hub_execution_outcome: null, hub_execution_note: null })
     .eq('id', conv.id);
   if (error) throw new AppError(500, `Failed to hand off chat: ${error.message}`);
-  await addMessage(conv.id, { sender: 'system', body: `Handed to the team (${reason.replace(/_/g, ' ')}): ${summary}` });
-  // The same saved handoff is retried by the sweeper if SquadHub is unavailable.
+  await addMessage(conv.id, { sender: 'system', channel, body: `Handed to the team (${reason.replace(/_/g, ' ')}): ${summary}` });
+  // SquadHub's existing durable bridge owns delivery and retries.
   if (hubDoubtsConnected()) {
     await publishHandoffToHub(conv.id).catch((err) =>
       console.error('[squad-bot] channel handoff pending retry:', (err as Error).message));
@@ -263,7 +266,11 @@ export async function publishHandoffToHub(conversationId: string): Promise<void>
     event_id: handoffEventId(conv.id, conv.handoff_at),
     question: (lastTalent?.body || conv.handoff_summary || 'A talent needs help').slice(0, 4000),
     context,
-    source_url: handoffSourceUrl(env.SQUADHIRE_ADMIN_URL || 'https://squadhire.upsquadconnect.com', conv.id),
+    source_url: conv.handoff_channel === 'app'
+      ? supportSourceUrl(env.SQUADHIRE_CRM_WEB_URL, conv.id, 'app', conv.crm_lead_id)
+      : conv.handoff_channel === 'whatsapp' && conv.crm_lead_id
+        ? supportSourceUrl(env.SQUADHIRE_CRM_WEB_URL, conv.id, 'whatsapp', conv.crm_lead_id)
+        : handoffSourceUrl(env.SQUADHIRE_ADMIN_URL || 'https://squadhire.upsquadconnect.com', conv.id),
     ...(jobId || fallbackJobId ? { job_id: jobId ?? fallbackJobId } : {}),
     target: { audience: 'candidates', ...(personId ? { person_id: personId } : {}) },
   });
@@ -346,7 +353,7 @@ export async function getTalentChat(talentUserId: string) {
   const conv = await conversationFor(talentUserId);
   // The app shows the app side only; WhatsApp lines (incl. drafts a recruiter
   // may have dismissed) live in the CRM chat. Squad Bot still reads both.
-  const messages = (await recentLines(conv.id, 100)).filter(
+  const messages = (await recentLines(conv.id, 100, 'app')).filter(
     (m: any) => ['talent', 'bot', 'staff'].includes(m.sender) && m.channel !== 'whatsapp',
   );
   return { status: conv.status, messages };
@@ -391,7 +398,7 @@ export async function sendTalentMessage(talentUserId: string, text: string) {
   }
 
   const reply = await answer(conv, 'app');
-  return { status: reply.status, messages: [talentMsg, reply.message] };
+  return { status: reply.status, messages: [talentMsg, reply.message].filter(Boolean) };
 }
 
 /** Who Squad Bot is talking to, and the knowledge that applies to them. */
@@ -433,7 +440,7 @@ async function answer(
   if (!api && opts.deliver === 'note') return { status: conv.status, message: null, handoff: null };
   if (!api) {
     if (opts.instructed) throw new AppError(503, 'Squad Bot is not switched on yet (no ANTHROPIC_API_KEY).');
-    await handOff(conv, 'other', 'Squad Bot is not switched on yet (no ANTHROPIC_API_KEY), so this came straight to the team.');
+    await handOff(conv, 'other', 'Squad Bot is not switched on yet (no ANTHROPIC_API_KEY), so this came straight to the team.', channel);
     return {
       status: 'handoff' as const,
       handoff: { reason: 'other', summary: 'Squad Bot is not switched on.' },
@@ -576,10 +583,14 @@ async function answer(
   if (cancellationAction === 'ask') meta.cancellation_question = true;
   if (opts.instructed && handoff) {
     // Couldn't do it: tell the team, not the talent.
-    await addMessage(conv.id, { sender: 'system', body: `Squad Bot couldn't do that: ${handoff.summary}`, meta });
+    await addMessage(conv.id, { sender: 'system', channel, body: `Squad Bot couldn't do that: ${handoff.summary}`, meta });
     return { status: 'handoff' as const, message: null, handoff };
   }
-  if (handoff) await handOff(conv, handoff.reason, handoff.summary);
+  if (!opts.instructed) {
+    const current = await getConversation(conv.id) as ConversationRow;
+    if (current.status === 'handoff') return { status: 'handoff' as const, message: null, handoff: null };
+  }
+  if (handoff) await handOff(conv, handoff.reason, handoff.summary, channel);
   const message = await addMessage(conv.id, { sender: 'bot', body: text.trim() || HANDOFF_MESSAGE, channel, meta });
   return { status: handoff ? ('handoff' as const) : ('bot' as const), message, handoff,
     reply_buttons: cancellationAction === 'ask' ? CANCELLATION_BUTTONS : undefined };
@@ -783,14 +794,14 @@ export async function getConversation(id: string) {
   return { ...(conv as any), messages: await recentLines(id, 300) };
 }
 
-export async function staffReply(id: string, staff: { id: string; name: string }, text: string) {
+export async function staffReply(id: string, staff: { id: string; name: string }, text: string, replyChannel?: 'app' | 'whatsapp') {
   const body = text.trim();
   if (!body) throw new AppError(400, 'Reply is empty');
   const conv = (await getConversation(id)) as ConversationRow & { messages: Array<{ sender: string; channel?: string }> };
 
   // Reply where the person last wrote: WhatsApp goes out through the CRM.
   const lastFromThem = [...conv.messages].reverse().find((m) => m.sender === 'talent');
-  if (lastFromThem?.channel === 'whatsapp' && conv.crm_lead_id) {
+  if ((replyChannel ?? lastFromThem?.channel) === 'whatsapp' && conv.crm_lead_id) {
     const sent = await crmPost('reply', { lead_id: conv.crm_lead_id, text: body, mode: 'send', staff_name: staff.name });
     if (!sent?.ok) {
       throw new AppError(502, sent?.error === 'outside_24h_window'
@@ -814,15 +825,16 @@ export async function staffReply(id: string, staff: { id: string; name: string }
  * instruction stays private; Squad Bot carries it out and replies to the talent
  * where they last wrote. Instructions also feed the learning loop.
  */
-export async function instructBot(id: string, staff: { id: string; name: string }, text: string) {
+export async function instructBot(id: string, staff: { id: string; name: string }, text: string, replyChannel?: 'app' | 'whatsapp') {
   const body = text.trim();
   if (!body) throw new AppError(400, 'Instruction is empty');
-  if ((await hubStatus()) === 'off') throw new AppError(409, 'Squad Hiring Bot is turned off in SquadHub admin. Switch it on there first.');
+  const status = await hubStatus();
+  if (status === 'off' || status === 'practice') throw new AppError(409, 'Squad Hiring Bot cannot send replies in Off or Practice mode. Change its mode in SquadHub first.');
   const conv = (await getConversation(id)) as ConversationRow & { messages: Array<{ sender: string; channel?: string }> };
-  const instruction = await addMessage(id, { sender: 'instruction', body, staff_user_id: staff.id, staff_name: staff.name });
+  const instruction = await addMessage(id, { sender: 'instruction', body, channel: replyChannel ?? 'app', staff_user_id: staff.id, staff_name: staff.name });
 
   const lastFromThem = [...conv.messages].reverse().find((m) => m.sender === 'talent');
-  const channel = lastFromThem?.channel === 'whatsapp' && conv.crm_lead_id ? 'whatsapp' : 'app';
+  const channel = replyChannel ?? (lastFromThem?.channel === 'whatsapp' && conv.crm_lead_id ? 'whatsapp' : 'app');
   const reply = await answer(conv, channel, { instructed_by: staff.name }, { instructed: true });
 
   if (reply.message) {

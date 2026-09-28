@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handoffEventId, handoffSourceUrl, supportJobId } from './squad-bot-channel.js';
+import { handoffEventId, handoffSourceUrl, supportJobId, supportSourceUrl } from './squad-bot-channel.js';
 import type { HubBotConfig } from './squadhub-bot.js';
 
 test('a handoff retries with the same event and a later handoff gets a new one', () => {
@@ -28,4 +28,9 @@ test('support doubts attach only a candidate conversation job in scope', () => {
   };
   assert.equal(supportJobId(config, 'talent-1'), 'support');
   assert.equal(supportJobId({ ...config, jobs: config.jobs?.slice(0, 2) }, 'talent-1'), undefined);
+});
+
+test('support handoffs link to the correct CRM channel', () => {
+  assert.equal(supportSourceUrl('https://shcrm.squadhub.in', 'chat', 'app', 'lead'), 'https://shcrm.squadhub.in/app/support-chat?chat=chat');
+  assert.equal(supportSourceUrl('https://shcrm.squadhub.in', 'chat', 'whatsapp', 'lead'), 'https://shcrm.squadhub.in/app/inbox?lead=lead');
 });

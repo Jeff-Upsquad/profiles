@@ -35,7 +35,7 @@ async function executeInstruction(id: string, eventId: string): Promise<void> {
   // Only process SquadHire handoffs. Other connected apps use the same bot key.
   if (!eventId.startsWith('squadhire:handoff:')) return;
   const { data: local, error } = await supabaseAdmin.from('squad_bot_conversations')
-    .select('id, status, handoff_at').eq('hub_doubt_id', id).maybeSingle();
+    .select('id, status, handoff_at, handoff_channel').eq('hub_doubt_id', id).maybeSingle();
   if (error) throw error;
   // A missing local chat still needs an outcome so it cannot be retried forever.
   const claimed = await claimHubDoubt(id);
@@ -60,7 +60,7 @@ async function executeInstruction(id: string, eventId: string): Promise<void> {
     }
     if (!claimed.instruction?.trim()) throw new Error('The saved instruction is empty');
     const actor = { id: claimed.resolved_by || '00000000-0000-0000-0000-000000000000', name: 'SquadHub teammate' };
-    const result = await instructBot(local.id, actor, claimed.instruction);
+    const result = await instructBot(local.id, actor, claimed.instruction, local.handoff_channel ?? undefined);
     if (!result.message) throw new Error('Squad Bot could not complete the instruction');
     await handBack(local.id, actor);
   } catch (err) {

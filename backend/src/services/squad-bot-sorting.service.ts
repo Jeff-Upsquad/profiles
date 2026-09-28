@@ -112,7 +112,7 @@ export async function sortWhatsAppContact(msg: WhatsAppInbound): Promise<void> {
       }
     }
     if (result.move) await moveContact(conv, msg.lead_id, result.move.role, result.move.summary);
-    else if (result.handoff) await handOff(conv, result.handoff.reason, result.handoff.summary);
+    else if (result.handoff) await handOff(conv, result.handoff.reason, result.handoff.summary, 'whatsapp');
   } catch (err) {
     console.error('[squad-bot] sorting message failed:', (err as Error)?.message ?? err);
   }
@@ -236,7 +236,7 @@ async function moveContact(conv: ConversationRow, leadId: string, role: SortRole
   const why = moved?.error === 'already_on_board'
     ? `They already have a card on ${role.pipeline}, so their Default Candidate Pipeline card was left for you to tidy up.`
     : `Squad Bot couldn't move them to ${role.pipeline} (${moved?.error ?? 'CRM not connected'}).`;
-  await handOff(conv, 'other', `${summary ? `${summary}. ` : ''}${why}`);
+  await handOff(conv, 'other', `${summary ? `${summary}. ` : ''}${why}`, 'whatsapp');
 }
 
 // ---------------------------------------------------------------------------
