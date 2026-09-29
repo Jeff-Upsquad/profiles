@@ -373,5 +373,9 @@ export async function restoreCancelledApplication(talentId: string, track: 'part
   if (upErr) throw new AppError(500, upErr.message);
   if (!data) throw new AppError(409, 'Application changed while restoring. Please retry.');
   await syncCrmHold(talentId, 'admin').catch((e) => console.error(`[rc-reminders] CRM hold sync failed for ${talentId}`, e));
+  const { notifyApplicationDecision } = await import('./application-decision.service.js');
+  void notifyApplicationDecision({ talentUserId: talentId, track, decision: 'restored' }).catch((e) =>
+    console.error(`[rc-reminders] application restored notification failed for ${talentId}`, e)
+  );
   return data;
 }

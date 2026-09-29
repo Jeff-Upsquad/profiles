@@ -13,7 +13,7 @@ import { notifyTalentsInApp } from './jobs.service.js';
 // decision itself always stands.
 
 export type ApplicationTrack = 'partner' | 'jobs';
-export type ApplicationDecision = 'approved' | 'rejected';
+export type ApplicationDecision = 'approved' | 'rejected' | 'restored';
 
 const PROGRAM_LABEL: Record<ApplicationTrack, string> = {
   partner: 'UpSquad Partner Program',
@@ -26,6 +26,12 @@ function copyFor(track: ApplicationTrack, decision: ApplicationDecision, reason:
     return {
       title: `Your ${program} application is approved`,
       body: 'Welcome aboard! Continue your onboarding to get started.',
+    };
+  }
+  if (decision === 'restored') {
+    return {
+      title: `Your ${program} application is restored`,
+      body: 'Your application has been restored. Continue your onboarding to get started.',
     };
   }
   return {
@@ -97,7 +103,7 @@ export async function notifyApplicationDecision(input: {
       kind,
       title,
       body,
-      input.decision === 'approved' ? '/talent/dashboard' : null,
+      input.decision === 'approved' || input.decision === 'restored' ? '/talent/dashboard' : null,
     ),
     email
       ? notifySquadHubPartner({ email, kind, title, body }).catch((err) =>

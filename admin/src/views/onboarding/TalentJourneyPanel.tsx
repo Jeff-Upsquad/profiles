@@ -545,7 +545,7 @@ export default function TalentJourneyPanel({
   });
 
   const restoreCancelledMut = useMutation({
-    mutationFn: async () => (await api.patch(`/admin/user-approvals/${userId}/restore-cancelled`)).data,
+    mutationFn: async () => (await api.patch(`/admin/user-approvals/${userId}/restore-cancelled`, { track })).data,
     onSuccess: () => {
       toast.success('Restored to onboarding');
       refresh();
