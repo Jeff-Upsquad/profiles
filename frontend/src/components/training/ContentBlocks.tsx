@@ -328,7 +328,7 @@ function Missing({ children }: { children: ReactNode }) {
   );
 }
 
-export function ContentBlockView({ block, language }: { block: ContentBlock; language?: string | null }) {
+export function ContentBlockView({ block, language, quizPath = '/talent/training/blocks' }: { block: ContentBlock; language?: string | null; quizPath?: string }) {
   switch (block.type) {
     case 'text':
       return <RichText content={block.text_content} blockId={block.id} />;
@@ -427,7 +427,7 @@ export function ContentBlockView({ block, language }: { block: ContentBlock; lan
     }
 
     case 'quiz':
-      return <QuizBlock block={block} />;
+      return <QuizBlock block={block} quizPath={quizPath} />;
 
     default:
       return null;
@@ -439,7 +439,7 @@ export function ContentBlockView({ block, language }: { block: ContentBlock; lan
  * correct options — so the result only appears after submitting, and the
  * explanation with it.
  */
-function QuizBlock({ block }: { block: ContentBlock }) {
+function QuizBlock({ block, quizPath }: { block: ContentBlock; quizPath: string }) {
   const questions = [...(block.quiz_questions ?? [])].sort((a, b) => a.position - b.position);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [results, setResults] = useState<QuizResult[] | null>(null);
@@ -456,7 +456,7 @@ function QuizBlock({ block }: { block: ContentBlock }) {
     setSubmitting(true);
     setError(null);
     try {
-      const { data } = await api.post(`/talent/training/blocks/${block.id}/quiz`, { answers });
+      const { data } = await api.post(`${quizPath}/${block.id}/quiz`, { answers });
       setResults(data.results ?? []);
       setScore(data.score_percent ?? 0);
     } catch (err: unknown) {
@@ -606,11 +606,13 @@ export default function ContentBlocks({
   blocks,
   className = 'space-y-5',
   language,
+  quizPath,
 }: {
   blocks: ContentBlock[] | undefined;
   className?: string;
   /** Preferred video language; blocks without that alternate use their default. */
   language?: string | null;
+  quizPath?: string;
 }) {
   if (!blocks || blocks.length === 0) return null;
   return (
@@ -618,7 +620,7 @@ export default function ContentBlocks({
       {[...blocks]
         .sort((a, b) => a.position - b.position)
         .map((block) => (
-          <ContentBlockView key={block.id} block={block} language={language} />
+          <ContentBlockView key={block.id} block={block} language={language} quizPath={quizPath} />
         ))}
     </div>
   );

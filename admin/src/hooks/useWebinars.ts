@@ -8,6 +8,7 @@ export interface Webinar {
   starts_at: string;
   language: string;
   meeting_link: string;
+  recipient_type: 'talent' | 'agency';
   audience: 'all' | 'thailand';
   status: 'draft' | 'published' | 'cancelled' | 'completed';
   created_at: string;
@@ -19,6 +20,7 @@ export interface WebinarForm {
   starts_at: string;
   language: string;
   meeting_link: string;
+  recipient_type: 'talent' | 'agency';
   audience: 'all' | 'thailand';
   status: 'draft' | 'published' | 'cancelled' | 'completed';
 }

@@ -1,9 +1,11 @@
 'use client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { agencyApi } from '@/services/agency-api';
+import { useAgencyTrainingStatus } from '@/hooks/useAgencyTraining';
 
 /** Whether this agency has completed (locked = no services set). */
 export function useAgencyCanRespond(opts: { enabled?: boolean } = {}) {
+  const training = useAgencyTrainingStatus();
   return useQuery({
     queryKey: ['agencyCanRespond'],
     queryFn: () => agencyApi.getProfile(),
@@ -11,7 +13,7 @@ export function useAgencyCanRespond(opts: { enabled?: boolean } = {}) {
       const services = Array.isArray(profile?.services) ? profile.services : [];
       return { canRespond: services.length > 0, serviceCount: services.length };
     },
-    enabled: opts.enabled ?? true,
+    enabled: (opts.enabled ?? true) && training.data?.completed === true,
   });
 }
 

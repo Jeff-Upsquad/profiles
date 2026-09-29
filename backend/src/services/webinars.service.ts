@@ -23,6 +23,7 @@ export interface WebinarRow {
   language: string;
   meeting_link: string;
   audience: string;
+  recipient_type: 'talent' | 'agency';
   status: string;
   created_at: string;
 }
@@ -233,19 +234,19 @@ export async function removeWebinarInterest(talentUserId: string, language: stri
 export async function listAdminWebinars() {
   const { data, error } = await supabaseAdmin
     .from('training_webinars')
-    .select('id, title, starts_at, language, meeting_link, audience, status, created_at')
+    .select('id, title, starts_at, language, meeting_link, audience, recipient_type, status, created_at')
     .order('starts_at', { ascending: true })
     .limit(200);
   if (error) throw new AppError(500, `Failed to list webinars: ${error.message}`);
   const webinars = data ?? [];
   if (webinars.length === 0) return [];
   const ids = webinars.map((w: any) => w.id);
-  const { data: regs } = await supabaseAdmin
-    .from('training_webinar_registrations')
-    .select('webinar_id')
-    .in('webinar_id', ids);
+  const [talentRegs, agencyRegs] = await Promise.all([
+    supabaseAdmin.from('training_webinar_registrations').select('webinar_id').in('webinar_id', ids),
+    supabaseAdmin.from('agency_webinar_registrations').select('webinar_id').in('webinar_id', ids),
+  ]);
   const counts = new Map<string, number>();
-  for (const r of regs ?? []) {
+  for (const r of [...(talentRegs.data ?? []), ...(agencyRegs.data ?? [])]) {
     const id = (r as any).webinar_id as string;
     counts.set(id, (counts.get(id) ?? 0) + 1);
   }
@@ -264,16 +265,19 @@ export async function createWebinar(input: CreateWebinarInput, createdBy: string
       starts_at: startsAt.toISOString(),
       language,
       meeting_link: input.meeting_link.trim(),
-      audience: input.audience,
+      audience: input.recipient_type === 'agency' ? 'all' : input.audience,
+      recipient_type: input.recipient_type,
       status: input.status,
       created_by: createdBy,
     })
-    .select('id, title, starts_at, language, meeting_link, audience, status, created_at')
+    .select('id, title, starts_at, language, meeting_link, audience, recipient_type, status, created_at')
     .single();
   if (error || !data) throw new AppError(500, error?.message ?? 'Could not create webinar');
   // A fresh published webinar fulfils waiting Notify-me subscribers.
   if ((data as any).status === 'published') {
-    void sendNewWebinarNotices(data as WebinarRow).catch((e) =>
+    void (data.recipient_type === 'agency'
+      ? import('./agency-webinars.service.js').then((svc) => svc.sendAgencyNewScheduled(data as WebinarRow))
+      : sendNewWebinarNotices(data as WebinarRow)).catch((e) =>
       console.error('[webinars] new-scheduled notices failed for', (data as any).id, e),
     );
   }
@@ -291,15 +295,28 @@ export async function updateWebinar(id: string, input: UpdateWebinarInput) {
   if (input.language !== undefined) patch.language = await assertWebinarLanguageAllowed(input.language);
   if (input.meeting_link !== undefined) patch.meeting_link = input.meeting_link.trim();
   if (input.audience !== undefined) patch.audience = input.audience;
+  if (input.recipient_type !== undefined) patch.recipient_type = input.recipient_type;
   if (input.status !== undefined) patch.status = input.status;
   if (Object.keys(patch).length === 0) throw new AppError(400, 'Nothing to update');
   patch.updated_at = new Date().toISOString();
-  const { data: before } = await supabaseAdmin.from('training_webinars').select('starts_at, status').eq('id', id).maybeSingle();
+  const { data: before } = await supabaseAdmin.from('training_webinars')
+    .select('starts_at, status, recipient_type').eq('id', id).maybeSingle();
+  if (!before) throw new AppError(404, 'Webinar not found');
+  if (input.recipient_type && input.recipient_type !== before.recipient_type) {
+    const [talentRegs, agencyRegs] = await Promise.all([
+      supabaseAdmin.from('training_webinar_registrations').select('id', { count: 'exact', head: true }).eq('webinar_id', id),
+      supabaseAdmin.from('agency_webinar_registrations').select('agency_user_id', { count: 'exact', head: true }).eq('webinar_id', id),
+    ]);
+    if ((talentRegs.count ?? 0) + (agencyRegs.count ?? 0) > 0) {
+      throw new AppError(409, 'This webinar already has registrations. Create a new webinar for the other audience.');
+    }
+  }
+  if ((input.recipient_type ?? before.recipient_type) === 'agency') patch.audience = 'all';
   const { data, error } = await supabaseAdmin
     .from('training_webinars')
     .update(patch)
     .eq('id', id)
-    .select('id, title, starts_at, language, meeting_link, audience, status, created_at')
+    .select('id, title, starts_at, language, meeting_link, audience, recipient_type, status, created_at')
     .single();
   if (error || !data) throw new AppError(404, error?.message ?? 'Webinar not found');
   // A moved start time means the old reminder stamps are for the wrong slot.
@@ -308,13 +325,18 @@ export async function updateWebinar(id: string, input: UpdateWebinarInput) {
   }
   // Marked completed → tell registrants who weren't ticked as attended.
   if (before && (before as any).status !== 'completed' && data.status === 'completed') {
-    void sendMissedWebinarNotices(data as WebinarRow).catch((e) =>
+    void (data.recipient_type === 'agency'
+      ? import('./agency-webinars.service.js').then((svc) => svc.sendAgencyMissed(data as WebinarRow))
+      : sendMissedWebinarNotices(data as WebinarRow)).catch((e) =>
       console.error('[webinars] missed notices failed for', id, e),
     );
   }
   // Draft → published fulfils waiting Notify-me subscribers, same as a fresh publish.
-  if (before && (before as any).status !== 'published' && data.status === 'published') {
-    void sendNewWebinarNotices(data as WebinarRow).catch((e) =>
+  if (before && data.status === 'published' &&
+      ((before as any).status !== 'published' || before.recipient_type !== data.recipient_type)) {
+    void (data.recipient_type === 'agency'
+      ? import('./agency-webinars.service.js').then((svc) => svc.sendAgencyNewScheduled(data as WebinarRow))
+      : sendNewWebinarNotices(data as WebinarRow)).catch((e) =>
       console.error('[webinars] new-scheduled notices failed for', id, e),
     );
   }
@@ -322,11 +344,12 @@ export async function updateWebinar(id: string, input: UpdateWebinarInput) {
 }
 
 async function resetReminderStamps(webinarId: string): Promise<void> {
-  const { error } = await supabaseAdmin
-    .from('training_webinar_registrations')
-    .update({ day_notified_at: null, min30_notified_at: null, min5_notified_at: null })
-    .eq('webinar_id', webinarId);
-  if (error) console.error('[webinars] reminder reset failed for', webinarId, error.message);
+  for (const table of ['training_webinar_registrations', 'agency_webinar_registrations']) {
+    const { error } = await supabaseAdmin.from(table)
+      .update({ day_notified_at: null, min30_notified_at: null, min5_notified_at: null })
+      .eq('webinar_id', webinarId);
+    if (error) console.error('[webinars] reminder reset failed for', webinarId, error.message);
+  }
 }
 
 /** Thai numbers get Thailand time, everyone else India time — the two audiences we run webinars for. */
@@ -355,7 +378,7 @@ export function formatWebinarTime(iso: string, phone: string | null): string {
 export async function rescheduleWebinar(id: string, input: RescheduleWebinarInput) {
   const { data: current, error: loadErr } = await supabaseAdmin
     .from('training_webinars')
-    .select('id, title, starts_at, language, meeting_link, audience, status')
+    .select('id, title, starts_at, language, meeting_link, audience, recipient_type, status')
     .eq('id', id)
     .maybeSingle();
   if (loadErr || !current) throw new AppError(404, 'Webinar not found');
@@ -376,14 +399,17 @@ export async function rescheduleWebinar(id: string, input: RescheduleWebinarInpu
     .from('training_webinars')
     .update({ starts_at: startsAt.toISOString(), meeting_link: newLink, status, updated_at: new Date().toISOString() })
     .eq('id', id)
-    .select('id, title, starts_at, language, meeting_link, audience, status, created_at')
+    .select('id, title, starts_at, language, meeting_link, audience, recipient_type, status, created_at')
     .single();
   if (error || !updated) throw new AppError(500, error?.message ?? 'Could not reschedule webinar');
   await resetReminderStamps(id);
 
   let notified = 0;
   // Drafts and cancelled webinars were never announced — move them quietly.
-  if (input.notify && status === 'published') {
+  if (input.notify && status === 'published' && webinar.recipient_type === 'agency') {
+    const svc = await import('./agency-webinars.service.js');
+    notified = await svc.sendAgencyRescheduled(updated as WebinarRow, oldStartsAt);
+  } else if (input.notify && status === 'published') {
     const { data: regs } = await supabaseAdmin
       .from('training_webinar_registrations')
       .select('talent_user_id')
@@ -472,6 +498,12 @@ export interface WebinarRegistrant {
 }
 
 export async function listWebinarRegistrations(webinarId: string): Promise<WebinarRegistrant[]> {
+  const { data: target } = await supabaseAdmin.from('training_webinars')
+    .select('recipient_type').eq('id', webinarId).maybeSingle();
+  if (target?.recipient_type === 'agency') {
+    const svc = await import('./agency-webinars.service.js');
+    return await svc.listAgencyRegistrations(webinarId) as unknown as WebinarRegistrant[];
+  }
   const { data, error } = await supabaseAdmin
     .from('training_webinar_registrations')
     .select(
@@ -519,8 +551,9 @@ export async function listUpcomingForTalent(talentUserId: string) {
   const thailand = await isThailandTalent(talentUserId);
   const { data, error } = await supabaseAdmin
     .from('training_webinars')
-    .select('id, title, starts_at, language, meeting_link, audience, status')
+    .select('id, title, starts_at, language, meeting_link, audience, recipient_type, status')
     .eq('status', 'published')
+    .eq('recipient_type', 'talent')
     .gte('starts_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString())
     .order('starts_at', { ascending: true })
     .limit(50);
@@ -546,10 +579,10 @@ export async function listUpcomingForTalent(talentUserId: string) {
 export async function registerForWebinar(talentUserId: string, webinarId: string) {
   const { data: webinar, error } = await supabaseAdmin
     .from('training_webinars')
-    .select('id, title, starts_at, status')
+    .select('id, title, starts_at, status, recipient_type')
     .eq('id', webinarId)
     .maybeSingle();
-  if (error || !webinar) throw new AppError(404, 'Webinar not found');
+  if (error || !webinar || webinar.recipient_type !== 'talent') throw new AppError(404, 'Webinar not found');
   if ((webinar as any).status !== 'published') throw new AppError(400, 'This webinar is not open for registration');
   if (new Date((webinar as any).starts_at).getTime() <= Date.now()) {
     throw new AppError(400, 'This webinar has already started');
@@ -930,7 +963,7 @@ export async function sweepWebinarReminders(nowMs = Date.now()): Promise<void> {
 
   const { data: webinars, error } = await supabaseAdmin
     .from('training_webinars')
-    .select('id, title, starts_at, language, meeting_link, audience, status')
+    .select('id, title, starts_at, language, meeting_link, audience, recipient_type, status')
     .eq('status', 'published')
     .gte('starts_at', now.toISOString())
     .lte('starts_at', new Date(nowMs + 12 * 60 * 60 * 1000).toISOString())
@@ -958,6 +991,11 @@ export async function sweepWebinarReminders(nowMs = Date.now()): Promise<void> {
     if (!stage) continue;
 
     try {
+      if (w.recipient_type === 'agency') {
+        const svc = await import('./agency-webinars.service.js');
+        await svc.sendAgencyReminder(w, stage, now);
+        continue;
+      }
       const column = stampColumn(stage);
       // Claim due rows first so concurrent ticks can't double-send.
       const { data: claimed } = await supabaseAdmin

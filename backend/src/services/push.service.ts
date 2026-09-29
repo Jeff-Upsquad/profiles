@@ -46,10 +46,10 @@ function buildCardBody(
   return brandName ? template.replace('{brand_name}', brandName) : template.replace(' from {brand_name}', '');
 }
 
-async function sendToUsers(userIds: string[], payload: PushPayload): Promise<void> {
+async function sendToUsers(userIds: string[], payload: PushPayload, forwardTalent = true): Promise<void> {
   // Group Meet has its own SquadHub bridge (group-meets.service) carrying the
   // meeting id + RSVP actions; everything else mirrors from here.
-  if (!payload.type.startsWith('group_meet_')) {
+  if (forwardTalent && !payload.type.startsWith('group_meet_')) {
     forwardTalentPushToSquadHub(userIds, {
       type: payload.type,
       title: payload.title,
@@ -279,6 +279,16 @@ export async function notifyBroadcast(
     card_id: '',
     route: input.route?.trim() || '/notifications',
   });
+}
+
+/** Agency-only FCM: skip the SquadHub talent bridge. */
+export async function notifyAgencyBroadcast(
+  agencyUserIds: string[], input: { title: string; body: string; route?: string },
+): Promise<void> {
+  await sendToUsers(agencyUserIds, {
+    type: 'broadcast', title: input.title, body: input.body,
+    card_id: '', route: input.route ?? '/agency/training',
+  }, false);
 }
 
 export async function notifyGroupMeet(

@@ -179,7 +179,7 @@ function RegistrantsView({ webinar }: { webinar: Webinar }) {
       <table className="w-full text-sm">
         <thead className="sticky top-0 bg-gray-50">
           <tr className="border-b border-gray-200">
-            <th className="px-4 py-2 text-left font-medium text-gray-500">Talent</th>
+            <th className="px-4 py-2 text-left font-medium text-gray-500">{webinar.recipient_type === 'agency' ? 'Agency' : 'Talent'}</th>
             <th className="px-4 py-2 text-left font-medium text-gray-500">Phone</th>
             <th className="px-4 py-2 text-left font-medium text-gray-500">Registered</th>
             <th className="px-4 py-2 text-left font-medium text-gray-500">Reminders</th>
@@ -310,7 +310,7 @@ function RescheduleView({ webinar, onClose }: { webinar: Webinar; onClose: () =>
           />
           <span>
             <span className="font-medium text-gray-900">
-              Notify {registered} registered talent{registered === 1 ? '' : 's'}
+              Notify {registered} registered {webinar.recipient_type === 'agency' ? 'agenc' : 'talent'}{webinar.recipient_type === 'agency' ? (registered === 1 ? 'y' : 'ies') : (registered === 1 ? '' : 's')}
             </span>
             <span className="block text-xs text-gray-500">
               Notification panel, push and the WhatsApp “webinar rescheduled” template, with the new time in their
@@ -344,6 +344,7 @@ const EMPTY_FORM: WebinarForm = {
   starts_at: '',
   language: '',
   meeting_link: '',
+  recipient_type: '' as WebinarForm['recipient_type'],
   audience: '' as WebinarForm['audience'],
   status: '' as WebinarForm['status'],
 };
@@ -360,6 +361,7 @@ function WebinarFormView({ webinar, onClose }: { webinar?: Webinar | null; onClo
           starts_at: toLocalInput(webinar.starts_at),
           language: webinar.language,
           meeting_link: webinar.meeting_link,
+          recipient_type: webinar.recipient_type ?? 'talent',
           audience: webinar.audience,
           status: webinar.status,
         }
@@ -371,6 +373,7 @@ function WebinarFormView({ webinar, onClose }: { webinar?: Webinar | null; onClo
     form.starts_at !== '' &&
     form.language !== '' &&
     form.meeting_link.trim() !== '' &&
+    (form.recipient_type === 'talent' || form.recipient_type === 'agency') &&
     (form.audience === 'all' || form.audience === 'thailand') &&
     (form.status === 'draft' || form.status === 'published' || form.status === 'cancelled' || form.status === 'completed');
 
@@ -444,15 +447,23 @@ function WebinarFormView({ webinar, onClose }: { webinar?: Webinar | null; onClo
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Audience</label>
+          <label className="mb-1 block text-sm font-medium text-gray-700">For</label>
+          <select value={form.recipient_type} onChange={(e) => setForm((f) => ({ ...f, recipient_type: e.target.value as WebinarForm['recipient_type'], audience: e.target.value === 'agency' ? 'all' : '' as WebinarForm['audience'] }))} className={selectClass}>
+            <option value="" disabled>Select users…</option>
+            <option value="talent">Talent users</option>
+            <option value="agency">Agencies</option>
+          </select>
+        </div>
+        {form.recipient_type === 'talent' && <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Talent location</label>
           <select value={form.audience} onChange={(e) => set('audience', e.target.value)} className={selectClass}>
             <option value="" disabled>
               Select audience…
             </option>
             <option value="thailand">Thailand talents</option>
-            <option value="all">Everyone</option>
+            <option value="all">All talents</option>
           </select>
-        </div>
+        </div>}
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
           <select value={form.status} onChange={(e) => set('status', e.target.value)} className={selectClass}>
@@ -575,6 +586,7 @@ export default function WebinarsManager({ hideHeading = false }: { hideHeading?:
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
                 <th className="px-6 py-3 text-left font-medium text-gray-500">Name</th>
+                <th className="px-6 py-3 text-left font-medium text-gray-500">For</th>
                 <th className="px-6 py-3 text-left font-medium text-gray-500">Date & time</th>
                 <th className="px-6 py-3 text-left font-medium text-gray-500">Language</th>
                 <th className="px-6 py-3 text-left font-medium text-gray-500">Meeting link</th>
@@ -587,6 +599,7 @@ export default function WebinarsManager({ hideHeading = false }: { hideHeading?:
               {shown.map((w) => (
                 <tr key={w.id} className="transition-colors hover:bg-gray-50">
                   <td className="px-6 py-4 font-medium text-gray-900">{w.title}</td>
+                  <td className="px-6 py-4 text-gray-500">{w.recipient_type === 'agency' ? 'Agencies' : 'Talent users'}</td>
                   <td className="px-6 py-4 text-gray-500">
                     {`${new Date(w.starts_at).toLocaleDateString('en-GB', {
                       day: 'numeric',

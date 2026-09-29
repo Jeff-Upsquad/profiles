@@ -21,6 +21,8 @@ export async function talentCanRespond(userId: string): Promise<boolean> {
 }
 
 export async function agencyCanRespond(userId: string): Promise<boolean> {
+  const { agencyTrainingStatus } = await import('./agency-training.service.js');
+  if (!(await agencyTrainingStatus(userId)).completed) return false;
   const { data: profile } = await supabaseAdmin
     .from('agency_profiles')
     .select('services')

@@ -308,12 +308,12 @@ function lockSubtree(pages: TalentPage[]): void {
 // Item payloads
 // ---------------------------------------------------------------------------
 
-async function loadItemStarts(userId: string, itemIds: string[]): Promise<Record<string, string>> {
+async function loadItemStarts(userId: string, itemIds: string[], audience: 'talent' | 'agency'): Promise<Record<string, string>> {
   if (itemIds.length === 0) return {};
   const { data, error } = await supabaseAdmin
-    .from('training_course_starts')
+    .from(audience === 'agency' ? 'agency_training_course_starts' : 'training_course_starts')
     .select('course_id, started_at')
-    .eq('talent_user_id', userId)
+    .eq(audience === 'agency' ? 'agency_user_id' : 'talent_user_id', userId)
     .in('course_id', itemIds);
   if (error) throw new AppError(500, `Failed to fetch course starts: ${error.message}`);
   const map: Record<string, string> = {};
@@ -325,14 +325,17 @@ export async function buildItemPayloads(
   items: any[],
   userId: string,
   grandfathered: boolean,
+  audience: 'talent' | 'agency' = 'talent',
 ): Promise<TalentItem[]> {
   if (items.length === 0) return [];
 
   const itemIds = items.map((i) => i.id);
   const [{ pages, blocksByPage }, startsByItem, progressRes] = await Promise.all([
     loadPagesWithBlocks(itemIds),
-    loadItemStarts(userId, itemIds),
-    supabaseAdmin.from('training_page_progress').select('page_id').eq('talent_user_id', userId),
+    loadItemStarts(userId, itemIds, audience),
+    audience === 'agency'
+      ? supabaseAdmin.from('agency_training_page_progress').select('page_id').eq('agency_user_id', userId)
+      : supabaseAdmin.from('training_page_progress').select('page_id').eq('talent_user_id', userId),
   ]);
   if (progressRes.error) {
     throw new AppError(500, `Failed to fetch progress: ${progressRes.error.message}`);
@@ -488,6 +491,7 @@ export async function getMyItems(userId: string, categoryIds: string[]): Promise
     .select(ITEM_SELECT)
     .eq('is_active', true)
     .eq('status', 'published')
+    .eq('talent_audience', true)
     .is('deleted_at', null)
     .order('sort_order', { ascending: true });
   if (error) throw new AppError(500, `Failed to fetch training items: ${error.message}`);

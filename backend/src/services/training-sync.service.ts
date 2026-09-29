@@ -80,6 +80,7 @@ export interface SyncItemPayload {
   cover_image_url?: string | null;
   /** False when the item was unpublished or its talent audience was removed. */
   visible: boolean;
+  audiences?: { talent: boolean; agency: boolean };
   pages: SyncPage[];
 }
 
@@ -146,19 +147,27 @@ async function upsertItem(payload: SyncItemPayload): Promise<string> {
     summary: payload.summary ?? null,
     icon: payload.icon ?? null,
     cover_image_url: payload.cover_image_url ?? null,
+    talent_audience: payload.audiences?.talent ?? true,
+    agency_audience: payload.audiences?.agency ?? false,
   };
 
   const { data: existing, error: findErr } = await supabaseAdmin
     .from('training_items')
-    .select('id')
+    .select('id, status, squadhub_visible')
     .eq('squadhub_item_id', payload.id)
     .maybeSingle();
   if (findErr) throw new AppError(500, `Failed to look up item: ${findErr.message}`);
 
   if (existing) {
+    // A source document that was withdrawn and then republished should become
+    // available again. Keep deliberate admin drafts intact on normal edits.
+    const restoredAgencyPublication = payload.visible
+      && payload.audiences?.agency === true
+      && existing.squadhub_visible === false
+      && existing.status === 'draft';
     const { error } = await supabaseAdmin
       .from('training_items')
-      .update(content)
+      .update(restoredAgencyPublication ? { ...content, status: 'published' } : content)
       .eq('id', existing.id);
     if (error) throw new AppError(500, `Failed to update item: ${error.message}`);
     return existing.id as string;
@@ -172,10 +181,10 @@ async function upsertItem(payload: SyncItemPayload): Promise<string> {
     .insert({
       ...content,
       squadhub_item_id: payload.id,
-      status: 'draft',
       is_active: true,
-      available_to_all: false,
-      is_onboarding: false,
+      available_to_all: payload.audiences?.agency === true,
+      is_onboarding: payload.audiences?.agency === true,
+      status: payload.audiences?.agency === true ? 'published' : 'draft',
     })
     .select('id')
     .single();

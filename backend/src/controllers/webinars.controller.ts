@@ -63,6 +63,14 @@ export async function setAttended(req: Request, res: Response, next: NextFunctio
       res.status(400).json({ message: 'attended (boolean) required' });
       return;
     }
+    const { supabaseAdmin } = await import('../config/supabase.js');
+    const { data: webinar } = await supabaseAdmin.from('training_webinars')
+      .select('recipient_type').eq('id', req.params.id as string).maybeSingle();
+    if (webinar?.recipient_type === 'agency') {
+      const svc = await import('../services/agency-webinars.service.js');
+      res.json(await svc.setAgencyAttended(req.params.id as string, req.params.talentUserId as string, attended));
+      return;
+    }
     const hub = await import('../services/onboarding-hub.service.js');
     res.json(await hub.setWebinarAttended(req.params.talentUserId as string, attended, req.user!.id));
   } catch (err) {

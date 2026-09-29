@@ -5,11 +5,15 @@ import { useEffect, useState } from 'react';
 import DashboardLayout, { type SidebarItem } from '@/components/layout/DashboardLayout';
 import AgencyTopBar from '@/components/layout/AgencyTopBar';
 import AgencyBottomNav from '@/components/layout/AgencyBottomNav';
+import { useAgencyTrainingStatus } from '@/hooks/useAgencyTraining';
 
 export default function AgencyLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const training = useAgencyTrainingStatus();
+  const trainingOpen = training.data?.completed === true;
+  const accessible = pathname.startsWith('/agency/training') || pathname.startsWith('/agency/subscriptions') || pathname.startsWith('/agency/assignments');
   const [isInApp, setIsInApp] = useState(() => {
     if (typeof window === 'undefined') return false;
     try {
@@ -31,9 +35,16 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
       else if (user.role !== 'agency') router.replace('/dashboard');
     }
   }, [user, isLoading, router]);
-  if (isLoading) return <div className="flex h-screen items-center justify-center bg-[#F5F5F6]"><div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#0a0a0a] border-t-transparent" /></div>;
+  useEffect(() => {
+    if (!isLoading && user?.role === 'agency' && training.data && !trainingOpen && !accessible) {
+      router.replace('/agency/training');
+    }
+  }, [isLoading, user, training.data, trainingOpen, accessible, router]);
+  if (isLoading || (user?.role === 'agency' && training.isLoading)) return <div className="flex h-screen items-center justify-center bg-[#F5F5F6]"><div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#0a0a0a] border-t-transparent" /></div>;
   if (!user) { router.push('/login/agency'); return null; }
   if (user.role !== 'agency') { router.push('/dashboard'); return null; }
+
+  if (training.data && !trainingOpen && !accessible) return null;
 
   const sidebarItems: SidebarItem[] = [
     { label: 'Dashboard', to: '/agency/dashboard', icon: (<svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a2 2 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>) },
@@ -55,12 +66,18 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
     { label: 'Contact Support', to: '/agency/support', icon: (<svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>) },
   ];
 
+  const visibleSidebarItems = trainingOpen ? sidebarItems : sidebarItems.map((item) =>
+    ['/agency/training', '/agency/subscriptions', '/agency/assignments'].includes(item.to)
+      ? item
+      : { ...item, disabled: true, tooltip: 'Complete agency training to unlock this module' },
+  );
+
   if (isInApp) {
     return <div className="min-h-screen bg-[#F5F5F6]">{children}</div>;
   }
 
   return (
-    <DashboardLayout sidebarItems={sidebarItems} hideMobileSidebar hideNavbarOnMobile>
+    <DashboardLayout sidebarItems={visibleSidebarItems} hideMobileSidebar hideNavbarOnMobile>
       <AgencyTopBar />
       {children}
       <AgencyBottomNav />

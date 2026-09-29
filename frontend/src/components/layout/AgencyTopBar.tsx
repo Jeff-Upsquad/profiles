@@ -5,11 +5,13 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { agencyApi } from '@/services/agency-api';
+import { useAgencyTrainingStatus } from '@/hooks/useAgencyTraining';
 
 export default function AgencyTopBar() {
   const { user, logout } = useAuth();
   const { data: me } = useQuery({ queryKey: ['agencyMe'], queryFn: agencyApi.me, enabled: !!user && user.role === 'agency' });
   const pathname = usePathname() ?? '';
+  const { data: training } = useAgencyTrainingStatus();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -22,7 +24,7 @@ export default function AgencyTopBar() {
   return (
     <header className={`sticky top-0 z-40 border-b border-[#E7E7EA] bg-white/95 px-4 py-2.5 backdrop-blur-sm md:hidden -mx-4 mb-4`}>
       <div className="flex items-center justify-between gap-3">
-        <Link href="/agency/dashboard" className="flex min-w-0 items-center gap-2">
+        <Link href={training?.completed ? "/agency/dashboard" : "/agency/training"} className="flex min-w-0 items-center gap-2">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0a0a0a] text-[11px] font-bold text-white">AG</div>
           <div className="min-w-0 leading-tight">
             <p className="truncate font-[family-name:var(--font-jakarta)] text-[14px] font-semibold tracking-[-0.02em] text-[#0a0a0a]">SquadHire <span className="font-normal text-[#a3a3a3]">Agency</span></p>
@@ -39,7 +41,7 @@ export default function AgencyTopBar() {
                 <p className="truncate text-sm font-semibold text-[#0a0a0a]">{displayName}</p>
                 <p className="mt-0.5 truncate text-[12px] text-[#737373]">{displayEmail}</p>
               </div>
-              <Link href="/agency/profile" role="menuitem" onClick={()=>setOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-medium text-[#0a0a0a] hover:bg-[#F5F5F6]">Agency profile</Link>
+              <Link href={training?.completed ? '/agency/profile' : '/agency/training'} role="menuitem" onClick={()=>setOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-medium text-[#0a0a0a] hover:bg-[#F5F5F6]">{training?.completed ? 'Agency profile' : 'Training Program'}</Link>
               <button type="button" role="menuitem" onClick={()=>{ setOpen(false); logout(); }} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-medium text-[#0a0a0a] hover:bg-[#F5F5F6]">Logout</button>
             </div>
           )}

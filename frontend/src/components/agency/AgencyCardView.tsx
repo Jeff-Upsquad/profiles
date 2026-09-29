@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useAgencyTrainingStatus } from '@/hooks/useAgencyTraining';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -25,6 +26,7 @@ import { resolveCardPricingMode } from '@/lib/cardPricingMode';
 
 export interface AgencyCardItem {
   id: string;
+  client_hidden?: boolean;
   status: string;
   responded_at: string | null;
   cancelled_at: string | null;
@@ -79,6 +81,7 @@ export default function AgencyCardView({ item }: { item: AgencyCardItem }) {
   const typeLabel = isAssignment ? 'Assignment' : 'Subscription';
 
   const { data: gate } = useAgencyCanRespond();
+  const { data: training } = useAgencyTrainingStatus();
   const canRespond = gate?.canRespond === true;
 
   const { data: offerData } = useAgencyOffer(item.id, showActions && canRespond);
@@ -137,9 +140,9 @@ export default function AgencyCardView({ item }: { item: AgencyCardItem }) {
         {/* Actions */}
         {!canRespond ? (
           <div className="rounded-xl bg-[#FFFAC2] px-4 py-3 text-sm text-[#0a0a0a]">
-            <p className="font-semibold">Complete your agency profile to respond</p>
+            <p className="font-semibold">{training?.completed ? 'Complete your agency profile to respond' : 'Complete agency training to respond'}</p>
             <p className="mt-0.5 text-xs text-[#525252]">
-              Add your services in <Link href="/agency/profile" className="font-semibold underline">Profile</Link> to start accepting, declining, or bidding on cards.
+              {training?.completed ? <>Add your services in <Link href="/agency/profile" className="font-semibold underline">Profile</Link> to start accepting, declining, or bidding on cards.</> : <>Client names are hidden and offers are view only. Finish the <Link href="/agency/training" className="font-semibold underline">Training Program</Link> to unlock actions.</>}
             </p>
           </div>
         ) : showActions ? (

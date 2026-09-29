@@ -1,0 +1,105 @@
+'use client';
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import api from '@/services/api';
+import type { TalentItem, TalentPage } from '@/hooks/useTraining';
+
+export interface AgencyTrainingStatus {
+  completed: boolean;
+  required: Array<{ id: string; title: string; completed: number; total: number }>;
+}
+export interface AgencyTrainingData {
+  items: TalentItem[];
+  status: AgencyTrainingStatus;
+}
+export interface AgencyWebinar {
+  id: string;
+  title: string;
+  starts_at: string;
+  language: string;
+  meeting_link: string;
+  registered: boolean;
+}
+export interface AgencyWebinarNotice {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  created_at: string;
+  read_at: string | null;
+}
+
+export function useAgencyTraining() {
+  return useQuery<AgencyTrainingData>({
+    queryKey: ['agencyTraining'],
+    queryFn: async () => (await api.get('/agency/training')).data,
+    staleTime: 15_000,
+  });
+}
+
+export function useAgencyTrainingStatus() {
+  const query = useAgencyTraining();
+  return { ...query, data: query.data?.status };
+}
+
+export function useCompleteAgencyPage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (pageId: string) => (await api.post(`/agency/training/pages/${pageId}/complete`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['agencyTraining'] }),
+  });
+}
+
+export function useAgencyWebinars() {
+  return useQuery<AgencyWebinar[]>({
+    queryKey: ['agencyWebinars'],
+    queryFn: async () => (await api.get('/agency/training/webinars')).data.webinars,
+  });
+}
+
+export function useAgencyWebinarAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, registered }: { id: string; registered: boolean }) => {
+      if (registered) await api.delete(`/agency/training/webinars/${id}/register`);
+      else await api.post(`/agency/training/webinars/${id}/register`);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['agencyWebinars'] }),
+  });
+}
+
+export function useAgencyWebinarLanguages() {
+  return useQuery<Array<{ code: string; label: string }>>({
+    queryKey: ['agencyWebinarLanguages'],
+    queryFn: async () => (await api.get('/agency/training/webinar-languages')).data.languages,
+  });
+}
+
+export function useAgencyWebinarInterests() {
+  return useQuery<string[]>({
+    queryKey: ['agencyWebinarInterests'],
+    queryFn: async () => (await api.get('/agency/training/webinar-interests')).data.interests,
+  });
+}
+
+export function useAgencyWebinarInterestAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ language, subscribed }: { language: string; subscribed: boolean }) => {
+      if (subscribed) await api.delete(`/agency/training/webinar-interests/${language}`);
+      else await api.post('/agency/training/webinar-interests', { language });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['agencyWebinarInterests'] }),
+  });
+}
+
+export function useAgencyTrainingNotifications() {
+  return useQuery<AgencyWebinarNotice[]>({
+    queryKey: ['agencyTrainingNotifications'],
+    queryFn: async () => (await api.get('/agency/training/notifications')).data.notifications,
+  });
+}
+
+export function flattenAgencyPages(pages: TalentPage[]): TalentPage[] {
+  return pages.flatMap((page) => [page, ...flattenAgencyPages(page.children)]);
+}

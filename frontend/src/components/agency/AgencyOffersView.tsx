@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useAgencyTrainingStatus } from '@/hooks/useAgencyTraining';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { agencyApi } from '@/services/agency-api';
 import Badge from '@/components/ui/Badge';
 import AgencyCardView, { type AgencyCardItem } from '@/components/agency/AgencyCardView';
 import SubscriptionCardContent from '@/components/subscriptions/SubscriptionCardContent';
 import { formatOfferAmount } from '@/hooks/useAssignmentOffers';
-import { useAgencyCanRespond } from '@/hooks/useAgencyCardActions';
 import type { SubscriptionCardContentShape } from '@/hooks/useSubscriptionCards';
 
 type TabKey = 'pending' | 'bidding' | 'responded' | 'expired';
@@ -137,13 +137,14 @@ export default function AgencyOffersView({
   const [tab, setTab] = useState<TabKey>('pending');
   const qc = useQueryClient();
   const backfillRan = useRef(false);
-  const { data: gate } = useAgencyCanRespond();
+  const { data: training } = useAgencyTrainingStatus();
+  const trainingLocked = training?.completed !== true;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const q = new URLSearchParams(window.location.search).get('tab');
-    if (isTabKey(q)) setTab(q);
-  }, []);
+    if (isTabKey(q) && (q !== 'bidding' || !trainingLocked)) setTab(q);
+  }, [trainingLocked]);
 
   const statusParam = tab === 'bidding' ? undefined : tab;
   const { data: cards = [], isLoading } = useQuery({
@@ -157,7 +158,7 @@ export default function AgencyOffersView({
   const { data: offerData, isLoading: offersLoading } = useQuery({
     queryKey: ['agencyAllOffers'],
     queryFn: () => agencyApi.allOffers(),
-    enabled: tab === 'bidding',
+    enabled: tab === 'bidding' && !trainingLocked,
   });
 
   const filteredCards = cards.filter((c) => {
@@ -174,11 +175,11 @@ export default function AgencyOffersView({
 
   // Auto-backfill on first empty load
   useEffect(() => {
-    if (!isLoading && filteredCards.length === 0 && tab !== 'bidding' && !backfillRan.current) {
+    if (!isLoading && filteredCards.length === 0 && tab !== 'bidding' && !backfillRan.current && !trainingLocked) {
       backfillRan.current = true;
       agencyApi.backfillCards().then(() => qc.invalidateQueries({ queryKey: ['agencyCards'] })).catch(() => {});
     }
-  }, [isLoading, filteredCards.length, tab, qc]);
+  }, [isLoading, filteredCards.length, tab, qc, trainingLocked]);
 
   return (
     <div className="space-y-6">
@@ -200,9 +201,11 @@ export default function AgencyOffersView({
         </section>
       )}
 
+      {trainingLocked && <div className="rounded-xl border border-[#E7E7EA] bg-[#FFFAC2]/60 px-4 py-3 text-sm text-[#0a0a0a]">Subscriptions and assignments are view only while agency training is incomplete. Client names are hidden. <a href="/agency/training" className="font-semibold underline">Open Training Program</a></div>}
+
       {/* Tab Control */}
       <div className="inline-flex flex-wrap items-center gap-1 rounded-xl bg-[#F5F5F6] p-1.5 border border-[#E7E7EA]">
-        {TABS.map((t) => {
+        {TABS.filter((t) => !trainingLocked || t.key !== 'bidding').map((t) => {
           const isActive = tab === t.key;
           const count = t.key === 'pending' ? pendingCount : t.key === 'bidding' ? biddingCount : null;
           return (

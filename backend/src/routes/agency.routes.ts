@@ -3,6 +3,8 @@ import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import * as ctrl from '../controllers/agency.controller.js';
+import * as agencyTraining from '../services/agency-training.service.js';
+import { submitQuizSchema } from '../validators/training.validators.js';
 import {
   updateAgencyUserSchema,
   updateAgencyProfileSchema,
@@ -17,6 +19,21 @@ import {
 
 const router = Router();
 router.use(authenticate, requireRole('agency'));
+
+// Keep work offers visible during onboarding, but enforce the training lock on
+// every agency API mutation and on reads for all other modules.
+router.use(async (req, _res, next) => {
+  try {
+    const path = req.path;
+    if ((path === '/me' && req.method === 'GET') || path.startsWith('/training')) return next();
+    const viewOnly = req.method === 'GET' && (
+      path === '/subscriptions' || path === '/assignments' || path === '/subscriptions/unread-count'
+    );
+    if (viewOnly) return next();
+    await agencyTraining.assertAgencyTrainingComplete(req.user!.id);
+    next();
+  } catch (error) { next(error); }
+});
 
 // Agency user & profile
 router.get('/me', ctrl.getMe);
@@ -69,7 +86,7 @@ router.get('/subscriptions', async (req, res, next) => {
     const { listForAgency } = await import('../services/agency-cards.service.js');
     const status = typeof req.query.status === 'string' ? req.query.status : 'pending';
     const items = await listForAgency(req.user!.id, { status, card_type: 'subscription' });
-    res.json(items);
+    res.json(await agencyTraining.redactAgencyCardsUntilTrained(req.user!.id, items));
   } catch (e) { next(e); }
 });
 router.get('/subscriptions/unread-count', async (req, res, next) => {
@@ -84,7 +101,7 @@ router.get('/assignments', async (req, res, next) => {
     const { listForAgency } = await import('../services/agency-cards.service.js');
     const status = typeof req.query.status === 'string' ? req.query.status : 'pending';
     const items = await listForAgency(req.user!.id, { status, card_type: 'assignment' });
-    res.json(items);
+    res.json(await agencyTraining.redactAgencyCardsUntilTrained(req.user!.id, items));
   } catch (e) { next(e); }
 });
 // Hiring cards for agencies
@@ -175,7 +192,81 @@ router.get('/notifications', (_req, res) => res.json([]));
 router.get('/notifications/unread-count', (_req, res) => res.json({ count: 0 }));
 router.get('/conversations', (_req, res) => res.json([]));
 router.get('/conversations/unread-count', (_req, res) => res.json({ count: 0 }));
-router.get('/training', (_req, res) => res.json({ courses: [], sops: [] }));
-router.get('/training/incomplete-count', (_req, res) => res.json({ count: 0 }));
+router.get('/training/webinars', async (req, res, next) => {
+  try {
+    const svc = await import('../services/agency-webinars.service.js');
+    res.json({ webinars: await svc.listUpcomingForAgency(req.user!.id) });
+  } catch (error) { next(error); }
+});
+router.post('/training/webinars/:id/register', async (req, res, next) => {
+  try {
+    const svc = await import('../services/agency-webinars.service.js');
+    res.json(await svc.registerAgency(req.user!.id, req.params.id as string));
+  } catch (error) { next(error); }
+});
+router.delete('/training/webinars/:id/register', async (req, res, next) => {
+  try {
+    const svc = await import('../services/agency-webinars.service.js');
+    res.json(await svc.unregisterAgency(req.user!.id, req.params.id as string));
+  } catch (error) { next(error); }
+});
+router.get('/training/webinar-languages', async (_req, res, next) => {
+  try {
+    const svc = await import('../services/webinars.service.js');
+    res.json({ languages: await svc.listActiveWebinarLanguages() });
+  } catch (error) { next(error); }
+});
+router.get('/training/webinar-interests', async (req, res, next) => {
+  try {
+    const svc = await import('../services/agency-webinars.service.js');
+    res.json({ interests: await svc.getAgencyInterests(req.user!.id) });
+  } catch (error) { next(error); }
+});
+router.post('/training/webinar-interests', async (req, res, next) => {
+  try {
+    const svc = await import('../services/agency-webinars.service.js');
+    res.json(await svc.addAgencyInterest(req.user!.id, String(req.body?.language ?? '')));
+  } catch (error) { next(error); }
+});
+router.delete('/training/webinar-interests/:language', async (req, res, next) => {
+  try {
+    const svc = await import('../services/agency-webinars.service.js');
+    res.json(await svc.removeAgencyInterest(req.user!.id, req.params.language as string));
+  } catch (error) { next(error); }
+});
+router.get('/training/notifications', async (req, res, next) => {
+  try {
+    const svc = await import('../services/agency-webinars.service.js');
+    res.json({ notifications: await svc.listAgencyNotifications(req.user!.id) });
+  } catch (error) { next(error); }
+});
+
+router.get('/training', async (req, res, next) => {
+  try {
+    const [items, status] = await Promise.all([
+      agencyTraining.getAgencyTraining(req.user!.id),
+      agencyTraining.agencyTrainingStatus(req.user!.id),
+    ]);
+    res.json({ items, status });
+  } catch (error) { next(error); }
+});
+router.get('/training/incomplete-count', async (req, res, next) => {
+  try {
+    const status = await agencyTraining.agencyTrainingStatus(req.user!.id);
+    res.json({ count: status.required.filter((item) => item.total === 0 || item.completed < item.total).length });
+  } catch (error) { next(error); }
+});
+router.post('/training/courses/:courseId/start', async (req, res, next) => {
+  try { res.json(await agencyTraining.startAgencyCourse(req.user!.id, req.params.courseId as string)); }
+  catch (error) { next(error); }
+});
+router.post('/training/pages/:pageId/complete', async (req, res, next) => {
+  try { res.json(await agencyTraining.completeAgencyPage(req.user!.id, req.params.pageId as string)); }
+  catch (error) { next(error); }
+});
+router.post('/training/blocks/:blockId/quiz', validate({ body: submitQuizSchema }), async (req, res, next) => {
+  try { res.json(await agencyTraining.submitAgencyQuiz(req.user!.id, req.params.blockId as string, req.body.answers)); }
+  catch (error) { next(error); }
+});
 
 export default router;

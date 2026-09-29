@@ -5,6 +5,7 @@ export const createWebinarSchema = z.object({
   starts_at: z.string().datetime({ offset: true }),
   language: z.string().trim().min(1).max(20).default('en'),
   meeting_link: z.string().trim().min(1).max(2000),
+  recipient_type: z.enum(['talent', 'agency']).default('talent'),
   audience: z.enum(['all', 'thailand']).default('thailand'),
   status: z.enum(['draft', 'published', 'cancelled', 'completed']).default('published'),
 });
@@ -16,6 +17,7 @@ export const updateWebinarSchema = z.object({
   starts_at: z.string().datetime({ offset: true }).optional(),
   language: z.string().trim().min(1).max(20).optional(),
   meeting_link: z.string().trim().min(1).max(2000).optional(),
+  recipient_type: z.enum(['talent', 'agency']).optional(),
   audience: z.enum(['all', 'thailand']).optional(),
   status: z.enum(['draft', 'published', 'cancelled', 'completed']).optional(),
 });
