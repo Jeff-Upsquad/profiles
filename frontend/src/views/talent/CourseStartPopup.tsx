@@ -6,6 +6,7 @@ import { formatDuration, useStartCourse, type TrainingCourse } from '@/hooks/use
 interface CourseStartPopupProps {
   course: TrainingCourse;
   onDismiss: () => void;
+  onStartCourse?: (courseId: string) => Promise<any>;
 }
 
 /**
@@ -15,8 +16,9 @@ interface CourseStartPopupProps {
  * subtle bounce (300ms ease-out). On Start click, the mutation fires and
  * the parent re-renders the course as started — popup unmounts.
  */
-export default function CourseStartPopup({ course, onDismiss }: CourseStartPopupProps) {
+export default function CourseStartPopup({ course, onDismiss, onStartCourse }: CourseStartPopupProps) {
   const [mounted, setMounted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const start = useStartCourse();
 
   useEffect(() => {
@@ -27,9 +29,16 @@ export default function CourseStartPopup({ course, onDismiss }: CourseStartPopup
 
   const handleStart = async () => {
     try {
-      await start.mutateAsync(course.id);
+      if (onStartCourse) {
+        setSubmitting(true);
+        await onStartCourse(course.id);
+      } else {
+        await start.mutateAsync(course.id);
+      }
     } catch {
       // Error toasted by the mutation; keep the popup open
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -88,17 +97,17 @@ export default function CourseStartPopup({ course, onDismiss }: CourseStartPopup
           <div className="mt-6 flex flex-col gap-2.5">
             <button
               onClick={handleStart}
-              disabled={start.isPending}
+              disabled={start.isPending || submitting}
               className="btn-iridescent inline-flex w-full justify-center text-sm py-3 px-6 disabled:opacity-50"
             >
-              {start.isPending ? 'Starting…' : 'Start course'}
+              {start.isPending || submitting ? 'Starting…' : 'Start course'}
               <svg className="arrow-icon h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             </button>
             <button
               onClick={onDismiss}
-              disabled={start.isPending}
+              disabled={start.isPending || submitting}
               className="font-[family-name:var(--font-inter)] text-[13px] font-medium text-[#737373] hover:text-[#0a0a0a] py-1.5 disabled:opacity-50"
             >
               Maybe later

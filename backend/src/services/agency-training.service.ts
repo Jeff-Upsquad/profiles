@@ -78,6 +78,14 @@ export async function completeAgencyPage(agencyUserId: string, pageId: string) {
   return { completed: true };
 }
 
+export async function uncompleteAgencyPage(agencyUserId: string, pageId: string) {
+  const { error } = await supabaseAdmin.from('agency_training_page_progress')
+    .delete().eq('agency_user_id', agencyUserId).eq('page_id', pageId);
+  if (error) throw new AppError(500, error.message);
+  return { completed: false };
+}
+
+
 export async function submitAgencyQuiz(agencyUserId: string, blockId: string, answers: Record<string, string>) {
   const { data: block, error: blockError } = await supabaseAdmin.from('training_blocks')
     .select('id, page_id, type').eq('id', blockId).maybeSingle();

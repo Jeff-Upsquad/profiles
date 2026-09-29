@@ -43,7 +43,7 @@ export default function DashboardLayout({
   // on-this-page). It needs the full content width and its own scroll per
   // column, so it gets the same full-bleed treatment as a message thread —
   // the centered max-w-5xl wrapper would leave no room for the side rails.
-  const isCourseReader = /^\/talent\/training\/[^/]+/.test(pathname);
+  const isCourseReader = /^\/(talent|agency)\/training\/[^/]+/.test(pathname);
   const isFullBleed = isMessagesThread || isCourseReader;
 
   const isActive = (href: string) => {

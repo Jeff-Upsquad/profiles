@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { useAgencyTrainingStatus } from '@/hooks/useAgencyTraining';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { agencyApi } from '@/services/agency-api';
@@ -201,7 +202,7 @@ export default function AgencyOffersView({
         </section>
       )}
 
-      {trainingLocked && <div className="rounded-xl border border-[#E7E7EA] bg-[#FFFAC2]/60 px-4 py-3 text-sm text-[#0a0a0a]">Subscriptions and assignments are view only while agency training is incomplete. Client names are hidden. <a href="/agency/training" className="font-semibold underline">Open Training Program</a></div>}
+      {trainingLocked && <div className="rounded-xl border border-[#E7E7EA] bg-[#FFFAC2]/60 px-4 py-3 text-sm text-[#0a0a0a]">Subscriptions and assignments are view only while agency training is incomplete. Client names are hidden. <Link href="/agency/training" className="font-semibold underline">Open Training Program</Link></div>}
 
       {/* Tab Control */}
       <div className="inline-flex flex-wrap items-center gap-1 rounded-xl bg-[#F5F5F6] p-1.5 border border-[#E7E7EA]">

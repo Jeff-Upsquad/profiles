@@ -247,7 +247,13 @@ router.get('/training', async (req, res, next) => {
       agencyTraining.getAgencyTraining(req.user!.id),
       agencyTraining.agencyTrainingStatus(req.user!.id),
     ]);
-    res.json({ items, status });
+    res.json({
+      items,
+      status,
+      courses: items.filter((i) => i.track !== 'sop'),
+      sops: items.filter((i) => i.track === 'sop'),
+      incomplete_count: status.required.filter((item) => item.total === 0 || item.completed < item.total).length,
+    });
   } catch (error) { next(error); }
 });
 router.get('/training/incomplete-count', async (req, res, next) => {
@@ -262,6 +268,18 @@ router.post('/training/courses/:courseId/start', async (req, res, next) => {
 });
 router.post('/training/pages/:pageId/complete', async (req, res, next) => {
   try { res.json(await agencyTraining.completeAgencyPage(req.user!.id, req.params.pageId as string)); }
+  catch (error) { next(error); }
+});
+router.post('/training/lessons/:pageId/complete', async (req, res, next) => {
+  try { res.json(await agencyTraining.completeAgencyPage(req.user!.id, req.params.pageId as string)); }
+  catch (error) { next(error); }
+});
+router.delete('/training/pages/:pageId/complete', async (req, res, next) => {
+  try { res.json(await agencyTraining.uncompleteAgencyPage(req.user!.id, req.params.pageId as string)); }
+  catch (error) { next(error); }
+});
+router.delete('/training/lessons/:pageId/complete', async (req, res, next) => {
+  try { res.json(await agencyTraining.uncompleteAgencyPage(req.user!.id, req.params.pageId as string)); }
   catch (error) { next(error); }
 });
 router.post('/training/blocks/:blockId/quiz', validate({ body: submitQuizSchema }), async (req, res, next) => {

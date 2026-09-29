@@ -9,6 +9,7 @@ import {
   useCompleteOnboarding,
   useMarkLessonComplete,
   useMarkLessonIncomplete,
+  useStartCourse,
   useRequestCourseReopen,
   useTrainingWebinars,
   useRegisterWebinar,
@@ -31,6 +32,19 @@ import {
   type TrainingSopSummary,
   type TrainingWebinar,
 } from '@/hooks/useTraining';
+import {
+  useAgencyTraining,
+  useAgencyStartCourse,
+  useAgencyMarkLessonComplete,
+  useAgencyMarkLessonIncomplete,
+  useAgencyWebinars,
+  useAgencyRegisterWebinar,
+  useAgencyUnregisterWebinar,
+  useAgencyWebinarLanguages,
+  useAgencyWebinarInterests,
+  useAgencyToggleWebinarInterest,
+  type AgencyTrainingData,
+} from '@/hooks/useAgencyTraining';
 import toast from 'react-hot-toast';
 import CourseStartPopup from './CourseStartPopup';
 import ContentBlocks, { collectHeadings, type OutlineHeading } from '@/components/training/ContentBlocks';
@@ -620,14 +634,66 @@ function OnboardingTraining({ routeCourseId }: { routeCourseId: string | null })
   );
 }
 
-export default function TrainingProgram() {
+function TalentTrainingProgram() {
   const { user } = useAuth();
   const routeCourseId = (useParams()?.courseId as string | undefined) ?? null;
   const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
+  const { data, isLoading } = useMyTraining();
+  const markComplete = useMarkLessonComplete();
+  const markIncomplete = useMarkLessonIncomplete();
+  const startCourse = useStartCourse();
 
   if (!onboarded) return <OnboardingTraining routeCourseId={routeCourseId} />;
 
-  return <FullTrainingProgram />;
+  return (
+    <FullTrainingProgram
+      basePath="/talent/training"
+      quizPath="/talent/training/blocks"
+      audienceLabel="talents"
+      trainingData={data}
+      isLoading={isLoading}
+      markComplete={markComplete}
+      markIncomplete={markIncomplete}
+      onStartCourse={async (id) => {
+        await startCourse.mutateAsync(id);
+      }}
+      webinarsNode={<WebinarsSection />}
+    />
+  );
+}
+
+function AgencyTrainingProgram() {
+  const { data, isLoading } = useAgencyTraining();
+  const markComplete = useAgencyMarkLessonComplete();
+  const markIncomplete = useAgencyMarkLessonIncomplete();
+  const startCourse = useAgencyStartCourse();
+
+  return (
+    <FullTrainingProgram
+      basePath="/agency/training"
+      quizPath="/agency/training/blocks"
+      audienceLabel="agencies"
+      trainingData={data}
+      isLoading={isLoading}
+      markComplete={markComplete}
+      markIncomplete={markIncomplete}
+      onStartCourse={async (id) => {
+        await startCourse.mutateAsync(id);
+      }}
+      webinarsNode={<AgencyWebinarsSection />}
+    />
+  );
+}
+
+export default function TrainingProgram({
+  audience = 'talent',
+}: {
+  audience?: 'talent' | 'agency';
+} = {}) {
+  if (audience === 'agency') {
+    return <AgencyTrainingProgram />;
+  }
+  return <TalentTrainingProgram />;
 }
 
 type CatalogStatus = 'not_started' | 'in_progress' | 'completed';
@@ -875,18 +941,28 @@ function CourseReader({
   enforceSequential,
   onBack,
   completionBanner,
+  quizPath,
+  markComplete: propMarkComplete,
+  markIncomplete: propMarkIncomplete,
+  onStartCourse,
 }: {
   course: TrainingCourse;
   enforceSequential: boolean;
   onBack: () => void;
   completionBanner?: ReactNode;
+  quizPath?: string;
+  markComplete?: { mutate: (id: string) => void; isPending: boolean };
+  markIncomplete?: { mutate: (id: string) => void; isPending: boolean };
+  onStartCourse?: (courseId: string) => Promise<any>;
 }) {
   const availableLanguages = getCourseLanguages(course);
   const [language, setLanguage, hasSelectedLanguage] = useCourseLanguage(course.id, availableLanguages);
   const needsLanguageSelection = availableLanguages.length > 1 && !hasSelectedLanguage;
   const [popupDismissed, setPopupDismissed] = useState(false);
-  const markComplete = useMarkLessonComplete();
-  const markIncomplete = useMarkLessonIncomplete();
+  const talentComplete = useMarkLessonComplete();
+  const talentIncomplete = useMarkLessonIncomplete();
+  const markComplete = propMarkComplete ?? talentComplete;
+  const markIncomplete = propMarkIncomplete ?? talentIncomplete;
   const contentRef = useRef<HTMLElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
 
@@ -1049,7 +1125,7 @@ function CourseReader({
 
   return (
     <div ref={shellRef} className="@container flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
-      {showPopup && <CourseStartPopup course={course} onDismiss={() => setPopupDismissed(true)} />}
+      {showPopup && <CourseStartPopup course={course} onDismiss={() => setPopupDismissed(true)} onStartCourse={onStartCourse} />}
 
       {/* Top bar */}
       <div className="flex min-h-[52px] shrink-0 items-center gap-2 border-b border-[#E7E7EA] bg-white px-4 py-2.5 md:px-5">
@@ -1197,7 +1273,7 @@ function CourseReader({
                     )}
 
                     {blocks.length > 0 && (
-                      <ContentBlocks blocks={blocks} language={language} className={hasVideo ? 'mt-6 space-y-5' : 'mt-5 space-y-5'} />
+                      <ContentBlocks blocks={blocks} language={language} quizPath={quizPath} className={hasVideo ? 'mt-6 space-y-5' : 'mt-5 space-y-5'} />
                     )}
 
                     {!hasContent && (
@@ -1291,35 +1367,58 @@ function CourseReader({
 }
 
 
-function FullTrainingProgram() {
+function FullTrainingProgram({
+  basePath = '/talent/training',
+  quizPath = '/talent/training/blocks',
+  audienceLabel = 'talents',
+  trainingData,
+  isLoading = false,
+  markComplete,
+  markIncomplete,
+  onStartCourse,
+  webinarsNode,
+}: {
+  basePath?: string;
+  quizPath?: string;
+  audienceLabel?: string;
+  trainingData?: {
+    courses: TrainingCourse[];
+    sops: TrainingSopSummary[];
+    sopCourses: TrainingCourse[];
+  };
+  isLoading?: boolean;
+  markComplete?: { mutate: (id: string) => void; isPending: boolean };
+  markIncomplete?: { mutate: (id: string) => void; isPending: boolean };
+  onStartCourse?: (courseId: string) => Promise<any>;
+  webinarsNode?: ReactNode;
+} = {}) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  // Present when mounted on /talent/training/<courseId> — the full-bleed
-  // reader route. On the plain /talent/training list it is undefined.
+  // Present when mounted on /talent/training/<courseId> or /agency/training/<courseId> — the full-bleed
+  // reader route. On the plain list it is undefined.
   const routeCourseId = (useParams()?.courseId as string | undefined) ?? null;
-  const { data, isLoading } = useMyTraining();
-  const courses = data?.courses ?? [];
-  const sops = data?.sops ?? [];
-  const sopCourses = data?.sopCourses ?? [];
+  const courses = useMemo(() => trainingData?.courses ?? [], [trainingData?.courses]);
+  const sops = useMemo(() => trainingData?.sops ?? [], [trainingData?.sops]);
+  const sopCourses = useMemo(() => trainingData?.sopCourses ?? [], [trainingData?.sopCourses]);
   const activeCountdowns = getActiveCountdowns(courses);
 
   const [query, setQuery] = useState('');
   const [viewingLegacy, setViewingLegacy] = useState(false);
   const viewingCourseId = routeCourseId;
 
-  // Legacy deep link: /talent/training?resource=sop:<id> | course:<id>.
+  // Legacy deep link: ?resource=sop:<id> | course:<id>.
   // Both now have their own reader route.
   useEffect(() => {
     const resource = searchParams.get('resource');
     if (!resource) return;
     if (resource.startsWith('sop:')) {
       setViewingLegacy(false);
-      router.replace(`/talent/training/${resource.slice(4)}`);
+      router.replace(`${basePath}/${resource.slice(4)}`);
     } else if (resource.startsWith('course:')) {
       setViewingLegacy(false);
-      router.replace(`/talent/training/${resource.slice(7)}`);
+      router.replace(`${basePath}/${resource.slice(7)}`);
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, basePath]);
 
   const q = query.trim().toLowerCase();
 
@@ -1415,7 +1514,11 @@ function FullTrainingProgram() {
       <CourseReader
         course={viewingCourse}
         enforceSequential={viewingCourse.is_onboarding}
-        onBack={() => router.push('/talent/training')}
+        onBack={() => router.push(basePath)}
+        quizPath={quizPath}
+        markComplete={markComplete}
+        markIncomplete={markIncomplete}
+        onStartCourse={onStartCourse}
       />
     );
   }
@@ -1436,7 +1539,7 @@ function FullTrainingProgram() {
             </p>
             <button
               type="button"
-              onClick={() => router.push('/talent/training')}
+              onClick={() => router.push(basePath)}
               className="rounded-lg bg-[#0a0a0a] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0a0a0a]/85"
             >
               Back to Training
@@ -1557,7 +1660,7 @@ function FullTrainingProgram() {
         </div>
       )}
 
-      {!q && <WebinarsSection />}
+      {!q && (webinarsNode !== undefined ? webinarsNode : <WebinarsSection />)}
 
       {isLoading ? (
         <div className="space-y-3 pt-8">
@@ -1593,7 +1696,7 @@ function FullTrainingProgram() {
                   <CatalogCourseCard
                     key={course.id}
                     course={course}
-                    onOpen={() => router.push(`/talent/training/${course.id}`)}
+                    onOpen={() => router.push(`${basePath}/${course.id}`)}
                   />
                 ))}
             </CatalogSection>
@@ -1615,7 +1718,7 @@ function FullTrainingProgram() {
             {filteredSops
               .filter((s) => !s.completed)
               .map((sop) => (
-                  <CatalogSopCard key={sop.id} sop={sop} onOpen={() => router.push(`/talent/training/${sop.id}`)} />
+                  <CatalogSopCard key={sop.id} sop={sop} onOpen={() => router.push(`${basePath}/${sop.id}`)} />
 
               ))}
           </CatalogSection>
@@ -1670,13 +1773,13 @@ function FullTrainingProgram() {
                     <CatalogCourseCard
                       key={course.id}
                       course={course}
-                      onOpen={() => router.push(`/talent/training/${course.id}`)}
+                      onOpen={() => router.push(`${basePath}/${course.id}`)}
                     />
                   ))}
                 {filteredSops
                   .filter((s) => s.completed)
                   .map((sop) => (
-                    <CatalogSopCard key={sop.id} sop={sop} onOpen={() => router.push(`/talent/training/${sop.id}`)} />
+                    <CatalogSopCard key={sop.id} sop={sop} onOpen={() => router.push(`${basePath}/${sop.id}`)} />
                   ))}
               </div>
             </details>
@@ -1712,12 +1815,20 @@ function formatWebinarWhen(startsAt: string, now: Date): string {
   return `${date} · ${time}`;
 }
 
-/** Notify-me picker — shown when nothing is scheduled. Pick a language, get told on all channels. */
-function WebinarNotifyMe({ compact = false }: { compact?: boolean }) {
-  const { data: languages, isLoading: langsLoading } = useWebinarLanguages();
-  const { data: interests } = useWebinarInterests();
-  const subscribe = useSubscribeWebinarInterest();
-  const unsubscribe = useUnsubscribeWebinarInterest();
+/** Shared webinar notify-me picker markup. */
+function WebinarNotifyMeView({
+  compact = false,
+  languages,
+  langsLoading,
+  interests,
+  onToggle,
+}: {
+  compact?: boolean;
+  languages?: Array<{ code: string; label: string }>;
+  langsLoading: boolean;
+  interests?: string[];
+  onToggle: (code: string, on: boolean) => Promise<void>;
+}) {
   const [open, setOpen] = useState(false);
   const [busyLang, setBusyLang] = useState<string | null>(null);
 
@@ -1725,15 +1836,7 @@ function WebinarNotifyMe({ compact = false }: { compact?: boolean }) {
     if (busyLang) return;
     setBusyLang(code);
     try {
-      if (on) {
-        await unsubscribe.mutateAsync(code);
-        toast.success('You will no longer be notified for this language.');
-      } else {
-        await subscribe.mutateAsync(code);
-        toast.success("You're on the list — we'll notify you when a webinar is scheduled.");
-      }
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message ?? 'Could not update preference');
+      await onToggle(code, on);
     } finally {
       setBusyLang(null);
     }
@@ -1829,11 +1932,90 @@ function WebinarNotifyMe({ compact = false }: { compact?: boolean }) {
   );
 }
 
-/** Compact Upcoming Webinars — one-click register, Join appears near start. */
-function WebinarsSection() {
-  const { data: webinars, isLoading } = useTrainingWebinars();
-  const register = useRegisterWebinar();
-  const unregister = useUnregisterWebinar();
+/** Talent notify-me picker */
+function WebinarNotifyMe({ compact = false }: { compact?: boolean }) {
+  const { data: languages, isLoading: langsLoading } = useWebinarLanguages();
+  const { data: interests } = useWebinarInterests();
+  const subscribe = useSubscribeWebinarInterest();
+  const unsubscribe = useUnsubscribeWebinarInterest();
+
+  return (
+    <WebinarNotifyMeView
+      compact={compact}
+      languages={languages}
+      langsLoading={langsLoading}
+      interests={interests}
+      onToggle={async (code, on) => {
+        try {
+          if (on) {
+            await unsubscribe.mutateAsync(code);
+            toast.success('You will no longer be notified for this language.');
+          } else {
+            await subscribe.mutateAsync(code);
+            toast.success("You're on the list — we'll notify you when a webinar is scheduled.");
+          }
+        } catch (e: any) {
+          toast.error(e?.response?.data?.message ?? 'Could not update preference');
+        }
+      }}
+    />
+  );
+}
+
+/** Agency notify-me picker */
+function AgencyWebinarNotifyMe({ compact = false }: { compact?: boolean }) {
+  const { data: languages, isLoading: langsLoading } = useAgencyWebinarLanguages();
+  const { data: interests } = useAgencyWebinarInterests();
+  const toggleInterest = useAgencyToggleWebinarInterest();
+
+  return (
+    <WebinarNotifyMeView
+      compact={compact}
+      languages={languages}
+      langsLoading={langsLoading}
+      interests={interests}
+      onToggle={async (code, on) => {
+        try {
+          if (on) {
+            await toggleInterest.mutateAsync({ language: code, subscribed: true });
+            toast.success('You will no longer be notified for this language.');
+          } else {
+            await toggleInterest.mutateAsync({ language: code, subscribed: false });
+            toast.success("You're on the list — we'll notify you when a webinar is scheduled.");
+          }
+        } catch (e: any) {
+          toast.error(e?.response?.data?.message ?? 'Could not update preference');
+        }
+      }}
+    />
+  );
+}
+
+interface GenericWebinar {
+  id: string;
+  title: string;
+  starts_at: string;
+  language: string;
+  meeting_link: string;
+  registered: boolean;
+}
+
+/** Shared webinars list section view */
+function WebinarsSectionView({
+  webinars,
+  isLoading,
+  audienceLabel = 'talents',
+  onRegister,
+  onUnregister,
+  notifyMeNode,
+}: {
+  webinars?: GenericWebinar[];
+  isLoading: boolean;
+  audienceLabel?: string;
+  onRegister: (id: string) => Promise<any>;
+  onUnregister: (id: string) => Promise<any>;
+  notifyMeNode: (compact: boolean) => ReactNode;
+}) {
   const now = useNow(30_000);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -1853,20 +2035,20 @@ function WebinarsSection() {
         <h2 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
           Upcoming webinars
         </h2>
-        <WebinarNotifyMe />
+        {notifyMeNode(false)}
       </section>
     );
   }
 
-  const act = async (w: TrainingWebinar) => {
+  const act = async (w: GenericWebinar) => {
     if (busyId) return;
     setBusyId(w.id);
     try {
       if (w.registered) {
-        await unregister.mutateAsync(w.id);
+        await onUnregister(w.id);
         toast.success('Unregistered');
       } else {
-        await register.mutateAsync(w.id);
+        await onRegister(w.id);
         toast.success("You're registered — we'll remind you on the day, 30 min and 5 min before.");
       }
     } catch (e: any) {
@@ -1930,10 +2112,46 @@ function WebinarsSection() {
         })}
       </div>
       <p className="mt-1.5 text-[11px] text-[#a3a3a3]">
-        Registered talents get reminders on the day, 30 min and 5 min before — in notifications + WhatsApp.
+        Registered {audienceLabel} get reminders on the day, 30 min and 5 min before — in notifications + WhatsApp.
       </p>
-      <WebinarNotifyMe compact />
+      {notifyMeNode(true)}
     </section>
+  );
+}
+
+/** Talent Upcoming Webinars */
+function WebinarsSection() {
+  const { data: webinars, isLoading } = useTrainingWebinars();
+  const register = useRegisterWebinar();
+  const unregister = useUnregisterWebinar();
+
+  return (
+    <WebinarsSectionView
+      webinars={webinars}
+      isLoading={isLoading}
+      audienceLabel="talents"
+      onRegister={(id) => register.mutateAsync(id)}
+      onUnregister={(id) => unregister.mutateAsync(id)}
+      notifyMeNode={(compact) => <WebinarNotifyMe compact={compact} />}
+    />
+  );
+}
+
+/** Agency Upcoming Webinars */
+function AgencyWebinarsSection() {
+  const { data: webinars, isLoading } = useAgencyWebinars();
+  const register = useAgencyRegisterWebinar();
+  const unregister = useAgencyUnregisterWebinar();
+
+  return (
+    <WebinarsSectionView
+      webinars={webinars}
+      isLoading={isLoading}
+      audienceLabel="agencies"
+      onRegister={(id) => register.mutateAsync(id)}
+      onUnregister={(id) => unregister.mutateAsync(id)}
+      notifyMeNode={(compact) => <AgencyWebinarNotifyMe compact={compact} />}
+    />
   );
 }
 

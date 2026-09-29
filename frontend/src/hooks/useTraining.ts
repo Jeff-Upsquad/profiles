@@ -368,7 +368,7 @@ export interface MyTrainingResponse {
  * Summarise an SOP item for the catalog card. SOPs are items on the 'sop'
  * track, so their progress comes from the same page counts as a course.
  */
-function itemToSopSummary(
+export function itemToSopSummary(
   item: TalentItem,
   assignments: TrainingAssignment[],
 ): TrainingSopSummary {
