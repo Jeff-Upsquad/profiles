@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from './errorHandler.middleware.js';
 import { validateBusinessToken } from '../services/business-auth.service.js';
-import type { UserRole } from '../../../shared/src/types/auth.js';
+import { roleFromAuthUser } from '../lib/auth-role.js';
 
 /**
  * Extracts Bearer token from the Authorization header,
@@ -29,11 +29,10 @@ export async function authenticate(
     } = await supabaseAdmin.auth.getUser(token);
 
     if (!error && user) {
-      const role = (user.user_metadata?.role as UserRole) ?? 'talent';
       req.user = {
         id: user.id,
         email: user.email!,
-        role,
+        role: roleFromAuthUser(user),
       };
       return next();
     }

@@ -187,7 +187,8 @@ async function createTalent(spec: TalentSpec, categoryIdBySlug: Record<string, s
     email,
     password: DEMO_PASSWORD,
     email_confirm: true,
-    user_metadata: { role: 'talent', full_name: spec.fullName },
+    app_metadata: { role: 'talent' },
+    user_metadata: { full_name: spec.fullName },
   });
   if (authErr || !created.user) throw new Error(`createUser ${email}: ${authErr?.message}`);
   const id = created.user.id;
@@ -263,7 +264,8 @@ async function main() {
     email: adminEmail,
     password: DEMO_PASSWORD,
     email_confirm: true,
-    user_metadata: { role: 'admin', full_name: 'Demo Admin' },
+    app_metadata: { role: 'admin' },
+    user_metadata: { full_name: 'Demo Admin' },
   });
   if (adminErr || !adminCreated.user) throw new Error(`admin createUser: ${adminErr?.message}`);
   const adminId = adminCreated.user.id;

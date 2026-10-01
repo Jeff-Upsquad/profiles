@@ -4,10 +4,10 @@ import { AppError } from './errorHandler.middleware.js';
 import { tryValidateStaffToken } from '../services/staff-auth.service.js';
 import { resolveModule, levelForMethod } from '../config/moduleRouteMap.js';
 import { meetsLevel } from '../../../shared/src/types/access.js';
-import type { UserRole } from '../../../shared/src/types/auth.js';
+import { roleFromAuthUser } from '../lib/auth-role.js';
 
 /**
- * Authenticates either a full admin (Supabase user with role='admin') OR a
+ * Authenticates either a full admin (Supabase user with app_metadata.role='admin') OR a
  * staff user (custom JWT). Talent/business tokens are rejected with 403/401.
  *
  * - Full admin  -> sets req.user (role 'admin'); req.staff stays undefined.
@@ -34,8 +34,7 @@ export async function requireAdminOrStaff(
       error,
     } = await supabaseAdmin.auth.getUser(token);
     if (!error && user) {
-      const role = (user.user_metadata?.role as UserRole) ?? 'talent';
-      if (role !== 'admin') {
+      if (roleFromAuthUser(user) !== 'admin') {
         throw new AppError(403, 'Insufficient permissions');
       }
       req.user = { id: user.id, email: user.email!, role: 'admin' };

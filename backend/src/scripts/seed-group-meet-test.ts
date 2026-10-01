@@ -71,7 +71,8 @@ async function ensureTalent(
       email,
       password: TEST_PASSWORD,
       email_confirm: true,
-      user_metadata: { role: 'talent', full_name: spec.name, test_fixture: 'group-meet' },
+      app_metadata: { role: 'talent' },
+      user_metadata: { full_name: spec.name, test_fixture: 'group-meet' },
     });
     if (error || !data.user) fail(`create ${email}`, error);
     authUser = data.user;
@@ -79,7 +80,9 @@ async function ensureTalent(
     const { error } = await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
       password: TEST_PASSWORD,
       email_confirm: true,
-      user_metadata: { role: 'talent', full_name: spec.name, test_fixture: 'group-meet' },
+      // Keep the other app_metadata keys (provider, SquadHire CRM's shcrm_* flags).
+      app_metadata: { ...(authUser.app_metadata ?? {}), role: 'talent' },
+      user_metadata: { full_name: spec.name, test_fixture: 'group-meet' },
     });
     if (error) fail(`reset ${email}`, error);
   }

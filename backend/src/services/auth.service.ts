@@ -6,6 +6,7 @@ import type { SignupTalentInput, SignupAgencyInput, LoginInput } from '../valida
 import type { CreateLeadInput } from '../validators/lead.validators.js';
 import { workIntent } from '../lib/work-intent.js';
 import { formTypeFromSignupHint } from '../lib/signup-category.js';
+import { roleFromAuthUser } from '../lib/auth-role.js';
 import type { UserRole } from '../../../shared/src/types/auth.js';
 
 export async function signupTalent(input: SignupTalentInput, application?: CreateLeadInput) {
@@ -39,12 +40,13 @@ export async function signupTalent(input: SignupTalentInput, application?: Creat
   // talent invite exists for this email, mark it accepted after create.
   const invitation = await checkInvitation(email, 'talent');
 
-  // Create auth user with role metadata
+  // Create auth user. The role goes in app_metadata, which users can't edit.
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: { role: 'talent' as UserRole, full_name },
+    app_metadata: { role: 'talent' as UserRole },
+    user_metadata: { full_name },
   });
 
   if (authError) {
@@ -275,7 +277,8 @@ export async function signupAgency(input: SignupAgencyInput) {
     email,
     password,
     email_confirm: true,
-    user_metadata: { role: 'agency' as UserRole, agency_name },
+    app_metadata: { role: 'agency' as UserRole },
+    user_metadata: { agency_name },
   });
   if (authError) {
     if (authError.message.includes('already')) throw new AppError(409, 'An account with this email already exists');
@@ -530,7 +533,7 @@ export async function login(input: LoginInput) {
     throw new AppError(401, await loginFailureMessage(input));
   }
 
-  const role = (data.user.user_metadata?.role as UserRole) ?? 'talent';
+  const role = roleFromAuthUser(data.user);
 
   return {
     access_token: data.session.access_token,
@@ -592,7 +595,7 @@ export async function refreshToken(refresh_token: string) {
     throw new AppError(401, 'Invalid or expired refresh token');
   }
 
-  const role = (data.user?.user_metadata?.role as UserRole) ?? 'talent';
+  const role = roleFromAuthUser(data.user);
 
   return {
     access_token: data.session.access_token,
@@ -657,7 +660,7 @@ export async function mintTalentAppSession(emailRaw: string) {
     throw new AppError(500, 'Could not start the SquadHire session.');
   }
 
-  const role = (sessionData.user?.user_metadata?.role as UserRole) ?? 'talent';
+  const role = roleFromAuthUser(sessionData.user);
   if (role !== 'talent') throw new AppError(403, 'This SquadHire account is not a talent account.');
 
   return {

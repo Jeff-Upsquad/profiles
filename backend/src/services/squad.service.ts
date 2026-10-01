@@ -92,7 +92,8 @@ export async function squadSignup(input: { email: string; password: string }) {
     email,
     password: input.password,
     email_confirm: true,
-    user_metadata: { role, full_name, agency_user_id: agencyUserId },
+    app_metadata: { role },
+    user_metadata: { full_name, agency_user_id: agencyUserId },
   });
   if (authError) {
     if (authError.message.includes('already')) throw new AppError(409, 'An account with this email already exists');
