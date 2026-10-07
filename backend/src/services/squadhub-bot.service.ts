@@ -93,7 +93,7 @@ export function hubDoubtsConnected(): boolean {
   return !!hubRequest('doubts');
 }
 
-async function hubJson<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+export async function hubJson<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const req = hubRequest(path);
   if (!req) throw new Error('SquadHub bot key is not configured');
   const response = await fetch(req.url, {

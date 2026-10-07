@@ -45,6 +45,13 @@ import { handoffEventId, handoffSourceUrl, supportJobId, supportSourceUrl } from
 import { hubBotConfig, hubDoubtsConnected, hubLearnings, hubStatus, publishHubDoubt, reportUsage } from './squadhub-bot.service.js';
 
 const HISTORY_TURNS = 30;
+
+// Squad Bots inbox: loaded lazily (it calls back into this module to deliver replies).
+const inbox = () => import('./squad-bots-inbox.service.js');
+/** Mirror the chat to the Squad Bots inbox after a change. Fire-and-forget. */
+function syncLater(conversationId: string): void {
+  void inbox().then((m) => m.syncToInbox(conversationId)).catch(() => {});
+}
 const MAX_TALENT_MESSAGES_PER_HOUR = 40;
 const TALENT_CHAT_LINK = '/talent/contact-support';
 
@@ -377,6 +384,10 @@ export async function sendTalentMessage(talentUserId: string, text: string) {
 
   const talentMsg = await addMessage(conv.id, { sender: 'talent', body });
 
+  // A teammate took this chat over in the Squad Bots inbox: they reply, the bot stays quiet.
+  const mirrored = await (await inbox()).syncToInbox(conv.id);
+  if (mirrored?.taken_over) return { status: conv.status, messages: [talentMsg] };
+
   // Waiting on the team: they see it in the inbox; the bot stays quiet.
   if (conv.status === 'handoff') return { status: conv.status, messages: [talentMsg] };
 
@@ -394,10 +405,12 @@ export async function sendTalentMessage(talentUserId: string, text: string) {
         : `Squad Hiring Bot is in ${status === 'practice' ? 'Practice' : 'Needs approval'} mode in SquadHub admin, so the team replies. Its suggested reply is in the chat.`,
     );
     const notice = await addMessage(conv.id, { sender: 'bot', body: HANDOFF_MESSAGE, channel: 'app' });
+    syncLater(conv.id);
     return { status: 'handoff' as const, messages: [talentMsg, notice] };
   }
 
   const reply = await answer(conv, 'app');
+  syncLater(conv.id);
   return { status: reply.status, messages: [talentMsg, reply.message].filter(Boolean) };
 }
 
@@ -448,7 +461,13 @@ async function answer(
     };
   }
 
-  const [subject, rawLines, hub, learned] = await Promise.all([subjectFor(conv), recentLines(conv.id, HISTORY_TURNS), hubBotConfig(), hubLearnings()]);
+  const [subject, rawLines, hub, learned, guidance] = await Promise.all([
+    subjectFor(conv),
+    recentLines(conv.id, HISTORY_TURNS),
+    hubBotConfig(),
+    hubLearnings(),
+    inbox().then((m) => m.inboxGuidance(conv.id)),
+  ]);
   const model = botModel(hub, env.SQUAD_BOT_MODEL);
   const startedAt = Date.now();
   const lines = rawLines as Array<ChatLine & { created_at: string }>;
@@ -504,6 +523,7 @@ async function answer(
               learned.length ? 'Guidance saved by the UpSquad team. Apply only when relevant. Never reuse a person-specific account or payment fact for another person:\n' +
                 learned.slice(-20).map((row) => `Question: ${row.question}\nGuidance: ${row.instruction}`).join('\n\n').slice(-12000) : '',
               instructions,
+              guidance,
               opts.instructed ? 'The newest team instruction was just given: act on it in this reply.' : '',
               channel === 'whatsapp' ? WHATSAPP_NOTE : '',
             ].filter(Boolean).join('\n\n'),
@@ -669,6 +689,9 @@ export async function handleWhatsAppMessage(msg: WhatsAppInbound): Promise<void>
 
     const conv = await whatsappConversation(msg);
     await addMessage(conv.id, { sender: 'talent', body: msg.text, channel: 'whatsapp', crm_message_id: msg.message_id });
+    // Taken over in the Squad Bots inbox: the teammate replies there.
+    const mirrored = await (await inbox()).syncToInbox(conv.id);
+    if (mirrored?.taken_over) return;
     // Handed to the team: recruiters answer in the CRM; the bot stays quiet.
     if (conv.status === 'handoff') return;
 
@@ -691,6 +714,7 @@ export async function handleWhatsAppMessage(msg: WhatsAppInbound): Promise<void>
     if (sent?.ok && delivery === 'auto' && 'reply_buttons' in reply && reply.reply_buttons) {
       await supabaseAdmin.from('squad_bot_conversations').update({ cancellation_pending_at: new Date().toISOString() }).eq('id', conv.id);
     }
+    syncLater(conv.id);
   } catch (err) {
     console.error('[squad-bot] WhatsApp message failed:', (err as Error)?.message ?? err);
   }
@@ -794,7 +818,7 @@ export async function getConversation(id: string) {
   return { ...(conv as any), messages: await recentLines(id, 300) };
 }
 
-export async function staffReply(id: string, staff: { id: string; name: string }, text: string, replyChannel?: 'app' | 'whatsapp') {
+export async function staffReply(id: string, staff: { id: string | null; name: string }, text: string, replyChannel?: 'app' | 'whatsapp') {
   const body = text.trim();
   if (!body) throw new AppError(400, 'Reply is empty');
   const conv = (await getConversation(id)) as ConversationRow & { messages: Array<{ sender: string; channel?: string }> };
@@ -808,7 +832,9 @@ export async function staffReply(id: string, staff: { id: string; name: string }
         ? "Their last WhatsApp message was over 24 hours ago, so WhatsApp only allows a template. Send one from the CRM."
         : 'Could not send on WhatsApp through the CRM. Try again, or reply from the CRM.');
     }
-    return addMessage(id, { sender: 'staff', body, channel: 'whatsapp', crm_message_id: sent.message_id ?? null, staff_user_id: staff.id, staff_name: staff.name });
+    const message = await addMessage(id, { sender: 'staff', body, channel: 'whatsapp', crm_message_id: sent.message_id ?? null, staff_user_id: staff.id, staff_name: staff.name });
+    syncLater(id);
+    return message;
   }
 
   const message = await addMessage(id, { sender: 'staff', body, staff_user_id: staff.id, staff_name: staff.name });
@@ -816,6 +842,7 @@ export async function staffReply(id: string, staff: { id: string; name: string }
     const { notifyTalentsInApp } = await import('./jobs.service.js');
     void notifyTalentsInApp([conv.talent_user_id], 'squad_bot_reply', 'The UpSquad team replied', body.slice(0, 140), TALENT_CHAT_LINK);
   }
+  syncLater(id);
   return message;
 }
 
@@ -851,6 +878,7 @@ export async function instructBot(id: string, staff: { id: string; name: string 
       void notifyTalentsInApp([conv.talent_user_id], 'squad_bot_reply', 'Squad Bot replied', reply.message.body.slice(0, 140), TALENT_CHAT_LINK);
     }
   }
+  syncLater(id);
   // A handed-off chat is learned from when it's handed back; otherwise learn now.
   if (conv.status === 'bot' && reply.message) {
     const { draftFromHandoff } = await import('./knowledge-learning.service.js');

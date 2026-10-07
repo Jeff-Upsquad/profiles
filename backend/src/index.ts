@@ -32,6 +32,7 @@ import { startCardPaymentsSweeper } from './services/card-payments.service.js';
 import { startTrackCatchUpSweeper } from './services/linked-tracks.service.js';
 import { startPartnerAppInstallSync } from './services/partner-app-install.service.js';
 import { startSquadBotChannelBridge } from './services/squad-bot-channel-bridge.service.js';
+import { startSquadBotsInbox } from './services/squad-bots-inbox.service.js';
 import * as cardPaymentsController from './controllers/card-payments.controller.js';
 
 const app = express();
@@ -160,6 +161,7 @@ app.listen(env.PORT, () => {
   startTrackCatchUpSweeper();
   startPartnerAppInstallSync();
   startSquadBotChannelBridge();
+  startSquadBotsInbox();
 });
 
 export default app;
