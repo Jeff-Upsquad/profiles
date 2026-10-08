@@ -11,13 +11,14 @@
 // we saw (or this app's own settings if we never got any).
 
 import { env } from '../config/env.js';
-import type { HubBotConfig, HubStatus } from '../lib/squadhub-bot.js';
+import { chooseSquadbot, type HubBotConfig, type HubStatus, type Squadbot, type SquadbotBriefing } from '../lib/squadhub-bot.js';
 
 const CACHE_MS = 30_000;
 const TIMEOUT_MS = 5_000;
 
-let cached: { at: number; config: HubBotConfig } | null = null;
-let lastKnown: HubBotConfig | null = null;
+// Settings per Squadbot ('' is the bot itself).
+const configCache = new Map<string, { at: number; config: HubBotConfig }>();
+const lastKnownConfig = new Map<string, HubBotConfig>();
 
 function squadhubBaseUrl(): string | null {
   if (env.SQUADHUB_API_URL) return env.SQUADHUB_API_URL.replace(/\/$/, '');
@@ -25,34 +26,93 @@ function squadhubBaseUrl(): string | null {
   return null;
 }
 
+/** Squad Bots' own API when configured, else the copy SquadHub serves. */
+function integrationBaseUrl(): string | null {
+  if (env.SQUAD_BOTS_API_URL) return env.SQUAD_BOTS_API_URL.replace(/\/$/, '');
+  const hub = squadhubBaseUrl();
+  return hub ? `${hub}/integrations/squad-bots` : null;
+}
+
 function hubRequest(path: string): { url: string; headers: Record<string, string> } | null {
-  const base = squadhubBaseUrl();
+  const base = integrationBaseUrl();
   if (!base || !env.SQUADHUB_BOT_KEY) return null;
   return {
-    url: `${base}/integrations/squad-bots/${path}`,
+    url: `${base}/${path}`,
     headers: { Authorization: `Bearer ${env.SQUADHUB_BOT_KEY}`, 'Content-Type': 'application/json' },
   };
 }
 
-/** The bot's settings in SquadHub admin, or null when SquadHub isn't connected. */
-export async function hubBotConfig(): Promise<HubBotConfig | null> {
-  if (cached && Date.now() - cached.at < CACHE_MS) return cached.config;
-  const req = hubRequest('config');
+/**
+ * The bot's settings, or null when Squad Bots isn't connected. With a Squadbot,
+ * its identity, role, persona and AI model are layered on. A paused or removed
+ * Squadbot returns null so the caller falls back to another.
+ */
+export async function hubBotConfig(squadbotId?: string | null): Promise<HubBotConfig | null> {
+  const key = squadbotId ?? '';
+  const hit = configCache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.config;
+  const req = hubRequest(key ? `config?character_id=${encodeURIComponent(key)}` : 'config');
   if (!req) return null;
   try {
     const res = await fetch(req.url, { headers: req.headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    if (key && res.status >= 400 && res.status < 500 && res.status !== 429) { lastKnownConfig.delete(key); return null; }
     if (!res.ok) throw new Error(`http_${res.status}`);
     const body = (await res.json()) as { data?: HubBotConfig };
     if (!body.data?.status) throw new Error('bad response');
-    cached = { at: Date.now(), config: body.data };
-    lastKnown = body.data;
+    configCache.set(key, { at: Date.now(), config: body.data });
+    lastKnownConfig.set(key, body.data);
     return body.data;
   } catch (err) {
-    console.error('[squad-bot] SquadHub settings unavailable:', (err as Error)?.message ?? err);
-    // Don't hammer SquadHub while it's down: reuse the last answer for a cycle.
-    if (lastKnown) cached = { at: Date.now(), config: lastKnown };
-    return lastKnown;
+    console.error('[squad-bot] Squad Bots settings unavailable:', (err as Error)?.message ?? err);
+    // Don't hammer Squad Bots while it's down: reuse the last answer for a cycle.
+    const last = lastKnownConfig.get(key) ?? null;
+    if (last) configCache.set(key, { at: Date.now(), config: last });
+    return last;
   }
+}
+
+let squadbotsCache: { at: number; list: Squadbot[] } | null = null;
+/** The Squadbot who starts a chat, or null to answer as plain Squad Bot. */
+export async function homeSquadbot(): Promise<Squadbot | null> {
+  if (!squadbotsCache || Date.now() - squadbotsCache.at >= CACHE_MS * 10) {
+    try {
+      squadbotsCache = { at: Date.now(), list: await hubJson<Squadbot[]>('characters') };
+    } catch (err) {
+      console.error('[squad-bot] Squadbots unavailable:', (err as Error)?.message ?? err);
+      if (!squadbotsCache) return null;
+      squadbotsCache.at = Date.now();
+    }
+  }
+  return chooseSquadbot(squadbotsCache.list, env.SQUAD_HIRING_BOT_SQUADBOT_ID);
+}
+
+const briefingCache = new Map<string, { at: number; briefing: SquadbotBriefing }>();
+/**
+ * A Squadbot's memory, the confidentiality guideline and its teammates. Talents
+ * are outside people, so internal-only memory never comes back. Null only when
+ * Squad Bots has never been reachable; the bot then hands off beyond greetings.
+ */
+export async function squadbotBriefing(squadbotId: string | null): Promise<SquadbotBriefing | null> {
+  const key = squadbotId ?? '';
+  const hit = briefingCache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_MS * 2) return hit.briefing;
+  try {
+    const briefing = await hubJson<SquadbotBriefing>(key ? `briefing?character_id=${encodeURIComponent(key)}` : 'briefing');
+    briefingCache.set(key, { at: Date.now(), briefing });
+    return briefing;
+  } catch (err) {
+    console.error('[squad-bot] Squad Bots memory unavailable:', (err as Error)?.message ?? err);
+    if (hit) { hit.at = Date.now(); return hit.briefing; }
+    return null;
+  }
+}
+
+/** Record in Squad Bots that one Squadbot passed the chat to a teammate. */
+export async function transferInSquadBots(botsConversationId: string, fromId: string, toId: string, reason: string) {
+  return hubJson<{ active_character_id: string; name: string }>(
+    `conversations/${botsConversationId}/transfer`, 'POST',
+    { from_character_id: fromId, to_character_id: toId, reason: reason.slice(0, 300) },
+  );
 }
 
 export async function hubStatus(): Promise<HubStatus | null> {

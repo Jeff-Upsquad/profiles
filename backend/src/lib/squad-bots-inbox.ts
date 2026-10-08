@@ -7,6 +7,7 @@ export interface ChatRow {
   sender: string;
   body: string | null;
   staff_name?: string | null;
+  meta?: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -20,6 +21,7 @@ export function inboxMessages(rows: ChatRow[]) {
       content: m.body!,
       created_at: new Date(m.created_at).toISOString(),
       ...(m.sender === 'staff' && m.staff_name ? { sender_name: m.staff_name.slice(0, 120) } : {}),
+      ...(m.sender === 'bot' && typeof m.meta?.squadbot_name === 'string' ? { sender_name: m.meta.squadbot_name.slice(0, 120) } : {}),
     }));
 }
 

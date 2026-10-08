@@ -29,3 +29,9 @@ test('turns answers and instructions into guidance, ignoring unanswered question
   assert.doesNotMatch(text, /Still open/);
   assert.equal(guidanceText([]), '');
 });
+
+test('bot replies carry the Squadbot who wrote them', async () => {
+  const { inboxMessages } = await import('./squad-bots-inbox.js');
+  const [reply] = inboxMessages([{ id: 'm1', sender: 'bot', body: 'Hi', meta: { squadbot_name: 'Tina', usage: {} }, created_at: '2026-10-09T07:00:00Z' }]);
+  assert.equal(reply.sender_name, 'Tina');
+});

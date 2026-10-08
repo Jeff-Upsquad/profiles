@@ -24,25 +24,26 @@ import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import {
   HANDOFF_MESSAGE,
-  SQUAD_BOT_INSTRUCTIONS,
   ACT_ON_INSTRUCTION,
   fetchDomains,
   historyToMessages,
   introNote,
   isNewConversation,
-  knowledgeBlock,
   knowledgeKeysFor,
+  memoryBlock,
+  squadBotInstructions,
   talentContext,
   teamInstructions,
+  transferNote,
   formTypeForPipeline,
   prospectContext,
   WHATSAPP_NOTE,
   type ChatLine,
   type TalentBrief,
 } from '../lib/squad-bot-prompt.js';
-import { adminInstructions, appDelivery, botModel, whatsappDelivery, type HubStatus } from '../lib/squadhub-bot.js';
+import { adminInstructions, appDelivery, botModel, transferTargets, whatsappDelivery, type HubStatus, type SquadbotBriefing } from '../lib/squadhub-bot.js';
 import { handoffEventId, handoffSourceUrl, supportJobId, supportSourceUrl } from '../lib/squad-bot-channel.js';
-import { hubBotConfig, hubDoubtsConnected, hubLearnings, hubStatus, publishHubDoubt, reportUsage } from './squadhub-bot.service.js';
+import { homeSquadbot, hubBotConfig, hubDoubtsConnected, hubLearnings, hubStatus, publishHubDoubt, reportUsage, squadbotBriefing, transferInSquadBots } from './squadhub-bot.service.js';
 
 const HISTORY_TURNS = 30;
 
@@ -85,6 +86,27 @@ export const HANDOFF_TOOL: Anthropic.Beta.BetaTool = {
     additionalProperties: false,
   },
 };
+
+/** Offered when the speaking Squadbot has teammates covering other memory sections. */
+function transferTool(teammates: SquadbotBriefing['teammates']): Anthropic.Beta.BetaTool {
+  return {
+    name: 'transfer_to_teammate',
+    description: [
+      "Pass this chat to a Squadbot teammate who covers what the talent is asking about, when your own knowledge doesn't. The teammate replies straight away. Use this instead of hand_off_to_team when a teammate covers the topic. Teammates:",
+      ...teammates.map((t) => `- ${t.name}${t.job_role ? ` (${t.job_role})` : ''}: ${t.covers.join('; ')}`),
+    ].join('\n'),
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: {
+        teammate: { type: 'string', enum: teammates.map((t) => t.name) },
+        reason: { type: 'string', description: 'One short sentence for the teammate: what the talent needs.' },
+      },
+      required: ['teammate', 'reason'],
+      additionalProperties: false,
+    },
+  };
+}
 
 let client: Anthropic | null = null;
 /** The shared Claude client (null until ANTHROPIC_API_KEY is set). */
@@ -363,7 +385,13 @@ export async function getTalentChat(talentUserId: string) {
   const messages = (await recentLines(conv.id, 100, 'app')).filter(
     (m: any) => ['talent', 'bot', 'staff'].includes(m.sender) && m.channel !== 'whatsapp',
   );
-  return { status: conv.status, messages };
+  // Which Squadbot wrote each reply. Only the name leaves the server, never the rest of meta.
+  const botIds = messages.filter((m: any) => m.sender === 'bot').map((m: any) => m.id);
+  const { data: names } = botIds.length
+    ? await supabaseAdmin.from('squad_bot_messages').select('id, squadbot_name:meta->>squadbot_name').in('id', botIds)
+    : { data: [] as Array<{ id: string; squadbot_name: string | null }> };
+  const nameOf = new Map((names ?? []).map((r: any) => [r.id, r.squadbot_name]));
+  return { status: conv.status, messages: messages.map((m: any) => (nameOf.get(m.id) ? { ...m, sender_name: nameOf.get(m.id) } : m)) };
 }
 
 export async function sendTalentMessage(talentUserId: string, text: string) {
@@ -440,8 +468,16 @@ async function answer(
   conv: ConversationRow,
   channel: 'app' | 'whatsapp',
   extraMeta: Record<string, unknown> = {},
-  opts: { instructed?: boolean; deliver?: 'reply' | 'note'; hubStatus?: HubStatus | null } = {},
-) {
+  opts: {
+    instructed?: boolean;
+    deliver?: 'reply' | 'note';
+    hubStatus?: HubStatus | null;
+    /** Answer as this Squadbot (set after a transfer). */
+    speakerId?: string | null;
+    transfer?: { from: string; reason: string };
+    noTransfer?: boolean;
+  } = {},
+): Promise<{ status: 'bot' | 'handoff'; message: any; handoff: { reason: string; summary: string } | null; reply_buttons?: typeof CANCELLATION_BUTTONS }> {
   if (channel === 'app' && !opts.instructed && opts.deliver !== 'note' && pendingCancellation(conv.cancellation_pending_at)) {
     const last = (await recentLines(conv.id, 1))[0];
     if (last?.sender === 'talent') {
@@ -461,21 +497,38 @@ async function answer(
     };
   }
 
-  const [subject, rawLines, hub, learned, guidance] = await Promise.all([
+  const [subject, rawLines, learned, state, home] = await Promise.all([
     subjectFor(conv),
     recentLines(conv.id, HISTORY_TURNS),
-    hubBotConfig(),
     hubLearnings(),
-    inbox().then((m) => m.inboxGuidance(conv.id)),
+    inbox().then((m) => m.inboxState(conv.id)),
+    homeSquadbot(),
   ]);
+  // Who answers: the teammate after a transfer, else the Squadbot the chat
+  // started with, else the home Squadbot; plain Squad Bot when none is available.
+  let speakerId: string | null = opts.speakerId ?? state?.active_character_id ?? state?.character_id ?? home?.id ?? null;
+  let hub = speakerId ? await hubBotConfig(speakerId) : null;
+  if (speakerId && !hub && home && speakerId !== home.id) {
+    speakerId = home.id;
+    hub = await hubBotConfig(speakerId);
+  }
+  if (!hub) {
+    speakerId = null;
+    hub = await hubBotConfig();
+  }
+  const speakerName = hub?.character?.name ?? 'Squad Bot';
+  // A chat recorded before Squadbots adopts the one answering it.
+  if (state && !state.character_id && speakerId) {
+    const adopt = speakerId;
+    void inbox().then((m) => m.syncToInbox(conv.id, adopt)).catch(() => {});
+  }
+  // Memory comes from Squad Bots, filtered for outside people (talents).
+  const briefing = await squadbotBriefing(speakerId);
+  const guidance = state?.guidance ?? '';
+  const teammates = opts.noTransfer || opts.deliver === 'note' || !state ? [] : transferTargets(briefing, speakerId);
   const model = botModel(hub, env.SQUAD_BOT_MODEL);
   const startedAt = Date.now();
   const lines = rawLines as Array<ChatLine & { created_at: string }>;
-  const { data: knowledge } = await supabaseAdmin
-    .from('knowledge_items')
-    .select('title, body_text')
-    .overlaps('categories', subject.knowledgeKeys)
-    .order('title', { ascending: true });
 
   const instructions = teamInstructions(lines);
   const messages: Anthropic.Beta.BetaMessageParam[] = historyToMessages(lines);
@@ -487,7 +540,7 @@ async function answer(
     name: 'web_fetch',
     max_uses: 3,
     allowed_domains: fetchDomains([
-      ...(knowledge ?? []).map((k: { body_text: string }) => k.body_text),
+      briefing?.memory ?? '',
       ...lines.filter((l) => l.sender === 'instruction').map((l) => l.body),
     ]),
   };
@@ -495,7 +548,12 @@ async function answer(
   let cancellationAction: 'ask' | 'dismiss' | null = null;
   let text = '';
   let handoff: { reason: string; summary: string } | null = null;
-  const meta: Record<string, unknown> = { ...extraMeta, knowledge_items: knowledge?.length ?? 0 };
+  let transfer: { teammate: string; reason: string } | null = null;
+  const meta: Record<string, unknown> = {
+    ...extraMeta,
+    ...(speakerId ? { squadbot_id: speakerId, squadbot_name: speakerName } : {}),
+    memory_chars: briefing?.memory.length ?? 0,
+  };
 
   try {
     const usage = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
@@ -510,16 +568,17 @@ async function answer(
         thinking: { type: 'adaptive' },
         output_config: { effort: 'low' },
         system: [
-          { type: 'text', text: SQUAD_BOT_INSTRUCTIONS + '\n\n' + CANCELLATION_INSTRUCTIONS },
-          // Same for every talent in these categories → cached across chats.
-          { type: 'text', text: knowledgeBlock(knowledge ?? []), cache_control: { type: 'ephemeral' } },
+          { type: 'text', text: squadBotInstructions(speakerName) + '\n\n' + CANCELLATION_INSTRUCTIONS },
+          // Same for every chat this Squadbot answers → cached across chats.
+          { type: 'text', text: memoryBlock(briefing?.memory ?? ''), cache_control: { type: 'ephemeral' } },
           {
             type: 'text',
             text: [
               `The person you're chatting with:\n${subject.context}`,
-              introNote(isNewConversation(lines)),
+              opts.transfer ? transferNote(opts.transfer.from, opts.transfer.reason, speakerName) : introNote(isNewConversation(lines), speakerName),
               pendingCancellation(conv.cancellation_pending_at) ? 'A cancellation-scope question was sent less than 24 hours ago. Await a clear Partner Program / Jobs / Both choice; never infer Both from a vague yes or no.' : '',
               adminInstructions(hub),
+              briefing?.guideline ?? '',
               learned.length ? 'Guidance saved by the UpSquad team. Apply only when relevant. Never reuse a person-specific account or payment fact for another person:\n' +
                 learned.slice(-20).map((row) => `Question: ${row.question}\nGuidance: ${row.instruction}`).join('\n\n').slice(-12000) : '',
               instructions,
@@ -529,7 +588,7 @@ async function answer(
             ].filter(Boolean).join('\n\n'),
           },
         ],
-        tools: [HANDOFF_TOOL, ...CANCELLATION_TOOLS, webFetch],
+        tools: [HANDOFF_TOOL, ...CANCELLATION_TOOLS, ...(teammates.length ? [transferTool(teammates)] : []), webFetch],
         messages,
       });
 
@@ -550,6 +609,10 @@ async function answer(
         if (block.type === 'tool_use' && block.name === 'ask_cancellation_scope') cancellationAction = 'ask';
         if (block.type === 'tool_use' && block.name === 'dismiss_cancellation_question') cancellationAction = 'dismiss';
         if (block.type === 'server_tool_use' && block.name === 'web_fetch') fetches++;
+        if (block.type === 'tool_use' && block.name === 'transfer_to_teammate') {
+          const input = block.input as { teammate?: unknown; reason?: unknown };
+          if (typeof input?.teammate === 'string') transfer = { teammate: input.teammate, reason: typeof input.reason === 'string' ? input.reason : '' };
+        }
         if (block.type === 'tool_use' && block.name === 'hand_off_to_team') {
           const input = block.input as { reason?: unknown; summary?: unknown };
           handoff = {
@@ -577,7 +640,7 @@ async function answer(
     if (fetches) meta.web_fetches = fetches;
     if (cancellationAction === 'ask') { text = CANCELLATION_QUESTION; handoff = null; }
     if (cancellationAction === 'dismiss') { text = 'Your applications will stay as they are. How can I help?'; handoff = null; }
-    if (!text.trim() && !handoff) handoff = { reason: 'not_in_knowledge', summary: 'Squad Bot had no answer.' };
+    if (!text.trim() && !handoff && !transfer) handoff = { reason: 'not_in_knowledge', summary: 'Squad Bot had no answer.' };
   } catch (err) {
     const status = err instanceof Anthropic.APIError ? err.status : undefined;
     console.error('[squad-bot] Claude call failed:', status ?? '', (err as Error)?.message ?? err);
@@ -587,6 +650,22 @@ async function answer(
     if (opts.deliver === 'note') return { status: conv.status, message: null, handoff: null };
     handoff = { reason: 'other', summary: 'Squad Bot could not answer (service error), so this came straight to the team.' };
     text = '';
+  }
+
+  // Another Squadbot covers this: record the transfer in Squad Bots and let
+  // them answer. A failed transfer answers here, without the option.
+  if (transfer && !handoff && !cancellationAction) {
+    const target = teammates.find((t) => t.name === transfer!.teammate);
+    if (target && state && speakerId) {
+      try {
+        await transferInSquadBots(state.conversation_id, speakerId, target.id, transfer.reason);
+        await addMessage(conv.id, { sender: 'system', channel, body: `${speakerName} handed the chat to ${target.name}${transfer.reason ? `: ${transfer.reason}` : '.'}` });
+        return answer(conv, channel, extraMeta, { ...opts, speakerId: target.id, transfer: { from: speakerName, reason: transfer.reason }, noTransfer: true });
+      } catch (err) {
+        console.error('[squad-bot] transfer failed:', (err as Error)?.message ?? err);
+      }
+    }
+    return answer(conv, channel, extraMeta, { ...opts, noTransfer: true });
   }
 
   if (opts.deliver === 'note') {

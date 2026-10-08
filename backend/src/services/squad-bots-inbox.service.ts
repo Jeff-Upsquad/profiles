@@ -25,15 +25,18 @@ export interface InboxSync {
   taken_over_name: string | null;
 }
 
-/** Record the chat in Squad Bots. Null when it isn't connected or reachable. */
-export async function syncToInbox(conversationId: string): Promise<InboxSync | null> {
+/**
+ * Record the chat in Squad Bots. Null when it isn't connected or reachable.
+ * `squadbotId` names the Squadbot speaking; a chat without one adopts it.
+ */
+export async function syncToInbox(conversationId: string, squadbotId?: string | null): Promise<InboxSync | null> {
   if (!hubDoubtsConnected()) return null;
   try {
     const [{ data: conv }, { data: rows }] = await Promise.all([
       supabaseAdmin.from('squad_bot_conversations').select('*').eq('id', conversationId).maybeSingle(),
       supabaseAdmin
         .from('squad_bot_messages')
-        .select('id, sender, body, staff_name, created_at')
+        .select('id, sender, body, staff_name, meta, created_at')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: false })
         .limit(HISTORY),
@@ -47,6 +50,7 @@ export async function syncToInbox(conversationId: string): Promise<InboxSync | n
       participant_id: conv.id,
       participant_name: (await contactName(conv)).slice(0, 120),
       title: (conv.crm_pipeline_name || (conv.talent_user_id ? 'In-app chat' : 'WhatsApp')).slice(0, 200),
+      ...(squadbotId ? { character_id: squadbotId } : {}),
       messages,
     });
   } catch (err) {
@@ -63,17 +67,31 @@ async function contactName(conv: any): Promise<string> {
   return conv.contact_name || conv.phone || 'Talent';
 }
 
-/** The team's Backchannel guidance for this chat, for the bot's prompt. */
-export async function inboxGuidance(conversationId: string): Promise<string> {
-  if (!hubDoubtsConnected()) return '';
+export interface InboxState {
+  /** The chat's ID in Squad Bots. */
+  conversation_id: string;
+  /** The Squadbot the chat started with, and the one speaking after a transfer. */
+  character_id: string | null;
+  active_character_id: string | null;
+  /** The team's Backchannel guidance, as prompt text. */
+  guidance: string;
+}
+
+/** The chat as Squad Bots sees it. Null when it isn't recorded there yet, or unreachable. */
+export async function inboxState(conversationId: string): Promise<InboxState | null> {
+  if (!hubDoubtsConnected()) return null;
   try {
-    const state = await hubJson<{ backchannel: BackchannelEntry[] }>(
+    const state = await hubJson<{ conversation_id: string; character_id?: string | null; active_character_id?: string | null; backchannel: BackchannelEntry[] }>(
       `conversations/state?app=${encodeURIComponent(APP)}&external_id=${encodeURIComponent(conversationId)}`,
     );
-    return guidanceText(state.backchannel);
+    return {
+      conversation_id: state.conversation_id,
+      character_id: state.character_id ?? null,
+      active_character_id: state.active_character_id ?? null,
+      guidance: guidanceText(state.backchannel),
+    };
   } catch {
-    // Not recorded in Squad Bots yet, or unreachable: no extra guidance.
-    return '';
+    return null;
   }
 }
 

@@ -100,3 +100,14 @@ test('web fetch is limited to UpSquad plus sites the team linked', () => {
     ['docs.google.com', 'upsquadconnect.com'],
   );
 });
+
+test('Squadbots introduce themselves by name and read Squad Bots memory', async () => {
+  const { squadBotInstructions, introNote, memoryBlock, transferNote, SQUAD_BOT_INSTRUCTIONS } = await import('./squad-bot-prompt.js');
+  assert.match(squadBotInstructions('John'), /^You are John, UpSquad's assistant/);
+  assert.match(squadBotInstructions('John'), /say you're John, UpSquad's assistant/);
+  assert.match(SQUAD_BOT_INSTRUCTIONS, /^You are Squad Bot,/);
+  assert.match(introNote(true, 'Tina'), /I'm Tina, UpSquad's assistant/);
+  assert.match(memoryBlock('# Your memory\nFacts'), /# Your memory\nFacts\n\nThese are the only facts you may state\./);
+  assert.match(memoryBlock('  '), /none published yet/);
+  assert.match(transferNote('John', 'asks about accounting', 'Tina'), /John just handed this conversation to you because: asks about accounting\. .*introducing yourself as Tina/);
+});

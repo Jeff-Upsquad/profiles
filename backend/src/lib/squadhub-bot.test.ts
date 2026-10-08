@@ -38,3 +38,24 @@ test('admin instructions are added only when set', () => {
   assert.equal(adminInstructions(hub({ instructions: '  ' })), '');
   assert.match(adminInstructions(hub({ instructions: 'Be brief.' })), /Be brief\./);
 });
+
+test('a chat starts with the pinned Squadbot when active, else the first active one', async () => {
+  const { chooseSquadbot } = await import('./squadhub-bot.js');
+  const list = [{ id: 'old', name: 'Old', active: false }, { id: 'john', name: 'John', active: true }, { id: 'tina', name: 'Tina', active: true }];
+  assert.equal(chooseSquadbot(list, 'tina')?.id, 'tina');
+  assert.equal(chooseSquadbot(list, 'old')?.id, 'john');
+  assert.equal(chooseSquadbot(list)?.id, 'john');
+  assert.equal(chooseSquadbot([], null), null);
+});
+
+test('only same-bot teammates covering memory can take a transfer', async () => {
+  const { transferTargets } = await import('./squadhub-bot.js');
+  const briefing = { memory: '', guideline: '', teammates: [
+    { id: 'tina', name: 'Tina', job_role: '', covers: ['Hiring › Accountants'], same_bot: true },
+    { id: 'maya', name: 'Maya', job_role: '', covers: ['Support'], same_bot: false },
+    { id: 'idle', name: 'Idle', job_role: '', covers: [], same_bot: true },
+    { id: 'john', name: 'John', job_role: '', covers: ['Hiring'], same_bot: true },
+  ] };
+  assert.deepEqual(transferTargets(briefing, 'john').map((t) => t.id), ['tina']);
+  assert.deepEqual(transferTargets(null, 'john'), []);
+});

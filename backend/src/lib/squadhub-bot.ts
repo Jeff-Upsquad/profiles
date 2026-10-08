@@ -18,6 +18,8 @@ export interface HubBotConfig {
   status: HubStatus;
   ai: { provider: string | null; provider_kind: 'anthropic' | 'openai_compatible' | null; model: string | null; error: string | null };
   instructions: string;
+  /** Set when the settings were read for a Squadbot. */
+  character?: { id: string; name: string } | null;
   jobs?: Array<{
     id: string;
     kind: 'conversation' | 'action';
@@ -57,4 +59,24 @@ export function botModel(hub: HubBotConfig | null, fallback: string): string {
 export function adminInstructions(hub: HubBotConfig | null): string {
   const text = hub?.instructions?.trim();
   return text ? `Extra instructions from the UpSquad admin (follow them):\n${text}` : '';
+}
+
+export interface Squadbot { id: string; name: string; active: boolean }
+
+/** Who starts a chat: the pinned Squadbot when it's active, else the first active one. */
+export function chooseSquadbot(list: Squadbot[], pinned?: string | null): Squadbot | null {
+  const active = list.filter((s) => s.active);
+  return (pinned ? active.find((s) => s.id === pinned) : undefined) ?? active[0] ?? null;
+}
+
+/** What a Squadbot reads for one reply, from Squad Bots. */
+export interface SquadbotBriefing {
+  memory: string;
+  guideline: string;
+  teammates: Array<{ id: string; name: string; job_role: string; covers: string[]; same_bot: boolean }>;
+}
+
+/** Teammates this app can answer for: same bot, never the speaker. */
+export function transferTargets(briefing: SquadbotBriefing | null, speakerId: string | null) {
+  return (briefing?.teammates ?? []).filter((t) => t.same_bot && t.id !== speakerId && t.covers.length);
 }

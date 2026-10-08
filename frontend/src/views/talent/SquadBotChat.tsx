@@ -15,6 +15,8 @@ interface ChatMessage {
   sender: 'talent' | 'bot' | 'staff';
   body: string;
   staff_name: string | null;
+  /** The Squadbot who wrote a bot reply, e.g. "John". */
+  sender_name?: string | null;
   created_at: string;
 }
 
@@ -136,7 +138,7 @@ export default function SquadBotChat() {
                     </div>
                   </div>
                 ) : (
-                  <BotBubble key={m.id} label={m.sender === 'staff' ? 'UpSquad team' : undefined} time={m.created_at}>
+                  <BotBubble key={m.id} label={m.sender === 'staff' ? 'UpSquad team' : m.sender_name ?? undefined} time={m.created_at}>
                     <MessageText text={m.body} />
                   </BotBubble>
                 ),

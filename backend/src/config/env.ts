@@ -56,6 +56,14 @@ const envSchema = z.object({
   // The server-to-server calls reuse SQUADHUB_CALLBACK_SECRET for signing.
   SQUADHUB_API_URL: z.string().url().optional(),
 
+  // Squad Bots' own integration API (e.g. https://bots.squadhub.in/api/integrations/squad-bots).
+  // When set, every Squad Hiring Bot call (settings, memory, inbox, team
+  // questions) goes there instead of through SquadHub.
+  SQUAD_BOTS_API_URL: z.string().url().optional(),
+  // Optional: the Squadbot who starts each chat (its ID in Squad Bots). Unset →
+  // the bot's first active Squadbot, or plain "Squad Bot" when it has none.
+  SQUAD_HIRING_BOT_SQUADBOT_ID: z.string().uuid().optional(),
+
   // Public origin of the SquadHub WEB app (not its API), used to build the
   // auto-login hand-off link the business tab sends the browser to. Defaults to
   // production; override for staging/local.
