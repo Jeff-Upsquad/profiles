@@ -541,7 +541,7 @@ function SortContactsJob() {
     onError: (err: any) => toast.error(err.response?.data?.message || 'Could not ask the waiting contacts'),
   });
 
-  const pipeline = data?.pipeline ?? 'Default Candidate Pipeline';
+  const pipeline = data?.pipeline ?? 'Reception';
   return (
     <JobCard
       number={2}

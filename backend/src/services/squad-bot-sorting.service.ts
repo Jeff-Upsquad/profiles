@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------
 // Squad Bot, job 2 — sort new contacts.
 //
-// Someone who messages UpSquad's WhatsApp directly lands on the CRM's Default
-// Candidate Pipeline. Squad Bot asks which role they're looking for and, once
+// Every new WhatsApp contact lands on the CRM's Reception board. Squad Bot
+// asks which role they're looking for and, once
 // it's clear, moves their card to that role's board; the board's own
 // automations take it from there (the landing page, the team's intro). Anyone
 // who isn't looking for work, or whose role has no board, goes to the team.
@@ -19,6 +19,7 @@ import { AppError } from '../middleware/errorHandler.middleware.js';
 import { HANDOFF_MESSAGE, historyToMessages, introNote, isNewConversation, knowledgeBlock, type ChatLine } from '../lib/squad-bot-prompt.js';
 import {
   DEFAULT_SORT_ROLES,
+  receptionPipelineName,
   askRoleText,
   movedLine,
   moveTool,
@@ -50,7 +51,7 @@ const MAX_ASK_PER_RUN = 25;
 export interface SortingSettings {
   /** off: leave the board to the team; auto: ask and move on its own. */
   mode: 'off' | 'auto';
-  /** The CRM board direct contacts land on. */
+  /** The CRM Reception board new WhatsApp contacts land on. */
   pipeline: string;
   /** Approved WhatsApp template for asking outside the 24-hour window. */
   template: string;
@@ -60,7 +61,7 @@ export interface SortingSettings {
 
 const SORTING_DEFAULTS: SortingSettings = {
   mode: 'auto',
-  pipeline: 'Default Candidate Pipeline',
+  pipeline: 'Reception',
   template: 'squad_bot_which_role',
   template_language: 'en_US',
   roles: DEFAULT_SORT_ROLES,
@@ -69,7 +70,7 @@ const SORTING_DEFAULTS: SortingSettings = {
 export async function getSortingSettings(): Promise<SortingSettings> {
   const { getAdminSetting } = await import('./admin.service.js');
   const saved = await getAdminSetting<Partial<SortingSettings>>('squad_bot_sorting');
-  return { ...SORTING_DEFAULTS, ...(saved ?? {}) };
+  return { ...SORTING_DEFAULTS, ...(saved ?? {}), pipeline: receptionPipelineName(saved?.pipeline) };
 }
 
 export async function setSortingMode(mode: SortingSettings['mode'], adminId: string) {
@@ -82,7 +83,7 @@ export async function setSortingMode(mode: SortingSettings['mode'], adminId: str
 /** Is this (lower-cased) CRM board the one Squad Bot sorts, with the job switched on? */
 export async function isSortingPipeline(pipeline: string): Promise<boolean> {
   const s = await getSortingSettings();
-  return s.mode !== 'off' && pipeline === s.pipeline.trim().toLowerCase();
+  return s.mode !== 'off' && receptionPipelineName(pipeline).toLowerCase() === s.pipeline.trim().toLowerCase();
 }
 
 // ---------------------------------------------------------------------------
@@ -234,7 +235,7 @@ async function moveContact(conv: ConversationRow, leadId: string, role: SortRole
     return;
   }
   const why = moved?.error === 'already_on_board'
-    ? `They already have a card on ${role.pipeline}, so their Default Candidate Pipeline card was left for you to tidy up.`
+    ? `They already have a card on ${role.pipeline}, so their Reception card was left for you to tidy up.`
     : `Squad Bot couldn't move them to ${role.pipeline} (${moved?.error ?? 'CRM not connected'}).`;
   await handOff(conv, 'other', `${summary ? `${summary}. ` : ''}${why}`, 'whatsapp');
 }

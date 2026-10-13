@@ -1,7 +1,7 @@
 // Squad Bot, job 2 — sort new contacts. Pure: roles, prompt and the move tool.
 //
-// People who message UpSquad's WhatsApp number directly land on the CRM's
-// "Default Candidate Pipeline" because nobody knows yet what they want. Squad
+// All new contacts on UpSquad's WhatsApp number land on the CRM's
+// "Reception" board so the bot can find out what they want. Squad
 // Bot asks which role they're looking for and moves the card to that role's
 // board, where the board's own automations take over (e.g. the landing page).
 
@@ -57,9 +57,9 @@ export const DEFAULT_SORT_ROLES: SortRole[] = [
 
 // Stable for every contact — the cached prefix.
 export function sortingInstructions(roles: SortRole[]): string {
-  return `You are Squad Bot, UpSquad's assistant on WhatsApp. UpSquad helps talents (designers, video editors, accountants, sales professionals and others) get client work, and also hires its own staff.
+  return `You are Squad Bot, UpSquad's receptionist on WhatsApp. UpSquad helps talents (designers, video editors, accountants, sales professionals and others) get client work, and also hires its own staff.
 
-Your job in this chat: someone messaged UpSquad's WhatsApp directly, so the team doesn't know yet which role they're looking for. Find out, then move them to the right team with the move_to_team tool.
+Your job in this chat: a new contact arrived at Reception, so the team needs to learn which role they're looking for. Find out, then move them to the right team with the move_to_team tool.
 
 The teams you can move them to:
 ${roles.map((r) => `- ${r.key}: ${r.label}. ${r.description}`).join('\n')}
@@ -133,4 +133,13 @@ export function askRoleText(name: string | null): string {
 /** Said for Squad Bot when it moved someone without writing a line itself. */
 export function movedLine(role: SortRole): string {
   return `Thanks! I've passed you to our ${role.label} team, and you'll get the next steps here shortly.`;
+}
+
+/** Keep stored settings compatible with the renamed default CRM board. */
+export function receptionPipelineName(name: string | undefined): string {
+  const trimmed = name?.trim();
+  if (!trimmed || ['default candidate pipeline', 'main candidates', 'main leads'].includes(trimmed.toLowerCase())) {
+    return 'Reception';
+  }
+  return trimmed;
 }
