@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DEFAULT_SORT_ROLES, askRoleText, moveTool, sortingContext, sortingInstructions } from './squad-bot-sorting.js';
+import { DEFAULT_SORT_ROLES, askRoleText, moveTool, sortingContext, sortingInstructions, receptionPipelineName } from './squad-bot-sorting.js';
 
 test('the move tool offers exactly the configured teams', () => {
   const tool = moveTool(DEFAULT_SORT_ROLES);
@@ -32,4 +32,11 @@ test('the first question uses a real first name only', () => {
 test('context says whether they already have an account', () => {
   assert.match(sortingContext({ name: 'Anu', accountCategories: null }), /No UpSquad account yet/);
   assert.match(sortingContext({ name: 'Anu', accountCategories: ['Designer'] }), /talent account for: Designer/);
+});
+
+test('Reception replaces legacy stored sorting names and preserves custom boards', () => {
+  for (const name of [undefined, '', 'Default Candidate Pipeline', ' main candidates ', 'MAIN LEADS', 'Reception']) {
+    assert.equal(receptionPipelineName(name), 'Reception');
+  }
+  assert.equal(receptionPipelineName('Custom entry board'), 'Custom entry board');
 });
