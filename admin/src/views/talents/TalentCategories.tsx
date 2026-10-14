@@ -18,8 +18,8 @@ export type EmploymentScope = 'partner_program' | 'freelance' | 'salary';
 
 const SCOPE_CONFIG: Record<EmploymentScope, { title: string; description: string }> = {
   partner_program: {
-    title: 'Partner Program',
-    description: 'Browse Partner Program talents by category and work preference.',
+    title: 'Onboarded Partners',
+    description: 'Fully onboarded Partner Program talent, grouped by role and work preference.',
   },
   // Kept for old links/bookmarks; the sidebar now has one Partner Program view.
   freelance: {
@@ -27,8 +27,8 @@ const SCOPE_CONFIG: Record<EmploymentScope, { title: string; description: string
     description: 'Partner Program talents available for one-time or pay-per-project assignments.',
   },
   salary: {
-    title: 'Jobs',
-    description: 'Talents looking for jobs, including members of the Partner Program.',
+    title: 'Onboarded Job Candidates',
+    description: 'Fully onboarded job candidates, grouped by role, including Partner Program members.',
   },
 };
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CONTENT_ROLES } from '../../../shared/src/contentRoles.js';
 
 // Mirrors squadhub-web's public /leads/landing submission schema
 // (server/src/routes/leads-public.ts). The business-portal brief form posts
@@ -11,6 +12,8 @@ const SERVICE_TYPE = z.enum([
   'designer_video_editor',
   'accountant',
   'ads_specialist',
+  'creative_director', 'copy_content_writer', 'social_media_manager',
+  'videographer_photographer', 'ai_video_image_creator',
 ]);
 
 const roleRequirementSchema = z.object({
@@ -36,7 +39,7 @@ const roleRequirementSchema = z.object({
   // Optional skills/tools the business would like the talent to have. Forwarded
   // verbatim to squadhub. Descriptive only — never used to match talent.
   additional_requirements: z
-    .record(z.string().trim().min(1).max(40), z.array(z.string().trim().min(1).max(80)).max(80))
+    .record(z.string().trim().min(1).max(40), z.array(z.string().trim().min(1).max(1000)).max(80))
     .optional(),
 }).superRefine((value, ctx) => {
   if (value.request_type !== 'business_service') return;
@@ -75,6 +78,15 @@ export const connectBriefSchema = z
     card_type: z.enum(['subscription', 'assignment']).default('subscription'),
   })
   .superRefine((val, ctx) => {
+    for (const service of val.service_types) {
+      const role = CONTENT_ROLES.find((r) => r.serviceSlug === service);
+      if (!role) continue;
+      const requirements = val.role_requirements?.[service];
+      if (!requirements?.note?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['role_requirements', service, 'note'], message: 'Describe your requirement.' });
+      for (const field of role.briefFields) {
+        if (field.required && !requirements?.additional_requirements?.[field.key]?.some((v) => v.trim())) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['role_requirements', service, field.key], message: `${field.label} is required.` });
+      }
+    }
     // Subscriptions need at least one working day (matches upstream).
     if (val.card_type !== 'assignment' && val.working_days.length === 0) {
       ctx.addIssue({

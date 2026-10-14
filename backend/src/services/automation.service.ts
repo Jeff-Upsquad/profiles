@@ -1,3 +1,4 @@
+import { PORTFOLIO_FORM_TYPES } from '../../../shared/src/contentRoles.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { getAdminSetting } from './admin.service.js';
 import { checkInvitation } from './invite.service.js';
@@ -337,7 +338,7 @@ const DEFAULT_STAGE_ORDER = [
 
 export function orderedStagesForFormType(formType: string | null | undefined): string[] {
   if (formType === 'jobs') return JOBS_FUNNEL_STAGE_ORDER;
-  if (formType === 'creative') return CREATIVE_STAGE_ORDER;
+  if (PORTFOLIO_FORM_TYPES.includes(formType ?? '')) return CREATIVE_STAGE_ORDER;
   if (formType === 'accountant' || formType === 'sales') return NO_PORTFOLIO_STAGE_ORDER;
   return DEFAULT_STAGE_ORDER;
 }
@@ -839,7 +840,7 @@ export async function notifyCrmTalentStageChanged(input: {
 // CRM holding boards. Partner pipelines reuse the category's candidates-board
 // name (crm_status_mapping), so "Designers and Editors" / "Accountants".
 const CANCELLED_APPLICANTS_PIPELINES = { partner: 'Cancelled Applicants Partner Program', jobs: 'Cancelled Applicants Jobs' };
-const HOLD_CATEGORY_ORDER = ['creative', 'accountant', 'sales'];
+const HOLD_CATEGORY_ORDER = [...PORTFOLIO_FORM_TYPES, 'accountant', 'sales'];
 
 /**
  * Park or release a talent's CRM card to match their current hold state:

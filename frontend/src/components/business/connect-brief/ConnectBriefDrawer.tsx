@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import DesignerBriefForm from './DesignerBriefForm';
 import AccountantBriefForm from './AccountantBriefForm';
+import { CONTENT_ROLES } from '../../../../../shared/src/contentRoles';
+import SpecialistBriefForm from './SpecialistBriefForm';
 import AdsSpecialistBriefForm from './AdsSpecialistBriefForm';
 import SquadCategoryPicker, { type PickedCategory } from './SquadCategoryPicker';
 import { SERVICE_SQUADS } from '@/data/serviceSquads';
@@ -114,8 +116,10 @@ export default function ConnectBriefDrawer({
             <DesignerBriefForm product={product} preview={preview} initialRole={picked?.briefRole} />
           ) : category === 'accountant' ? (
             <AccountantBriefForm product={product} preview={preview} skipRolePicker />
-          ) : (
+          ) : category === 'ads_specialist' ? (
             <AdsSpecialistBriefForm product={product} preview={preview} />
+          ) : (
+            <SpecialistBriefForm key={`${category}-${product}`} product={product} preview={preview} contentRole={CONTENT_ROLES.find((r) => r.serviceSlug === category)} />
           )}
         </div>
       </div>

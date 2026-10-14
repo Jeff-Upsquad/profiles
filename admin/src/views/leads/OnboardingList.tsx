@@ -4,6 +4,7 @@ import { useMemo, useCallback } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import api from '@/services/api';
+import { TALENT_CATEGORY_OPTIONS } from '../../../../shared/src/contentRoles';
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import LeadsTabs from './LeadsTabs';
@@ -60,9 +61,7 @@ const STAGES: { key: StageKey; label: string; short: string }[] = [
 
 const FORM_TYPE_TABS: { value: string; label: string }[] = [
   { value: '', label: 'All' },
-  { value: 'creative', label: 'Creative' },
-  { value: 'accountant', label: 'Accountant' },
-  { value: 'sales', label: 'Sales' },
+  ...TALENT_CATEGORY_OPTIONS,
 ];
 
 function StageRow({ progress }: { progress: OnboardingProgress }) {

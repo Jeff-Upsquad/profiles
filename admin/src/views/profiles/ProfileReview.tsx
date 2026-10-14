@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { TALENT_CATEGORY_OPTIONS } from '../../../../shared/src/contentRoles';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import TierBadge from '@/components/ui/TierBadge';
@@ -14,7 +15,7 @@ import { formatDate, formatDateTime } from '@/lib/formatDate';
 
 interface LinkedLead {
   id: string;
-  form_type: 'creative' | 'accountant';
+  form_type: string;
   status: string;
   created_at: string;
   utm_source: string | null;
@@ -607,7 +608,7 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
                 <div className="space-y-1 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-gray-900">
-                      {lead.form_type === 'creative' ? 'Creative form' : 'Accountant form'}
+                      {TALENT_CATEGORY_OPTIONS.find((c) => c.value === lead.form_type)?.label ?? lead.form_type} application
                     </span>
                     <Badge variant={lead.status === 'archived' ? 'gray' : 'indigo'}>
                       {lead.status.replace(/_/g, ' ')}

@@ -69,10 +69,18 @@ export const accountantLeadSchema = z.object({
   utm_campaign: z.string().optional(),
 });
 
+// Role-specific Content Squad and Ads applicants share contact and work-track
+// fields; their final job profile is built from the category's dynamic schema.
+export const contentLeadSchema = creativeLeadSchema.omit({ form_type: true, role: true }).extend({
+  form_type: z.enum(['creative_director', 'copy_content_writer', 'social_media_manager', 'videographer_photographer', 'ai_video_image_creator', 'ads_specialist']),
+  professional_summary: z.string().trim().min(40).max(1200),
+});
+
 export const createLeadSchema = z.discriminatedUnion('form_type', [
   creativeLeadSchema,
   accountantLeadSchema,
   salesLeadSchema,
+  contentLeadSchema,
 ]);
 
 export const checkExistingContactSchema = z

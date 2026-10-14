@@ -1,3 +1,4 @@
+import { TALENT_CATEGORY_OPTIONS } from '../contentRoles';
 // Module-level access control shared between backend and the admin/staff apps.
 
 /** Permission tiers, ordered low -> high. */
@@ -57,11 +58,7 @@ export interface StaffModuleGrant {
 // ── Candidates module: second access layer (categories + sections) ──────────
 
 /** Lead categories (lead_submissions.form_type — fixed enum). */
-export const CANDIDATE_CATEGORIES = [
-  { value: 'creative', label: 'Creative' },
-  { value: 'accountant', label: 'Accountant' },
-  { value: 'sales', label: 'Sales' },
-] as const;
+export const CANDIDATE_CATEGORIES = TALENT_CATEGORY_OPTIONS;
 
 /** Candidates sub-sections (the three tabs). */
 export const CANDIDATE_SECTIONS = [

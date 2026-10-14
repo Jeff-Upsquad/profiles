@@ -1,3 +1,4 @@
+import { MIN_PORTFOLIO_ITEMS } from '../../../shared/src/contentRoles';
 import type { Profile } from '@/types';
 import { needsProfileResubmission } from '@/lib/profileChanges';
 
@@ -91,10 +92,7 @@ export function pendingBasicSections(input: BasicCompletionInput): BasicSectionI
 // ── Job profiles ──────────────────────────────────────────────────────────
 
 /** Mirrors MIN_PORTFOLIO_ITEMS_BY_SLUG in backend/src/services/talent.service.ts. */
-const MIN_PORTFOLIO_ITEMS_BY_SLUG: Record<string, number> = {
-  designer: 10,
-  'video-editor': 10,
-};
+const MIN_PORTFOLIO_ITEMS_BY_SLUG: Record<string, number> = MIN_PORTFOLIO_ITEMS;
 
 /** Portfolio items a category needs before its profile can be submitted (0 = no minimum). */
 export function minPortfolioItems(categorySlug: string | null | undefined): number {

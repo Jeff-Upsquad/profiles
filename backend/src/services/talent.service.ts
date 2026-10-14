@@ -1,3 +1,5 @@
+import { categoryHasPortfolio } from '../../../shared/src/portfolio.js';
+import { MIN_PORTFOLIO_ITEMS } from '../../../shared/src/contentRoles.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import type {
@@ -569,10 +571,7 @@ export async function getMyOnboardingProgress(userId: string) {
 
 // Designer and Video Editor profiles need a fuller portfolio before they can
 // go to review. Mirrored in frontend/src/lib/talentCompletion.ts.
-export const MIN_PORTFOLIO_ITEMS_BY_SLUG: Record<string, number> = {
-  designer: 10,
-  'video-editor': 10,
-};
+export const MIN_PORTFOLIO_ITEMS_BY_SLUG: Record<string, number> = MIN_PORTFOLIO_ITEMS;
 
 async function countPortfolioItems(profileIds: string[]): Promise<Record<string, number>> {
   const counts: Record<string, number> = {};
@@ -792,6 +791,11 @@ export async function createProfile(
     );
   }
 
+  const { data: category, error: categoryError } = await supabaseAdmin.from('categories')
+    .select('id').eq('id', categoryId).eq('is_active', true).maybeSingle();
+  if (categoryError) throw new AppError(500, 'Failed to validate profile category');
+  if (!category) throw new AppError(404, 'This profile category is not available');
+
   // Check for existing non-deleted profile in this category
   const { data: existing } = await supabaseAdmin
     .from('talent_profiles')
@@ -841,7 +845,7 @@ export async function updateProfile(profileId: string, userId: string, input: Up
 
   // Validate field_data against category field definitions
   if (input.field_data) {
-    const errors = await validateFieldData(profile.category_id, input.field_data);
+    const errors = await validateFieldData(profile.category_id, input.field_data, profile.status !== 'draft');
     if (errors.length > 0) {
       throw new AppError(400, `Field validation failed: ${errors.join('; ')}`);
     }
@@ -916,7 +920,7 @@ export async function submitProfile(profileId: string, userId: string) {
   }
 
   // Validate all required fields have values
-  const errors = await validateRequiredFields(profile.category_id, profile.field_data || {});
+  const errors = await validateFieldData(profile.category_id, profile.field_data || {});
   if (errors.length > 0) {
     throw new AppError(400, `Cannot submit: ${errors.join('; ')}`);
   }
@@ -1446,7 +1450,7 @@ export async function reorderPortfolioItems(profileId: string, userId: string, i
 // Dynamic field validation helpers
 // ---------------------------------------------------------------------------
 
-async function validateFieldData(categoryId: string, fieldData: Record<string, any>): Promise<string[]> {
+async function validateFieldData(categoryId: string, fieldData: Record<string, any>, requireFields = true): Promise<string[]> {
   const { data: fields } = await supabaseAdmin
     .from('category_fields')
     .select('*, field_options(*)')
@@ -1459,7 +1463,7 @@ async function validateFieldData(categoryId: string, fieldData: Record<string, a
   // stored in category_fields but validated here.
   const experience = fieldData._experience;
   if (experience === undefined || experience === null) {
-    errors.push('Experience is required');
+    if (requireFields) errors.push('Experience is required');
   } else if (typeof experience !== 'object' || Array.isArray(experience)) {
     errors.push('Experience must be a { years, months } object');
   } else {
@@ -1477,12 +1481,12 @@ async function validateFieldData(categoryId: string, fieldData: Record<string, a
     const value = fieldData[field.field_key];
 
     // Check required
-    if (field.is_required && (value === undefined || value === null || value === '')) {
+    if (requireFields && field.is_required && (value === undefined || value === null || value === '')) {
       errors.push(`${field.field_label} is required`);
       continue;
     }
 
-    if (value === undefined || value === null) continue;
+    if (value === undefined || value === null || value === '') continue;
 
     // Type validation
     switch (field.field_type) {
@@ -1491,6 +1495,9 @@ async function validateFieldData(categoryId: string, fieldData: Record<string, a
       case 'email':
       case 'phone':
         if (typeof value !== 'string') errors.push(`${field.field_label} must be text`);
+        if (requireFields && field.validation_rules?.minLength && typeof value === 'string' && value.trim().length < field.validation_rules.minLength) {
+          errors.push(`${field.field_label} must have at least ${field.validation_rules.minLength} characters`);
+        }
         if (field.validation_rules?.maxLength && typeof value === 'string' && value.length > field.validation_rules.maxLength) {
           errors.push(`${field.field_label} exceeds max length`);
         }
@@ -1615,13 +1622,19 @@ export async function getCategoryBySlug(slug: string) {
 
   if (error || !data) throw new AppError(404, 'Category not found');
 
-  // Filter to only active fields and active options
+  // `fields` / `options` is the web builder contract; retain the database
+  // aliases for older mobile clients. Both views contain only active entries.
   data.category_fields = (data.category_fields || [])
     .filter((f: any) => f.is_active)
-    .map((f: any) => ({
-      ...f,
-      field_options: (f.field_options || []).filter((o: any) => o.is_active),
-    }));
+    .sort((a: any, b: any) => a.sort_order - b.sort_order)
+    .map((f: any) => {
+      const options = (f.field_options || []).filter((o: any) => o.is_active)
+        .sort((a: any, b: any) => a.sort_order - b.sort_order);
+      return { ...f, field_options: options, options };
+    });
+  data.fields = data.category_fields;
+  data.min_portfolio_items = MIN_PORTFOLIO_ITEMS_BY_SLUG[slug] ?? (categoryHasPortfolio(slug) ? 1 : 0);
+  data.portfolio_required = categoryHasPortfolio(slug);
 
   return data;
 }

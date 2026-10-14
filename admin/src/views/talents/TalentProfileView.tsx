@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
+import { TALENT_CATEGORY_OPTIONS } from '../../../../shared/src/contentRoles';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import TierBadge from '@/components/ui/TierBadge';
@@ -25,7 +26,7 @@ const TIER_OPTIONS: { value: Tier | null; label: string }[] = [
 
 interface LinkedLead {
   id: string;
-  form_type: 'creative' | 'accountant' | 'sales';
+  form_type: string;
   status: string;
   created_at: string;
   utm_source: string | null;
@@ -563,11 +564,7 @@ export default function TalentProfileView({
                     <div className="space-y-1 text-sm">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium text-gray-900">
-                          {lead.form_type === 'creative'
-                            ? 'Creative form'
-                            : lead.form_type === 'accountant'
-                              ? 'Accountant form'
-                              : 'Sales form'}
+                          {TALENT_CATEGORY_OPTIONS.find((c) => c.value === lead.form_type)?.label ?? lead.form_type} application
                         </span>
                         <Badge variant={lead.status === 'archived' ? 'gray' : 'indigo'}>
                           {lead.status.replace(/_/g, ' ')}

@@ -1,3 +1,4 @@
+import { PORTFOLIO_FORM_TYPES } from '../../../shared/src/contentRoles';
 // Single source of truth for the candidate stages shown per category. The
 // Leads board (StageTabs) and the CRM Status Mapping editor both read from here,
 // so the "Candidate stage" column on the mapping page always matches the stages
@@ -68,8 +69,8 @@ export const DEFAULT_STAGES: StageDef[] = [
 // the rich stage set; only creative has Portfolio Updation (accountant and
 // sales profiles have no portfolio).
 export function stagesForFormType(formType?: string): StageDef[] {
-  if (formType === 'jobs') return JOBS_STAGES;
-  if (formType === 'creative') return CREATIVE_STAGES;
+  if (formType === 'jobs' || formType?.startsWith('jobs_')) return JOBS_STAGES;
+  if (PORTFOLIO_FORM_TYPES.includes(formType ?? '')) return CREATIVE_STAGES;
   if (formType === 'accountant' || formType === 'sales') return NO_PORTFOLIO_STAGES;
   return DEFAULT_STAGES;
 }

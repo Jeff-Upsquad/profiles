@@ -1,3 +1,4 @@
+import { PORTFOLIO_FORM_TYPES } from '../../../shared/src/contentRoles.js';
 // ---------------------------------------------------------------------------
 // CRM stage-mapping helpers — single source of truth for translating between
 // Profiles' internal lead_status_enum keys and the live CRM pipeline stages.
@@ -66,7 +67,7 @@ export const NO_PORTFOLIO_STATUSES: readonly string[] = CREATIVE_STATUSES.filter
 export function validStatusesForFormType(
   formType: string | null | undefined,
 ): ReadonlySet<string> | null {
-  if (formType === 'creative') return new Set(CREATIVE_STATUSES);
+  if (PORTFOLIO_FORM_TYPES.includes(formType ?? '')) return new Set(CREATIVE_STATUSES);
   if (formType === 'accountant' || formType === 'sales') return new Set(NO_PORTFOLIO_STATUSES);
   if (formType === 'jobs') return new Set(JOBS_STATUSES);
   return null;

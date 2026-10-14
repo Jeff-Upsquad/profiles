@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { TALENT_CATEGORY_OPTIONS } from '../../../../shared/src/contentRoles';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
@@ -27,9 +28,7 @@ const FIELD_TYPE_OPTIONS: { value: Question['field_type']; label: string }[] = [
 ];
 
 const FORM_TYPE_OPTIONS = [
-  { value: 'creative', label: 'Creative' },
-  { value: 'accountant', label: 'Accountant' },
-  { value: 'sales', label: 'Sales' },
+  ...TALENT_CATEGORY_OPTIONS,
 ];
 
 interface FormState {

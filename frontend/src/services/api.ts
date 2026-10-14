@@ -44,6 +44,7 @@ function clearAuthAndRedirect() {
   if (
     typeof window !== 'undefined' &&
     !PUBLIC_PATHS.includes(window.location.pathname) &&
+    !window.location.pathname.startsWith('/apply/') &&
     !window.location.pathname.startsWith('/preview')
   ) {
     window.location.href = '/login';

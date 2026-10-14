@@ -1,3 +1,4 @@
+import { TALENT_CATEGORY_OPTIONS } from '../../../../shared/src/contentRoles';
 // Shared shapes + constants for the Onboarding hub (list + journey panel).
 
 import { formatDate } from '@/lib/formatDate';
@@ -55,20 +56,15 @@ export const REJECTION_REASONS = [
   'Unresponsive',
 ];
 
-export type HubCategory = 'all' | 'creative' | 'accountant' | 'sales';
+export type HubCategory = 'all' | typeof TALENT_CATEGORY_OPTIONS[number]['value'];
 
 export const CATEGORY_TABS: { value: HubCategory; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'creative', label: 'Designer / Editor' },
-  { value: 'accountant', label: 'Accountant' },
-  { value: 'sales', label: 'Sales' },
+  { value: 'all', label: 'All' }, ...TALENT_CATEGORY_OPTIONS,
 ];
 
-export const CATEGORY_BADGE: Record<string, { label: string; cls: string }> = {
-  creative: { label: 'Designer / Editor', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-  accountant: { label: 'Accountant', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  sales: { label: 'Sales', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
-};
+export const CATEGORY_BADGE: Record<string, { label: string; cls: string }> = Object.fromEntries(
+  TALENT_CATEGORY_OPTIONS.map((c) => [c.value, { label: c.label, cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' }]),
+);
 
 export type HubAttention =
   | 'pending_approval'

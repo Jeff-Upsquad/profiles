@@ -14,6 +14,7 @@ import '../../widgets/ui_kit.dart';
 import 'widgets/leveled_picker.dart';
 import 'widgets/portfolio_section.dart';
 import 'widgets/profile_form_fields.dart';
+import 'widgets/dynamic_profile_fields.dart';
 
 class ProfileEditScreen extends ConsumerStatefulWidget {
   final String profileId;
@@ -25,6 +26,12 @@ class ProfileEditScreen extends ConsumerStatefulWidget {
 
 class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   TalentProfile? _profile;
+  final _formKey = GlobalKey<FormState>();
+  List<Map<String, dynamic>> _dynamicFields = [];
+  Map<String, dynamic> _dynamicValues = {};
+  int _minPortfolioItems = 0;
+  bool get _hasPortfolio => !['sales', 'accountant'].contains(_profile?.category?.slug);
+
   List<TemplateItem> _skillOpts = [];
   List<TemplateItem> _toolOpts = [];
   List<TemplateItem> _aiOpts = [];
@@ -66,11 +73,16 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         svc.templates(catId, 'ai-tools'),
         svc.templates(catId, 'portfolio-categories'),
       ]);
+      final definition = await svc.categoryDefinition(profile.category?.slug ?? '');
+      final fields = asObjectList(definition['fields'] ?? definition['category_fields']);
+      _minPortfolioItems = asInt(definition['min_portfolio_items']) ?? 0;
       final me = await ref.read(talentServiceProvider).getMe();
 
       final fd = profile.fieldData;
       final exp = asObject(fd['_experience']);
       _profile = profile;
+      _dynamicFields = fields;
+      _dynamicValues = Map.of(fd);
       _skillOpts = templates[0];
       _toolOpts = templates[1];
       _aiOpts = templates[2];
@@ -95,6 +107,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   Map<String, dynamic> _fieldData() => {
         ...?_profile?.fieldData,
+        ..._dynamicValues,
         '_experience': {'years': _expYears, 'months': _expMonths},
         '_skills': _skills.map((e) => e.toJson('skill')).toList(),
         '_tools': _tools.map((e) => e.toJson('name')).toList(),
@@ -104,9 +117,23 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   Future<void> _persist({required bool submit}) async {
     if (_saving) return;
+    if (submit && !(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _saving = true);
     try {
       final svc = ref.read(profilesServiceProvider);
+      if (submit) {
+        if (!_languages.any((l) => l.proficiency.toLowerCase() == 'native')) {
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Choose at least one native language.')));
+          return;
+        }
+        if (_hasPortfolio && _minPortfolioItems > 0) {
+          final items = await svc.portfolio(widget.profileId);
+          if (items.length < _minPortfolioItems) {
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Add at least $_minPortfolioItems portfolio items before submitting.')));
+            return;
+          }
+        }
+      }
       await svc.update(widget.profileId, _fieldData());
       await ref.read(talentServiceProvider).updateFields({
         'languages_spoken':
@@ -148,9 +175,10 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _error
               ? AppErrorRetry(onRetry: _load)
-              : ListView(
+              : Form(key: _formKey, child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
+                    DynamicProfileFields(fields: _dynamicFields, values: _dynamicValues, onChanged: (key, value) => setState(() => _dynamicValues[key] = value)),
                     _experienceCard(),
                     const SizedBox(height: 12),
                     if (_skillOpts.isNotEmpty) ...[
@@ -182,10 +210,10 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    PortfolioSection(profileId: widget.profileId),
+                    if (_hasPortfolio) PortfolioSection(profileId: widget.profileId),
                     const SizedBox(height: 24),
                   ],
-                ),
+                )),
       bottomNavigationBar: (_loading || _error) ? null : _bar(),
     );
   }

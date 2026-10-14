@@ -1,21 +1,12 @@
 import { supabaseAdmin } from '../config/supabase.js';
 
-export type SignupCategory = 'all' | 'creative' | 'accountant' | 'sales';
+import { TALENT_CATEGORY_OPTIONS } from '../../../shared/src/contentRoles.js';
 
-const CREATIVE_FORM_TYPES = ['creative'];
-const ACCOUNTANT_FORM_TYPES = ['accountant'];
-const SALES_FORM_TYPES = ['sales'];
-const CREATIVE_SLUGS = ['designer', 'designer-editor', 'video-editor'];
-const ACCOUNTANT_SLUGS = ['accountant'];
-const SALES_SLUGS = ['sales'];
+export type SignupCategory = 'all' | typeof TALENT_CATEGORY_OPTIONS[number]['value'];
 
-const SLUG_TO_FORM_TYPE: Record<string, string> = {
-  designer: 'creative',
-  'designer-editor': 'creative',
-  'video-editor': 'creative',
-  accountant: 'accountant',
-  sales: 'sales',
-};
+const SLUG_TO_FORM_TYPE: Record<string, string> = Object.fromEntries(
+  TALENT_CATEGORY_OPTIONS.flatMap((c) => c.slugs.map((slug) => [slug, c.value])),
+);
 
 /**
  * Landing-page / CTA slugs → form_type. The partner-program pages live on the
@@ -36,6 +27,14 @@ const SIGNUP_HINT_TO_FORM_TYPE: Record<string, string> = {
   accountant: 'accountant',
   accounting: 'accountant',
   sales: 'sales',
+  ...Object.fromEntries(TALENT_CATEGORY_OPTIONS.flatMap((c) => [
+    [c.value, c.value], ...c.slugs.map((slug) => [slug, c.value]),
+  ])),
+  copywriter: 'copy_content_writer',
+  'content-writer': 'copy_content_writer',
+  videographer: 'videographer_photographer',
+  photographer: 'videographer_photographer',
+  'ai-creator': 'ai_video_image_creator',
 };
 
 /**
@@ -55,23 +54,16 @@ export function formTypeFromSignupHint(hint: string | null | undefined): string 
 }
 
 function formTypesForCategory(category: SignupCategory): string[] | null {
-  if (category === 'creative') return CREATIVE_FORM_TYPES;
-  if (category === 'accountant') return ACCOUNTANT_FORM_TYPES;
-  if (category === 'sales') return SALES_FORM_TYPES;
-  return null;
+  return category === 'all' ? null : [category];
 }
 
 function slugsForCategory(category: SignupCategory): string[] | null {
-  if (category === 'creative') return CREATIVE_SLUGS;
-  if (category === 'accountant') return ACCOUNTANT_SLUGS;
-  if (category === 'sales') return SALES_SLUGS;
-  return null;
+  return category === 'all' ? null : [...(TALENT_CATEGORY_OPTIONS.find((c) => c.value === category)?.slugs ?? [])];
 }
 
 export function parseSignupCategory(raw: string | undefined | null): SignupCategory {
   const v = (raw ?? '').trim().toLowerCase();
-  if (v === 'creative' || v === 'accountant' || v === 'sales') return v;
-  return 'all';
+  return TALENT_CATEGORY_OPTIONS.find((c) => c.value === v)?.value ?? 'all';
 }
 
 /**

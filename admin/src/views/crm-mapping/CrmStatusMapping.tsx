@@ -6,6 +6,7 @@ import api from '@/services/api';
 import toast from 'react-hot-toast';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
+import { TALENT_CATEGORY_OPTIONS } from '../../../../shared/src/contentRoles';
 import { stagesForFormType } from '@/constants/leadStages';
 
 interface CrmStage {
@@ -38,12 +39,8 @@ interface MultiPipelineConfig {
 
 const FORM_TYPE_OPTIONS = [
   { value: 'jobs', label: 'Jobs (all categories)' },
-  { value: 'jobs_creative', label: 'Jobs · Creative (Designer / Editor)' },
-  { value: 'jobs_accountant', label: 'Jobs · Accountant' },
-  { value: 'jobs_sales', label: 'Jobs · Sales' },
-  { value: 'creative', label: 'Creative (Designer / Editor)' },
-  { value: 'accountant', label: 'Accountant' },
-  { value: 'sales', label: 'Sales' },
+  ...TALENT_CATEGORY_OPTIONS.map((c) => ({ value: `jobs_${c.value}`, label: `Jobs · ${c.label}` })),
+  ...TALENT_CATEGORY_OPTIONS,
 ];
 
 const EMPTY_PIPELINE: PipelineConfig = { pipeline_name: '', mappings: {}, stages: [] };

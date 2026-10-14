@@ -1,4 +1,5 @@
-export type LeadFormType = 'creative' | 'accountant' | 'sales';
+import type { ContentFormType } from '../contentRoles.js';
+export type LeadFormType = 'creative' | 'accountant' | 'sales' | 'ads_specialist' | ContentFormType;
 export type LeadStatus = 'new' | 'contacted' | 'converted' | 'rejected';
 
 export interface CreativeFormData {
@@ -31,6 +32,14 @@ export interface AccountantFormData {
   experience_details: string;
 }
 
+export interface ContentFormData {
+  professional_summary: string;
+  portfolio_link: string;
+  experience_years: string;
+  work_type_seeking: string[];
+  [key: string]: unknown;
+}
+
 export interface LeadSubmission {
   id: string;
   form_type: LeadFormType;
@@ -38,7 +47,7 @@ export interface LeadSubmission {
   name: string;
   email: string | null;
   phone: string;
-  form_data: CreativeFormData | AccountantFormData | SalesFormData;
+  form_data: CreativeFormData | AccountantFormData | SalesFormData | ContentFormData;
   resume_url: string | null;
   utm_source: string | null;
   utm_medium: string | null;
@@ -92,7 +101,20 @@ export interface CreateSalesLeadPayload {
   industry_experience: string;
 }
 
+export interface CreateContentLeadPayload extends ContentFormData {
+  form_type: ContentFormType | 'ads_specialist';
+  name: string;
+  phone: string;
+  email: string;
+  age: number;
+  gender: string;
+  country: string;
+  state: string;
+  current_district: string;
+}
+
 export type CreateLeadPayload =
   | CreateCreativeLeadPayload
   | CreateAccountantLeadPayload
-  | CreateSalesLeadPayload;
+  | CreateSalesLeadPayload
+  | CreateContentLeadPayload;

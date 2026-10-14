@@ -14,6 +14,7 @@ import LeadFilterPanel, { type FormDataFilterRule } from './LeadFilterPanel';
 import { groupItemsByBucket } from '@/lib/groupLeadsByBucket';
 import { formatIndianPhone } from '@/lib/phone';
 import { formatDate } from '@/lib/formatDate';
+import { TALENT_CATEGORY_OPTIONS } from '../../../../shared/src/contentRoles';
 import { useStageLabels } from '@/hooks/useStageLabels';
 
 interface Lead {
@@ -81,50 +82,12 @@ const STAGE_LABELS: Record<string, string> = {
   rejected: 'Rejected',
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  creative: 'Creative',
-  accountant: 'Accountant',
-  sales: 'Sales',
-};
-
-const CATEGORY_CARDS: { value: string; label: string; description: string; iconBg: string; iconColor: string; icon: React.ReactNode }[] = [
-  {
-    value: 'creative',
-    label: 'Creative',
-    description: 'Designers, video editors, and other creative roles.',
-    iconBg: 'bg-indigo-100',
-    iconColor: 'text-indigo-600',
-    icon: (
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-      </svg>
-    ),
-  },
-  {
-    value: 'accountant',
-    label: 'Accountant',
-    description: 'Bookkeeping, audit, tax, and finance professionals.',
-    iconBg: 'bg-emerald-100',
-    iconColor: 'text-emerald-600',
-    icon: (
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m-6 4h6m-6 4h4M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-      </svg>
-    ),
-  },
-  {
-    value: 'sales',
-    label: 'Sales',
-    description: 'Sales, business development, and account management professionals.',
-    iconBg: 'bg-amber-100',
-    iconColor: 'text-amber-600',
-    icon: (
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-      </svg>
-    ),
-  },
-];
+const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(TALENT_CATEGORY_OPTIONS.map((c) => [c.value, c.label]));
+const CATEGORY_CARDS = TALENT_CATEGORY_OPTIONS.map((c) => ({
+  value: c.value, label: c.label, description: `Applications for ${c.label} roles.`,
+  iconBg: 'bg-indigo-100', iconColor: 'text-indigo-600',
+  icon: <span aria-hidden="true">✦</span>,
+}));
 
 const ROLE_TABS: { value: string; label: string }[] = [
   { value: '', label: 'All' },

@@ -27,6 +27,7 @@ interface FormValues {
   work_type_seeking: string[];
   experience_years: string;
   portfolio_link: string;
+  professional_summary: string;
 }
 
 const initial: FormValues = {
@@ -42,6 +43,7 @@ const initial: FormValues = {
   work_type_seeking: [],
   experience_years: '',
   portfolio_link: '',
+  professional_summary: '',
 };
 
 const chipStyle = {
@@ -85,7 +87,8 @@ function Section({ index, title, description, delay = 0, children }: SectionProp
   );
 }
 
-export default function CreativeLeadForm() {
+export default function CreativeLeadForm({ category }: { category?: { formType: string; label: string } } = {}) {
+  const formType = category?.formType ?? 'creative';
   const searchParams = useSearchParams();
   const [form, setForm] = useState(initial);
   const [password, setPassword] = useState('');
@@ -108,16 +111,16 @@ export default function CreativeLeadForm() {
 
   useEffect(() => {
     axios
-      .get('/api/leads/form-status/creative')
+      .get(`/api/leads/form-status/${formType}`)
       .then((res) => {
         if (!res.data.enabled) setFormDisabled(true);
       })
       .catch(() => {})
       .finally(() => setCheckingStatus(false));
-  }, []);
+  }, [formType]);
 
   const set = (key: keyof FormValues) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
     setErrors((prev) => ({ ...prev, [key]: undefined }));
@@ -136,6 +139,7 @@ export default function CreativeLeadForm() {
     'work_type_seeking',
     'experience_years',
     'portfolio_link',
+    'professional_summary',
   ];
 
   const validate = (): { ok: boolean; errs: Partial<Record<keyof FormValues, string>> } => {
@@ -157,9 +161,10 @@ export default function CreativeLeadForm() {
     if (!form.country) errs.country = 'Country is required';
     if (!form.state.trim()) errs.state = 'State is required';
     if (!form.current_district.trim()) errs.current_district = 'District is required';
-    if (form.role.length === 0) errs.role = 'Please select at least one role';
+    if (!category && form.role.length === 0) errs.role = 'Please select at least one role';
     if (form.work_type_seeking.length === 0) errs.work_type_seeking = 'Select at least one option';
     if (!form.experience_years.trim()) errs.experience_years = 'Years of experience is required';
+    if (category && form.professional_summary.trim().length < 40) errs.professional_summary = 'Describe your professional experience in at least 40 characters';
     if (!form.portfolio_link.trim()) errs.portfolio_link = 'Portfolio link is required';
     else {
       try {
@@ -211,7 +216,7 @@ export default function CreativeLeadForm() {
     setSubmitting(true);
     try {
       const { data } = await axios.post('/api/auth/signup/talent/application', { password, application: {
-        form_type: 'creative',
+        form_type: formType,
         name: form.name.trim(),
         phone: form.phone.replace(/\s/g, ''),
         email: form.email.trim(),
@@ -220,7 +225,7 @@ export default function CreativeLeadForm() {
         country: form.country,
         state: form.state.trim(),
         current_district: form.current_district.trim(),
-        role: form.role,
+        ...(!category ? { role: form.role } : { professional_summary: form.professional_summary.trim() }),
         work_type_seeking: form.work_type_seeking,
         experience_years: form.experience_years.trim(),
         portfolio_link: form.portfolio_link.trim(),
@@ -317,9 +322,9 @@ export default function CreativeLeadForm() {
 
           <div className="relative grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px] lg:items-end">
             <div>
-              <span className="badge-prism">Talent · Creative Track</span>
+              <span className="badge-prism">Talent · {category?.label ?? 'Creative Track'}</span>
               <h1 className="font-display-saas mt-2 text-xl font-bold leading-[1.15] text-canvas-900 sm:text-3xl sm:leading-[1.1] lg:text-[36px]">
-                For designers and editors{' '}
+                {category ? `For ${category.label} talent` : 'For designers and editors'}{' '}
                 <span className="text-prism text-prism-animated">who care about craft.</span>
               </h1>
               <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-canvas-600 sm:mt-2">
@@ -587,6 +592,13 @@ export default function CreativeLeadForm() {
             description="The work you do, the work you want."
             delay={0.15}
           >
+            {category ? (
+              <div id="field-professional_summary" className="field-saas">
+                <label className="block text-sm font-medium text-canvas-700" htmlFor="application-summary">Professional summary *</label>
+                <textarea id="application-summary" maxLength={1200} className="mt-2 w-full rounded-xl border border-canvas-300 bg-white p-3 min-h-28" value={form.professional_summary} onChange={set('professional_summary')} placeholder="Describe your strengths, experience and the outcomes you deliver." />
+                {errors.professional_summary && <p className="mt-2 text-sm text-red-600">{errors.professional_summary}</p>}
+              </div>
+            ) : (
             <div id="field-role">
               <p className="mb-3 text-sm font-medium text-canvas-700">
                 Role<span className="ml-1 text-red-500">*</span>
@@ -603,6 +615,8 @@ export default function CreativeLeadForm() {
                 chipClassName={chipStyle}
               />
             </div>
+
+            )}
 
             <div id="field-work_type_seeking">
               <p className="mb-3 text-sm font-medium text-canvas-700">

@@ -1,3 +1,4 @@
+import { PORTFOLIO_FORM_TYPES } from '../../../../shared/src/contentRoles';
 type FieldType = 'string' | 'number' | 'string[]';
 
 interface FieldDef {
@@ -43,6 +44,7 @@ const CREATIVE_ROLES = [
 ];
 
 const WORK_TYPE_SEEKING = [
+  { label: 'Jobs', value: 'Job' },
   { label: 'Freelance work', value: 'Freelance work' },
   { label: 'Full Time Job', value: 'Full Time Job' },
   { label: 'Part Time Job', value: 'Part Time Job' },
@@ -87,6 +89,16 @@ export const FORM_FIELD_DEFINITIONS: Record<string, FieldDef[]> = {
     { key: 'industry_experience', label: 'Industry Experience', type: 'string' },
   ],
 };
+
+// New role applications use the same common screening fields without the
+// Designer/Editor-only role picker. No rules are enabled automatically.
+for (const formType of PORTFOLIO_FORM_TYPES) {
+  if (formType === 'creative') continue;
+  FORM_FIELD_DEFINITIONS[formType] = [
+    ...FORM_FIELD_DEFINITIONS.creative.filter((f) => f.key !== 'role'),
+    { key: 'professional_summary', label: 'Professional summary', type: 'string' },
+  ];
+}
 
 export const OPERATORS_BY_TYPE: Record<FieldType, { label: string; value: string }[]> = {
   string: [

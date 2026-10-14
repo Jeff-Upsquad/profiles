@@ -1,3 +1,4 @@
+import { CONTENT_ROLES, TALENT_CATEGORY_OPTIONS } from '../../../shared/src/contentRoles.js';
 // Squad Bot — prompt building. Pure: no I/O, so it's testable and the cached
 // prefix stays byte-stable (instructions → knowledge, then the per-talent part).
 
@@ -6,6 +7,7 @@ const FORM_TYPE_SLUGS: Record<string, string[]> = {
   creative: ['designer', 'video-editor', 'designer-editor'],
   accountant: ['accountant'],
   sales: ['sales'],
+  ...Object.fromEntries(TALENT_CATEGORY_OPTIONS.map((c) => [c.value, [...c.slugs]])),
 };
 
 /** Which knowledge categories apply to this talent: everyone's + their own. */
@@ -200,6 +202,9 @@ export function fetchDomains(texts: string[]): string[] {
 /** CRM pipeline name → the signup form type its knowledge follows. */
 export function formTypeForPipeline(pipelineName: string | null | undefined): string | null {
   const n = (pipelineName ?? '').trim().toLowerCase();
+  const contentRole = CONTENT_ROLES.find((r) => n.startsWith(r.pipeline.toLowerCase()));
+  if (contentRole) return contentRole.formType;
+  if (n.startsWith('ads specialists')) return 'ads_specialist';
   if (n.startsWith('designers and editors')) return 'creative';
   if (n.startsWith('accountants')) return 'accountant';
   if (n.startsWith('sales')) return 'sales';
@@ -207,6 +212,7 @@ export function formTypeForPipeline(pipelineName: string | null | undefined): st
 }
 
 const LANDING_PAGES: Record<string, string> = {
+  ...Object.fromEntries(TALENT_CATEGORY_OPTIONS.map((r) => [r.value, `https://squadhire.upsquadconnect.com/apply/${r.value}`])),
   creative: 'https://www.upsquadconnect.com/partner-program/designer-and-video-editor/',
   accountant: 'https://www.upsquadconnect.com/partner-program/accountant/',
 };
@@ -214,7 +220,7 @@ const LANDING_PAGES: Record<string, string> = {
 /** Context for someone who hasn't signed up: guide them to the landing page and signup. */
 export function prospectContext(opts: { name: string | null; pipelineName: string | null }): string {
   const ft = formTypeForPipeline(opts.pipelineName);
-  const label = ft === 'creative' ? 'Designers & Editors' : ft === 'accountant' ? 'Accountants' : ft === 'sales' ? 'Sales' : 'unknown';
+  const label = TALENT_CATEGORY_OPTIONS.find((c) => c.value === ft)?.label ?? 'unknown';
   const page = ft ? LANDING_PAGES[ft] : null;
   return [
     `Name (from WhatsApp): ${opts.name?.trim() || 'unknown'}`,

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import api from '@/services/api';
+import { TALENT_CATEGORY_OPTIONS } from '../../../../shared/src/contentRoles';
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import LeadsTabs from '@/views/leads/LeadsTabs';
@@ -38,9 +39,7 @@ type StatusFilter = 'submitted' | 'pending' | 'expired' | 'all';
 
 const FORM_TYPE_TABS: { value: string; label: string }[] = [
   { value: '', label: 'All' },
-  { value: 'creative', label: 'Creative' },
-  { value: 'accountant', label: 'Accountant' },
-  { value: 'sales', label: 'Sales' },
+  ...TALENT_CATEGORY_OPTIONS,
 ];
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [

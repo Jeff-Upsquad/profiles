@@ -62,6 +62,12 @@ class ProfilesService {
     return ProfileGate.fromJson(asObject(r.data));
   }
 
+  Future<Map<String, dynamic>> categoryDefinition(String slug) async {
+    final r = await _client.dio.get('/public/categories/$slug');
+    final category = _unwrapObj(r.data, 'category');
+    return category;
+  }
+
   /// [kind] is 'skills' | 'tools' | 'ai-tools' | 'portfolio-categories'.
   Future<List<TemplateItem>> templates(String categoryId, String kind) async {
     final r = await _client.dio.get('/public/categories/$categoryId/$kind');

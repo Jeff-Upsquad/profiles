@@ -2145,18 +2145,14 @@ function matchesEmploymentScope(value: unknown, employmentType?: string, track?:
  */
 async function moduleEligibleIds(employmentType: string): Promise<Set<string>> {
   const jobs = employmentType === 'salary';
-  const stageColumn = jobs ? 'jobs_pipeline_stage' : 'pipeline_stage';
   const talentStageColumn = jobs ? 'crm_jobs_stage_name' : 'crm_talent_stage_name';
   // Jobs + Partner applied together move in lockstep even while Partner
   // approval is pending — only approved talents enter the Partner module.
   const scoped = (qb: any) => (jobs ? qb : qb.eq('partner_approval_status', 'approved'));
-  const [live, graduated] = await Promise.all([
-    scoped(supabaseAdmin.from('talent_users').select('id').eq(stageColumn, 'live')),
-    scoped(supabaseAdmin.from('talent_users').select('id').ilike(talentStageColumn, 'onboarding completed')),
-  ]);
-  if (live.error) throw new AppError(500, live.error.message);
+  const graduated = await scoped(supabaseAdmin.from('talent_users').select('id')
+    .ilike(talentStageColumn, 'onboarding completed'));
   if (graduated.error) throw new AppError(500, graduated.error.message);
-  return new Set([...(live.data ?? []), ...(graduated.data ?? [])].map((r: any) => r.id as string));
+  return new Set((graduated.data ?? []).map((r: any) => r.id as string));
 }
 
 function partnerProgramCounts(value: unknown) {
