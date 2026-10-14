@@ -1450,7 +1450,7 @@ export async function reorderPortfolioItems(profileId: string, userId: string, i
 // Dynamic field validation helpers
 // ---------------------------------------------------------------------------
 
-async function validateFieldData(categoryId: string, fieldData: Record<string, any>, requireFields = true): Promise<string[]> {
+export async function validateFieldData(categoryId: string, fieldData: Record<string, any>, requireFields = true): Promise<string[]> {
   const { data: fields } = await supabaseAdmin
     .from('category_fields')
     .select('*, field_options(*)')
@@ -1512,8 +1512,11 @@ async function validateFieldData(categoryId: string, fieldData: Record<string, a
           errors.push(`${field.field_label} must be at most ${field.validation_rules.max}`);
         }
         break;
+      // Any defined option is valid, including ones an admin has since turned
+      // off: deactivating hides an option from the picker, but must not block a
+      // talent who already chose it from saving or resubmitting.
       case 'select': {
-        const validValues = (field.field_options || []).filter((o: any) => o.is_active).map((o: any) => o.value);
+        const validValues = (field.field_options || []).map((o: any) => o.value);
         if (!validValues.includes(value)) errors.push(`${field.field_label} has invalid selection`);
         break;
       }
@@ -1522,7 +1525,7 @@ async function validateFieldData(categoryId: string, fieldData: Record<string, a
           errors.push(`${field.field_label} must be an array`);
           break;
         }
-        const validMulti = (field.field_options || []).filter((o: any) => o.is_active).map((o: any) => o.value);
+        const validMulti = (field.field_options || []).map((o: any) => o.value);
         for (const v of value) {
           if (!validMulti.includes(v)) errors.push(`${field.field_label} contains invalid option: ${v}`);
         }

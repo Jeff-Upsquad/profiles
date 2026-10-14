@@ -74,3 +74,29 @@ test('the category API exposes required fields and active options in the web bui
     assert.equal(category.portfolio_required, true);
   } finally { supabaseAdmin.from = original; }
 });
+
+test('profiles keep validating after an admin turns off an option the talent picked', async () => {
+  const { validateFieldData } = await import('../services/talent.service.js');
+  const original = supabaseAdmin.from;
+  const query: any = {
+    select() { return this; },
+    eq() { return this; },
+    then(resolve: any) {
+      return resolve({ data: [
+        { field_key: 'specialism', field_label: 'Specialism', field_type: 'select', is_required: true, field_options: [
+          { value: 'website', is_active: true }, { value: 'retired', is_active: false },
+        ] },
+        { field_key: 'formats', field_label: 'Formats', field_type: 'multi_select', is_required: false, field_options: [
+          { value: 'blog', is_active: true }, { value: 'press', is_active: false },
+        ] },
+      ], error: null });
+    },
+  };
+  try {
+    supabaseAdmin.from = (() => query) as typeof supabaseAdmin.from;
+    const base = { _experience: { years: 2, months: 0 } };
+    assert.deepEqual(await validateFieldData('cat', { ...base, specialism: 'retired', formats: ['blog', 'press'] }), []);
+    assert.equal((await validateFieldData('cat', { ...base, specialism: 'made-up' })).length, 1);
+    assert.equal((await validateFieldData('cat', { ...base, specialism: 'website', formats: ['nope'] })).length, 1);
+  } finally { supabaseAdmin.from = original; }
+});
