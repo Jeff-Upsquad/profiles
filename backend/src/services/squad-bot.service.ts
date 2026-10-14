@@ -43,7 +43,7 @@ import {
 } from '../lib/squad-bot-prompt.js';
 import { adminInstructions, appDelivery, botModel, transferTargets, whatsappDelivery, type HubStatus, type SquadbotBriefing } from '../lib/squadhub-bot.js';
 import { handoffEventId, handoffSourceUrl, supportJobId, supportSourceUrl } from '../lib/squad-bot-channel.js';
-import { homeSquadbot, hubBotConfig, hubDoubtsConnected, hubLearnings, hubStatus, publishHubDoubt, reportUsage, squadbotBriefing, transferInSquadBots } from './squadhub-bot.service.js';
+import { boardSquadbot, homeSquadbot, hubBotConfig, hubDoubtsConnected, hubLearnings, hubStatus, publishHubDoubt, reportUsage, squadbotBriefing, transferInSquadBots } from './squadhub-bot.service.js';
 
 const HISTORY_TURNS = 30;
 
@@ -505,8 +505,10 @@ async function answer(
     homeSquadbot(),
   ]);
   // Who answers: the teammate after a transfer, else the Squadbot the chat
-  // started with, else the home Squadbot; plain Squad Bot when none is available.
-  let speakerId: string | null = opts.speakerId ?? state?.active_character_id ?? state?.character_id ?? home?.id ?? null;
+  // started with, else the one chosen for the contact's CRM board, else the
+  // home Squadbot; plain Squad Bot when none is available.
+  const owner = !state?.character_id && conv.crm_pipeline_name ? await boardSquadbot(conv.crm_pipeline_name) : null;
+  let speakerId: string | null = opts.speakerId ?? state?.active_character_id ?? state?.character_id ?? owner?.id ?? home?.id ?? null;
   let hub = speakerId ? await hubBotConfig(speakerId) : null;
   if (speakerId && !hub && home && speakerId !== home.id) {
     speakerId = home.id;

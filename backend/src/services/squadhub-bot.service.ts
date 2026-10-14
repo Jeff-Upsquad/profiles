@@ -90,7 +90,9 @@ async function squadbots(): Promise<Squadbot[]> {
 
 /** The Squadbot who starts a chat, or null to answer as plain Squad Bot. */
 export async function homeSquadbot(): Promise<Squadbot | null> {
-  return chooseSquadbot(await squadbots(), env.SQUAD_HIRING_BOT_SQUADBOT_ID);
+  const { getSortingSettings } = await import('./squad-bot-sorting.service.js');
+  const receptionist = await boardSquadbot((await getSortingSettings()).pipeline);
+  return chooseSquadbot(await squadbots(), env.SQUAD_HIRING_BOT_SQUADBOT_ID, receptionist ? [receptionist.id] : []);
 }
 
 /** The Squadbot chosen in Squad Bots for this CRM board (e.g. the Receptionist on Reception), or null. */

@@ -55,9 +55,11 @@ test('a board Squadbot (the Receptionist) answers its pipeline and never starts 
     { id: 'john', name: 'John', active: true, pipeline_ids: [] },
     { id: 'off', name: 'Off', active: false, pipeline_ids: ['parked'] },
   ];
-  assert.equal(chooseSquadbot(list)?.id, 'john');
-  assert.equal(chooseSquadbot(list, 'desk')?.id, 'desk');
-  assert.equal(chooseSquadbot([list[0]]), null);
+  assert.equal(chooseSquadbot(list, null, ['desk'])?.id, 'john');
+  assert.equal(chooseSquadbot(list, 'desk', ['desk'])?.id, 'desk');
+  assert.equal(chooseSquadbot([list[0]], null, ['desk']), null);
+  // Owning other boards (John on Designers and Editors) doesn't stop a Squadbot starting chats.
+  assert.equal(chooseSquadbot([{ id: 'john', name: 'John', active: true, pipeline_ids: ['de'] }, list[0]], null, ['desk'])?.id, 'john');
   assert.equal(pipelineSquadbot(list, ['reception'])?.id, 'desk');
   assert.equal(pipelineSquadbot(list, ['parked']), null);
   assert.equal(pipelineSquadbot(list, []), null);

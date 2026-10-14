@@ -67,11 +67,11 @@ export interface Squadbot { id: string; name: string; active: boolean; pipeline_
 
 /**
  * Who starts a chat: the pinned Squadbot when it's active, else the first
- * active one. Squadbots that answer a CRM pipeline (the Receptionist) stay on it.
+ * active one that isn't skipped (the Receptionist stays on Reception).
  */
-export function chooseSquadbot(list: Squadbot[], pinned?: string | null): Squadbot | null {
+export function chooseSquadbot(list: Squadbot[], pinned?: string | null, skip: string[] = []): Squadbot | null {
   const active = list.filter((s) => s.active);
-  return (pinned ? active.find((s) => s.id === pinned) : undefined) ?? active.find((s) => !s.pipeline_ids?.length) ?? null;
+  return (pinned ? active.find((s) => s.id === pinned) : undefined) ?? active.find((s) => !skip.includes(s.id)) ?? null;
 }
 
 /** The active Squadbot chosen in Squad Bots to answer one of these CRM pipelines. */
