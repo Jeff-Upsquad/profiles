@@ -11,7 +11,8 @@
 // we saw (or this app's own settings if we never got any).
 
 import { env } from '../config/env.js';
-import { chooseSquadbot, type HubBotConfig, type HubStatus, type Squadbot, type SquadbotBriefing } from '../lib/squadhub-bot.js';
+import { supabaseAdmin } from '../config/supabase.js';
+import { chooseSquadbot, pipelineSquadbot, type HubBotConfig, type HubStatus, type Squadbot, type SquadbotBriefing } from '../lib/squadhub-bot.js';
 
 const CACHE_MS = 30_000;
 const TIMEOUT_MS = 5_000;
@@ -72,18 +73,63 @@ export async function hubBotConfig(squadbotId?: string | null): Promise<HubBotCo
 }
 
 let squadbotsCache: { at: number; list: Squadbot[] } | null = null;
-/** The Squadbot who starts a chat, or null to answer as plain Squad Bot. */
-export async function homeSquadbot(): Promise<Squadbot | null> {
+/** Active Squadbots with the CRM pipelines each answers (last known list if Squad Bots is down). */
+async function squadbots(): Promise<Squadbot[]> {
   if (!squadbotsCache || Date.now() - squadbotsCache.at >= CACHE_MS * 10) {
+    void reportPipelines().catch((err) => console.error('[squad-bot] pipelines not reported:', (err as Error)?.message ?? err));
     try {
       squadbotsCache = { at: Date.now(), list: await hubJson<Squadbot[]>('characters') };
     } catch (err) {
       console.error('[squad-bot] Squadbots unavailable:', (err as Error)?.message ?? err);
-      if (!squadbotsCache) return null;
+      if (!squadbotsCache) return [];
       squadbotsCache.at = Date.now();
     }
   }
-  return chooseSquadbot(squadbotsCache.list, env.SQUAD_HIRING_BOT_SQUADBOT_ID);
+  return squadbotsCache.list;
+}
+
+/** The Squadbot who starts a chat, or null to answer as plain Squad Bot. */
+export async function homeSquadbot(): Promise<Squadbot | null> {
+  return chooseSquadbot(await squadbots(), env.SQUAD_HIRING_BOT_SQUADBOT_ID);
+}
+
+/** The Squadbot chosen in Squad Bots for this CRM board (e.g. the Receptionist on Reception), or null. */
+export async function boardSquadbot(pipelineName: string): Promise<Squadbot | null> {
+  const list = await squadbots();
+  if (!list.some((s) => s.pipeline_ids?.length)) return null;
+  const { data } = await supabaseAdmin.from('crm_pipelines').select('id, name').eq('is_archived', false);
+  const wanted = pipelineName.trim().toLowerCase();
+  return pipelineSquadbot(list, (data ?? []).filter((p: any) => String(p.name).trim().toLowerCase() === wanted).map((p: any) => p.id));
+}
+
+const PIPELINE_REPORT_MS = 5 * 60_000;
+let pipelinesReportedAt = 0;
+/**
+ * Tell Squad Bots which CRM pipelines exist, so a Squadbot can be chosen for
+ * each. Every few minutes; an empty or failed read reports nothing.
+ */
+export async function reportPipelines(): Promise<void> {
+  if (Date.now() - pipelinesReportedAt < PIPELINE_REPORT_MS || !hubRequest('pipelines')) return;
+  pipelinesReportedAt = Date.now();
+  const { data: pipelines, error } = await supabaseAdmin
+    .from('crm_pipelines')
+    .select('id, name, kind, workspace_id')
+    .eq('is_archived', false)
+    .order('sort_order');
+  if (error || !pipelines?.length) return;
+  const { data: workspaces } = await supabaseAdmin
+    .from('workspaces')
+    .select('id, name')
+    .in('id', [...new Set(pipelines.map((p: any) => p.workspace_id))]);
+  const names = new Map((workspaces ?? []).map((w: any) => [w.id, w.name as string]));
+  await hubJson('pipelines', 'PUT', {
+    pipelines: pipelines.map((p: any) => ({
+      id: p.id,
+      name: String(p.name).slice(0, 200),
+      kind: String(p.kind ?? '').slice(0, 40),
+      group: String(names.get(p.workspace_id) ?? '').slice(0, 200),
+    })),
+  });
 }
 
 const briefingCache = new Map<string, { at: number; briefing: SquadbotBriefing }>();

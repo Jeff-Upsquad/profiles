@@ -48,6 +48,25 @@ test('a chat starts with the pinned Squadbot when active, else the first active 
   assert.equal(chooseSquadbot([], null), null);
 });
 
+test('a board Squadbot (the Receptionist) answers its pipeline and never starts other chats', async () => {
+  const { chooseSquadbot, pipelineSquadbot, hasHireSkill } = await import('./squadhub-bot.js');
+  const list = [
+    { id: 'desk', name: 'Receptionist', active: true, pipeline_ids: ['reception'] },
+    { id: 'john', name: 'John', active: true, pipeline_ids: [] },
+    { id: 'off', name: 'Off', active: false, pipeline_ids: ['parked'] },
+  ];
+  assert.equal(chooseSquadbot(list)?.id, 'john');
+  assert.equal(chooseSquadbot(list, 'desk')?.id, 'desk');
+  assert.equal(chooseSquadbot([list[0]]), null);
+  assert.equal(pipelineSquadbot(list, ['reception'])?.id, 'desk');
+  assert.equal(pipelineSquadbot(list, ['parked']), null);
+  assert.equal(pipelineSquadbot(list, []), null);
+  assert.equal(hasHireSkill(null, 'stage_control'), true);
+  assert.equal(hasHireSkill({ managed: false, skill_ids: [] }, 'stage_control'), true);
+  assert.equal(hasHireSkill({ managed: true, skill_ids: ['squadhire.stage_control'] }, 'stage_control'), true);
+  assert.equal(hasHireSkill({ managed: true, skill_ids: ['squadhire.reply'] }, 'stage_control'), false);
+});
+
 test('only same-bot teammates covering memory can take a transfer', async () => {
   const { transferTargets } = await import('./squadhub-bot.js');
   const briefing = { memory: '', guideline: '', teammates: [

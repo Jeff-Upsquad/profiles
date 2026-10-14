@@ -19,7 +19,9 @@ export interface HubBotConfig {
   ai: { provider: string | null; provider_kind: 'anthropic' | 'openai_compatible' | null; model: string | null; error: string | null };
   instructions: string;
   /** Set when the settings were read for a Squadbot. */
-  character?: { id: string; name: string } | null;
+  character?: { id: string; name: string; greeting?: string } | null;
+  /** The Squadbot's skill policy; unmanaged means its existing access. */
+  skills?: { managed: boolean; skill_ids: string[] } | null;
   jobs?: Array<{
     id: string;
     kind: 'conversation' | 'action';
@@ -61,12 +63,25 @@ export function adminInstructions(hub: HubBotConfig | null): string {
   return text ? `Extra instructions from the UpSquad admin (follow them):\n${text}` : '';
 }
 
-export interface Squadbot { id: string; name: string; active: boolean }
+export interface Squadbot { id: string; name: string; active: boolean; pipeline_ids?: string[] }
 
-/** Who starts a chat: the pinned Squadbot when it's active, else the first active one. */
+/**
+ * Who starts a chat: the pinned Squadbot when it's active, else the first
+ * active one. Squadbots that answer a CRM pipeline (the Receptionist) stay on it.
+ */
 export function chooseSquadbot(list: Squadbot[], pinned?: string | null): Squadbot | null {
   const active = list.filter((s) => s.active);
-  return (pinned ? active.find((s) => s.id === pinned) : undefined) ?? active[0] ?? null;
+  return (pinned ? active.find((s) => s.id === pinned) : undefined) ?? active.find((s) => !s.pipeline_ids?.length) ?? null;
+}
+
+/** The active Squadbot chosen in Squad Bots to answer one of these CRM pipelines. */
+export function pipelineSquadbot(list: Squadbot[], pipelineIds: string[]): Squadbot | null {
+  return list.find((s) => s.active && s.pipeline_ids?.some((id) => pipelineIds.includes(id))) ?? null;
+}
+
+/** Whether a Squadbot's skills allow a SquadHire action; unmanaged policies keep existing access. */
+export function hasHireSkill(skills: HubBotConfig['skills'], capability: string): boolean {
+  return !skills?.managed || skills.skill_ids.includes(`squadhire.${capability}`);
 }
 
 /** What a Squadbot reads for one reply, from Squad Bots. */

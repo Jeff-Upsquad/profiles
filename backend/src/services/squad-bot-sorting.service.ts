@@ -16,7 +16,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
-import { HANDOFF_MESSAGE, historyToMessages, introNote, isNewConversation, knowledgeBlock, type ChatLine } from '../lib/squad-bot-prompt.js';
+import { HANDOFF_MESSAGE, historyToMessages, introNote, isNewConversation, knowledgeBlock, memoryBlock, type ChatLine } from '../lib/squad-bot-prompt.js';
 import {
   DEFAULT_SORT_ROLES,
   receptionPipelineName,
@@ -38,8 +38,8 @@ import {
   type ConversationRow,
   type WhatsAppInbound,
 } from './squad-bot.service.js';
-import { adminInstructions, botModel } from '../lib/squadhub-bot.js';
-import { hubBotConfig, reportUsage } from './squadhub-bot.service.js';
+import { adminInstructions, botModel, hasHireSkill } from '../lib/squadhub-bot.js';
+import { boardSquadbot, hubBotConfig, reportUsage, squadbotBriefing } from './squadhub-bot.service.js';
 
 const HISTORY_TURNS = 20;
 const MAX_ASK_PER_RUN = 25;
@@ -135,13 +135,24 @@ async function decide(conv: ConversationRow, settings: SortingSettings): Promise
   }
 
   const lines = (await recentLines(conv.id, HISTORY_TURNS)) as Array<ChatLine & { created_at: string }>;
-  const { data: knowledge } = await supabaseAdmin
-    .from('knowledge_items')
-    .select('title, body_text')
-    .overlaps('categories', ['general'])
-    .order('title', { ascending: true });
   const accountCategories = conv.talent_user_id ? await accountCategoriesOf(conv.talent_user_id) : null;
-  const hub = await hubBotConfig();
+  // The Squadbot chosen for this board in Squad Bots (the Receptionist) speaks
+  // with its own persona, memory and skills; otherwise plain Squad Bot sorts.
+  const board = await boardSquadbot(settings.pipeline);
+  const boardHub = board ? await hubBotConfig(board.id) : null;
+  const hub = boardHub ?? await hubBotConfig();
+  const squadbot = boardHub ? { id: board!.id, name: boardHub.character?.name ?? board!.name } : null;
+  const name = squadbot?.name ?? 'Squad Bot';
+  const briefing = squadbot ? await squadbotBriefing(squadbot.id) : null;
+  const { data: knowledge } = briefing?.memory
+    ? { data: null }
+    : await supabaseAdmin
+      .from('knowledge_items')
+      .select('title, body_text')
+      .overlaps('categories', ['general'])
+      .order('title', { ascending: true });
+  const canMove = hasHireSkill(boardHub?.skills, 'stage_control');
+  if (squadbot) Object.assign(meta, { squadbot_id: squadbot.id, squadbot_name: squadbot.name });
   const model = botModel(hub, env.SQUAD_BOT_MODEL);
   const startedAt = Date.now();
 
@@ -154,18 +165,22 @@ async function decide(conv: ConversationRow, settings: SortingSettings): Promise
       thinking: { type: 'adaptive' },
       output_config: { effort: 'low' },
       system: [
-        { type: 'text', text: sortingInstructions(settings.roles) },
-        { type: 'text', text: knowledgeBlock(knowledge ?? []), cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: sortingInstructions(settings.roles, name) },
+        { type: 'text', text: briefing?.memory ? memoryBlock(briefing.memory) : knowledgeBlock(knowledge ?? []), cache_control: { type: 'ephemeral' } },
         {
           type: 'text',
           text: [
             `The person you're chatting with:\n${sortingContext({ name: conv.contact_name, accountCategories })}`,
-            introNote(isNewConversation(lines)),
+            isNewConversation(lines) && boardHub?.character?.greeting?.trim()
+              ? `This is a new conversation: your first message must be exactly your greeting, word for word: ${boardHub.character.greeting.trim()}`
+              : introNote(isNewConversation(lines), name),
+            canMove ? '' : 'You cannot move contacts to a team right now: once their role is clear, hand off to the team with it.',
+            briefing?.guideline ?? '',
             adminInstructions(hub),
           ].filter(Boolean).join('\n\n'),
         },
       ],
-      tools: [moveTool(settings.roles), HANDOFF_TOOL],
+      tools: canMove ? [moveTool(settings.roles), HANDOFF_TOOL] : [HANDOFF_TOOL],
       messages: historyToMessages(lines),
     });
     meta.model = response.model;

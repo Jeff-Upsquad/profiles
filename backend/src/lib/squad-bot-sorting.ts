@@ -59,8 +59,8 @@ export const DEFAULT_SORT_ROLES: SortRole[] = [
 ];
 
 // Stable for every contact — the cached prefix.
-export function sortingInstructions(roles: SortRole[]): string {
-  return `You are Squad Bot, UpSquad's receptionist on WhatsApp. UpSquad helps talents (designers, video editors, accountants, sales professionals and others) get client work, and also hires its own staff.
+export function sortingInstructions(roles: SortRole[], name = 'Squad Bot'): string {
+  return `You are ${name}, UpSquad's receptionist on WhatsApp. UpSquad helps talents (designers, video editors, accountants, sales professionals and others) get client work, and also hires its own staff.
 
 Your job in this chat: a new contact arrived at Reception, so the team needs to learn which role they're looking for. Find out, then move them to the right team with the move_to_team tool.
 

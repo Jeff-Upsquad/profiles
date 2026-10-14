@@ -21,6 +21,8 @@ test('instructions list every team and send businesses to the team', () => {
   const text = sortingInstructions(DEFAULT_SORT_ROLES);
   for (const r of DEFAULT_SORT_ROLES) assert.ok(text.includes(`- ${r.key}: ${r.label}.`));
   assert.match(text, /business, brand or client/);
+  assert.match(text, /^You are Squad Bot, UpSquad's receptionist/);
+  assert.match(sortingInstructions(DEFAULT_SORT_ROLES, 'Receptionist'), /^You are Receptionist, UpSquad's receptionist/);
 });
 
 test('the first question uses a real first name only', () => {
