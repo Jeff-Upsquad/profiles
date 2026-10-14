@@ -211,8 +211,12 @@ export function formTypeForPipeline(pipelineName: string | null | undefined): st
   return null;
 }
 
+// Only categories with an /apply/<form_type> page (the content roles and Ads
+// Specialist); Sales has no public page, so the bot shares none.
 const LANDING_PAGES: Record<string, string> = {
-  ...Object.fromEntries(TALENT_CATEGORY_OPTIONS.map((r) => [r.value, `https://squadhire.upsquadconnect.com/apply/${r.value}`])),
+  ...Object.fromEntries(TALENT_CATEGORY_OPTIONS
+    .filter((r) => !['creative', 'accountant', 'sales'].includes(r.value))
+    .map((r) => [r.value, `https://squadhire.upsquadconnect.com/apply/${r.value}`])),
   creative: 'https://www.upsquadconnect.com/partner-program/designer-and-video-editor/',
   accountant: 'https://www.upsquadconnect.com/partner-program/accountant/',
 };

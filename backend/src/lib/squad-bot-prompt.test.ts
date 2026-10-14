@@ -55,6 +55,9 @@ test('WhatsApp leads: pipeline picks the knowledge and the landing page', async 
   const ctx = prospectContext({ name: 'Arun', pipelineName: 'Accountants' });
   assert.match(ctx, /NOT signed up/);
   assert.match(ctx, /partner-program\/accountant/);
+  // Sales has no public page — never point prospects at a 404.
+  assert.doesNotMatch(prospectContext({ name: null, pipelineName: 'Sales' }), /https?:/);
+  assert.match(prospectContext({ name: null, pipelineName: 'Creative Directors' }), /\/apply\/creative_director/);
 });
 
 test('introduce only at the start of a conversation or after a long gap', () => {
