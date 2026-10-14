@@ -19,7 +19,7 @@ export async function getSupportChat(id: string, before?: string) {
   if (error) throw new AppError(500, 'Could not load support chat');
   if (!data) throw new AppError(404, 'Support chat not found');
   let query = supabaseAdmin.from('squad_bot_messages')
-    .select('id, sender, body, channel, staff_name, created_at')
+    .select('id, sender, body, channel, staff_name, created_at, sender_name:meta->>squadbot_name')
     .eq('conversation_id', id).eq('channel', 'app').order('created_at', { ascending: false }).limit(100);
   if (before) query = query.lt('created_at', before);
   const { data: messages, error: messagesError } = await query;

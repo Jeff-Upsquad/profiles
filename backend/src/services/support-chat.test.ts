@@ -70,3 +70,25 @@ test('while handed off an app message is saved without invoking the model', asyn
   assert.equal(result.status, 'handoff'); assert.equal(writes, 1);
   assert.equal(result.messages.length, 1);
 });
+
+test('bot identity is returned on both new replies and reloaded history', async () => {
+  handler = (url, init) => {
+    assert.equal(url.hostname, 'support-fixture.test');
+    if (url.pathname.endsWith('/squad_bot_messages')) {
+      assert.match(url.searchParams.get('select') || '', /sender_name:meta->>squadbot_name/);
+      if (init.method === 'POST') {
+        const input = JSON.parse(String(init.body));
+        assert.equal(input.meta.squadbot_name, 'Tina');
+        return json({ id: 'bot-reply', sender: 'bot', body: input.body, sender_name: 'Tina' });
+      }
+      return json([{ id: 'bot-reply', sender: 'bot', body: 'Hello', sender_name: 'Tina' }]);
+    }
+    if (url.pathname.endsWith('/squad_bot_conversations')) return json(null);
+    if (url.pathname.endsWith('/support_chat_conversations')) return json([conv]);
+    throw new Error(`Unexpected request: ${url}`);
+  };
+  const message = await bot.addMessage('chat', { sender: 'bot', body: 'Hello', meta: { squadbot_name: 'Tina', squadbot_id: 'tina' } });
+  assert.equal((message as any).sender_name, 'Tina');
+  assert.equal((await bot.recentLines('chat', 10))[0].sender_name, 'Tina');
+  assert.equal((await support.getSupportChat('chat')).messages[0].sender_name, 'Tina');
+});

@@ -105,6 +105,7 @@ export async function sortWhatsAppContact(msg: WhatsAppInbound): Promise<void> {
         lead_id: msg.lead_id,
         reply_to_message_id: msg.message_id,
         text: reply.body,
+        bot_name: `${(reply as any).sender_name || 'Squad Bot'} - Hiring Bot`,
         mode: 'send',
         handoff: result.handoff,
       });
@@ -142,7 +143,7 @@ async function decide(conv: ConversationRow, settings: SortingSettings): Promise
   const boardHub = board ? await hubBotConfig(board.id) : null;
   const hub = boardHub ?? await hubBotConfig();
   const squadbot = boardHub ? { id: board!.id, name: boardHub.character?.name ?? board!.name } : null;
-  const name = squadbot?.name ?? 'Squad Bot';
+  const name = squadbot?.name ?? hub?.public_name ?? 'Squad Bot';
   const briefing = squadbot ? await squadbotBriefing(squadbot.id) : null;
   const { data: knowledge } = briefing?.memory
     ? { data: null }
@@ -305,6 +306,9 @@ export async function askWaitingContacts(staff: { id: string; name: string }) {
   if (settings.mode === 'off') throw new AppError(409, 'Switch "Sort new contacts" on first.');
   const result = { asked: 0, by_template: 0, failed: 0, remaining: Math.max(0, leads.length - MAX_ASK_PER_RUN), errors: [] as string[] };
 
+  const speaker = await boardSquadbot(settings.pipeline);
+  const speakerConfig = await hubBotConfig(speaker?.id);
+  const speakerName = speakerConfig?.character?.name ?? speaker?.name ?? speakerConfig?.public_name ?? 'Squad Bot';
   for (const lead of leads.slice(0, MAX_ASK_PER_RUN)) {
     const who = lead.name || lead.phone!;
     try {
@@ -312,6 +316,7 @@ export async function askWaitingContacts(staff: { id: string; name: string }) {
       const sent = await crmPost('reply', {
         lead_id: lead.id,
         text,
+        bot_name: `${speakerName} - Hiring Bot`,
         mode: 'send',
         fallback_template: { name: settings.template, language: settings.template_language },
       });
@@ -326,7 +331,7 @@ export async function askWaitingContacts(staff: { id: string; name: string }) {
         body: text,
         channel: 'whatsapp',
         crm_message_id: sent.message_id ?? null,
-        meta: { job: 'sort', asked_by: staff.name, ...(sent.via === 'template' ? { template: settings.template } : {}) },
+        meta: { job: 'sort', squadbot_id: speaker?.id ?? null, squadbot_name: speakerName, asked_by: staff.name, ...(sent.via === 'template' ? { template: settings.template } : {}) },
       });
       result.asked++;
       if (sent.via === 'template') result.by_template++;

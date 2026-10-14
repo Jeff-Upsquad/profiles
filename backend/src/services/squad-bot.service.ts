@@ -160,7 +160,7 @@ async function confirmCancellation(conv: ConversationRow, text: string, channel:
     body = "I've asked the team to check your cancellation request. They'll confirm it here.";
   }
   const message = await addMessage(conv.id, { sender: 'bot', body, channel, meta: { cancellation_scope: scope } });
-  if (channel === 'whatsapp') await crmPost('reply', { lead_id: conv.crm_lead_id, reply_to_message_id: messageId, text: body, mode: 'send' });
+  if (channel === 'whatsapp') await crmPost('reply', { lead_id: conv.crm_lead_id, reply_to_message_id: messageId, text: body, mode: 'send', bot_name: `${(message as any).sender_name || 'Squad Bot'} - Hiring Bot` });
   return { status: handoff ? 'handoff' as const : 'bot' as const, message, handoff };
 }
 
@@ -186,7 +186,7 @@ export interface ConversationRow {
   last_message_at: string;
 }
 
-const MESSAGE_COLUMNS = 'id, sender, body, channel, staff_name, created_at';
+const MESSAGE_COLUMNS = 'id, sender, body, channel, staff_name, created_at, sender_name:meta->>squadbot_name';
 
 async function conversationFor(talentUserId: string): Promise<ConversationRow> {
   const { data: existing, error } = await supabaseAdmin
@@ -217,6 +217,19 @@ export async function addMessage(
     meta?: Record<string, unknown>;
   },
 ) {
+  if (msg.sender === 'bot' && !msg.meta?.squadbot_name) {
+    const { data: conv } = await supabaseAdmin.from('squad_bot_conversations')
+      .select('*').eq('id', conversationId).maybeSingle();
+    if (conv) {
+      const state = await (await inbox()).inboxState(conversationId);
+      const assigned = conv.crm_pipeline_name ? await boardSquadbot(conv.crm_pipeline_name) : null;
+      const home = await homeSquadbot();
+      const speakerId = state?.active_character_id ?? state?.character_id ?? assigned?.id ?? home?.id;
+      const hub = await hubBotConfig(speakerId);
+      msg.meta = { ...msg.meta, squadbot_id: speakerId ?? null,
+        squadbot_name: hub?.character?.name ?? hub?.public_name ?? assigned?.name ?? home?.name ?? 'Squad Bot' };
+    }
+  }
   const { data, error } = await supabaseAdmin
     .from('squad_bot_messages')
     .insert({ conversation_id: conversationId, ...msg })
@@ -518,7 +531,7 @@ async function answer(
     speakerId = null;
     hub = await hubBotConfig();
   }
-  const speakerName = hub?.character?.name ?? 'Squad Bot';
+  const speakerName = hub?.character?.name ?? hub?.public_name ?? 'Squad Bot';
   // A chat recorded before Squadbots adopts the one answering it.
   if (state && !state.character_id && speakerId) {
     const adopt = speakerId;
@@ -788,6 +801,7 @@ export async function handleWhatsAppMessage(msg: WhatsAppInbound): Promise<void>
       lead_id: msg.lead_id,
       reply_to_message_id: msg.message_id,
       text: reply.message.body,
+      bot_name: `${reply.message.sender_name || 'Squad Bot'} - Hiring Bot`,
       mode: delivery === 'auto' ? 'send' : 'draft',
       handoff: reply.handoff ?? null,
       reply_buttons: 'reply_buttons' in reply ? reply.reply_buttons : undefined,
@@ -947,7 +961,7 @@ export async function instructBot(id: string, staff: { id: string; name: string 
 
   if (reply.message) {
     if (channel === 'whatsapp') {
-      const sent = await crmPost('reply', { lead_id: conv.crm_lead_id, text: reply.message.body, mode: 'send' });
+      const sent = await crmPost('reply', { lead_id: conv.crm_lead_id, text: reply.message.body, mode: 'send', bot_name: `${reply.message.sender_name || 'Squad Bot'} - Hiring Bot` });
       if (!sent?.ok) {
         await addMessage(id, { sender: 'system', body: `Squad Bot's reply was not sent on WhatsApp (${sent?.error ?? 'CRM not connected'}).` });
         throw new AppError(502, sent?.error === 'outside_24h_window'

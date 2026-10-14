@@ -15,6 +15,7 @@ export type LocalWhatsAppMode = 'off' | 'draft' | 'auto';
 export type WhatsAppDelivery = 'off' | 'note' | 'draft' | 'auto';
 
 export interface HubBotConfig {
+  public_name?: string;
   status: HubStatus;
   ai: { provider: string | null; provider_kind: 'anthropic' | 'openai_compatible' | null; model: string | null; error: string | null };
   instructions: string;

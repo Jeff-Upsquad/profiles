@@ -32,6 +32,7 @@ interface InboxMessage {
   body: string;
   channel?: 'app' | 'whatsapp';
   staff_name: string | null;
+  sender_name?: string | null;
   created_at: string;
 }
 
@@ -321,7 +322,7 @@ function ConversationPane({ id }: { id: string }) {
             <div key={m.id} className={`flex ${m.sender === 'talent' ? 'justify-start' : 'justify-end'}`}>
               <div className="max-w-[80%]">
                 <p className={`mb-0.5 text-[11px] text-gray-500 ${m.sender === 'talent' ? '' : 'text-right'}`}>
-                  {m.sender === 'talent' ? 'Talent' : m.sender === 'bot' ? 'Squad Bot' : m.staff_name || 'Team'} · {when(m.created_at)}
+                  {m.sender === 'talent' ? 'Talent' : m.sender === 'bot' ? m.sender_name || 'Squad Bot' : m.staff_name || 'Team'} · {when(m.created_at)}
                   {m.channel === 'whatsapp' ? ' · WhatsApp' : ''}
                 </p>
                 <div
