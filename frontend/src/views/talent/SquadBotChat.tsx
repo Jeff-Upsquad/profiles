@@ -138,7 +138,11 @@ export default function SquadBotChat() {
                     </div>
                   </div>
                 ) : (
-                  <BotBubble key={m.id} label={m.sender === 'staff' ? 'UpSquad team' : m.sender_name ?? undefined} time={m.created_at}>
+                  <BotBubble
+                    key={m.id}
+                    label={m.sender === 'staff' ? 'UpSquad team' : `${m.sender_name?.trim() || 'Squad Bot'} - Hiring Bot`}
+                    time={m.created_at}
+                  >
                     <MessageText text={m.body} />
                   </BotBubble>
                 ),
@@ -215,7 +219,7 @@ function BotBubble({ children, label, time }: { children: React.ReactNode; label
     <div className="flex justify-start">
       <div className="max-w-[80%]">
         <p className="mb-0.5 text-[11px] font-medium text-[#737373]">
-          {label ?? 'Squad Bot'}
+          {label ?? 'Squad Bot - Hiring Bot'}
           {time ? <span className="ml-1.5 font-normal text-[#a3a3a3]">{timeLabel(time)}</span> : null}
         </p>
         <div className="whitespace-pre-wrap rounded-2xl rounded-bl-md bg-[#f5f5f5] px-3.5 py-2 text-[14px] text-[#0a0a0a]">
