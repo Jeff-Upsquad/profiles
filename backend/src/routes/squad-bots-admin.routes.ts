@@ -16,16 +16,20 @@ import * as hub from '../services/onboarding-hub.service.js';
 /**
  * Signed surface for Squadbots working in the admin onboarding and exception
  * modules on behalf of a Squad Bots administrator. Mounted at
- * /api/integrations/squad-bots-admin. Every call acts as the signed-in
- * administrator, who must hold the module permission here (full admin, or a
- * staff grant). Squad Bots separately requires the Squadbot's skill and an
- * explicit "Run action" from the administrator before any write.
+ * /api/integrations/squad-bots-admin. Squad Bots has already checked the
+ * Squadbot's module skill. A call acts as the signed-in person when their own
+ * SquadHire access covers it, otherwise as the "Squad Bots" staff account
+ * (SQUAD_BOTS_SERVICE_EMAIL). Writes also need "Run action" in Squad Bots.
  */
 const router = Router();
 const fresh = nonceStore();
 
 type Actor = { id: string; email: string; admin: boolean; grants: ModuleGrants };
-const actorOf = (res: Response) => res.locals.squadBotsActor as Actor;
+const humanOf = (res: Response) => res.locals.squadBotsActor as Actor | null;
+/** SquadHire's own account for Squadbots (staff, approvals + talents edit). Squad Bots has
+ * already checked the bot's module skill, so a bot with the skill can act even when the
+ * person chatting has no SquadHire access. Disabling this staff row turns that off. */
+export const SQUAD_BOTS_SERVICE_EMAIL = 'squad-bots@squadhub.in';
 
 async function resolveActor(email: string): Promise<Actor | null> {
   const { data: staff } = await supabaseAdmin.from('staff_users')
@@ -54,17 +58,20 @@ router.use(async (req: Request, res: Response, next: NextFunction) => {
     });
     if ('error' in verified) throw new AppError(401, verified.error);
     if (!fresh(req.header(BRIDGE_HEADERS.nonce)!)) throw new AppError(401, 'Squad Bots request was already used');
-    const actor = await resolveActor(verified.actor);
-    if (!actor) throw new AppError(403, 'Your account has no SquadHire admin access');
-    res.locals.squadBotsActor = actor;
+    res.locals.squadBotsActor = await resolveActor(verified.actor);
+    res.locals.squadBotsService = await resolveActor(SQUAD_BOTS_SERVICE_EMAIL);
     next();
   } catch (err) { next(err); }
 });
 
+/** Act as the person when their own access covers it (clearest audit), else as Squad Bots. */
 function allow(res: Response, op: BridgeOperation) {
-  const actor = actorOf(res), need = BRIDGE_OPERATIONS[op];
-  if (actor.admin || meetsLevel(actor.grants[need.module], need.level)) return actor;
-  throw new AppError(403, `Your SquadHire access does not include ${need.level} on ${need.module}`);
+  const need = BRIDGE_OPERATIONS[op];
+  const can = (a: Actor | null) => !!a && (a.admin || meetsLevel(a.grants[need.module], need.level));
+  const human = humanOf(res), service = res.locals.squadBotsService as Actor | null;
+  if (can(human)) return human!;
+  if (can(service)) return service!;
+  throw new AppError(403, `The Squad Bots account in SquadHire needs ${need.level} access on ${need.module}`);
 }
 
 const ok = (res: Response, data: unknown) => res.json({ success: true, data });
@@ -199,7 +206,7 @@ router.post('/talents/:id/actions', async (req, res, next) => {
         break;
       }
       case 'set_board_stage': result = await hub.setTalentStage(id, { stage_id: a.stage_id, track: a.track }, actor.id); break;
-      case 'set_webinar_attended': result = await hub.setWebinarAttended(id, a.attended, actor.id); break;
+      case 'set_webinar_attended': result = await hub.setWebinarAttended(id, a.attended, actor.admin ? actor.id : null); break;
       case 'restore_rejected': result = await adminService.restoreRejectedUser(id, actor.id, a.track); break;
       case 'restore_cancelled': {
         const { restoreCancelledApplication } = await import('../services/request-change-reminders.service.js');
@@ -218,7 +225,7 @@ router.post('/talents/:id/actions', async (req, res, next) => {
         break;
       }
     }
-    console.info(`[squad-bots-admin] ${actor.email} ran ${a.op} on talent ${id}`);
+    console.info(`[squad-bots-admin] ${actor.email} ran ${a.op} on talent ${id} for ${humanOf(res)?.email ?? req.header('x-squadbots-actor')}`);
     ok(res, { op: a.op, talent_user_id: id, result: result && typeof result === 'object' && 'id' in (result as any) ? { id: (result as any).id } : result });
   } catch (err) {
     if (err instanceof z.ZodError) return next(new AppError(422, err.issues[0]?.message ?? 'Invalid action'));

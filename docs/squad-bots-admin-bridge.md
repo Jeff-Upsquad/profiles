@@ -7,10 +7,12 @@ exception modules for a signed-in administrator. Mounted at
 - **Auth:** HMAC-SHA256 over `time\nnonce\nactor-email\nMETHOD\npath+query\nJSON body`
   with `SQUAD_BOTS_ADMIN_SECRET` (same value as Squad Bots' `SQUAD_HIRE_ADMIN_SECRET`).
   ±5 min clock window; nonces are single-use. Unset secret → 503.
-- **Actor:** the signed email must be a full admin (`app_metadata.role = admin`) or an
-  active staff user. Staff need the module grant: `approvals` (onboarding, rejected,
-  cancelled, stages) or `talents` (blocked users); `view` to read, `edit` to act.
-  Actions are recorded as that admin, exactly like the admin UI.
+- **Actor:** any Squadbot with the module skill can act. If the signed-in person is a
+  full admin or active staff with the module grant (`approvals` for onboarding,
+  rejected, cancelled, stages; `talents` for blocked users; `view` to read, `edit` to
+  act), the action is recorded as them. Otherwise it runs as the **Squad Bots** staff
+  account (`squad-bots@squadhub.in`, approvals + talents edit, no usable password);
+  the log line names the person too. Deactivate that staff row to require personal access.
 - **Reads:** `GET /queue` (track, view active|rejected|cancelled, search, stage,
   attention, category, page), `GET /talents/:id?track=`, `GET /stages` (funnel,
   per-category portfolio rules, talent boards, rejection reasons), `GET /blocked`.

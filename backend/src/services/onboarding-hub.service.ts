@@ -1427,7 +1427,8 @@ export async function clearMessageFailed(talentUserId: string) {
  * Tick / untick the common onboarding webinar on the talent-board checklist.
  * There's no attendance feed from the meeting tool, so this is the admin's call.
  */
-export async function setWebinarAttended(talentUserId: string, attended: boolean, adminUserId: string) {
+/** `adminUserId` must be a sign-in account (FK to auth.users); staff and bots pass null. */
+export async function setWebinarAttended(talentUserId: string, attended: boolean, adminUserId: string | null) {
   const attendedAt = attended ? new Date().toISOString() : null;
   const { data, error } = await supabaseAdmin
     .from('talent_users')
