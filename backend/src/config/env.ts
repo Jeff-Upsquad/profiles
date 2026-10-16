@@ -60,6 +60,10 @@ const envSchema = z.object({
   // When set, every Squad Hiring Bot call (settings, memory, inbox, team
   // questions) goes there instead of through SquadHub.
   SQUAD_BOTS_API_URL: z.string().url().optional(),
+  // Shared HMAC secret for Squad Bots' signed admin bridge (/api/integrations/squad-bots-admin):
+  // Squadbots act in the onboarding and exception modules for a signed-in admin.
+  // Must equal SQUAD_HIRE_ADMIN_SECRET on Squad Bots. Unset → the bridge returns 503.
+  SQUAD_BOTS_ADMIN_SECRET: z.string().min(32).optional(),
   // Optional: the Squadbot who starts each chat (its ID in Squad Bots). Unset →
   // the bot's first active Squadbot, or plain "Squad Bot" when it has none.
   SQUAD_HIRING_BOT_SQUADBOT_ID: z.string().uuid().optional(),
