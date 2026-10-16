@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { PortfolioItem } from '@/types';
 import { legacyProviderDisplayName } from '@/lib/videoEmbed';
 import ThreadsPortfolioCard from './ThreadsPortfolioCard';
+import PdfViewer from './PdfViewer';
 
 interface ThreadsPortfolioFeedProps {
   items: PortfolioItem[];
@@ -67,9 +68,15 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
 
   const close = useCallback(() => setSelectedIndex(null), []);
 
+  const selectedIsPdf = selectedItem?.file_type === 'pdf';
+
   useEffect(() => {
     if (selectedIndex === null) return;
     const handleKey = (e: KeyboardEvent) => {
+      // In the PDF viewer Up/Down scroll the document, so only Left/Right
+      // switch between portfolio items there.
+      const vertical = e.key === 'ArrowDown' || e.key === 'ArrowUp';
+      if (vertical && selectedIsPdf) return;
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); goNext(); }
       else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); goPrev(); }
       else if (e.key === 'Escape') close();
@@ -80,7 +87,7 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
       window.removeEventListener('keydown', handleKey);
       document.body.style.overflow = '';
     };
-  }, [selectedIndex, goNext, goPrev, close]);
+  }, [selectedIndex, selectedIsPdf, goNext, goPrev, close]);
 
   if (filtered.length === 0) {
     return (
@@ -127,7 +134,7 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
           {hasPrev && (
             <button
               onClick={(e) => { e.stopPropagation(); goPrev(); }}
-              className="absolute left-3 top-1/2 z-10 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+              className={`absolute left-3 top-1/2 z-10 -translate-y-1/2 h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors ${selectedIsPdf ? 'hidden sm:flex' : 'flex'}`}
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="15 18 9 12 15 6" />
@@ -138,7 +145,7 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
           {hasNext && (
             <button
               onClick={(e) => { e.stopPropagation(); goNext(); }}
-              className="absolute right-3 top-1/2 z-10 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+              className={`absolute right-3 top-1/2 z-10 -translate-y-1/2 h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors ${selectedIsPdf ? 'hidden sm:flex' : 'flex'}`}
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="9 18 15 12 9 6" />
@@ -249,18 +256,17 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
             {selectedItem.file_type === 'pdf' && (
               <div className="flex flex-col items-center gap-2">
                 {/*
-                  Render the PDF inline via the browser's native viewer rather
-                  than only linking out. Portfolio PDFs are stored on R2 with
-                  Content-Type: application/pdf and no attachment disposition, so
-                  the iframe displays the document directly. The link below is a
-                  fallback for browsers that refuse to embed PDFs (e.g. some
-                  mobile browsers).
+                  Render the PDF with pdf.js rather than the browser's native
+                  viewer: mobile browsers (iOS Safari especially) only paint
+                  the first page of an <iframe>'d PDF and won't scroll it.
+                  PdfViewer lays out every page in a scrollable column that
+                  works with touch and mouse alike. The link below remains as
+                  a fallback (download / native viewer).
                 */}
-                <iframe
+                <PdfViewer
                   key={selectedItem.id}
-                  src={`${selectedItem.file_url}#view=FitH`}
+                  url={selectedItem.file_url}
                   title={selectedItem.file_name}
-                  className="h-[85vh] w-[90vw] max-w-[820px] rounded-lg bg-white"
                 />
                 <a
                   href={selectedItem.file_url}

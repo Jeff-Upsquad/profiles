@@ -1298,6 +1298,23 @@ export async function addPortfolioItem(
 
   if (error) throw new AppError(500, `Failed to add portfolio item: ${error.message}`);
 
+  // Uploaded PDFs get a rendered first-page cover so profile grids can show
+  // a real thumbnail. Runs in the background; the grid falls back to a
+  // client-side render until thumbnail_url lands.
+  if (data.file_type === 'pdf' && data.source_type === 'upload' && !data.thumbnail_url) {
+    try {
+      const { queuePortfolioPdfThumbnail } = await import('./pdf-thumbnail.service.js');
+      queuePortfolioPdfThumbnail({
+        table: 'portfolio_items',
+        itemId: data.id,
+        fileUrl: data.file_url,
+        ownerUserId: userId,
+      });
+    } catch (e) {
+      console.error('[pdf-thumbnail] failed to queue:', e);
+    }
+  }
+
   // First portfolio item may advance the candidate's pipeline stage.
   try {
     const { syncOnboardingStage } = await import('./automation.service.js');

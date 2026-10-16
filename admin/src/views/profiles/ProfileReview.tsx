@@ -12,6 +12,7 @@ import RequestChangesDialog from './RequestChangesDialog';
 import toast from 'react-hot-toast';
 import { coerceLeveledList, LEVEL_LABELS, type LeveledItem } from '../../../../shared/src/types/talent';
 import { formatDate, formatDateTime } from '@/lib/formatDate';
+import PdfThumbnail from '@/components/profile/PdfThumbnail';
 
 interface LinkedLead {
   id: string;
@@ -809,11 +810,14 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
                           <video src={item.file_url} controls className="mb-2 h-32 w-full rounded-md object-cover" />
                         )}
                         {item.file_type === 'pdf' && (
-                          <div className="mb-2 flex h-32 items-center justify-center rounded-md bg-red-50">
-                            <svg className="h-10 w-10 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                            </svg>
-                          </div>
+                          <a
+                            href={item.file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group mb-2 block h-32 overflow-hidden rounded-md border border-gray-100"
+                          >
+                            <PdfThumbnail thumbnailUrl={item.thumbnail_url} pdfUrl={item.file_url} alt={item.file_name} />
+                          </a>
                         )}
                         <p className="truncate text-sm text-gray-700">{item.file_name}</p>
                         <a href={item.file_url} target="_blank" rel="noopener noreferrer" className="mt-1 text-xs text-indigo-600 hover:underline">

@@ -311,6 +311,14 @@ export async function addPortfolioItem(userId: string, input: { member_profile_i
     const row: any = { agency_user_id: userId, member_profile_id: input.member_profile_id ?? null, general_portfolio_id: input.general_portfolio_id ?? null, title: input.title ?? null, description: input.description ?? null, file_url: input.file_url ?? null, file_type: input.file_type ?? 'video', file_name: input.file_name ?? 'file', category_name: input.category_name ?? null, skill_name: input.skill_name ?? null, source_type: input.source_type ?? 'upload', provider: input.provider ?? null, external_url: input.external_url ?? null, embed_url: input.embed_url ?? null, thumbnail_url: input.thumbnail_url ?? null };
     const { data, error } = await supabaseAdmin.from('agency_portfolio_items').insert(row).select('*').single();
     if (error) throw error;
+    if (data?.file_type === 'pdf' && data.source_type === 'upload' && data.file_url && !data.thumbnail_url) {
+      try {
+        const { queuePortfolioPdfThumbnail } = await import('./pdf-thumbnail.service.js');
+        queuePortfolioPdfThumbnail({ table: 'agency_portfolio_items', itemId: data.id, fileUrl: data.file_url, ownerUserId: userId });
+      } catch (thumbErr) {
+        console.error('[pdf-thumbnail] failed to queue:', thumbErr);
+      }
+    }
     return data;
   } catch (e: any) {
     if (isMissingTable(e)) {
