@@ -1,0 +1,11 @@
+[Unit]
+Description=Check SquadHire backup health every fifteen minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+Persistent=true
+Unit=squadhire-backup-watchdog.service
+
+[Install]
+WantedBy=timers.target

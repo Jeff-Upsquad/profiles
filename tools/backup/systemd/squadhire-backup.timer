@@ -1,0 +1,12 @@
+[Unit]
+Description=Back up the shared Supabase database daily at 03:00 IST
+
+[Timer]
+OnCalendar=*-*-* 21:30:00 UTC
+Persistent=true
+RandomizedDelaySec=0
+AccuracySec=1s
+Unit=squadhire-backup.service
+
+[Install]
+WantedBy=timers.target
