@@ -1,3 +1,5 @@
+import { currentChatBotSwitch } from './chat-bot-switch.service.js';
+import { syncToInbox } from './squad-bots-inbox.service.js';
 // ---------------------------------------------------------------------------
 // Squad Bot, job 2 — sort new contacts.
 //
@@ -96,9 +98,12 @@ export async function sortWhatsAppContact(msg: WhatsAppInbound): Promise<void> {
     const conv = await whatsappConversation(msg);
     await addMessage(conv.id, { sender: 'talent', body: msg.text, channel: 'whatsapp', crm_message_id: msg.message_id });
     // With the team: recruiters answer in the CRM; the bot stays quiet.
-    if (conv.status === 'handoff') return;
+    const botEnabled = await currentChatBotSwitch(conv);
+    await syncToInbox(conv.id, (await boardSquadbot(settings.pipeline))?.id);
+    if (!botEnabled) return;
 
     const result = await decide(conv, settings);
+    if (!await currentChatBotSwitch(conv)) return;
     if (result.text) {
       const reply = await addMessage(conv.id, { sender: 'bot', body: result.text, channel: 'whatsapp', meta: result.meta });
       const sent = await crmPost('reply', {
