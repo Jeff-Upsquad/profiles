@@ -11,7 +11,7 @@ import {
 } from './jobs.service.js';
 import { expireOverdueOffers } from './offers.service.js';
 import { sweepMeetingReminders } from './conversations.service.js';
-import { sweepGroupMeetJoinNotices } from './group-meets.service.js';
+import { sweepGroupMeetCompletions, sweepGroupMeetJoinNotices } from './group-meets.service.js';
 import { sweepWebinarReminders } from './webinars.service.js';
 import { sweepRequestChangeReminders } from './request-change-reminders.service.js';
 
@@ -269,6 +269,7 @@ export function startInterviewSweeper(): NodeJS.Timeout {
       await expireOverdueOffers();
       await sweepMeetingReminders();
       await sweepGroupMeetJoinNotices();
+      await sweepGroupMeetCompletions();
       await sweepWebinarReminders(now);
       await sweepBusinessCardRollups();
       await sweepRequestChangeReminders(now);

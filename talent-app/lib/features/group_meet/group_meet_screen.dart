@@ -30,7 +30,7 @@ class _GroupMeetScreenState extends ConsumerState<GroupMeetScreen> with SingleTi
     finally { if (mounted) setState(() => _busy = false); }
   }
 
-  Future<void> _send() async { final body = _message.text.trim(); if (body.isEmpty) return; _message.clear(); await ref.read(groupMeetsServiceProvider).send(widget.meetingId, body); ref.invalidate(groupMeetProvider(widget.meetingId)); }
+  Future<void> _send() async { final body = _message.text.trim(); if (body.isEmpty) return; try { await ref.read(groupMeetsServiceProvider).send(widget.meetingId, body); _message.clear(); ref.invalidate(groupMeetProvider(widget.meetingId)); } catch (_) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not send message'))); } }
 
   Future<void> _join(GroupMeet meet) async {
     if (_busy) return;
@@ -58,7 +58,8 @@ class _GroupMeetScreenState extends ConsumerState<GroupMeetScreen> with SingleTi
         final action = widget.initialAction;
         if (!_actedFromPush && myRsvp == 'invited' && (action == 'accept' || action == 'decline')) { _actedFromPush = true; WidgetsBinding.instance.addPostFrameCallback((_) => _respond(action!)); }
         if (!_actedFromPush && myRsvp == 'accepted' && action == 'join') { _actedFromPush = true; WidgetsBinding.instance.addPostFrameCallback((_) => _join(meet)); }
-        final needsResponse = myRsvp == 'invited' && meet.status != 'cancelled';
+        final closed = meet.status == 'cancelled' || meet.status == 'completed';
+        final needsResponse = myRsvp == 'invited' && !closed;
         return PopScope(
           canPop: !needsResponse,
           child: Scaffold(
@@ -69,7 +70,8 @@ class _GroupMeetScreenState extends ConsumerState<GroupMeetScreen> with SingleTi
                 Text(meet.status == 'rescheduled' ? 'UPDATED INVITATION · VERSION ${meet.revision}' : 'GROUP INVITATION', style: const TextStyle(color: Color(0xFFFFFF99), fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1)), const SizedBox(height: 8),
                 Text(meet.title, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)), const SizedBox(height: 14),
                 Text(_formatWhen(meet.startsAt), style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)), const SizedBox(height: 3), Text('${meet.timezone} · ${meet.invitedCount} talents invited', style: const TextStyle(color: Colors.white60, fontSize: 12)),
-                if (!needsResponse && myRsvp == 'accepted') ...[const SizedBox(height: 16), SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: _busy ? null : () => _join(meet), icon: const Icon(Icons.videocam_outlined), label: Text(_busy ? 'Joining…' : 'Join SquadUp'), style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFFFF99), foregroundColor: const Color(0xFF0A0A0A))))],
+                if (closed) ...[const SizedBox(height: 12), Text(meet.status == 'completed' ? 'This Group Meet has ended.' : 'This Group Meet was cancelled.', style: const TextStyle(color: Color(0xFFFFB4AB), fontSize: 12, fontWeight: FontWeight.w600))],
+                if (!closed && !needsResponse && myRsvp == 'accepted') ...[const SizedBox(height: 16), SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: _busy ? null : () => _join(meet), icon: const Icon(Icons.videocam_outlined), label: Text(_busy ? 'Joining…' : 'Join SquadUp'), style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFFFF99), foregroundColor: const Color(0xFF0A0A0A))))],
               ])),
               TabBar(controller: _tabs, tabs: const [Tab(text: 'People'), Tab(text: 'Messages')]),
               Expanded(child: TabBarView(controller: _tabs, children: [_People(meet.members), _Messages(meet: meet, controller: _message, onSend: _send)])),

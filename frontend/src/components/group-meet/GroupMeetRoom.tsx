@@ -53,6 +53,10 @@ export default function GroupMeetRoom({ meetingId }: { meetingId: string }) {
           setError('This Group Meet was cancelled.');
           return;
         }
+        if (meeting.status === 'completed') {
+          setError('This Group Meet has ended.');
+          return;
+        }
         if (meeting.self_rsvp === 'declined') {
           setError('You declined this Group Meet.');
           return;

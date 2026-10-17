@@ -381,7 +381,10 @@ function notifyJoinTo(meeting: { id: string; card_id: string; title?: string | n
 }
 
 export async function respond(talentUserId: string, meetingId: string, action: 'accept' | 'decline') {
-  await getForTalent(talentUserId, meetingId);
+  const current = await getForTalent(talentUserId, meetingId);
+  if (!['scheduled', 'rescheduled'].includes(current.status)) {
+    throw new AppError(409, 'This Group Meet is no longer open.');
+  }
   const now = new Date().toISOString();
   const { error } = await supabaseAdmin.from('group_meet_members').update({
     rsvp: action === 'accept' ? 'accepted' : 'declined', rsvp_at: now,
@@ -474,6 +477,13 @@ export async function sendMessage(meetingId: string, actor: { type: GroupMeetAct
   const { data: membership } = await supabaseAdmin.from('group_meet_members').select('id')
     .eq('group_meet_id', meetingId).eq('participant_type', actor.type).eq('participant_id', actor.id).maybeSingle();
   if (!membership) throw new AppError(404, 'Group Meet not found');
+  const { data: meeting, error: meetingError } = await supabaseAdmin.from('group_meets')
+    .select('status').eq('id', meetingId).maybeSingle();
+  if (meetingError) throw new AppError(500, meetingError.message);
+  if (!meeting) throw new AppError(404, 'Group Meet not found');
+  if (!['scheduled', 'rescheduled'].includes(meeting.status)) {
+    throw new AppError(409, 'This Group Meet is no longer open.');
+  }
   const { data, error } = await supabaseAdmin.from('group_meet_messages').insert({
     group_meet_id: meetingId, sender_type: actor.type, sender_id: actor.id, sender_name: actor.name, body,
   }).select('*').single();
@@ -499,6 +509,41 @@ export async function sweepGroupMeetJoinNotices(): Promise<void> {
       notifyJoinTo(meeting, await acceptedTalentIds(meeting.id));
     } catch (err) {
       console.error('[group-meet] join sweep failed for', meeting.id, err);
+    }
+  }
+}
+
+/** Past-end Group Meets become completed so their card can host a new one. */
+export async function sweepGroupMeetCompletions(): Promise<void> {
+  const now = new Date().toISOString();
+  const { data: meetings, error } = await supabaseAdmin.from('group_meets')
+    .select('id, room_name')
+    .in('status', ['scheduled', 'rescheduled'])
+    .lte('ends_at', now)
+    .limit(50);
+  if (error) {
+    console.error('[group-meet] completion sweep query failed', error.message);
+    return;
+  }
+  for (const meeting of meetings ?? []) {
+    try {
+      // Guarded update: skip if a cancel/reschedule beat us to this row.
+      const { data: updated } = await supabaseAdmin.from('group_meets')
+        .update({ status: 'completed', completed_at: now, room_ended_at: now })
+        .eq('id', meeting.id)
+        .in('status', ['scheduled', 'rescheduled'])
+        .lte('ends_at', now)
+        .select('id')
+        .maybeSingle();
+      if (!updated) continue;
+      if (meeting.room_name) await closeSquadUpRoom(meeting.room_name);
+      const { error: messageError } = await supabaseAdmin.from('group_meet_messages').insert({
+        group_meet_id: meeting.id, sender_type: 'system', sender_name: 'Group Meet',
+        body: 'This Group Meet has ended.',
+      });
+      if (messageError) console.error('[group-meet] end message insert failed', messageError.message);
+    } catch (err) {
+      console.error('[group-meet] completion sweep failed for', meeting.id, err);
     }
   }
 }
