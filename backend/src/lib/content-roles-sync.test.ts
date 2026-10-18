@@ -7,7 +7,7 @@ import test from 'node:test';
 // shared/src/contentRoles.ts is a synced copy of the same file in SquadHub and
 // SquadCRM. If this fails, apply the same edit in those repos and update the
 // hash in all three content-roles sync tests.
-const CONTENT_ROLES_SHA256 = 'fe9a3c6cb7ae5d0688aeabc4e3e099ca456a3998b786ab17eadd156eea7f4984';
+const CONTENT_ROLES_SHA256 = '49031c37eaf91ee30072202e6c8250680088b95e5fe53617c19b7f37fb1e883b';
 
 test('contentRoles.ts matches the copies in SquadHub and SquadCRM', () => {
   const file = readFileSync(join(__dirname, '../../../shared/src/contentRoles.ts'));

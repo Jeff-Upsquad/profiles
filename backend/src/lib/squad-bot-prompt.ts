@@ -1,4 +1,4 @@
-import { CONTENT_ROLES, TALENT_CATEGORY_OPTIONS } from '../../../shared/src/contentRoles.js';
+import { SPECIALIST_ROLES, TALENT_CATEGORY_OPTIONS } from '../../../shared/src/contentRoles.js';
 // Squad Bot — prompt building. Pure: no I/O, so it's testable and the cached
 // prefix stays byte-stable (instructions → knowledge, then the per-talent part).
 
@@ -202,7 +202,7 @@ export function fetchDomains(texts: string[]): string[] {
 /** CRM pipeline name → the signup form type its knowledge follows. */
 export function formTypeForPipeline(pipelineName: string | null | undefined): string | null {
   const n = (pipelineName ?? '').trim().toLowerCase();
-  const contentRole = CONTENT_ROLES.find((r) => n.startsWith(r.pipeline.toLowerCase()));
+  const contentRole = SPECIALIST_ROLES.find((r) => n.startsWith(r.pipeline.toLowerCase()));
   if (contentRole) return contentRole.formType;
   if (n.startsWith('ads specialists')) return 'ads_specialist';
   if (n.startsWith('designers and editors')) return 'creative';

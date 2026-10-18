@@ -1,4 +1,4 @@
-import { CONTENT_ROLES } from '../../../shared/src/contentRoles.js';
+import { SPECIALIST_ROLES } from '../../../shared/src/contentRoles.js';
 // Squad Bot, job 2 — sort new contacts. Pure: roles, prompt and the move tool.
 //
 // All new contacts on UpSquad's WhatsApp number land on the CRM's
@@ -19,7 +19,7 @@ export interface SortRole {
 }
 
 export const DEFAULT_SORT_ROLES: SortRole[] = [
-  ...CONTENT_ROLES.map((r) => ({ key: r.formType, label: r.name, pipeline: r.pipeline, stage: 'Share Landing Page', description: r.description })),
+  ...SPECIALIST_ROLES.map((r) => ({ key: r.formType, label: r.name, pipeline: r.pipeline, stage: 'Share Landing Page', description: r.description })),
   { key: 'ads_specialist', label: 'Ads Specialist', pipeline: 'Ads Specialists', stage: 'Share Landing Page', description: 'Paid advertising and performance marketing talent seeking client work.' },
   {
     key: 'designers_editors',

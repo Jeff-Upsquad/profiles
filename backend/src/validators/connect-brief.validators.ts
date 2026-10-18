@@ -1,20 +1,12 @@
 import { z } from 'zod';
-import { CONTENT_ROLES } from '../../../shared/src/contentRoles.js';
+import { SPECIALIST_ROLES } from '../../../shared/src/contentRoles.js';
 
 // Mirrors squadhub-web's public /leads/landing submission schema
 // (server/src/routes/leads-public.ts). The business-portal brief form posts
 // here; the backend fills contact defaults from the signed-in account and
 // forwards to squadhub. Kept in sync with the upstream contract.
 
-const SERVICE_TYPE = z.enum([
-  'designer',
-  'video_editor',
-  'designer_video_editor',
-  'accountant',
-  'ads_specialist',
-  'creative_director', 'copy_content_writer', 'social_media_manager',
-  'videographer', 'photographer', 'videographer_photographer', 'ai_video_image_creator',
-]);
+const SERVICE_TYPE = z.enum(['designer', 'video_editor', 'designer_video_editor', 'accountant', 'ads_specialist', 'videographer_photographer', ...SPECIALIST_ROLES.map((r) => r.serviceSlug)]);
 
 const roleRequirementSchema = z.object({
   note: z.string().trim().max(2000).optional(),
@@ -79,7 +71,7 @@ export const connectBriefSchema = z
   })
   .superRefine((val, ctx) => {
     for (const service of val.service_types) {
-      const role = CONTENT_ROLES.find((r) => r.serviceSlug === service);
+      const role = SPECIALIST_ROLES.find((r) => r.serviceSlug === service);
       if (!role) continue;
       const requirements = val.role_requirements?.[service];
       if (!requirements?.note?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['role_requirements', service, 'note'], message: 'Describe your requirement.' });

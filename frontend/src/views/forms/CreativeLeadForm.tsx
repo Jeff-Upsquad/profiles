@@ -1,4 +1,5 @@
 'use client';
+import { formTypeHasPortfolio } from '../../../../shared/src/portfolio';
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -165,8 +166,8 @@ export default function CreativeLeadForm({ category }: { category?: { formType: 
     if (form.work_type_seeking.length === 0) errs.work_type_seeking = 'Select at least one option';
     if (!form.experience_years.trim()) errs.experience_years = 'Years of experience is required';
     if (category && form.professional_summary.trim().length < 40) errs.professional_summary = 'Describe your professional experience in at least 40 characters';
-    if (!form.portfolio_link.trim()) errs.portfolio_link = 'Portfolio link is required';
-    else {
+    if (formTypeHasPortfolio(formType) && !form.portfolio_link.trim()) errs.portfolio_link = 'Portfolio link is required';
+    else if (form.portfolio_link.trim()) {
       try {
         new URL(form.portfolio_link);
       } catch {
@@ -649,21 +650,21 @@ export default function CreativeLeadForm({ category }: { category?: { formType: 
 
           <Section
             index="04"
-            title="Portfolio"
+            title={formTypeHasPortfolio(formType) ? "Portfolio" : "Work samples (optional)"}
             description="Show us your work."
             delay={0.2}
           >
             <div id="field-portfolio_link" className="field-saas">
               <Input
                 label="Portfolio Link"
-                required
+                required={formTypeHasPortfolio(formType)}
                 placeholder="https://..."
                 value={form.portfolio_link}
                 onChange={set('portfolio_link')}
                 error={errors.portfolio_link}
               />
               <p className="mt-2 text-sm text-canvas-500">
-                No portfolio? Upload your files to a Drive and paste the link.
+                Share public or anonymized work samples. Do not include confidential client documents.
               </p>
             </div>
           </Section>

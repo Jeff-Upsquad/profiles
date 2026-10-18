@@ -1,13 +1,14 @@
+import { REMAINING_ROLES } from './contentRoles';
 // Which talent categories have a portfolio step. Sales and Accountant job
 // profiles have none: the portfolio section is hidden, submit doesn't ask for
 // one, and their CRM funnel goes Job Profile → Final Review with no
 // Portfolio Updation stage. Used by the talent forms, the dashboard checklist,
 // the admin journey panel and the pipeline stage order.
 
-const NO_PORTFOLIO_SLUGS = new Set(['sales', 'accountant', 'social-media-manager']);
+const NO_PORTFOLIO_SLUGS = new Set<string>(['sales', 'accountant', 'social-media-manager', ...REMAINING_ROLES.filter((r) => !r.portfolio).map((r) => r.slug)]);
 
 /** Category slug → form_type is 1:1 for these, so one set covers both. */
-const NO_PORTFOLIO_FORM_TYPES = new Set(['sales', 'accountant', 'social_media_manager']);
+const NO_PORTFOLIO_FORM_TYPES = new Set<string>(['sales', 'accountant', 'social_media_manager', ...REMAINING_ROLES.filter((r) => !r.portfolio).map((r) => r.formType)]);
 
 /** True unless this category's job profile has no portfolio. Unknown → true. */
 export function categoryHasPortfolio(slug: string | null | undefined): boolean {

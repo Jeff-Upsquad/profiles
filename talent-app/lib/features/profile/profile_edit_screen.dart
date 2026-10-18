@@ -30,7 +30,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   List<Map<String, dynamic>> _dynamicFields = [];
   Map<String, dynamic> _dynamicValues = {};
   int _minPortfolioItems = 0;
-  bool get _hasPortfolio => !['sales', 'accountant'].contains(_profile?.category?.slug);
+  bool _hasPortfolio = true;
 
   List<TemplateItem> _skillOpts = [];
   List<TemplateItem> _toolOpts = [];
@@ -76,6 +76,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       final definition = await svc.categoryDefinition(profile.category?.slug ?? '');
       final fields = asObjectList(definition['fields'] ?? definition['category_fields']);
       _minPortfolioItems = asInt(definition['min_portfolio_items']) ?? 0;
+      _hasPortfolio = definition['portfolio_required'] != false;
       final me = await ref.read(talentServiceProvider).getMe();
 
       final fd = profile.fieldData;

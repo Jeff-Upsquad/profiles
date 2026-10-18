@@ -1,3 +1,5 @@
+import { SPECIALIST_ROLES } from '../../../shared/src/contentRoles.js';
+import { formTypeHasPortfolio } from '../../../shared/src/portfolio.js';
 import { z } from 'zod';
 
 // Indian mobile: optional "+91" prefix + exactly 10 digits starting with 6–9.
@@ -72,16 +74,21 @@ export const accountantLeadSchema = z.object({
 // Role-specific Content Squad and Ads applicants share contact and work-track
 // fields; their final job profile is built from the category's dynamic schema.
 export const contentLeadSchema = creativeLeadSchema.omit({ form_type: true, role: true }).extend({
-  form_type: z.enum(['creative_director', 'copy_content_writer', 'social_media_manager', 'videographer', 'photographer', 'videographer_photographer', 'ai_video_image_creator', 'ads_specialist']),
+  form_type: z.enum(['ads_specialist', 'videographer_photographer', ...SPECIALIST_ROLES.map((r) => r.formType)]),
   professional_summary: z.string().trim().min(40).max(1200),
+  portfolio_link: z.string().url().optional().or(z.literal('')),
 });
 
-export const createLeadSchema = z.discriminatedUnion('form_type', [
+const leadUnionSchema = z.discriminatedUnion('form_type', [
   creativeLeadSchema,
   accountantLeadSchema,
   salesLeadSchema,
   contentLeadSchema,
 ]);
+
+export const createLeadSchema = leadUnionSchema.superRefine((value, ctx) => {
+  if (formTypeHasPortfolio(value.form_type) && 'professional_summary' in value && !value.portfolio_link) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['portfolio_link'], message: 'Portfolio link is required' });
+});
 
 export const checkExistingContactSchema = z
   .object({
