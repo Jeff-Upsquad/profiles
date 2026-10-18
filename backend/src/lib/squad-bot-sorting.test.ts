@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DEFAULT_SORT_ROLES, askRoleText, moveTool, sortingContext, sortingInstructions, receptionPipelineName } from './squad-bot-sorting.js';
+import { DEFAULT_SORT_ROLES, askRoleText, moveTool, normalizeSortRoles, sortingContext, sortingInstructions, receptionPipelineName } from './squad-bot-sorting.js';
 
 test('the move tool offers exactly the configured teams', () => {
   const tool = moveTool(DEFAULT_SORT_ROLES);
@@ -41,4 +41,19 @@ test('Reception replaces legacy stored sorting names and preserves custom boards
     assert.equal(receptionPipelineName(name), 'Reception');
   }
   assert.equal(receptionPipelineName('Custom entry board'), 'Custom entry board');
+});
+
+test('stored roles re-read catalog boards, keeping custom teams and stages', () => {
+  const stale = [
+    // A role saved when photographers had their own (since removed) board.
+    { key: 'photographer', label: 'Photographer', pipeline: 'Photographers', stage: 'Share Landing Page', description: 'old text' },
+    { key: 'videographer', label: 'Videographer', pipeline: 'Videographers', stage: 'Share Landing Page', description: 'old text' },
+    // A custom team the catalog knows nothing about stays exactly as stored.
+    { key: 'my_custom_team', label: 'My team', pipeline: 'Custom Board', stage: 'New', description: 'custom' },
+  ];
+  const fixed = normalizeSortRoles(stale);
+  assert.equal(fixed[0].pipeline, 'Videographers and Photographers');
+  assert.equal(fixed[1].pipeline, 'Videographers and Photographers');
+  assert.equal(fixed[0].stage, 'Share Landing Page');
+  assert.deepEqual(fixed[2], stale[2]);
 });

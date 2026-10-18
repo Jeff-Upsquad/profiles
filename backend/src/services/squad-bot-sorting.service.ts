@@ -19,6 +19,7 @@ import { AppError } from '../middleware/errorHandler.middleware.js';
 import { HANDOFF_MESSAGE, historyToMessages, introNote, isNewConversation, knowledgeBlock, memoryBlock, type ChatLine } from '../lib/squad-bot-prompt.js';
 import {
   DEFAULT_SORT_ROLES,
+  normalizeSortRoles,
   receptionPipelineName,
   askRoleText,
   movedLine,
@@ -70,7 +71,8 @@ const SORTING_DEFAULTS: SortingSettings = {
 export async function getSortingSettings(): Promise<SortingSettings> {
   const { getAdminSetting } = await import('./admin.service.js');
   const saved = await getAdminSetting<Partial<SortingSettings>>('squad_bot_sorting');
-  return { ...SORTING_DEFAULTS, ...(saved ?? {}), pipeline: receptionPipelineName(saved?.pipeline) };
+  const merged = { ...SORTING_DEFAULTS, ...(saved ?? {}) };
+  return { ...merged, roles: normalizeSortRoles(merged.roles ?? []), pipeline: receptionPipelineName(merged.pipeline) };
 }
 
 export async function setSortingMode(mode: SortingSettings['mode'], adminId: string) {
@@ -238,8 +240,10 @@ async function accountCategoriesOf(talentUserId: string): Promise<string[]> {
   return [...new Set((data ?? []).map((p: any) => p.category?.name?.trim()).filter(Boolean))] as string[];
 }
 
-/** Move the card to the role's board. If the CRM can't, the team takes over. */
-async function moveContact(conv: ConversationRow, leadId: string, role: SortRole, summary: string) {
+/** Move the card to the role's board. If the CRM can't, the team takes over.
+ * Exported for the instruction retry: a team correction on a sorting chat
+ * re-runs the move with the same rules. */
+export async function moveContact(conv: ConversationRow, leadId: string, role: SortRole, summary: string): Promise<{ ok: boolean; error: string | null }> {
   const moved = await crmPost('move', { lead_id: leadId, pipeline_name: role.pipeline, stage_name: role.stage });
   if (moved?.ok) {
     await supabaseAdmin.from('squad_bot_conversations').update({ crm_pipeline_name: role.pipeline }).eq('id', conv.id);
@@ -248,12 +252,13 @@ async function moveContact(conv: ConversationRow, leadId: string, role: SortRole
       body: `Squad Bot moved them to ${role.pipeline} (${moved.stage_name ?? role.stage})${summary ? `: ${summary}` : '.'}`,
       meta: { job: 'sort', moved_to: role.pipeline },
     });
-    return;
+    return { ok: true, error: null };
   }
   const why = moved?.error === 'already_on_board'
     ? `They already have a card on ${role.pipeline}, so their Reception card was left for you to tidy up.`
     : `Squad Bot couldn't move them to ${role.pipeline} (${moved?.error ?? 'CRM not connected'}).`;
   await handOff(conv, 'other', `${summary ? `${summary}. ` : ''}${why}`, 'whatsapp');
+  return { ok: false, error: moved?.error ?? 'CRM not connected' };
 }
 
 // ---------------------------------------------------------------------------

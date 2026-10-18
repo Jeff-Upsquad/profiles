@@ -62,6 +62,9 @@ async function executeInstruction(id: string, eventId: string): Promise<void> {
     const actor = { id: claimed.resolved_by || '00000000-0000-0000-0000-000000000000', name: 'SquadHub teammate' };
     const result = await instructBot(local.id, actor, claimed.instruction, local.handoff_channel ?? undefined);
     if (!result.message) throw new Error('Squad Bot could not complete the instruction');
+    // A corrected move that still failed re-handed-off in SquadHire; report the
+    // failure and leave the chat with the team instead of handing it back.
+    if (result.move_error) throw new Error(result.move_error.slice(0, 4000));
     await handBack(local.id, actor);
   } catch (err) {
     outcome = 'failed';

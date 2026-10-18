@@ -58,6 +58,18 @@ export const DEFAULT_SORT_ROLES: SortRole[] = [
   },
 ];
 
+/** Stored settings snapshot the roles at save time, so a board renamed in the
+ * shared catalog (e.g. photographers joining the Videographers and
+ * Photographers board) would keep moving cards to a pipeline that no longer
+ * exists. Re-read every catalog role from the current catalog; custom,
+ * non-catalog teams keep their stored board. */
+export function normalizeSortRoles(roles: SortRole[]): SortRole[] {
+  return roles.map((role) => {
+    const catalog = SPECIALIST_ROLES.find((r) => r.formType === role.key);
+    return catalog ? { ...role, label: catalog.name, pipeline: catalog.pipeline, description: catalog.description } : role;
+  });
+}
+
 // Stable for every contact — the cached prefix.
 export function sortingInstructions(roles: SortRole[], name = 'Squad Bot'): string {
   return `You are ${name}, UpSquad's receptionist on WhatsApp. UpSquad helps talents (designers, video editors, accountants, sales professionals and others) get client work, and also hires its own staff.

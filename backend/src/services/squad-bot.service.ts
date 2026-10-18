@@ -41,7 +41,8 @@ import {
   type ChatLine,
   type TalentBrief,
 } from '../lib/squad-bot-prompt.js';
-import { adminInstructions, appDelivery, botModel, transferTargets, whatsappDelivery, type HubStatus, type SquadbotBriefing } from '../lib/squadhub-bot.js';
+import { adminInstructions, appDelivery, botModel, hasHireSkill, transferTargets, whatsappDelivery, type HubStatus, type SquadbotBriefing } from '../lib/squadhub-bot.js';
+import { moveTool, movedLine, type SortRole } from '../lib/squad-bot-sorting.js';
 import { handoffEventId, handoffSourceUrl, supportJobId, supportSourceUrl } from '../lib/squad-bot-channel.js';
 import { boardSquadbot, homeSquadbot, hubBotConfig, hubDoubtsConnected, hubLearnings, hubStatus, publishHubDoubt, reportUsage, squadbotBriefing, transferInSquadBots } from './squadhub-bot.service.js';
 
@@ -490,7 +491,7 @@ async function answer(
     transfer?: { from: string; reason: string };
     noTransfer?: boolean;
   } = {},
-): Promise<{ status: 'bot' | 'handoff'; message: any; handoff: { reason: string; summary: string } | null; reply_buttons?: typeof CANCELLATION_BUTTONS }> {
+): Promise<{ status: 'bot' | 'handoff'; message: any; handoff: { reason: string; summary: string } | null; reply_buttons?: typeof CANCELLATION_BUTTONS; move?: { role: SortRole; summary: string } | null }> {
   if (channel === 'app' && !opts.instructed && opts.deliver !== 'note' && pendingCancellation(conv.cancellation_pending_at)) {
     const last = (await recentLines(conv.id, 1))[0];
     if (last?.sender === 'talent') {
@@ -546,6 +547,20 @@ async function answer(
   const lines = rawLines as Array<ChatLine & { created_at: string }>;
 
   const instructions = teamInstructions(lines);
+  // A team instruction on the sorting board may need to correct a failed move
+  // (e.g. "photographer and videographer same pipeline"): give this reply the
+  // same move tool the sorting job uses, gated on the board bot's skill.
+  let sortSettings: { roles: SortRole[]; pipeline: string } | null = null;
+  let canSortMove = false;
+  if (opts.instructed && conv.crm_pipeline_name) {
+    const sorting = await import('./squad-bot-sorting.service.js');
+    if (await sorting.isSortingPipeline(conv.crm_pipeline_name)) {
+      sortSettings = await sorting.getSortingSettings();
+      const board = await boardSquadbot(sortSettings.pipeline);
+      const boardHub = board ? await hubBotConfig(board.id) : null;
+      canSortMove = hasHireSkill(boardHub?.skills, 'stage_control');
+    }
+  }
   const messages: Anthropic.Beta.BetaMessageParam[] = historyToMessages(lines);
   if (opts.instructed && messages[messages.length - 1]?.role !== 'user') {
     messages.push({ role: 'user', content: ACT_ON_INSTRUCTION });
@@ -564,6 +579,7 @@ async function answer(
   let text = '';
   let handoff: { reason: string; summary: string } | null = null;
   let transfer: { teammate: string; reason: string } | null = null;
+  let move: { role: SortRole; summary: string } | null = null;
   const meta: Record<string, unknown> = {
     ...extraMeta,
     ...(speakerId ? { squadbot_id: speakerId, squadbot_name: speakerName } : {}),
@@ -603,7 +619,7 @@ async function answer(
             ].filter(Boolean).join('\n\n'),
           },
         ],
-        tools: [HANDOFF_TOOL, ...CANCELLATION_TOOLS, ...(teammates.length ? [transferTool(teammates)] : []), webFetch],
+        tools: [HANDOFF_TOOL, ...CANCELLATION_TOOLS, ...(canSortMove && sortSettings ? [moveTool(sortSettings.roles)] : []), ...(teammates.length ? [transferTool(teammates)] : []), webFetch],
         messages,
       });
 
@@ -624,6 +640,11 @@ async function answer(
         if (block.type === 'tool_use' && block.name === 'ask_cancellation_scope') cancellationAction = 'ask';
         if (block.type === 'tool_use' && block.name === 'dismiss_cancellation_question') cancellationAction = 'dismiss';
         if (block.type === 'server_tool_use' && block.name === 'web_fetch') fetches++;
+        if (block.type === 'tool_use' && block.name === 'move_to_team') {
+          const input = block.input as { team?: unknown; summary?: unknown };
+          const role = sortSettings?.roles.find((r) => r.key === input?.team);
+          if (role) move = { role, summary: typeof input?.summary === 'string' ? input.summary : '' };
+        }
         if (block.type === 'tool_use' && block.name === 'transfer_to_teammate') {
           const input = block.input as { teammate?: unknown; reason?: unknown };
           if (typeof input?.teammate === 'string') transfer = { teammate: input.teammate, reason: typeof input.reason === 'string' ? input.reason : '' };
@@ -655,6 +676,9 @@ async function answer(
     if (fetches) meta.web_fetches = fetches;
     if (cancellationAction === 'ask') { text = CANCELLATION_QUESTION; handoff = null; }
     if (cancellationAction === 'dismiss') { text = 'Your applications will stay as they are. How can I help?'; handoff = null; }
+    // A move wins over a handoff or transfer, as in sorting; never move in silence.
+    if (move) { handoff = null; transfer = null; }
+    if (move && !text.trim()) text = movedLine(move.role);
     if (!text.trim() && !handoff && !transfer) handoff = { reason: 'not_in_knowledge', summary: 'Squad Bot had no answer.' };
   } catch (err) {
     const status = err instanceof Anthropic.APIError ? err.status : undefined;
@@ -669,7 +693,7 @@ async function answer(
 
   // Another Squadbot covers this: record the transfer in Squad Bots and let
   // them answer. A failed transfer answers here, without the option.
-  if (transfer && !handoff && !cancellationAction) {
+  if (transfer && !handoff && !cancellationAction && !move) {
     const target = teammates.find((t) => t.name === transfer!.teammate);
     if (target && state && speakerId) {
       try {
@@ -688,7 +712,8 @@ async function answer(
     const mode = opts.hubStatus === 'approval' ? 'Needs approval' : 'Practice';
     const would = text.trim() ? `"${text.trim()}"` : '(no reply)';
     const handoffNote = handoff ? ` It would also hand off (${handoff.reason.replace(/_/g, ' ')}): ${handoff.summary}` : '';
-    await addMessage(conv.id, { sender: 'system', body: `Squad Bot (${mode} mode) would reply: ${would}.${handoffNote}`, channel, meta });
+    const moveNote = move ? ` It would also move them to ${move.role.pipeline}.` : '';
+    await addMessage(conv.id, { sender: 'system', body: `Squad Bot (${mode} mode) would reply: ${would}.${handoffNote}${moveNote}`, channel, meta });
     return { status: conv.status, message: null, handoff: null };
   }
 
@@ -706,7 +731,7 @@ async function answer(
   }
   if (handoff) await handOff(conv, handoff.reason, handoff.summary, channel);
   const message = await addMessage(conv.id, { sender: 'bot', body: text.trim() || HANDOFF_MESSAGE, channel, meta });
-  return { status: handoff ? ('handoff' as const) : ('bot' as const), message, handoff,
+  return { status: handoff ? ('handoff' as const) : ('bot' as const), message, handoff, move,
     reply_buttons: cancellationAction === 'ask' ? CANCELLATION_BUTTONS : undefined };
 }
 
@@ -974,12 +999,21 @@ export async function instructBot(id: string, staff: { id: string; name: string 
     }
   }
   syncLater(id);
+  // A sorting instruction can correct a failed move: run the move the bot
+  // chose (with the team's guidance and saved memory in its context) after the
+  // reply is out, exactly like the sorting job does.
+  let moveError: string | null = null;
+  if (reply.move && conv.crm_lead_id) {
+    const { moveContact } = await import('./squad-bot-sorting.service.js');
+    const moved = await moveContact(conv, conv.crm_lead_id, reply.move.role, reply.move.summary);
+    if (!moved.ok) moveError = `Squad Bot couldn't move them to ${reply.move.role.pipeline} (${moved.error}).`;
+  }
   // A handed-off chat is learned from when it's handed back; otherwise learn now.
   if (conv.status === 'bot' && reply.message) {
     const { draftFromHandoff } = await import('./knowledge-learning.service.js');
     void draftFromHandoff(id, (instruction as { created_at: string }).created_at);
   }
-  return { message: reply.message, handoff: reply.handoff ?? null };
+  return { message: reply.message, handoff: reply.handoff ?? null, move_error: moveError };
 }
 
 /** Done with a handoff: Squad Bot answers this talent again. */
