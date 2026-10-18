@@ -44,6 +44,7 @@ export default function ProfileList() {
   // Designer / Video Editor ones that can't be submitted yet for lack of portfolio.
   const pendingProfiles = visibleProfiles.filter((p) => profilePendingState(p) !== null);
   const shortPortfolio = pendingProfiles.filter((p) => (profilePendingState(p)?.portfolioShortfall ?? 0) > 0);
+  const changesRequestedProfiles = visibleProfiles.filter((p) => needsProfileResubmission(p));
 
   const stats = {
     total: visibleProfiles.length,
@@ -98,6 +99,33 @@ export default function ProfileList() {
       </section>
 
       <PendingApprovalBanner />
+
+      {changesRequestedProfiles.length > 0 && (
+        <section className="rounded-2xl border border-amber-300 bg-amber-50/90 p-4 sm:p-5 shadow-sm" role="alert">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-200/90 px-2.5 py-0.5 text-xs font-bold text-amber-950">
+                  Action Required
+                </span>
+                <h2 className="font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-amber-950">
+                  {changesRequestedProfiles.length === 1
+                    ? 'Reviewer requested changes on 1 job profile'
+                    : `Reviewer requested changes on ${changesRequestedProfiles.length} job profiles`}
+                </h2>
+              </div>
+              <p className="mt-1 text-sm text-amber-900/90">
+                Please make the requested updates below and resubmit for review so your profile can go live.
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {pendingProfiles.length > 0 && (
         <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 sm:p-5" role="status">
@@ -161,10 +189,15 @@ export default function ProfileList() {
             const isLive = isProfileLive(profile);
             const isPaused = profile.is_active === false || profile.status === 'inactive';
             const pending = profilePendingState(profile);
+            const hasRequestedChanges = needsProfileResubmission(profile);
             return (
               <article
                 key={profile.id}
-                className={`group relative flex flex-col overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 stagger-${Math.min(i + 1, 6)}`}
+                className={`group relative flex flex-col overflow-hidden rounded-2xl border ${
+                  hasRequestedChanges
+                    ? 'border-amber-300 ring-2 ring-amber-300/60 bg-amber-50/[0.08]'
+                    : 'border-[#E7E7EA] bg-white'
+                } shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 stagger-${Math.min(i + 1, 6)}`}
               >
                 {/* Tinted top strip */}
                 <div className={`${tint} h-20 relative overflow-hidden`}>
@@ -179,11 +212,20 @@ export default function ProfileList() {
                       </svg>
                     </div>
                   </div>
-                  {isLive && (
+                  {hasRequestedChanges ? (
+                    <div className="absolute top-3 right-3">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100/95 px-2.5 py-1 font-[family-name:var(--font-inter)] text-[11px] font-semibold text-amber-900 ring-1 ring-inset ring-amber-300 shadow-sm backdrop-blur-sm">
+                        <svg className="h-3 w-3 shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        Changes requested
+                      </span>
+                    </div>
+                  ) : isLive ? (
                     <div className="absolute top-3 right-3">
                       <span className="pill-live">Live</span>
                     </div>
-                  )}
+                  ) : null}
                 </div>
 
                 <div className="flex flex-1 flex-col p-5">
@@ -191,7 +233,7 @@ export default function ProfileList() {
                     <h3 className="font-[family-name:var(--font-jakarta)] text-[17px] font-semibold tracking-[-0.015em] text-[#0a0a0a] truncate">
                       {profile.category?.name ?? 'Profile'}
                     </h3>
-                    {!isLive && (
+                    {!isLive && !hasRequestedChanges && (
                       <Badge variant={isPaused ? 'gray' : statusToBadgeVariant(profile.status)}>
                         {isPaused ? 'Paused' : profile.status === 'changes_requested' ? 'updates needed' : profile.status.replace('_', ' ')}
                       </Badge>
@@ -219,13 +261,32 @@ export default function ProfileList() {
                     </p>
                   )}
 
-                  {needsProfileResubmission(profile) && (
-                    <RequestedChangesBanner
-                      profileId={profile.id}
-                      changes={profile.requested_changes ?? []}
-                      compact
-                      staysLive={profile.status === 'approved'}
-                    />
+                  {hasRequestedChanges && (
+                    <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50/90 p-3 text-xs text-amber-950 shadow-xs">
+                      <div className="flex items-center gap-1.5 font-semibold text-amber-950">
+                        <svg className="h-4 w-4 shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        Reviewer requested updates
+                      </div>
+                      <p className="mt-1 text-[11.5px] leading-relaxed text-amber-900">
+                        {profile.requested_changes && profile.requested_changes.length > 0 ? (
+                          <>
+                            <span className="font-medium">
+                              {profile.requested_changes.length} {profile.requested_changes.length === 1 ? 'item requires' : 'items require'} changes:
+                            </span>{' '}
+                            {profile.requested_changes.map((c) => c.label).join(', ')}
+                          </>
+                        ) : (
+                          'Your reviewer requested updates before this profile can be approved. Tap Make updates to review and fix.'
+                        )}
+                      </p>
+                      <div className="mt-2 text-[11px] font-medium text-amber-800">
+                        {profile.status === 'approved'
+                          ? '• Profile stays live while you make updates'
+                          : '• Profile remains pending review until updates are submitted'}
+                      </div>
+                    </div>
                   )}
 
                   {profile.status !== 'changes_requested' && profile.rejection_reason && (

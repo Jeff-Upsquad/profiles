@@ -270,7 +270,19 @@ export default function TalentLayout({
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
         </svg>
       ),
-      badge: pendingTasks.profilesPending ? (
+      badge: pendingTasks.hasChangesRequested ? (
+        <span
+          title={`${pendingTasks.changesRequestedProfiles} ${
+            pendingTasks.changesRequestedProfiles === 1 ? 'job profile has' : 'job profiles have'
+          } changes requested by reviewer`}
+          className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 font-[family-name:var(--font-inter)] text-[10px] sm:text-[11px] font-semibold text-amber-900 ring-1 ring-inset ring-amber-300"
+        >
+          <svg className="h-3 w-3 shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          Changes requested
+        </span>
+      ) : pendingTasks.profilesPending ? (
         <PendingTag
           size="xs"
           title={

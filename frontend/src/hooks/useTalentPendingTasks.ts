@@ -4,12 +4,17 @@ import { useAuth } from '@/context/AuthContext';
 import { useTalentMe } from '@/hooks/useTalentMe';
 import { useMyProfiles } from '@/hooks/useProfiles';
 import { pendingBasicSections, profilePendingState, type BasicSectionId } from '@/lib/talentCompletion';
+import { needsProfileResubmission } from '@/lib/profileChanges';
 
 export interface TalentPendingTasks {
   /** Mandatory basic-profile sections still incomplete. */
   basicSections: BasicSectionId[];
   /** Job profiles that are drafts or awaiting a resubmit. */
   pendingProfiles: number;
+  /** Profiles where changes have been requested by reviewer. */
+  changesRequestedProfiles: number;
+  /** Whether any profile has changes requested. */
+  hasChangesRequested: boolean;
   /** No job profile created yet. */
   noProfiles: boolean;
   basicPending: boolean;
@@ -50,16 +55,20 @@ export function useTalentPendingTasks({ enabled = true }: { enabled?: boolean } 
       : [];
   const ownProfiles = profilesLoaded ? (profiles ?? []).filter((p) => !p.is_ghost) : [];
   const pendingProfiles = ownProfiles.filter((p) => profilePendingState(p) !== null).length;
+  const changesRequestedProfiles = ownProfiles.filter((p) => needsProfileResubmission(p)).length;
   const noProfiles = profilesLoaded && ownProfiles.length === 0;
 
   const basicPending = basicSections.length > 0;
+  const hasChangesRequested = changesRequestedProfiles > 0;
   const profilesPending = pendingProfiles > 0 || noProfiles;
   return {
     basicSections,
     pendingProfiles,
+    changesRequestedProfiles,
+    hasChangesRequested,
     noProfiles,
     basicPending,
     profilesPending,
-    anyPending: basicPending || profilesPending,
+    anyPending: basicPending || profilesPending || hasChangesRequested,
   };
 }

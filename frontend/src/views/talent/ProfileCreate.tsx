@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -21,6 +21,8 @@ import ProfileTrainingGate from '@/components/training/ProfileTrainingGate';
 import { useProfileGate } from '@/hooks/useTraining';
 import type { Category, CategoryField } from '@/types';
 import { categoryHasPortfolio } from '../../../../shared/src/portfolio';
+import { needsProfileResubmission } from '@/lib/profileChanges';
+import { groupCategoriesBySquad } from '@/data/jobProfileSquads';
 
 const BUILTIN_EXPERIENCE_FIELD: CategoryField = {
   id: '_experience',
@@ -103,6 +105,17 @@ export default function ProfileCreate() {
   const availableCategories = (categories ?? []).filter(
     (c) => c.slug !== 'designer-editor'
   );
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeSquadTab, setActiveSquadTab] = useState('all');
+
+  const squadGroups = useMemo(() => {
+    return groupCategoriesBySquad(availableCategories, searchQuery, activeSquadTab);
+  }, [availableCategories, searchQuery, activeSquadTab]);
+
+  const allSquadGroups = useMemo(() => {
+    return groupCategoriesBySquad(availableCategories, '', 'all');
+  }, [availableCategories]);
 
   const handleChange = (key: string, value: any) => {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -274,51 +287,234 @@ export default function ProfileCreate() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {availableCategories.map((cat, i) => {
-              const tint = tintFor(cat.name);
-              const owned = ownedProfileByCategory.get(cat.id);
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() =>
-                    owned
-                      ? router.push(`/talent/profiles/${owned.id}`)
-                      : setSelectedCategory(cat)
-                  }
-                  className={`group relative flex flex-col items-start overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white p-5 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] hover:border-[#0a0a0a]/30 active:scale-[0.99] stagger-${Math.min(i + 1, 6)}`}
+          <div className="space-y-6">
+            {/* Search bar and Squad Tabs */}
+            <div className="space-y-3.5">
+              {/* Search bar */}
+              <div className="relative">
+                <svg
+                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a3a3a3]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
                 >
-                  {owned && (
-                    <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-[#F0FDF4] px-2 py-0.5 font-[family-name:var(--font-inter)] text-[11px] font-medium text-[#15803D]">
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                      Added
-                    </span>
-                  )}
-                  <div
-                    className={`${tint} mb-4 flex h-11 w-11 items-center justify-center rounded-xl`}
-                    style={{ color: 'var(--tint-icon)' }}
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+                </svg>
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search job profiles (e.g. Designer, Video Editor, Accountant, Sales...)"
+                  className="w-full rounded-xl border border-[#E7E7EA] bg-white py-2.5 pl-10 pr-9 text-sm text-[#0a0a0a] placeholder:text-[#a3a3a3] shadow-xs transition-colors focus:border-[#0a0a0a] focus:outline-hidden focus:ring-1 focus:ring-[#0a0a0a]"
+                />
+                {searchQuery.trim().length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    aria-label="Clear search"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1 text-[#a3a3a3] transition-colors hover:bg-[#f4f4f5] hover:text-[#0a0a0a]"
                   >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
-                  </div>
-                  <h3 className="font-[family-name:var(--font-jakarta)] text-[17px] font-semibold tracking-[-0.015em] text-[#0a0a0a]">
-                    {cat.name}
-                  </h3>
-                  {cat.description && (
-                    <p className="mt-1 text-sm text-[#737373] line-clamp-2">{cat.description}</p>
-                  )}
-                  <div className="mt-4 flex items-center gap-1 font-[family-name:var(--font-inter)] text-[13px] font-medium text-[#0a0a0a] opacity-0 transition-all duration-200 group-hover:opacity-100">
-                    {owned ? 'View profile' : 'Get started'}
-                    <svg className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                    </svg>
-                  </div>
+                  </button>
+                )}
+              </div>
+
+              {/* Squad tabs */}
+              <div className="scrollbar-hide flex items-center gap-2 overflow-x-auto pb-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveSquadTab('all')}
+                  className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                    activeSquadTab === 'all'
+                      ? 'border-[#0a0a0a] bg-[#0a0a0a] text-white shadow-xs'
+                      : 'border-[#E7E7EA] bg-white text-[#525252] hover:border-[#c9c9cf] hover:text-[#0a0a0a]'
+                  }`}
+                >
+                  <span>All Squads</span>
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                      activeSquadTab === 'all' ? 'bg-white/20 text-white' : 'bg-[#F5F5F6] text-[#737373]'
+                    }`}
+                  >
+                    {availableCategories.length}
+                  </span>
                 </button>
-              );
-            })}
+                {allSquadGroups.map(({ squad, categories: squadCats }) => {
+                  const active = activeSquadTab === squad.id;
+                  return (
+                    <button
+                      key={squad.id}
+                      type="button"
+                      onClick={() => setActiveSquadTab(active ? 'all' : squad.id)}
+                      className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                        active
+                          ? 'border-[#0a0a0a] bg-[#0a0a0a] text-white shadow-xs'
+                          : 'border-[#E7E7EA] bg-white text-[#525252] hover:border-[#c9c9cf] hover:text-[#0a0a0a]'
+                      }`}
+                    >
+                      <span className="text-[13px]">{squad.emoji}</span>
+                      <span>{squad.shortName}</span>
+                      <span
+                        className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                          active ? 'bg-white/20 text-white' : 'bg-[#F5F5F6] text-[#737373]'
+                        }`}
+                      >
+                        {squadCats.length}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {squadGroups.length === 0 ? (
+              <div className="rounded-2xl border border-[#E7E7EA] bg-white px-6 py-12 text-center">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFFAC2] text-amber-800">
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">
+                  No job profiles match “{searchQuery}”
+                </h3>
+                <p className="mt-1 text-sm text-[#737373]">
+                  Try searching for a different role title, skill, or squad name.
+                </p>
+                <div className="mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setActiveSquadTab('all');
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {squadGroups.map(({ squad, categories: squadCats }) => (
+                  <section key={squad.id} className="space-y-3.5">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-[#E7E7EA] text-[16px] shadow-2xs">
+                          {squad.emoji}
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
+                              {squad.name}
+                            </h2>
+                            <span className="rounded-full bg-[#F5F5F6] px-2 py-0.5 text-[11px] font-semibold text-[#737373]">
+                              {squadCats.length} {squadCats.length === 1 ? 'profile' : 'profiles'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#737373] mt-0.5">{squad.description}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {squadCats.map((cat, i) => {
+                        const tint = tintFor(cat.name);
+                        const owned = ownedProfileByCategory.get(cat.id);
+                        const hasRequestedChanges = owned ? needsProfileResubmission(owned) : false;
+
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() =>
+                              owned
+                                ? router.push(hasRequestedChanges ? `/talent/profiles/${owned.id}/edit` : `/talent/profiles/${owned.id}`)
+                                : setSelectedCategory(cat)
+                            }
+                            className={`group relative flex flex-col items-start overflow-hidden rounded-2xl border ${
+                              hasRequestedChanges
+                                ? 'border-amber-300 ring-2 ring-amber-300/60 bg-amber-50/[0.08]'
+                                : 'border-[#E7E7EA] bg-white'
+                            } p-5 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] ${
+                              hasRequestedChanges ? 'hover:border-amber-400' : 'hover:border-[#0a0a0a]/30'
+                            } active:scale-[0.99] stagger-${Math.min(i + 1, 6)}`}
+                          >
+                            {owned && (
+                              hasRequestedChanges ? (
+                                <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-[family-name:var(--font-inter)] text-[11px] font-semibold text-amber-900 ring-1 ring-inset ring-amber-300 shadow-2xs">
+                                  <svg className="h-3 w-3 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                  </svg>
+                                  Changes requested
+                                </span>
+                              ) : (
+                                <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-[#F0FDF4] px-2 py-0.5 font-[family-name:var(--font-inter)] text-[11px] font-medium text-[#15803D]">
+                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  Added
+                                </span>
+                              )
+                            )}
+
+                            <div
+                              className={`${tint} mb-4 flex h-11 w-11 items-center justify-center rounded-xl`}
+                              style={{ color: 'var(--tint-icon)' }}
+                            >
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                              </svg>
+                            </div>
+
+                            <h3 className="font-[family-name:var(--font-jakarta)] text-[17px] font-semibold tracking-[-0.015em] text-[#0a0a0a]">
+                              {cat.name}
+                            </h3>
+
+                            {cat.description && (
+                              <p className="mt-1 text-sm text-[#737373] line-clamp-2">{cat.description}</p>
+                            )}
+
+                            {hasRequestedChanges && owned && (
+                              <div className="mt-3 w-full rounded-xl border border-amber-300 bg-amber-50/95 p-2.5 text-xs text-amber-950 shadow-2xs">
+                                <div className="flex items-center gap-1.5 font-semibold text-amber-950">
+                                  <svg className="h-3.5 w-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                  </svg>
+                                  Reviewer requested updates
+                                </div>
+                                <p className="mt-1 text-[11px] leading-relaxed text-amber-900 line-clamp-2">
+                                  {owned.requested_changes && owned.requested_changes.length > 0
+                                    ? `${owned.requested_changes.length} ${
+                                        owned.requested_changes.length === 1 ? 'item needs' : 'items need'
+                                      } updates: ${owned.requested_changes.map((c) => c.label).join(', ')}`
+                                    : 'Updates were requested for this profile. Tap to review and make updates.'}
+                                </p>
+                              </div>
+                            )}
+
+                            <div
+                              className={`mt-4 flex items-center gap-1 font-[family-name:var(--font-inter)] text-[13px] font-medium transition-all duration-200 ${
+                                hasRequestedChanges
+                                  ? 'text-amber-800 font-semibold opacity-100'
+                                  : 'text-[#0a0a0a] opacity-0 group-hover:opacity-100'
+                              }`}
+                            >
+                              {hasRequestedChanges ? 'Make updates' : owned ? 'View profile' : 'Get started'}
+                              <svg className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                              </svg>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
