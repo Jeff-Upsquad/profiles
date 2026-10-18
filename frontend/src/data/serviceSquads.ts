@@ -91,11 +91,19 @@ export const SERVICE_SQUADS: Squad[] = [
       },
       {
         id: 'videographers',
-        name: 'Videographers & Photographers',
-        emoji: '📷',
-        desc: 'Captures high-quality visual content that tells your brand story.',
+        name: 'Videographers',
+        emoji: '🎥',
+        desc: 'Captures high-quality video content that tells your brand story.',
         status: 'live',
-        brief: 'videographer_photographer',
+        brief: 'videographer',
+      },
+      {
+        id: 'photographers',
+        name: 'Photographers',
+        emoji: '📷',
+        desc: 'Captures high-quality photography for products, brands and events.',
+        status: 'live',
+        brief: 'photographer',
       },
       {
         id: 'ai-creators',

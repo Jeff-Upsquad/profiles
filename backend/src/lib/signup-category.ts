@@ -32,8 +32,10 @@ const SIGNUP_HINT_TO_FORM_TYPE: Record<string, string> = {
   ])),
   copywriter: 'copy_content_writer',
   'content-writer': 'copy_content_writer',
-  videographer: 'videographer_photographer',
-  photographer: 'videographer_photographer',
+  videographer: 'videographer',
+  photographer: 'photographer',
+  'videographer-photographer': 'videographer',
+  'videographer_photographer': 'videographer',
   'ai-creator': 'ai_video_image_creator',
 };
 

@@ -76,6 +76,14 @@ test('the category API exposes required fields and active options in the web bui
     assert.deepEqual(category.fields[0].options.map((o: any) => o.label), ['Website copy']);
     assert.equal(category.min_portfolio_items, 3);
     assert.equal(category.portfolio_required, true);
+
+    const videoCat = await getCategoryBySlug('videographer');
+    assert.equal(videoCat.min_portfolio_items, 10);
+    assert.equal(videoCat.portfolio_required, true);
+
+    const photoCat = await getCategoryBySlug('photographer');
+    assert.equal(photoCat.min_portfolio_items, 10);
+    assert.equal(photoCat.portfolio_required, true);
   } finally { supabaseAdmin.from = original; }
 });
 

@@ -13,7 +13,7 @@ const SERVICE_TYPE = z.enum([
   'accountant',
   'ads_specialist',
   'creative_director', 'copy_content_writer', 'social_media_manager',
-  'videographer_photographer', 'ai_video_image_creator',
+  'videographer', 'photographer', 'videographer_photographer', 'ai_video_image_creator',
 ]);
 
 const roleRequirementSchema = z.object({

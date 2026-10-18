@@ -16,7 +16,7 @@ export const PROFILE_SQUADS: ProfileSquad[] = [
     name: 'Content Creation Squad',
     shortName: 'Content Creation',
     emoji: '🎬',
-    description: 'Designers, video editors, creative leads, social media managers, and copywriters.',
+    description: 'Designers, video editors, creative leads, social media managers, videographers, photographers, and copywriters.',
     tags: ['Design', 'Video', 'Social', 'Copywriting'],
     categorySlugs: [
       'designer',
@@ -24,6 +24,8 @@ export const PROFILE_SQUADS: ProfileSquad[] = [
       'creative-director',
       'copy-content-writer',
       'social-media-manager',
+      'videographer',
+      'photographer',
       'videographer-photographer',
       'ai-video-image-creator',
     ],
