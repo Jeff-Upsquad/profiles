@@ -84,6 +84,10 @@ test('the category API exposes required fields and active options in the web bui
     const photoCat = await getCategoryBySlug('photographer');
     assert.equal(photoCat.min_portfolio_items, 10);
     assert.equal(photoCat.portfolio_required, true);
+
+    const aiCreatorCat = await getCategoryBySlug('ai-video-image-creator');
+    assert.equal(aiCreatorCat.min_portfolio_items, 10);
+    assert.equal(aiCreatorCat.portfolio_required, true);
   } finally { supabaseAdmin.from = original; }
 });
 
