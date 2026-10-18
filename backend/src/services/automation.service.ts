@@ -1,4 +1,5 @@
 import { PORTFOLIO_FORM_TYPES } from '../../../shared/src/contentRoles.js';
+import { formTypeHasPortfolio } from '../../../shared/src/portfolio.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { getAdminSetting } from './admin.service.js';
 import { checkInvitation } from './invite.service.js';
@@ -338,8 +339,8 @@ const DEFAULT_STAGE_ORDER = [
 
 export function orderedStagesForFormType(formType: string | null | undefined): string[] {
   if (formType === 'jobs') return JOBS_FUNNEL_STAGE_ORDER;
+  if (formType && !formTypeHasPortfolio(formType)) return NO_PORTFOLIO_STAGE_ORDER;
   if (PORTFOLIO_FORM_TYPES.includes(formType ?? '')) return CREATIVE_STAGE_ORDER;
-  if (formType === 'accountant' || formType === 'sales') return NO_PORTFOLIO_STAGE_ORDER;
   return DEFAULT_STAGE_ORDER;
 }
 

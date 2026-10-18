@@ -1,4 +1,5 @@
 import { MIN_PORTFOLIO_ITEMS } from '../../../shared/src/contentRoles';
+import { categoryHasPortfolio } from '../../../shared/src/portfolio';
 import type { Profile } from '@/types';
 import { needsProfileResubmission } from '@/lib/profileChanges';
 
@@ -96,6 +97,7 @@ const MIN_PORTFOLIO_ITEMS_BY_SLUG: Record<string, number> = MIN_PORTFOLIO_ITEMS;
 
 /** Portfolio items a category needs before its profile can be submitted (0 = no minimum). */
 export function minPortfolioItems(categorySlug: string | null | undefined): number {
+  if (categorySlug && !categoryHasPortfolio(categorySlug)) return 0;
   return categorySlug ? MIN_PORTFOLIO_ITEMS_BY_SLUG[categorySlug] ?? 0 : 0;
 }
 

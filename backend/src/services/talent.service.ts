@@ -648,7 +648,7 @@ export function unresolvedJobChanges(opts: {
   const profileTouched =
     !!profile.updated_at && new Date(profile.updated_at).getTime() > requestedAt;
 
-  const minItems = categorySlug ? (MIN_PORTFOLIO_ITEMS_BY_SLUG[categorySlug] ?? 10) : 10;
+  const minItems = categorySlug && categoryHasPortfolio(categorySlug) ? (MIN_PORTFOLIO_ITEMS_BY_SLUG[categorySlug] ?? 10) : 0;
   const unresolved: string[] = [];
 
   for (const c of requested) {
@@ -930,7 +930,7 @@ export async function submitProfile(profileId: string, userId: string) {
     .select('name, slug')
     .eq('id', profile.category_id)
     .maybeSingle();
-  const minItems = category?.slug ? MIN_PORTFOLIO_ITEMS_BY_SLUG[category.slug] : undefined;
+  const minItems = category?.slug && categoryHasPortfolio(category.slug) ? MIN_PORTFOLIO_ITEMS_BY_SLUG[category.slug] : undefined;
 
   // Portfolio state is needed both for the minimum gate and for verifying
   // requested portfolio changes below — fetch once.
@@ -1653,7 +1653,7 @@ export async function getCategoryBySlug(slug: string) {
       return { ...f, field_options: options, options };
     });
   data.fields = data.category_fields;
-  data.min_portfolio_items = MIN_PORTFOLIO_ITEMS_BY_SLUG[slug] ?? (categoryHasPortfolio(slug) ? 1 : 0);
+  data.min_portfolio_items = categoryHasPortfolio(slug) ? (MIN_PORTFOLIO_ITEMS_BY_SLUG[slug] ?? 1) : 0;
   data.portfolio_required = categoryHasPortfolio(slug);
 
   return data;

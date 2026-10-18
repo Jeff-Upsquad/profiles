@@ -20,7 +20,11 @@ test('role signups retain their category instead of falling into Designer / Edit
   for (const role of CONTENT_ROLES) {
     assert.equal(formTypeFromSignupHint(`/partner-program/${role.slug}`), role.formType);
     assert.equal(parseSignupCategory(role.formType), role.formType);
-    assert.ok(validStatusesForFormType(role.formType)?.has('portfolio_updation'));
+    if (role.slug === 'social-media-manager') {
+      assert.ok(!validStatusesForFormType(role.formType)?.has('portfolio_updation'));
+    } else {
+      assert.ok(validStatusesForFormType(role.formType)?.has('portfolio_updation'));
+    }
     assert.ok(!validStatusesForFormType(role.formType)?.has('onboard_completed'));
   }
   assert.equal(formTypeFromSignupHint('ads-specialist'), 'ads_specialist');

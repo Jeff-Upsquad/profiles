@@ -11,6 +11,7 @@ import ThreadsPortfolioTabBar from '@/components/profile/ThreadsPortfolioTabBar'
 import ThreadsPortfolioFeed from '@/components/profile/ThreadsPortfolioFeed';
 import ThreadsProfileSkeleton from '@/components/profile/ThreadsProfileSkeleton';
 import { useCategoryTemplateGroups } from '@/hooks/useCategories';
+import { categoryHasPortfolio } from '../../../../shared/src/portfolio';
 
 interface TalentUser {
   full_name: string;
@@ -225,7 +226,7 @@ export default function ThreadsProfileView({
         )}
 
         {/* Empty portfolio for talent view */}
-        {mode === 'talent' && !hasPortfolio && (
+        {mode === 'talent' && !hasPortfolio && categoryHasPortfolio(category?.slug) && (
           <>
             <div className="flex flex-col items-center justify-center py-16 px-5">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100">

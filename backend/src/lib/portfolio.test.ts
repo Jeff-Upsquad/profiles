@@ -6,12 +6,14 @@ import {
   portfolioRequiredFor,
 } from '../../../shared/src/portfolio.js';
 
-test('sales and accountant have no portfolio; designers and editors do', () => {
+test('sales, accountant and social media manager have no portfolio; designers and editors do', () => {
   assert.equal(categoryHasPortfolio('accountant'), false);
   assert.equal(categoryHasPortfolio('sales'), false);
+  assert.equal(categoryHasPortfolio('social-media-manager'), false);
   assert.equal(categoryHasPortfolio('designer'), true);
   assert.equal(categoryHasPortfolio('video-editor'), true);
   assert.equal(formTypeHasPortfolio('accountant'), false);
+  assert.equal(formTypeHasPortfolio('social_media_manager'), false);
   assert.equal(formTypeHasPortfolio('creative'), true);
 });
 

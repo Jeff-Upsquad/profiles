@@ -4,10 +4,10 @@
 // Portfolio Updation stage. Used by the talent forms, the dashboard checklist,
 // the admin journey panel and the pipeline stage order.
 
-const NO_PORTFOLIO_SLUGS = new Set(['sales', 'accountant']);
+const NO_PORTFOLIO_SLUGS = new Set(['sales', 'accountant', 'social-media-manager']);
 
 /** Category slug → form_type is 1:1 for these, so one set covers both. */
-const NO_PORTFOLIO_FORM_TYPES = new Set(['sales', 'accountant']);
+const NO_PORTFOLIO_FORM_TYPES = new Set(['sales', 'accountant', 'social_media_manager']);
 
 /** True unless this category's job profile has no portfolio. Unknown → true. */
 export function categoryHasPortfolio(slug: string | null | undefined): boolean {

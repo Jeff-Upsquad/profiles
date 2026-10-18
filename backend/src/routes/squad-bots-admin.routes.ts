@@ -7,6 +7,7 @@ import { roleFromAuthUser } from '../lib/auth-role.js';
 import { getStaffAccess } from '../services/staff-auth.service.js';
 import { meetsLevel, type ModuleGrants } from '../../../shared/src/types/access.js';
 import { MIN_PORTFOLIO_ITEMS, PORTFOLIO_FORM_TYPES, TALENT_CATEGORY_OPTIONS } from '../../../shared/src/contentRoles.js';
+import { categoryHasPortfolio } from '../../../shared/src/portfolio.js';
 import {
   BRIDGE_HEADERS, BRIDGE_OPERATIONS, MANUAL_STAGES, nonceStore, verifyBridge, type BridgeOperation,
 } from '../lib/squad-bots-admin-bridge.js';
@@ -129,8 +130,8 @@ router.get('/stages', async (_req, res, next) => {
       terminal: ['rejected'],
       categories: TALENT_CATEGORY_OPTIONS.map((c) => ({
         value: c.value, label: c.label,
-        portfolio_required: PORTFOLIO_FORM_TYPES.includes(c.value),
-        min_portfolio_items: Math.max(0, ...c.slugs.map((s) => MIN_PORTFOLIO_ITEMS[s] ?? (PORTFOLIO_FORM_TYPES.includes(c.value) ? 1 : 0))),
+        portfolio_required: PORTFOLIO_FORM_TYPES.includes(c.value) && categoryHasPortfolio(c.slugs[0]),
+        min_portfolio_items: categoryHasPortfolio(c.slugs[0]) ? Math.max(0, ...c.slugs.map((s) => MIN_PORTFOLIO_ITEMS[s] ?? (PORTFOLIO_FORM_TYPES.includes(c.value) ? 1 : 0))) : 0,
       })),
       talent_boards: await hub.getTalentPipelineConfig(),
       rejection_reasons: [
