@@ -35,3 +35,12 @@ test('bot replies carry the Squadbot who wrote them', async () => {
   const [reply] = inboxMessages([{ id: 'm1', sender: 'bot', body: 'Hi', meta: { squadbot_name: 'Tina', usage: {} }, created_at: '2026-10-09T07:00:00Z' }]);
   assert.equal(reply.sender_name, 'Tina');
 });
+
+
+test('replies to a CRM-only mirror go to WhatsApp without changing app chat routing', async () => {
+  const { inboxReplyChannel } = await import('./squad-bots-inbox.js');
+  assert.equal(inboxReplyChannel(undefined, undefined, true), 'whatsapp');
+  assert.equal(inboxReplyChannel(undefined, 'app', true), 'app');
+  assert.equal(inboxReplyChannel('app', 'whatsapp', true), 'app');
+  assert.equal(inboxReplyChannel(undefined, undefined, false), 'app');
+});

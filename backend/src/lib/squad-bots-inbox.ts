@@ -45,3 +45,9 @@ export function guidanceText(entries: BackchannelEntry[]): string {
     ? 'Guidance from the UpSquad team for this chat (the talent cannot see this):\n' + lines.slice(-20).join('\n')
     : '';
 }
+
+/** CRM-only mirrors have no local message yet; a linked phone is WhatsApp.
+ * An explicit channel or the person's last local message still takes priority. */
+export function inboxReplyChannel(requested: 'app' | 'whatsapp' | undefined, last: 'app' | 'whatsapp' | undefined, linkedPhone: boolean): 'app' | 'whatsapp' {
+  return requested ?? last ?? (linkedPhone ? 'whatsapp' : 'app');
+}

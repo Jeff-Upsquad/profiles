@@ -17,6 +17,7 @@
 // ---------------------------------------------------------------------------
 
 import Anthropic from '@anthropic-ai/sdk';
+import { inboxReplyChannel } from '../lib/squad-bots-inbox.js';
 import { CANCELLATION_QUESTION, CANCELLATION_BUTTONS, CANCELLATION_INSTRUCTIONS, cancellationChoice, pendingCancellation } from '../lib/applicant-cancellation.js';
 import { cancelApplicantTracks } from './applicant-cancellation.service.js';
 import { supabaseAdmin } from '../config/supabase.js';
@@ -945,7 +946,7 @@ export async function staffReply(id: string, staff: { id: string | null; name: s
 
   // Reply where the person last wrote: WhatsApp goes out through the CRM.
   const lastFromThem = [...conv.messages].reverse().find((m) => m.sender === 'talent');
-  if ((replyChannel ?? lastFromThem?.channel) === 'whatsapp' && conv.crm_lead_id) {
+  if (inboxReplyChannel(replyChannel, lastFromThem?.channel as 'app' | 'whatsapp' | undefined, !!conv.phone && !!conv.crm_lead_id) === 'whatsapp' && conv.crm_lead_id) {
     const sent = await crmPost('reply', { lead_id: conv.crm_lead_id, text: body, mode: 'send', staff_name: staff.name });
     if (!sent?.ok) {
       throw new AppError(502, sent?.error === 'outside_24h_window'
