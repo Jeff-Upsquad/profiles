@@ -1,3 +1,4 @@
+import { currentChatBotSwitch, setChatBotSwitch } from './chat-bot-switch.service.js';
 // ---------------------------------------------------------------------------
 // Squad Bot — UpSquad's assistant. It has two jobs:
 //
@@ -259,6 +260,7 @@ export async function recentLines(conversationId: string, limit: number, channel
 }
 
 export async function handOff(conv: ConversationRow, reason: string, summary: string, channel: 'app' | 'whatsapp' = 'app') {
+  await setChatBotSwitch(conv, false, { id: null, name: 'Team' });
   const handoffAt = new Date().toISOString();
   const { error } = await supabaseAdmin
     .from('squad_bot_conversations')
@@ -428,8 +430,9 @@ export async function sendTalentMessage(talentUserId: string, text: string) {
   const talentMsg = await addMessage(conv.id, { sender: 'talent', body });
 
   // A teammate took this chat over in the Squad Bots inbox: they reply, the bot stays quiet.
-  const mirrored = await (await inbox()).syncToInbox(conv.id);
-  if (mirrored?.taken_over) return { status: conv.status, messages: [talentMsg] };
+  const botEnabled = await currentChatBotSwitch(conv);
+  await (await inbox()).syncToInbox(conv.id);
+  if (!botEnabled) return { status: conv.status, messages: [talentMsg] };
 
   // Waiting on the team: they see it in the inbox; the bot stays quiet.
   if (conv.status === 'handoff') return { status: conv.status, messages: [talentMsg] };
@@ -728,7 +731,7 @@ async function answer(
   }
   if (!opts.instructed) {
     const current = await getConversation(conv.id) as ConversationRow;
-    if (current.status === 'handoff') return { status: 'handoff' as const, message: null, handoff: null };
+    if (!await currentChatBotSwitch(current)) return { status: 'handoff' as const, message: null, handoff: null };
   }
   if (handoff) await handOff(conv, handoff.reason, handoff.summary, channel);
   const message = await addMessage(conv.id, { sender: 'bot', body: text.trim() || HANDOFF_MESSAGE, channel, meta });
@@ -810,8 +813,9 @@ export async function handleWhatsAppMessage(msg: WhatsAppInbound): Promise<void>
     const conv = await whatsappConversation(msg);
     await addMessage(conv.id, { sender: 'talent', body: msg.text, channel: 'whatsapp', crm_message_id: msg.message_id });
     // Taken over in the Squad Bots inbox: the teammate replies there.
-    const mirrored = await (await inbox()).syncToInbox(conv.id);
-    if (mirrored?.taken_over) return;
+    const botEnabled = await currentChatBotSwitch(conv);
+    await (await inbox()).syncToInbox(conv.id);
+    if (!botEnabled) return;
     // Handed to the team: recruiters answer in the CRM; the bot stays quiet.
     if (conv.status === 'handoff') return;
 
@@ -944,6 +948,8 @@ export async function staffReply(id: string, staff: { id: string | null; name: s
   if (!body) throw new AppError(400, 'Reply is empty');
   const conv = (await getConversation(id)) as ConversationRow & { messages: Array<{ sender: string; channel?: string }> };
 
+  await setChatBotSwitch(conv, false, staff);
+
   // Reply where the person last wrote: WhatsApp goes out through the CRM.
   const lastFromThem = [...conv.messages].reverse().find((m) => m.sender === 'talent');
   if (inboxReplyChannel(replyChannel, lastFromThem?.channel as 'app' | 'whatsapp' | undefined, !!conv.phone && !!conv.crm_lead_id) === 'whatsapp' && conv.crm_lead_id) {
@@ -1021,6 +1027,7 @@ export async function instructBot(id: string, staff: { id: string; name: string 
 export async function handBack(id: string, staff: { id: string; name: string }) {
   const { data: before } = await supabaseAdmin
     .from('squad_bot_conversations').select('handoff_at').eq('id', id).maybeSingle();
+  await setChatBotSwitch((await getConversation(id)) as ConversationRow, true, staff);
   const { error } = await supabaseAdmin
     .from('squad_bot_conversations')
     .update({ status: 'bot', handoff_reason: null, handoff_summary: null, handoff_at: null })
