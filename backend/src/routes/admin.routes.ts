@@ -126,6 +126,7 @@ router.use(requireAdminOrStaff, enforceModuleAccess, enforceCandidateScope);
 // ---------------------------------------------------------------------------
 
 router.get('/dashboard/stats', adminController.getDashboardStats);
+router.get('/dashboard/activity', adminController.getDashboardActivity);
 
 // ---------------------------------------------------------------------------
 // Categories

@@ -10,7 +10,9 @@ const STAFF = process.env.NEXT_PUBLIC_APP_MODE === 'staff';
 const nextConfig: NextConfig = {
   basePath: STAFF ? '/staff' : '/admin',
   // Separate build output so the two builds never clobber each other.
-  distDir: STAFF ? '.next-staff' : '.next',
+  // NEXT_DIST_DIR lets a second dev server run side by side (e.g. a mock-data
+  // preview on another port) without sharing — and corrupting — .next.
+  distDir: process.env.NEXT_DIST_DIR ?? (STAFF ? '.next-staff' : '.next'),
   reactStrictMode: true,
   typescript: {
     ignoreBuildErrors: false,

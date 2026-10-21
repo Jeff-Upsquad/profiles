@@ -19,6 +19,15 @@ export async function getDashboardStats(_req: Request, res: Response, next: Next
   }
 }
 
+export async function getDashboardActivity(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const svc = await import('../services/dashboard-activity.service.js');
+    res.json(await svc.getDashboardActivity());
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Categories
 // ---------------------------------------------------------------------------
