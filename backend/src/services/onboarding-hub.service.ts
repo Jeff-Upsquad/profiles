@@ -23,6 +23,7 @@ import { normalizeStage, type CrmStage } from './crm-stage-mapping.js';
 import { isJobsKey, jobsPipelineKey } from './linked-tracks.service.js';
 import { programProgressFor, type ProgramProgress } from './program-training-progress.service.js';
 import { openChangeRequests, rcStatusFor } from './request-change-reminders.service.js';
+import { TIMER_TALENT_COLUMNS, getStageTimerSettings, hubTimerFor } from './stage-timers.service.js';
 import { portfolioRequiredFor } from '../../../shared/src/portfolio.js';
 
 // Ghost Designer + Editor rows hold no portfolio_items of their own — their
@@ -243,7 +244,9 @@ export type HubAttention =
   | 'course_pending'
   | 'basic_incomplete'
   | 'no_job_profile'
-  | 'message_failed';
+  | 'message_failed'
+  | 'inactive'
+  | 'overdue';
 
 export interface HubListFilters {
   track?: 'partner' | 'jobs';
@@ -494,7 +497,8 @@ const TALENT_LIST_COLUMNS =
   'crm_jobs_pipeline_name, crm_jobs_stage_id, crm_jobs_stage_name, crm_jobs_stage_changed_at, ' +
   'rejection_reason, rejected_at, partner_rejection_reason, partner_rejected_at, jobs_rejection_reason, jobs_rejected_at, ' +
   'application_cancellations, application_cancelled_at, application_cancelled_reason, rc_anchor_at, rc_reminders_sent, rc_last_sent_at, ' +
-  'onboarding_webinar_attended_at, crm_message_failed_at, crm_message_failed_template, crm_message_failed_reason';
+  'onboarding_webinar_attended_at, crm_message_failed_at, crm_message_failed_template, crm_message_failed_reason, ' +
+  'partner_stage_changed_at, jobs_stage_changed_at, track_inactivity, stage_timer_state';
 
 /** Latest failed CRM WhatsApp send, or null (see crm_message_failed_* columns). */
 function messageFailedFor(u: any): { at: string; template: string | null; reason: string | null } | null {
@@ -537,6 +541,30 @@ async function attentionIds(attention: HubAttention | undefined, track?: 'partne
       .is('reviewed_at', null)
       .filter('resubmitted_at', attention === 'needs_review' ? 'not.is' : 'is', null);
     for (const r of basicRows ?? []) ids.add((r as any).talent_user_id);
+    return [...ids];
+  }
+
+  if (attention === 'inactive') {
+    const { data } = await supabaseAdmin
+      .from('talent_users')
+      .select('id')
+      .not(`track_inactivity->${track === 'jobs' ? 'jobs' : 'partner'}`, 'is', null);
+    for (const r of data ?? []) ids.add((r as any).id);
+    return [...ids];
+  }
+
+  if (attention === 'overdue') {
+    // Admin stages past their time limit — evaluated in memory per talent.
+    const tr = track === 'jobs' ? 'jobs' : 'partner';
+    const settings = await getStageTimerSettings();
+    if (!settings[tr].enabled) return [];
+    let qb = supabaseAdmin.from('talent_users').select(TIMER_TALENT_COLUMNS);
+    qb = tr === 'jobs' ? qb.eq('wants_jobs', true) : qb.not('partner_approval_status', 'is', null);
+    const [{ data }, open] = await Promise.all([qb, openChangeRequests()]);
+    for (const t of (data ?? []) as any[]) {
+      const { timer } = hubTimerFor(t, tr, settings, open.has(t.id));
+      if (timer?.actor === 'admin' && timer.overdue) ids.add(t.id);
+    }
     return [...ids];
   }
 
@@ -719,12 +747,14 @@ export async function listHub(filters: HubListFilters) {
 
   const ids = rows.map((u) => u.id as string);
 
-  const [emailMap, catMap, journeys, leadMap] = await Promise.all([
+  const [emailMap, catMap, journeys, leadMap, timerSettings] = await Promise.all([
     emailsFor(ids),
     signupCategoriesByTalentIds(ids),
     journeysFor(rows),
     leadsFor(ids),
+    getStageTimerSettings(),
   ]);
+  const timerTrack = filters.track === 'jobs' ? 'jobs' : 'partner';
 
   const users = rows.map((u) => ({
     id: u.id,
@@ -750,6 +780,10 @@ export async function listHub(filters: HubListFilters) {
     application_cancelled_reason: u.application_cancellations?.[filters.track === 'jobs' ? 'jobs' : 'partner']?.reason ?? null,
     under_request_changes: open.has(u.id),
     request_changes: rcStatusFor(open.get(u.id), u),
+    ...(() => {
+      const { timer, inactive } = hubTimerFor(u, timerTrack, timerSettings, open.has(u.id));
+      return { stage_timer: timer, inactive };
+    })(),
     message_failed: messageFailedFor(u),
     crm_talent_pipeline_name: (filters.track === 'jobs' ? u.crm_jobs_pipeline_name : u.crm_talent_pipeline_name) ?? null,
     crm_talent_stage_id: (filters.track === 'jobs' ? u.crm_jobs_stage_id : u.crm_talent_stage_id) ?? null,
@@ -828,19 +862,23 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
     cancelled: 0,
     rc_by_pipeline_stage: {} as Record<string, number>,
     rc_live_by_talent_stage: {} as Record<string, number>,
-    attention: { pending_approval: 0, needs_review: 0, waiting_on_talent: 0, message_failed: 0 },
+    inactive_by_pipeline_stage: {} as Record<string, number>,
+    overdue_by_pipeline_stage: {} as Record<string, number>,
+    attention: { pending_approval: 0, needs_review: 0, waiting_on_talent: 0, message_failed: 0, inactive: 0, overdue: 0 },
   };
   if (categoryIds && categoryIds.length === 0) return empty;
 
   let qb = supabaseAdmin
     .from('talent_users')
-    .select('id, approval_status, partner_approval_status, wants_jobs, pipeline_stage, jobs_pipeline_stage, crm_talent_stage_id, crm_jobs_stage_id, crm_talent_stage_name, crm_jobs_stage_name, application_cancellations, crm_message_failed_at')
+    .select('id, approval_status, partner_approval_status, wants_jobs, pipeline_stage, jobs_pipeline_stage, crm_talent_stage_id, crm_jobs_stage_id, crm_talent_stage_name, crm_jobs_stage_name, application_cancellations, crm_message_failed_at, ' +
+      'partner_stage_changed_at, jobs_stage_changed_at, track_inactivity, stage_timer_state, suspended, blacklisted')
     .not('suspended', 'is', true)
     .not('blacklisted', 'is', true);
   if (categoryIds) qb = qb.in('id', categoryIds);
   if (track === 'partner') qb = qb.not('partner_approval_status', 'is', null);
   if (track === 'jobs') qb = qb.eq('wants_jobs', true);
-  const [{ data: allRows, error }, open] = await Promise.all([qb, openChangeRequests()]);
+  const [{ data: allRows, error }, open, timerSettings] = await Promise.all([qb, openChangeRequests(), getStageTimerSettings()]);
+  const timerTrack = track === 'jobs' ? 'jobs' : 'partner';
   if (error) throw new AppError(500, error.message);
   // Cancelled applicants are counted for their own section only.
   const cancellationTrack = track === 'jobs' ? 'jobs' : 'partner';
@@ -868,6 +906,12 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
   // The small "under request changes" count shown under each big number.
   const rcByStage: Record<string, number> = {};
   const rcLiveByTalentStage: Record<string, number> = {};
+  // Inactive (applicant missed the stage's time limit) and overdue (an admin
+  // stage past its limit) — also shown under each stage's big number.
+  const inactiveByStage: Record<string, number> = {};
+  const overdueByStage: Record<string, number> = {};
+  let inactiveTotal = 0;
+  let overdueTotal = 0;
   let waitingOnTalent = 0;
   let messageFailed = 0;
   let pending = 0;
@@ -886,6 +930,15 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
     if (rc) {
       waitingOnTalent += 1;
       rcByStage[s] = (rcByStage[s] ?? 0) + 1;
+    }
+    const { timer, inactive } = hubTimerFor(r, timerTrack, timerSettings, rc);
+    if (inactive && !rc) {
+      inactiveTotal += 1;
+      inactiveByStage[s] = (inactiveByStage[s] ?? 0) + 1;
+    }
+    if (timer?.actor === 'admin' && timer.overdue) {
+      overdueTotal += 1;
+      overdueByStage[s] = (overdueByStage[s] ?? 0) + 1;
     }
     if (s === 'live') {
       const key = talentStageId || 'none';
@@ -918,11 +971,15 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
     cancelled,
     rc_by_pipeline_stage: rcByStage,
     rc_live_by_talent_stage: rcLiveByTalentStage,
+    inactive_by_pipeline_stage: inactiveByStage,
+    overdue_by_pipeline_stage: overdueByStage,
     attention: {
       pending_approval: pending,
       needs_review: needsReview.size,
       waiting_on_talent: waitingOnTalent,
       message_failed: messageFailed,
+      inactive: inactiveTotal,
+      overdue: overdueTotal,
     },
   };
 }

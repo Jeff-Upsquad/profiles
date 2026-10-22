@@ -73,7 +73,24 @@ export type HubAttention =
   | 'course_pending'
   | 'basic_incomplete'
   | 'no_job_profile'
-  | 'message_failed';
+  | 'message_failed'
+  | 'inactive'
+  | 'overdue';
+
+/** The row's stage timer (Onboarding settings) — null when the stage isn't timed. */
+export interface StageTimer {
+  actor: 'applicant' | 'admin';
+  due_at: string;
+  overdue: boolean;
+  limit_text: string;
+}
+
+/** The applicant missed a stage's time limit (or an admin marked them inactive). */
+export interface HubInactivity {
+  at: string;
+  by: 'system' | 'admin';
+  cancel_at: string;
+}
 
 export interface JourneySummary {
   signed_up: boolean;
@@ -221,6 +238,8 @@ export interface HubRow {
   application_cancelled_reason: string | null;
   under_request_changes: boolean;
   request_changes: RequestChangesStatus | null;
+  stage_timer?: StageTimer | null;
+  inactive?: HubInactivity | null;
   message_failed?: MessageFailed | null;
   crm_talent_pipeline_name: string | null;
   crm_talent_stage_id: string | null;
@@ -243,7 +262,12 @@ export interface HubStats {
   /** Per stage: how many of that stage's talents are under request changes. */
   rc_by_pipeline_stage?: Record<string, number>;
   rc_live_by_talent_stage?: Record<string, number>;
-  attention: { pending_approval: number; needs_review: number; waiting_on_talent: number; message_failed?: number };
+  inactive_by_pipeline_stage?: Record<string, number>;
+  overdue_by_pipeline_stage?: Record<string, number>;
+  attention: {
+    pending_approval: number; needs_review: number; waiting_on_talent: number; message_failed?: number;
+    inactive?: number; overdue?: number;
+  };
 }
 
 export interface CrmStage {

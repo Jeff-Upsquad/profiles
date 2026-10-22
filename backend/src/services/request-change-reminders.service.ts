@@ -342,7 +342,7 @@ async function stepTalent(t: any, req: OpenChangeRequest, now: number) {
 export async function restoreCancelledApplication(talentId: string, track: 'partner' | 'jobs') {
   const { data: t, error } = await supabaseAdmin
     .from('talent_users')
-    .select('id, application_cancellations, application_cancelled_at')
+    .select('id, application_cancellations, application_cancelled_at, stage_timer_state')
     .eq('id', talentId)
     .maybeSingle();
   if (error) throw new AppError(500, error.message);
@@ -360,6 +360,8 @@ export async function restoreCancelledApplication(talentId: string, track: 'part
     .from('talent_users')
     .update({
       application_cancellations: remaining,
+      // The restored track's stage timer starts over from the restore.
+      stage_timer_state: { ...(t.stage_timer_state ?? {}), reset: { ...(t.stage_timer_state?.reset ?? {}), [track]: now } },
       ...(restartReminders ? {
         rc_anchor_at: req?.anchor ?? null,
         rc_reminders_sent: 0,

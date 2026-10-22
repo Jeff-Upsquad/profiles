@@ -1,5 +1,5 @@
 export type CancellationScope = 'partner' | 'jobs' | 'both';
-export type CancellationReason = 'no_response' | 'not_interested';
+export type CancellationReason = 'no_response' | 'not_interested' | 'inactive';
 export type ApplicationCancellations = Partial<Record<'partner' | 'jobs', { reason: CancellationReason; at: string }>>;
 /** The shared profile-change chase has no program label, so any explicit
  * withdrawal pauses it even when the other application remains open. */

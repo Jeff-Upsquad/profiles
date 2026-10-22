@@ -728,9 +728,15 @@ export async function getMe(userId: string, role: UserRole) {
     if (error || !data) throw new AppError(404, 'Talent user not found');
 
     const autoApproveSignups = (await getAdminSetting<boolean>('auto_approve_signups')) === true;
+    // Inactive tracks (a stage timer ran out) lock the talent app until reactivated.
+    const { getStageTimerSettings, inactivitySummary } = await import('./stage-timers.service.js');
+    const stageInactivity = data.track_inactivity && Object.keys(data.track_inactivity).length
+      ? inactivitySummary(data, await getStageTimerSettings())
+      : [];
 
     return {
       ...data,
+      stage_inactivity: stageInactivity,
       // The canonical talent email lives in Supabase Auth; talent_users has no
       // email column. Include it so /auth/me refreshes do not blank Settings.
       email: authUser?.user?.email ?? '',

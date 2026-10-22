@@ -58,6 +58,8 @@ router.post('/squad-bot/messages', squadBotController.sendMyMessage);
 
 // Talent user (self)
 router.get('/me', talentController.getMe);
+// Inactive (stage timer ran out) → the talent restarts their clock themselves.
+router.post('/me/reactivate', talentController.reactivateMe);
 router.put('/me', validate({ body: updateTalentUserSchema }), talentController.updateMe);
 
 // Basic profile

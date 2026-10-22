@@ -395,6 +395,45 @@ export async function restoreCancelledUser(req: Request, res: Response, next: Ne
   } catch (err) { next(err); }
 }
 
+function trackParam(v: unknown): 'partner' | 'jobs' | null {
+  return v === 'partner' || v === 'jobs' ? v : null;
+}
+
+export async function getStageTimers(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { getStageTimerSettings } = await import('../services/stage-timers.service.js');
+    const track = trackParam(req.query.track) ?? 'partner';
+    res.json({ track, settings: (await getStageTimerSettings())[track] });
+  } catch (err) { next(err); }
+}
+
+export async function updateStageTimers(req: Request, res: Response, next: NextFunction) {
+  try {
+    const track = trackParam(req.body?.track);
+    if (!track) { res.status(400).json({ message: 'Choose Partner Program or Jobs' }); return; }
+    const { saveTrackTimerSettings } = await import('../services/stage-timers.service.js');
+    res.json({ track, settings: await saveTrackTimerSettings(track, req.body?.settings, req.user!.id) });
+  } catch (err) { next(err); }
+}
+
+export async function markApplicantInactive(req: Request, res: Response, next: NextFunction) {
+  try {
+    const track = trackParam(req.body?.track);
+    if (!track) { res.status(400).json({ message: 'Choose Partner Program or Jobs' }); return; }
+    const { markTrackInactive } = await import('../services/stage-timers.service.js');
+    res.json(await markTrackInactive(req.params.userId as string, track, 'admin'));
+  } catch (err) { next(err); }
+}
+
+export async function reactivateApplicant(req: Request, res: Response, next: NextFunction) {
+  try {
+    const track = trackParam(req.body?.track);
+    if (!track) { res.status(400).json({ message: 'Choose Partner Program or Jobs' }); return; }
+    const { reactivateTracks } = await import('../services/stage-timers.service.js');
+    res.json({ tracks: await reactivateTracks(req.params.userId as string, 'admin', track) });
+  } catch (err) { next(err); }
+}
+
 export async function bulkApprovePartnerUsers(req: Request, res: Response, next: NextFunction) {
   try {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids as string[] : [];

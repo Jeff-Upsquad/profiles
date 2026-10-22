@@ -17,6 +17,7 @@ import ModuleUnlockGate from '@/components/training/ModuleUnlockGate';
 import { useTalentHasAssignedCard } from '@/hooks/useMyClients';
 import { useTalentPendingTasks } from '@/hooks/useTalentPendingTasks';
 import PendingTag from '@/components/talent/PendingTag';
+import InactiveLockout from '@/components/talent/InactiveLockout';
 
 // When every application is cancelled, only support remains accessible.
 const CANCELLED_ACCESSIBLE = '/talent/contact-support';
@@ -88,7 +89,7 @@ export default function TalentLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, refetchUser } = useAuth();
 
   // When rendered inside the talent app's in-app WebView (`?in_app=1`) we strip
   // the outer shell chrome — the native app already provides its own AppBar /
@@ -117,6 +118,9 @@ export default function TalentLayout({
   const partnerLocked = user?.partner_approval_status !== undefined && user.partner_approval_status !== 'approved';
   const onboarded = user?.onboarding_completed === true || user?.skip_onboarding === true;
   const cancelled = !!user?.application_cancelled_at;
+  // A stage time limit ran out: everything but support is locked until they reactivate.
+  const inactiveItems = !cancelled ? user?.stage_inactivity ?? [] : [];
+  const inactive = inactiveItems.length > 0;
   const { data: unread = 0 } = useUnreadSubscriptionCount({ enabled: isTalent && !partnerLocked });
   const { data: unreadAssignments = 0 } = useUnreadAssignmentCount({ enabled: isTalent && !partnerLocked });
   const { data: unreadJobs = 0 } = useUnreadJobsCount({ enabled: isTalent && user?.wants_jobs !== false });
@@ -375,6 +379,11 @@ export default function TalentLayout({
         ? item
         : { ...item, disabled: true, tooltip: 'Application cancelled — contact support' };
     }
+    if (inactive) {
+      return item.to === CANCELLED_ACCESSIBLE || item.to === '/talent/dashboard'
+        ? item
+        : { ...item, disabled: true, tooltip: 'Profile inactive — reactivate to continue' };
+    }
     // Preview-only partner modules: clickable, but flagged with a lock so the
     // sidebar still says at a glance that these can't be acted on yet.
     if (partnerLocked && PARTNER_PREVIEWABLE.includes(item.to)) {
@@ -422,6 +431,8 @@ export default function TalentLayout({
         <CancelledNotice reason={user.application_cancelled_reason} />
         {children}
       </>
+    ) : inactive && !(pathname && matches(pathname, [CANCELLED_ACCESSIBLE])) ? (
+      <InactiveLockout items={inactiveItems} onReactivated={refetchUser} />
     ) : currentRouteLocked && currentLock ? (
       <ModuleUnlockGate
         moduleLabel={MODULE_LABELS[currentLock.module] ?? 'this section'}

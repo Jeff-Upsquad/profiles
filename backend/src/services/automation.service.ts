@@ -912,7 +912,9 @@ export async function syncCrmHold(talentUserId: string, triggeredBy = 'system'):
       const result = await sendCrmWebhook(webhookUrl, {
         lead: { name: talent.full_name ?? null, email: email || null, phone: phone || null },
         track, hold: trackHold,
-        reason: cancellation ? (cancellation.reason === 'not_interested' ? 'Applicant confirmed they are not interested' : 'Requested changes were not made within the deadline') : null,
+        reason: cancellation ? (cancellation.reason === 'not_interested' ? 'Applicant confirmed they are not interested'
+          : cancellation.reason === 'inactive' ? 'Onboarding step not completed in time and the profile was not reactivated'
+            : 'Requested changes were not made within the deadline') : null,
       });
       await logEvent({ event_type: result.sent ? 'crm_hold_sync_sent' : 'crm_hold_sync_failed',
         talent_user_id: talentUserId, triggered_by: triggeredBy, metadata: { track, hold: trackHold, error: result.error } });
@@ -933,6 +935,58 @@ export async function syncCrmHold(talentUserId: string, triggeredBy = 'system'):
     talent_user_id: talentUserId,
     triggered_by: triggeredBy,
     metadata: { hold, error: result.error },
+  });
+}
+
+/**
+ * Tag (or untag) the talent's card on one track's board as Inactive — a stage
+ * timer ran out. The card stays on its stage; the CRM only shows the tag.
+ * Best effort: a failure is logged and never blocks the timer itself.
+ */
+export async function syncCrmInactivity(
+  talentUserId: string,
+  track: 'partner' | 'jobs',
+  inactive: { at: string; stage: string } | null,
+  triggeredBy = 'system',
+): Promise<void> {
+  const { data: t } = await supabaseAdmin
+    .from('talent_users')
+    .select('full_name, phone')
+    .eq('id', talentUserId)
+    .maybeSingle();
+  if (!t) return;
+  const phone = (t as any).phone?.trim() || '';
+  const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(talentUserId);
+  const email = authUser?.user?.email?.trim().toLowerCase() || '';
+  if (!phone && !email) return;
+
+  const mapping = await getCrmStatusMapping();
+  let webhookUrl = mapping?.crm_webhook_url || '';
+  if (!webhookUrl) {
+    const { env } = await import('../config/env.js');
+    const explicit = (env.SQUADHIRE_CRM_API_URL || '').replace(/\/$/, '');
+    const derived = env.SQUADHIRE_CRM_SYSTEM_EVENTS_URL
+      ? new URL(env.SQUADHIRE_CRM_SYSTEM_EVENTS_URL).origin
+      : '';
+    const origin = explicit || derived;
+    if (origin) webhookUrl = `${origin}/integrations/profiles/leads`;
+  }
+  if (!webhookUrl) return;
+  webhookUrl = webhookUrl.replace(/\/profiles\/leads\/?$/, '/profiles/activity');
+
+  const result = await sendCrmWebhook(webhookUrl, {
+    lead: { name: (t as any).full_name ?? null, email: email || null, phone: phone || null },
+    track,
+    inactive: !!inactive,
+    ...(inactive ? { inactive_at: inactive.at, stage: inactive.stage } : {}),
+    tag: 'Inactive',
+    timestamp: new Date().toISOString(),
+  });
+  await logEvent({
+    event_type: result.sent ? 'crm_inactivity_sync_sent' : 'crm_inactivity_sync_failed',
+    talent_user_id: talentUserId,
+    triggered_by: triggeredBy,
+    metadata: { track, inactive: !!inactive, error: result.error },
   });
 }
 

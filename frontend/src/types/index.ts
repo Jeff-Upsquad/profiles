@@ -22,10 +22,27 @@ export interface User {
   /** Set when the application was cancelled (unanswered change requests). */
   application_cancelled_at?: string | null;
   application_cancelled_reason?: string | null;
+  /** Programs locked because a stage time limit ran out (empty when active). */
+  stage_inactivity?: StageInactivity[];
   skip_onboarding?: boolean;
   contact_person_name?: string;
   contact_email?: string;
   contact_phone?: string;
+}
+
+export interface StageInactivity {
+  track: 'partner' | 'jobs';
+  program: string;
+  stage: string;
+  stage_label: string;
+  /** "complete your basic profile" — what they have to do next. */
+  task: string | null;
+  /** "2 days" — time they get once reactivated; null when the stage isn't timed. */
+  deadline: string | null;
+  inactive_at: string;
+  days_inactive: number;
+  cancel_at: string;
+  cancels_in: string;
 }
 
 export interface AuthResponse {

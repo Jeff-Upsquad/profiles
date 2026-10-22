@@ -24,6 +24,7 @@ import {
   requestChangesStepLabel,
   talentBoardSteps,
   timeAgo,
+  timeUntil,
   type HubAttention,
   type HubCategory,
   type HubRow,
@@ -48,7 +49,12 @@ const ATTENTION_CHIPS: { value: HubAttention; label: string; hint: string }[] = 
   { value: 'basic_incomplete', label: 'Basic incomplete', hint: 'Course done, basic profile still missing sections' },
   { value: 'no_job_profile', label: 'No job profile', hint: 'Basic profile done, no job profile submitted yet' },
   { value: 'message_failed', label: 'WhatsApp failed', hint: 'A CRM WhatsApp message to this talent failed to send (24-hour window, Meta or technical issue)' },
+  { value: 'inactive', label: 'Inactive', hint: 'Missed a stage time limit (or marked inactive) — cancelled if they do not reactivate in time' },
+  { value: 'overdue', label: 'Overdue on us', hint: 'Stages whose action is ours (e.g. approval, final review) past their time limit' },
 ];
+
+// Stages an applicant can be marked inactive on (the onboarding steps).
+const INACTIVE_ELIGIBLE = new Set<string>(['applicants', 'application_approved', 'signed_up', 'onboarding_course', 'basic_profile', 'job_profile', 'final_review']);
 
 // pipeline_stage → lead status key, so CRM stage names from the mapping apply.
 const STAGE_TO_LEAD_KEY: Record<PipelineStage, string> = {
@@ -191,6 +197,38 @@ function RcCount({ n }: { n: number }) {
   );
 }
 
+/** Small grey "N inactive" count shown beside a stage's total. */
+function InactiveCount({ n }: { n: number }) {
+  if (n <= 0) return null;
+  return (
+    <span
+      title={`${n} inactive`}
+      className="inline-flex items-center gap-0.5 rounded-full bg-gray-200 px-1.5 text-[10px] font-semibold leading-4 text-gray-700"
+    >
+      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+      </svg>
+      {n}
+    </span>
+  );
+}
+
+/** Small red "N overdue" count — admin stages past their time limit. */
+function OverdueCount({ n }: { n: number }) {
+  if (n <= 0) return null;
+  return (
+    <span
+      title={`${n} overdue — waiting on us`}
+      className="inline-flex items-center gap-0.5 rounded-full bg-red-100 px-1.5 text-[10px] font-semibold leading-4 text-red-700"
+    >
+      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m5-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      {n}
+    </span>
+  );
+}
+
 export default function OnboardingHub({
   track = 'partner',
   rejectedOnly = false,
@@ -324,6 +362,23 @@ export default function OnboardingHub({
     onError: (e: any) => toast.error(e.response?.data?.message || 'Restore failed'),
   });
 
+  const markInactiveMut = useMutation({
+    mutationFn: async (id: string) => (await api.patch(`/admin/user-approvals/${id}/mark-inactive`, { track })).data,
+    onSuccess: () => {
+      toast.success('Marked inactive · applicant notified');
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Could not mark inactive'),
+  });
+  const reactivateMut = useMutation({
+    mutationFn: async (id: string) => (await api.patch(`/admin/user-approvals/${id}/reactivate`, { track })).data,
+    onSuccess: () => {
+      toast.success('Reactivated · time limit restarted');
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Could not reactivate'),
+  });
+
   const [restoreTarget, setRestoreTarget] = useState<HubRow | null>(null);
   const restoreMut = useMutation({
     mutationFn: async ({ id, selectedTrack }: { id: string; selectedTrack: 'partner' | 'jobs' | 'both' }) =>
@@ -423,6 +478,8 @@ export default function OnboardingHub({
 
   const stageCount = (s: string) => stats?.by_pipeline_stage?.[s] ?? 0;
   const stageRcCount = (s: string) => stats?.rc_by_pipeline_stage?.[s] ?? 0;
+  const stageInactiveCount = (s: string) => stats?.inactive_by_pipeline_stage?.[s] ?? 0;
+  const stageOverdueCount = (s: string) => stats?.overdue_by_pipeline_stage?.[s] ?? 0;
   const formTypeForLabels = category === 'all' ? 'creative' : category;
 
   return (
@@ -450,6 +507,16 @@ export default function OnboardingHub({
               {bulkApproveMut.isPending ? 'Approving…' : `Approve ${selected.size} selected`}
             </button>
           )}
+          <Link
+            href={`${track === 'jobs' ? '/jobs-onboarding' : '/approvals'}/settings`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            title="Time limits for each stage"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m5-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Settings
+          </Link>
           <Link
             href={`https://squadhire.upsquadconnect.com/apply/${category === 'all' ? 'creative' : category}`}
             target="_blank"
@@ -505,6 +572,9 @@ export default function OnboardingHub({
             {(stats?.attention.waiting_on_talent ?? 0) > 0 && (
               <> · <span className="text-amber-700">{stats?.attention.waiting_on_talent} under request changes</span></>
             )}
+            {(stats?.attention.inactive ?? 0) > 0 && (
+              <> · <span className="text-gray-600">{stats?.attention.inactive} inactive</span></>
+            )}
             {' '}· synced with SquadHire CRM
           </p>
         </div>
@@ -532,8 +602,12 @@ export default function OnboardingHub({
                   </span>
                 </div>
                 <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-xl font-bold text-gray-900">{Math.max(0, stageCount(s.value) - stageRcCount(s.value))}</span>
+                  <span className="text-xl font-bold text-gray-900" title="Active">
+                    {Math.max(0, stageCount(s.value) - stageRcCount(s.value) - stageInactiveCount(s.value))}
+                  </span>
                   <RcCount n={stageRcCount(s.value)} />
+                  <InactiveCount n={stageInactiveCount(s.value)} />
+                  <OverdueCount n={stageOverdueCount(s.value)} />
                 </div>
               </button>
             );
@@ -604,7 +678,11 @@ export default function OnboardingHub({
                     ? stats?.attention.waiting_on_talent
                     : c.value === 'message_failed'
                       ? stats?.attention.message_failed
-                      : undefined;
+                      : c.value === 'inactive'
+                        ? stats?.attention.inactive
+                        : c.value === 'overdue'
+                          ? stats?.attention.overdue
+                          : undefined;
             return (
               <button
                 key={c.value}
@@ -623,7 +701,7 @@ export default function OnboardingHub({
               >
                 {c.label}
                 {typeof n === 'number' && n > 0 && (
-                  <span className={`rounded-full px-1.5 text-[10px] ${active ? 'bg-white/20' : c.value === 'message_failed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}>{n}</span>
+                  <span className={`rounded-full px-1.5 text-[10px] ${active ? 'bg-white/20' : c.value === 'message_failed' || c.value === 'overdue' ? 'bg-red-100 text-red-700' : c.value === 'inactive' ? 'bg-gray-200 text-gray-700' : 'bg-amber-100 text-amber-800'}`}>{n}</span>
                 )}
               </button>
             );
@@ -757,7 +835,7 @@ export default function OnboardingHub({
                       {view === 'cancelled' ? (
                         <td className="max-w-xs px-3 py-2.5">
                           <span className="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">Cancelled</span>
-                          <p className="mt-1 text-sm text-gray-800">{u.application_cancelled_reason === 'not_interested' ? 'Not interested' : u.application_cancelled_reason === 'no_response' ? 'No response' : u.application_cancelled_reason || '—'}</p>
+                          <p className="mt-1 text-sm text-gray-800">{u.application_cancelled_reason === 'not_interested' ? 'Not interested' : u.application_cancelled_reason === 'no_response' ? 'No response' : u.application_cancelled_reason === 'inactive' ? 'Inactive — not reactivated' : u.application_cancelled_reason || '—'}</p>
                           {u.application_cancelled_at && (
                             <p className="mt-0.5 text-[11px] text-gray-500" title={u.application_cancelled_at}>Cancelled {timeAgo(u.application_cancelled_at)}</p>
                           )}
@@ -777,6 +855,19 @@ export default function OnboardingHub({
                             <p className="mt-1 inline-flex items-center rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800"
                               title={`Changes requested ${timeAgo(u.request_changes.requested_at)}`}>
                               Changes requested · {requestChangesStepLabel(u.request_changes)}
+                            </p>
+                          )}
+                          {u.inactive ? (
+                            <p className="mt-1 inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-700"
+                              title={`${u.inactive.by === 'admin' ? 'Marked inactive' : 'Went inactive'} ${timeAgo(u.inactive.at)}`}>
+                              Inactive {timeAgo(u.inactive.at)} · cancels {timeUntil(u.inactive.cancel_at)}
+                            </p>
+                          ) : u.stage_timer && (
+                            <p className={`mt-1 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                              u.stage_timer.overdue ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-600'}`}
+                              title={`Time limit ${u.stage_timer.limit_text} · ${u.stage_timer.actor === 'admin' ? 'our move' : "applicant's move"}`}>
+                              {u.stage_timer.actor === 'admin' ? 'Our move · ' : ''}
+                              {u.stage_timer.overdue ? `Overdue · was due ${timeAgo(u.stage_timer.due_at)}` : `Due ${timeUntil(u.stage_timer.due_at)}`}
                             </p>
                           )}
                           {u.pipeline_stage === 'live' && <TalentBoardDots row={u} />}
@@ -841,6 +932,32 @@ export default function OnboardingHub({
                               className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
                             >
                               Restore
+                            </button>
+                          )}
+                          {canEdit && view === 'active' && u.inactive && (
+                            <button
+                              type="button"
+                              onClick={() => reactivateMut.mutate(u.id)}
+                              disabled={reactivateMut.isPending}
+                              title="Reactivate · restarts this stage's time limit"
+                              className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                            >
+                              Reactivate
+                            </button>
+                          )}
+                          {canEdit && view === 'active' && !u.inactive && !isPending && INACTIVE_ELIGIBLE.has(u.pipeline_stage) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Mark ${u.full_name}'s ${track === 'jobs' ? 'Jobs' : 'Partner Program'} application inactive? They'll get an in-app notification and a WhatsApp message.`)) {
+                                  markInactiveMut.mutate(u.id);
+                                }
+                              }}
+                              disabled={markInactiveMut.isPending}
+                              title="Mark inactive · notifies the applicant (app + WhatsApp) and tags the CRM card"
+                              className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+                            >
+                              Mark inactive
                             </button>
                           )}
                           {canEdit && view !== 'cancelled' && u.pipeline_stage === 'rejected' && (

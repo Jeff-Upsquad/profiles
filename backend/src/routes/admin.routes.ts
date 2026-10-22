@@ -243,6 +243,11 @@ router.patch('/user-approvals/:userId/reject-jobs', adminController.rejectJobsUs
 router.patch('/user-approvals/:userId/reinstate-jobs', adminController.reinstateJobsUser);
 router.patch('/user-approvals/:userId/restore-rejected', adminController.restoreRejectedUser);
 router.patch('/user-approvals/:userId/restore-cancelled', adminController.restoreCancelledUser);
+// Onboarding stage timers — per-module settings + manual inactive / reactivate.
+router.get('/user-approvals/stage-timers', adminController.getStageTimers);
+router.put('/user-approvals/stage-timers', adminController.updateStageTimers);
+router.patch('/user-approvals/:userId/mark-inactive', adminController.markApplicantInactive);
+router.patch('/user-approvals/:userId/reactivate', adminController.reactivateApplicant);
 router.patch('/user-approvals/:userId/reject', adminController.rejectUser);
 router.patch('/user-approvals/:userId/pipeline-stage', adminController.updatePipelineStage);
 

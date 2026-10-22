@@ -14,6 +14,7 @@ import { sweepMeetingReminders } from './conversations.service.js';
 import { sweepGroupMeetCompletions, sweepGroupMeetJoinNotices } from './group-meets.service.js';
 import { sweepWebinarReminders } from './webinars.service.js';
 import { sweepRequestChangeReminders } from './request-change-reminders.service.js';
+import { sweepStageTimers } from './stage-timers.service.js';
 
 /**
  * Interview-day orchestration cron (60s tick):
@@ -273,6 +274,7 @@ export function startInterviewSweeper(): NodeJS.Timeout {
       await sweepWebinarReminders(now);
       await sweepBusinessCardRollups();
       await sweepRequestChangeReminders(now);
+      await sweepStageTimers(now);
     } catch (err) {
       console.error('[jobs-sweeper] tick errored', err);
     }

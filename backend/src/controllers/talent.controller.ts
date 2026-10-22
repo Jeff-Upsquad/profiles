@@ -8,6 +8,15 @@ function paramStr(val: string | string[]): string {
   return Array.isArray(val) ? val[0] : val;
 }
 
+export async function reactivateMe(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { reactivateTracks } = await import('../services/stage-timers.service.js');
+    res.json({ tracks: await reactivateTracks(req.user!.id, 'talent') });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getMe(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await talentService.getTalentUser(req.user!.id);
