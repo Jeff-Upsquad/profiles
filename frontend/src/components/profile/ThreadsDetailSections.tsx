@@ -1,5 +1,6 @@
 'use client';
 
+import { createContext, useContext } from 'react';
 import type { CategoryField } from '@/types';
 import {
   coerceLeveledList,
@@ -33,6 +34,37 @@ interface ThreadsDetailSectionsProps {
     aiTools?: Record<string, string | null>;
     groupOrder?: string[];
   };
+  /**
+   * inline — stacked inside the profile card (ghost profiles).
+   * rail   — one card per section, for the desktop right-hand column.
+   * sheet  — stacked with light headings, for the mobile Skills & tools sheet.
+   * rail/sheet omit Experience (the header fact strip shows it) and gather
+   * plain label/value fields into a single "Details" section.
+   */
+  variant?: SectionVariant;
+}
+
+export type SectionVariant = 'inline' | 'rail' | 'sheet';
+
+const VariantContext = createContext<SectionVariant>('inline');
+
+const HEADING_CLASS: Record<SectionVariant, string> = {
+  inline: 'text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5',
+  rail: 'text-[15px] font-bold text-zinc-950 mb-3.5',
+  sheet: 'text-[13px] font-semibold text-zinc-500 mb-2.5',
+};
+
+function Section({ label, delay, children }: { label: string; delay: number; children: React.ReactNode }) {
+  const variant = useContext(VariantContext);
+  return (
+    <section
+      className={`animate-fade-up ${variant === 'rail' ? 'rounded-[20px] border border-zinc-200 bg-white p-5' : ''}`}
+      style={{ animationDelay: `${delay}s` }}
+    >
+      <h3 className={HEADING_CLASS[variant]}>{label}</h3>
+      {children}
+    </section>
+  );
 }
 
 function groupItemsByName<T>(
@@ -94,18 +126,18 @@ function SkillRow({ skill, level, maxLevel = 5 }: { skill: string; level: number
       ? Math.max(1, Math.min(5, Math.ceil(level / 2)))
       : Math.max(1, Math.min(5, Math.round(level)));
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-[14px] font-medium text-zinc-800">{skill}</span>
-      <div className="flex items-center gap-2">
-        <div className="flex gap-0.5">
+    <div className="flex items-center justify-between gap-2.5">
+      <span className="min-w-0 flex-1 text-[14px] text-zinc-950">{skill}</span>
+      <div className="flex shrink-0 items-center gap-2.5">
+        <div className="flex gap-[3px]" aria-label={`${dots} of 5`} role="img">
           {[1, 2, 3, 4, 5].map((l) => (
-            <div
+            <span
               key={l}
-              className={`w-3 h-3 rounded-full ${l <= dots ? 'bg-zinc-800' : 'bg-zinc-200'}`}
+              className={`h-1.5 w-1.5 rounded-full ${l <= dots ? 'bg-zinc-950' : 'bg-zinc-300'}`}
             />
           ))}
         </div>
-        <span className="text-[12px] text-zinc-500 w-24 text-right">
+        <span className="w-[76px] text-right text-[13px] text-zinc-500">
           {getLevelLabel(dots)}
         </span>
       </div>
@@ -115,7 +147,7 @@ function SkillRow({ skill, level, maxLevel = 5 }: { skill: string; level: number
 
 function SkillRowList({ skills, maxLevel = 5 }: { skills: { skill: string; level: number }[]; maxLevel?: number }) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2.5">
       {skills.map((s) => (
         <SkillRow key={s.skill} skill={s.skill} level={s.level} maxLevel={maxLevel} />
       ))}
@@ -141,10 +173,7 @@ function SkillsSection({
   const { groups, hasNamedGroups } = groupItemsByName(skills, (s) => s.skill, groupMap, groupOrder);
 
   return (
-    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
-      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
-        {label}
-      </h3>
+    <Section label={label} delay={delay}>
       {hasNamedGroups ? (
         <div className="space-y-4">
           {Array.from(groups.entries()).map(([groupName, list]) => (
@@ -157,17 +186,17 @@ function SkillsSection({
       ) : (
         <SkillRowList skills={skills} maxLevel={maxLevel} />
       )}
-    </div>
+    </Section>
   );
 }
 
 function TagChips({ tags }: { tags: string[] }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1.5">
       {tags.map((tag) => (
         <span
           key={tag}
-          className="px-3 py-1.5 bg-white border border-zinc-200 rounded-[10px] text-[13px] font-medium text-zinc-800 shadow-sm"
+          className="rounded-full border border-zinc-200 bg-white px-2.5 py-1.5 text-[13px] font-medium text-zinc-950"
         >
           {tag}
         </span>
@@ -179,11 +208,11 @@ function TagChips({ tags }: { tags: string[] }) {
 /** Tag chip with a "Name · Level" suffix for items carrying a proficiency. */
 function LeveledTagChips({ items }: { items: LeveledItem[] }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1.5">
       {items.map((it) => (
         <span
           key={it.name}
-          className="px-3 py-1.5 bg-white border border-zinc-200 rounded-[10px] text-[13px] font-medium text-zinc-800 shadow-sm"
+          className="rounded-full border border-zinc-200 bg-white px-2.5 py-1.5 text-[13px] font-medium text-zinc-950"
         >
           {it.name}
           <span className="ml-1.5 text-zinc-500 font-normal">
@@ -211,10 +240,7 @@ function TagSection({
   const { groups, hasNamedGroups } = groupItemsByName(tags, (t) => t, groupMap, groupOrder);
 
   return (
-    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
-      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
-        {label}
-      </h3>
+    <Section label={label} delay={delay}>
       {hasNamedGroups ? (
         <div className="space-y-3">
           {Array.from(groups.entries()).map(([groupName, list]) => (
@@ -227,7 +253,7 @@ function TagSection({
       ) : (
         <TagChips tags={tags} />
       )}
-    </div>
+    </Section>
   );
 }
 
@@ -247,10 +273,7 @@ function LeveledTagSection({
   const { groups, hasNamedGroups } = groupItemsByName(items, (i) => i.name, groupMap, groupOrder);
 
   return (
-    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
-      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
-        {label}
-      </h3>
+    <Section label={label} delay={delay}>
       {hasNamedGroups ? (
         <div className="space-y-3">
           {Array.from(groups.entries()).map(([groupName, list]) => (
@@ -263,27 +286,24 @@ function LeveledTagSection({
       ) : (
         <LeveledTagChips items={items} />
       )}
-    </div>
+    </Section>
   );
 }
 
 function LanguagesSection({ languages, delay }: { languages: { language: string; proficiency: string }[]; delay: number }) {
   return (
-    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
-      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
-        Languages
-      </h3>
-      <div className="flex flex-wrap gap-2">
+    <Section label="Languages" delay={delay}>
+      <div className="flex flex-wrap gap-1.5">
         {languages.map((lang) => (
           <span
             key={lang.language}
-            className="px-3 py-1.5 bg-zinc-100/80 border border-zinc-200 rounded-[10px] text-[13px] font-medium text-zinc-800 shadow-sm"
+            className="rounded-full border border-zinc-200 bg-white px-2.5 py-1.5 text-[13px] font-medium text-zinc-950"
           >
             {lang.language} <span className="text-zinc-500 font-normal">&middot; {lang.proficiency}</span>
           </span>
         ))}
       </div>
-    </div>
+    </Section>
   );
 }
 
@@ -308,14 +328,11 @@ function formatExperience(value: unknown): string | null {
 
 function TextBlock({ label, text, delay }: { label: string; text: string; delay: number }) {
   return (
-    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
-      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-        {label}
-      </h3>
+    <Section label={label} delay={delay}>
       <p className="text-[14.5px] leading-relaxed text-zinc-800 whitespace-pre-line">
         {text}
       </p>
-    </div>
+    </Section>
   );
 }
 
@@ -323,10 +340,7 @@ function FileLink({ label, url, delay }: { label: string; url: string; delay: nu
   const isImage = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
 
   return (
-    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
-      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-        {label}
-      </h3>
+    <Section label={label} delay={delay}>
       {isImage ? (
         <a href={url} target="_blank" rel="noopener noreferrer">
           <img
@@ -350,7 +364,7 @@ function FileLink({ label, url, delay }: { label: string; url: string; delay: nu
           View File
         </a>
       )}
-    </div>
+    </Section>
   );
 }
 
@@ -369,10 +383,7 @@ function IndustryExperienceSection({
   delay: number;
 }) {
   return (
-    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
-      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
-        Industry Experience
-      </h3>
+    <Section label="Industry experience" delay={delay}>
       <div className="flex flex-col gap-2">
         {items.map((it, idx) => {
           const range = [formatExpMonth(it.from ?? ''), it.current ? 'Present' : formatExpMonth(it.to ?? '')]
@@ -389,11 +400,15 @@ function IndustryExperienceSection({
           );
         })}
       </div>
-    </div>
+    </Section>
   );
 }
 
-export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, languages, categorySlug, groupMaps }: ThreadsDetailSectionsProps) {
+export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, languages, categorySlug, groupMaps, variant = 'inline' }: ThreadsDetailSectionsProps) {
+  const gatherRows = variant !== 'inline';
+  // Plain label/value rows; inline mode renders them in place, rail/sheet
+  // gather them into one "Details" section at the end.
+  const detailRows: React.ReactNode[] = [];
   const categoriesLabel = categorySlug === 'designer' ? 'Categories and Skills' : 'Categories';
   const activeFields = fields
     .filter((f) => f.is_active)
@@ -440,7 +455,7 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   // Built-in Experience pseudo-field (always present on job profiles).
   // Rendered first so the talent's total experience reads as the headline
   // fact at the top, above categories / skills / tools / languages.
-  const experienceLabel = formatExperience(fieldData?._experience);
+  const experienceLabel = gatherRows ? null : formatExperience(fieldData?._experience);
   if (experienceLabel) {
     const delay = sectionIndex * 0.04;
     sections.push(<FieldRow key="_experience" label="Experience" value={experienceLabel} delay={delay} />);
@@ -576,13 +591,13 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
         break;
       }
       case 'currency': {
-        sections.push(
+        (gatherRows ? detailRows : sections).push(
           <FieldRow key={field.id} label={field.field_label} value={`₹${Number(value).toLocaleString()}`} delay={delay} />
         );
         break;
       }
       default: {
-        sections.push(
+        (gatherRows ? detailRows : sections).push(
           <FieldRow key={field.id} label={field.field_label} value={String(value)} delay={delay} />
         );
         break;
@@ -592,7 +607,45 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
     sectionIndex++;
   }
 
+  if (detailRows.length > 0) {
+    sections.push(
+      <Section key="_details" label="Details" delay={sectionIndex * 0.04}>
+        <div className="flex flex-col gap-2.5">{detailRows}</div>
+      </Section>
+    );
+  }
+
   if (sections.length === 0) return null;
 
-  return <div className="mt-6 px-6 space-y-5">{sections}</div>;
+  const wrapperClass =
+    variant === 'rail'
+      ? 'flex flex-col gap-3'
+      : variant === 'sheet'
+        ? 'flex flex-col gap-[22px]'
+        : 'mt-6 px-6 space-y-5';
+
+  return (
+    <VariantContext.Provider value={variant}>
+      <div className={wrapperClass}>{sections}</div>
+    </VariantContext.Provider>
+  );
+}
+
+function countOf(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+/** "7 core skills · 11 tools" — the summary line under the mobile Skills & tools row. */
+export function summarizeDetailSections(fieldData: Record<string, any>): string {
+  const categories = countOf(fieldData?._categories);
+  const parts: [number, string, string][] = [
+    [categories, 'category', 'categories'],
+    [countOf(fieldData?._skills), 'core skill', 'core skills'],
+    [countOf(fieldData?._accounting_software) + countOf(fieldData?._tools), 'tool', 'tools'],
+    [countOf(fieldData?._ai_tools), 'AI tool', 'AI tools'],
+  ];
+  return parts
+    .filter(([n]) => n > 0)
+    .map(([n, one, many]) => `${n} ${n === 1 ? one : many}`)
+    .join(' · ');
 }

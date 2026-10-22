@@ -9,7 +9,12 @@ import PdfViewer from './PdfViewer';
 interface ThreadsPortfolioFeedProps {
   items: PortfolioItem[];
   activeTab: string;
+  /** Shown as the author line on every post. */
+  authorName?: string;
 }
+
+/** Posts shown before "Show all". */
+const INITIAL_POSTS = 6;
 
 // Use the shared display-name helper which gracefully handles legacy
 // providers (e.g. 'gdrive') no longer accepted by the parser. Falls back
@@ -18,8 +23,9 @@ function providerLabel(provider: string | null | undefined): string {
   return provider ? legacyProviderDisplayName(provider) : 'source';
 }
 
-export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfolioFeedProps) {
+export default function ThreadsPortfolioFeed({ items, activeTab, authorName }: ThreadsPortfolioFeedProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const [imageIsTall, setImageIsTall] = useState(false);
   const [showTopFade, setShowTopFade] = useState(false);
   const [showBottomFade, setShowBottomFade] = useState(false);
@@ -27,14 +33,21 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const filtered =
-    activeTab === 'All'
+    activeTab === 'All' || activeTab === 'Feed'
       ? items
       : activeTab === 'Other'
         ? items.filter((i) => !i.category_name)
         : items.filter((i) => i.category_name === activeTab);
-  const selectedItem = selectedIndex !== null ? filtered[selectedIndex] : null;
+  // The lightbox steps through works only — text posts have nothing to open.
+  const mediaItems = filtered.filter((i) => i.file_type !== 'text');
+  const selectedItem = selectedIndex !== null ? mediaItems[selectedIndex] : null;
   const hasPrev = selectedIndex !== null && selectedIndex > 0;
-  const hasNext = selectedIndex !== null && selectedIndex < filtered.length - 1;
+  const hasNext = selectedIndex !== null && selectedIndex < mediaItems.length - 1;
+  const visiblePosts = showAll ? filtered : filtered.slice(0, INITIAL_POSTS);
+
+  useEffect(() => {
+    setShowAll(false);
+  }, [activeTab]);
 
   useEffect(() => {
     setImageIsTall(false);
@@ -109,16 +122,51 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
 
   return (
     <>
-      {/* Portfolio grid — 2 cols mobile, 3 cols desktop */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-0.5 mt-0.5 pb-0.5 px-0.5">
-        {filtered.map((item, index) => (
-          <ThreadsPortfolioCard
-            key={item.id}
-            item={item}
-            onClick={() => setSelectedIndex(index)}
-          />
-        ))}
+      {/* Thread-style feed — one post per work or text post */}
+      <div>
+        {visiblePosts.map((item) => {
+          const isText = item.file_type === 'text';
+          const skills = item.skills ?? [];
+          return (
+            <article key={item.id} className="border-b border-zinc-200 px-4 py-3.5 sm:px-6 sm:py-4">
+              {authorName && <p className="text-[15px] font-semibold text-zinc-950">{authorName}</p>}
+              {item.caption && (
+                <p className="mt-1 whitespace-pre-line text-[15px] leading-[1.45] text-zinc-950 sm:leading-normal">
+                  {item.caption}
+                </p>
+              )}
+              {!isText && skills.length > 0 && (
+                <p className="mt-1 text-[14px] text-zinc-500">{skills.join(' · ')}</p>
+              )}
+              {!isText && (
+                <div className="mt-2.5">
+                  <ThreadsPortfolioCard
+                    item={item}
+                    onClick={() => setSelectedIndex(mediaItems.indexOf(item))}
+                  />
+                </div>
+              )}
+              {isText && item.admin_is_active === false && (
+                <p className="mt-2 text-[12px] font-semibold text-red-600">
+                  Marked inactive by admin{item.admin_comment ? ` · ${item.admin_comment}` : ''}
+                </p>
+              )}
+            </article>
+          );
+        })}
       </div>
+
+      {filtered.length > visiblePosts.length && (
+        <div className="flex justify-center px-6 pt-4 pb-5">
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="text-[14px] font-semibold text-[#1A66D9] hover:text-[#124CA6]"
+          >
+            Show all {filtered.length} posts
+          </button>
+        </div>
+      )}
 
       {/* Lightbox modal */}
       {selectedItem && (
@@ -164,7 +212,7 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
 
           {/* Counter */}
           <div className="absolute top-4 left-4 z-10 rounded-full bg-black/50 px-3 py-1 text-xs font-medium text-white/90">
-            {selectedIndex! + 1} / {filtered.length}
+            {selectedIndex! + 1} / {mediaItems.length}
           </div>
 
           {/* Content */}
@@ -304,8 +352,8 @@ export default function ThreadsPortfolioFeed({ items, activeTab }: ThreadsPortfo
             )}
 
             {/* File name caption */}
-            <p className="mt-3 text-center text-sm text-white/80">
-              {selectedItem.file_name}
+            <p className="mt-3 max-w-[min(640px,85vw)] whitespace-pre-line text-center text-sm text-white/80 line-clamp-3">
+              {selectedItem.caption || selectedItem.file_name}
             </p>
 
             {/* Inactive banner (talent-only — business never receives inactive items) */}

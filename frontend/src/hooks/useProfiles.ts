@@ -147,6 +147,7 @@ export function useAddPortfolioItem() {
       // New axes
       category_name?: string | null;
       skill_names?: string[];
+      caption?: string | null;
     }) => {
       const { data } = await api.post(`/talent/profiles/${profileId}/portfolio`, item);
       return data;
@@ -175,6 +176,7 @@ export function useUpdatePortfolioItem() {
       itemId: string;
       category_name?: string | null;
       skill_names?: string[];
+      caption?: string | null;
     }) => {
       const { data } = await api.patch(
         `/talent/profiles/${profileId}/portfolio/${itemId}`,

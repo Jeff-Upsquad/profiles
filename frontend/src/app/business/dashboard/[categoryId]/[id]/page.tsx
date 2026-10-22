@@ -76,6 +76,33 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
     !cardRecipient.subscription_activated_at &&
     (cardRecipient.business_review_status === 'shortlisted' || !!cardRecipient.selected_at);
 
+  // "Not a fit" = the card review's Reject. Hidden once the talent is already
+  // rejected, selected, or passed over for this card.
+  const canRejectForCard =
+    cardScoped &&
+    !!cardRecipient &&
+    cardRecipient.business_review_status !== 'rejected' &&
+    !cardRecipient.selected_at &&
+    !cardRecipient.passed_over_at;
+
+  const backToSource = () =>
+    cardId
+      ? router.push(`/business/dashboard/cards/${cardId}`)
+      : router.push(`/business/dashboard/${params.categoryId}`);
+
+  const handleNotAFit = () => {
+    if (!recipientId) return;
+    reviewRecipient.mutate(
+      { recipientId, action: 'reject' },
+      {
+        onSuccess: () => {
+          toast.success('Marked as not a fit for this card');
+          backToSource();
+        },
+      },
+    );
+  };
+
   const handleMessage = () => {
     if (!cardRecipient?.talent_user_id) return;
     const roomCardId = cardRecipient.card_id || cardId;
@@ -238,16 +265,14 @@ export default function DashboardProfilePage(props: { params: Promise<Params> })
         interestLoading={sendInterest.isPending}
         onSendOffer={canSendOffer ? () => setOfferOpen(true) : undefined}
         sendOfferLoading={sendOffer.isPending}
+        onNotAFit={canRejectForCard ? handleNotAFit : undefined}
+        notAFitLoading={reviewRecipient.isPending}
         cardEngagement={cardEngagement}
         onMessage={canMessage ? handleMessage : undefined}
         messageLoading={openRoom.isPending}
         isLoading={profileLoading}
         error={profileError ? 'Failed to load profile' : undefined}
-        onBack={() =>
-          cardId
-            ? router.push(`/business/dashboard/cards/${cardId}`)
-            : router.push(`/business/dashboard/${params.categoryId}`)
-        }
+        onBack={backToSource}
       />
       {offerModal}
     </>

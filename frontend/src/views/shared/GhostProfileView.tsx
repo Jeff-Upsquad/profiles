@@ -244,6 +244,7 @@ export default function GhostProfileView({
             <ThreadsPortfolioFeed
               items={activeSource!.portfolio_items}
               activeTab={activePortfolioTab}
+              authorName={talentUser.full_name}
             />
           </>
         )}

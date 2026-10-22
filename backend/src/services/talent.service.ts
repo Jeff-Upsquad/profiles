@@ -441,6 +441,7 @@ export async function computeOnboardingProgress(userId: string): Promise<{
       .from('portfolio_items')
       .select('created_at')
       .in('profile_id', profileIds)
+      .neq('file_type', 'text')
       .order('created_at', { ascending: true })
       .limit(1);
     earliestPortfolioCreatedAt = portfolio?.[0]?.created_at ?? null;
@@ -579,7 +580,8 @@ async function countPortfolioItems(profileIds: string[]): Promise<Record<string,
   const { data, error } = await supabaseAdmin
     .from('portfolio_items')
     .select('profile_id')
-    .in('profile_id', profileIds);
+    .in('profile_id', profileIds)
+    .neq('file_type', 'text');
   if (error) throw new AppError(500, 'Failed to count portfolio items');
   for (const row of (data ?? []) as { profile_id: string }[]) {
     counts[row.profile_id] = (counts[row.profile_id] ?? 0) + 1;
@@ -940,7 +942,8 @@ export async function submitProfile(profileId: string, userId: string) {
     const { data: items, error: pfErr } = await supabaseAdmin
       .from('portfolio_items')
       .select('created_at, updated_at')
-      .eq('profile_id', profileId);
+      .eq('profile_id', profileId)
+      .neq('file_type', 'text');
     if (pfErr) throw new AppError(500, 'Failed to count portfolio items');
     portfolioCount = (items ?? []).length;
     if (profile.changes_requested_at) {
@@ -1215,6 +1218,16 @@ interface AddPortfolioItemInput {
   // New axes
   category_name?: string | null;
   skill_names?: string[];
+  caption?: string | null;
+}
+
+/** Trimmed caption, or null when blank. Captions are capped so a pasted essay can't bloat feeds. */
+function normalizeCaption(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 2000) throw new AppError(400, 'Caption must be 2000 characters or fewer');
+  return trimmed;
 }
 
 export async function addPortfolioItem(
@@ -1235,8 +1248,22 @@ export async function addPortfolioItem(
   // Build the row to insert. Link rows require server-side re-validation of
   // the parsed URL — we never trust the client's `embed_url`/`provider`.
   let row: Record<string, unknown>;
+  const caption = normalizeCaption(input.caption);
 
-  if (input.source_type === 'link') {
+  if (input.file_type === 'text') {
+    // Text-only post: the body lives in caption, there is no file.
+    if (!caption) throw new AppError(400, 'Text posts need some text');
+    row = {
+      profile_id: profileId,
+      skill_name: input.skill_name,
+      category_name: input.category_name ?? null,
+      file_type: 'text',
+      file_name: input.file_name || 'Text post',
+      file_url: '',
+      source_type: 'upload',
+      caption,
+    };
+  } else if (input.source_type === 'link') {
     if (!input.external_url) {
       throw new AppError(400, 'external_url is required for link portfolio items');
     }
@@ -1273,11 +1300,15 @@ export async function addPortfolioItem(
       external_url: parsed.externalUrl,
       embed_url: parsed.embedUrl,
       thumbnail_url: thumbnailUrl,
+      caption,
     };
   } else {
     // Upload path — strip any link-only fields the client may have sent.
     if (!input.file_url) {
       throw new AppError(400, 'file_url is required for uploaded portfolio items');
+    }
+    if (!['image', 'pdf', 'video'].includes(input.file_type)) {
+      throw new AppError(400, 'Unsupported portfolio file type');
     }
     row = {
       profile_id: profileId,
@@ -1287,6 +1318,7 @@ export async function addPortfolioItem(
       file_type: input.file_type,
       file_name: input.file_name,
       source_type: 'upload',
+      caption,
     };
   }
 
@@ -1344,6 +1376,7 @@ export async function addPortfolioItem(
 interface UpdatePortfolioItemInput {
   category_name?: string | null;
   skill_names?: string[];
+  caption?: string | null;
 }
 
 export async function updatePortfolioItem(
@@ -1364,6 +1397,19 @@ export async function updatePortfolioItem(
 
   const updates: Record<string, unknown> = {};
   if (input.category_name !== undefined) updates.category_name = input.category_name;
+  if (input.caption !== undefined) {
+    const caption = normalizeCaption(input.caption);
+    if (!caption) {
+      const { data: existing } = await supabaseAdmin
+        .from('portfolio_items')
+        .select('file_type')
+        .eq('id', itemId)
+        .eq('profile_id', profileId)
+        .maybeSingle();
+      if (existing?.file_type === 'text') throw new AppError(400, 'Text posts need some text');
+    }
+    updates.caption = caption;
+  }
   // Mirror primary skill into legacy skill_name column for back-compat
   // reads (public profile feeds, share links, etc.). Empty selection
   // preserves whatever was there — a portfolio_item can't lose its

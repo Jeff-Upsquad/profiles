@@ -413,7 +413,8 @@ async function journeysFor(
     const { data: rows } = await supabaseAdmin
       .from('portfolio_items')
       .select('profile_id')
-      .in('profile_id', allProfileIds);
+      .in('profile_id', allProfileIds)
+      .neq('file_type', 'text');
     for (const r of rows ?? []) {
       const pid = (r as any).profile_id as string;
       portfolioCountByProfile.set(pid, (portfolioCountByProfile.get(pid) ?? 0) + 1);

@@ -98,9 +98,10 @@ export interface ProfileDetailResponse {
     profile_id: string;
     skill_name: string;
     file_url: string;
-    file_type: 'image' | 'pdf' | 'video';
+    file_type: 'image' | 'pdf' | 'video' | 'text';
     file_name: string;
     sort_order: number;
+    caption?: string | null;
   }[];
   tier: Tier | null;
   tier_custom: string | null;

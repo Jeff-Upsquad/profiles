@@ -124,13 +124,74 @@ export default function SocialMediaManagerPublicPreviewPage() {
 
 
 
+  const sampleItem = {
+    profile_id: profile.id,
+    sort_order: 0,
+    source_type: 'upload' as const,
+    admin_is_active: true,
+  };
+  const portfolioItems = [
+    {
+      ...sampleItem,
+      id: 'sample-text-1',
+      skill_name: 'Campaigns',
+      category_name: 'Campaigns',
+      file_url: '',
+      file_type: 'text' as const,
+      file_name: 'Text post',
+      caption:
+        'Scaled @ZenithWear (D2C apparel) from 12K to 185K Instagram followers in 9 months, generating ₹42L in attributed social revenue.',
+      skills: [],
+    },
+    {
+      ...sampleItem,
+      id: 'sample-video-1',
+      skill_name: 'Reels',
+      category_name: 'Reels',
+      file_url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+      embed_url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+      external_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      thumbnail_url: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+      source_type: 'link' as const,
+      provider: 'youtube',
+      file_type: 'video' as const,
+      file_name: 'YouTube video',
+      caption: 'Launch reel for a D2C skincare drop — 1.2M views in the first week.',
+      skills: ['Social strategy', 'Community management'],
+    },
+    {
+      ...sampleItem,
+      id: 'sample-image-1',
+      skill_name: 'Carousels',
+      category_name: 'Carousels',
+      file_url: talentUser.profile_photo_url,
+      file_type: 'image' as const,
+      file_name: 'carousel.png',
+      caption: null,
+      skills: ['Social copywriting', 'Content calendars'],
+    },
+  ];
+
   return (
     <ThreadsProfileView
       profile={profile as any}
       talentUser={talentUser}
       category={category as any}
-      portfolioItems={[]}
+      portfolioItems={portfolioItems as any}
       mode="business"
+      cardEngagement={{
+        card_id: 'sample-card',
+        card_type: 'subscription',
+        brand_name: 'Acme Foods',
+        list_price: 30000,
+        currency: 'INR',
+        period: 'per_month',
+        kind: 'bid',
+        amount: 27500,
+      }}
+      onSendOffer={() => {}}
+      onNotAFit={() => {}}
+      navigation={{ current: 3, total: 24, onPrev: () => {}, onNext: () => {} }}
       isLoading={false}
       onBack={() => router.push('/talent/profiles')}
       editProfileHref={`/talent/profiles/${profile.id}/edit`}

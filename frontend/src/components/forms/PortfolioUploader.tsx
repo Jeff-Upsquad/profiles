@@ -20,6 +20,7 @@ const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
 const MAX_UPLOAD_LABEL = '500 MB';
 
 const UNCATEGORIZED = '__uncategorized__';
+const MAX_CAPTION_CHARS = 2000;
 
 interface PortfolioUploaderProps {
   profileId: string;
@@ -113,6 +114,42 @@ function ItemCategorySelect({ profileId, itemId, current, options }: ItemCategor
         </option>
       ))}
     </select>
+  );
+}
+
+interface ItemCaptionProps {
+  profileId: string;
+  item: any;
+}
+
+/** Caption under a work (or the body of a text post). Saves on blur. */
+function ItemCaption({ profileId, item }: ItemCaptionProps) {
+  const updateItem = useUpdatePortfolioItem();
+  const isText = item.file_type === 'text';
+  const saved: string = item.caption ?? '';
+  const [draft, setDraft] = useState(saved);
+
+  const save = () => {
+    const next = draft.trim();
+    if (next === saved.trim()) return;
+    if (isText && !next) {
+      toast.error('Text posts need some text');
+      setDraft(saved);
+      return;
+    }
+    updateItem.mutate({ profileId, itemId: item.id, caption: next || null });
+  };
+
+  return (
+    <textarea
+      value={draft}
+      onChange={(e) => setDraft(e.target.value.slice(0, MAX_CAPTION_CHARS))}
+      onBlur={save}
+      rows={isText ? 4 : 2}
+      placeholder={isText ? 'Write your post' : 'Add a caption (optional)'}
+      aria-label={isText ? 'Post text' : 'Caption'}
+      className="mt-1 w-full resize-y rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 placeholder:text-gray-400 focus:border-[#737373] focus:outline-none focus:ring-1 focus:ring-[#737373]"
+    />
   );
 }
 
@@ -300,6 +337,43 @@ export default function PortfolioUploader({
     }
   };
 
+  // ---- Text post flow (per-bucket state) ----
+  const [textOpenBucket, setTextOpenBucket] = useState<string | null>(null);
+  const [textInput, setTextInput] = useState('');
+  const [textSubmitting, setTextSubmitting] = useState(false);
+
+  const openTextPanel = (bucket: string) => {
+    setTextOpenBucket(bucket);
+    setTextInput('');
+  };
+  const closeTextPanel = () => {
+    setTextOpenBucket(null);
+    setTextInput('');
+  };
+
+  const submitText = async (bucket: string) => {
+    const body = textInput.trim();
+    if (!body) return;
+    setTextSubmitting(true);
+    try {
+      await addItem.mutateAsync({
+        profileId,
+        skill_name: bucket,
+        category_name: bucket,
+        skill_names: [],
+        file_url: '',
+        file_type: 'text',
+        file_name: 'Text post',
+        caption: body,
+      });
+      closeTextPanel();
+    } catch (err) {
+      console.error('Add text post failed:', err);
+    } finally {
+      setTextSubmitting(false);
+    }
+  };
+
   // Bucket items by category. Anything without a category — or whose
   // category isn't in the editor's current selection — falls into
   // Uncategorized so legacy items are visible and editable.
@@ -343,7 +417,7 @@ export default function PortfolioUploader({
             )}
           </h4>
           {!isUncategorized && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -360,6 +434,15 @@ export default function PortfolioUploader({
                 }
               >
                 {linkOpenBucket === bucket ? 'Cancel' : 'Paste YouTube link'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  textOpenBucket === bucket ? closeTextPanel() : openTextPanel(bucket)
+                }
+              >
+                {textOpenBucket === bucket ? 'Cancel' : 'Write a post'}
               </Button>
             </div>
           )}
@@ -404,6 +487,37 @@ export default function PortfolioUploader({
                 onClick={() => submitLink(bucket)}
               >
                 Add
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {textOpenBucket === bucket && (
+          <div className="mb-3 rounded-md border border-dashed border-gray-300 bg-gray-50 p-3">
+            <label htmlFor={`text-post-${bucket}`} className="mb-1 block text-xs font-medium text-gray-700">
+              Write a post
+            </label>
+            <textarea
+              id={`text-post-${bucket}`}
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value.slice(0, MAX_CAPTION_CHARS))}
+              rows={4}
+              placeholder="Share a result, e.g. Grew @brand from 12K to 185K followers in 9 months."
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-neutral-700 focus:outline-none"
+              autoFocus
+            />
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <span className="text-xs text-gray-500 tabular-nums">
+                {textInput.length} / {MAX_CAPTION_CHARS}
+              </span>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={!textInput.trim() || textSubmitting}
+                loading={textSubmitting}
+                onClick={() => submitText(bucket)}
+              >
+                Post
               </Button>
             </div>
           </div>
@@ -478,7 +592,13 @@ export default function PortfolioUploader({
                     </svg>
                   </div>
                 )}
-                <p className="mt-1 truncate text-xs text-gray-600">{item.file_name}</p>
+                {item.file_type === 'text' ? (
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Text post</p>
+                ) : (
+                  <p className="mt-1 truncate text-xs text-gray-600">{item.file_name}</p>
+                )}
+
+                <ItemCaption key={`${item.id}-${item.caption ?? ''}`} profileId={profileId} item={item} />
 
                 {/* Category re-bucket selector */}
                 <ItemCategorySelect
@@ -520,8 +640,8 @@ export default function PortfolioUploader({
       <h3 className="mb-1 text-sm font-semibold text-gray-800">Portfolio</h3>
       <p className="mb-4 text-xs text-gray-500">
         Upload images, PDFs, or videos under each category — up to {MAX_UPLOAD_LABEL} per file.
-        You can also paste a YouTube link if your video is hosted there. Tag the skills
-        demonstrated in each video using the chips below it.
+        You can also paste a YouTube link if your video is hosted there, or write a text post
+        to share a result. Add a caption and tag the skills shown in each work below it.
       </p>
 
       <input

@@ -201,9 +201,12 @@ export interface PortfolioItem {
   profile_id: string;
   skill_name: string;
   file_url: string;
-  file_type: 'image' | 'pdf' | 'video';
+  /** 'text' = a text-only post; its body is in `caption` and file_url is empty. */
+  file_type: 'image' | 'pdf' | 'video' | 'text';
   file_name: string;
   sort_order: number;
+  /** Optional caption shown with the work in the profile feed. */
+  caption?: string | null;
   /** New axis: which genre (template_categories.name) the item was uploaded under. */
   category_name?: string | null;
   /** Skills demonstrated in this video (from portfolio_item_skills). */

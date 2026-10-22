@@ -25,8 +25,12 @@ export default function ThreadsPortfolioCard({ item, onClick }: ThreadsPortfolio
 
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="relative aspect-square w-full overflow-hidden bg-gray-100 group focus:outline-none"
+      aria-label={`Open ${item.file_name}`}
+      className={`relative w-[240px] max-w-full overflow-hidden rounded-[10px] bg-zinc-100 group focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 sm:w-[280px] ${
+        item.file_type === 'image' ? 'aspect-square' : 'aspect-[4/5]'
+      }`}
     >
       {item.file_type === 'image' && (
         <img
@@ -52,13 +56,11 @@ export default function ThreadsPortfolioCard({ item, onClick }: ThreadsPortfolio
             </div>
           )}
           {/* Play icon overlay */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-            </div>
-          </div>
+          <span className="absolute right-2 top-2 flex h-[26px] w-[26px] items-center justify-center rounded-full bg-black/55" aria-hidden="true">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="white">
+              <polygon points="6 3 20 12 6 21 6 3" />
+            </svg>
+          </span>
           {providerLabel && (
             <span className="absolute bottom-1.5 left-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
               {providerLabel}
@@ -75,13 +77,11 @@ export default function ThreadsPortfolioCard({ item, onClick }: ThreadsPortfolio
             className="h-full w-full object-cover"
           />
           {/* Play icon overlay */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-            </div>
-          </div>
+          <span className="absolute right-2 top-2 flex h-[26px] w-[26px] items-center justify-center rounded-full bg-black/55" aria-hidden="true">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="white">
+              <polygon points="6 3 20 12 6 21 6 3" />
+            </svg>
+          </span>
           {isLinkVideo && providerLabel && (
             <span className="absolute bottom-1.5 left-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
               {providerLabel}
@@ -106,25 +106,6 @@ export default function ThreadsPortfolioCard({ item, onClick }: ThreadsPortfolio
             PDF
           </span>
         </>
-      )}
-
-      {/* Skill chips overlaid at bottom — show up to 3, with a +N pill if more */}
-      {item.skills && item.skills.length > 0 && (
-        <div className="pointer-events-none absolute bottom-1.5 right-1.5 flex max-w-[80%] flex-wrap justify-end gap-1">
-          {item.skills.slice(0, 3).map((s) => (
-            <span
-              key={s}
-              className="rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white/90"
-            >
-              {s}
-            </span>
-          ))}
-          {item.skills.length > 3 && (
-            <span className="rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white/90">
-              +{item.skills.length - 3}
-            </span>
-          )}
-        </div>
       )}
 
       {/* Inactive overlay for talent view (business never receives inactive items) */}

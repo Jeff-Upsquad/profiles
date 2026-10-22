@@ -8,23 +8,27 @@ interface ThreadsPortfolioTabBarProps {
 
 export default function ThreadsPortfolioTabBar({ tabs, activeTab, onTabChange }: ThreadsPortfolioTabBarProps) {
   return (
-    <div className="flex w-full mt-8 border-b border-zinc-200 px-6 overflow-x-auto scrollbar-hide">
+    <div
+      role="tablist"
+      aria-label="Portfolio filter"
+      className="mt-4 flex w-full overflow-x-auto border-b border-zinc-200 scrollbar-hide sm:mt-5"
+    >
       {tabs.map((tab) => {
         const isActive = tab === activeTab;
         return (
           <button
             key={tab}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
             onClick={() => onTabChange(tab)}
-            className={`flex-shrink-0 pb-3 px-4 text-[14px] font-semibold transition-colors relative flex justify-center ${
+            className={`h-[46px] shrink-0 whitespace-nowrap px-4 text-[15px] font-semibold transition-colors sm:h-12 sm:flex-1 sm:px-[18px] ${
               isActive
-                ? 'text-zinc-950'
-                : 'text-zinc-400 hover:text-zinc-600'
+                ? 'text-zinc-950 shadow-[inset_0_-1px_0_#0a0a0a]'
+                : 'text-zinc-500 hover:text-zinc-700'
             }`}
           >
-            <span className="whitespace-nowrap">{tab}</span>
-            {isActive && (
-              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-zinc-950" />
-            )}
+            {tab}
           </button>
         );
       })}

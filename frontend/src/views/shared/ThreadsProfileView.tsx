@@ -5,8 +5,9 @@ import type { Profile, CategoryWithFields, PortfolioItem, CategoryField } from '
 import Modal from '@/components/ui/Modal';
 import ThreadsProfileShell from '@/components/profile/ThreadsProfileShell';
 import ThreadsTopBar from '@/components/profile/ThreadsTopBar';
-import ThreadsProfileHeader from '@/components/profile/ThreadsProfileHeader';
-import ThreadsDetailSections from '@/components/profile/ThreadsDetailSections';
+import ThreadsProfileHeader, { ThreadsHireBar, hasEngagementPrice } from '@/components/profile/ThreadsProfileHeader';
+import ThreadsDetailSections, { summarizeDetailSections } from '@/components/profile/ThreadsDetailSections';
+import ThreadsSkillsSheet from '@/components/profile/ThreadsSkillsSheet';
 import ThreadsPortfolioTabBar from '@/components/profile/ThreadsPortfolioTabBar';
 import ThreadsPortfolioFeed from '@/components/profile/ThreadsPortfolioFeed';
 import ThreadsProfileSkeleton from '@/components/profile/ThreadsProfileSkeleton';
@@ -40,6 +41,9 @@ interface ThreadsProfileViewProps {
   interestLoading?: boolean;
   onSendOffer?: () => void;
   sendOfferLoading?: boolean;
+  /** Card review only: reject this talent for the card ("Not a fit"). */
+  onNotAFit?: () => void;
+  notAFitLoading?: boolean;
   cardEngagement?: import('@/components/profile/ThreadsProfileHeader').CardEngagementDisplay | null;
   onMessage?: () => void;
   messageLoading?: boolean;
@@ -78,6 +82,8 @@ export default function ThreadsProfileView({
   interestLoading,
   onSendOffer,
   sendOfferLoading,
+  onNotAFit,
+  notAFitLoading,
   cardEngagement,
   onMessage,
   messageLoading,
@@ -89,7 +95,7 @@ export default function ThreadsProfileView({
 }: ThreadsProfileViewProps) {
   const [interestModalOpen, setInterestModalOpen] = useState(false);
   const [interestMessage, setInterestMessage] = useState('');
-  const [activeTab, setActiveTab] = useState('All');
+  const [activeTab, setActiveTab] = useState('Feed');
 
   const { skillGroups, toolGroups, aiToolGroups, skillGroupOrder } =
     useCategoryTemplateGroups(category?.id);
@@ -105,7 +111,7 @@ export default function ThreadsProfileView({
       if (item.category_name) named.add(item.category_name);
       else hasUncategorized = true;
     }
-    const tabs = ['All', ...Array.from(named)];
+    const tabs = ['Feed', ...Array.from(named)];
     if (hasUncategorized) tabs.push('Other');
     return tabs;
   }, [portfolioItems]);
@@ -132,9 +138,11 @@ export default function ThreadsProfileView({
     setInterestMessage('');
   };
 
+  const pageClass = '-m-4 sm:-m-6 lg:-m-8 min-h-full bg-white sm:bg-[#FAFAFA]';
+
   if (isLoading) {
     return (
-      <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
+      <div className={pageClass}>
         <ThreadsProfileSkeleton />
       </div>
     );
@@ -142,7 +150,7 @@ export default function ThreadsProfileView({
 
   if (error || !profile) {
     return (
-      <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
+      <div className={pageClass}>
         <ThreadsProfileShell
           topBar={<ThreadsTopBar displayName="" onBack={onBack} navigation={navigation} />}
         >
@@ -170,11 +178,38 @@ export default function ThreadsProfileView({
   }
 
   const hasPortfolio = portfolioItems && portfolioItems.length > 0;
+  const worksCount = (portfolioItems ?? []).filter((i) => i.file_type !== 'text').length;
+  const showHireBar = hasEngagementPrice(mode, cardEngagement);
+
+  const detailProps = {
+    fields,
+    fieldData: profile.field_data,
+    bioFieldKey,
+    languages: talentUser.languages_spoken,
+    categorySlug: category?.slug,
+    groupMaps: {
+      skills: skillGroups,
+      tools: toolGroups,
+      aiTools: aiToolGroups,
+      groupOrder,
+    },
+  };
+  const detailSummary = summarizeDetailSections(profile.field_data ?? {});
 
   return (
-    <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
+    <div className={pageClass}>
       <ThreadsProfileShell
-        topBar={<ThreadsTopBar displayName={talentUser.full_name} onBack={onBack} navigation={navigation} />}
+        topBar={
+          <ThreadsTopBar
+            displayName={talentUser.full_name}
+            title="Profile"
+            subtitle={category?.name}
+            onBack={onBack}
+            navigation={navigation}
+            menuItems={onNotAFit ? [{ label: 'Not a fit', onClick: onNotAFit, disabled: notAFitLoading }] : undefined}
+          />
+        }
+        rail={<ThreadsDetailSections {...detailProps} variant="rail" />}
       >
         <ThreadsProfileHeader
           profile={profile}
@@ -189,27 +224,22 @@ export default function ThreadsProfileView({
           interestLoading={interestLoading}
           onSendOffer={onSendOffer}
           sendOfferLoading={sendOfferLoading}
+          onNotAFit={onNotAFit}
+          notAFitLoading={notAFitLoading}
           cardEngagement={cardEngagement}
           onMessage={onMessage}
           messageLoading={messageLoading}
           editProfileHref={editProfileHref}
+          worksCount={worksCount}
         />
 
-        <ThreadsDetailSections
-          fields={fields}
-          fieldData={profile.field_data}
-          bioFieldKey={bioFieldKey}
-          languages={talentUser.languages_spoken}
-          categorySlug={category?.slug}
-          groupMaps={{
-            skills: skillGroups,
-            tools: toolGroups,
-            aiTools: aiToolGroups,
-            groupOrder,
-          }}
-        />
+        {(detailSummary || fields.length > 0 || (talentUser.languages_spoken?.length ?? 0) > 0) && (
+          <ThreadsSkillsSheet summary={detailSummary}>
+            <ThreadsDetailSections {...detailProps} variant="sheet" />
+          </ThreadsSkillsSheet>
+        )}
 
-        {/* Portfolio section */}
+        {/* Portfolio feed */}
         {hasPortfolio && (
           <>
             <ThreadsPortfolioTabBar
@@ -221,29 +251,39 @@ export default function ThreadsProfileView({
             <ThreadsPortfolioFeed
               items={portfolioItems!}
               activeTab={activeTab}
+              authorName={talentUser.full_name}
             />
           </>
         )}
 
         {/* Empty portfolio for talent view */}
         {mode === 'talent' && !hasPortfolio && categoryHasPortfolio(category?.slug) && (
-          <>
-            <div className="flex flex-col items-center justify-center py-16 px-5">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a3a3a3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <polyline points="21 15 16 10 5 21" />
-                </svg>
-              </div>
-              <p className="mt-3 text-[14px] text-zinc-500">No portfolio items yet</p>
+          <div className="mt-6 flex flex-col items-center justify-center border-t border-zinc-200 py-16 px-5">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a3a3a3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
             </div>
-          </>
+            <p className="mt-3 text-[14px] text-zinc-500">No portfolio items yet</p>
+          </div>
         )}
 
-        {/* Bottom padding */}
-        <div className="h-4" />
+        {!hasPortfolio && <div className="h-5" />}
       </ThreadsProfileShell>
+
+      {showHireBar && (
+        <>
+          {/* Keeps the last post clear of the fixed hire bar on phones */}
+          <div className="h-[72px] sm:hidden" aria-hidden="true" />
+          <ThreadsHireBar
+            engagement={cardEngagement!}
+            onSendOffer={onSendOffer}
+            sendOfferLoading={sendOfferLoading}
+          />
+        </>
+      )}
 
       {/* Interest Modal */}
       <Modal
