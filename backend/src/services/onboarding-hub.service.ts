@@ -1,3 +1,4 @@
+import { adminOnboardingNeedsYou } from './onboarding-needs-you.service.js';
 // ---------------------------------------------------------------------------
 // Onboarding hub — the admin's single view of every talent sign-up and how far
 // they've got: course → basic profile → job profile → portfolio, the CRM
@@ -748,12 +749,13 @@ export async function listHub(filters: HubListFilters) {
 
   const ids = rows.map((u) => u.id as string);
 
-  const [emailMap, catMap, journeys, leadMap, timerSettings] = await Promise.all([
+  const [emailMap, catMap, journeys, leadMap, timerSettings, needsYou] = await Promise.all([
     emailsFor(ids),
     signupCategoriesByTalentIds(ids),
     journeysFor(rows),
     leadsFor(ids),
     getStageTimerSettings(),
+    adminOnboardingNeedsYou(rows),
   ]);
   const timerTrack = filters.track === 'jobs' ? 'jobs' : 'partner';
 
@@ -779,10 +781,11 @@ export async function listHub(filters: HubListFilters) {
     jobs_rejected: u.jobs_pipeline_stage === 'rejected',
     application_cancelled_at: u.application_cancellations?.[filters.track === 'jobs' ? 'jobs' : 'partner']?.at ?? null,
     application_cancelled_reason: u.application_cancellations?.[filters.track === 'jobs' ? 'jobs' : 'partner']?.reason ?? null,
+    needs_you: needsYou.get(u.id) ?? [],
     under_request_changes: open.has(u.id),
     request_changes: rcStatusFor(open.get(u.id), u),
     ...(() => {
-      const { timer, inactive } = hubTimerFor(u, timerTrack, timerSettings, open.has(u.id));
+      const { timer, inactive } = hubTimerFor({ ...u, stage_timer_state: { ...u.stage_timer_state, needs_you: needsYou.get(u.id) ?? u.stage_timer_state?.needs_you } }, timerTrack, timerSettings, open.has(u.id));
       return { stage_timer: timer, inactive };
     })(),
     message_failed: messageFailedFor(u),
@@ -872,7 +875,7 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
   let qb = supabaseAdmin
     .from('talent_users')
     .select('id, approval_status, partner_approval_status, wants_jobs, pipeline_stage, jobs_pipeline_stage, crm_talent_stage_id, crm_jobs_stage_id, crm_talent_stage_name, crm_jobs_stage_name, application_cancellations, crm_message_failed_at, ' +
-      'partner_stage_changed_at, jobs_stage_changed_at, track_inactivity, stage_timer_state, suspended, blacklisted')
+      'phone, partner_stage_changed_at, jobs_stage_changed_at, track_inactivity, stage_timer_state, suspended, blacklisted')
     .not('suspended', 'is', true)
     .not('blacklisted', 'is', true);
   if (categoryIds) qb = qb.in('id', categoryIds);
@@ -911,6 +914,7 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
   // stage past its limit) — also shown under each stage's big number.
   const inactiveByStage: Record<string, number> = {};
   const overdueByStage: Record<string, number> = {};
+  const needsYou = await adminOnboardingNeedsYou(rows as any[]);
   let inactiveTotal = 0;
   let overdueTotal = 0;
   let waitingOnTalent = 0;
@@ -932,7 +936,7 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
       waitingOnTalent += 1;
       rcByStage[s] = (rcByStage[s] ?? 0) + 1;
     }
-    const { timer, inactive } = hubTimerFor(r, timerTrack, timerSettings, rc);
+    const { timer, inactive } = hubTimerFor({ ...r, stage_timer_state: { ...r.stage_timer_state, needs_you: needsYou.get(r.id) ?? r.stage_timer_state?.needs_you } }, timerTrack, timerSettings, rc);
     if (inactive && !rc) {
       inactiveTotal += 1;
       inactiveByStage[s] = (inactiveByStage[s] ?? 0) + 1;
@@ -1118,6 +1122,7 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
       application_cancellations: t.application_cancellations ?? {},
       application_cancelled_at: t.application_cancelled_at ?? null,
       application_cancelled_reason: t.application_cancelled_reason ?? null,
+      needs_you: (await adminOnboardingNeedsYou([t])).get(userId) ?? [],
       request_changes: rcStatusFor((await openChangeRequests([userId])).get(userId), t),
       message_failed: messageFailedFor(t),
       is_active: t.is_active,

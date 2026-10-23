@@ -12,6 +12,7 @@
 // them, and the clock restarts when they are back to the normal flow.
 // Reactivating (the talent, or an admin) restarts the clock from that moment.
 
+import { onboardingNeedsYou } from './onboarding-needs-you.service.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { deliverCrmSystemEvent } from '../lib/crm-system-event.js';
@@ -28,6 +29,8 @@ import {
   timeLeftText,
   timedStageOf,
   timerStatus,
+  stagePauseTransition,
+  type NeedsYouReason,
   trackOpen,
   wholeDays,
   type StageTimerSettings,
@@ -325,6 +328,7 @@ export function hubTimerFor(
   now = Date.now(),
 ): { timer: HubTimer | null; inactive: HubInactivity | null } {
   const inactivity = t.track_inactivity?.[track];
+  if (t.stage_timer_state?.needs_you?.length) return { timer: null, inactive: null };
   if (inactivity && trackOpen(t, track)) {
     return { timer: null, inactive: { at: inactivity.at, by: inactivity.by, cancel_at: cancelAtFor(inactivity, settings[track]) } };
   }
@@ -366,9 +370,11 @@ export async function sweepStageTimers(now = Date.now()): Promise<void> {
       console.error('[stage-timers] talent query failed', error.message);
       return;
     }
+    // A failed attention lookup aborts this page: never time out someone whose pause is unknown.
+    const needsYou = await onboardingNeedsYou((data ?? []) as any[]);
     for (const t of (data ?? []) as any[]) {
       try {
-        await stepTalent(t, settings, open.has(t.id), now);
+        await stepTalent(t, settings, open.has(t.id), now, needsYou.get(t.id) ?? []);
       } catch (err) {
         console.error(`[stage-timers] talent ${t.id} failed`, err);
       }
@@ -377,19 +383,18 @@ export async function sweepStageTimers(now = Date.now()): Promise<void> {
   }
 }
 
-async function stepTalent(t: any, settings: StageTimerSettings, underRc: boolean, now: number) {
-  const state: StageTimerState = t.stage_timer_state ?? {};
-
-  // Request changes pause the timers; coming back restarts both clocks.
-  if (underRc) {
-    if (!state.rc_paused) await casUpdate(t, { stage_timer_state: { ...state, rc_paused: true } });
-    return;
+async function stepTalent(t: any, settings: StageTimerSettings, underRc: boolean, now: number, needsYou: NeedsYouReason[]) {
+  const transition = stagePauseTransition(t.stage_timer_state ?? {}, needsYou, underRc, now);
+  if (transition.changed) {
+    const inactive = { ...(t.track_inactivity ?? {}) };
+    const cleared = transition.needsYouCleared ? TRACKS.filter(tr => inactive[tr]) : [];
+    for (const tr of cleared) delete inactive[tr];
+    const ok = await casUpdate(t, { stage_timer_state: transition.state,
+      ...(cleared.length ? { track_inactivity: inactive } : {}) });
+    if (!ok) return;
+    for (const tr of cleared) await syncCrmInactivity(t.id, tr, null).catch(() => {});
   }
-  if (state.rc_paused) {
-    const iso = new Date(now).toISOString();
-    await casUpdate(t, { stage_timer_state: { ...state, rc_paused: false, reset: { ...(state.reset ?? {}), partner: iso, jobs: iso } } });
-    return;
-  }
+  if (transition.paused) return;
 
   for (const track of TRACKS) {
     const inactivity = t.track_inactivity?.[track] as TrackInactivity | undefined;

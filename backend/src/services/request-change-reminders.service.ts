@@ -1,3 +1,5 @@
+import { requestChangesHelpPause } from '../lib/stage-timers.js';
+import { onboardingNeedsYou } from './onboarding-needs-you.service.js';
 // Request-change reminders → final warning → auto-cancel.
 //
 // A talent is "under request changes" while any ask is waiting on them: a job
@@ -230,7 +232,7 @@ async function cancelApplication(t: any) {
 
 const TALENT_COLUMNS =
   'id, full_name, phone, suspended, blacklisted, wants_jobs, partner_approval_status, pipeline_stage, jobs_pipeline_stage, ' +
-  'crm_talent_stage_name, crm_jobs_stage_name, application_cancelled_at, application_cancellations, rc_anchor_at, rc_reminders_sent, rc_last_sent_at';
+  'crm_talent_stage_name, crm_jobs_stage_name, application_cancelled_at, application_cancellations, rc_anchor_at, rc_reminders_sent, rc_last_sent_at, stage_timer_state';
 
 /**
  * One pass of the reminder sequence. Cheap to call every tick — self-throttles.
@@ -274,8 +276,20 @@ export async function sweepRequestChangeReminders(now = Date.now()): Promise<voi
       console.error('[rc-reminders] talent query failed', error.message);
       continue;
     }
+    // Unknown attention state must never fall through to an automatic cancellation.
+    const needsYou = await onboardingNeedsYou((talents ?? []) as any[]);
     for (const t of (talents ?? []) as any[]) {
       try {
+        const helpPause = requestChangesHelpPause(t.stage_timer_state ?? {}, needsYou.has(t.id), open.get(t.id)!.anchor, now);
+        if (helpPause) {
+          const { error: pauseError } = await supabaseAdmin.from('talent_users')
+            .update(helpPause)
+            .eq('id', t.id).eq('stage_timer_state', JSON.stringify(t.stage_timer_state ?? {}))
+            .select('id');
+          if (pauseError) throw pauseError;
+          // After clearing, give the profile-change sequence its full first interval too.
+          continue;
+        }
         await stepTalent(t, open.get(t.id)!, now);
       } catch (err) {
         console.error(`[rc-reminders] talent ${t.id} failed`, err);

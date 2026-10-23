@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  cancelAtFor, defaultTrackSettings, normalizeTrackSettings, timedStageOf, timerStatus, timeLeftText, type TimerTalent,
+  requestChangesHelpPause, stagePauseTransition, cancelAtFor, defaultTrackSettings, normalizeTrackSettings, timedStageOf, timerStatus, timeLeftText, type TimerTalent,
 } from './stage-timers.js';
 
 const H = 60 * 60 * 1000;
@@ -72,4 +72,54 @@ test('cancel time follows the inactive stage and reads as time left', () => {
   assert.equal(cancelAtFor({ at: iso(T0), stage: 'basic_profile', by: 'system' }, s), iso(T0 + 120 * H));
   assert.equal(timeLeftText(iso(T0 + 30 * H), T0), '2 days');
   assert.equal(timeLeftText(iso(T0 + 90 * 60 * 1000), T0), '2 hours');
+});
+
+const help = [{ bot_name: 'Tina', reason: 'Please verify this document', since: iso(T0) }];
+test('Needs You pauses both tracks including overdue applicant stages', () => {
+  const result = stagePauseTransition({}, help, false, T0 + 100 * H);
+  assert.equal(result.paused, true);
+  assert.equal(result.needsYouCleared, false);
+  const t = talent({ partner_approval_status: 'approved', pipeline_stage: 'basic_profile',
+    stage_timer_state: result.state });
+  assert.equal(timerStatus(t, 'jobs', on(T0), T0 + 100 * H), null);
+  assert.equal(timerStatus(t, 'partner', on(T0), T0 + 100 * H), null);
+});
+test('clearing Needs You grants full current-stage time to both tracks', () => {
+  const now = T0 + 100 * H;
+  const result = stagePauseTransition({ needs_you: help, reset: { jobs: iso(T0) } }, [], false, now);
+  assert.equal(result.paused, false);
+  assert.equal(result.needsYouCleared, true);
+  assert.deepEqual(result.state.reset, { jobs: iso(now), partner: iso(now) });
+  const t = talent({ stage_timer_state: result.state });
+  assert.equal(timerStatus(t, 'jobs', on(T0), now + 23 * H)?.overdue, false);
+  assert.equal(timerStatus(t, 'jobs', on(T0), now + 24 * H)?.overdue, true);
+});
+test('another bot question keeps the pause, without repeatedly resetting clocks', () => {
+  const remaining = [{ ...help[0], bot_name: 'John', reason: 'Please check their account' }];
+  const result = stagePauseTransition({ needs_you: help }, remaining, false, T0);
+  assert.equal(result.paused, true);
+  assert.equal(result.needsYouCleared, false);
+  assert.equal(result.state.reset, undefined);
+  assert.equal(stagePauseTransition(result.state, remaining, false, T0 + H).changed, false);
+});
+test('clearing either pause does not bypass a remaining request-changes or Needs You pause', () => {
+  const a = stagePauseTransition({ needs_you: help, rc_paused: true }, [], true, T0);
+  assert.equal(a.paused, true);
+  const b = stagePauseTransition(a.state, [], false, T0 + H);
+  assert.equal(b.paused, false);
+  assert.equal(b.state.reset?.jobs, iso(T0 + H));
+  assert.equal(stagePauseTransition({ rc_paused: true }, help, false, T0).paused, true);
+});
+
+test('profile-change cancellation stays paused, then starts a fresh reminder sequence', () => {
+  const original = { needs_you: help, reset: { partner: iso(T0) } };
+  const paused = requestChangesHelpPause(original, true, iso(T0), T0 + 100 * H)!;
+  assert.equal(paused.stage_timer_state.rc_needs_you_paused, true);
+  assert.equal(paused.rc_last_sent_at, undefined);
+  const cleared = requestChangesHelpPause(paused.stage_timer_state, false, iso(T0), T0 + 200 * H)!;
+  assert.equal(cleared.rc_reminders_sent, 0);
+  assert.equal(cleared.rc_last_sent_at, iso(T0 + 200 * H));
+  assert.equal(cleared.stage_timer_state.reset?.partner, iso(T0));
+  assert.equal(cleared.stage_timer_state.rc_needs_you_paused, false);
+  assert.equal(requestChangesHelpPause(cleared.stage_timer_state, false, iso(T0), T0 + 201 * H), null);
 });

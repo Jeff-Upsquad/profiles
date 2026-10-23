@@ -854,10 +854,17 @@ export default function OnboardingHub({
                           {u.request_changes && (
                             <p className="mt-1 inline-flex items-center rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800"
                               title={`Changes requested ${timeAgo(u.request_changes.requested_at)}`}>
-                              Changes requested · {requestChangesStepLabel(u.request_changes)}
+                              Changes requested · {u.needs_you?.length ? 'Reminders paused for human help' : requestChangesStepLabel(u.request_changes)}
                             </p>
                           )}
-                          {u.inactive ? (
+                          {!!u.needs_you?.length && (
+                            <div className="mt-1 max-w-sm rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-900">
+                              <p className="font-semibold">Needs You · onboarding timers paused</p>
+                              {u.needs_you.map((ask, i) => <p key={i} className="mt-0.5 whitespace-pre-wrap break-words"><strong>{ask.bot_name}:</strong> {ask.reason}</p>)}
+                              <p className="mt-1 text-amber-700">Full stage time restarts when cleared.</p>
+                            </div>
+                          )}
+                          {!u.needs_you?.length && (u.inactive ? (
                             <p className="mt-1 inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-700"
                               title={`${u.inactive.by === 'admin' ? 'Marked inactive' : 'Went inactive'} ${timeAgo(u.inactive.at)}`}>
                               Inactive {timeAgo(u.inactive.at)} · cancels {timeUntil(u.inactive.cancel_at)}
@@ -869,7 +876,7 @@ export default function OnboardingHub({
                               {u.stage_timer.actor === 'admin' ? 'Our move · ' : ''}
                               {u.stage_timer.overdue ? `Overdue · was due ${timeAgo(u.stage_timer.due_at)}` : `Due ${timeUntil(u.stage_timer.due_at)}`}
                             </p>
-                          )}
+                          ))}
                           {u.pipeline_stage === 'live' && <TalentBoardDots row={u} />}
                         </td>
                       )}

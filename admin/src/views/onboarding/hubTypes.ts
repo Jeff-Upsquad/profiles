@@ -1,3 +1,5 @@
+export interface NeedsYouReason { bot_name: string; reason: string; since: string | null }
+
 import { TALENT_CATEGORY_OPTIONS } from '../../../../shared/src/contentRoles';
 // Shared shapes + constants for the Onboarding hub (list + journey panel).
 
@@ -238,6 +240,7 @@ export interface HubRow {
   application_cancelled_reason: string | null;
   under_request_changes: boolean;
   request_changes: RequestChangesStatus | null;
+  needs_you?: NeedsYouReason[];
   stage_timer?: StageTimer | null;
   inactive?: HubInactivity | null;
   message_failed?: MessageFailed | null;

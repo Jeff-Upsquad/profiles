@@ -45,7 +45,15 @@ export interface TrackInactivity {
   by: 'system' | 'admin';
 }
 
+export interface NeedsYouReason {
+  bot_name: string;
+  reason: string;
+  since: string | null;
+}
+
 export interface StageTimerState {
+  needs_you?: NeedsYouReason[];
+  rc_needs_you_paused?: boolean;
   reset?: Partial<Record<Track, string>>;
   notice?: Partial<Record<Track, { stage: string; at: string | null }>>;
   rc_paused?: boolean;
@@ -210,7 +218,7 @@ export function timerStatus(
   settings: TrackTimerSettings,
   now = Date.now(),
 ): TimerStatus | null {
-  if (!settings.enabled || !trackOpen(t, track)) return null;
+  if (!settings.enabled || !trackOpen(t, track) || t.stage_timer_state?.needs_you?.length) return null;
   const stage = timedStageOf(t, track);
   if (!stage) return null;
   const r = settings.stages[stage];
@@ -244,4 +252,30 @@ export function timeLeftText(iso: string, now = Date.now()): string {
   const ms = Math.max(0, Date.parse(iso) - now);
   if (ms >= DAY_MS) return durationText(Math.ceil(ms / DAY_MS), 'days');
   return durationText(Math.max(1, Math.ceil(ms / HOUR_MS)), 'hours');
+}
+
+/** A human-help or profile-change pause restarts both stage clocks when cleared. */
+export function stagePauseTransition(
+  state: StageTimerState, needsYou: NeedsYouReason[], underRc: boolean, now: number,
+): { state: StageTimerState; paused: boolean; changed: boolean; needsYouCleared: boolean } {
+  const needsYouCleared = !!state.needs_you?.length && !needsYou.length;
+  const resumed = needsYouCleared || (!!state.rc_paused && !underRc);
+  const next: StageTimerState = { ...state, needs_you: needsYou, rc_paused: underRc };
+  if (resumed) {
+    const iso = new Date(now).toISOString();
+    next.reset = { ...(state.reset ?? {}), partner: iso, jobs: iso };
+  }
+  const changed = JSON.stringify(state.needs_you ?? []) !== JSON.stringify(needsYou) || !!state.rc_paused !== underRc;
+  return { state: changed ? next : state, paused: needsYou.length > 0 || underRc,
+    changed, needsYouCleared };
+}
+
+/** Reset the separate requested-changes sequence only after human help clears. */
+export function requestChangesHelpPause(
+  state: StageTimerState, needsYou: boolean, anchor: string, now: number,
+): { stage_timer_state: StageTimerState; rc_anchor_at?: string; rc_reminders_sent?: number; rc_last_sent_at?: string } | null {
+  if (!needsYou && !state.rc_needs_you_paused) return null;
+  return { stage_timer_state: { ...state, rc_needs_you_paused: needsYou },
+    ...(!needsYou ? { rc_anchor_at: anchor, rc_reminders_sent: 0,
+      rc_last_sent_at: new Date(now).toISOString() } : {}) };
 }

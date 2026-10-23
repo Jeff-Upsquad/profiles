@@ -94,6 +94,7 @@ interface Journey {
     rejected_at: string | null;
     application_cancelled_at?: string | null;
     application_cancelled_reason?: string | null;
+    needs_you?: Array<{ bot_name: string; reason: string; since: string | null }>;
     request_changes?: RequestChangesStatus | null;
     message_failed?: MessageFailed | null;
     is_active: boolean;
@@ -778,8 +779,15 @@ export default function TalentJourneyPanel({
                 {!u.application_cancelled_at && u.request_changes && (
                   <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
                     <span className="font-semibold">Under request changes</span> since {timeAgo(u.request_changes.requested_at)}
-                    {' · '}{requestChangesStepLabel(u.request_changes)}
+                    {' · '}{u.needs_you?.length ? 'Reminders paused for human help' : requestChangesStepLabel(u.request_changes)}
                   </p>
+                )}
+                {!!u.needs_you?.length && (
+                  <div className="mt-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">
+                    <p className="font-semibold">Needs You · onboarding timers paused</p>
+                    {u.needs_you.map((ask, i) => <p key={i} className="mt-1 whitespace-pre-wrap break-words"><strong>{ask.bot_name}:</strong> {ask.reason}</p>)}
+                    <p className="mt-1">Full stage time restarts when cleared.</p>
+                  </div>
                 )}
                 {u.message_failed && (
                   <div className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
