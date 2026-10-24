@@ -25,9 +25,18 @@ export function bothOpen(t: Partial<TrackState> | null | undefined): boolean {
     t.pipeline_stage !== 'rejected';
 }
 
-/** Applied together — the two pipelines move in lockstep. */
+/**
+ * Applied together — the two pipelines move in lockstep once the Partner
+ * Program is approved. Until then the Partner track holds at Signed Up while
+ * Jobs moves on its own; approval lifts it to wherever Jobs has reached.
+ */
 export function isLinked(t: Partial<TrackState> | null | undefined): boolean {
-  return !!t?.tracks_linked && bothOpen(t);
+  return !!t?.tracks_linked && bothOpen(t) && t?.partner_approval_status !== 'pending';
+}
+
+/** Applied together, Partner Program still awaiting approval — its pipeline holds. */
+export function partnerHeld(t: Partial<TrackState> | null | undefined): boolean {
+  return !!t?.tracks_linked && bothOpen(t) && t?.partner_approval_status === 'pending';
 }
 
 /** Second track added later — each pipeline moves on its own, catching up stepwise. */

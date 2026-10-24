@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isCatchUp, isJobsKey, isLinked, JOBS_STAGE_ORDER, nextStageToward } from './linked-tracks.js';
+import { isCatchUp, isJobsKey, isLinked, JOBS_STAGE_ORDER, nextStageToward, partnerHeld } from './linked-tracks.js';
 
 const both = {
   wants_jobs: true, jobs_pipeline_stage: 'basic_profile',
@@ -14,8 +14,13 @@ test('applied together at signup is linked; a later second track catches up', ()
   assert.equal(isCatchUp({ ...both, tracks_linked: false }), true);
 });
 
-test('linked tracks move together even while Partner approval is pending', () => {
-  assert.equal(isLinked({ ...both, tracks_linked: true, partner_approval_status: 'pending' }), true);
+test('a pending Partner Program holds its track instead of moving with Jobs', () => {
+  const pending = { ...both, tracks_linked: true, partner_approval_status: 'pending' };
+  assert.equal(isLinked(pending), false);
+  assert.equal(partnerHeld(pending), true);
+  assert.equal(isCatchUp(pending), false);
+  assert.equal(partnerHeld({ ...both, tracks_linked: true }), false);
+  assert.equal(partnerHeld({ ...pending, tracks_linked: false }), false);
 });
 
 test('a rejection on either track unlinks them', () => {

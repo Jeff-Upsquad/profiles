@@ -11,6 +11,8 @@ export * from '../lib/linked-tracks.js';
  * Applied together at signup (`tracks_linked`): one application — both
  * pipelines move together, and the Partner Program card carries the WhatsApp
  * messages while the Jobs card follows silently, so each stage messages once.
+ * Until the Partner Program is approved its pipeline holds at Signed Up and
+ * Jobs moves (and messages) alone; approval lifts Partner to the Jobs stage.
  *
  * Second track added later: its own pipeline, starting from the beginning.
  * Steps already finished (basic profile, job profile, portfolio are shared)

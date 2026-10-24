@@ -489,10 +489,17 @@ export async function updateLeadStatus(
   }
   if (talentId) {
     try {
-      // Sync talent_users.is_active based on lead status
+      // Sync talent_users.is_active based on lead status. A talent already
+      // Live on Jobs stays active whatever the Partner Program card does.
+      const { data: jobs } = await supabaseAdmin
+        .from('talent_users')
+        .select('wants_jobs, jobs_pipeline_stage')
+        .eq('id', talentId)
+        .maybeSingle();
+      const jobsLive = !!jobs?.wants_jobs && jobs.jobs_pipeline_stage === 'live';
       await supabaseAdmin
         .from('talent_users')
-        .update({ is_active: input.status === 'live' })
+        .update({ is_active: input.status === 'live' || jobsLive })
         .eq('id', talentId);
 
       // Sync talent_users.pipeline_stage based on lead status

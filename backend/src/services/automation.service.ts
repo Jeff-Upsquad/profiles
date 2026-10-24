@@ -370,7 +370,7 @@ export async function syncOnboardingStage(talentUserId: string) {
 
   const { computeOnboardingProgress } = await import('./talent.service.js');
   const progress = await computeOnboardingProgress(talentUserId);
-  const { isLinked, isCatchUp, catchUpPaced, nextStageToward, mirrorCandidateStage, JOBS_STAGE_ORDER } =
+  const { isLinked, isCatchUp, partnerHeld, catchUpPaced, nextStageToward, mirrorCandidateStage, JOBS_STAGE_ORDER } =
     await import('./linked-tracks.service.js');
   const { data: intent } = await supabaseAdmin
     .from('talent_users')
@@ -385,6 +385,7 @@ export async function syncOnboardingStage(talentUserId: string) {
     }>();
   const linked = isLinked(intent);
   const catchUp = isCatchUp(intent);
+  const held = partnerHeld(intent);
   // Training can be completed while Partner Program approval is pending. It
   // stays ticked on the journey, but must not move the partner pipeline.
   if (intent?.partner_approval_status === 'pending' && !intent.wants_jobs) return;
@@ -429,8 +430,10 @@ export async function syncOnboardingStage(talentUserId: string) {
 
   for (const lead of (leads ?? []) as Array<{ id: string; status: string; form_type: string | null; form_data: any }>) {
     if (partnerClosed) continue;
-    // Linked tracks move together even while Partner approval is pending.
-    if (!linked && intent?.partner_approval_status === 'pending' &&
+    // Applied together but Partner not approved yet: the candidate card stays
+    // at Signed Up (steps still tick) and only the Jobs pipeline moves.
+    if (held) continue;
+    if (intent?.partner_approval_status === 'pending' &&
         Array.isArray(lead.form_data?.work_type_seeking) &&
         lead.form_data.work_type_seeking.includes('UpSquad Partner Program')) continue;
     const stages = orderedStagesForFormType(lead.form_type);
