@@ -13,6 +13,7 @@ import toast from 'react-hot-toast';
 import { coerceLeveledList, LEVEL_LABELS, type LeveledItem } from '../../../../shared/src/types/talent';
 import { formatDate, formatDateTime } from '@/lib/formatDate';
 import PdfThumbnail from '@/components/profile/PdfThumbnail';
+import { invalidateProfileReviewQueries, reviewStatusQueryOptions } from '@/lib/profileReviewCache';
 
 interface LinkedLead {
   id: string;
@@ -282,7 +283,8 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
   const [rejectionReason, setRejectionReason] = useState('');
   const [changesOpen, setChangesOpen] = useState(false);
 
-  const { data: profile, isLoading } = useQuery<ReviewProfile>({
+  const { data: profile, isLoading, isFetching, isError } = useQuery<ReviewProfile>({
+    ...reviewStatusQueryOptions,
     queryKey: ['review', profileId],
     queryFn: async () => {
       const { data } = await api.get(`/admin/reviews/${profileId}`);
@@ -305,13 +307,13 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
       await api.patch(`/admin/reviews/${profileId}/approve`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reviews'] });
       toast.success(profile?.status === 'approved' ? 'Live profile updates accepted' : 'Profile approved');
       router.push('/reviews');
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to approve');
     },
+    onSettled: () => invalidateProfileReviewQueries(queryClient),
   });
 
   const setLevel = useMutation({
@@ -340,13 +342,13 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
       await api.patch(`/admin/reviews/${profileId}/reject`, { reason });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reviews'] });
       toast.success('Profile rejected');
       router.push('/reviews');
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to reject');
     },
+    onSettled: () => invalidateProfileReviewQueries(queryClient),
   });
 
   const renderFieldValue = (field: CategoryField, value: any) => {
@@ -487,17 +489,17 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
             <span className="sr-only"> (opens in a new tab)</span>
           </Link>
           {!profile.is_ghost && profile.status === 'pending_review' && (
-            <Button variant="danger" disabled={setLevel.isPending} onClick={() => setRejectModalOpen(true)}>
+            <Button variant="danger" disabled={setLevel.isPending || isFetching || isError} onClick={() => setRejectModalOpen(true)}>
               Reject
             </Button>
           )}
-          {!profile.is_ghost && (profile.status === 'pending_review' || (profile.status === 'approved' && profile.reviewed_at == null && !!profile.resubmitted_at)) && (
-            <Button variant="secondary" disabled={setLevel.isPending} onClick={() => setChangesOpen(true)}>
+          {!profile.is_ghost && (profile.status === 'pending_review' || (profile.status === 'approved' && !!profile.changes_requested_at && profile.reviewed_at == null && !!profile.resubmitted_at)) && (
+            <Button variant="secondary" disabled={setLevel.isPending || isFetching || isError} onClick={() => setChangesOpen(true)}>
               Request changes
             </Button>
           )}
-          {!profile.is_ghost && (profile.status === 'pending_review' || (profile.status === 'approved' && profile.reviewed_at == null && !!profile.resubmitted_at)) && (
-            <Button loading={approve.isPending} disabled={setLevel.isPending} onClick={() => approve.mutate()}>
+          {!profile.is_ghost && (profile.status === 'pending_review' || (profile.status === 'approved' && !!profile.changes_requested_at && profile.reviewed_at == null && !!profile.resubmitted_at)) && (
+            <Button loading={approve.isPending} disabled={setLevel.isPending || isFetching || isError} onClick={() => approve.mutate()}>
               {profile.status === 'approved' ? 'Accept updates' : 'Approve'}
             </Button>
           )}

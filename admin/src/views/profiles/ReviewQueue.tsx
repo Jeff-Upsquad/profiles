@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { formatDate } from '@/lib/formatDate';
 import { timeAgo } from '@/views/onboarding/hubTypes';
 import ReviewChecklistModal from './ReviewChecklistModal';
+import { invalidateProfileReviewQueries, reviewStatusQueryOptions } from '@/lib/profileReviewCache';
 
 type QueueTab = 'pending_review' | 'changes_requested';
 
@@ -41,6 +42,7 @@ export default function ReviewQueue() {
   const [checklistOpen, setChecklistOpen] = useState(false);
 
   const { data: profiles, isLoading } = useQuery<ReviewProfile[]>({
+    ...reviewStatusQueryOptions,
     queryKey: ['reviews', categoryFilter, tab],
     queryFn: async () => {
       const { data } = await api.get('/admin/reviews', {
@@ -52,6 +54,7 @@ export default function ReviewQueue() {
 
   // Count for the other tab's badge so the reviewer sees both inboxes at once.
   const { data: waiting } = useQuery<ReviewProfile[]>({
+    ...reviewStatusQueryOptions,
     queryKey: ['reviews', categoryFilter, 'changes_requested'],
     queryFn: async () => {
       const { data } = await api.get('/admin/reviews', {
@@ -76,13 +79,13 @@ export default function ReviewQueue() {
       await api.patch('/admin/reviews/bulk-approve', { profile_ids: ids });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reviews'] });
       setSelectedIds(new Set());
       toast.success('Profiles approved');
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Bulk approve failed');
     },
+    onSettled: () => invalidateProfileReviewQueries(queryClient),
   });
 
   const toggleSelect = (id: string) => {

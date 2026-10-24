@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { reviewStatusQueryOptions } from '@/lib/profileReviewCache';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -287,6 +288,7 @@ export default function OnboardingHub({
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const { data: stats } = useQuery<HubStats>({
+    ...reviewStatusQueryOptions,
     queryKey: ['onboarding-hub-stats', track, category],
     queryFn: async () => (await api.get('/admin/user-approvals/hub/stats', { params: { category, track } })).data,
   });
@@ -298,6 +300,7 @@ export default function OnboardingHub({
   });
 
   const { data, isLoading, isPlaceholderData } = useQuery<HubResponse>({
+    ...reviewStatusQueryOptions,
     queryKey: ['onboarding-hub', track, view, category, stage, talentStage, attention, sort, search, page],
     queryFn: async () => {
       const params: Record<string, string | number> = { page, limit: 25, category, sort, track, view };

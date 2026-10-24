@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import { reviewStatusQueryOptions } from '@/lib/profileReviewCache';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
@@ -452,6 +453,7 @@ export default function TalentJourneyPanel({
   }, [userId]);
 
   const { data, isLoading } = useQuery<Journey>({
+    ...reviewStatusQueryOptions,
     queryKey: ['onboarding-journey', track, userId],
     queryFn: async () => (await api.get(`/admin/user-approvals/${userId}/journey`, { params: { track } })).data,
     enabled: !!userId,
