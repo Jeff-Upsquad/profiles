@@ -780,6 +780,14 @@ export async function approvePartnerUser(userId: string, adminId: string) {
       });
     } catch (e) { console.error('[partner approval] CRM card move failed:', e); }
   }
+  // Steps finished while approval was pending held the pipeline back. Now that
+  // Application Approved has landed (and its message sent), catch up to the
+  // furthest completed step — a talent with nothing left to do would
+  // otherwise never trigger the sync themselves.
+  try {
+    const { syncOnboardingStage } = await import('./automation.service.js');
+    await syncOnboardingStage(userId);
+  } catch (e) { console.error('[partner approval] stage catch-up failed:', e); }
   try {
     const { backfillCardsForTalent } = await import('./card-backfill.service.js');
     await backfillCardsForTalent(userId);
