@@ -277,7 +277,7 @@ export default function SpecialistBriefForm({ product = 'subscription', preview 
   }
 
   if (submitted) {
-    return <div className="shb-connect-bg flex min-h-full items-center justify-center px-5 py-16"><div className="w-full max-w-md rounded-2xl border border-[#E8E5DD] bg-white p-8 text-center shadow-sm"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#F2FCBC]"><CheckIcon /></div><h1 className="mt-4 text-xl font-semibold text-[#222]">Requirement ready</h1><p className="mt-2 text-sm leading-relaxed text-[#5C5C5C]">Your {roleName} {product} brief is ready for review and matching.</p><button type="button" onClick={() => setSubmitted(false)} className="shb-submit mt-6">Back to brief</button></div><style>{styles}</style></div>;
+    return <div className="shb-connect-bg flex min-h-full items-center justify-center px-5 py-16"><div className="w-full max-w-md rounded-2xl border border-[#E8E5DD] bg-white p-8 text-center shadow-sm"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#F2FCBC]"><CheckIcon /></div><h1 className="mt-4 text-xl font-semibold text-[#222]">Requirement submitted</h1><p className="mt-2 text-sm leading-relaxed text-[#5C5C5C]">Your {roleName} {product} brief will be shared automatically with matching talent while our team reviews it.</p><button type="button" onClick={() => setSubmitted(false)} className="shb-submit mt-6">Back to brief</button></div><style>{styles}</style></div>;
   }
 
   return (

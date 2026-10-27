@@ -43,6 +43,7 @@ export const ingestSubscriptionCardSchema = z.object({
   // /manual-assignments call. Defaulting to broadcast preserves prior
   // behaviour for any caller that hasn't started sending the field.
   distribution: z.enum(['broadcast', 'manual']).default('broadcast'),
+  notify_talents: z.boolean().default(false),
   // Stamped by SquadHub when an admin recalled a card that already had
   // acceptances. Drives the "Recalled" tag on the business dashboard and
   // keeps such cards in the Open section instead of moving to Closed.

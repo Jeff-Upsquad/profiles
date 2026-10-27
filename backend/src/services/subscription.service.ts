@@ -868,7 +868,7 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
             // the card visible in talent queues, but talents are only *notified*
             // (push + WhatsApp) on an explicit broadcast. Flip
             // NOTIFY_TALENT_ON_INGEST=true to also notify on ingest/edit.
-            if (env.NOTIFY_TALENT_ON_INGEST) {
+            if (input.notify_talents || env.NOTIFY_TALENT_ON_INGEST) {
               const updateContent = content;
               notifyNewCard(existing.id, newTalentIds, updateContent).catch((err) => {
                 console.error('[subscription] notifyNewCard (update) threw', err);
@@ -1001,7 +1001,7 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
       // Silent sync by default — the rows above make the card visible in talent
       // queues, but talents are only notified on an explicit broadcast. Flip
       // NOTIFY_TALENT_ON_INGEST=true to also notify on ingest.
-      if (env.NOTIFY_TALENT_ON_INGEST) {
+      if (input.notify_talents || env.NOTIFY_TALENT_ON_INGEST) {
         const insertContent = content;
         notifyNewCard(inserted.id, talentIds, insertContent).catch((err) => {
           console.error('[subscription] notifyNewCard threw', err);

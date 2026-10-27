@@ -695,7 +695,7 @@ export default function AccountantBriefForm({
           </div>
           <h1 className="text-xl font-semibold text-[#222]">Thank you!</h1>
           <p className="mt-2 text-base text-[#5C5C5C]">
-            Your brief is in. Our team will review it and reach out within one business day to confirm next steps.
+            Your requirement is in. We’ll automatically share it with matching talent while our team reviews it. We’ll contact you if anything needs clarification.
           </p>
         </div>
         <style jsx global>{globalStyles}</style>
