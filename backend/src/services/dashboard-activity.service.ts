@@ -16,6 +16,8 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { normalizeStage } from './crm-stage-mapping.js';
+import { finalChecksFor } from './final-checks.service.js';
+import type { FinalChecksState } from '../lib/final-checks.js';
 
 const GRADUATED_TALENT_STAGE = 'onboarding completed';
 
@@ -229,6 +231,7 @@ function moduleStats(
   now: number,
   lastSeen: Map<string, number>,
   activityAt: Map<string, number>,
+  finalChecks: Map<string, FinalChecksState>,
 ): ModuleStats {
   const out = emptyModule();
   const d7 = now - 7 * 86_400_000;
@@ -236,7 +239,7 @@ function moduleStats(
   out.total_users = rows.length;
   for (const r of rows) {
     const blocked = r.suspended || r.blacklisted;
-    const graduated = normalizeStage(
+    const graduated = finalChecks.has(r.id) ? finalChecks.get(r.id) === 'completed' : normalizeStage(
       (track === 'jobs' ? r.crm_jobs_stage_name : r.crm_talent_stage_name) ?? '',
     ) === GRADUATED_TALENT_STAGE;
     const cancelled = isCancelled(r, track);
@@ -274,7 +277,7 @@ function moduleStats(
     if (rejected) out.rejected += 1;
     if (!blocked && !cancelled && !rejected && !graduated) {
       out.total += 1;
-      const stage = stageFor(r, track);
+      const stage = finalChecks.get(r.id) === 'final_checks' ? 'final_checks' : stageFor(r, track);
       out.by_stage[stage] = (out.by_stage[stage] ?? 0) + 1;
       const pendingStatus = track === 'partner' ? r.partner_approval_status : r.approval_status;
       if (pendingStatus === 'pending') out.pending_approval += 1;
@@ -285,6 +288,9 @@ function moduleStats(
 
 export async function getDashboardActivity(): Promise<DashboardActivity> {
   const now = Date.now();
+  const [partnerFinalChecks, jobsFinalChecks] = await Promise.all([
+    finalChecksFor('partner', now), finalChecksFor('jobs', now),
+  ]);
 
   const [talentRes, businessRes, partnerAppRes, talentAppRes] = await Promise.all([
     supabaseAdmin.from('talent_users').select(TALENT_COLUMNS),
@@ -408,8 +414,8 @@ export async function getDashboardActivity(): Promise<DashboardActivity> {
     generated_at: new Date(now).toISOString(),
     users: { talent, business },
     modules: {
-      partner: moduleStats(partnerRows, 'partner', now, lastSeen, activityAt),
-      jobs: moduleStats(jobsRows, 'jobs', now, lastSeen, activityAt),
+      partner: moduleStats(partnerRows, 'partner', now, lastSeen, activityAt, partnerFinalChecks),
+      jobs: moduleStats(jobsRows, 'jobs', now, lastSeen, activityAt, jobsFinalChecks),
     },
     login_tracking_available: loginAt !== null,
     signups_weekly: weeks,

@@ -67,6 +67,7 @@ const STAGE_TO_LEAD_KEY: Record<PipelineStage, string> = {
   job_profile: 'job_profile',
   final_review: 'final_review',
   live: 'live',
+  final_checks: 'final_checks',
   no_response: 'no_response',
   rejected: 'rejected',
 };
@@ -122,7 +123,7 @@ function TalentBoardDots({ row }: { row: HubRow }) {
     partner_approval_status: row.partner_approval_status,
     talent_board: j.talent_board,
     program_courses: j.program_courses,
-  });
+  }).filter(s => row.pipeline_stage !== 'final_checks' || s.key === 'app' || s.key === 'webinar');
   const next = steps.find((s) => !s.done);
   return (
     <div className="mt-2">
@@ -289,6 +290,7 @@ export default function OnboardingHub({
 
   const { data: stats } = useQuery<HubStats>({
     ...reviewStatusQueryOptions,
+    refetchInterval: 60_000,
     queryKey: ['onboarding-hub-stats', track, category],
     queryFn: async () => (await api.get('/admin/user-approvals/hub/stats', { params: { category, track } })).data,
   });
@@ -301,6 +303,7 @@ export default function OnboardingHub({
 
   const { data, isLoading, isPlaceholderData } = useQuery<HubResponse>({
     ...reviewStatusQueryOptions,
+    refetchInterval: 60_000,
     queryKey: ['onboarding-hub', track, view, category, stage, talentStage, attention, sort, search, page],
     queryFn: async () => {
       const params: Record<string, string | number> = { page, limit: 25, category, sort, track, view };
@@ -620,6 +623,13 @@ export default function OnboardingHub({
       )}
 
       {/* Talent board — Live candidates grouped by CRM talent-board stage */}
+      {!sectionOnly && stage === 'final_checks' && (
+        <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
+          Applicants enter Final checks 24 hours after going Live. They stay in the onboarded module.
+          App sign-in is detected automatically; mark webinar attendance in the applicant’s checklist.
+          Once both are complete, they leave this onboarding module automatically.
+        </div>
+      )}
       {!sectionOnly && stage === 'live' && (
       <div>
         <div className="mb-1.5 flex items-center justify-between">
@@ -880,7 +890,7 @@ export default function OnboardingHub({
                               {u.stage_timer.overdue ? `Overdue · was due ${timeAgo(u.stage_timer.due_at)}` : `Due ${timeUntil(u.stage_timer.due_at)}`}
                             </p>
                           ))}
-                          {u.pipeline_stage === 'live' && <TalentBoardDots row={u} />}
+                          {(u.pipeline_stage === 'live' || u.pipeline_stage === 'final_checks') && <TalentBoardDots row={u} />}
                         </td>
                       )}
                       <td className="px-3 py-2.5">

@@ -164,6 +164,7 @@ const STAGE_TO_LEAD_KEY: Record<PipelineStage, string> = {
   job_profile: 'job_profile',
   final_review: 'final_review',
   live: 'live',
+  final_checks: 'final_checks',
   no_response: 'no_response',
   rejected: 'rejected',
 };
@@ -593,7 +594,7 @@ export default function TalentJourneyPanel({
   const phoneDigits = cleanPhoneForLink(u?.phone);
   const formType = data?.lead?.form_type ?? u?.categories?.[0];
   const stageLabel = (s: PipelineStage) =>
-    labelFor(formType, STAGE_TO_LEAD_KEY[s], STAGE_BY_VALUE[s].label);
+    s === 'final_checks' ? 'Final checks' : labelFor(formType, STAGE_TO_LEAD_KEY[s], STAGE_BY_VALUE[s].label);
 
   // Which journey step is "current" (first not-done after signed up).
   const steps = j
@@ -1145,14 +1146,20 @@ export default function TalentJourneyPanel({
                 </ol>
               </Section>
 
-              <Section title="Talent board checklist" aside={<span className="text-[11px] text-gray-500">After going live</span>}>
+              <Section title={u.pipeline_stage === 'final_checks' ? 'Final checks' : 'Talent board checklist'} aside={<span className="text-[11px] text-gray-500">After going live</span>}>
+                {u.pipeline_stage === 'final_checks' && (
+                  <p className="mb-3 text-xs text-gray-500">
+                    App sign-in is detected automatically. Mark webinar attendance below; once both are recorded,
+                    this applicant leaves onboarding and stays in the onboarded module.
+                  </p>
+                )}
                 <ol className="space-y-3">
                   {talentBoardSteps({
                     wants_jobs: u.wants_jobs,
                     partner_approval_status: u.partner_approval_status,
                     talent_board: j.talent_board,
                     program_courses: j.program_courses,
-                  }).map((s, i, all) => (
+                  }).filter(s => u.pipeline_stage !== 'final_checks' || s.key === 'app' || s.key === 'webinar').map((s, i, all) => (
                     <li key={s.key} className="flex items-start gap-3">
                       <StepIcon done={s.done} active={!s.done && all.slice(0, i).every((p) => p.done)} />
                       <div className="min-w-0 flex-1">
@@ -1211,14 +1218,14 @@ export default function TalentJourneyPanel({
                       <button
                         key={s.value}
                         type="button"
-                        disabled={active || !canEdit || stageMut.isPending || isRejected}
+                        disabled={active || s.value === 'final_checks' || !canEdit || stageMut.isPending || isRejected}
                         onClick={() => stageMut.mutate(s.value)}
                         className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
                           active
                             ? `${s.chip} shadow-sm ring-2 ring-offset-1 ring-indigo-200`
                             : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-60'
                         }`}
-                        title={active ? 'Current stage' : `Move to ${stageLabel(s.value)}`}
+                        title={s.value === 'final_checks' ? 'Automatic: 24 hours after Live; clears after app sign-in and webinar attendance' : active ? 'Current stage' : `Move to ${stageLabel(s.value)}`}
                       >
                         {stageLabel(s.value)}
                       </button>

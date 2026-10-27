@@ -14,6 +14,7 @@ export type PipelineStage =
   | 'job_profile'
   | 'final_review'
   | 'live'
+  | 'final_checks'
   | 'no_response'
   | 'rejected';
 
@@ -30,7 +31,7 @@ export const PIPELINE_STAGES: StageDef[] = [
   { value: 'job_profile', label: 'Job profile', dot: 'bg-teal-500', chip: 'bg-teal-50 text-teal-700 border-teal-200' },
   { value: 'final_review', label: 'Final review', dot: 'bg-violet-500', chip: 'bg-violet-50 text-violet-700 border-violet-200' },
   { value: 'live', label: 'Live', dot: 'bg-emerald-500', chip: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  { value: 'no_response', label: 'No response', dot: 'bg-gray-400', chip: 'bg-gray-50 text-gray-600 border-gray-200' },
+  { value: 'final_checks', label: 'Final checks', dot: 'bg-sky-500', chip: 'bg-sky-50 text-sky-700 border-sky-200' },
 ];
 
 export const REJECTED_STAGE: StageDef = {
@@ -43,6 +44,8 @@ export const STAGE_BY_VALUE = Object.fromEntries(
     REJECTED_STAGE,
     // Retired: folded into Application Approved (migration 00154).
     { ...PIPELINE_STAGES[1], value: 'signed_up' as const },
+    // Read old records without offering the retired stage as a destination.
+    { value: 'no_response', label: 'No response (retired)', dot: 'bg-gray-400', chip: 'bg-gray-50 text-gray-600 border-gray-200' },
   ].map((s) => [s.value, s]),
 ) as Record<PipelineStage, StageDef>;
 

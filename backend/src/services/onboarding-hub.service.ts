@@ -1,4 +1,5 @@
 import { adminOnboardingNeedsYou } from './onboarding-needs-you.service.js';
+import { finalChecksFor } from './final-checks.service.js';
 // ---------------------------------------------------------------------------
 // Onboarding hub — the admin's single view of every talent sign-up and how far
 // they've got: course → basic profile → job profile → portfolio, the CRM
@@ -611,6 +612,8 @@ export async function listHub(filters: HubListFilters) {
   const limit = Math.min(100, Math.max(1, filters.limit ?? 25));
   const offset = (page - 1) * limit;
   const view = filters.view ?? 'active';
+  const finalChecks = await finalChecksFor(filters.track ?? 'partner');
+  const finalCheckIds = [...finalChecks].filter(([, state]) => state === 'final_checks').map(([id]) => id);
 
   // Id-set exclusions and restrictions are resolved up front so the talent
   // query can be built twice (see grouping below) without refetching them.
@@ -624,14 +627,20 @@ export async function listHub(filters: HubListFilters) {
     const { data: graduatedRows } = await supabaseAdmin
       .from('talent_users')
       .select('id')
-      .ilike(graduatedColumn, GRADUATED_TALENT_STAGE);
+      .ilike(graduatedColumn, GRADUATED_TALENT_STAGE)
+      .or(`${filters.track === 'jobs' ? 'jobs_pipeline_stage' : 'pipeline_stage'}.is.null,${filters.track === 'jobs' ? 'jobs_pipeline_stage' : 'pipeline_stage'}.neq.live`);
     excludeIds.push(...(graduatedRows ?? []).map((r: any) => r.id).filter(Boolean));
   } else if (view === 'active') {
     const [{ data: g1 }, { data: g2 }] = await Promise.all([
-      supabaseAdmin.from('talent_users').select('id').ilike('crm_talent_stage_name', GRADUATED_TALENT_STAGE),
-      supabaseAdmin.from('talent_users').select('id').ilike('crm_jobs_stage_name', GRADUATED_TALENT_STAGE),
+      supabaseAdmin.from('talent_users').select('id').ilike('crm_talent_stage_name', GRADUATED_TALENT_STAGE)
+        .or('pipeline_stage.is.null,pipeline_stage.neq.live'),
+      supabaseAdmin.from('talent_users').select('id').ilike('crm_jobs_stage_name', GRADUATED_TALENT_STAGE)
+        .or('jobs_pipeline_stage.is.null,jobs_pipeline_stage.neq.live'),
     ]);
     excludeIds.push(...[...(g1 ?? []), ...(g2 ?? [])].map((r: any) => r.id).filter(Boolean));
+  }
+  if (view === 'active') {
+    excludeIds.push(...[...finalChecks].filter(([, state]) => state === 'completed').map(([id]) => id));
   }
   // Rejected / disqualified talents live in their own section, never the
   // active queue. Id exclusion (not `neq`) so NULL-stage rows are kept.
@@ -673,6 +682,9 @@ export async function listHub(filters: HubListFilters) {
   const talentStage = (filters.talent_stage ?? '').trim();
   const talentStageColumn = filters.track === 'jobs' ? 'crm_jobs_stage_id' : 'crm_talent_stage_id';
   const stage = (filters.pipeline_stage ?? '').trim().toLowerCase();
+  if (view === 'active' && stage === 'final_checks' && finalCheckIds.length === 0) {
+    return { users: [], total: 0, page, limit, total_pages: 0 };
+  }
 
   const build = (opts: { head?: boolean } = {}) => {
     let qb = supabaseAdmin
@@ -695,7 +707,12 @@ export async function listHub(filters: HubListFilters) {
         ? qb.eq('jobs_pipeline_stage', 'rejected')
         : qb.or('pipeline_stage.eq.rejected,partner_approval_status.eq.rejected');
     } else if (view === 'active' && stage && stage !== 'all') {
-      qb = qb.eq(stageColumn, stage);
+      if (stage === 'final_checks') {
+        qb = qb.eq(stageColumn, 'live').in('id', finalCheckIds);
+      } else {
+        qb = qb.eq(stageColumn, stage);
+        if (stage === 'live' && finalCheckIds.length) qb = qb.not('id', 'in', `(${finalCheckIds.join(',')})`);
+      }
     }
     // A talent-board tab can span several boards' same-named stage (id,id,…).
     if (talentStage === 'none') qb = qb.is(talentStageColumn, null);
@@ -774,7 +791,8 @@ export async function listHub(filters: HubListFilters) {
     created_at: u.created_at,
     approved_at: u.approved_at,
     pipeline_stage: (filters.track === 'partner' && u.partner_approval_status === 'rejected'
-      ? 'rejected' : filters.track === 'jobs' ? u.jobs_pipeline_stage : u.pipeline_stage) ?? 'application_approved',
+      ? 'rejected' : finalChecks.get(u.id) === 'final_checks' ? 'final_checks'
+        : filters.track === 'jobs' ? u.jobs_pipeline_stage : u.pipeline_stage) ?? 'application_approved',
     rejection_reason: rejectionFor(u, filters.track).reason,
     rejected_at: rejectionFor(u, filters.track).at,
     partner_rejected: u.partner_approval_status === 'rejected' || u.pipeline_stage === 'rejected',
@@ -853,6 +871,7 @@ async function leadsFor(
 // ---------------------------------------------------------------------------
 
 export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
+  const finalChecks = await finalChecksFor(track ?? 'partner');
   const cat = parseSignupCategory(category);
   const categoryIds = await talentIdsForSignupCategory(cat);
   const empty = {
@@ -891,6 +910,7 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
 
   // Same graduation rule as listHub: hide "Onboarding completed" from the queue.
   const visible = data.filter((r) => {
+    if (finalChecks.has(r.id)) return finalChecks.get(r.id) !== 'completed';
     const stageName = track === 'jobs' ? r.crm_jobs_stage_name : track === 'partner' ? r.crm_talent_stage_name : null;
     if (track) return !isGraduatedTalentStageName(stageName);
     return !isGraduatedTalentStageName(r.crm_talent_stage_name) && !isGraduatedTalentStageName(r.crm_jobs_stage_name);
@@ -922,7 +942,8 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
   let pending = 0;
   let inTalent = 0;
   for (const r of rows) {
-    const s = (track === 'jobs' ? r.jobs_pipeline_stage : r.pipeline_stage) ?? 'application_approved';
+    const s = finalChecks.get(r.id) === 'final_checks' ? 'final_checks'
+      : (track === 'jobs' ? r.jobs_pipeline_stage : r.pipeline_stage) ?? 'application_approved';
     byStage[s] = (byStage[s] ?? 0) + 1;
     if ((track === 'partner' ? r.partner_approval_status : r.approval_status) === 'pending') pending += 1;
     const talentStageId = track === 'jobs' ? r.crm_jobs_stage_id : r.crm_talent_stage_id;
@@ -994,6 +1015,7 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
 // ---------------------------------------------------------------------------
 
 export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 'partner') {
+  const finalChecks = await finalChecksFor(track);
   const { data: talent, error } = await supabaseAdmin
     .from('talent_users')
     .select(
@@ -1134,7 +1156,8 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
       skip_onboarding: !!t.skip_onboarding,
       skip_onboarding_reason: t.skip_onboarding_reason ?? null,
       pipeline_stage: (track === 'partner' && t.partner_approval_status === 'rejected'
-        ? 'rejected' : track === 'jobs' ? t.jobs_pipeline_stage : t.pipeline_stage) ?? 'application_approved',
+        ? 'rejected' : finalChecks.get(userId) === 'final_checks' ? 'final_checks'
+          : track === 'jobs' ? t.jobs_pipeline_stage : t.pipeline_stage) ?? 'application_approved',
       crm_talent_pipeline_name: (track === 'jobs' ? t.crm_jobs_pipeline_name : t.crm_talent_pipeline_name) ?? null,
       crm_talent_stage_id: (track === 'jobs' ? t.crm_jobs_stage_id : t.crm_talent_stage_id) ?? null,
       crm_talent_stage_name: (track === 'jobs' ? t.crm_jobs_stage_name : t.crm_talent_stage_name) ?? null,
