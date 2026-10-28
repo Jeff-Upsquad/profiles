@@ -1,6 +1,6 @@
 # SquadHire independent database backup
 
-This service exports Supabase project `cwgrooocsklytlmvwabv`, shared by Profiles
+This service exports the configured approved Supabase project, shared by Profiles
 and SquadHire CRM. It runs independently of their application processes and of
 SquadHub's backup service. It does not change billing or move production.
 
@@ -27,6 +27,16 @@ retain their existing scope; keep them root-only. Source export access has its
 own dedicated role. Push fallback uses the existing SquadHub server container.
 
 ## Install and schedules
+
+For the approved migration, this utility accepts the original project and
+`hhjnxrizbvygerotvrnb`. The database host (or pooler username suffix) must match
+`PROJECT_REF`. Destination state must be separate, for example
+`STATE_DIR=/var/lib/squadhire-backup-hhjnxrizbvygerotvrnb`; do not carry over a
+pinned `PGHOSTADDR`. R2 retention uses the configured project's own namespace,
+so destination backups cannot prune the original project's archives. Keep the
+old configuration and key, and switch the live timer configuration only as part
+of the coordinated application cutover. Frequency and freshness limits remain
+unchanged.
 
 Use the Profiles worktree -> validation -> scoped commit -> merge -> push
 workflow for source changes. Deploy this standalone service from the resulting
@@ -59,7 +69,7 @@ fails closed if Vault secrets appear until a supported root-key recovery is adde
 
 AES-256-GCM with a random nonce protects the compressed package. `SQHBACK1` is
 the inherited file-format magic, not a project identifier. Every run uploads to
-`backups/supabase/cwgrooocsklytlmvwabv/<run-id>/`, downloads the entire object,
+`backups/supabase/<configured-project-ref>/<run-id>/`, downloads the entire object,
 checks SHA-256 and authenticates/decrypts it before marking success or pruning.
 Only encrypted contents and operational manifests go to R2. Keep the recovery key
 and config independently of both the VPS and R2.
