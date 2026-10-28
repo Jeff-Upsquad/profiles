@@ -44,3 +44,8 @@ graphify-out/
 
 # ShipStudio metadata
 .shipstudio/
+
+# Private production connection and generated Supabase CLI cache
+/supabase/.env
+/supabase/.ca.crt
+/supabase/.temp/

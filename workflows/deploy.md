@@ -1,5 +1,7 @@
 # Profiles Production Deployment
 
+> **Database target:** Read [supabase-production.md](supabase-production.md) before migrations. Current production: `hhjnxrizbvygerotvrnb`. Run `python3 tools/supabase-production.py status`; deploy does not apply SQL.
+
 ## Objective
 
 Deploy an already-pushed `origin/main` to the Hostinger VPS running Profiles via

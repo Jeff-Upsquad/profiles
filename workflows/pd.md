@@ -1,5 +1,7 @@
 # PD — Push and Deploy
 
+> **Database target:** Read [supabase-production.md](supabase-production.md) before migrations. Current production: `hhjnxrizbvygerotvrnb`. Run `python3 tools/supabase-production.py status`; deploy does not apply SQL.
+
 ## Objective
 
 Push an already-committed local `main` and deploy that exact result to Profiles
