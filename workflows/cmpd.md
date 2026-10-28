@@ -1,5 +1,7 @@
 # CMPD — Commit, Merge, Push, Deploy
 
+> **Database target:** Read [supabase-production.md](supabase-production.md) before migrations. Current production: `hhjnxrizbvygerotvrnb`. Run `python3 tools/supabase-production.py status`; deploy does not apply SQL.
+
 ## Objective
 
 Ship the current worktree's scoped changes through the complete production

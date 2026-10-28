@@ -1,5 +1,15 @@
 # Profiles — Agent instructions
 
+## Supabase production (updated 28 October 2026)
+
+Current project: **`hhjnxrizbvygerotvrnb`**, shared by SquadHire / Profiles / SquadHire CRM. Read
+[workflows/supabase-production.md](workflows/supabase-production.md) before
+migrations, database commands or CMPD/PD. Use
+`python3 tools/supabase-production.py status` to verify the destination.
+The old project `cwgrooocsklytlmvwabv` is retired. Local CLI login/cache must not override
+the checked-in `supabase/production-target.json`. New worktrees use the helper's
+primary-checkout credential fallback. Deploy scripts do not apply migrations.
+
 ## WAT workflows
 
 This repository uses the Workflows, Agents, Tools (WAT) pattern for repeatable
