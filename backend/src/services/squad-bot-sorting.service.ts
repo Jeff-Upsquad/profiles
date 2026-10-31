@@ -16,7 +16,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
-import { HANDOFF_MESSAGE, historyToMessages, introNote, isNewConversation, knowledgeBlock, memoryBlock, type ChatLine } from '../lib/squad-bot-prompt.js';
+import { HANDOFF_MESSAGE, historyToMessages, introNote, isNewConversation, knowledgeBlock, memoryBlock, teamInstructions, type ChatLine } from '../lib/squad-bot-prompt.js';
 import {
   DEFAULT_SORT_ROLES,
   normalizeSortRoles,
@@ -96,7 +96,7 @@ export async function sortWhatsAppContact(msg: WhatsAppInbound): Promise<void> {
   try {
     const settings = await getSortingSettings();
     const conv = await whatsappConversation(msg);
-    await addMessage(conv.id, { sender: 'talent', body: msg.text, channel: 'whatsapp', crm_message_id: msg.message_id });
+    await addMessage(conv.id, { sender: 'talent', body: msg.text ?? '', channel: 'whatsapp', crm_message_id: msg.message_id });
     // With the team: recruiters answer in the CRM; the bot stays quiet.
     if (conv.status === 'handoff') return;
 
@@ -178,6 +178,8 @@ async function decide(conv: ConversationRow, settings: SortingSettings): Promise
               ? `This is a new conversation: your first message must be exactly your greeting, word for word: ${boardHub.character.greeting.trim()}`
               : introNote(isNewConversation(lines), name),
             canMove ? '' : 'You cannot move contacts to a team right now: once their role is clear, hand off to the team with it.',
+            // Includes the note left when Squad CRM's receptionist hands a chat over.
+            teamInstructions(lines),
             briefing?.guideline ?? '',
             adminInstructions(hub),
           ].filter(Boolean).join('\n\n'),

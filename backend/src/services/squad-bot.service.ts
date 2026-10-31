@@ -35,6 +35,8 @@ import {
   squadBotInstructions,
   talentContext,
   teamInstructions,
+  handoverInstruction,
+  type WhatsAppHandover,
   transferNote,
   formTypeForPipeline,
   prospectContext,
@@ -746,8 +748,35 @@ export interface WhatsAppInbound {
   name: string | null;
   pipeline_name: string | null;
   message_id: string;
-  text: string;
+  text?: string;
   button_id?: string | null;
+  handover?: WhatsAppHandover;
+  context_only?: boolean;
+}
+
+/**
+ * Write a Squad CRM handover into this conversation once: the earlier
+ * messages at their own times, then the note above as a team instruction.
+ */
+export async function recordHandover(conversationId: string, h: WhatsAppHandover): Promise<void> {
+  const { data: seen, error: seenError } = await supabaseAdmin.from('squad_bot_messages').select('id')
+    .eq('conversation_id', conversationId).eq('meta->>handover_key', h.key).limit(1);
+  if (seenError) throw new AppError(500, `Failed to read chat: ${seenError.message}`);
+  if (seen?.length) return;
+  const meta = { handover_key: h.key, source: 'squadcrm' };
+  const rows: Array<Record<string, unknown>> = h.transcript.filter((l) => l.body.trim()).map((l) => ({
+    conversation_id: conversationId,
+    sender: l.sender,
+    body: l.body,
+    channel: 'whatsapp' as const,
+    created_at: l.at,
+    meta: l.sender === 'bot' ? { ...meta, squadbot_name: 'UpSquad Receptionist' } : meta,
+    ...(l.sender === 'staff' ? { staff_name: 'UpSquad team' } : {}),
+  }));
+  rows.push({ conversation_id: conversationId, sender: 'instruction', body: handoverInstruction(h),
+    channel: 'whatsapp', created_at: new Date().toISOString(), meta });
+  const { error } = await supabaseAdmin.from('squad_bot_messages').insert(rows);
+  if (error) throw new AppError(500, `Failed to save handover: ${error.message}`);
 }
 
 async function talentIdByPhone(phone: string): Promise<string | null> {
@@ -787,6 +816,10 @@ export async function whatsappConversation(msg: WhatsAppInbound): Promise<Conver
  */
 export async function handleWhatsAppMessage(msg: WhatsAppInbound): Promise<void> {
   try {
+    // Squad CRM's receptionist handed this chat over: record what was said
+    // there first, so whoever answers (bot or team) has it.
+    if (msg.handover) await recordHandover((await whatsappConversation(msg)).id, msg.handover);
+    if (msg.context_only || !msg.text) return;
     const pipeline = (msg.pipeline_name ?? '').trim().toLowerCase();
     // SquadHub admin's switch comes first: off means the bot does nothing.
     const status = await hubStatus();

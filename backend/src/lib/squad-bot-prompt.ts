@@ -169,6 +169,22 @@ export function teamInstructions(lines: ChatLine[]): string {
   return ['Instructions from the UpSquad team for this chat (oldest first; the last one is the newest):', ...items.map((l) => `- ${l.body.trim()}`)].join('\n');
 }
 
+export interface WhatsAppHandover {
+  key: string;
+  summary: string | null;
+  from_pipeline: string | null;
+  transcript: Array<{ sender: 'talent' | 'bot' | 'staff'; body: string; at: string }>;
+}
+
+/** The private note our Receptionist reads when a chat arrives from Squad CRM. */
+export function handoverInstruction(h: WhatsAppHandover): string {
+  return [
+    `This chat was handed over to you by UpSquad's sales Receptionist (Squad CRM${h.from_pipeline ? `, ${h.from_pipeline} board` : ''}) because they are looking for work, which is SquadHire's side.`,
+    h.summary ? `What they told the sales desk: ${h.summary}` : '',
+    'The earlier messages in this chat were with that Receptionist, not you. Continue from there as SquadHire\'s Receptionist: in your first reply, introduce yourself in one short line as UpSquad\'s hiring team even though the chat is already under way, do not ask again for anything they already said, and take the next step in sorting them.',
+  ].filter(Boolean).join(' ');
+}
+
 /** Sent as the talent's turn when the team asks Squad Bot to act and there's no new talent message. */
 export const ACT_ON_INSTRUCTION =
   '(No new message from the talent. The UpSquad team has just given you an instruction: act on it now and write your next message to the talent.)';

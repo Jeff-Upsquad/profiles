@@ -235,8 +235,22 @@ const squadBotMessageSchema = z.object({
   name: z.string().nullable().optional().transform((v) => v ?? null),
   pipeline_name: z.string().nullable().optional().transform((v) => v ?? null),
   message_id: z.string().uuid(),
-  text: z.string().trim().min(1).max(4096),
-});
+  text: z.string().trim().min(1).max(4096).optional(),
+  // A job-seeker Squad CRM's receptionist handed to SquadHire: what was said
+  // there and what it learned, recorded before the bot answers.
+  handover: z.object({
+    key: z.string().min(1).max(200),
+    summary: z.string().max(1000).nullable().optional().transform((v) => v ?? null),
+    from_pipeline: z.string().max(200).nullable().optional().transform((v) => v ?? null),
+    transcript: z.array(z.object({
+      sender: z.enum(['talent', 'bot', 'staff']),
+      body: z.string().max(4096),
+      at: z.string(),
+    })).max(100),
+  }).optional(),
+  // Record the handover only: the CRM opened with a template and waits.
+  context_only: z.boolean().optional(),
+}).refine((m) => m.context_only ? !!m.handover : !!m.text, { message: 'text is required' });
 
 export async function handleLeadStageChanged(
   req: Request,

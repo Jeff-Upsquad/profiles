@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { fetchDomains, historyToMessages, introNote, isNewConversation, teamInstructions, knowledgeKeysFor, nextStep, talentContext, type TalentBrief } from './squad-bot-prompt.js';
+import { fetchDomains, handoverInstruction, historyToMessages, introNote, isNewConversation, teamInstructions, knowledgeKeysFor, nextStep, talentContext, type TalentBrief } from './squad-bot-prompt.js';
 
 const base: TalentBrief = {
   first_name: 'Anu', categories: ['Designer'], wants_jobs: false, partner_approval: 'approved',
@@ -113,4 +113,16 @@ test('Squadbots introduce themselves by name and read Squad Bots memory', async 
   assert.match(memoryBlock('# Your memory\nFacts'), /# Your memory\nFacts\n\nThese are the only facts you may state\./);
   assert.match(memoryBlock('  '), /none published yet/);
   assert.match(transferNote('John', 'asks about accounting', 'Tina'), /John just handed this conversation to you because: asks about accounting\. .*introducing yourself as Tina/);
+});
+
+test('a Squad CRM handover tells the receptionist where the chat came from and what is known', () => {
+  const note = handoverInstruction({ key: 'k', summary: 'Writer looking for freelance work', from_pipeline: 'Reception', transcript: [] });
+  assert.match(note, /Squad CRM, Reception board/);
+  assert.match(note, /What they told the sales desk: Writer looking for freelance work/);
+  assert.match(note, /do not ask again/);
+  assert.doesNotMatch(handoverInstruction({ key: 'k', summary: null, from_pipeline: null, transcript: [] }), /told the sales desk|board/);
+  // It reaches the model as a team instruction, never as a chat turn.
+  const lines = [{ sender: 'instruction' as const, body: note }, { sender: 'talent' as const, body: 'hi' }];
+  assert.match(teamInstructions(lines), /handed over to you/);
+  assert.deepEqual(historyToMessages(lines), [{ role: 'user', content: 'hi' }]);
 });
