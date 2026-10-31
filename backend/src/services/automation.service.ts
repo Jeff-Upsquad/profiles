@@ -604,6 +604,50 @@ export async function onLeadStatusChanged(
  * webhook — the CRM treats this as forward-only and no-ops if the card is
  * already at or past Signed Up.
  */
+/**
+ * SquadHire CRM gets a card for a signup only once they create a job profile.
+ * Until then they live in the Onboarding module here: we still move a card the
+ * CRM already has (a WhatsApp chat, an application), but must not open one —
+ * with no category known it would land on the wrong board. Unknown talent
+ * (no id) keeps the old behaviour.
+ */
+export async function hasJobProfile(talentUserId?: string | null): Promise<boolean> {
+  if (!talentUserId) return true;
+  const { count, error } = await supabaseAdmin
+    .from('talent_profiles')
+    .select('id', { count: 'exact', head: true })
+    .eq('talent_user_id', talentUserId)
+    .is('deleted_at', null);
+  if (error) throw new Error(`Failed to read job profiles: ${error.message}`);
+  return (count ?? 0) > 0;
+}
+
+/**
+ * The talent's first job profile: now SquadHire CRM gets their card, on the
+ * board for that profile's category, at the stage they have reached.
+ */
+export async function notifyCrmJobProfileCreated(talentUserId: string): Promise<void> {
+  const { data: talent, error } = await supabaseAdmin
+    .from('talent_users')
+    .select('full_name, phone, wants_jobs, pipeline_stage, jobs_pipeline_stage')
+    .eq('id', talentUserId)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to read talent: ${error.message}`);
+  if (!talent) return;
+  const jobs = !!talent.wants_jobs;
+  const stage = (jobs ? talent.jobs_pipeline_stage : talent.pipeline_stage) || 'application_approved';
+  if (stage === 'rejected') return;
+  const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(talentUserId);
+  await notifyCrmPipelineStageChanged({
+    talentUserId,
+    name: talent.full_name ?? '',
+    email: authUser?.user?.email ?? null,
+    phone: talent.phone ?? null,
+    newStage: stage,
+    ...(jobs ? { formType: 'jobs' } : {}),
+  });
+}
+
 export async function notifyCrmTalentSignedUp(input: {
   name: string;
   email: string;
@@ -647,9 +691,11 @@ export async function notifyCrmTalentSignedUp(input: {
     if (preferred?.pipeline_name) pipeline_name = preferred.pipeline_name;
   }
 
+  const createIfMissing = await hasJobProfile(input.talentUserId);
   const result = await sendCrmWebhook(webhookUrl, {
     event: 'signed_up',
     status: 'signed_up',
+    create_if_missing: createIfMissing,
     lead: {
       name: input.name,
       email,
@@ -667,6 +713,7 @@ export async function notifyCrmTalentSignedUp(input: {
       pipeline_stage,
       error: result.error,
       has_phone: !!phone,
+      create_if_missing: createIfMissing,
     },
   });
 }
@@ -751,11 +798,13 @@ export async function notifyCrmPipelineStageChanged(input: {
     if (preferred?.pipeline_name) pipeline_name = preferred.pipeline_name;
   }
 
+  const createIfMissing = await hasJobProfile(input.talentUserId);
   const result = await sendCrmWebhook(webhookUrl, {
     // `track_stage_changed` is board-specific: the CRM moves (or opens) this
     // person's card on the named board. `pipeline_stage_changed` moves their
     // primary card in place.
     event: jobs ? 'track_stage_changed' : 'pipeline_stage_changed',
+    create_if_missing: createIfMissing,
     ...(jobs ? {} : { status: input.newStage }),
     lead: {
       name: input.name,
@@ -777,6 +826,7 @@ export async function notifyCrmPipelineStageChanged(input: {
       crm_stage: pipeline_stage,
       pipeline_name: pipeline_name ?? null,
       silent: !!input.silent,
+      create_if_missing: createIfMissing,
       error: result.error,
     },
   });

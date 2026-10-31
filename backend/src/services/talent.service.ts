@@ -830,6 +830,20 @@ export async function createProfile(
     await syncGhostForTalent(userId);
   }
 
+  // Their first job profile is when SquadHire CRM gets a card for them, on
+  // this category's board (until now they were only in Onboarding).
+  try {
+    const { count } = await supabaseAdmin.from('talent_profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('talent_user_id', userId).is('deleted_at', null);
+    if (count === 1) {
+      const { notifyCrmJobProfileCreated } = await import('./automation.service.js');
+      await notifyCrmJobProfileCreated(userId);
+    }
+  } catch (e) {
+    console.error('[job profile] CRM card failed:', e);
+  }
+
   return data;
 }
 
