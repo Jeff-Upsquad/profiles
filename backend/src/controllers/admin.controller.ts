@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { AppError } from '../middleware/errorHandler.middleware.js';
 import * as adminService from '../services/admin.service.js';
 import * as reviewChanges from '../services/profile-review-changes.service.js';
 import * as basicChanges from '../services/basic-profile-changes.service.js';
@@ -191,9 +192,16 @@ export async function getReviewProfile(req: Request, res: Response, next: NextFu
   }
 }
 
+function profileApprovalTrack(body: { track?: unknown } | undefined): 'partner' | 'jobs' | undefined {
+  const track = body?.track;
+  if (track === undefined) return undefined;
+  if (track !== 'partner' && track !== 'jobs') throw new AppError(400, 'Invalid approval track');
+  return track;
+}
+
 export async function approveProfile(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await adminService.approveProfile(req.params.profileId as string, req.user!.id);
+    const result = await adminService.approveProfile(req.params.profileId as string, req.user!.id, profileApprovalTrack(req.body));
     res.json({ profile: result });
   } catch (err) {
     next(err);
@@ -292,7 +300,7 @@ export async function rejectProfile(req: Request, res: Response, next: NextFunct
 export async function bulkApproveProfiles(req: Request, res: Response, next: NextFunction) {
   try {
     const { profile_ids } = req.body;
-    const result = await adminService.bulkApproveProfiles(profile_ids, req.user!.id);
+    const result = await adminService.bulkApproveProfiles(profile_ids, req.user!.id, profileApprovalTrack(req.body));
     res.json({ results: result });
   } catch (err) {
     next(err);

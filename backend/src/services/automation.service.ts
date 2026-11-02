@@ -363,8 +363,10 @@ const STEP_STAGES: Array<[string, string]> = [
  * Jobs + Partner Program (see linked-tracks.service): applied together, both
  * pipelines jump together and only the Partner Program card messages; a track
  * added later catches up one stage per CATCH_UP_GAP_MS instead of jumping.
+ * Admin profile reviews pass a track to limit stage changes and CRM messages
+ * to that application. Other callers retain the shared progress sync.
  */
-export async function syncOnboardingStage(talentUserId: string) {
+export async function syncOnboardingStage(talentUserId: string, track?: 'partner' | 'jobs') {
   const cfg = await getConfig();
   if (!cfg.auto_advance_onboarding_stages) return;
 
@@ -388,13 +390,14 @@ export async function syncOnboardingStage(talentUserId: string) {
   const held = partnerHeld(intent);
   // Training can be completed while Partner Program approval is pending. It
   // stays ticked on the journey, but must not move the partner pipeline.
-  if (intent?.partner_approval_status === 'pending' && !intent.wants_jobs) return;
+  if (intent?.partner_approval_status === 'pending' && (!intent.wants_jobs || track === 'partner')) return;
   // Rejected / disqualified is terminal: progress never pulls a talent back
   // into the funnel. Only an admin approve (reinstate) moves them out.
-  const jobsClosed = !intent?.wants_jobs || intent.jobs_pipeline_stage === 'rejected' || !!intent.application_cancellations?.jobs;
-  const partnerClosed = intent?.partner_approval_status == null ||
+  const jobsClosed = track === 'partner' || !intent?.wants_jobs || intent.jobs_pipeline_stage === 'rejected' || !!intent.application_cancellations?.jobs;
+  const partnerClosed = track === 'jobs' || intent?.partner_approval_status == null ||
     intent.partner_approval_status === 'rejected' || intent.pipeline_stage === 'rejected' || !!intent.application_cancellations?.partner;
   if (jobsClosed && partnerClosed) return;
+  const syncJobs = !!intent?.wants_jobs && track !== 'partner';
 
   // Furthest completed step wins (STEP_STAGES is ascending). The portfolio
   // step doesn't count for a talent whose categories have no portfolio.
@@ -409,7 +412,7 @@ export async function syncOnboardingStage(talentUserId: string) {
   // A submitted job profile is awaiting final review. It becomes live only
   // after an admin approves at least one profile.
   let jobsTarget = target;
-  if (intent?.wants_jobs && progress.job_profile_completed) {
+  if (syncJobs && progress.job_profile_completed) {
     const { data: jobProfiles } = await supabaseAdmin.from('talent_profiles')
       .select('status').eq('talent_user_id', talentUserId).is('deleted_at', null);
     jobsTarget = (jobProfiles ?? []).some((p) => p.status === 'approved')
@@ -429,7 +432,7 @@ export async function syncOnboardingStage(talentUserId: string) {
   const partnerPaced = catchUp && catchUpPaced(intent?.partner_stage_changed_at);
 
   for (const lead of (leads ?? []) as Array<{ id: string; status: string; form_type: string | null; form_data: any }>) {
-    if (partnerClosed) continue;
+    if (partnerClosed || (track === 'partner' && lead.form_type === 'jobs')) continue;
     // Applied together but Partner not approved yet: the candidate card stays
     // at Signed Up (steps still tick) and only the Jobs pipeline moves.
     if (held) continue;
@@ -466,8 +469,8 @@ export async function syncOnboardingStage(talentUserId: string) {
 
   // No linked candidate card (or none in this funnel) — still move Sign-ups
   // and the CRM WhatsApp card from talent progress.
-  if (advancedAny && !intent?.wants_jobs) return;
-  if (intent?.wants_jobs && jobsClosed) return;
+  if (advancedAny && !syncJobs) return;
+  if (!track && intent?.wants_jobs && jobsClosed) return;
   try {
     const { data: talent } = await supabaseAdmin
       .from('talent_users')
@@ -475,15 +478,18 @@ export async function syncOnboardingStage(talentUserId: string) {
       .eq('id', talentUserId)
       .maybeSingle();
     const { leadStatusToPipelineStage } = await import('../lib/pipelineStageMapping.js');
-    let pipelineStage = leadStatusToPipelineStage(intent?.wants_jobs ? jobsTarget : target);
+    let pipelineStage = leadStatusToPipelineStage(syncJobs ? jobsTarget : target);
     if (!pipelineStage) return;
-    if (intent?.wants_jobs && catchUp) {
+    // A scoped review must also respect a manually advanced Partner stage.
+    if (track === 'partner' && JOBS_STAGE_ORDER.indexOf(talent?.pipeline_stage ?? '') >=
+        JOBS_STAGE_ORDER.indexOf(pipelineStage)) return;
+    if (syncJobs && catchUp) {
       // Second track: one stage at a time, never a jump.
       if (catchUpPaced(intent.jobs_stage_changed_at)) return;
       pipelineStage = nextStageToward(JOBS_STAGE_ORDER, talent?.jobs_pipeline_stage ?? null, pipelineStage);
       if (!pipelineStage) return;
     }
-    if (intent?.wants_jobs) {
+    if (syncJobs) {
       const { error } = await supabaseAdmin.from('talent_users')
         .update({ jobs_pipeline_stage: pipelineStage }).eq('id', talentUserId);
       if (error) throw error;
@@ -491,7 +497,7 @@ export async function syncOnboardingStage(talentUserId: string) {
       const { applyLeadStatusToTalentUser } = await import('../lib/talent-pipeline-sync.js');
       await applyLeadStatusToTalentUser(talentUserId, target);
     }
-    if (pipelineStage !== (intent?.wants_jobs ? talent?.jobs_pipeline_stage : talent?.pipeline_stage)) {
+    if (pipelineStage !== (syncJobs ? talent?.jobs_pipeline_stage : talent?.pipeline_stage)) {
       const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(talentUserId);
       await notifyCrmPipelineStageChanged({
         talentUserId,
@@ -499,12 +505,12 @@ export async function syncOnboardingStage(talentUserId: string) {
         email: authUser?.user?.email ?? null,
         phone: talent?.phone ?? null,
         newStage: pipelineStage,
-        ...(intent?.wants_jobs ? { formType: 'jobs', silent: linked } : {}),
+        ...(syncJobs ? { formType: 'jobs', silent: linked && !track } : {}),
       });
     }
-    // Linked: the Partner Program pipeline lands on the same stage (and its
+    // Unscoped progress only: the Partner Program pipeline lands on the same stage (and its
     // card sends the message) even when no candidate lead carried the move.
-    if (intent?.wants_jobs && linked) {
+    if (syncJobs && linked && !track) {
       await mirrorCandidateStage(talentUserId, 'jobs', pipelineStage, { forwardOnly: true });
     }
   } catch (err) {

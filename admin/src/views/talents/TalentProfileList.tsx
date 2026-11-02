@@ -258,9 +258,11 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
     },
   });
 
+  const approvalTrack = employmentType ? (employmentType === 'salary' ? 'jobs' : 'partner') : undefined;
+
   const approveProfile = useMutation({
     mutationFn: async (profileId: string) => {
-      await api.patch(`/admin/reviews/${profileId}/approve`);
+      await api.patch(`/admin/reviews/${profileId}/approve`, { track: approvalTrack });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['talent-profiles', categoryId] });
@@ -291,7 +293,7 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
 
   const bulkApprove = useMutation({
     mutationFn: async (ids: string[]) => {
-      await api.patch('/admin/reviews/bulk-approve', { profile_ids: ids });
+      await api.patch('/admin/reviews/bulk-approve', { profile_ids: ids, track: approvalTrack });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['talent-profiles', categoryId] });
@@ -812,7 +814,7 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
                             },
                             {
                               label: 'Review Details',
-                              onClick: () => router.push(`/reviews/${profile.id}`),
+                              onClick: () => router.push(`/reviews/${profile.id}${approvalTrack ? `?track=${approvalTrack}` : ''}`),
                             },
                             {
                               label: 'View Profile',

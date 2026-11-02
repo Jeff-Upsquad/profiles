@@ -399,7 +399,7 @@ export async function getReviewProfile(profileId: string) {
   return { ...data, portfolio_items: portfolioWithSkills, linked_leads: linkedLeads ?? [] };
 }
 
-export async function approveProfile(profileId: string, adminId: string) {
+export async function approveProfile(profileId: string, adminId: string, track?: 'partner' | 'jobs') {
   const { data: current } = await supabaseAdmin
     .from('talent_profiles')
     .select('status, is_ghost, changes_requested_at, reviewed_at, resubmitted_at')
@@ -447,7 +447,12 @@ export async function approveProfile(profileId: string, adminId: string) {
   // Approving a job profile may advance the candidate's pipeline stage.
   try {
     const { syncOnboardingStage } = await import('./automation.service.js');
-    await syncOnboardingStage(data.talent_user_id);
+    // Reviews opened from a track keep that context. A generic review uses
+    // Partner when both applications exist, and Jobs for a Jobs-only talent.
+    const { loadTrackState } = await import('./linked-tracks.service.js');
+    const state = track ? null : await loadTrackState(data.talent_user_id);
+    const reviewTrack = track ?? (state?.wants_jobs && state.partner_approval_status == null ? 'jobs' : 'partner');
+    await syncOnboardingStage(data.talent_user_id, reviewTrack);
   } catch (e) {
     console.error('[automation] syncOnboardingStage failed:', e);
   }
@@ -492,9 +497,9 @@ export async function rejectProfile(profileId: string, adminId: string, reason: 
   return data;
 }
 
-export async function bulkApproveProfiles(profileIds: string[], adminId: string) {
+export async function bulkApproveProfiles(profileIds: string[], adminId: string, track?: 'partner' | 'jobs') {
   const results = await Promise.all(
-    profileIds.map((id) => approveProfile(id, adminId).catch((e) => ({ error: e, id })))
+    profileIds.map((id) => approveProfile(id, adminId, track).catch((e) => ({ error: e, id })))
   );
   return results;
 }

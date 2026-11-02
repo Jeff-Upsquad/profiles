@@ -1089,7 +1089,7 @@ export default function TalentJourneyPanel({
                                     </button>
                                   )}
                                   {p.status === 'pending_review' || (liveChangesOpen && !!p.resubmitted_at) ? (
-                                    <Link href={`/reviews/${p.id}`} className="text-xs font-medium text-indigo-600 hover:underline">
+                                    <Link href={`/reviews/${p.id}?track=${track}`} className="text-xs font-medium text-indigo-600 hover:underline">
                                       Review
                                     </Link>
                                   ) : (

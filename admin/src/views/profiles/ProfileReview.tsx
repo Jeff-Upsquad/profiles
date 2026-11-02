@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { TALENT_CATEGORY_OPTIONS } from '../../../../shared/src/contentRoles';
@@ -278,6 +278,10 @@ function ChangeNote({ notes }: { notes: string[] }) {
 
 export default function ProfileReview({ profileId }: { profileId: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const trackParam = searchParams.get('track');
+  const track = trackParam === 'jobs' || trackParam === 'partner' ? trackParam : undefined;
+  const reviewTrackQuery = track ? `?track=${track}` : '';
   const queryClient = useQueryClient();
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -304,7 +308,7 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
 
   const approve = useMutation({
     mutationFn: async () => {
-      await api.patch(`/admin/reviews/${profileId}/approve`);
+      await api.patch(`/admin/reviews/${profileId}/approve`, { track });
     },
     onSuccess: () => {
       toast.success(profile?.status === 'approved' ? 'Live profile updates accepted' : 'Profile approved');
@@ -549,12 +553,12 @@ export default function ProfileReview({ profileId }: { profileId: string }) {
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {profile.source_designer_profile_id && (
-              <Link href={`/reviews/${profile.source_designer_profile_id}`}>
+              <Link href={`/reviews/${profile.source_designer_profile_id}${reviewTrackQuery}`}>
                 <Button variant="secondary" size="sm">Review Designer profile</Button>
               </Link>
             )}
             {profile.source_editor_profile_id && (
-              <Link href={`/reviews/${profile.source_editor_profile_id}`}>
+              <Link href={`/reviews/${profile.source_editor_profile_id}${reviewTrackQuery}`}>
                 <Button variant="secondary" size="sm">Review Video Editor profile</Button>
               </Link>
             )}
