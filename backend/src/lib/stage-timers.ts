@@ -83,7 +83,7 @@ export const STAGE_TASKS: Record<TimedStage, string> = {
   application_approved: 'complete the onboarding course',
   onboarding_course: 'complete your basic profile',
   basic_profile: 'complete your job profile',
-  job_profile: 'finish your portfolio and submit your profile for review',
+  job_profile: 'complete your job profile',
   final_review: 'wait for your profile to be reviewed',
 };
 

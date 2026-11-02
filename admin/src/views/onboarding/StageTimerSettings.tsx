@@ -31,7 +31,7 @@ const STAGES: { key: string; label: string; next: string }[] = [
   { key: 'application_approved', label: 'Application Approved', next: 'Onboarding course completed' },
   { key: 'onboarding_course', label: 'Onboarding Course', next: 'Basic profile completed' },
   { key: 'basic_profile', label: 'Basic Profile', next: 'Job profile completed' },
-  { key: 'job_profile', label: 'Job Profile', next: 'Portfolio done, profile submitted for review' },
+  { key: 'job_profile', label: 'Job Profile', next: 'Job profile completed' },
   { key: 'final_review', label: 'Final Review', next: 'Job profile reviewed' },
 ];
 

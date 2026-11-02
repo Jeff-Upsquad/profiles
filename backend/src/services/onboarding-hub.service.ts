@@ -27,6 +27,7 @@ import { programProgressFor, type ProgramProgress } from './program-training-pro
 import { openChangeRequests, rcStatusFor } from './request-change-reminders.service.js';
 import { TIMER_TALENT_COLUMNS, getStageTimerSettings, hubTimerFor } from './stage-timers.service.js';
 import { portfolioRequiredFor } from '../../../shared/src/portfolio.js';
+import { onboardingStage } from '../lib/onboarding-stage.js';
 
 // Ghost Designer + Editor rows hold no portfolio_items of their own — their
 // items live on the two source profiles. Resolve the display count as the
@@ -707,8 +708,15 @@ export async function listHub(filters: HubListFilters) {
         ? qb.eq('jobs_pipeline_stage', 'rejected')
         : qb.or('pipeline_stage.eq.rejected,partner_approval_status.eq.rejected');
     } else if (view === 'active' && stage && stage !== 'all') {
+      // Match the approval-gated placement before pagination/counting. Linked
+      // Jobs progress must not put an unapproved Partner in a later stage.
+      if (filters.track !== 'jobs' && stage !== 'applicants') {
+        qb = qb.neq('partner_approval_status', 'pending');
+      }
       if (stage === 'final_checks') {
         qb = qb.eq(stageColumn, 'live').in('id', finalCheckIds);
+      } else if (filters.track !== 'jobs' && stage === 'applicants') {
+        qb = qb.or('partner_approval_status.eq.pending,pipeline_stage.eq.applicants');
       } else {
         qb = qb.eq(stageColumn, stage);
         if (stage === 'live' && finalCheckIds.length) qb = qb.not('id', 'in', `(${finalCheckIds.join(',')})`);
@@ -790,9 +798,7 @@ export async function listHub(filters: HubListFilters) {
     blacklisted: u.blacklisted,
     created_at: u.created_at,
     approved_at: u.approved_at,
-    pipeline_stage: (filters.track === 'partner' && u.partner_approval_status === 'rejected'
-      ? 'rejected' : finalChecks.get(u.id) === 'final_checks' ? 'final_checks'
-        : filters.track === 'jobs' ? u.jobs_pipeline_stage : u.pipeline_stage) ?? 'application_approved',
+    pipeline_stage: onboardingStage(u, filters.track, finalChecks.get(u.id)),
     rejection_reason: rejectionFor(u, filters.track).reason,
     rejected_at: rejectionFor(u, filters.track).at,
     partner_rejected: u.partner_approval_status === 'rejected' || u.pipeline_stage === 'rejected',
@@ -942,8 +948,7 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
   let pending = 0;
   let inTalent = 0;
   for (const r of rows) {
-    const s = finalChecks.get(r.id) === 'final_checks' ? 'final_checks'
-      : (track === 'jobs' ? r.jobs_pipeline_stage : r.pipeline_stage) ?? 'application_approved';
+    const s = onboardingStage(r, track, finalChecks.get(r.id));
     byStage[s] = (byStage[s] ?? 0) + 1;
     if ((track === 'partner' ? r.partner_approval_status : r.approval_status) === 'pending') pending += 1;
     const talentStageId = track === 'jobs' ? r.crm_jobs_stage_id : r.crm_talent_stage_id;
@@ -1155,9 +1160,7 @@ export async function talentJourney(userId: string, track: 'partner' | 'jobs' = 
       languages_spoken: t.languages_spoken ?? [],
       skip_onboarding: !!t.skip_onboarding,
       skip_onboarding_reason: t.skip_onboarding_reason ?? null,
-      pipeline_stage: (track === 'partner' && t.partner_approval_status === 'rejected'
-        ? 'rejected' : finalChecks.get(userId) === 'final_checks' ? 'final_checks'
-          : track === 'jobs' ? t.jobs_pipeline_stage : t.pipeline_stage) ?? 'application_approved',
+      pipeline_stage: onboardingStage(t, track, finalChecks.get(userId)),
       crm_talent_pipeline_name: (track === 'jobs' ? t.crm_jobs_pipeline_name : t.crm_talent_pipeline_name) ?? null,
       crm_talent_stage_id: (track === 'jobs' ? t.crm_jobs_stage_id : t.crm_talent_stage_id) ?? null,
       crm_talent_stage_name: (track === 'jobs' ? t.crm_jobs_stage_name : t.crm_talent_stage_name) ?? null,
