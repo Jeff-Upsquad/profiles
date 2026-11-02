@@ -226,9 +226,9 @@ export default function ThreadsProfileHeader({
     });
   }
   if (expertOn.length) facts.push({ label: 'Expert on', value: expertOn.join(', ') });
-  if (bestAt.length) facts.push({ label: 'Best at', value: bestAt[0] });
   if (languageCodes.length) facts.push({ label: 'Languages', value: languageCodes.join(' · ') });
   if (ageGender) facts.push({ label: 'Age', value: ageGender });
+  if (bestAt.length) facts.push({ label: 'Best at', value: bestAt[0] });
 
   // ---- Business actions ----
   // With a card price box the offer lives there, so the header's second
