@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ThreadsSkillsSheetProps {
   /** e.g. "7 core skills · 11 tools" */
@@ -47,19 +48,19 @@ export default function ThreadsSkillsSheet({ summary, children }: ThreadsSkillsS
         </svg>
       </button>
 
-      {open && (
+      {open && createPortal(
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45" onClick={() => setOpen(false)}>
           <section
             role="dialog"
             aria-modal="true"
             aria-label="Skills and tools"
             onClick={(e) => e.stopPropagation()}
-            className="flex max-h-[92vh] w-full max-w-[640px] flex-col rounded-t-[22px] bg-white"
+            className="flex max-h-[92vh] w-full max-w-[640px] flex-col overflow-hidden rounded-t-[22px] bg-white supports-[height:100dvh]:max-h-[92dvh]"
           >
-            <div className="flex justify-center pt-2" aria-hidden="true">
+            <div className="flex shrink-0 justify-center pt-2" aria-hidden="true">
               <span className="h-1 w-9 rounded-full bg-zinc-300" />
             </div>
-            <div className="flex items-center justify-between border-b border-zinc-200 py-1.5 pl-5 pr-2">
+            <div className="flex shrink-0 items-center justify-between border-b border-zinc-200 py-1.5 pl-5 pr-2">
               <h2 className="text-[17px] font-bold text-zinc-950">Skills &amp; tools</h2>
               <button
                 type="button"
@@ -77,7 +78,9 @@ export default function ThreadsSkillsSheet({ summary, children }: ThreadsSkillsS
               {children}
             </div>
           </section>
-        </div>
+        </div>,
+        // Keep the viewport overlay outside the profile card's overflow clipping.
+        document.body
       )}
     </div>
   );
