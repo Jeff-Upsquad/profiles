@@ -4,6 +4,7 @@ import { checkInvitation, markInvitationAccepted } from './invite.service.js';
 import { getAdminSetting } from './admin.service.js';
 import type { SignupTalentInput, SignupAgencyInput, LoginInput } from '../validators/auth.validators.js';
 import type { CreateLeadInput } from '../validators/lead.validators.js';
+import { signupFormTypes } from '../../../shared/src/signupCategories.js';
 import { workIntent } from '../lib/work-intent.js';
 import { formTypeFromSignupHint } from '../lib/signup-category.js';
 import { roleFromAuthUser } from '../lib/auth-role.js';
@@ -12,7 +13,7 @@ import type { UserRole } from '../../../shared/src/types/auth.js';
 export async function signupTalent(input: SignupTalentInput, application?: CreateLeadInput) {
   const {
     email, password, full_name, country, state, current_district,
-    signup_role, signup_ref, ...profileData
+    signup_role, signup_ref, signup_categories, ...profileData
   } = input;
 
   // Resolve where they came from. An explicit ?role= on the signup link beats
@@ -20,9 +21,10 @@ export async function signupTalent(input: SignupTalentInput, application?: Creat
   // drives the Sign-ups category filter and the CRM pipeline choice, while
   // signupSource is kept verbatim so a human can audit a wrong classification.
   const signupFormType = application?.form_type ??
+    signupFormTypes(signup_categories ?? [])[0] ??
     formTypeFromSignupHint(signup_role) ?? formTypeFromSignupHint(signup_ref);
   const signupSource = signupFormType
-    ? (application ? `application:${application.form_type}` : signup_role ? `landing:${signup_role}` : `referrer:${signup_ref}`).slice(0, 500)
+    ? (signup_categories?.length ? `selected:${signup_categories.join(",")}` : application ? `application:${application.form_type}` : signup_role ? `landing:${signup_role}` : `referrer:${signup_ref}`).slice(0, 500)
     : null;
 
   // The signup pages check this while the person types, but enforce it again
@@ -83,6 +85,7 @@ export async function signupTalent(input: SignupTalentInput, application?: Creat
         // Both picked on one application → one pipeline journey, one message per stage.
         tracks_linked: intent!.jobs && intent!.partner,
       } : {}),
+      ...(signup_categories ? { signup_categories } : {}),
       ...(signupFormType
         ? { signup_form_type: signupFormType, signup_source: signupSource }
         : {}),

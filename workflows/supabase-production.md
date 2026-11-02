@@ -40,6 +40,19 @@ Use the new project's direct connection or session pooler, with its own password
 and CA certificate. These files must never be committed or printed. A new machine
 needs those credentials installed securely; it fails closed when absent.
 
+When the shared ledger prevents a bulk push, scope the helper to one reviewed,
+14-digit migration version:
+
+```bash
+python3 tools/supabase-production.py dry-run --migration <version>
+python3 tools/supabase-production.py apply --migration <version>
+```
+
+The scoped dry-run shows its SQL and ledger state. Scoped apply uses the same
+verified production connection and records only that migration in the same
+transaction as its SQL. It fails if the version is already recorded; it never
+repairs or replays other history.
+
 The helper connects directly and does not depend on the temporary migration
 access token, its expiration, or the globally logged-in Supabase account.
 CLI `supabase/.temp/` is ignored local state. For plain linked CLI commands,

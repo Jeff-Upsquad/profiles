@@ -146,6 +146,9 @@ export interface Profile {
 }
 
 export interface TalentSignupData {
+  signup_categories?: string[];
+  signup_role?: string;
+  signup_ref?: string;
   email: string;
   password: string;
   full_name: string;

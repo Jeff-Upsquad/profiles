@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SIGNUP_CATEGORIES } from '../../../shared/src/signupCategories.js';
 import { createLeadSchema } from './lead.validators.js';
 
 export const signupTalentApplicationSchema = z.object({
@@ -23,6 +24,11 @@ export const signupTalentSchema = z.object({
   // the signup link; `signup_ref` is a fallback (referrer URL / campaign) used
   // only when no explicit role is present. Both are hints — the server resolves
   // them and stores nothing it can't map.
+  signup_categories: z.array(z.string().refine(
+    (value) => SIGNUP_CATEGORIES.some((c) => c.value === value),
+    'Choose a valid category',
+  )).min(1, 'Choose at least one category').max(SIGNUP_CATEGORIES.length)
+    .transform((values) => [...new Set(values)]).optional(),
   signup_role: z.string().max(120).optional(),
   signup_ref: z.string().max(500).optional(),
 });

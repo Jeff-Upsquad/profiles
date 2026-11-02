@@ -1,3 +1,4 @@
+import { SIGNUP_CATEGORIES, signupFormTypes } from '../../../shared/src/signupCategories.js';
 import { supabaseAdmin } from '../config/supabase.js';
 
 import { TALENT_CATEGORY_OPTIONS } from '../../../shared/src/contentRoles.js';
@@ -101,7 +102,7 @@ export async function talentIdsForSignupCategory(
     const { data: signups } = await supabaseAdmin
       .from('talent_users')
       .select('id')
-      .in('signup_form_type', formTypes);
+      .or(`signup_form_type.in.(${formTypes.join(',')}),signup_categories.ov.{${SIGNUP_CATEGORIES.filter((c) => formTypes.includes(c.formType)).map((c) => c.value).join(',')}}`);
     for (const row of signups ?? []) {
       const id = (row as { id?: string | null }).id;
       if (id) ids.add(id);
@@ -135,10 +136,11 @@ export async function formTypesForTalent(talentUserId: string): Promise<string[]
   // what someone told us at signup beats a category inferred later.
   const { data: signup } = await supabaseAdmin
     .from('talent_users')
-    .select('signup_form_type')
+    .select('signup_form_type, signup_categories')
     .eq('id', talentUserId)
     .maybeSingle();
   const signupFt = (signup as { signup_form_type?: string | null } | null)?.signup_form_type;
+  for (const ft of signupFormTypes(signup?.signup_categories ?? [])) found.add(ft);
   if (signupFt) found.add(signupFt);
 
   const { data: leads } = await supabaseAdmin
@@ -177,9 +179,8 @@ export async function signupCategoriesByTalentIds(
 
   const { data: signups } = await supabaseAdmin
     .from('talent_users')
-    .select('id, signup_form_type')
-    .in('id', ids)
-    .not('signup_form_type', 'is', null);
+    .select('id, signup_form_type, signup_categories')
+    .in('id', ids);
 
   const { data: leads } = await supabaseAdmin
     .from('lead_submissions')
@@ -217,7 +218,10 @@ export async function signupCategoriesByTalentIds(
   for (const row of signups ?? []) {
     const tid = (row as { id?: string | null }).id;
     const ft = (row as { signup_form_type?: string | null }).signup_form_type;
-    if (tid && ft) add(tid, ft);
+    if (tid) {
+      for (const selected of signupFormTypes(row.signup_categories ?? [])) add(tid, selected);
+      if (ft) add(tid, ft);
+    }
   }
   for (const row of leads ?? []) {
     const tid = (row as { linked_talent_user_id?: string | null }).linked_talent_user_id;

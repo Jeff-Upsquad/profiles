@@ -17,6 +17,8 @@ import {
 import { COUNTRY_CODES } from '@/constants/country-codes';
 import AlreadySubmittedSheet from '@/components/forms/AlreadySubmittedSheet';
 import toast from 'react-hot-toast';
+import { PROFILE_SQUADS } from '@/data/jobProfileSquads';
+import { SIGNUP_CATEGORIES } from '../../../../shared/src/signupCategories';
 
 const SUPPORT_PHONE_DIGITS = '919995266342';
 const WHATSAPP_URL = `https://wa.me/${SUPPORT_PHONE_DIGITS}`;
@@ -86,8 +88,21 @@ interface CheckResult {
 }
 
 export default function SignupTalent() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, login } = useAuth();
   const router = useRouter();
+
+  const [categories, setCategories] = useState<string[]>([]);
+  const [categorySearch, setCategorySearch] = useState('');
+  const [expandedSquads, setExpandedSquads] = useState<string[]>(['content-creation']);
+  const [categoryError, setCategoryError] = useState(false);
+  const [loginFailed, setLoginFailed] = useState(false);
+  const categoryQuery = categorySearch.trim().toLowerCase();
+  const categoryGroups = PROFILE_SQUADS.map((squad) => ({
+    squad,
+    choices: SIGNUP_CATEGORIES.filter((category) => squad.categorySlugs.includes(category.value)
+      && (!categoryQuery || category.label.toLowerCase().includes(categoryQuery)
+        || squad.name.toLowerCase().includes(categoryQuery))),
+  })).filter((group) => group.choices.length > 0);
 
   const [view, setView] = useState<ViewState>('form');
   const [showExistsSheet, setShowExistsSheet] = useState(false);
@@ -116,7 +131,7 @@ export default function SignupTalent() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      router.push('/dashboard');
+      router.replace(user.role === 'talent' ? '/talent/dashboard' : '/dashboard');
     }
   }, [authLoading, user, router]);
 
@@ -179,7 +194,7 @@ export default function SignupTalent() {
       }
     }, 600);
     return () => clearTimeout(handle);
-  }, [form.email, form.phone]);
+  }, [form.email, form.phone, countryCode]);
 
   const set = (key: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -207,6 +222,11 @@ export default function SignupTalent() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
+    if (!categories.length) {
+      setCategoryError(true);
+      document.getElementById('signup-categories')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     if (!form.full_name.trim()) { toast.error('Full name is required'); return; }
     if (!form.email.trim()) { toast.error('Email is required'); return; }
     if (form.password.length < 8) { toast.error('Password must be at least 8 characters'); return; }
@@ -222,11 +242,16 @@ export default function SignupTalent() {
         country: form.country || undefined,
         state: form.state || undefined,
         current_district: form.current_district || undefined,
+        signup_categories: categories,
         signup_role: signupOrigin.role || undefined,
         signup_ref: signupOrigin.ref || undefined,
       });
       setView('success');
-      setTimeout(() => router.push('/login'), 3000);
+      try {
+        await login(form.email.trim(), form.password, '/talent/dashboard', 'talent');
+      } catch {
+        setLoginFailed(true);
+      }
     } catch (err: any) {
       const status = err.response?.status;
       if (status === 409) {
@@ -260,6 +285,11 @@ export default function SignupTalent() {
         </div>
 
         <Card className="p-6 sm:p-8">
+          {process.env.NEXT_PUBLIC_SIGNUP_PREVIEW === '1' && (
+            <p className="mb-6 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-500" role="status">
+              Local preview — real account creation is disabled until the database change is deployed.
+            </p>
+          )}
           {/* ── Success State ── */}
           {view === 'success' && (
             <div className="text-center py-8">
@@ -269,18 +299,10 @@ export default function SignupTalent() {
                 </svg>
               </div>
               <h2 className="text-2xl font-bold text-gray-900">Account Created!</h2>
-              <p className="mt-2 text-sm text-gray-500">
-                Your account has been created successfully. Redirecting you to the login page...
+              <p className="mt-2 text-sm text-gray-500" role="status">
+                {loginFailed ? 'Your account is ready. Automatic sign-in could not finish. Sign in to continue with the account you just created.' : 'Taking you to the app…'}
               </p>
-              <Link
-                href="/login"
-                className="mt-6 inline-flex items-center gap-1 text-sm font-medium text-[#0a0a0a] hover:text-[#0a0a0a]"
-              >
-                Sign In Now
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </Link>
+              {loginFailed && <Link href="/login/talent" className="mt-6 inline-flex items-center gap-1 text-sm font-medium text-[#0a0a0a] hover:text-[#0a0a0a]">Continue to sign in</Link>}
             </div>
           )}
 
@@ -295,10 +317,54 @@ export default function SignupTalent() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                <section id="signup-categories" aria-labelledby="category-heading" className="pb-2">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h3 id="category-heading" className="text-sm font-semibold text-gray-800">Applying Categories <span className="font-normal text-gray-500">(select all that apply)</span></h3>
+                    <span className="text-xs text-gray-500" aria-live="polite">{categories.length} selected</span>
+                  </div>
+                  <Input id="category-search" type="search" aria-label="Search categories" placeholder="Search categories…" value={categorySearch} onChange={(e) => setCategorySearch(e.target.value)} />
+                  <div className="mt-3 space-y-3">
+                    {categoryGroups.map(({ squad, choices }) => {
+                      const expanded = !!categoryQuery || expandedSquads.includes(squad.id);
+                      const selectedCount = categories.filter((value) => squad.categorySlugs.includes(value)).length;
+                      return <div key={squad.id} className="overflow-hidden rounded-lg border border-[#E7E7EA]">
+                        <button type="button" aria-expanded={expanded} aria-controls={`signup-squad-${squad.id}`}
+                          onClick={() => setExpandedSquads((previous) => previous.includes(squad.id)
+                            ? previous.filter((id) => id !== squad.id) : [...previous, squad.id])}
+                          className="flex w-full items-center justify-between gap-3 bg-[#F5F5F6] px-3 py-3 text-left text-sm font-medium text-[#0a0a0a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0a0a0a]/30">
+                          <span>{squad.name}</span>
+                          <span className="flex shrink-0 items-center gap-2 text-xs font-normal text-gray-500">
+                            {selectedCount ? `${selectedCount} selected` : `${choices.length} ${choices.length === 1 ? "category" : "categories"}`}
+                            <span aria-hidden="true">{expanded ? '−' : '+'}</span>
+                          </span>
+                        </button>
+                        <div id={`signup-squad-${squad.id}`} hidden={!expanded} role="group" aria-label={squad.name}>
+                          <div className="grid gap-2.5 p-3 sm:grid-cols-2">
+                            {choices.map((category) => {
+                              const selected = categories.includes(category.value);
+                              return <label key={category.value} className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-[#0a0a0a]/12 ${selected ? 'border-[#0a0a0a] bg-[#F5F5F6] text-[#0a0a0a]' : 'border-[#E7E7EA] bg-white hover:border-gray-400'}`}>
+                                <input type="checkbox" name="signup_categories" value={category.value} checked={selected} disabled={!canProceed || submitting} onChange={() => {
+                                  setCategories((previous) => selected ? previous.filter((value) => value !== category.value) : [...previous, category.value]);
+                                  setCategoryError(false);
+                                }} className="h-4 w-4 shrink-0 accent-[#0a0a0a]" />
+                                <span className="font-medium">{category.label}</span>
+                              </label>;
+                            })}
+                          </div>
+                        </div>
+                      </div>;
+                    })}
+                  </div>
+                  {!categoryGroups.length && <p className="mt-3 text-sm text-gray-500">No categories found. Try another search.</p>}
+                  {!!categories.length && <p className="mt-3 text-xs leading-5 text-gray-500">Selected: {SIGNUP_CATEGORIES.filter((c) => categories.includes(c.value)).map((c) => c.label).join(', ')}</p>}
+                  {categoryError && <p role="alert" className="mt-2 text-xs text-red-600">Choose at least one category to continue.</p>}
+                </section>
                 {/* Email + Phone — account-exists check fires as they type. */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Input
                     label="Email"
+                    id="signup-email"
+                    autoComplete="email"
                     type="email"
                     value={form.email}
                     onChange={set('email')}
@@ -306,11 +372,12 @@ export default function SignupTalent() {
                     required
                   />
                   <div>
-                    <label className="mb-1.5 block text-[13px] font-medium text-[#3F3F46]">
+                    <label htmlFor="signup-phone" className="mb-1.5 block text-[13px] font-medium text-[#3F3F46]">
                       Phone
                     </label>
                     <div className="flex items-stretch gap-2">
                       <select
+                        aria-label="Phone country code"
                         value={countryCode}
                         onChange={(e) => {
                           const newCode = e.target.value;
@@ -325,6 +392,8 @@ export default function SignupTalent() {
                         ))}
                       </select>
                       <input
+                        id="signup-phone"
+                        autoComplete="tel-national"
                         type="tel"
                         inputMode="numeric"
                         maxLength={15}
@@ -381,6 +450,8 @@ export default function SignupTalent() {
                 >
                   <Input
                     label="Full Name"
+                    id="signup-name"
+                    autoComplete="name"
                     value={form.full_name}
                     onChange={set('full_name')}
                     placeholder="Your full name"
@@ -390,6 +461,9 @@ export default function SignupTalent() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Input
                       label="Password"
+                      id="signup-password"
+                      autoComplete="new-password"
+                      minLength={8}
                       type="password"
                       value={form.password}
                       onChange={set('password')}
@@ -398,6 +472,9 @@ export default function SignupTalent() {
                     />
                     <Input
                       label="Confirm Password"
+                      id="signup-confirm-password"
+                      autoComplete="new-password"
+                      minLength={8}
                       type="password"
                       value={form.confirm_password}
                       onChange={set('confirm_password')}

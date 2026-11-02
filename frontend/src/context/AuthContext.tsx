@@ -325,13 +325,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signupTalent = useCallback(
     async (signupData: TalentSignupData, options?: { skipRedirect?: boolean }) => {
-      const { data } = await api.post('/auth/signup/talent', signupData);
-      storeAuth(data.access_token || data.token, data.user, data.refresh_token);
-      if (!options?.skipRedirect) {
-        router.replace('/talent/basic-profile');
+      await api.post('/auth/signup/talent', signupData);
+      const { data } = await api.post('/auth/login', {
+        email: signupData.email, password: signupData.password, portal: 'talent',
+      });
+      if (options?.skipRedirect) {
+        storeAuth(data.access_token || data.token, data.user, data.refresh_token);
+      } else {
+        persistAndEnterApp(data.access_token || data.token, data.refresh_token, '/talent/dashboard');
       }
     },
-    [storeAuth, router]
+    [storeAuth]
   );
 
   const signupAgency = useCallback(
