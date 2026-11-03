@@ -11,6 +11,10 @@ The CRM worktrees synchronize the shared role vocabulary and its hash tests. Squ
 
 Creator identity is stored in `talent_users.signup_form_type` or `signup_categories`; mixed-category signup gets the same exemptions. It does not confer admin approval on job profiles. Approved profiles receive the existing category/tier-matched assignment and subscription broadcasts.
 
+Basic profile for creators: at signup every basic-profile section (basic details, language, address, education, experience, job/assignment/subscription preference, resume) is optional — ID proofs and bank account were already optional. The first job profile can be created right away. System-managed ghost profiles and deleted profiles do not count toward this limit. Adding a second job profile requires the complete mandatory basic profile first (`enforceSecondProfileBasicProfileGate` in `backend/src/services/talent.service.ts`, mirrored in the web create-profile page — ID proofs and bank account stay optional for everyone).
+
+Validation for the second-profile gate covers first-profile access, incomplete and complete basic profiles, mixed-category creators, optional ID/bank details, conditional resume requirements, ghost/deleted profiles and query failures. Query failures return a retryable error rather than allowing an unchecked creation. The web selector waits for the completion check and offers a retry on load failure. This change adds no SQL migrations.
+
 ## Release dependencies
 
 Follow each repository's release workflow. Before deploying dependent code, apply only these intended migrations using the verified production helpers:

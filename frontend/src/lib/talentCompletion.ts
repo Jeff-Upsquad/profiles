@@ -42,8 +42,8 @@ export function basicSectionCompletion({ fullName, languages, basic }: BasicComp
     basic_details: !!fullName?.trim(),
     language: langs.some((l) => l?.proficiency === 'native'),
     address: !!(b.permanent_country && b.permanent_state && b.permanent_district && b.permanent_city),
-    education: courses.some((e) => !!e?.course_name && !!e?.institution),
-    experience: experience.some((e) => !!e?.company_name && !!e?.designation),
+    education: courses.some((e) => !!e?.course_name?.trim() && !!e?.institution?.trim()),
+    experience: experience.some((e) => !!e?.company_name?.trim() && !!e?.designation?.trim()),
     job_preference: (b.availability ?? []).length > 0 && (b.job_type ?? []).length > 0,
     freelance_preference: !!b.freelance_available,
     partner_program_preference:

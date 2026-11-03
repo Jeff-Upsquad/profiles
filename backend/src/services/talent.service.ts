@@ -299,8 +299,13 @@ const BASIC_PROFILE_MANDATORY_COLUMNS =
 export function isBasicProfileMandatoryComplete(
   basic: Record<string, any> | null,
   talent: { full_name: string | null; languages_spoken: unknown; signup_form_type?: string | null; signup_categories?: string[] | null },
+  opts?: { ignoreCreatorBypass?: boolean },
 ): boolean {
-  if (isSocialMediaCreator(talent)) return true;
+  // Social media creators count as complete for progress reporting — their
+  // basic profile is mostly optional. The second-job-profile gate passes
+  // `ignoreCreatorBypass` because adding a further job profile does require
+  // the full mandatory set (ID proofs and bank account stay optional).
+  if (isSocialMediaCreator(talent) && !opts?.ignoreCreatorBypass) return true;
   if (!basic) return false;
 
   if (!talent.full_name || !talent.full_name.trim()) return false;
@@ -778,6 +783,59 @@ export async function getProfile(profileId: string, userId: string) {
   return data;
 }
 
+// Social media creators who already have at least one job profile must
+// complete the mandatory basic profile before they can create another one.
+// Returns null when creation is allowed, otherwise the error to throw.
+export async function enforceSecondProfileBasicProfileGate(
+  userId: string
+): Promise<AppError | null> {
+  try {
+    const { count, error: profilesError } = await supabaseAdmin
+      .from('talent_profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('talent_user_id', userId)
+      .is('deleted_at', null)
+      .eq('is_ghost', false);
+    if (profilesError) throw profilesError;
+    if (count === null) throw new Error('Profile count unavailable');
+    if (count === 0) return null; // first job profile — no gate
+
+    const { data: talent, error: talentError } = await supabaseAdmin
+      .from('talent_users')
+      .select('id, full_name, languages_spoken, signup_form_type, signup_categories')
+      .eq('id', userId)
+      .maybeSingle();
+    if (talentError) throw talentError;
+    if (!talent) throw new Error('Talent account unavailable');
+    if (!isSocialMediaCreator(talent)) return null;
+
+    const { data: basic, error: basicError } = await supabaseAdmin
+      .from('talent_profiles_basic')
+      .select(BASIC_PROFILE_MANDATORY_COLUMNS)
+      .eq('talent_user_id', userId)
+      .maybeSingle();
+
+    if (basicError) throw basicError;
+    const complete = isBasicProfileMandatoryComplete(
+      (basic ?? null) as Record<string, any> | null,
+      {
+        full_name: talent.full_name ?? null,
+        languages_spoken: talent.languages_spoken,
+      },
+      { ignoreCreatorBypass: true }
+    );
+    if (complete) return null;
+    return new AppError(
+      403,
+      'Complete your Basic Profile before adding another job profile.'
+    );
+  } catch (e) {
+    if (e instanceof AppError) return e;
+    console.error('[job profile] basic-profile gate check failed:', e);
+    return new AppError(503, 'Unable to check your Basic Profile. Please try again.');
+  }
+}
+
 export async function createProfile(
   userId: string,
   categoryId: string,
@@ -812,6 +870,14 @@ export async function createProfile(
   if (existing) {
     throw new AppError(409, 'You already have a profile in this category');
   }
+
+  // Social media creators create their first job profile with a relaxed
+  // basic profile (address, education, experience, preferences, resume,
+  // basic details and language are all optional). Before creating any
+  // further job profile, the complete mandatory basic profile is required —
+  // ID proofs and bank account stay optional for everyone.
+  const gate = await enforceSecondProfileBasicProfileGate(userId);
+  if (gate) throw gate;
 
   const { data, error } = await supabaseAdmin
     .from('talent_profiles')

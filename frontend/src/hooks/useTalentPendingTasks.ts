@@ -46,8 +46,12 @@ export function useTalentPendingTasks({ enabled = true }: { enabled?: boolean } 
 
   // Never flag anything until the data is in — a flash of "Pending" on every
   // page load would be noise.
+  const hasOwnProfile = profilesLoaded ? (profiles ?? []).some((p) => !p.is_ghost) : false;
+  // Social media creators keep the basic profile optional until they have a
+  // job profile — from the second job profile on it must be complete, so the
+  // pending tags show up as soon as the gate binds.
   const basicSections =
-    !isSocialMediaCreator(user) && basicLoaded && meLoaded
+    basicLoaded && meLoaded && (!isSocialMediaCreator(user) || hasOwnProfile)
       ? pendingBasicSections({
           fullName: talentMe?.full_name ?? user?.full_name,
           languages: talentMe?.languages_spoken,

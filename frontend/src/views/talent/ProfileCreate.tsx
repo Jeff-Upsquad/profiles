@@ -1,7 +1,7 @@
 import { isSocialMediaCreator } from '@/lib/creatorIdentity';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
 import { useTalentCreatableCategories, useCategoryWithFields } from '@/hooks/useCategories';
@@ -13,7 +13,7 @@ import CreatorProfileDetails from '@/components/forms/CreatorProfileDetails';
 import { validateCreatorProfile } from '@/constants/creator-profile';
 import PortfolioUploader from '@/components/forms/PortfolioUploader';
 import PortfolioMinimumNotice from '@/components/talent/PortfolioMinimumNotice';
-import { minPortfolioItems } from '@/lib/talentCompletion';
+import { minPortfolioItems, pendingBasicSections } from '@/lib/talentCompletion';
 import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
 import Button from '@/components/ui/Button';
 import { SkeletonCard } from '@/components/ui/Skeleton';
@@ -60,12 +60,40 @@ export default function ProfileCreate() {
   const canSubmit = !isRejected;
   const queryClient = useQueryClient();
   const { data: categories, isLoading: catLoading } = useTalentCreatableCategories();
-  const { data: profiles } = useMyProfiles();
+  const { data: profiles, isSuccess: profilesLoaded, isError: profilesError, refetch: refetchProfiles } = useMyProfiles();
   const createProfile = useCreateProfile();
   const updateProfile = useUpdateProfile();
   const submitProfile = useSubmitProfile();
 
-  const { data: talentMe } = useTalentMe();
+  const { data: talentMe, isError: meError, refetch: refetchMe } = useTalentMe();
+
+  // Social media creators can create their first job profile with a relaxed
+  // basic profile, but before creating any further one the complete basic
+  // profile is required (backend enforces too — this mirrors the gate so
+  // creators are routed to the Basic Profile form instead of hitting a
+  // 403 toast). ID proofs and bank account stay optional for everyone.
+  const isCreator = isSocialMediaCreator(user);
+  const hasOwnProfile = (profiles ?? []).some((p) => !p.is_ghost);
+  const { data: basicProfile, isSuccess: basicLoaded, isError: basicError, refetch: refetchBasic } = useQuery<Record<string, any> | null>({
+    queryKey: ['basicProfile'],
+    queryFn: async () => {
+      const { data } = await api.get('/talent/me/basic-profile');
+      return data;
+    },
+    enabled: isCreator,
+  });
+  const creatorGatePendingSections =
+    isCreator && hasOwnProfile && basicLoaded && talentMe
+      ? pendingBasicSections({
+          fullName: talentMe.full_name ?? user?.full_name,
+          languages: talentMe.languages_spoken,
+          basic: basicProfile,
+        })
+      : null;
+  const creatorBasicGateChecking = isCreator && (!profilesLoaded || (hasOwnProfile && (!basicLoaded || !talentMe)));
+  const creatorBasicGateError = profilesError || (hasOwnProfile && (basicError || meError));
+  const creatorBasicGateLocked =
+    creatorGatePendingSections !== null && creatorGatePendingSections.length > 0;
 
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [values, setValues] = useState<Record<string, any>>({});
@@ -379,6 +407,49 @@ export default function ProfileCreate() {
 
         <PendingApprovalBanner />
 
+        {creatorBasicGateChecking && (
+          <div role="status" className="rounded-2xl border border-[#E7E7EA] bg-white px-5 py-4 text-sm text-[#525252]">
+            {creatorBasicGateError ? (
+              <>
+                Unable to check your Basic Profile.{' '}
+                <button type="button" className="font-semibold underline" onClick={() => {
+                  void refetchProfiles();
+                  void refetchMe();
+                  void refetchBasic();
+                }}>Try again</button>
+              </>
+            ) : 'Checking your Basic Profile…'}
+          </div>
+        )}
+
+        {creatorBasicGateLocked && (
+          <section className="flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <svg className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div>
+                <h3 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-amber-950">
+                  Complete your Basic Profile
+                </h3>
+                <p className="mt-0.5 text-sm text-amber-900">
+                  Before you can add another job profile, finish the remaining{' '}
+                  {creatorGatePendingSections?.length} basic profile{' '}
+                  {creatorGatePendingSections?.length === 1 ? 'section' : 'sections'}.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 border-amber-400 text-amber-900 hover:border-amber-500"
+              onClick={() => router.push('/talent/basic-profile')}
+            >
+              Complete Basic Profile
+            </Button>
+          </section>
+        )}
+
         {catLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -540,11 +611,19 @@ export default function ProfileCreate() {
                           <button
                             key={cat.id}
                             type="button"
-                            onClick={() =>
-                              owned
-                                ? router.push(hasRequestedChanges ? `/talent/profiles/${owned.id}/edit` : `/talent/profiles/${owned.id}`)
-                                : setSelectedCategory(cat)
-                            }
+                            disabled={!owned && creatorBasicGateChecking}
+                            onClick={() => {
+                              if (owned) {
+                                router.push(hasRequestedChanges ? `/talent/profiles/${owned.id}/edit` : `/talent/profiles/${owned.id}`);
+                                return;
+                              }
+                              if (creatorBasicGateLocked) {
+                                toast.error('Complete your Basic Profile before adding another job profile');
+                                router.push('/talent/basic-profile');
+                                return;
+                              }
+                              setSelectedCategory(cat);
+                            }}
                             className={`group relative flex flex-col items-start overflow-hidden rounded-2xl border ${
                               hasRequestedChanges
                                 ? 'border-amber-300 ring-2 ring-amber-300/60 bg-amber-50/[0.08]'

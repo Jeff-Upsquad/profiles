@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import { useUpload } from '@/hooks/useUpload';
+import { useMyProfiles } from '@/hooks/useProfiles';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import DatePicker from '@/components/ui/DatePicker';
@@ -175,6 +176,14 @@ function SectionHeader({ section, needsCompletion }: { section: SectionDef; need
 export default function BasicProfileForm() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { data: myProfiles } = useMyProfiles();
+  // Social media creators keep every basic-profile section optional until
+  // they create their first job profile. Once they have one, adding another
+  // job profile requires the complete (mandatory) basic profile — so the
+  // form switches back to the normal required/optional rules. ID proofs and
+  // bank account stay optional for everyone.
+  const creatorBasicOptional =
+    isSocialMediaCreator(user) && !(myProfiles ?? []).some((p) => !p.is_ghost);
   const { uploadFile, uploading } = useUpload();
   const [activeSection, setActiveSection] = useState(0);
   const [form, setForm] = useState<BasicProfile>({});
@@ -417,9 +426,10 @@ export default function BasicProfileForm() {
     e.preventDefault();
 
     if (activeSection === 0) {
-      if (!firstName.trim()) { toast.error('First name is required'); return; }
+      if (!creatorBasicOptional && !firstName.trim()) { toast.error('First name is required'); return; }
       const fullName = [firstName.trim(), middleName.trim(), lastName.trim()].filter(Boolean).join(' ');
-      const userPatch: { full_name: string; date_of_birth?: string; gender?: string } = { full_name: fullName };
+      const userPatch: { full_name?: string; date_of_birth?: string; gender?: string } = {};
+      if (fullName) userPatch.full_name = fullName;
       if (dateOfBirth) {
         const yrs = ageFromDob(dateOfBirth);
         if (yrs === null || yrs < 16 || yrs > 100) {
@@ -435,11 +445,11 @@ export default function BasicProfileForm() {
     }
 
     if (activeSection === 1) {
-      if (!isSocialMediaCreator(user) && languages.length === 0) { toast.error('Add at least one language'); return; }
+      if (!creatorBasicOptional && languages.length === 0) { toast.error('Add at least one language'); return; }
       if (languages.some((l) => !l.language || !l.proficiency)) {
         toast.error('Complete language and proficiency for every entry'); return;
       }
-      if (!isSocialMediaCreator(user) && !languages.some((l) => l.proficiency === 'native')) {
+      if (!creatorBasicOptional && !languages.some((l) => l.proficiency === 'native')) {
         toast.error('Mark at least one language as Native (your mother tongue)'); return;
       }
       saveUserMutation.mutate({ languages_spoken: languages });
@@ -448,11 +458,11 @@ export default function BasicProfileForm() {
 
     if (activeSection === 2) {
       const missingOfficial = !form.permanent_country || !form.permanent_state || !form.permanent_district || !form.permanent_city;
-      if (!isSocialMediaCreator(user) && missingOfficial) { toast.error('Country, state, district and city are required for official address'); return; }
-      if (!isSocialMediaCreator(user) && !form.permanent_pin_code) { toast.error('PIN code is required for official address'); return; }
+      if (!creatorBasicOptional && missingOfficial) { toast.error('Country, state, district and city are required for official address'); return; }
+      if (!creatorBasicOptional && !form.permanent_pin_code) { toast.error('PIN code is required for official address'); return; }
       const missingCurrent = !form.country || !form.state || !form.current_district || !form.city;
-      if (!isSocialMediaCreator(user) && missingCurrent) { toast.error('Country, state, district and city are required for current address'); return; }
-      if (!isSocialMediaCreator(user) && !form.pin_code) { toast.error('PIN code is required for current address'); return; }
+      if (!creatorBasicOptional && missingCurrent) { toast.error('Country, state, district and city are required for current address'); return; }
+      if (!creatorBasicOptional && !form.pin_code) { toast.error('PIN code is required for current address'); return; }
       if (form.permanent_pin_code && !/^\d{6}$/.test(form.permanent_pin_code)) {
         toast.error('Official PIN code must be 6 digits'); return;
       }
@@ -634,7 +644,7 @@ export default function BasicProfileForm() {
     },
   ];
 
-  if (isSocialMediaCreator(user)) sections.forEach((section) => { section.optional = true; section.disabled = false; });
+  if (creatorBasicOptional) sections.forEach((section) => { section.optional = true; section.disabled = false; });
 
   const activeId = sections[activeSection]?.id;
 
@@ -919,11 +929,11 @@ export default function BasicProfileForm() {
       <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-4 py-3 sm:px-6 lg:hidden">
         <div className="hero-content flex items-center justify-between gap-3">
           <h1 className="min-w-0 truncate font-[family-name:var(--font-jakarta)] text-[16px] font-semibold tracking-[-0.02em] text-[#0a0a0a] sm:text-lg">
-            {isSocialMediaCreator(user) ? 'Your optional ' : 'Complete your '}<span className="text-rainbow">profile</span>.
+            {creatorBasicOptional ? 'Your optional ' : 'Complete your '}<span className="text-rainbow">profile</span>.
           </h1>
           <div className="flex shrink-0 items-center gap-2.5" title={`${completedCount} of ${enabledSections} sections complete`}>
             <span className="rounded-full bg-[#F5F5F6] px-2.5 py-1 font-[family-name:var(--font-inter)] text-[11px] font-medium whitespace-nowrap text-[#525252]">
-              {isSocialMediaCreator(user) ? 'Optional' : `${completedCount}/${enabledSections}`}
+              {creatorBasicOptional ? 'Optional' : `${completedCount}/${enabledSections}`}
             </span>
             <div className="relative flex h-9 w-9 items-center justify-center">
               <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
@@ -957,14 +967,14 @@ export default function BasicProfileForm() {
           <div className="min-w-0 flex-1">
             <div className="mb-2.5">
               <span className="eyebrow-rainbow">
-                {isSocialMediaCreator(user) ? 'All basic details are optional' : `${completedCount} of ${enabledSections} sections complete`}
+                {creatorBasicOptional ? 'All basic details are optional' : `${completedCount} of ${enabledSections} sections complete`}
               </span>
             </div>
             <h1 className="font-[family-name:var(--font-jakarta)] text-[24px] sm:text-[28px] font-semibold tracking-[-0.025em] leading-[1.15] text-[#0a0a0a]">
-              {isSocialMediaCreator(user) ? 'Your optional ' : 'Complete your '}<span className="text-rainbow">profile</span>.
+              {creatorBasicOptional ? 'Your optional ' : 'Complete your '}<span className="text-rainbow">profile</span>.
             </h1>
             <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252]">
-              {isSocialMediaCreator(user) ? 'Add details whenever you like. They do not block any module.' : 'These details are shared across all your job profiles.'}
+              {creatorBasicOptional ? 'Add details whenever you like. They do not block any module.' : 'These details are shared across all your job profiles.'}
             </p>
             {pendingCount > 0 && (
               <PendingTag
@@ -1094,7 +1104,7 @@ export default function BasicProfileForm() {
                 <div>
                   <h3 className="mb-3 font-[family-name:var(--font-jakarta)] text-base font-semibold text-[#0a0a0a]">Personal Details</h3>
                   <div className="grid gap-4 sm:grid-cols-3">
-                    <Input label="First Name" required value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" />
+                    <Input label="First Name" required={!creatorBasicOptional} value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" />
                     <Input label="Middle Name" value={middleName} onChange={(e) => setMiddleName(e.target.value)} placeholder="Middle name (optional)" />
                     <Input label="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" />
                   </div>
@@ -1176,31 +1186,31 @@ export default function BasicProfileForm() {
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Select
-                        label="Country" required={!isSocialMediaCreator(user)} options={COUNTRIES} value={form.permanent_country || ''}
+                        label="Country" required={!creatorBasicOptional} options={COUNTRIES} value={form.permanent_country || ''}
                         onChange={(e) => setForm((prev) => ({ ...prev, permanent_country: e.target.value, permanent_state: '', permanent_district: '' }))}
                       />
                       {form.permanent_country === 'India' ? (
-                        <Select label="State" required={!isSocialMediaCreator(user)} placeholder="Select state" options={INDIAN_STATES} value={form.permanent_state || ''}
+                        <Select label="State" required={!creatorBasicOptional} placeholder="Select state" options={INDIAN_STATES} value={form.permanent_state || ''}
                           onChange={(e) => setForm((prev) => ({ ...prev, permanent_state: e.target.value, permanent_district: '' }))}
                         />
                       ) : (
-                        <Input label="State / Region" required={!isSocialMediaCreator(user)} value={form.permanent_state || ''} onChange={set('permanent_state')} placeholder="State or region" />
+                        <Input label="State / Region" required={!creatorBasicOptional} value={form.permanent_state || ''} onChange={set('permanent_state')} placeholder="State or region" />
                       )}
                     </div>
                     <div className="grid gap-4 sm:grid-cols-3">
                       {form.permanent_country === 'India' && form.permanent_state ? (
-                        <Select label="District" required={!isSocialMediaCreator(user)} placeholder="Select district"
+                        <Select label="District" required={!creatorBasicOptional} placeholder="Select district"
                           options={(DISTRICTS_BY_STATE[form.permanent_state] || []).map((d) => ({ label: d, value: d }))}
                           value={form.permanent_district || ''} onChange={set('permanent_district')}
                         />
                       ) : (
-                        <Input label="District" required={!isSocialMediaCreator(user)} value={form.permanent_district || ''} onChange={set('permanent_district')}
+                        <Input label="District" required={!creatorBasicOptional} value={form.permanent_district || ''} onChange={set('permanent_district')}
                           placeholder={form.permanent_country === 'India' ? 'Select a state first' : 'District'}
                           disabled={form.permanent_country === 'India' && !form.permanent_state}
                         />
                       )}
-                      <Input label="City" required={!isSocialMediaCreator(user)} value={form.permanent_city || ''} onChange={set('permanent_city')} placeholder="City" helperText="enter nearest city" />
-                      <Input label="PIN Code" required={!isSocialMediaCreator(user)} value={form.permanent_pin_code || ''} onChange={set('permanent_pin_code')} placeholder="6-digit PIN" helperText="6-digit Indian PIN code" />
+                      <Input label="City" required={!creatorBasicOptional} value={form.permanent_city || ''} onChange={set('permanent_city')} placeholder="City" helperText="enter nearest city" />
+                      <Input label="PIN Code" required={!creatorBasicOptional} value={form.permanent_pin_code || ''} onChange={set('permanent_pin_code')} placeholder="6-digit PIN" helperText="6-digit Indian PIN code" />
                     </div>
                   </div>
                 </div>
@@ -1258,31 +1268,31 @@ export default function BasicProfileForm() {
                       />
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <Select label="Country" required={!isSocialMediaCreator(user)} options={COUNTRIES} value={form.country || ''}
+                      <Select label="Country" required={!creatorBasicOptional} options={COUNTRIES} value={form.country || ''}
                         onChange={(e) => setForm((prev) => ({ ...prev, country: e.target.value, state: '', current_district: '' }))}
                       />
                       {form.country === 'India' ? (
-                        <Select label="State" required={!isSocialMediaCreator(user)} placeholder="Select state" options={INDIAN_STATES} value={form.state || ''}
+                        <Select label="State" required={!creatorBasicOptional} placeholder="Select state" options={INDIAN_STATES} value={form.state || ''}
                           onChange={(e) => setForm((prev) => ({ ...prev, state: e.target.value, current_district: '' }))}
                         />
                       ) : (
-                        <Input label="State / Region" required={!isSocialMediaCreator(user)} value={form.state || ''} onChange={set('state')} placeholder="State or region" />
+                        <Input label="State / Region" required={!creatorBasicOptional} value={form.state || ''} onChange={set('state')} placeholder="State or region" />
                       )}
                     </div>
                     <div className="grid gap-4 sm:grid-cols-3">
                       {form.country === 'India' && form.state ? (
-                        <Select label="District" required={!isSocialMediaCreator(user)} placeholder="Select district"
+                        <Select label="District" required={!creatorBasicOptional} placeholder="Select district"
                           options={(DISTRICTS_BY_STATE[form.state] || []).map((d) => ({ label: d, value: d }))}
                           value={form.current_district || ''} onChange={set('current_district')}
                         />
                       ) : (
-                        <Input label="District" required={!isSocialMediaCreator(user)} value={form.current_district || ''} onChange={set('current_district')}
+                        <Input label="District" required={!creatorBasicOptional} value={form.current_district || ''} onChange={set('current_district')}
                           placeholder={form.country === 'India' ? 'Select a state first' : 'District'}
                           disabled={form.country === 'India' && !form.state}
                         />
                       )}
-                      <Input label="City" required={!isSocialMediaCreator(user)} value={form.city || ''} onChange={set('city')} placeholder="City" helperText="enter nearest city" />
-                      <Input label="PIN Code" required={!isSocialMediaCreator(user)} value={form.pin_code || ''} onChange={set('pin_code')} placeholder="6-digit PIN" helperText="6-digit Indian PIN code" />
+                      <Input label="City" required={!creatorBasicOptional} value={form.city || ''} onChange={set('city')} placeholder="City" helperText="enter nearest city" />
+                      <Input label="PIN Code" required={!creatorBasicOptional} value={form.pin_code || ''} onChange={set('pin_code')} placeholder="6-digit PIN" helperText="6-digit Indian PIN code" />
                     </div>
                   </div>
                 </div>
