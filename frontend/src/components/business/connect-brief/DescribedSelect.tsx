@@ -3,8 +3,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
 type Option = { value: string; label?: string; description: string };
-export default function DescribedSelect({ label, value, options, onChange }: {
-  label: string; value: string; options: Option[]; onChange: (value: string) => void;
+export default function DescribedSelect({ label, value, options, onChange, required = false }: {
+  label: string; value: string; options: Option[]; onChange: (value: string) => void; required?: boolean;
 }) {
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
@@ -27,9 +27,10 @@ export default function DescribedSelect({ label, value, options, onChange }: {
   return <div ref={root} className="relative min-w-0" onBlur={(event) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
   }}>
-    <label id={`${id}-label`} htmlFor={`${id}-trigger`} className="block text-xs font-semibold text-[#525252]">{label}</label>
+    <label id={`${id}-label`} htmlFor={`${id}-trigger`} className={required ? "block text-sm font-medium text-[#222]" : "block text-xs font-semibold text-[#525252]"}>{label}{required && <span aria-hidden="true" className="text-[#C13515]">*</span>}</label>
     <button ref={trigger} id={`${id}-trigger`} type="button" role="combobox"
       aria-labelledby={`${id}-label ${id}-value`} aria-describedby={`${id}-description`}
+      aria-required={required}
       aria-expanded={open} aria-haspopup="listbox" aria-controls={open ? `${id}-list` : undefined}
       aria-activedescendant={open ? `${id}-option-${active}` : undefined}
       onClick={() => { setActive(selectedIndex); setOpen((current) => !current); }}

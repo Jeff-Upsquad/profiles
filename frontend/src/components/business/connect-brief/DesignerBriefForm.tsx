@@ -5,6 +5,7 @@ import Link from 'next/link';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import CurrencyField from '@/components/business/CurrencyField';
+import DescribedSelect from './DescribedSelect';
 import { currencyPrefix, isCurrencyCode, saveDefaultCurrency, type CurrencyCode } from '@/lib/currency';
 import AdditionalRequirementsField, {
   type AdditionalRequirements,
@@ -171,24 +172,24 @@ const ROLE_OPTIONS: {
 const VISIBLE_ROLE_OPTIONS = ROLE_OPTIONS.filter((o) => !o.hidden);
 const VISIBLE_ROLE_SLUGS = new Set(VISIBLE_ROLE_OPTIONS.map((o) => o.slug));
 
-const SERVICE_OPTIONS: Record<'designer' | 'editor', string[]> = {
+const SERVICE_OPTIONS: Record<'designer' | 'editor', { value: string; description: string }[]> = {
   designer: [
-    'Social media design',
-    'Logo design',
-    'Brand identity design',
-    'Presentation design',
-    'Website / UI design',
-    'Print design',
-    'Other design',
+    { value: 'Social media design', description: 'Posts, carousels, stories, and banners for your social channels.' },
+    { value: 'Logo design', description: 'A distinctive logo or wordmark for your business or brand.' },
+    { value: 'Brand identity design', description: 'A consistent visual identity with colors, typography, and brand guidelines.' },
+    { value: 'Presentation design', description: 'Pitch decks, sales presentations, and slides that communicate your ideas.' },
+    { value: 'Website / UI design', description: 'Page layouts and interface designs for websites or apps.' },
+    { value: 'Print design', description: 'Brochures, flyers, packaging, business cards, and other printed materials.' },
+    { value: 'Other design', description: 'A different kind of design work — describe what you need in your brief.' },
   ],
   editor: [
-    'Reel / short-form video edit',
-    'YouTube / long-form video edit',
-    'Ad / promotional video edit',
-    'Corporate video edit',
-    'Podcast video edit',
-    'Motion graphics',
-    'Other video edit',
+    { value: 'Reel / short-form video edit', description: 'Short videos for Instagram Reels, TikTok, YouTube Shorts, and similar channels.' },
+    { value: 'YouTube / long-form video edit', description: 'Longer videos with structured cuts, pacing, audio, and titles.' },
+    { value: 'Ad / promotional video edit', description: 'Video ads and promotional clips for a product, service, or campaign.' },
+    { value: 'Corporate video edit', description: 'Company introductions, interviews, training, and business updates.' },
+    { value: 'Podcast video edit', description: 'Podcast episodes with camera cuts, audio cleanup, and on-screen titles.' },
+    { value: 'Motion graphics', description: 'Animated text, logos, graphics, and visual explainers.' },
+    { value: 'Other video edit', description: 'A different kind of video work — describe what you need in your brief.' },
   ],
 };
 
@@ -308,15 +309,15 @@ export default function DesignerBriefForm({
   const isServiceRequest = product === 'assignment' && assignmentMode === 'service_request';
   const [step, setStep] = useState<1 | 2>(1);
   const [roles, setRoles] = useState<RoleSlug[]>([]);
-  // The "by work type" option only names the work types matching the
+  // The "by service" option only names the services matching the
   // categories picked in Step 1 — no video examples on a designer-only
   // brief, and vice versa.
   const serviceDesc =
     roles.includes('designer') && roles.includes('editor')
-      ? 'Pick a design type (logo, social media, branding) or a video type (reels, YouTube, ads) and get prices for it.'
+      ? 'Pick a design or video service (logo design, social media design, reel editing) and get prices for it.'
       : roles.includes('editor')
-        ? 'Pick a video type (reels, YouTube, ads) and get prices for it.'
-        : 'Pick a design type (logo, social media, branding) and get prices for it.';
+        ? 'Pick a video service (reel editing, YouTube editing, video ads) and get prices for it.'
+        : 'Pick a design service (logo design, social media design, branding) and get prices for it.';
   const [form, setForm] = useState<FormData>(initialForm);
   const [roleRequirements, setRoleRequirements] =
     useState<Record<RoleSlug, RoleRequirement>>(emptyRoleRequirements);
@@ -631,7 +632,7 @@ export default function DesignerBriefForm({
       const incompleteRole = roles.find((r) => !roleRequirements[r]?.scopeType.trim());
       if (incompleteRole) {
         validationErrors.push({
-          message: 'Select a service type for each service in Requirement.',
+          message: 'Select a service for each selected category in Requirement.',
           targetId: 'brief-requirement',
         });
       }
@@ -1142,7 +1143,7 @@ export default function DesignerBriefForm({
                         },
                         {
                           value: 'service_request' as const,
-                          title: 'Prices by work type',
+                          title: 'Prices by service',
                           desc: serviceDesc,
                         },
                       ]).map((option) => {
@@ -1171,6 +1172,25 @@ export default function DesignerBriefForm({
                     </div>
                   </div>
                 )}
+                {isServiceRequest && roles
+                  .filter((slug): slug is 'designer' | 'editor' => slug === 'designer' || slug === 'editor')
+                  .map((slug) => (
+                    <div key={slug}>
+                      <DescribedSelect
+                        label="Service"
+                        required
+                        value={roleRequirements[slug].scopeType}
+                        onChange={(value) => updateRoleReq(slug, 'scopeType', value)}
+                        options={[
+                          { value: '', label: 'Select a service', description: 'Choose the kind of work you want talents to quote for.' },
+                          ...SERVICE_OPTIONS[slug],
+                        ]}
+                      />
+                      <p className="mt-2 text-xs text-[#7A7568]">
+                        Talents will quote a price per {slug === 'designer' ? 'design' : 'video'}.
+                      </p>
+                    </div>
+                  ))}
                 <Field label="Describe your requirement" optional hint="Explain the kind of work you're looking to get done.">
                   <textarea
                     rows={4}
@@ -1192,31 +1212,6 @@ export default function DesignerBriefForm({
                     onChange={(blob, url) => { audioBlobRef.current = blob; setAudioUrl(url); }}
                   />
                 </div>
-                {isServiceRequest && roles
-                  .filter((slug): slug is 'designer' | 'editor' => slug === 'designer' || slug === 'editor')
-                  .map((slug) => (
-                    <div key={slug}>
-                      <Field
-                        label={slug === 'designer' ? 'Type of design' : 'Type of video edit'}
-                        required
-                      >
-                        <select
-                          required
-                          value={roleRequirements[slug].scopeType}
-                          onChange={(e) => updateRoleReq(slug, 'scopeType', e.target.value)}
-                          className="connect-input"
-                        >
-                          <option value="">Select a service</option>
-                          {SERVICE_OPTIONS[slug].map((service) => (
-                            <option key={service} value={service}>{service}</option>
-                          ))}
-                        </select>
-                      </Field>
-                      <p className="mt-2 text-xs text-[#7A7568]">
-                        Talents will quote a price per {slug === 'designer' ? 'design' : 'video'}.
-                      </p>
-                    </div>
-                  ))}
               </div>
             </Section>
 
@@ -1228,7 +1223,7 @@ export default function DesignerBriefForm({
               hint={
                 product === 'assignment'
                   ? isServiceRequest
-                    ? 'Choose the exact work type above. Talents will quote per design or per video; timeline details are optional.'
+                    ? 'Choose the service above. Talents will quote per design or per video; timeline details are optional.'
                     : 'Pick the talent experience levels you want, set a project budget per level, and describe the timeline. All optional — we can finalize on the call.'
                   : 'Pick a weekly plan (required), then choose experience levels and a monthly budget for each if you know them.'
               }
