@@ -172,6 +172,10 @@ export async function findMatchingTalents(
   const creatorServices = wantedSet(matchRules.target_creator_services);
   const creatorNiches = wantedSet(matchRules.target_creator_niches);
   const creatorFormats = wantedSet(matchRules.target_creator_formats);
+  // “Any” in a business brief leaves that axis unrestricted, including when
+  // mixed with specific values by an older client. Other filters still apply.
+  if (creatorNiches.has('any')) creatorNiches.clear();
+  if (creatorFormats.has('any')) creatorFormats.clear();
   if (creatorServices.size > 0) {
     const profileIds = rows.map((r) => r.id);
     const { data: serviceRows, error: serviceErr } = await supabaseAdmin

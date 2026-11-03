@@ -12,6 +12,7 @@ import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import CurrencyField from '@/components/business/CurrencyField';
 import { isCurrencyCode, saveDefaultCurrency, type CurrencyCode } from '@/lib/currency';
+import { ANY_CREATOR_PREFERENCE, toggleCreatorPreference } from '@/lib/creatorBriefPreferences';
 import SubmitErrorSummary, { showBriefErrors, type SubmitError } from './SubmitErrorSummary';
 // Same vocabulary the creator job profile renders from (constants/creator-profile):
 // services, niches, formats and platforms all live there, so a service
@@ -207,7 +208,9 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
   function toggle(key: 'platforms' | 'niches' | 'formats' | 'levels' | 'stateRegions' | 'ageGroups' | 'languages', value: string) {
     setForm((current) => ({
       ...current,
-      [key]: (current[key] as string[]).includes(value) ? (current[key] as string[]).filter((item) => item !== value) : [...(current[key] as string[]), value],
+      [key]: key === 'niches' || key === 'formats'
+        ? toggleCreatorPreference(current[key], value)
+        : current[key].includes(value) ? current[key].filter((item) => item !== value) : [...current[key], value],
     }));
   }
 
@@ -335,11 +338,11 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
               // Legacy brief keys the upstream card still renders — synthesized
               // from the structured picks so the requirement card reads cleanly.
               creator_audience: [`Creator niches: ${form.niches.join(', ')}. Audience location: ${audienceLocation}. Desired age: ${form.ageGroups.length ? form.ageGroups.join(', ') : 'Any'}.`],
-              deliverables: [`Content formats: ${form.formats.join(', ')}.`, ...(form.serviceType ? [` Quantity: ${serviceCountValue} × ${form.serviceType}.`] : [])].join(''),
+              deliverables: [`Content formats: ${form.formats.join(', ')}.${form.serviceType ? ` Quantity: ${serviceCountValue} × ${form.serviceType}.` : ''}`],
               usage_rights: [usageRightsText || 'Not specified'],
               ...(productDeliveryText ? { campaign_logistics: [productDeliveryText] } : {}),
               ...(referenceLinks.length ? { reference_links: referenceLinks } : {}),
-            },
+            } satisfies Record<string, string[]>,
           },
         },
       });
@@ -445,8 +448,8 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
           <GroupHeader index={3} title="Channel preferences" subtitle="Channels, audience, language and content fit." />
           <Section id="brief-preferences" eyebrow="Matching" title="Which creators should we prioritise?" hint="These preferences drive creator matching — the options mirror what creators list on their profiles.">
             <ChipField label="Publishing platforms" options={CREATOR_PLATFORM_OPTIONS} selected={form.platforms} onToggle={(value) => toggle('platforms', value)} hint="Where the sponsored content should be published." />
-            <ChipField label="Creator niche" options={CREATOR_NICHE_OPTIONS} selected={form.niches} onToggle={(value) => toggle('niches', value)} hint="Same niches creators pick on their job profile — matching runs on these." />
-            <ChipField label="Content format" options={CREATOR_FORMAT_OPTIONS} selected={form.formats} onToggle={(value) => toggle('formats', value)} hint="Same formats creators offer on their job profile — matching runs on these." />
+            <ChipField label="Creator niche" options={[ANY_CREATOR_PREFERENCE, ...CREATOR_NICHE_OPTIONS]} selected={form.niches} onToggle={(value) => toggle('niches', value)} hint="Choose Any to match creators from any niche, or select specific niches." />
+            <ChipField label="Content format" options={[ANY_CREATOR_PREFERENCE, ...CREATOR_FORMAT_OPTIONS]} selected={form.formats} onToggle={(value) => toggle('formats', value)} hint="Choose Any to accept any content format, or select specific formats." />
             <Field label="Audience location" optional>
               <select aria-label="Audience location" className="shb-input" value={form.countryId} onChange={(e) => changeCountry(e.target.value)}>
                 <option value="">Anywhere (no preference)</option>
