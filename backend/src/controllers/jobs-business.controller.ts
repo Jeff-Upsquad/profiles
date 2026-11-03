@@ -1,4 +1,4 @@
-import { profileKindSchema, type JobBriefInput } from '../validators/job-brief.validators.js';
+import { businessProfileDetailsSchema, locationDetailsSchema, profileKindSchema, type JobBriefInput } from '../validators/job-brief.validators.js';
 import * as businessService from '../services/business.service.js';
 import { hiringRequest, submitJobBrief } from '../services/squadhub-leads.service.js';
 import { ingestPendingBrief } from '../services/subscription.service.js';
@@ -451,7 +451,11 @@ export async function getHiringProfiles(req: Request, res: Response, next: NextF
 export async function saveHiringProfile(req: Request, res: Response, next: NextFunction) {
   try {
     const kind = profileKindSchema.parse(req.params.kind);
-    res.json(await hiringRequest(`/profiles/${kind}`, { ...req.body, ...await hiringIdentity(req) }));
+    const schema = kind === 'business' ? businessProfileDetailsSchema : kind === 'location' ? locationDetailsSchema : null;
+    const parsed = schema?.safeParse(req.body.data);
+    if (parsed && !parsed.success) throw new AppError(400, parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; '));
+    const data = parsed?.success ? parsed.data : req.body.data;
+    res.json(await hiringRequest(`/profiles/${kind}`, { ...req.body, data, ...await hiringIdentity(req) }));
   } catch (err) { next(err); }
 }
 export async function submitBrief(req: Request, res: Response, next: NextFunction) {

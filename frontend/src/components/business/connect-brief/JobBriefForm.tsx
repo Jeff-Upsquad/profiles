@@ -14,6 +14,9 @@ const newJob = (title: string, currency = 'INR'): Draft => ({ id: '', title, des
   working_days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], working_hours: { start: '', end: '', timezone: 'Asia/Kolkata' },
   salary_min: null, salary_max: null, salary_currency: currency, salary_period: 'monthly', benefits: [], growth_path: '',
   preference_rules: {}, squadhire_category_ids: [], location_id: null });
+const newLocation = (): Draft => ({ id: crypto.randomUUID(), label: '', address: '', city: '', region: '', postal_code: '', country_id: null, google_maps_url: '', is_primary: true });
+const requiredBusinessFields = ['contact_name', 'contact_email', 'contact_phone', 'name', 'about', 'industry', 'company_size', 'website', 'founded_year'];
+const completeLocation = (profile: Draft) => ['label', 'address', 'city', 'region'].every((key) => str(profile[key]).trim());
 const newBrand = (): Draft => ({ id: '', name: '', about: '', industry: '', website: '', socials: {}, logo_url: '', photos: [] });
 const primary = 'rounded-xl bg-[#0a0a0a] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50';
 const secondary = 'rounded-xl border border-[#D9D5C7] bg-white px-4 py-2.5 text-sm font-semibold text-[#525252] disabled:opacity-50';
@@ -38,6 +41,7 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
   const [editingBusiness, setEditingBusiness] = useState(true);
   const [editingBrand, setEditingBrand] = useState(false);
   const [editingJob, setEditingJob] = useState(true);
+  const [initialLocation, setInitialLocation] = useState<Draft>(newLocation);
   const [location, setLocation] = useState<Draft | null>(null);
   const [categories, setCategories] = useState<Category[]>(preview ? previewCategories : []);
   const [countries, setCountries] = useState<Category[]>([]);
@@ -64,6 +68,7 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
         const catalog: Category[] = preview ? previewCategories : (await api.get<Category[]>('/public/categories')).data;
         if (cancelled) return;
         setBundle(profiles); setCategories(catalog || []);
+        setInitialLocation(draft.initialLocation || newLocation());
         const savedBusiness = profiles.businesses.find((p) => p.id === draft.businessId) || profiles.businesses[0];
         const owner = savedBusiness?.id || '';
         setBusinessId(owner);
@@ -98,11 +103,12 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
 
   useEffect(() => {
     if (!ready || cardId) return;
-    try { localStorage.setItem(draftKey, JSON.stringify({ step, business, brand, job, businessId, brandId, jobId, editingBusiness, editingBrand, editingJob, openings, joiningDate, requestId })); } catch { /* optional draft */ }
-  }, [ready, cardId, draftKey, step, business, brand, job, businessId, brandId, jobId, editingBusiness, editingBrand, editingJob, openings, joiningDate, requestId]);
+    try { localStorage.setItem(draftKey, JSON.stringify({ step, initialLocation, business, brand, job, businessId, brandId, jobId, editingBusiness, editingBrand, editingJob, openings, joiningDate, requestId })); } catch { /* optional draft */ }
+  }, [ready, cardId, draftKey, step, initialLocation, business, brand, job, businessId, brandId, jobId, editingBusiness, editingBrand, editingJob, openings, joiningDate, requestId]);
 
   function changeBusiness(profile: Profile) {
     setBusiness(profile); setBusinessId(profile.id); setEditingBusiness(false);
+    setLocation(null); setInitialLocation(newLocation());
     setBrandId(''); setBrand(newBrand()); setEditingBrand(false); resetJob();
   }
   function resetJob() { setJobId(''); setJob({ ...newJob(categoryName, user?.default_currency || 'INR'), id: crypto.randomUUID(), squadhire_category_ids: list(job.squadhire_category_ids) }); setEditingJob(true); }
@@ -114,9 +120,14 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
     const payload = cleanProfile(draft, kind);
     const saved: Profile = preview ? { ...payload, id } : (await api.post<Profile>(`/business/jobs/profiles/${kind}`, { id, data: payload })).data;
     const key = bundleKey[kind];
-    const next = { ...bundle, [key]: [...bundle[key].filter((p) => p.id !== saved.id), saved] };
-    setBundle(next);
-    if (preview) localStorage.setItem(libraryKey, JSON.stringify(next));
+    setBundle((current) => {
+      const next = { ...current, [key]: [...current[key].filter((p) => p.id !== saved.id), saved] };
+      return next;
+    });
+    if (preview) {
+      const current: Bundle = JSON.parse(localStorage.getItem(libraryKey) || JSON.stringify(emptyBundle));
+      localStorage.setItem(libraryKey, JSON.stringify({ ...current, [key]: [...current[key].filter((p) => p.id !== saved.id), saved] }));
+    }
     return saved;
   }
   async function run(action: () => Promise<void>) {
@@ -132,6 +143,10 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
   const locations = bundle.locations.filter((p) => p.business_profile_id === businessId);
   const selectedCategory = categories.find((c) => c.name.trim().toLowerCase().replace(/s$/, '') === categoryName.trim().toLowerCase().replace(/s$/, ''));
   const jobs = bundle.jobs.filter((p) => p.business_profile_id === businessId && (p.brand_profile_id || '') === brandId && p.status !== 'archived' && (!selectedCategory || list(p.squadhire_category_ids).includes(selectedCategory.id)));
+  const businessComplete = requiredBusinessFields.every((key) => str(business[key]).trim());
+  const hasLocation = locations.some(completeLocation);
+  const canContinue = Boolean(businessId && !editingBusiness && businessComplete && hasLocation);
+  useEffect(() => { if (ready && !canContinue && step > 1) setStep(1); }, [ready, canContinue, step]);
   const rules = job.preference_rules as Draft || {};
   const hours = job.working_hours as Draft || {};
 
@@ -144,42 +159,47 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
   return <div className="min-h-full bg-[#F7F4EC] text-[#222]">
     <div className="sticky top-0 z-10 space-y-3 border-b border-[#E8E5DD] bg-[#F7F4EC] px-4 py-4 sm:px-6">
       <div><p className="text-xs font-semibold uppercase tracking-wider text-[#7A7568]">Job card · {categoryName}</p><h2 className="mt-1 text-xl font-semibold">Build your hiring profile</h2></div>
-      <div role="tablist" aria-label="Hiring profiles" className="flex flex-wrap gap-2">{['Business profile', 'Brand profile', 'Job profile'].map((title, index) => <button key={title} id={`${tabId}-tab-${index + 1}`} type="button" role="tab" aria-selected={step === index + 1} aria-controls={`${tabId}-panel-${index + 1}`} disabled={busy || !ready || (index > 0 && !businessId)} onClick={() => setStep(index + 1)} className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold disabled:opacity-40 ${step === index + 1 ? 'border-black bg-[#F2FCBC] text-black' : 'border-[#D9D5C7] bg-white text-[#7A7568]'}`}><span className="flex h-4 w-4 items-center justify-center rounded-full bg-black/5">{index + 1}</span>{title}</button>)}</div>
+      <div role="tablist" aria-label="Hiring profiles" className="flex flex-wrap gap-2">{['Business profile', 'Brand profile', 'Job profile'].map((title, index) => <button key={title} id={`${tabId}-tab-${index + 1}`} type="button" role="tab" aria-selected={step === index + 1} aria-controls={`${tabId}-panel-${index + 1}`} disabled={busy || !ready || (index > 0 && !canContinue)} onClick={() => setStep(index + 1)} className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold disabled:opacity-40 ${step === index + 1 ? 'border-black bg-[#F2FCBC] text-black' : 'border-[#D9D5C7] bg-white text-[#7A7568]'}`}><span className="flex h-4 w-4 items-center justify-center rounded-full bg-black/5">{index + 1}</span>{title}</button>)}</div>
     </div>
     {!ready ? <div className="p-6"><p role="status" className="text-sm">{error || 'Loading saved profiles…'}</p>{error && <button type="button" className={`${secondary} mt-3`} onClick={() => setReload((v) => v + 1)}>Retry</button>}</div> : <div className="space-y-5 p-4 sm:p-6" role="tabpanel" id={`${tabId}-panel-${step}`} aria-labelledby={`${tabId}-tab-${step}`}>
       {step === 1 && <>
         {bundle.businesses.length > 0 && <Section title="Your business" hint="Select the same business profile used in SquadHub admin."><DescribedSelect label="Saved business profile" value={businessId || bundle.businesses[0].id} options={bundle.businesses.map((p) => ({ value: p.id, label: p.name, description: str(p.industry) || 'Saved business profile' }))} onChange={(id) => { const selected = bundle.businesses.find((p) => p.id === id); if (selected) changeBusiness(selected); }} /></Section>}
         {editingBusiness ? <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); void run(async () => {
-          const saved = await save('business', business); setBusiness(saved); setBusinessId(saved.id); setEditingBusiness(false);
+          if (!businessComplete) throw new Error('Complete all required contact and business profile details.');
+          if (!hasLocation && !completeLocation(initialLocation)) throw new Error('Complete the location name, address, city, and state / region.');
+          const saved = await save('business', business); setBusiness(saved); setBusinessId(saved.id);
+          if (!hasLocation) await save('location', { ...initialLocation, business_profile_id: saved.id });
+          setEditingBusiness(false);
         }); }}>
-          <Section title="Business profile" hint="Tell candidates about the business they could join.">
-            <TextField label="Business name" required value={business.name} onChange={(v) => updateBusiness('name', v)} />
-            <TextArea label="About the business" value={business.about} onChange={(v) => updateBusiness('about', v)} />
-            <div className="grid gap-4 sm:grid-cols-2"><TextField label="Industry" value={business.industry} onChange={(v) => updateBusiness('industry', v)} /><TextField label="Company size" value={business.company_size} maxLength={50} hint="For example, 11–50 employees." onChange={(v) => updateBusiness('company_size', v)} /></div>
-            <TextField label="Business website" type="url" maxLength={500} value={business.website} onChange={(v) => updateBusiness('website', v)} />
-            <TextField label="Founded year" type="number" value={business.founded_year} onChange={(v) => updateBusiness('founded_year', v)} />
-            <TextArea label="Culture & working environment" value={business.culture} onChange={(v) => updateBusiness('culture', v)} />
-            <TextArea label="Business perks" lines value={business.perks} onChange={(v) => updateBusiness('perks', v)} />
+          <Section title="Contact details">
+            <TextField label="Contact name" required value={business.contact_name} onChange={(v) => updateBusiness('contact_name', v)} />
+            <div className="grid gap-4 sm:grid-cols-2"><TextField label="Contact email" required type="email" value={business.contact_email} onChange={(v) => updateBusiness('contact_email', v)} /><TextField label="Contact phone" required type="tel" maxLength={30} value={business.contact_phone} onChange={(v) => updateBusiness('contact_phone', v)} /></div>
           </Section>
-          <Section title="Contact details"><TextField label="Contact name" required value={business.contact_name} onChange={(v) => updateBusiness('contact_name', v)} /><div className="grid gap-4 sm:grid-cols-2"><TextField label="Contact email" type="email" value={business.contact_email} onChange={(v) => updateBusiness('contact_email', v)} /><TextField label="Contact phone" type="tel" maxLength={30} value={business.contact_phone} onChange={(v) => updateBusiness('contact_phone', v)} /></div></Section>
-          <Section title="Business identity"><ImageField label="Business logo URL" value={str(business.logo_url)} onChange={(v) => updateBusiness('logo_url', v)} preview={preview} /><SocialFields value={business.socials} onChange={(v) => updateBusiness('socials', v)} /><PhotoFields value={business.photos} onChange={(v) => updateBusiness('photos', v)} preview={preview} /></Section>
+          <Section title="Business profile details" hint="Tell candidates about the business they could join.">
+            <TextField label="Business name" required value={business.name} onChange={(v) => updateBusiness('name', v)} />
+            <TextArea label="About the business" required value={business.about} onChange={(v) => updateBusiness('about', v)} />
+            <div className="grid gap-4 sm:grid-cols-2"><TextField label="Industry" required value={business.industry} onChange={(v) => updateBusiness('industry', v)} /><TextField label="Company size" required value={business.company_size} maxLength={50} hint="For example, 11–50 employees." onChange={(v) => updateBusiness('company_size', v)} /></div>
+            <TextField label="Business website" required type="url" maxLength={500} value={business.website} onChange={(v) => updateBusiness('website', v)} />
+            <TextField label="Founded year" required type="number" value={business.founded_year} onChange={(v) => updateBusiness('founded_year', v)} />
+          </Section>
+          {!hasLocation && <Section title="Location details" hint="Add your business location. City and state / region are required."><LocationFields value={initialLocation} onChange={setInitialLocation} countries={countries} /></Section>}
+          <Section title="Additional details">
+            <h4 className="text-sm font-semibold">Business identity details</h4>
+            <ImageField label="Business logo URL" value={str(business.logo_url)} onChange={(v) => updateBusiness('logo_url', v)} preview={preview} /><SocialFields value={business.socials} onChange={(v) => updateBusiness('socials', v)} /><PhotoFields value={business.photos} onChange={(v) => updateBusiness('photos', v)} preview={preview} />
+          </Section>
           {businessId && <p className="text-xs text-[#7A7568]">Changes update the shared profile wherever it is used.</p>}
           <button className={primary} disabled={busy} type="submit">{busy ? 'Saving…' : 'Save business profile'}</button>
         </form> : <Section title={str(business.name)} hint={`${str(business.industry)}${business.company_size ? ` · ${str(business.company_size)} employees` : ''}`}><p className="whitespace-pre-wrap text-sm text-[#7A7568]">{str(business.about)}</p><button type="button" className={secondary} onClick={() => setEditingBusiness(true)}>Edit business profile</button></Section>}
         {businessId && <Section title="Work & interview locations" hint="Saved venues are also available when scheduling physical interviews.">
-          {locations.map((p) => <div key={p.id} className="flex items-start justify-between gap-3 rounded-xl border border-[#E8E5DD] p-3"><div><p className="text-sm font-semibold">{str(p.label)}</p><p className="mt-1 text-xs text-[#7A7568]">{str(p.address)} {str(p.city)}</p></div><button type="button" className="text-xs font-semibold underline" onClick={() => setLocation(p)}>Edit location</button></div>)}
-          {!location && <button className={secondary} type="button" onClick={() => setLocation({ id: crypto.randomUUID(), label: '', address: '', city: '', region: '', postal_code: '', country_id: null, google_maps_url: '', is_primary: false })}>+ Add location</button>}
-          {location && <form className="space-y-4 rounded-xl border border-[#E8E5DD] p-4" onSubmit={(e) => { e.preventDefault(); void run(async () => { await save('location', { ...location, business_profile_id: businessId }); setLocation(null); }); }}>
-            <TextField label="Location name" required value={location.label} onChange={(v) => setLocation({ ...location, label: v })} />
-            <TextField label="Address" required maxLength={1000} value={location.address} onChange={(v) => setLocation({ ...location, address: v })} />
-            <div className="grid gap-4 sm:grid-cols-2">{['city', 'region', 'postal_code'].map((key) => <TextField key={key} label={key === 'postal_code' ? 'Postal code' : key === 'region' ? 'State / region' : 'City'} value={location[key]} onChange={(v) => setLocation({ ...location, [key]: v })} maxLength={key === 'postal_code' ? 20 : 200} />)}<Field label="Country"><select className={inputClass} value={str(location.country_id)} onChange={(e) => setLocation({ ...location, country_id: e.target.value || null })}><option value="">Not specified</option>{countries.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field></div>
-            <TextField label="Google Maps URL" type="url" maxLength={1000} value={location.google_maps_url} onChange={(v) => setLocation({ ...location, google_maps_url: v })} />
-            <div className="grid gap-4 sm:grid-cols-2"><TextField label="Latitude (optional)" value={location.latitude} onChange={(v) => setLocation({ ...location, latitude: v })} /><TextField label="Longitude (optional)" value={location.longitude} onChange={(v) => setLocation({ ...location, longitude: v })} /></div>
-            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={Boolean(location.is_primary)} onChange={(e) => setLocation({ ...location, is_primary: e.target.checked })} />Primary location</label>
+          {locations.map((p) => <div key={p.id} className="flex items-start justify-between gap-3 rounded-xl border border-[#E8E5DD] p-3"><div><p className="text-sm font-semibold">{str(p.label)}</p><p className="mt-1 text-xs text-[#7A7568]">{str(p.address)} {str(p.city)} {str(p.region)}</p></div><button type="button" className="text-xs font-semibold underline" onClick={() => setLocation(p)}>Edit location</button></div>)}
+          {!location && <button className={secondary} type="button" onClick={() => setLocation({ ...newLocation(), is_primary: locations.length === 0 })}>+ Add location</button>}
+          {location && <form className="space-y-4 rounded-xl border border-[#E8E5DD] p-4" onSubmit={(e) => { e.preventDefault(); void run(async () => { if (!completeLocation(location)) throw new Error('Complete the location name, address, city, and state / region.'); await save('location', { ...location, business_profile_id: businessId }); setLocation(null); }); }}>
+            <LocationFields value={location} onChange={setLocation} countries={countries} />
             <div className="flex gap-3"><button type="submit" className={primary} disabled={busy}>Save location</button><button type="button" className={secondary} onClick={() => setLocation(null)}>Cancel</button></div>
           </form>}
         </Section>}
-        {businessId && !editingBusiness && <button type="button" className={primary} onClick={() => setStep(2)}>Continue to brand profile →</button>}
+        {businessId && !editingBusiness && !canContinue && <p className="text-sm text-[#7A7568]">{!businessComplete ? 'Edit your business profile to complete all required contact and business details.' : 'Add or edit a location with a city and state / region to continue.'}</p>}
+        {businessId && !editingBusiness && <button type="button" disabled={!canContinue} className={primary} onClick={() => setStep(2)}>Continue to brand profile →</button>}
       </>}
       {step === 2 && <>
         <Section title="Brand profile" hint="Hire under the business itself, or select a brand belonging to this business.">
@@ -243,3 +263,20 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
   </div>;
 }
 function cleanLines(value: unknown) { return list(value); }
+
+function LocationFields({ value, onChange, countries }: { value: Draft; onChange: (value: Draft) => void; countries: Category[] }) {
+  const update = (key: string, next: unknown) => onChange({ ...value, [key]: next });
+  return <>
+    <TextField label="Location name" required value={value.label} onChange={(v) => update('label', v)} />
+    <TextField label="Address" required maxLength={1000} value={value.address} onChange={(v) => update('address', v)} />
+    <div className="grid gap-4 sm:grid-cols-2">
+      <TextField label="City" required value={value.city} onChange={(v) => update('city', v)} />
+      <TextField label="State / region" required value={value.region} onChange={(v) => update('region', v)} />
+      <TextField label="Postal code" maxLength={20} value={value.postal_code} onChange={(v) => update('postal_code', v)} />
+      <Field label="Country"><select className={inputClass} value={str(value.country_id)} onChange={(e) => update('country_id', e.target.value || null)}><option value="">Not specified</option>{countries.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+    </div>
+    <TextField label="Google Maps URL" type="url" maxLength={1000} value={value.google_maps_url} onChange={(v) => update('google_maps_url', v)} />
+    <div className="grid gap-4 sm:grid-cols-2"><TextField label="Latitude (optional)" value={value.latitude} onChange={(v) => update('latitude', v)} /><TextField label="Longitude (optional)" value={value.longitude} onChange={(v) => update('longitude', v)} /></div>
+    <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={Boolean(value.is_primary)} onChange={(e) => update('is_primary', e.target.checked)} />Primary location</label>
+  </>;
+}
