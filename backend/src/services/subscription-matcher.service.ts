@@ -165,8 +165,8 @@ export async function findMatchingTalents(
   // Step 2b: Creator catalog filters — narrow by profile IDs. Each present
   // rule (AND across rules, overlap within a rule) keeps only creator
   // profiles offering at least one requested value. Services live in
-  // field_data.creator_services; niches and format live per platform entry in
-  // field_data.creator_platforms. Only creator cards set these rules.
+  // field_data.creator_services; niches and formats live per platform entry
+  // in field_data.creator_platforms. Only creator cards set these rules.
   const wantedSet = (values: unknown): Set<string> =>
     new Set((Array.isArray(values) ? values : []).map((v) => String(v ?? '').trim().toLowerCase()).filter(Boolean));
   const creatorServices = wantedSet(matchRules.target_creator_services);
@@ -204,10 +204,17 @@ export async function findMatchingTalents(
     const allowed = new Set(
       (platformRows ?? [])
         .filter((r: any) => {
-          const platforms: Array<{ niches?: unknown; format?: unknown }> = Array.isArray(r.creator_platforms) ? r.creator_platforms : [];
+          const platforms: Array<{ niches?: unknown; format?: unknown; formats?: unknown }> = Array.isArray(r.creator_platforms) ? r.creator_platforms : [];
           const nicheOk = creatorNiches.size === 0 || platforms.some((p) => Array.isArray(p.niches)
             && p.niches.some((n: unknown) => creatorNiches.has(String(n ?? '').trim().toLowerCase())));
-          const formatOk = creatorFormats.size === 0 || platforms.some((p) => creatorFormats.has(String(p.format ?? '').trim().toLowerCase()));
+          // `formats` (multi-select) is current; single-select `format` is the
+          // legacy shape — accept either.
+          const formatOk = creatorFormats.size === 0 || platforms.some((p) => {
+            const offered = Array.isArray(p.formats)
+              ? p.formats.map((f: unknown) => String(f ?? '').trim().toLowerCase())
+              : [String(p.format ?? '').trim().toLowerCase()];
+            return offered.some((f: string) => creatorFormats.has(f));
+          });
           return nicheOk && formatOk;
         })
         .map((r: any) => r.id as string),

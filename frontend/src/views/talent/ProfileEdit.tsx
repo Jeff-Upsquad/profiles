@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useProfile, useUpdateProfile, useSubmitProfile, usePortfolioItems } from '@/hooks/useProfiles';
@@ -19,6 +19,7 @@ import PortfolioMinimumNotice from '@/components/talent/PortfolioMinimumNotice';
 import { minPortfolioItems } from '@/lib/talentCompletion';
 import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
 import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
+import SaveProgressModal from '@/components/talent/SaveProgressModal';
 import Button from '@/components/ui/Button';
 import Badge, { statusToBadgeVariant } from '@/components/ui/Badge';
 import type { CategoryField } from '@/types';
@@ -81,6 +82,10 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
   const hasInitializedValues = useRef(false);
   const hasInitializedLangs = useRef(false);
   const [dirty, setDirty] = useState(false);
+  // Back / leave-with-unsaved-changes prompt.
+  const [exitPromptOpen, setExitPromptOpen] = useState(false);
+  const [exitSaving, setExitSaving] = useState(false);
+  const leavingRef = useRef(false);
 
   const { data: categoryWithFields, isLoading: fieldsLoading } = useCategoryWithFields(
     profile?.category?.slug
@@ -122,19 +127,13 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
     if (!dirty) return;
     window.history.pushState(null, '', window.location.href);
     const onPopState = () => {
-      if (window.confirm('You have unsaved changes. Discard and leave this page?')) {
-        window.history.back();
-      } else {
-        window.history.pushState(null, '', window.location.href);
-      }
+      if (leavingRef.current) return;
+      // Restore the guard so a second back press can't slip past the prompt.
+      window.history.pushState(null, '', window.location.href);
+      setExitPromptOpen(true);
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, [dirty]);
-
-  const confirmDiscard = useCallback(() => {
-    if (!dirty) return true;
-    return window.confirm('You have unsaved changes. Discard and leave this page?');
   }, [dirty]);
 
   const handleChange = (key: string, value: any) => {
@@ -207,12 +206,14 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
       languages_spoken: languages.filter((e) => e.language),
     });
 
-  const handleSave = async () => {
-    if (!profileId) return;
+  // Shared by the action bar's Save Changes and the leave prompt's save —
+  // persists field data + languages and clears the dirty flag.
+  const saveChanges = async (): Promise<boolean> => {
+    if (!profileId) return false;
     try {
       await updateProfile.mutateAsync({ id: profileId, field_data: values });
     } catch {
-      return;
+      return false;
     }
     try {
       await saveLanguages();
@@ -221,7 +222,30 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
     }
     await queryClient.invalidateQueries({ queryKey: ['talentMe'] });
     setDirty(false);
+    return true;
+  };
+
+  const handleSave = async () => {
+    if (!(await saveChanges())) return;
     router.push(`/talent/profiles/${profileId}`);
+  };
+
+  // Back / leave with unsaved changes. The trap has a guard history entry on
+  // the stack, so leaving pops past it and the page entry in one go.
+  const handleSaveAndLeave = async () => {
+    setExitSaving(true);
+    const ok = await saveChanges();
+    setExitSaving(false);
+    if (!ok) return; // keep the form (and prompt); the hook already toasted
+    setExitPromptOpen(false);
+    leavingRef.current = true;
+    window.history.go(-2);
+  };
+
+  const handleDiscardAndLeave = () => {
+    setExitPromptOpen(false);
+    leavingRef.current = true;
+    window.history.go(-2);
   };
 
   const handleSaveAndSubmit = async () => {
@@ -271,7 +295,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
         <div className="hero-content flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => { if (confirmDiscard()) router.back(); }}
+              onClick={() => { if (dirty) setExitPromptOpen(true); else router.back(); }}
               className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#f0f0f0] text-[#525252] transition-colors hover:bg-[#dedede] hover:text-[#0a0a0a]"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -502,38 +526,50 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
         )}
       </div>
 
-      {/* Sticky action bar */}
-      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E7E7EA] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
-        <div className="text-xs text-[#737373] px-2">
-          {belowPortfolioMin && (profile.status === 'draft' || profile.status === 'rejected' || needsProfileResubmission(profile))
-            ? `Upload ${minItems - portfolioCount} more portfolio ${minItems - portfolioCount === 1 ? 'item' : 'items'} to submit`
-            : dirty ? 'You have unsaved changes' : 'No changes yet'}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleSave} loading={updateProfile.isPending}>
-            Save Changes
-          </Button>
-          {(profile.status === 'draft' || profile.status === 'rejected' || needsProfileResubmission(profile)) && (
-            <button
-              type="button"
-              onClick={handleSaveAndSubmit}
-              disabled={isRejected || belowPortfolioMin || updateProfile.isPending || submitProfile.isPending}
-              title={
-                isRejected
-                  ? 'Submitting is locked because this account was not approved'
-                  : belowPortfolioMin
-                    ? `${profile.category?.name ?? 'This'} profiles need at least ${minItems} portfolio items`
-                    : undefined
-              }
-              className="btn-iridescent disabled:opacity-50"
-            >
-              {(updateProfile.isPending || submitProfile.isPending)
-                ? 'Submitting…'
-                : needsProfileResubmission(profile) && !isNudgedDraft(profile) ? 'Save & Resubmit' : 'Save & Submit'}
-            </button>
-          )}
+      {/* Action bar — sits at the bottom of the page, below every section */}
+      <div className="rounded-2xl border border-[#E7E7EA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-xs text-[#737373] sm:px-2">
+            {belowPortfolioMin && (profile.status === 'draft' || profile.status === 'rejected' || needsProfileResubmission(profile))
+              ? `Upload ${minItems - portfolioCount} more portfolio ${minItems - portfolioCount === 1 ? 'item' : 'items'} to submit`
+              : dirty ? 'You have unsaved changes' : 'No changes yet'}
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button variant="outline" onClick={handleSave} loading={updateProfile.isPending} className="w-full sm:w-auto">
+              Save Changes
+            </Button>
+            {(profile.status === 'draft' || profile.status === 'rejected' || needsProfileResubmission(profile)) && (
+              <button
+                type="button"
+                onClick={handleSaveAndSubmit}
+                disabled={isRejected || belowPortfolioMin || updateProfile.isPending || submitProfile.isPending}
+                title={
+                  isRejected
+                    ? 'Submitting is locked because this account was not approved'
+                    : belowPortfolioMin
+                      ? `${profile.category?.name ?? 'This'} profiles need at least ${minItems} portfolio items`
+                      : undefined
+                }
+                className="btn-iridescent w-full justify-center sm:w-auto disabled:opacity-50"
+              >
+                {(updateProfile.isPending || submitProfile.isPending)
+                  ? 'Submitting…'
+                  : needsProfileResubmission(profile) && !isNudgedDraft(profile) ? 'Save & Resubmit' : 'Save & Submit'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Back / leave with unsaved changes */}
+      <SaveProgressModal
+        open={exitPromptOpen}
+        saving={exitSaving}
+        saveLabel="Save changes & leave"
+        onSave={handleSaveAndLeave}
+        onDiscard={handleDiscardAndLeave}
+        onKeepEditing={() => setExitPromptOpen(false)}
+      />
     </div>
   );
 }

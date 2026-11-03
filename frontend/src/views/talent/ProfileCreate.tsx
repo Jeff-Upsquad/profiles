@@ -20,6 +20,7 @@ import { SkeletonCard } from '@/components/ui/Skeleton';
 import { useAuth } from '@/context/AuthContext';
 import { coerceLeveledList } from '../../../../shared/src/types/talent';
 import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
+import SaveProgressModal from '@/components/talent/SaveProgressModal';
 import ProfileTrainingGate from '@/components/training/ProfileTrainingGate';
 import { useProfileGate } from '@/hooks/useTraining';
 import type { Category, CategoryField } from '@/types';
@@ -74,6 +75,12 @@ export default function ProfileCreate() {
   const autoSaveInFlight = useRef(false);
   const [languages, setLanguages] = useState<LanguageEntry[]>([]);
   const hasInitializedLangs = useRef(false);
+  // Unsaved-changes tracking for the back/leave prompt.
+  const [dirty, setDirty] = useState(false);
+  const [exitPromptOpen, setExitPromptOpen] = useState(false);
+  const [exitViaHistory, setExitViaHistory] = useState(false);
+  const [exitSaving, setExitSaving] = useState(false);
+  const leavingRef = useRef(false);
 
   const { data: categoryWithFields, isLoading: fieldsLoading } = useCategoryWithFields(
     selectedCategory?.slug
@@ -127,6 +134,7 @@ export default function ProfileCreate() {
 
   const handleChange = (key: string, value: any) => {
     setValues((prev) => ({ ...prev, [key]: value }));
+    setDirty(true);
     setErrors((prev) => {
       const next = { ...prev };
       delete next[key];
@@ -263,6 +271,92 @@ export default function ProfileCreate() {
       // error handled in hook
     }
   };
+
+  // ── Back / leave with unsaved changes ──
+  const resetForm = () => {
+    setSelectedCategory(null);
+    setValues({});
+    setErrors({});
+    setDraftProfileId(null);
+    setAutoSaving(false);
+    setLanguages(talentMe?.languages_spoken ?? []);
+    hasInitializedLangs.current = false;
+    setDirty(false);
+  };
+
+  const openExitPrompt = (viaHistory: boolean) => {
+    leavingRef.current = false;
+    setExitViaHistory(viaHistory);
+    setExitPromptOpen(true);
+  };
+
+  const handleBack = () => {
+    if (dirty) openExitPrompt(false);
+    else resetForm();
+  };
+
+  const handleDiscardAndLeave = () => {
+    setExitPromptOpen(false);
+    setDirty(false);
+    leavingRef.current = true;
+    if (exitViaHistory) {
+      // Pop the guard entry and the page entry below it.
+      window.history.go(-2);
+    } else {
+      // Stay on this route (back to category selection) — just drop the
+      // guard entry the trap pushed.
+      resetForm();
+      window.history.go(-1);
+    }
+  };
+
+  const handleSaveAndLeave = async () => {
+    if (!selectedCategory) return;
+    setExitSaving(true);
+    try {
+      await persistDraft(selectedCategory.id);
+      try { await saveLanguages(); } catch { /* best effort */ }
+      setDirty(false);
+      setExitPromptOpen(false);
+      leavingRef.current = true;
+      if (exitViaHistory) {
+        window.history.go(-2);
+      } else {
+        resetForm();
+        window.history.go(-1);
+      }
+    } catch {
+      // Save failed — keep the form (and prompt) so nothing is lost; the
+      // hook already surfaced the error toast.
+    } finally {
+      setExitSaving(false);
+    }
+  };
+
+  // Guard browser/system back while the form has unsaved changes: push a
+  // dummy history entry so the first back press opens the save prompt
+  // instead of leaving.
+  useEffect(() => {
+    if (!dirty || !selectedCategory) return;
+    window.history.pushState(null, '', window.location.href);
+    const onPopState = () => {
+      if (leavingRef.current) return;
+      // Restore the guard so a second back press can't slip past the prompt.
+      window.history.pushState(null, '', window.location.href);
+      openExitPrompt(true);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [dirty, selectedCategory]);
+
+  // Desktop: warn on tab close / external navigation with unsaved changes.
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirty) { e.preventDefault(); }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
 
   // ── STEP 1: Category Selection ──
   if (!selectedCategory) {
@@ -546,15 +640,7 @@ export default function ProfileCreate() {
       <section className="hero-container hero-glow-purple relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white px-5 py-5 sm:px-7 sm:py-6">
         <div className="hero-content flex items-start gap-4">
           <button
-            onClick={() => {
-              setSelectedCategory(null);
-              setValues({});
-              setErrors({});
-              setDraftProfileId(null);
-              setAutoSaving(false);
-              setLanguages(talentMe?.languages_spoken ?? []);
-              hasInitializedLangs.current = false;
-            }}
+            onClick={handleBack}
             className="mt-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#f0f0f0] text-[#525252] transition-colors hover:bg-[#dedede] hover:text-[#0a0a0a]"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -682,7 +768,13 @@ export default function ProfileCreate() {
                 <p className="mt-0.5 text-sm text-[#737373]">Add languages you can work in</p>
               </div>
             </div>
-            <LanguagePicker value={languages} onChange={setLanguages} />
+            <LanguagePicker
+              value={languages}
+              onChange={(next) => {
+                setLanguages(next);
+                setDirty(true);
+              }}
+            />
             {errors._languages && (
               <p className="mt-2 text-sm text-red-600">{errors._languages}</p>
             )}
@@ -746,39 +838,52 @@ export default function ProfileCreate() {
         </div>
       )}
 
-      {/* Sticky action bar — hidden while the category's training gate is unmet */}
+      {/* Action bar — sits at the bottom of the page, below every section.
+          Hidden while the category's training gate is unmet. */}
       {!(profileGate?.locked && profileGate.chapter) && (
-      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E7E7EA] bg-white/95 backdrop-blur-md p-3 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]">
-        <div className="text-xs text-[#737373] px-2">
-          {isRejected
-            ? 'Submitting is locked because this account was not approved.'
-            : belowPortfolioMin
-              ? `Upload ${minItems - portfolioCount} more portfolio ${minItems - portfolioCount === 1 ? 'item' : 'items'} to submit — or save as draft for now.`
-              : 'Save as draft, or submit for review when ready.'}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={handleSaveDraft}
-            loading={createProfile.isPending || updateProfile.isPending}
-            disabled={autoSaving}
-          >
-            Save as Draft
-          </Button>
-          <button
-            type="button"
-            onClick={handleSaveAndSubmit}
-            disabled={!canSubmit || belowPortfolioMin || autoSaving || createProfile.isPending || updateProfile.isPending || submitProfile.isPending}
-            title={belowPortfolioMin ? `${selectedCategory.name} profiles need at least ${minItems} portfolio items` : undefined}
-            className="btn-iridescent disabled:opacity-50"
-          >
-            {(createProfile.isPending || updateProfile.isPending || submitProfile.isPending) ? 'Saving…' : 'Save & Submit'}
-          </button>
+      <div className="rounded-2xl border border-[#E7E7EA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-xs text-[#737373] sm:px-2">
+            {isRejected
+              ? 'Submitting is locked because this account was not approved.'
+              : belowPortfolioMin
+                ? `Upload ${minItems - portfolioCount} more portfolio ${minItems - portfolioCount === 1 ? 'item' : 'items'} to submit — or save as draft for now.`
+                : 'Save as draft, or submit for review when ready.'}
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button
+              variant="outline"
+              onClick={handleSaveDraft}
+              loading={createProfile.isPending || updateProfile.isPending}
+              disabled={autoSaving}
+              className="w-full sm:w-auto"
+            >
+              Save as Draft
+            </Button>
+            <button
+              type="button"
+              onClick={handleSaveAndSubmit}
+              disabled={!canSubmit || belowPortfolioMin || autoSaving || createProfile.isPending || updateProfile.isPending || submitProfile.isPending}
+              title={belowPortfolioMin ? `${selectedCategory.name} profiles need at least ${minItems} portfolio items` : undefined}
+              className="btn-iridescent w-full justify-center sm:w-auto disabled:opacity-50"
+            >
+              {(createProfile.isPending || updateProfile.isPending || submitProfile.isPending) ? 'Saving…' : 'Save & Submit'}
+            </button>
+          </div>
         </div>
       </div>
       )}
 
-
+      {/* Back / leave with unsaved changes */}
+      <SaveProgressModal
+        open={exitPromptOpen}
+        saving={exitSaving}
+        saveLabel="Save as Draft & leave"
+        description="You have unsaved changes. Save them as a draft before you leave, or discard and continue without saving."
+        onSave={handleSaveAndLeave}
+        onDiscard={handleDiscardAndLeave}
+        onKeepEditing={() => setExitPromptOpen(false)}
+      />
     </div>
   );
 }

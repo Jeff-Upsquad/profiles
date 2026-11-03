@@ -150,7 +150,7 @@ export interface CreatorPlatformEntry {
     city: string;
   };
   niches: string[];
-  format: string;
+  formats: string[];
 }
 
 export interface CreatorRateEntry {
@@ -174,14 +174,25 @@ export function newCreatorPlatform(): CreatorPlatformEntry {
     location_scope: 'global',
     location: { country: '', state: '', district: '', city: '' },
     niches: [],
-    format: '',
+    formats: [],
   };
 }
 
-/** Coerce unknown field_data into the platform shape, tolerating older rows. */
+/** Coerce unknown field_data into the platform shape, tolerating older rows
+ * (single-select `format` strings are folded into the `formats` array). */
 export function coerceCreatorPlatforms(value: unknown): CreatorPlatformEntry[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((p): p is CreatorPlatformEntry => !!p && typeof p === 'object');
+  return value
+    .filter((p): p is Record<string, unknown> => !!p && typeof p === 'object')
+    .map((p) => {
+      const formats = Array.isArray(p.formats)
+        ? p.formats.filter((f): f is string => typeof f === 'string')
+        : typeof p.format === 'string' && p.format
+          ? [p.format]
+          : [];
+      const { format: _legacy, ...rest } = p;
+      return { ...rest, formats } as CreatorPlatformEntry;
+    });
 }
 
 /** Coerce unknown field_data into the services shape, tolerating older rows. */
@@ -206,6 +217,7 @@ export function creatorLocationLabel(
 /**
  * Validate the structured creator sections. Returns errors keyed by field
  * (creator_* for basics, `creator_platforms.<id>.<field>` per platform card,
+ * `creator_services.<service>` when a service has no platform rates and
  * `creator_services.<service>.<platformId>` per rate row) — the same record
  * shape the generic form validation uses.
  */
@@ -257,8 +269,8 @@ export function validateCreatorProfile(values: Record<string, any>): Record<stri
     if (!p.niches || p.niches.length === 0) {
       errors[key('niches')] = 'Select at least one niche';
     }
-    if (!p.format) {
-      errors[key('format')] = 'Select a content format';
+    if (!p.formats || p.formats.length === 0) {
+      errors[key('formats')] = 'Select at least one content format';
     }
   }
 
@@ -267,11 +279,17 @@ export function validateCreatorProfile(values: Record<string, any>): Record<stri
     errors.creator_services = 'Select at least one service';
   }
   for (const s of services) {
-    for (const p of platforms) {
-      const rate = s.rates?.[p.id];
+    // Rates are per chosen platform — the creator picks which platforms each
+    // service applies to, so only those rows are validated.
+    const rateEntries = Object.entries(s.rates ?? {});
+    if (rateEntries.length === 0) {
+      errors[`creator_services.${s.service}`] = 'Add at least one platform with a rate';
+      continue;
+    }
+    for (const [platformId, rate] of rateEntries) {
       const amount = Number(rate?.amount);
       if (!rate || !rate.currency || rate.amount === '' || rate.amount === undefined || Number.isNaN(amount) || amount <= 0) {
-        errors[`creator_services.${s.service}.${p.id}`] = 'Set a currency and amount';
+        errors[`creator_services.${s.service}.${platformId}`] = 'Set a currency and amount';
       }
     }
   }

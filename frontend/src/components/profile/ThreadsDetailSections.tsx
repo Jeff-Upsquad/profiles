@@ -575,7 +575,7 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
             const meta = [
               (p.languages ?? []).join(', '),
               creatorLocationLabel(p.location_scope, p.location),
-              p.format,
+              (p.formats ?? []).join(', '),
             ].filter(Boolean).join(' · ');
             return (
               <div key={p.id} className="rounded-xl border border-zinc-200 px-3.5 py-3">
