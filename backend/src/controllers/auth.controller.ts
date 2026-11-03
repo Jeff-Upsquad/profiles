@@ -2,7 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/auth.service.js';
 import * as businessAuthService from '../services/business-auth.service.js';
 import * as passwordResetService from '../services/password-reset.service.js';
+import { sendTalentSignupCode } from '../services/talent-signup-otp.service.js';
 import * as loginUpdateService from '../services/business-account-update.service.js';
+
+export async function talentSignupCodeSend(req: Request, res: Response, next: NextFunction) {
+  try { res.json(await sendTalentSignupCode(req.body)); } catch (error) { next(error); }
+}
 
 export async function signupTalent(req: Request, res: Response, next: NextFunction) {
   try {

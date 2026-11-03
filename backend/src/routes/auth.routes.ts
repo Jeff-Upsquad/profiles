@@ -5,6 +5,7 @@ import { authenticate } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import {
   signupTalentSchema,
+  talentSignupCodeSendSchema,
   signupTalentApplicationSchema,
   signupAgencySchema,
   loginSchema,
@@ -27,14 +28,29 @@ import {
 
 const router = Router();
 
+const signupSendLimiter = rateLimit({
+  windowMs: 60 * 60_000, max: 20,
+  message: { message: 'Too many codes requested. Please try again later.' },
+  standardHeaders: true, legacyHeaders: false,
+});
+const signupVerifyLimiter = rateLimit({
+  windowMs: 10 * 60_000, max: 20,
+  message: { message: 'Too many signup attempts. Please try again later.' },
+  standardHeaders: true, legacyHeaders: false,
+});
+router.post('/signup/talent/send-code', signupSendLimiter,
+  validate({ body: talentSignupCodeSendSchema }), authController.talentSignupCodeSend);
+
 router.post(
   '/signup/talent',
+  signupVerifyLimiter,
   validate({ body: signupTalentSchema }),
   authController.signupTalent
 );
 
 router.post(
   '/signup/talent/application',
+  signupVerifyLimiter,
   validate({ body: signupTalentApplicationSchema }),
   authController.signupTalentApplication
 );

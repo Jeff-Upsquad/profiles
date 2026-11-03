@@ -2,16 +2,28 @@ import { z } from 'zod';
 import { SIGNUP_CATEGORIES } from '../../../shared/src/signupCategories.js';
 import { createLeadSchema } from './lead.validators.js';
 
+export const talentSignupOtpSchema = z.object({
+  challenge_id: z.string().uuid('Request a WhatsApp code first'),
+  code: z.string().regex(/^[0-9]{6}$/, 'Enter the 6-digit WhatsApp code'),
+});
+export const talentSignupCodeSendSchema = z.object({
+  phone: z.string().min(8).max(30),
+  email: z.string().trim().email().max(254),
+  full_name: z.string().max(200).optional(),
+});
+
 export const signupTalentApplicationSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
   application: createLeadSchema,
+  otp: talentSignupOtpSchema,
 });
 
 export const signupTalentSchema = z.object({
   email: z.string().email('Valid email is required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   full_name: z.string().min(1, 'Full name is required').max(200),
-  phone: z.string().optional(),
+  phone: z.string().min(8, 'WhatsApp number is required'),
+  otp: talentSignupOtpSchema,
   country: z.string().max(100).optional(),
   state: z.string().max(100).optional(),
   current_district: z.string().max(100).optional(),

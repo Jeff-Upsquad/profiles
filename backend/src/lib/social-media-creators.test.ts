@@ -8,7 +8,7 @@ import { categoryHasPortfolio } from '../../../shared/src/portfolio.js';
 
 test('creator signup works alone and alongside another talent category', () => {
   for (const categories of [['social-media-creator'], ['designer', 'social-media-creator']]) {
-    const parsed = signupTalentSchema.parse({ email: 'creator@example.test', password: 'test-password', full_name: 'Creator Channel', signup_categories: categories });
+    const parsed = signupTalentSchema.parse({ email: 'creator@example.test', password: 'test-password', phone: '+919876543210', otp: { challenge_id: '12345678-1234-4234-8234-123456789012', code: '123456' }, full_name: 'Creator Channel', signup_categories: categories });
     assert.ok(signupFormTypes(parsed.signup_categories!).includes('social_media_creator'));
     assert.equal(isSocialMediaCreator({ signup_form_type: 'creative', signup_categories: parsed.signup_categories }), true);
   }

@@ -10,6 +10,7 @@ import MultiSelectSearch from '@/components/ui/MultiSelectSearch';
 import ChipSelect from '@/components/ui/ChipSelect';
 import AlreadySubmittedSheet from '@/components/forms/AlreadySubmittedSheet';
 import SubmissionResultScreen from '@/components/forms/SubmissionResultScreen';
+import TalentSignupOtp, { signupOtpValue, type TalentSignupOtpState } from '@/components/forms/TalentSignupOtp';
 import SignupCredentials from '@/components/forms/SignupCredentials';
 import { useDuplicateContactCheck } from '@/hooks/useDuplicateContactCheck';
 import {
@@ -109,6 +110,7 @@ function Section({ index, title, description, delay = 0, children }: SectionProp
 export default function AccountantLeadForm() {
   const searchParams = useSearchParams();
   const [form, setForm] = useState(initial);
+  const [otp, setOtp] = useState<TalentSignupOtpState | null>(null);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({});
@@ -234,9 +236,15 @@ export default function AccountantLeadForm() {
       return;
     }
 
+    const verification = signupOtpValue(otp, form.phone, form.email);
+    if (!verification) {
+      setServerError('Request and enter your WhatsApp code to continue.');
+      document.getElementById('signup-whatsapp-code')?.focus();
+      return;
+    }
     setSubmitting(true);
     try {
-      const { data } = await axios.post('/api/auth/signup/talent/application', { password, application: {
+      const { data } = await axios.post('/api/auth/signup/talent/application', { password, otp: verification, application: {
         form_type: 'accountant',
         name: form.name.trim(),
         phone: form.phone.replace(/\s/g, ''),
@@ -767,6 +775,7 @@ export default function AccountantLeadForm() {
           </Section>
 
           {/* Submit */}
+          <TalentSignupOtp phone={form.phone} email={form.email} name={form.name} value={otp} onChange={setOtp} disabled={submitting} />
           <SignupCredentials password={password} confirmPassword={confirmPassword} onPasswordChange={setPassword} onConfirmPasswordChange={setConfirmPassword} />
           <div className="card-saas mt-5 flex flex-col gap-6 px-6 py-9 sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-9">
             {dup.anyDuplicate && (

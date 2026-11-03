@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
+import TalentSignupOtp, { signupOtpValue, type TalentSignupOtpState } from '@/components/forms/TalentSignupOtp';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
@@ -106,6 +107,7 @@ export default function SignupTalent({ creatorSignup = false }: { creatorSignup?
 
   const [view, setView] = useState<ViewState>('form');
   const [showExistsSheet, setShowExistsSheet] = useState(false);
+  const [otp, setOtp] = useState<TalentSignupOtpState | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [checkLoading, setCheckLoading] = useState(false);
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
@@ -233,9 +235,12 @@ export default function SignupTalent({ creatorSignup = false }: { creatorSignup?
     if (form.password.length < 8) { toast.error('Password must be at least 8 characters'); return; }
     if (form.password !== form.confirm_password) { toast.error('Passwords do not match'); return; }
 
+    const verification = signupOtpValue(otp, form.phone, form.email);
+    if (!verification) { toast.error('Request and enter your WhatsApp code to continue.'); return; }
     setSubmitting(true);
     try {
       await api.post('/auth/signup/talent', {
+        otp: verification,
         email: form.email.trim(),
         password: form.password,
         full_name: form.full_name.trim(),
@@ -375,7 +380,7 @@ export default function SignupTalent({ creatorSignup = false }: { creatorSignup?
                   />
                   <div>
                     <label htmlFor="signup-phone" className="mb-1.5 block text-[13px] font-medium text-[#3F3F46]">
-                      Phone
+                      WhatsApp number
                     </label>
                     <div className="flex items-stretch gap-2">
                       <select
@@ -397,6 +402,7 @@ export default function SignupTalent({ creatorSignup = false }: { creatorSignup?
                         id="signup-phone"
                         autoComplete="tel-national"
                         type="tel"
+                        required
                         inputMode="numeric"
                         maxLength={15}
                         value={form.phone.replace(countryCode, '')}
@@ -538,6 +544,7 @@ export default function SignupTalent({ creatorSignup = false }: { creatorSignup?
                     </div>
                   </div>
 
+                  <TalentSignupOtp phone={form.phone} email={form.email} name={form.full_name} value={otp} onChange={setOtp} disabled={submitting || !canProceed} />
                   <div className="flex items-center justify-end pt-4 border-t border-gray-100">
                     <Button type="submit" loading={submitting} disabled={!canProceed}>
                       Create Account

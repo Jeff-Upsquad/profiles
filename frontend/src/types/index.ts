@@ -154,7 +154,8 @@ export interface TalentSignupData {
   email: string;
   password: string;
   full_name: string;
-  phone?: string;
+  phone: string;
+  otp: { challenge_id: string; code: string };
   country?: string;
   state?: string;
   current_district?: string;

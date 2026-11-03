@@ -18,6 +18,8 @@ before(async () => {
       const body = JSON.parse(String(init?.body));
       result = body.p_email === 'existing@example.test' || body.p_phone_digits
         ? [{ source: 'talent' }] : [];
+    } else if (url.pathname.includes('/rpc/consume_talent_signup_code')) {
+      result = true;
     } else if (url.pathname === '/auth/v1/admin/users') {
       createAttempts++;
       // Stop before creating any account; reaching Auth proves the duplicate
@@ -42,7 +44,7 @@ test('only the testing phone bypasses duplicate checks, including country-code f
 });
 
 test('signup permits reuse of the testing phone but still rejects duplicate emails and other phones', async () => {
-  const signup = { email: 'new@example.test', password: 'fixture-password', full_name: 'Test', phone: '+91 9645545553' };
+  const signup = { email: 'new@example.test', password: 'fixture-password', otp: { challenge_id: '12345678-1234-4234-8234-123456789012', code: '123456' }, full_name: 'Test', phone: '+91 9645545553' };
   await assert.rejects(auth.signupTalent(signup), /fixture reached account creation/);
   assert.equal(createAttempts, 1);
   await assert.rejects(auth.signupTalent({ ...signup, email: 'existing@example.test' }), /already exists/);

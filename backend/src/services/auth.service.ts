@@ -1,3 +1,4 @@
+import { consumeTalentSignupCode } from './talent-signup-otp.service.js';
 import { isSocialMediaCreator } from '../../../shared/src/creatorRoles.js';
 import { supabaseAdmin, supabaseAnon } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
@@ -14,7 +15,7 @@ import type { UserRole } from '../../../shared/src/types/auth.js';
 export async function signupTalent(input: SignupTalentInput, application?: CreateLeadInput) {
   const {
     email, password, full_name, country, state, current_district,
-    signup_role, signup_ref, signup_categories, ...profileData
+    signup_role, signup_ref, signup_categories, otp, ...profileData
   } = input;
 
   // Resolve where they came from. An explicit ?role= on the signup link beats
@@ -39,6 +40,8 @@ export async function signupTalent(input: SignupTalentInput, application?: Creat
     throw new AppError(409, 'An account with this email or phone number already exists');
   }
 
+  profileData.phone = await consumeTalentSignupCode(profileData.phone, email, otp);
+
   // Open self-serve signup for now — no invitation required. If a pending
   // talent invite exists for this email, mark it accepted after create.
   const invitation = await checkInvitation(email, 'talent');
@@ -48,7 +51,7 @@ export async function signupTalent(input: SignupTalentInput, application?: Creat
     email,
     password,
     email_confirm: true,
-    app_metadata: { role: 'talent' as UserRole },
+    app_metadata: { role: 'talent' as UserRole, whatsapp_verified_phone: profileData.phone, whatsapp_verified_at: new Date().toISOString() },
     user_metadata: { full_name },
   });
 
@@ -255,11 +258,12 @@ export async function signupTalent(input: SignupTalentInput, application?: Creat
   };
 }
 
-export async function signupTalentApplication(input: { password: string; application: CreateLeadInput }) {
+export async function signupTalentApplication(input: { password: string; application: CreateLeadInput; otp: SignupTalentInput['otp'] }) {
   const a = input.application;
   return signupTalent({
     email: a.email,
     password: input.password,
+    otp: input.otp,
     full_name: a.name,
     phone: a.phone,
     country: a.country,

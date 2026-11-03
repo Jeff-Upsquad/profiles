@@ -12,6 +12,7 @@ import { COUNTRIES, INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-
 import { COUNTRY_CODES } from '@/constants/country-codes';
 import AlreadySubmittedSheet from '@/components/forms/AlreadySubmittedSheet';
 import SubmissionResultScreen from '@/components/forms/SubmissionResultScreen';
+import TalentSignupOtp, { signupOtpValue, type TalentSignupOtpState } from '@/components/forms/TalentSignupOtp';
 import SignupCredentials from '@/components/forms/SignupCredentials';
 import { useDuplicateContactCheck } from '@/hooks/useDuplicateContactCheck';
 
@@ -92,6 +93,7 @@ export default function CreativeLeadForm({ category }: { category?: { formType: 
   const formType = category?.formType ?? 'creative';
   const searchParams = useSearchParams();
   const [form, setForm] = useState(initial);
+  const [otp, setOtp] = useState<TalentSignupOtpState | null>(null);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [countryCode, setCountryCode] = useState('+91');
@@ -214,9 +216,15 @@ export default function CreativeLeadForm({ category }: { category?: { formType: 
       return;
     }
 
+    const verification = signupOtpValue(otp, form.phone, form.email);
+    if (!verification) {
+      setServerError('Request and enter your WhatsApp code to continue.');
+      document.getElementById('signup-whatsapp-code')?.focus();
+      return;
+    }
     setSubmitting(true);
     try {
-      const { data } = await axios.post('/api/auth/signup/talent/application', { password, application: {
+      const { data } = await axios.post('/api/auth/signup/talent/application', { password, otp: verification, application: {
         form_type: formType,
         name: form.name.trim(),
         phone: form.phone.replace(/\s/g, ''),
@@ -670,6 +678,7 @@ export default function CreativeLeadForm({ category }: { category?: { formType: 
           </Section>
 
           {/* Submit */}
+          <TalentSignupOtp phone={form.phone} email={form.email} name={form.name} value={otp} onChange={setOtp} disabled={submitting} />
           <SignupCredentials password={password} confirmPassword={confirmPassword} onPasswordChange={setPassword} onConfirmPasswordChange={setConfirmPassword} />
           <div className="card-saas mt-5 flex flex-col gap-6 px-6 py-9 sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-9">
             {dup.anyDuplicate && (
