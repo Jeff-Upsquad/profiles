@@ -279,18 +279,15 @@ export function validateCreatorProfile(values: Record<string, any>): Record<stri
     errors.creator_services = 'Select at least one service';
   }
   for (const s of services) {
-    // Rates are per chosen platform — the creator picks which platforms each
-    // service applies to, so only those rows are validated.
-    const rateEntries = Object.entries(s.rates ?? {});
-    if (rateEntries.length === 0) {
-      errors[`creator_services.${s.service}`] = 'Add at least one platform with a rate';
-      continue;
-    }
-    for (const [platformId, rate] of rateEntries) {
+    // Every platform entered above is offered as a rate row; only the ones the
+    // creator actually filled in are required — a service is valid when at
+    // least one platform carries a currency + positive amount.
+    const hasValidRate = Object.values(s.rates ?? {}).some((rate) => {
       const amount = Number(rate?.amount);
-      if (!rate || !rate.currency || rate.amount === '' || rate.amount === undefined || Number.isNaN(amount) || amount <= 0) {
-        errors[`creator_services.${s.service}.${platformId}`] = 'Set a currency and amount';
-      }
+      return !!rate && !!rate.currency && Number.isFinite(amount) && amount > 0;
+    });
+    if (!hasValidRate) {
+      errors[`creator_services.${s.service}`] = 'Enter a rate for at least one platform';
     }
   }
 

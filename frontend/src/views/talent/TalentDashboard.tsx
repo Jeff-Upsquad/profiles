@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useMyOnboardingProgress, type OnboardingProgress } from '@/hooks/useOnboardingProgress';
 import { useModuleAccess } from '@/hooks/useTraining';
+import { useMyProfiles } from '@/hooks/useProfiles';
 import TalentHomeTabs, { type TalentHomeTab } from '@/components/layout/TalentHomeTabs';
 import TalentOffersView, { WhatsAppUpdatesToggle } from '@/components/subscriptions/TalentOffersView';
 import TalentJobsView from '@/components/jobs/talent/TalentJobsView';
@@ -42,6 +43,39 @@ interface StripStage {
 }
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Sign-up CTA for social media creators: a "create your job profile" card
+ * pinned at the top of Home until they have one (draft counts — they've
+ * started). This is the first page a fresh creator lands on after the
+ * /signup/social-media-creators flow routes them to /talent/dashboard.
+ */
+function CreatorProfileCta({ hasProfile, loading }: { hasProfile: boolean; loading: boolean }) {
+  if (loading || hasProfile) return null;
+  return (
+    <section className="relative overflow-hidden rounded-2xl border border-[#0a0a0a] bg-[#FFFAC2] px-5 py-5 sm:px-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="font-[family-name:var(--font-jakarta)] text-base font-semibold tracking-[-0.015em] text-[#0a0a0a]">
+            Create your Social Media Creator job profile
+          </h2>
+          <p className="mt-0.5 font-[family-name:var(--font-inter)] text-xs text-[#525252]">
+            Add your platforms, services and rates so brands can find and hire you.
+          </p>
+        </div>
+        <Link
+          href="/talent/profiles/new"
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0a0a0a] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#0a0a0a]/85"
+        >
+          Create job profile
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
+        </Link>
+      </div>
+    </section>
+  );
+}
 
 function stripStages(progress: OnboardingProgress): StripStage[] {
   const stages: StripStage[] = ONBOARDING_STAGES
@@ -182,12 +216,17 @@ export default function TalentDashboard() {
   const { data: onboardingProgress } = useMyOnboardingProgress();
   const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
   const layout = useHomeLayout();
-  const onboarded = isSocialMediaCreator(user) || user?.onboarding_completed !== false || user?.skip_onboarding === true;
-  const partnerAvailable = isSocialMediaCreator(user) || user?.partner_approval_status === undefined || user.partner_approval_status === 'approved';
+  const isCreator = isSocialMediaCreator(user);
+  // Creator sign-up lands here with no job profile yet — load the list only
+  // for creators so the CTA below knows when to step aside.
+  const { data: creatorProfiles, isLoading: creatorProfilesLoading } = useMyProfiles({ enabled: isCreator });
+  const hasCreatorProfile = (creatorProfiles ?? []).length > 0;
+  const onboarded = isCreator || user?.onboarding_completed !== false || user?.skip_onboarding === true;
+  const partnerAvailable = isCreator || user?.partner_approval_status === undefined || user.partner_approval_status === 'approved';
   // A talent who never asked for Jobs has no Jobs tab; everyone else keeps all
   // three, because Subscriptions and Assignments are now browsable (read-only)
   // even before Partner Program approval.
-  const wantsJobs = isSocialMediaCreator(user) || user?.wants_jobs !== false;
+  const wantsJobs = isCreator || user?.wants_jobs !== false;
   const homeTabs: TalentHomeTab[] | undefined = wantsJobs
     ? undefined
     : ['subscriptions', 'assignments'];
@@ -209,7 +248,7 @@ export default function TalentDashboard() {
   };
 
   const showOnboardingStrip = (() => {
-    if (isSocialMediaCreator(user) || !onboardingProgress) return false;
+    if (isCreator || !onboardingProgress) return false;
     if (!onboardingProgress.all_completed_at) return true;
     const completedMs = new Date(onboardingProgress.all_completed_at).getTime();
     return Date.now() - completedMs < SEVEN_DAYS_MS;
@@ -275,10 +314,13 @@ export default function TalentDashboard() {
   // Not measured yet — render nothing rather than the wrong body.
   if (!layout) return null;
 
+  const creatorCta = <CreatorProfileCta hasProfile={hasCreatorProfile} loading={isCreator && creatorProfilesLoading} />;
+
   if (layout === 'overview') {
     return (
       <div className="space-y-6">
         <TalentDesktopOverview wantsJobs={wantsJobs}>
+          {creatorCta}
           {partnerAvailable && <WhatsAppUpdatesToggle />}
           {onboardingStrip}
         </TalentDesktopOverview>
@@ -288,6 +330,8 @@ export default function TalentDashboard() {
 
   return (
     <div className="space-y-6">
+      {creatorCta}
+
       {partnerAvailable && <WhatsAppUpdatesToggle />}
 
       {onboardingStrip}

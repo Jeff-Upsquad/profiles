@@ -1,6 +1,4 @@
-import { useState } from 'react';
 import Input from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import MultiSelect from '@/components/ui/MultiSelect';
 import { COUNTRIES, INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-locations';
@@ -66,8 +64,6 @@ function SectionCard({
 export default function CreatorProfileDetails({ values, onChange, errors = {} }: CreatorProfileDetailsProps) {
   const platforms = coerceCreatorPlatforms(values.creator_platforms);
   const services = coerceCreatorServices(values.creator_services);
-  // Per-service platform picker selection for adding a new rate row.
-  const [ratePlatformPick, setRatePlatformPick] = useState<Record<string, string>>({});
 
   const setPlatforms = (next: CreatorPlatformEntry[]) => onChange('creator_platforms', next);
   const setServices = (next: CreatorServiceEntry[]) => onChange('creator_services', next);
@@ -91,39 +87,15 @@ export default function CreatorProfileDetails({ values, onChange, errors = {} }:
   };
 
   // Multiple services allowed — tapping toggles one on/off. A service starts
-  // with no rates; the creator picks which platforms it applies to and sets
-  // each rate.
+  // with no rates; every platform the creator entered above is shown for it,
+  // each with its own rate field.
   const toggleService = (service: string) => {
     if (services.some((s) => s.service === service)) {
       setServices(services.filter((s) => s.service !== service));
-      setRatePlatformPick((prev) => {
-        const next = { ...prev };
-        delete next[service];
-        return next;
-      });
       return;
     }
     setServices([...services, { service, rates: {} }]);
   };
-
-  const addServiceRate = (service: string, platformId: string) =>
-    setServices(
-      services.map((s) =>
-        s.service === service
-          ? { ...s, rates: { ...s.rates, [platformId]: { currency: 'INR', amount: '' } } }
-          : s,
-      ),
-    );
-
-  const removeServiceRate = (service: string, platformId: string) =>
-    setServices(
-      services.map((s) => {
-        if (s.service !== service) return s;
-        const rates = { ...s.rates };
-        delete rates[platformId];
-        return { ...s, rates };
-      }),
-    );
 
   const patchRate = (service: string, platformId: string, patch: Partial<CreatorRateEntry>) =>
     setServices(
@@ -424,18 +396,6 @@ export default function CreatorProfileDetails({ values, onChange, errors = {} }:
           {CREATOR_SERVICE_OPTIONS.map(({ service, description, live }) => {
             const selected = services.some((s) => s.service === service);
             const entry = selected ? services.find((s) => s.service === service)! : null;
-            const ratedPlatforms = entry ? platforms.filter((p) => p.id in entry.rates) : [];
-            const availablePlatforms = entry ? platforms.filter((p) => !(p.id in entry.rates)) : platforms;
-            const pickedPlatform = ratePlatformPick[service] ?? '';
-            const addPickedPlatform = () => {
-              if (!pickedPlatform) return;
-              addServiceRate(service, pickedPlatform);
-              setRatePlatformPick((prev) => {
-                const next = { ...prev };
-                delete next[service];
-                return next;
-              });
-            };
             return (
               <div
                 key={service}
@@ -475,9 +435,9 @@ export default function CreatorProfileDetails({ values, onChange, errors = {} }:
                   </div>
                 </label>
 
-                {/* Rates expand inside the selected service card itself: pick a
-                    platform first, then enter the rate for it. Multiple
-                    platforms can be added per service. */}
+                {/* Rates expand inside the selected service card itself: every
+                    platform entered above is shown, each with its own rate
+                    field the creator can fill in — or leave blank. */}
                 {selected && entry && (
                   <div className="mt-3 border-t border-[#0a0a0a]/10 pt-3">
                     {platforms.length === 0 ? (
@@ -486,28 +446,27 @@ export default function CreatorProfileDetails({ values, onChange, errors = {} }:
                       </p>
                     ) : (
                       <div className="space-y-2.5">
-                        {ratedPlatforms.length === 0 && !errors[`creator_services.${service}`] && (
-                          <p className="rounded-lg bg-white/60 px-3 py-2.5 text-[13px] text-[#737373]">
-                            Select a platform below, then enter your rate for this service.
-                          </p>
-                        )}
                         {errors[`creator_services.${service}`] && (
                           <p className="text-xs text-red-600">{errors[`creator_services.${service}`]}</p>
                         )}
-                        {ratedPlatforms.map((p) => {
+                        {platforms.map((p, index) => {
                           const rate = entry.rates[p.id] ?? { currency: 'INR', amount: '' };
                           const rateError = errors[`creator_services.${service}.${p.id}`];
+                          const sameName = platforms.filter((x) => x.platform === p.platform).length > 1;
+                          const label = p.platform
+                            ? sameName ? `${p.platform} (${index + 1})` : p.platform
+                            : `Platform ${index + 1}`;
                           return (
                             <div key={p.id}>
-                              <div className="grid grid-cols-1 items-end gap-2.5 sm:grid-cols-[1fr_170px_1fr_auto]">
+                              <div className="grid grid-cols-1 items-end gap-2.5 sm:grid-cols-[1fr_170px_1fr]">
                                 <p className="truncate pb-2.5 font-[family-name:var(--font-inter)] text-[13px] font-medium text-[#3F3F46]">
-                                  {p.platform || 'Platform'} rate
+                                  {label} rate
                                 </p>
                                 <Select
                                   options={CREATOR_CURRENCY_OPTIONS}
                                   value={rate.currency}
                                   onChange={(e) => patchRate(service, p.id, { currency: e.target.value })}
-                                  aria-label={`Currency for ${service} on ${p.platform || 'platform'}`}
+                                  aria-label={`Currency for ${service} on ${label}`}
                                 />
                                 <Input
                                   type="number"
@@ -516,44 +475,16 @@ export default function CreatorProfileDetails({ values, onChange, errors = {} }:
                                   placeholder="Amount"
                                   value={rate.amount}
                                   onChange={(e) => patchRate(service, p.id, { amount: intFromInput(e.target.value) })}
-                                  aria-label={`Amount for ${service} on ${p.platform || 'platform'}`}
+                                  aria-label={`Amount for ${service} on ${label}`}
                                 />
-                                <button
-                                  type="button"
-                                  onClick={() => removeServiceRate(service, p.id)}
-                                  aria-label={`Remove ${p.platform || 'platform'} rate`}
-                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#E7E7EA] bg-white text-[#737373] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                                >
-                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </button>
                               </div>
                               {rateError && <p className="mt-1 text-xs text-red-600">{rateError}</p>}
                             </div>
                           );
                         })}
-                        {availablePlatforms.length > 0 && (
-                          <div className="grid grid-cols-1 items-end gap-2.5 sm:grid-cols-[1fr_auto]">
-                            <Select
-                              placeholder="Select a platform"
-                              options={availablePlatforms.map((p) => ({
-                                label: p.platform
-                                  ? platforms.filter((x) => x.platform === p.platform).length > 1
-                                    ? `${p.platform} (${platforms.indexOf(p) + 1})`
-                                    : p.platform
-                                  : `Platform ${platforms.indexOf(p) + 1}`,
-                                value: p.id,
-                              }))}
-                              value={pickedPlatform}
-                              onChange={(e) => setRatePlatformPick((prev) => ({ ...prev, [service]: e.target.value }))}
-                              aria-label={`Add a platform rate for ${service}`}
-                            />
-                            <Button variant="primary" onClick={addPickedPlatform} disabled={!pickedPlatform}>
-                              Add platform
-                            </Button>
-                          </div>
-                        )}
+                        <p className="rounded-lg bg-white/60 px-3 py-2.5 text-[13px] text-[#737373]">
+                          Enter a rate for each platform you offer this service on — leave the rest blank.
+                        </p>
                       </div>
                     )}
                   </div>
