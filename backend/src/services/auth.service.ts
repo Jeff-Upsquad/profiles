@@ -366,6 +366,10 @@ export async function checkCandidateStatus(input: { email?: string; phone?: stri
   const phoneDigits = input.phone ? input.phone.replace(/\D/g, '').slice(-10) : null;
   const normalizedPhone = phoneDigits && phoneDigits.length === 10 ? phoneDigits : null;
 
+  // Jeff's testing number may be reused for talent accounts. Still check the
+  // email, and keep the real phone for lead matching and profile storage.
+  const accountPhone = normalizedPhone === '9645545553' ? null : normalizedPhone;
+
   if (!normalizedEmail && !normalizedPhone) {
     return { has_invitation: false, has_account: false, submissions: [] };
   }
@@ -388,14 +392,14 @@ export async function checkCandidateStatus(input: { email?: string; phone?: stri
   try {
     const { data: contactData } = await supabaseAdmin.rpc('check_contact_exists_detailed', {
       p_email: normalizedEmail,
-      p_phone_digits: normalizedPhone,
+      p_phone_digits: accountPhone,
     });
     has_account = (contactData ?? []).some((r: any) => r.source === 'talent' || r.source === 'auth');
   } catch {
     try {
       const { data: fallback } = await supabaseAdmin.rpc('check_contact_exists', {
         p_email: normalizedEmail,
-        p_phone_digits: normalizedPhone,
+        p_phone_digits: accountPhone,
       });
       has_account = (fallback ?? []).some((r: any) => r.source === 'talent' || r.source === 'auth');
     } catch {
