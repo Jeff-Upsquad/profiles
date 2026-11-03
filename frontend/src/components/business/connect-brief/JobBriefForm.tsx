@@ -8,6 +8,7 @@ import api from '@/services/api';
 import { CURRENCIES } from '@/lib/currency';
 import { INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-locations';
 import DescribedSelect from './DescribedSelect';
+import AdditionalRequirementsField, { type AdditionalRequirements } from './AdditionalRequirementsField';
 import { cleanProfile, Draft, Profile, Bundle, emptyBundle, Field, TextField, TextArea, Section, ImageField, SocialFields, PhotoFields, inputClass, str, list } from './HiringProfileFields';
 
 const newJob = (title: string, currency = 'INR'): Draft => ({ id: '', title, description: '', responsibilities: [], requirements: [], skills: [],
@@ -21,8 +22,24 @@ const completeLocation = (profile: Draft) => ['label', 'address', 'city', 'regio
 const newBrand = (): Draft => ({ id: '', name: '', about: '', industry: '', website: '', socials: {}, logo_url: '', photos: [] });
 const primary = 'rounded-xl bg-[#0a0a0a] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50';
 const secondary = 'rounded-xl border border-[#D9D5C7] bg-white px-4 py-2.5 text-sm font-semibold text-[#525252] disabled:opacity-50';
-const previewCategories = [{ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', name: 'Designer' }, { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2', name: 'Accountant' }];
-type Category = { id: string; name: string };
+const previewCategories = [{ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', name: 'Designer', slug: 'designer' }, { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2', name: 'Accountant', slug: 'accountant' }];
+// Candidate-preference chip options — the same values the subscription briefs
+// send (tiers match v_talent_profile_tier; languages match talent languages).
+const TIERS = ['Junior', 'Pro', 'Top Talents', 'Agencies'];
+const LANGUAGES = ['English', 'Hindi', 'Tamil', 'Telugu', 'Malayalam', 'Kannada', 'Marathi', 'Bengali', 'Gujarati', 'Punjabi', 'Urdu', 'Arabic', 'Spanish', 'French', 'German', 'Mandarin'];
+const GENDERS = ['Male', 'Female', 'Other'];
+// State chips per country, mirroring the subscription brief's location picker.
+// India's states and districts come from the shared india-locations constants.
+const PREFERENCE_STATES: Record<string, string[]> = {
+  'United States': ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming', 'District of Columbia'],
+  'United Kingdom': ['England', 'Scotland', 'Wales', 'Northern Ireland'],
+  'United Arab Emirates': ['Abu Dhabi', 'Dubai', 'Sharjah', 'Ajman', 'Umm Al Quwain', 'Ras Al Khaimah', 'Fujairah'],
+  Singapore: ['Central', 'East', 'North', 'North-East', 'West'],
+  Australia: ['New South Wales', 'Victoria', 'Queensland', 'Western Australia', 'South Australia', 'Tasmania', 'Australian Capital Territory', 'Northern Territory'],
+  Canada: ['Alberta', 'British Columbia', 'Manitoba', 'New Brunswick', 'Newfoundland and Labrador', 'Nova Scotia', 'Ontario', 'Prince Edward Island', 'Quebec', 'Saskatchewan', 'Northwest Territories', 'Nunavut', 'Yukon'],
+};
+const toggleList = (values: string[], value: string) => values.includes(value) ? values.filter((v) => v !== value) : [...values, value];
+type Category = { id: string; name: string; slug?: string };
 type Kind = 'business' | 'brand' | 'job' | 'location';
 const bundleKey: Record<Kind, keyof Bundle> = { business: 'businesses', brand: 'brands', job: 'jobs', location: 'locations' };
 
@@ -147,6 +164,10 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
   const brandLocations = locations.filter((p) => (str(p.brand_profile_id) || '') === brandId);
   const jobLocations = locations.filter((p) => !str(p.brand_profile_id) || str(p.brand_profile_id) === brandId);
   const selectedCategory = categories.find((c) => c.name.trim().toLowerCase().replace(/s$/, '') === categoryName.trim().toLowerCase().replace(/s$/, ''));
+  // Skills & tools catalog is per category — the same template tables the
+  // subscription briefs use (designer, video-editor, accountant, …). Fallback
+  // slug keeps the "add your own" inputs alive even without a catalog match.
+  const jobRole = { slug: selectedCategory?.slug || categoryName.trim().toLowerCase().replace(/\s+/g, '-'), label: categoryName.trim().replace(/s$/i, '') };
   const jobs = bundle.jobs.filter((p) => p.business_profile_id === businessId && (p.brand_profile_id || '') === brandId && p.status !== 'archived' && (!selectedCategory || list(p.squadhire_category_ids).includes(selectedCategory.id)));
   const businessComplete = requiredBusinessFields.every((key) => str(business[key]).trim());
   const hasLocation = locations.some(completeLocation);
@@ -154,6 +175,12 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
   useEffect(() => { if (ready && !canContinue && step > 1) setStep(1); }, [ready, canContinue, step]);
   const rules = job.preference_rules as Draft || {};
   const hours = job.working_hours as Draft || {};
+  const additionalRules = (job.additional_requirements && typeof job.additional_requirements === 'object' ? job.additional_requirements : {}) as AdditionalRequirements;
+  const prefCountry = list(rules.target_country_names)[0] || '';
+  const countryNames = countries.map((c) => c.name);
+  const withCurrent = (options: string[], current: string) => current && !options.includes(current) ? [current, ...options] : options;
+  const prefStateOptions = prefCountry === 'India' ? INDIAN_STATES.map((s) => s.value) : PREFERENCE_STATES[prefCountry] ?? [];
+  const prefDistrictOptions = prefCountry === 'India' ? [...new Set(list(rules.target_regions).flatMap((state) => DISTRICTS_BY_STATE[state] ?? []))] : [];
 
   if (cardId) return <div className="flex min-h-full flex-col items-center justify-center gap-4 bg-[#F7F4EC] p-8 text-center">
     <span className="text-4xl">✓</span><h2 className="text-2xl font-semibold">{preview ? 'Preview complete' : 'Job card created'}</h2>
@@ -236,9 +263,13 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
           {jobId && !editingJob && <><p className="text-lg font-semibold">{str(job.title)}</p><p className="whitespace-pre-wrap text-sm text-[#7A7568]">{str(job.description)}</p><button type="button" className={secondary} onClick={() => setEditingJob(true)}>Edit job profile</button></>}
         </Section>
         {editingJob && <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); void run(async () => {
-          if (!list(job.squadhire_category_ids).length) throw new Error('Choose at least one talent category.');
+          // The card always starts from a chosen category, so the category is
+          // derived, never hand-picked: keep the saved ids, else fall back to
+          // the category this flow was opened from.
+          const categoryIds = list(job.squadhire_category_ids).length ? list(job.squadhire_category_ids) : selectedCategory ? [selectedCategory.id] : [];
+          if (!categoryIds.length) throw new Error('Talent categories did not load. Please retry.');
           if (job.work_mode !== 'remote' && !job.location_id) throw new Error('Choose a saved location for hybrid or on-site work.');
-          const saved = await save('job', { ...job, business_profile_id: businessId, brand_profile_id: brandId || null }); setJob(saved); setJobId(saved.id); setEditingJob(false);
+          const saved = await save('job', { ...job, squadhire_category_ids: categoryIds, business_profile_id: businessId, brand_profile_id: brandId || null }); setJob(saved); setJobId(saved.id); setEditingJob(false);
         }); }}>
           <Section title="The role"><TextField label="Job title" required value={job.title} onChange={(v) => updateJob('title', v)} /><TextArea label="Job description" maxLength={16000} value={job.description} onChange={(v) => updateJob('description', v)} />
             <TextArea label="Responsibilities" lines value={job.responsibilities} onChange={(v) => updateJob('responsibilities', v)} /><TextArea label="Requirements" lines value={job.requirements} onChange={(v) => updateJob('requirements', v)} /><TextArea label="Skills" lines value={job.skills} onChange={(v) => updateJob('skills', v)} />
@@ -254,11 +285,23 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
           <Section title="Salary & benefits"><div className="grid gap-4 sm:grid-cols-2"><Field label="Salary currency"><select className={inputClass} value={str(job.salary_currency)} onChange={(e) => updateJob('salary_currency', e.target.value)}>{CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}</select></Field><Field label="Salary period"><select className={inputClass} value={str(job.salary_period)} onChange={(e) => updateJob('salary_period', e.target.value)}><option value="monthly">Monthly</option><option value="annual">Annual</option></select></Field><TextField label="Minimum salary" type="number" value={job.salary_min} onChange={(v) => updateJob('salary_min', v)} /><TextField label="Maximum salary" type="number" value={job.salary_max} onChange={(v) => updateJob('salary_max', v)} /></div>
             <TextArea label="Role benefits" lines value={job.benefits} onChange={(v) => updateJob('benefits', v)} /><TextArea label="Growth path" maxLength={4000} value={job.growth_path} onChange={(v) => updateJob('growth_path', v)} />
           </Section>
-          <Section title="Talent categories" hint="These are the same SquadHire categories used by admin to match candidates."><div className="flex flex-wrap gap-2">{categories.map((category) => <label key={category.id} className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs ${list(job.squadhire_category_ids).includes(category.id) ? 'border-black bg-[#F2FCBC]' : 'border-[#D9D5C7]'}`}><input type="checkbox" checked={list(job.squadhire_category_ids).includes(category.id)} onChange={(e) => updateJob('squadhire_category_ids', e.target.checked ? [...list(job.squadhire_category_ids), category.id] : list(job.squadhire_category_ids).filter((id) => id !== category.id))} />{category.name.trim()}</label>)}</div></Section>
-          <Section title="Candidate preferences" hint="Optional matching preferences. Leave blank to accept any.">
-            {['target_tiers', 'target_languages', 'target_country_names', 'target_regions', 'target_districts', 'target_genders'].map((key) => <TextArea key={key} label={({ target_tiers: 'Talent tiers', target_languages: 'Languages', target_country_names: 'Countries', target_regions: 'States / regions', target_districts: 'Districts', target_genders: 'Genders' } as Record<string, string>)[key]} lines value={rules[key]} onChange={(v) => updateJob('preference_rules', { ...rules, [key]: cleanLines(v) })} />)}
+          <Section title="Candidate preferences" hint="Optional matching preferences. Leave everything blank to accept any candidate.">
+            <ChipField label="Talent tiers" hint="Experience levels to match. Leave empty to accept every tier." options={TIERS} selected={list(rules.target_tiers)} onToggle={(value) => updateJob('preference_rules', { ...rules, target_tiers: toggleList(list(rules.target_tiers), value) })} />
+            {/* Location targeting is opt-in and grouped, like the subscription brief. Empty = anywhere. */}
+            <div className="space-y-4 rounded-xl border border-[#E0DCCE] bg-[#FBFAF6] p-4">
+              <div>
+                <div className="mb-1 flex items-baseline gap-2"><h4 className="text-sm font-semibold text-[#0a0a0a]">Preferred location</h4><span className="text-xs font-normal text-[#9C9486]">(optional)</span></div>
+                <p className="text-xs leading-relaxed text-[#7A7568]">Want candidates based in a specific place? Pick a country, then narrow to states or districts. Leave empty to match great talent anywhere.</p>
+              </div>
+              <Field label="Country"><select className={inputClass} value={prefCountry} onChange={(e) => updateJob('preference_rules', { ...rules, target_country_names: e.target.value ? [e.target.value] : [], target_regions: [], target_districts: [] })}><option value="">Anywhere (no preference)</option>{withCurrent(countryNames, prefCountry).map((name) => <option key={name} value={name}>{name}</option>)}</select></Field>
+              {prefStateOptions.length > 0 && <ChipField label="States / regions" hint="Narrow to specific states. Helpful when local context or rules matter." options={prefStateOptions} selected={list(rules.target_regions)} onToggle={(value) => { const regions = toggleList(list(rules.target_regions), value); updateJob('preference_rules', { ...rules, target_regions: regions, target_districts: list(rules.target_districts).filter((d) => regions.some((state) => (DISTRICTS_BY_STATE[state] ?? []).includes(d))) }); }} />}
+              {prefDistrictOptions.length > 0 && <ChipField label="Districts" hint="Narrow further to specific districts within the selected states." options={prefDistrictOptions} selected={list(rules.target_districts)} onToggle={(value) => updateJob('preference_rules', { ...rules, target_districts: toggleList(list(rules.target_districts), value) })} />}
+            </div>
+            <ChipField label="Languages" hint="Languages the candidate should be fluent in. Pick all that apply." options={LANGUAGES} selected={list(rules.target_languages)} onToggle={(value) => updateJob('preference_rules', { ...rules, target_languages: toggleList(list(rules.target_languages), value) })} />
+            <ChipField label="Genders" hint="Narrow by gender. Leave empty to accept everyone." options={GENDERS} selected={list(rules.target_genders)} onToggle={(value) => updateJob('preference_rules', { ...rules, target_genders: toggleList(list(rules.target_genders), value) })} />
             <div className="grid gap-4 sm:grid-cols-2">{['min_experience_years', 'max_experience_years', 'min_age', 'max_age'].map((key) => <TextField key={key} label={({ min_experience_years: 'Preferred minimum experience', max_experience_years: 'Preferred maximum experience', min_age: 'Minimum age', max_age: 'Maximum age' } as Record<string, string>)[key]} type="number" value={rules[key]} onChange={(v) => { const next = { ...rules }; if (v === '') delete next[key]; else next[key] = Number(v); updateJob('preference_rules', next); }} />)}</div>
           </Section>
+          <AdditionalRequirementsField variant="embedded" roles={[jobRole]} values={{ [jobRole.slug]: additionalRules }} onChange={(_slug, next) => { const cleaned = Object.fromEntries(Object.entries(next).filter(([, entries]) => Array.isArray(entries) && entries.some((v) => v.trim()))) as AdditionalRequirements; updateJob('additional_requirements', Object.keys(cleaned).length ? cleaned : undefined); }} />
           {jobId && <p className="text-xs text-[#7A7568]">Changes update the shared job profile wherever it is used.</p>}
           <button type="submit" className={primary} disabled={busy}>{busy ? 'Saving…' : 'Save job profile'}</button>
         </form>}
@@ -272,7 +315,15 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
     {ready && error && <div role="alert" className="sticky bottom-0 z-10 border-t border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</div>}
   </div>;
 }
-function cleanLines(value: unknown) { return list(value); }
+// Subscription-brief style chip picker: pill toggles with a check mark and the
+// lime highlight when selected. Always optional in candidate preferences.
+function ChipField({ label, hint, options, selected, onToggle }: { label: string; hint?: string; options: string[]; selected: string[]; onToggle: (value: string) => void }) {
+  return <div>
+    <p className="text-xs font-semibold text-[#525252]">{label}</p>
+    {hint && <p className="mt-1 text-xs leading-relaxed text-[#7A7568]">{hint}</p>}
+    <div className="mt-2 flex flex-wrap gap-2">{options.map((option) => { const on = selected.includes(option); return <button key={option} type="button" aria-pressed={on} onClick={() => onToggle(option)} className={`rounded-full border px-3.5 py-2 text-xs font-semibold transition ${on ? 'border-black bg-[#F2FCBC] text-black shadow-[inset_0_0_0_1px_#0a0a0a]' : 'border-[#D9D5C7] bg-white text-[#525252] hover:border-black'}`}>{on ? `✓ ${option}` : option}</button>; })}</div>
+  </div>;
+}
 
 function LocationFields({ value, onChange, countries }: { value: Draft; onChange: (value: Draft) => void; countries: Category[] }) {
   const update = (key: string, next: unknown) => onChange({ ...value, [key]: next });
