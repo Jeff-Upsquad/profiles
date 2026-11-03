@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
 import { CURRENCIES } from '@/lib/currency';
+import { INDIAN_STATES, DISTRICTS_BY_STATE } from '@/constants/india-locations';
 import DescribedSelect from './DescribedSelect';
 import { cleanProfile, Draft, Profile, Bundle, emptyBundle, Field, TextField, TextArea, Section, ImageField, SocialFields, PhotoFields, inputClass, str, list } from './HiringProfileFields';
 
@@ -15,8 +16,8 @@ const newJob = (title: string, currency = 'INR'): Draft => ({ id: '', title, des
   salary_min: null, salary_max: null, salary_currency: currency, salary_period: 'monthly', benefits: [], growth_path: '',
   preference_rules: {}, squadhire_category_ids: [], location_id: null });
 const newLocation = (): Draft => ({ id: crypto.randomUUID(), label: '', address: '', city: '', region: '', district: '', postal_code: '', description: '', country_id: null, google_maps_url: '', is_primary: true });
-const requiredBusinessFields = ['contact_name', 'contact_email', 'contact_phone', 'name', 'about', 'industry', 'company_size', 'website', 'founded_year'];
-const completeLocation = (profile: Draft) => ['label', 'address', 'city', 'region'].every((key) => str(profile[key]).trim());
+const requiredBusinessFields = ['contact_name', 'contact_email', 'contact_phone', 'name', 'about', 'industry', 'company_size', 'founded_year'];
+const completeLocation = (profile: Draft) => ['label', 'address', 'city', 'region', 'district'].every((key) => str(profile[key]).trim());
 const newBrand = (): Draft => ({ id: '', name: '', about: '', industry: '', website: '', socials: {}, logo_url: '', photos: [] });
 const primary = 'rounded-xl bg-[#0a0a0a] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50';
 const secondary = 'rounded-xl border border-[#D9D5C7] bg-white px-4 py-2.5 text-sm font-semibold text-[#525252] disabled:opacity-50';
@@ -38,6 +39,7 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
   const [businessId, setBusinessId] = useState('');
   const [brandId, setBrandId] = useState('');
   const [jobId, setJobId] = useState('');
+  const [showAdditional, setShowAdditional] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState(true);
   const [editingBrand, setEditingBrand] = useState(false);
   const [editingJob, setEditingJob] = useState(true);
@@ -169,7 +171,7 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
         {bundle.businesses.length > 0 && <Section title="Your business" hint="Select the same business profile used in SquadHub admin."><DescribedSelect label="Saved business profile" value={businessId || bundle.businesses[0].id} options={bundle.businesses.map((p) => ({ value: p.id, label: p.name, description: str(p.industry) || 'Saved business profile' }))} onChange={(id) => { const selected = bundle.businesses.find((p) => p.id === id); if (selected) changeBusiness(selected); }} /></Section>}
         {editingBusiness ? <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); void run(async () => {
           if (!businessComplete) throw new Error('Complete all required contact and business profile details.');
-          if (!hasLocation && !completeLocation(initialLocation)) throw new Error('Complete the location name, address, city, and state.');
+          if (!hasLocation && !completeLocation(initialLocation)) throw new Error('Complete the location name, address, city, state, and district.');
           const saved = await save('business', business); setBusiness(saved); setBusinessId(saved.id);
           if (!hasLocation) await save('location', { ...initialLocation, business_profile_id: saved.id });
           setEditingBusiness(false);
@@ -182,18 +184,23 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
             <TextField label="Business name" required value={business.name} onChange={(v) => updateBusiness('name', v)} />
             <TextArea label="About the business" required value={business.about} onChange={(v) => updateBusiness('about', v)} />
             <div className="grid gap-4 sm:grid-cols-2"><TextField label="Industry" required value={business.industry} onChange={(v) => updateBusiness('industry', v)} /><TextField label="Company size" required value={business.company_size} maxLength={50} hint="For example, 11–50 employees." onChange={(v) => updateBusiness('company_size', v)} /></div>
-            <TextField label="Business website" required type="url" maxLength={500} value={business.website} onChange={(v) => updateBusiness('website', v)} />
+            <TextField label="Business website (optional)" type="url" maxLength={500} value={business.website} onChange={(v) => updateBusiness('website', v)} />
             <TextField label="Founded year" required type="number" value={business.founded_year} onChange={(v) => updateBusiness('founded_year', v)} />
           </Section>
           {!hasLocation && <Section title="Location details" hint="Add your business location. City and state / region are required."><LocationFields value={initialLocation} onChange={setInitialLocation} countries={countries} /></Section>}
-          <Section title="Additional details">
-            <h4 className="text-sm font-semibold">Business identity details</h4>
-            <ImageField label="Business logo URL" value={str(business.logo_url)} onChange={(v) => updateBusiness('logo_url', v)} preview={preview} /><SocialFields value={business.socials} onChange={(v) => updateBusiness('socials', v)} /><PhotoFields value={business.photos} onChange={(v) => updateBusiness('photos', v)} preview={preview} />
-          </Section>
+          <div className="rounded-2xl border border-[#E8E5DD] bg-white shadow-sm">
+            <button type="button" aria-expanded={showAdditional} onClick={() => setShowAdditional((open) => !open)} className="flex w-full items-center justify-between gap-3 p-5 text-left">
+              <span><span className="block text-lg font-semibold">Additional details</span><span className="mt-1 block text-xs leading-relaxed text-[#7A7568]">Logo, social links, and photos — optional.</span></span>
+              <span className="text-xs font-semibold text-[#525252]">{showAdditional ? 'Hide −' : 'Show +'}</span>
+            </button>
+            {showAdditional && <div className="space-y-4 border-t border-[#E8E5DD] p-5"><h4 className="text-sm font-semibold">Business identity details</h4>
+              <ImageField label="Business logo URL" value={str(business.logo_url)} onChange={(v) => updateBusiness('logo_url', v)} preview={preview} /><SocialFields value={business.socials} onChange={(v) => updateBusiness('socials', v)} /><PhotoFields value={business.photos} onChange={(v) => updateBusiness('photos', v)} preview={preview} />
+            </div>}
+          </div>
           {businessId && <p className="text-xs text-[#7A7568]">Changes update the shared profile wherever it is used.</p>}
           <button className={primary} disabled={busy} type="submit">{busy ? 'Saving…' : 'Save business profile'}</button>
         </form> : <Section title={str(business.name)} hint={`${str(business.industry)}${business.company_size ? ` · ${str(business.company_size)} employees` : ''}`}><p className="whitespace-pre-wrap text-sm text-[#7A7568]">{str(business.about)}</p><button type="button" className={secondary} onClick={() => setEditingBusiness(true)}>Edit business profile</button></Section>}
-        {businessId && !editingBusiness && !canContinue && <p className="text-sm text-[#7A7568]">{!businessComplete ? 'Edit your business profile to complete all required contact and business details.' : 'Edit your business profile to add a location with a city and state.'}</p>}
+        {businessId && !editingBusiness && !canContinue && <p className="text-sm text-[#7A7568]">{!businessComplete ? 'Edit your business profile to complete all required contact and business details.' : 'Edit your business profile to add a location with a city, state, and district.'}</p>}
         {businessId && !editingBusiness && <button type="button" disabled={!canContinue} className={primary} onClick={() => setStep(2)}>Continue to brand profile →</button>}
       </>}
       {step === 2 && <>
@@ -216,7 +223,7 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
         {!editingBrand && <Section title={brandId ? `Locations for ${str(bundle.brands.find((p) => p.id === brandId)?.name) || 'this brand'}` : 'Business locations'} hint={brandId ? 'Outlets of this brand. The location chosen on a job profile is shown to candidates as the matching location.' : 'Locations shared across the business and its brands. The location chosen on a job profile is shown to candidates as the matching location.'}>
           {brandLocations.map((p) => <div key={p.id} className="flex items-start justify-between gap-3 rounded-xl border border-[#E8E5DD] p-3"><div><p className="text-sm font-semibold">{str(p.label)}</p><p className="mt-1 text-xs text-[#7A7568]">{[str(p.address), str(p.city), str(p.district), str(p.region)].filter(Boolean).join(', ')}</p></div><button type="button" className="text-xs font-semibold underline" onClick={() => setLocation(p)}>Edit location</button></div>)}
           {!location && <button className={secondary} type="button" onClick={() => setLocation({ ...newLocation(), is_primary: locations.length === 0 })}>+ Add location</button>}
-          {location && <form className="space-y-4 rounded-xl border border-[#E8E5DD] p-4" onSubmit={(e) => { e.preventDefault(); void run(async () => { if (!completeLocation(location)) throw new Error('Complete the location name, address, city, and state.'); await save('location', { ...location, business_profile_id: businessId, brand_profile_id: brandId || null }); setLocation(null); }); }}>
+          {location && <form className="space-y-4 rounded-xl border border-[#E8E5DD] p-4" onSubmit={(e) => { e.preventDefault(); void run(async () => { if (!completeLocation(location)) throw new Error('Complete the location name, address, city, state, and district.'); await save('location', { ...location, business_profile_id: businessId, brand_profile_id: brandId || null }); setLocation(null); }); }}>
             <LocationFields value={location} onChange={setLocation} countries={countries} />
             <div className="flex gap-3"><button type="submit" className={primary} disabled={busy}>Save location</button><button type="button" className={secondary} onClick={() => setLocation(null)}>Cancel</button></div>
           </form>}
@@ -269,19 +276,30 @@ function cleanLines(value: unknown) { return list(value); }
 
 function LocationFields({ value, onChange, countries }: { value: Draft; onChange: (value: Draft) => void; countries: Category[] }) {
   const update = (key: string, next: unknown) => onChange({ ...value, [key]: next });
+  // Same curated dataset the subscription / talent location pickers use:
+  // India gets state + district dropdowns; other countries fall back to text.
+  const countryName = countries.find((c) => c.id === value.country_id)?.name || '';
+  const usesIndiaData = !countryName || countryName === 'India';
+  const stateOptions = usesIndiaData ? INDIAN_STATES.map((s) => s.value) : [];
+  const districtOptions = usesIndiaData ? DISTRICTS_BY_STATE[str(value.region)] ?? [] : [];
+  const withCurrent = (options: string[], current: string) => current && !options.includes(current) ? [current, ...options] : options;
+  const changeState = (next: string) => onChange({ ...value, region: next, district: (DISTRICTS_BY_STATE[next] ?? []).includes(str(value.district)) ? str(value.district) : '' });
   return <>
     <TextField label="Location name" required value={value.label} onChange={(v) => update('label', v)} />
     <TextField label="Address" required maxLength={1000} value={value.address} onChange={(v) => update('address', v)} />
     <div className="grid gap-4 sm:grid-cols-2">
       <TextField label="City" required value={value.city} onChange={(v) => update('city', v)} />
-      <TextField label="State" required value={value.region} onChange={(v) => update('region', v)} />
-      <TextField label="District" maxLength={200} value={value.district} onChange={(v) => update('district', v)} />
       <TextField label="Pin code" maxLength={20} value={value.postal_code} onChange={(v) => update('postal_code', v)} />
+      <Field label="State" required>{stateOptions.length
+        ? <select className={inputClass} value={str(value.region)} onChange={(e) => changeState(e.target.value)} required><option value="">Select state</option>{withCurrent(stateOptions, str(value.region)).map((s) => <option key={s} value={s}>{s}</option>)}</select>
+        : <input className={inputClass} value={str(value.region)} onChange={(e) => update('region', e.target.value)} required maxLength={200} />}</Field>
+      <Field label="District" required>{districtOptions.length
+        ? <select className={inputClass} value={str(value.district)} onChange={(e) => update('district', e.target.value)} required><option value="">Select district</option>{withCurrent(districtOptions, str(value.district)).map((d) => <option key={d} value={d}>{d}</option>)}</select>
+        : <input className={inputClass} value={str(value.district)} onChange={(e) => update('district', e.target.value)} required maxLength={200} placeholder={usesIndiaData && str(value.region) ? 'Not listed — type the district' : 'District'} />}</Field>
       <Field label="Country"><select className={inputClass} value={str(value.country_id)} onChange={(e) => update('country_id', e.target.value || null)}><option value="">Not specified</option>{countries.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
     </div>
     <TextArea label="Description (optional)" maxLength={2000} hint="Shown to candidates as details of the matching location." value={value.description} onChange={(v) => update('description', v)} />
-    <TextField label="Google Maps URL" type="url" maxLength={1000} value={value.google_maps_url} onChange={(v) => update('google_maps_url', v)} />
-    <div className="grid gap-4 sm:grid-cols-2"><TextField label="Latitude (optional)" value={value.latitude} onChange={(v) => update('latitude', v)} /><TextField label="Longitude (optional)" value={value.longitude} onChange={(v) => update('longitude', v)} /></div>
+    <TextField label="Google Maps URL (optional)" type="url" maxLength={1000} value={value.google_maps_url} onChange={(v) => update('google_maps_url', v)} />
     <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={Boolean(value.is_primary)} onChange={(e) => update('is_primary', e.target.checked)} />Primary location</label>
   </>;
 }

@@ -13,14 +13,18 @@ export const businessProfileDetailsSchema = z.object({
   about: requiredText('About the business', 8000),
   industry: requiredText('Industry', 200),
   company_size: requiredText('Company size', 50),
-  website: requiredText('Business website', 500).url(),
+  website: z.preprocess(
+    (v) => (typeof v === 'string' && !v.trim() ? null : v),
+    z.string().trim().url('Enter a valid business website URL.').max(500).nullable().optional(),
+  ),
   founded_year: z.number().int().min(1),
 }).passthrough();
 export const locationDetailsSchema = z.object({
   label: requiredText('Location name', 200),
   address: requiredText('Address', 1000),
   city: requiredText('City', 200),
-  region: requiredText('State / region', 200),
+  region: requiredText('State', 200),
+  district: requiredText('District', 200),
 }).passthrough();
 export const jobBriefSchema = z.object({
   request_id: z.string().uuid(), job_profile_id: z.string().uuid(),
