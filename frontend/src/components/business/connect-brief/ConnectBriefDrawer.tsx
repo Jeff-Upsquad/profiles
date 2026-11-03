@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import JobBriefForm from './JobBriefForm';
 import DesignerBriefForm from './DesignerBriefForm';
 import AccountantBriefForm from './AccountantBriefForm';
 import { SPECIALIST_ROLES } from '../../../../../shared/src/contentRoles';
@@ -11,7 +12,7 @@ import SquadCategoryPicker, { type PickedCategory } from './SquadCategoryPicker'
 import { SERVICE_SQUADS } from '@/data/serviceSquads';
 import type { ConnectBriefCategoryId } from './categories';
 
-type Product = 'subscription' | 'assignment';
+type Product = 'subscription' | 'assignment' | 'job';
 export type { ConnectBriefCategoryId };
 
 export default function ConnectBriefDrawer({
@@ -55,7 +56,7 @@ export default function ConnectBriefDrawer({
 
   if (!mounted) return null;
 
-  const createLabel = product === 'assignment' ? 'Create an assignment' : 'Create a subscription';
+  const createLabel = product === 'job' ? 'Create a job post' : product === 'assignment' ? 'Create an assignment' : 'Create a subscription';
   const pickedItem = picked ? findItem(picked) : null;
 
   return createPortal(
@@ -70,6 +71,7 @@ export default function ConnectBriefDrawer({
       <div
         role="dialog"
         aria-modal="true"
+        aria-label={createLabel}
         className={`absolute inset-y-0 right-0 flex w-full max-w-3xl flex-col bg-white shadow-2xl transition-transform duration-300 ease-out ${open ? 'translate-x-0' : 'translate-x-full'}`}
       >
         {/* Top bar */}
@@ -112,6 +114,8 @@ export default function ConnectBriefDrawer({
         <div className={`min-h-0 flex-1 ${category ? 'overflow-y-auto' : 'overflow-hidden'}`}>
           {!open ? null : !category ? (
             <SquadCategoryPicker product={product} onPick={setPicked} />
+          ) : product === 'job' ? (
+            <JobBriefForm key={picked?.itemId} categoryName={pickedItem?.name ?? category} preview={preview} onClose={onClose} />
           ) : category === 'designer_editor' ? (
             <DesignerBriefForm product={product} preview={preview} initialRole={picked?.briefRole} />
           ) : category === 'accountant' ? (

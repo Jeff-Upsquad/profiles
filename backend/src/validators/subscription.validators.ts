@@ -331,7 +331,7 @@ export type CardActivationWebhookInput = z.infer<typeof cardActivationWebhookSch
 export const ingestPendingBriefSchema = z.object({
   external_id: z.string().min(1).max(200),
   content: z.record(z.unknown()).default({}),
-  card_type: z.enum(['subscription', 'assignment']),
+  card_type: z.enum(['subscription', 'assignment', 'hiring']),
   business_email: z.string().email().toLowerCase().optional(),
   business_phone: z.string().min(6).max(40).optional(),
   business_contact_name: z.string().min(1).max(200).optional(),

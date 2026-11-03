@@ -128,8 +128,7 @@ export default function BusinessHireHub({
   const hasActiveCards = useMemo(() => items.some((i) => i.status === 'active'), [items]);
   const [selectedProduct, setSelectedProduct] = useState<HireProduct | null>(null);
   const [briefOpen, setBriefOpen] = useState(false);
-  const [briefProduct, setBriefProduct] = useState<'subscription' | 'assignment'>('subscription');
-  const [jobNoticeOpen, setJobNoticeOpen] = useState(false);
+  const [briefProduct, setBriefProduct] = useState<HireProduct>('subscription');
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   /** Desktop: anchored under Create. Mobile: bottom sheet (isSheet). */
   const [menuPos, setMenuPos] = useState<{
@@ -213,10 +212,6 @@ export default function BusinessHireHub({
     setCreateMenuOpen(false);
     // Don't set selectedProduct here — that flag only controls the Learn more
     // expand state. Opening Create was leaving the matching card permanently open.
-    if (product === 'job') {
-      setJobNoticeOpen(true);
-      return;
-    }
     setBriefProduct(product);
     setBriefOpen(true);
   };
@@ -551,10 +546,6 @@ export default function BusinessHireHub({
         preview={preview}
       />
 
-      {/* Job post create — placeholder until job brief form exists */}
-      {jobNoticeOpen && (
-        <JobRequestModal onClose={() => setJobNoticeOpen(false)} />
-      )}
     </div>
   );
 }
@@ -573,101 +564,5 @@ function CompareRow({ label, values }: { label: string; values: [string, string,
         </td>
       ))}
     </tr>
-  );
-}
-
-function JobRequestModal({ onClose }: { onClose: () => void }) {
-  const [submitted, setSubmitted] = useState(false);
-  const [title, setTitle] = useState('');
-  const [notes, setNotes] = useState('');
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg rounded-t-2xl border border-[#E7E7EA] bg-white p-5 shadow-2xl sm:rounded-2xl sm:p-6">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#a3a3a3]">Job post</p>
-            <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
-              {submitted ? 'Submitted' : 'Create a job post'}
-            </h3>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="rounded-lg p-1.5 text-[#a3a3a3] hover:bg-[#F5F5F6] hover:text-[#0a0a0a]"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {submitted ? (
-          <div className="space-y-4">
-            <p className="text-sm leading-relaxed text-[#525252]">
-              Thanks — our team will set up the hiring funnel for this role and publish it to your Job posts list.
-              (Prototype: this doesn&apos;t call the API yet.)
-            </p>
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex w-full items-center justify-center rounded-[10px] bg-[#0a0a0a] px-4 py-2.5 text-sm font-semibold text-white"
-            >
-              Done
-            </button>
-          </div>
-        ) : (
-          <form
-            className="space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setSubmitted(true);
-            }}
-          >
-            <p className="text-sm leading-relaxed text-[#525252]">
-              Job posts use a full hiring funnel (screening → interviews → offers). Share a few details and
-              we&apos;ll get the role live. A full self-serve form is next — this is a lightweight create flow for now.
-            </p>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-semibold text-[#0a0a0a]">Role title</span>
-              <input
-                required
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Senior Accountant"
-                className="w-full rounded-xl border border-[#E7E7EA] bg-white px-3.5 py-2.5 text-sm text-[#0a0a0a] outline-none focus:border-[#0a0a0a] focus:ring-2 focus:ring-[#0a0a0a]/10"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-semibold text-[#0a0a0a]">Notes (optional)</span>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                placeholder="Location, package range, must-have skills…"
-                className="w-full resize-none rounded-xl border border-[#E7E7EA] bg-white px-3.5 py-2.5 text-sm text-[#0a0a0a] outline-none focus:border-[#0a0a0a] focus:ring-2 focus:ring-[#0a0a0a]/10"
-              />
-            </label>
-            <div className="flex gap-2 pt-1">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 rounded-[10px] border border-[#E7E7EA] px-4 py-2.5 text-sm font-semibold text-[#525252] hover:bg-[#F5F5F6]"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="flex-1 rounded-[10px] bg-[#0a0a0a] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0a0a0a]/85"
-              >
-                Create
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
   );
 }

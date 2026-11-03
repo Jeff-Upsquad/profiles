@@ -55,6 +55,8 @@ const envSchema = z.object({
   // it from SQUADHUB_CALLBACK_URL's origin, so most deploys need not set it.
   // The server-to-server calls reuse SQUADHUB_CALLBACK_SECRET for signing.
   SQUADHUB_API_URL: z.string().url().optional(),
+  // Optional hiring-intake override for an isolated local SquadHub server.
+  SQUADHUB_JOB_BRIEF_URL: z.string().url().optional(),
 
   // Squad Bots' own integration API (e.g. https://bots.squadhub.in/api/integrations/squad-bots).
   // When set, every Squad Hiring Bot call (settings, memory, inbox, team

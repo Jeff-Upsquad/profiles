@@ -1,3 +1,5 @@
+import { jobBriefSchema, hiringProfileSaveSchema, profileKindSchema } from '../validators/job-brief.validators.js';
+import { z } from 'zod';
 import { Router } from 'express';
 import * as jobsBusinessController from '../controllers/jobs-business.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
@@ -27,11 +29,15 @@ import {
 } from '../validators/jobs.validators.js';
 
 const router = Router();
+const hiringProfileParamsSchema = z.object({ kind: profileKindSchema });
 
 router.use(authenticate, requireRole('business'));
 
 // ─── Cards ─────────────────────────────────────────────────────────────────
 router.get('/', jobsBusinessController.listCards);
+router.get('/profiles', jobsBusinessController.getHiringProfiles);
+router.post('/profiles/:kind', validate({ params: hiringProfileParamsSchema, body: hiringProfileSaveSchema }), jobsBusinessController.saveHiringProfile);
+router.post('/brief', validate({ body: jobBriefSchema }), jobsBusinessController.submitBrief);
 
 // ─── Interview rounds addressed directly (before /:cardId) ────────────────
 router.patch(

@@ -40,7 +40,7 @@ export interface BusinessJobCardDetail {
     published_at: string | null;
     expires_at: string | null;
   };
-  job_card: JobCardSatellite;
+  job_card: JobCardSatellite | null;
   job_profile: TalentJobProfile | null;
   funnel_counts: Partial<Record<JobFunnelStage, number>>;
 }

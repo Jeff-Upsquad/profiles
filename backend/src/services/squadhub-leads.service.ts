@@ -88,3 +88,28 @@ export async function submitLandingBrief(
   }
   return body as Record<string, unknown>;
 }
+
+// Private hiring profile bridge; identity is assembled by the authenticated controller.
+export async function hiringRequest(path: string, payload: Record<string, unknown>, method: 'GET' | 'POST' = 'POST'): Promise<Record<string, unknown>> {
+  if (!env.SQUADHUB_CALLBACK_SECRET) throw new AppError(503, 'Hiring requests are not configured.');
+  const base = env.SQUADHUB_JOB_BRIEF_URL || `${baseUrl()}/integrations/squadhire/jobs/brief`;
+  const url = new URL(`${base.replace(/\/$/, '')}${path}`);
+  if (method === 'GET') for (const [key, value] of Object.entries(payload)) {
+    if (typeof value === 'string' && value) url.searchParams.set(key, value);
+  }
+  let res: Response;
+  try {
+    res = await fetch(url, { method,
+      headers: { 'Content-Type': 'application/json', 'X-SquadHub-Signature': env.SQUADHUB_CALLBACK_SECRET },
+      ...(method === 'POST' ? { body: JSON.stringify(payload) } : {}),
+      signal: AbortSignal.timeout(20_000),
+    });
+  } catch { throw new AppError(502, 'Could not reach the hiring profile service. Please try again.'); }
+  const body = await res.json().catch(() => null) as { success?: boolean; error?: string; data?: Record<string, unknown> } | null;
+  if (!res.ok || !body?.success || !body.data) {
+    throw new AppError(res.status >= 400 && res.status < 500 ? res.status : 502,
+      body?.error || 'Could not save your hiring details. Please try again.');
+  }
+  return body.data;
+}
+export function submitJobBrief(payload: Record<string, unknown>) { return hiringRequest('', payload); }

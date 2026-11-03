@@ -552,6 +552,11 @@ export async function ingestPendingBrief(
     .eq('external_id', input.external_id)
     .maybeSingle();
 
+  if (existing?.id && input.card_type === 'hiring' && existing.status !== 'submitted') {
+    // A late retry must not replace the canonical published job snapshot.
+    return { id: existing.id, external_id: input.external_id, inserted: false, recipient_count: 0 };
+  }
+
   if (existing?.id) {
     const previousStatus = (existing as { status?: string }).status as
       | 'active'

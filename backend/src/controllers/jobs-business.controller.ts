@@ -1,3 +1,8 @@
+import { profileKindSchema, type JobBriefInput } from '../validators/job-brief.validators.js';
+import * as businessService from '../services/business.service.js';
+import { hiringRequest, submitJobBrief } from '../services/squadhub-leads.service.js';
+import { ingestPendingBrief } from '../services/subscription.service.js';
+import { AppError } from '../middleware/errorHandler.middleware.js';
 import { Request, Response, NextFunction } from 'express';
 import * as jobsService from '../services/jobs.service.js';
 import * as interviewsService from '../services/interviews.service.js';
@@ -429,4 +434,39 @@ export async function offerEvents(req: Request, res: Response, next: NextFunctio
   } catch (err) {
     next(err);
   }
+}
+
+async function hiringIdentity(req: Request) {
+  const account = await businessService.getBusinessUser(req.user!.id);
+  const email = account.contact_email?.trim() || req.user!.email;
+  if (!email) throw new AppError(400, 'Add an email address to your business account first.');
+  return { business_user_id: req.user!.id, email,
+    phone: account.contact_phone?.trim() || undefined,
+    contact_name: account.contact_person_name?.trim() || undefined };
+}
+export async function getHiringProfiles(req: Request, res: Response, next: NextFunction) {
+  try { res.json(await hiringRequest('/profiles', await hiringIdentity(req), 'GET')); }
+  catch (err) { next(err); }
+}
+export async function saveHiringProfile(req: Request, res: Response, next: NextFunction) {
+  try {
+    const kind = profileKindSchema.parse(req.params.kind);
+    res.json(await hiringRequest(`/profiles/${kind}`, { ...req.body, ...await hiringIdentity(req) }));
+  } catch (err) { next(err); }
+}
+export async function submitBrief(req: Request, res: Response, next: NextFunction) {
+  try {
+    const body = req.body as JobBriefInput;
+    const identity = await hiringIdentity(req);
+    const saved = await submitJobBrief({ ...body, ...identity });
+    const content = saved.content as Record<string, unknown> | undefined;
+    if (!content) throw new AppError(502, 'The hiring service did not return the saved job profile. Please retry.');
+    const business = content.business_profile as { name?: string } | undefined;
+    const result = await ingestPendingBrief({ external_id: body.request_id, card_type: 'hiring',
+      business_user_id: identity.business_user_id, business_email: identity.email,
+      business_phone: identity.phone, business_contact_name: identity.contact_name,
+      business_company: business?.name, content,
+    });
+    res.status(201).json({ card_id: result.id });
+  } catch (err) { next(err); }
 }

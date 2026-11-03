@@ -125,6 +125,7 @@ export function mapSubCards(
 }
 
 function jobActivityStatus(card: BusinessJobCardSummary): ActivityStatus {
+  if (card.status === 'submitted') return 'submitted';
   const jc = card.job_card;
   if (jc?.closed_at) {
     return jc.close_mode === 'filled' ? 'filled' : 'closed';
@@ -169,7 +170,7 @@ export function mapJobCards(cards: BusinessJobCardSummary[]): HireActivityItem[]
       title,
       subtitle: subtitleParts.length ? subtitleParts.join(' · ') : 'Job post',
       status: jobActivityStatus(card),
-      meta: jobFunnelMeta(card),
+      meta: card.status === 'submitted' ? 'Awaiting team review' : jobFunnelMeta(card),
       href: `/business/job-posts/${card.id}`,
     };
   });

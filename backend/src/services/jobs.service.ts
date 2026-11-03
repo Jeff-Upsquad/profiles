@@ -1466,6 +1466,16 @@ export async function listJobCardsForBusiness(businessUserId: string) {
 }
 
 export async function getJobCardForBusiness(businessUserId: string, cardId: string) {
+  // Submitted briefs have no job satellite until SquadHub attaches and
+  // publishes the canonical profile. Keep them viewable by their owner only.
+  const pending = await supabaseAdmin.from('subscription_cards')
+    .select('id, external_id, content, status, published_at, expires_at, business_user_id')
+    .eq('id', cardId).eq('card_type', 'hiring').eq('status', 'submitted').maybeSingle();
+  if (pending.error) throw new AppError(500, pending.error.message);
+  if (pending.data) {
+    if (pending.data.business_user_id !== businessUserId) throw new AppError(403, 'This job brief does not belong to your business');
+    return { card: pending.data, job_card: null, job_profile: null, funnel_counts: {} };
+  }
   const refs = await assertBusinessOwnsCard(businessUserId, cardId);
 
   const [{ data: card }, { data: jobCard }, { data: candidateRows }] = await Promise.all([

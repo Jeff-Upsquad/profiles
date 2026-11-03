@@ -25,7 +25,7 @@ export default function SquadCategoryPicker({
   product,
   onPick,
 }: {
-  product: 'subscription' | 'assignment';
+  product: 'subscription' | 'assignment' | 'job';
   onPick: (picked: PickedCategory) => void;
 }) {
   const [squadId, setSquadId] = useState(SERVICE_SQUADS[0].id);
@@ -80,7 +80,7 @@ export default function SquadCategoryPicker({
             What do you need?
           </h2>
           <p className="mt-1 text-[13px] leading-relaxed text-[#737373]">
-            Pick a squad, then the exact talent category for your {product}. You can add
+            Pick a squad, then the exact talent category for your {product === 'job' ? 'job post' : product}. You can add
             more categories later.
           </p>
 
@@ -213,7 +213,7 @@ export default function SquadCategoryPicker({
                 )}
               </div>
               <p className="mt-1.5 max-w-[52ch] text-[13px] leading-relaxed text-[#737373]">
-                {squad.description}
+                {product === 'job' ? `Choose a talent category in ${squad.name} for your hiring brief.` : squad.description}
               </p>
               <p className="mt-2 text-[11.5px] font-medium text-[#a3a3a3]">
                 {squad.tags.join(' · ')}
@@ -403,7 +403,7 @@ function ComingSoonSheet({
   onBrowseLive,
 }: {
   item: SquadItem;
-  product: 'subscription' | 'assignment';
+  product: 'subscription' | 'assignment' | 'job';
   onClose: () => void;
   onBrowseLive: () => void;
 }) {

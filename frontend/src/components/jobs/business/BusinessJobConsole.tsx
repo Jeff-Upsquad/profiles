@@ -82,9 +82,9 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
   const router = useRouter();
   const { data: detail, isLoading, isError } = useBusinessJobCard(cardId);
   const { data: allCards } = useBusinessJobCards();
-  const { data: candidates } = useJobCandidates(cardId);
-  const { data: rounds } = useInterviewRounds(cardId);
-  const { data: offers } = useCardOffers(cardId);
+  const { data: candidates } = useJobCandidates(detail && detail.card.status !== 'submitted' ? cardId : undefined);
+  const { data: rounds } = useInterviewRounds(detail && detail.card.status !== 'submitted' ? cardId : undefined);
+  const { data: offers } = useCardOffers(detail && detail.card.status !== 'submitted' ? cardId : undefined);
   const review = useReviewCandidate(cardId);
   const markJoined = useMarkJoined(cardId);
   const closeCard = useCloseJobCard(cardId);
@@ -142,6 +142,24 @@ export default function BusinessJobConsole({ cardId }: { cardId: string }) {
         </button>
       </div>
     );
+  }
+
+  if (detail.card.status === 'submitted') {
+    const content = detail.card.content;
+    return <div className="space-y-5">
+      <Link href="/business/cards" className="text-sm text-[#737373] hover:underline">← My Cards</Link>
+      <section className="space-y-4 rounded-2xl border border-[#E7E7EA] bg-white p-6">
+        <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">Submitted · Awaiting team review</span>
+        <h1 className="text-2xl font-semibold">{jobTitle(content)}</h1>
+        <p className="text-sm text-[#737373]">{jobBusinessName(content)}</p>
+        <p className="text-sm text-[#737373]">Your saved business, brand selection, and job profile are attached. Our team will review and publish the role. Candidates, interviews, and offers will appear here once it is live.</p>
+        <h2 className="font-semibold">Your requirements</h2>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed">{content.description}</p>
+        <p className="text-sm">{packageLabel(content) || 'Package to be discussed'} · {content.openings_count ?? 1} opening(s)</p>
+        {typeof content.business_location === 'string' && content.business_location && <p className="text-sm">Location: {content.business_location}</p>}
+        {content.expected_joining_date && <p className="text-sm">Expected joining: {fmtDate(content.expected_joining_date)}</p>}
+      </section>
+    </div>;
   }
 
   const content = detail.card.content;
