@@ -34,11 +34,13 @@ async function main() {
   const pending = talents.filter((id) => !existing.has(id));
   console.info({ project: target.project_ref, card: card.id, matched: talents.length, missingRecipients: pending.length, apply: values.apply });
   if (values.apply && pending.length) {
-    const { error: insertError } = await supabaseAdmin.from('subscription_card_recipients').upsert(
+    const { error: insertError } = await supabaseAdmin.from('subscription_card_recipients').insert(
       pending.map((talent_user_id) => ({ card_id: card.id, talent_user_id, status: 'pending' })),
-      { onConflict: 'card_id,talent_user_id', ignoreDuplicates: true },
     );
-    if (insertError) throw insertError;
+    // Recipients have a partial unique index (cancelled_at IS NULL), so a
+    // PostgREST upsert on the two columns cannot infer its conflict target.
+    // A concurrent delivery may win the insert; verify the rows below.
+    if (insertError && insertError.code !== '23505') throw insertError;
     const { count, error: verifyError } = await supabaseAdmin.from('subscription_card_recipients')
       .select('id', { count: 'exact', head: true }).eq('card_id', card.id).in('talent_user_id', pending);
     if (verifyError) throw verifyError;
@@ -46,4 +48,4 @@ async function main() {
     console.info({ verifiedRecipients: count });
   }
 }
-main().catch((error) => { console.error(error instanceof Error ? error.message : 'Creator backfill failed'); process.exitCode = 1; });
+main().catch((error) => { console.error(error instanceof Error ? error.message : 'Creator backfill failed: ' + String(error?.code ?? 'unknown database error')); process.exitCode = 1; });
