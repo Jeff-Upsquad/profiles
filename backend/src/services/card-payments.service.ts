@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
+import { cardPaymentReturnUrl } from '../lib/card-payment-return-url.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import {
   createPaymentLink as createRazorpayPaymentLink,
@@ -439,7 +440,7 @@ export async function startCardPayment(
         recipient_id: recipientId,
         source: 'squadhire',
       },
-      callbackUrl: appUrl ? `${appUrl}/business/hire/${cardId}?payment=done` : undefined,
+      callbackUrl: cardPaymentReturnUrl(appUrl, cardId, ctx.card.card_type),
       expireBy: Math.floor(Date.now() / 1000) + LINK_TTL_MINUTES * 60,
     };
     // Both services speak the same shape; only the wire format differs
@@ -716,10 +717,30 @@ export async function sweepPendingCardInvoices(): Promise<{ retried: number; fai
  */
 const SWEEPER_INTERVAL_MS = 5 * 60_000;
 
+/** Check unfinished payments too, so a lost webhook or browser return cannot strand a charge. */
+export async function sweepPendingCardPayments(): Promise<void> {
+  const { data, error } = await supabaseAdmin
+    .from('card_payments')
+    .select('*')
+    .eq('status', 'created')
+    .lt('created_at', new Date(Date.now() - 60_000).toISOString())
+    .order('created_at', { ascending: true })
+    .limit(25);
+  if (error) throw new Error(error.message);
+  for (const row of data ?? []) {
+    try {
+      await reconcileIfStale(row as Record<string, unknown>, true);
+    } catch (e) {
+      console.error(`[card-payments sweeper] reconcile ${row.id}:`, (e as Error).message);
+    }
+  }
+}
+
 export function startCardPaymentsSweeper(): NodeJS.Timeout {
   const tick = async () => {
-    if (!isSquadBooksConfigured()) return;
     try {
+      await sweepPendingCardPayments();
+      if (!isSquadBooksConfigured()) return;
       const { retried, failed } = await sweepPendingCardInvoices();
       if (retried || failed) {
         console.log(`[card-payments sweeper] retried ${retried}, failed ${failed}`);

@@ -151,7 +151,7 @@ export async function razorpayWebhook(req: Request, res: Response) {
  *    settles the row (links are created non-partial). Routing comes from the
  *    echoed link_notes.
  *
- * 2. "PAYMENT_SUCCESS" — the generic event ("success payment" checkbox). Orders
+ * 2. "PAYMENT_SUCCESS" / "PAYMENT_SUCCESS_WEBHOOK" — generic success events. Orders
  *    created from a link carry ids like "CFPay_<slug>_<rand>", where <slug> is
  *    the last segment of our stored payment_link_url — we match on that. Fires
  *    for EVERY successful payment on the account, so anything that isn't ours
@@ -170,6 +170,7 @@ export async function cashfreeWebhook(req: Request, res: Response) {
   let event: {
     type?: string;
     data?: {
+      [key: string]: unknown;
       link?: Record<string, unknown>;
       order?: Record<string, unknown>;
       payment?: Record<string, unknown>;
@@ -183,7 +184,7 @@ export async function cashfreeWebhook(req: Request, res: Response) {
   }
 
   if (event.type === 'PAYMENT_LINK_EVENT') {
-    const link = event.data?.link ?? {};
+    const link = event.data?.link ?? event.data ?? {};
     // Links are non-partial, so only a full PAID settles.
     if ((link.link_status as string | undefined) !== 'PAID') {
       res.json({ received: true });
@@ -225,11 +226,11 @@ export async function cashfreeWebhook(req: Request, res: Response) {
     return;
   }
 
-  if (event.type === 'PAYMENT_SUCCESS') {
+  if (event.type === 'PAYMENT_SUCCESS' || event.type === 'PAYMENT_SUCCESS_WEBHOOK') {
     const order = event.data?.order ?? {};
     const payment = event.data?.payment ?? {};
     const orderId = (order.order_id as string | undefined) ?? '';
-    const status = (payment.payment_status as string | undefined) ?? 'SUCCESS';
+    const status = payment.payment_status as string | undefined;
     if (!orderId.startsWith('CFPay_') || status !== 'SUCCESS') {
       res.json({ received: true });
       return;

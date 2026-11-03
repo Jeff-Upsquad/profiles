@@ -103,8 +103,8 @@ export default function SubscriptionCardReview({
   const { data: card, isLoading: cardLoading, error: cardError } = useMySubscriptionCard(cardId);
   const { data: recipients, isLoading: recipientsLoading } = useCardRecipients(cardId);
   const { data: offers } = useBusinessAssignmentOffers(cardId);
-  // Razorpay sends the client back to ?payment=done. Captured once on mount so
-  // the first read verifies against Razorpay rather than our own (possibly
+  // The gateway sends the client back to ?payment=done. Captured once on mount so
+  // the first read verifies against the gateway rather than our own (possibly
   // not-yet-updated) row; the param is then cleaned out of the URL.
   const [returnedFromCheckout] = useState(
     () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('payment') === 'done',
