@@ -54,3 +54,56 @@ test('creator job profiles skip the Experience pseudo-field, other categories ke
     supabaseAdmin.from = original;
   }
 });
+test('creator briefs carry follower levels with per-level budgets and shared catalog picks', () => {
+  // Shape the CreatorBriefForm submits: follower-count levels ride as a
+  // Custom tier with per-level tier_budgets, and niche/format/service picks
+  // use the shared category_fields vocabulary for matching. The legacy brief
+  // keys (creator_audience / deliverables / usage_rights) are synthesized from
+  // the structured picks so the upstream card still renders.
+  const brief = {
+    card_type: 'subscription',
+    service_types: ['social_media_creator'],
+    brand_name: 'Example Brand',
+    business_nature: 'Products',
+    business_note: 'Consumer products.',
+    languages: ['English'],
+    working_days: ['Mon'],
+    role_requirements: {
+      social_media_creator: {
+        note: 'Partner with creators to launch our product line.',
+        tiers: ['Custom'],
+        tier_budgets: { '10,000 to 25,000': 8000, '50,000 to 100k': 25000 },
+        currency: 'INR',
+        duration: '4 weeks',
+        start_date: '2026-11-10',
+        deadline: '2026-12-08',
+        additional_requirements: {
+          channels: ['Instagram', 'YouTube'],
+          content_niches: ['Education', 'Technology'],
+          content_formats: ['Reels / Shorts / TikToks'],
+          collaboration_types: ['Sponsored posts'],
+          service_count: ['Sponsored posts × 4'],
+          creator_levels: ['10,000 to 25,000 (INR 8,000 / month)', '50,000 to 100k (INR 25,000 / month)'],
+          desired_age: ['18-24', '25-34'],
+          audience_location: ['India'],
+          creator_audience: ['Creator niches: Education, Technology. Audience location: India. Desired age: 18-24, 25-34.'],
+          deliverables: ['Content formats: Reels / Shorts / TikToks.'],
+          usage_rights: ['Organic reuse on our channels for 6 months.'],
+        },
+      },
+    },
+  };
+  const parsed = connectBriefSchema.parse(brief);
+  const requirement = parsed.role_requirements?.social_media_creator;
+  assert.deepEqual(requirement?.tiers, ['Custom']);
+  assert.deepEqual(requirement?.tier_budgets, { '10,000 to 25,000': 8000, '50,000 to 100k': 25000 });
+  assert.equal(requirement?.duration, '4 weeks');
+  assert.deepEqual(requirement?.additional_requirements?.content_niches, ['Education', 'Technology']);
+  assert.deepEqual(requirement?.additional_requirements?.content_formats, ['Reels / Shorts / TikToks']);
+  assert.deepEqual(requirement?.additional_requirements?.collaboration_types, ['Sponsored posts']);
+  assert.deepEqual(requirement?.additional_requirements?.service_count, ['Sponsored posts × 4']);
+  // Timeline fields are accepted on subscriptions too — creator campaigns are
+  // deliverable-based even inside a monthly plan.
+  const assignment = connectBriefSchema.parse({ ...brief, card_type: 'assignment', working_days: [] });
+  assert.equal(assignment.role_requirements?.social_media_creator?.deadline, '2026-12-08');
+});

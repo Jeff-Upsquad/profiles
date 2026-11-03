@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import JobBriefForm from './JobBriefForm';
 import DesignerBriefForm from './DesignerBriefForm';
 import AccountantBriefForm from './AccountantBriefForm';
+import CreatorBriefForm from './CreatorBriefForm';
 import { SPECIALIST_ROLES } from '../../../../../shared/src/contentRoles';
 import SpecialistBriefForm from './SpecialistBriefForm';
 import AdsSpecialistBriefForm from './AdsSpecialistBriefForm';
@@ -122,6 +123,8 @@ export default function ConnectBriefDrawer({
             <AccountantBriefForm product={product} preview={preview} skipRolePicker />
           ) : category === 'ads_specialist' ? (
             <AdsSpecialistBriefForm product={product} preview={preview} />
+          ) : category === 'social_media_creator' ? (
+            <CreatorBriefForm key={`${category}-${product}`} product={product} preview={preview} />
           ) : (
             <SpecialistBriefForm key={`${category}-${product}`} product={product} preview={preview} contentRole={SPECIALIST_ROLES.find((r) => r.serviceSlug === category)} />
           )}

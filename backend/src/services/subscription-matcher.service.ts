@@ -18,6 +18,15 @@ export interface MatchRules {
   target_languages?: string[];
   target_country_names?: string[];
   target_regions?: Array<{ country_name?: string; region: string }>;
+  // Creator catalog axes. The social-media-creator job profile stores these as
+  // jsonb string arrays in talent_profiles.field_data (content_niches /
+  // content_formats / collaboration_types), seeded from the same
+  // category_fields catalog the business creator-brief chips use.
+  // Overlap-match: a creator qualifies when they offer at least one of the
+  // requested values.
+  target_content_niches?: string[];
+  target_content_formats?: string[];
+  target_collaboration_types?: string[];
   // Hiring-only axes (card_type='hiring') — evaluated only for job cards, so
   // a subscription card that starts carrying them is a no-op here.
   min_age?: number;
@@ -35,6 +44,9 @@ const KNOWN_RULE_KEYS = new Set<string>([
   'target_country_ids',
   'target_country_names',
   'target_regions',
+  'target_content_niches',
+  'target_content_formats',
+  'target_collaboration_types',
   'min_age',
   'max_age',
   'target_genders',
@@ -145,6 +157,43 @@ export async function findMatchingTalents(
       (tierRows ?? [])
         .filter((r: any) => tierSet.has(String(r.tier ?? '').toLowerCase()))
         .map((r: any) => r.talent_profile_id as string),
+    );
+    rows = rows.filter((r) => allowed.has(r.id));
+    if (rows.length === 0) return [];
+  }
+
+  // Step 2b: Creator catalog filters — narrow by profile IDs. Each present
+  // rule (AND across rules, overlap within a rule) keeps only profiles whose
+  // field_data array offers at least one requested value. Only creator
+  // profiles carry these keys, so cards for other categories never set them.
+  const creatorCatalogRules: Array<{ rule: 'target_content_niches' | 'target_content_formats' | 'target_collaboration_types'; fieldKey: string }> = [
+    { rule: 'target_content_niches', fieldKey: 'content_niches' },
+    { rule: 'target_content_formats', fieldKey: 'content_formats' },
+    { rule: 'target_collaboration_types', fieldKey: 'collaboration_types' },
+  ];
+  for (const { rule, fieldKey } of creatorCatalogRules) {
+    const wanted = Array.isArray(matchRules[rule])
+      ? (matchRules[rule] as string[]).map((v) => String(v).trim()).filter(Boolean)
+      : [];
+    if (wanted.length === 0) continue;
+    const profileIds = rows.map((r) => r.id);
+    const { data: fieldRows, error: fieldErr } = await supabaseAdmin
+      .from('talent_profiles')
+      .select(`id, field_data->${fieldKey}`)
+      .in('id', profileIds);
+    if (fieldErr) {
+      console.error(`[subscription-matcher] ${rule} query failed`, fieldErr);
+      throw fieldErr;
+    }
+    const wantedSet = new Set(wanted.map((v) => v.toLowerCase()));
+    const allowed = new Set(
+      (fieldRows ?? [])
+        .filter((r: any) => {
+          const values = r[fieldKey];
+          return Array.isArray(values)
+            && values.some((v: unknown) => wantedSet.has(String(v ?? '').trim().toLowerCase()));
+        })
+        .map((r: any) => r.id as string),
     );
     rows = rows.filter((r) => allowed.has(r.id));
     if (rows.length === 0) return [];
