@@ -1529,6 +1529,19 @@ export async function reorderPortfolioItems(profileId: string, userId: string, i
 // Dynamic field validation helpers
 // ---------------------------------------------------------------------------
 
+/** True when this category is the Social Media Creator job profile, whose
+ *  structured Basic Info / Platforms / Services & Rates form collects no
+ *  years-of-experience pseudo-field. */
+async function isSocialMediaCreatorCategory(categoryId: string): Promise<boolean> {
+  // Plain select+eq (no maybeSingle) so the query chain stays mockable in tests.
+  const { data } = await supabaseAdmin
+    .from('categories')
+    .select('slug')
+    .eq('id', categoryId);
+  const row = Array.isArray(data) ? data[0] : data;
+  return row?.slug === 'social-media-creator';
+}
+
 export async function validateFieldData(categoryId: string, fieldData: Record<string, any>, requireFields = true): Promise<string[]> {
   const { data: fields } = await supabaseAdmin
     .from('category_fields')
@@ -1539,18 +1552,21 @@ export async function validateFieldData(categoryId: string, fieldData: Record<st
   const errors: string[] = [];
 
   // Built-in Experience pseudo-field. Always present on job profiles; not
-  // stored in category_fields but validated here.
-  const experience = fieldData._experience;
-  if (experience === undefined || experience === null) {
-    if (requireFields) errors.push('Experience is required');
-  } else if (typeof experience !== 'object' || Array.isArray(experience)) {
-    errors.push('Experience must be a { years, months } object');
-  } else {
-    const { years, months } = experience as { years?: unknown; months?: unknown };
-    const yearsBad = typeof years !== 'number' || !Number.isInteger(years) || years < 0 || years > 50;
-    const monthsBad = typeof months !== 'number' || !Number.isInteger(months) || months < 0 || months > 11;
-    if (yearsBad || monthsBad) {
-      errors.push('Experience must be 0–50 years and 0–11 months');
+  // stored in category_fields but validated here. Creators skip it — their
+  // form has no Experience step.
+  if (!(await isSocialMediaCreatorCategory(categoryId))) {
+    const experience = fieldData._experience;
+    if (experience === undefined || experience === null) {
+      if (requireFields) errors.push('Experience is required');
+    } else if (typeof experience !== 'object' || Array.isArray(experience)) {
+      errors.push('Experience must be a { years, months } object');
+    } else {
+      const { years, months } = experience as { years?: unknown; months?: unknown };
+      const yearsBad = typeof years !== 'number' || !Number.isInteger(years) || years < 0 || years > 50;
+      const monthsBad = typeof months !== 'number' || !Number.isInteger(months) || months < 0 || months > 11;
+      if (yearsBad || monthsBad) {
+        errors.push('Experience must be 0–50 years and 0–11 months');
+      }
     }
   }
 
@@ -1647,10 +1663,13 @@ export async function validateRequiredFields(categoryId: string, fieldData: Reco
 
   const errors: string[] = [];
 
-  // Built-in Experience pseudo-field is always required on every job profile.
+  // Built-in Experience pseudo-field is always required on every job profile,
+  // except the Social Media Creator form, which has no Experience step.
   const exp = fieldData._experience;
   if (exp === undefined || exp === null) {
-    errors.push('Experience is required');
+    if (!(await isSocialMediaCreatorCategory(categoryId))) {
+      errors.push('Experience is required');
+    }
   }
 
   if (!fields) return errors;

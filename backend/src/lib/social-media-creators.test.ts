@@ -5,6 +5,7 @@ import { signupFormTypes } from '../../../shared/src/signupCategories.js';
 import { signupTalentSchema } from '../validators/auth.validators.js';
 import { connectBriefSchema } from '../validators/connect-brief.validators.js';
 import { categoryHasPortfolio } from '../../../shared/src/portfolio.js';
+import { supabaseAdmin } from '../config/supabase.js';
 
 test('creator signup works alone and alongside another talent category', () => {
   for (const categories of [['social-media-creator'], ['designer', 'social-media-creator']]) {
@@ -27,5 +28,29 @@ test('creator subscription and assignment briefs retain campaign scope and requi
     for (const field of role.briefFields.filter((f) => f.required)) {
       assert.equal(connectBriefSchema.safeParse({ ...brief, role_requirements: { social_media_creator: { note: 'Campaign', additional_requirements: { ...details, [field.key]: [] } } } }).success, false, `${card_type}/${field.key}`);
     }
+  }
+});
+
+test('creator job profiles skip the Experience pseudo-field, other categories keep it', async () => {
+  const { validateFieldData, validateRequiredFields } = await import('../services/talent.service.js');
+  const original = supabaseAdmin.from;
+  const rows = (data: any) => ({
+    select() { return this; },
+    eq() { return this; },
+    then(resolve: any) { return resolve({ data, error: null }); },
+  });
+  const tables: Record<string, any> = {
+    categories: rows([{ slug: 'social-media-creator' }]),
+    category_fields: rows([]),
+  };
+  try {
+    supabaseAdmin.from = ((table: string) => tables[table] ?? rows([])) as typeof supabaseAdmin.from;
+    assert.deepEqual(await validateFieldData('creator-cat', {}), []);
+    assert.deepEqual(await validateRequiredFields('creator-cat', {}), []);
+    tables.categories = rows([{ slug: 'designer' }]);
+    assert.ok((await validateFieldData('cat', {})).includes('Experience is required'));
+    assert.ok((await validateRequiredFields('cat', {})).includes('Experience is required'));
+  } finally {
+    supabaseAdmin.from = original;
   }
 });

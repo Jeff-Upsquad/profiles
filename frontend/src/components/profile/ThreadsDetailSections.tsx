@@ -7,6 +7,12 @@ import {
   LEVEL_LABELS,
   type LeveledItem,
 } from '../../../../shared/src/types/talent';
+import {
+  coerceCreatorPlatforms,
+  coerceCreatorServices,
+  creatorLocationLabel,
+  CREATOR_CURRENCY_SYMBOLS,
+} from '@/constants/creator-profile';
 
 interface ThreadsDetailSectionsProps {
   fields: CategoryField[];
@@ -554,6 +560,98 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   if (languages && languages.length > 0) {
     const delay = sectionIndex * 0.04;
     sections.push(<LanguagesSection key="_languages" languages={languages} delay={delay} />);
+    sectionIndex++;
+  }
+
+  // Social Media Creator: structured platforms and services live in field_data
+  // (no category_fields rows), so render them here.
+  const creatorPlatforms = coerceCreatorPlatforms(fieldData?.creator_platforms);
+  if (creatorPlatforms.length > 0) {
+    const delay = sectionIndex * 0.04;
+    sections.push(
+      <Section key="_creator_platforms" label="Platforms" delay={delay}>
+        <div className="flex flex-col gap-3">
+          {creatorPlatforms.map((p) => {
+            const meta = [
+              (p.languages ?? []).join(', '),
+              creatorLocationLabel(p.location_scope, p.location),
+              p.format,
+            ].filter(Boolean).join(' · ');
+            return (
+              <div key={p.id} className="rounded-xl border border-zinc-200 px-3.5 py-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[14px] font-medium text-zinc-800">
+                    {p.platform || 'Platform'}
+                    {p.profile_url ? (
+                      <a
+                        href={p.profile_url.startsWith('http') ? p.profile_url : undefined}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 text-[12px] font-normal text-zinc-400 underline decoration-zinc-300 underline-offset-2 hover:text-zinc-600"
+                      >
+                        profile
+                      </a>
+                    ) : null}
+                  </span>
+                  {p.followers !== '' && p.followers !== undefined && (
+                    <span className="whitespace-nowrap text-[12px] text-zinc-500">
+                      {Number(p.followers).toLocaleString()} {p.platform === 'YouTube' ? 'subscribers' : 'followers'}
+                    </span>
+                  )}
+                </div>
+                {meta && <p className="mt-1 text-[12px] text-zinc-500">{meta}</p>}
+                {(p.niches ?? []).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {p.niches.map((n) => (
+                      <span key={n} className="rounded-full border border-zinc-200 px-2 py-0.5 text-[11px] text-zinc-600">
+                        {n}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Section>
+    );
+    sectionIndex++;
+  }
+
+  const creatorServices = coerceCreatorServices(fieldData?.creator_services);
+  if (creatorServices.length > 0) {
+    const delay = sectionIndex * 0.04;
+    sections.push(
+      <Section key="_creator_services" label="Services and rates" delay={delay}>
+        <div className="flex flex-col gap-3">
+          {creatorServices.map((s) => {
+            const rates = creatorPlatforms
+              .map((p) => {
+                const rate = s.rates?.[p.id];
+                const amount = Number(rate?.amount);
+                if (!rate || !rate.currency || !Number.isFinite(amount) || amount <= 0) return null;
+                const symbol = CREATOR_CURRENCY_SYMBOLS[rate.currency] ?? `${rate.currency} `;
+                return `${symbol}${amount.toLocaleString()} · ${p.platform || 'Platform'}`;
+              })
+              .filter((r): r is string => !!r);
+            return (
+              <div key={s.service} className="flex flex-col gap-1">
+                <span className="text-[14px] font-medium text-zinc-800">{s.service}</span>
+                {rates.length > 0 ? (
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    {rates.map((r) => (
+                      <span key={r} className="text-[12px] text-zinc-500">{r}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-[12px] text-zinc-400">Rate on request</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Section>
+    );
     sectionIndex++;
   }
 

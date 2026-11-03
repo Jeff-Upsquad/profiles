@@ -12,6 +12,8 @@ import api from '@/services/api';
 import toast from 'react-hot-toast';
 import DynamicFormRenderer from '@/components/forms/DynamicFormRenderer';
 import DesignerExtras from '@/components/forms/DesignerExtras';
+import CreatorProfileDetails from '@/components/forms/CreatorProfileDetails';
+import { validateCreatorProfile } from '@/constants/creator-profile';
 import PortfolioUploader from '@/components/forms/PortfolioUploader';
 import PortfolioMinimumNotice from '@/components/talent/PortfolioMinimumNotice';
 import { minPortfolioItems } from '@/lib/talentCompletion';
@@ -144,40 +146,49 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
     });
   };
 
+  // Social Media Creator uses the structured Basic Info / Platforms /
+  // Services & Rates form — no Experience, generic fields or native-language
+  // requirement.
+  const isCreatorCategory = profile?.category?.slug === 'social-media-creator';
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (isExperienceEmpty(values._experience)) {
-      newErrors._experience = 'Experience is required';
-    }
-
-    for (const field of categoryWithFields?.fields ?? []) {
-      if (!field.is_active) continue;
-      const val = values[field.field_key];
-
-      if (field.is_required) {
-        if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
-          newErrors[field.field_key] = `${field.field_label} is required`;
-          continue;
-        }
+    if (isCreatorCategory) {
+      Object.assign(newErrors, validateCreatorProfile(values));
+    } else {
+      if (isExperienceEmpty(values._experience)) {
+        newErrors._experience = 'Experience is required';
       }
 
-      if (field.field_key === 'portfolio_link' && val && typeof val === 'string') {
-        try {
-          const url = new URL(val);
-          const host = url.hostname.toLowerCase();
-          if (host.includes('dribbble.com') || host.includes('behance.net')) {
-            newErrors[field.field_key] = 'Dribbble and Behance links are not accepted. Please use a cloud drive link (Google Drive, OneDrive, etc.).';
+      for (const field of categoryWithFields?.fields ?? []) {
+        if (!field.is_active) continue;
+        const val = values[field.field_key];
+
+        if (field.is_required) {
+          if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
+            newErrors[field.field_key] = `${field.field_label} is required`;
+            continue;
           }
-        } catch {
-          newErrors[field.field_key] = 'Please enter a valid URL';
+        }
+
+        if (field.field_key === 'portfolio_link' && val && typeof val === 'string') {
+          try {
+            const url = new URL(val);
+            const host = url.hostname.toLowerCase();
+            if (host.includes('dribbble.com') || host.includes('behance.net')) {
+              newErrors[field.field_key] = 'Dribbble and Behance links are not accepted. Please use a cloud drive link (Google Drive, OneDrive, etc.).';
+            }
+          } catch {
+            newErrors[field.field_key] = 'Please enter a valid URL';
+          }
         }
       }
-    }
 
-    const filledLanguages = languages.filter((e) => e.language);
-    if (!filledLanguages.some((e) => e.proficiency === 'native')) {
-      newErrors._languages = 'At least one language must be set as native';
+      const filledLanguages = languages.filter((e) => e.language);
+      if (!filledLanguages.some((e) => e.proficiency === 'native')) {
+        newErrors._languages = 'At least one language must be set as native';
+      }
     }
 
     if (categoryHasPortfolio(profile?.category?.slug) && (!portfolioItems || portfolioItems.length === 0)) {
@@ -352,7 +363,14 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
       )}
 
       <div className="space-y-6">
+        {/* Social Media Creator: structured Basic Info / Platforms / Services & Rates
+            form replaces the generic sections (no Skills & Tools, no Languages). */}
+        {isCreatorCategory && (
+          <CreatorProfileDetails values={values} onChange={handleChange} errors={errors} />
+        )}
+
         {/* Profile Details */}
+        {!isCreatorCategory && (
         <section className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="mb-5 flex items-start gap-3">
             <div className="tint-purple flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
@@ -374,9 +392,10 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
             errors={errors}
           />
         </section>
+        )}
 
         {/* Skills & Tools */}
-        {profile && (
+        {!isCreatorCategory && profile && (
           <section id="skills" className="scroll-mt-24 rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="mb-5 flex items-start gap-3">
               <div className="tint-orange flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
@@ -412,6 +431,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
         )}
 
         {/* Languages */}
+        {!isCreatorCategory && (
         <section className="rounded-2xl border border-[#E7E7EA] bg-white p-6 sm:p-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="mb-5 flex items-start gap-3">
             <div className="tint-blue flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--tint-icon)' }}>
@@ -431,6 +451,7 @@ export default function ProfileEdit({ profileId }: { profileId: string }) {
             <p className="mt-2 text-sm text-red-600">{errors._languages}</p>
           )}
         </section>
+        )}
 
         {/* Portfolio — not part of sales or accountant profiles */}
         {profile && categoryHasPortfolio(profile.category?.slug) && (

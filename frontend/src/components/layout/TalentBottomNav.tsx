@@ -20,6 +20,8 @@ interface NavItem {
   pending?: boolean;
   disabled?: boolean;
   tooltip?: string;
+  /** Raised primary action (creators' Create button) instead of a plain tab. */
+  accent?: boolean;
 }
 
 const HOME_PREFIXES = [
@@ -132,6 +134,21 @@ export default function TalentBottomNav() {
     });
   }
 
+  // Creators get a raised Create action in the middle of the bar — their
+  // profile is the main thing they build, so it shouldn't hide behind More.
+  if (isSocialMediaCreator(user)) {
+    navItems.splice(2, 0, {
+      href: '/talent/profiles/new',
+      label: 'Create',
+      accent: true,
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+      ),
+    });
+  }
+
   const visibleItems: NavItem[] = partnerOnlyPending ? [
     navItems[0],
     {
@@ -191,10 +208,20 @@ export default function TalentBottomNav() {
                   active ? 'text-[#0a0a0a]' : 'text-zinc-500 hover:text-zinc-900'
                 }`}
               >
-                <span className="relative">
-                  {item.icon}
-                  <NavBadge count={item.badge ?? 0} pending={item.pending} />
-                </span>
+                {item.accent ? (
+                  <span
+                    className={`-mt-5 flex h-11 w-11 items-center justify-center rounded-full text-white shadow-[0_6px_16px_-4px_rgba(0,0,0,0.35)] ring-4 ring-white transition-transform active:scale-90 ${
+                      active ? 'bg-[#0a0a0a]' : 'bg-gradient-to-br from-[#FFF27A] via-[#0a0a0a] to-[#525252]'
+                    }`}
+                  >
+                    {item.icon}
+                  </span>
+                ) : (
+                  <span className="relative">
+                    {item.icon}
+                    <NavBadge count={item.badge ?? 0} pending={item.pending} />
+                  </span>
+                )}
                 {item.label}
               </Link>
             );
