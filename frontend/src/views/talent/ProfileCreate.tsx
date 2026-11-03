@@ -1,3 +1,4 @@
+import { isSocialMediaCreator } from '@/lib/creatorIdentity';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
@@ -110,8 +111,13 @@ export default function ProfileCreate() {
   const [activeSquadTab, setActiveSquadTab] = useState('all');
 
   const squadGroups = useMemo(() => {
-    return groupCategoriesBySquad(availableCategories, searchQuery, activeSquadTab);
-  }, [availableCategories, searchQuery, activeSquadTab]);
+    const groups = groupCategoriesBySquad(availableCategories, searchQuery, activeSquadTab);
+    if (isSocialMediaCreator(user) && activeSquadTab === 'all' && !searchQuery.trim()) {
+      const creator = availableCategories.find((c) => c.slug === 'social-media-creator');
+      if (creator) return [{ squad: { id: 'creator-featured', name: 'Content Creation', shortName: 'Content Creation', emoji: '🤳', description: 'Your social media creator profile', categorySlugs: [creator.slug] }, categories: [creator] }, ...groups.map((g) => ({ ...g, categories: g.categories.filter((c) => c.id !== creator.id) })).filter((g) => g.categories.length > 0)];
+    }
+    return groups;
+  }, [availableCategories, searchQuery, activeSquadTab, user]);
 
   const allSquadGroups = useMemo(() => {
     return groupCategoriesBySquad(availableCategories, '', 'all');

@@ -27,6 +27,7 @@ class AuthUser {
   final bool onboardingCompleted;
   final bool skipOnboarding;
   final bool isActive;
+  final bool isSocialMediaCreator;
 
   AuthUser({
     required this.id,
@@ -37,10 +38,11 @@ class AuthUser {
     this.onboardingCompleted = false,
     this.skipOnboarding = false,
     this.isActive = true,
+    this.isSocialMediaCreator = false,
   });
 
   bool get isApproved => approvalStatus == 'approved';
-  bool get isOnboarded => onboardingCompleted || skipOnboarding;
+  bool get isOnboarded => onboardingCompleted || skipOnboarding || isSocialMediaCreator;
   bool get isTalent => role == 'talent';
   bool get isAgency => role == 'agency';
   bool get isSquad => role == 'squad_member' || role == 'squad_manager';
@@ -59,6 +61,8 @@ class AuthUser {
       onboardingCompleted: json['onboarding_completed'] != false,
       skipOnboarding: json['skip_onboarding'] == true,
       isActive: json['is_active'] != false,
+      isSocialMediaCreator: json['signup_form_type'] == 'social_media_creator' ||
+          (json['signup_categories'] is List && (json['signup_categories'] as List).contains('social-media-creator')),
     );
   }
 }

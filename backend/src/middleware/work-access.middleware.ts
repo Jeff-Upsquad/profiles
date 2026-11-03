@@ -1,3 +1,4 @@
+import { isSocialMediaCreator } from '../../../shared/src/creatorRoles.js';
 import type { Request, Response, NextFunction } from 'express';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from './errorHandler.middleware.js';
@@ -8,15 +9,15 @@ async function check(req: Request, next: NextFunction, kind: 'profile' | 'partne
     if (!userId) throw new AppError(401, 'Authentication required');
     const { data, error } = await supabaseAdmin
       .from('talent_users')
-      .select('wants_jobs, partner_approval_status')
+      .select('wants_jobs, partner_approval_status, signup_form_type, signup_categories')
       .eq('id', userId)
       .single();
     if (error || !data) throw new AppError(404, 'Talent user not found');
     const partnerApproved = data.partner_approval_status === 'approved';
-    const allowed = kind === 'profile'
+    const allowed = isSocialMediaCreator(data) || (kind === 'profile'
       ? data.wants_jobs || partnerApproved
       : kind === 'partner' ? partnerApproved
-        : data.wants_jobs;
+        : data.wants_jobs);
     if (!allowed) throw new AppError(403, kind === 'partner'
       ? 'Partner Program access is pending approval.'
       : kind === 'jobs' ? 'Select Jobs in your basic profile to access job openings.'

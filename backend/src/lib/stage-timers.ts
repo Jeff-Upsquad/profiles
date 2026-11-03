@@ -155,6 +155,8 @@ export function ruleText(r: StageTimerRule): string {
 
 /** The subset of talent_users a timer needs. */
 export interface TimerTalent {
+  signup_form_type?: string | null;
+  signup_categories?: string[] | null;
   id: string;
   wants_jobs: boolean | null;
   partner_approval_status: string | null;

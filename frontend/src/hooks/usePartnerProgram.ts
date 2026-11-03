@@ -1,3 +1,4 @@
+import { isSocialMediaCreator } from '@/lib/creatorIdentity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
@@ -76,6 +77,6 @@ export function useApplyForPartnerProgram() {
 export function usePartnerAccess() {
   const { user } = useAuth();
   const status = user?.partner_approval_status;
-  const locked = status !== undefined && status !== 'approved';
+  const locked = !isSocialMediaCreator(user) && status !== undefined && status !== 'approved';
   return { status, locked, approved: !locked };
 }

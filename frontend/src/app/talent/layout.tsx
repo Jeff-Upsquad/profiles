@@ -1,5 +1,6 @@
 'use client';
 
+import { isSocialMediaCreator } from '@/lib/creatorIdentity';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -114,9 +115,9 @@ export default function TalentLayout({
     }
   }, [pathname]);
   const isTalent = !!user && user.role === 'talent';
-  const partnerOnlyPending = user?.wants_jobs === false && user?.partner_approval_status !== 'approved';
-  const partnerLocked = user?.partner_approval_status !== undefined && user.partner_approval_status !== 'approved';
-  const onboarded = user?.onboarding_completed === true || user?.skip_onboarding === true;
+  const partnerOnlyPending = !isSocialMediaCreator(user) && user?.wants_jobs === false && user?.partner_approval_status !== 'approved';
+  const partnerLocked = !isSocialMediaCreator(user) && user?.partner_approval_status !== undefined && user.partner_approval_status !== 'approved';
+  const onboarded = isSocialMediaCreator(user) || user?.onboarding_completed === true || user?.skip_onboarding === true;
   const cancelled = !!user?.application_cancelled_at;
   // A stage time limit ran out: everything but support is locked until they reactivate.
   const inactiveItems = !cancelled ? user?.stage_inactivity ?? [] : [];
@@ -180,7 +181,7 @@ export default function TalentLayout({
     if (partnerLocked && matches(route, ['/talent/bidding', '/talent/my-clients', '/talent/squadhub'])) {
       return true;
     }
-    if (user.wants_jobs === false && (route === '/talent/job-openings' || route.startsWith('/talent/job-openings/'))) return true;
+    if (!isSocialMediaCreator(user) && user.wants_jobs === false && (route === '/talent/job-openings' || route.startsWith('/talent/job-openings/'))) return true;
     if (ALWAYS_ACCESSIBLE.some((r) => route === r || route.startsWith(r + '/'))) return false;
     const mod = Object.entries(ROUTE_TO_MODULE).find(([r]) => route === r || route.startsWith(r + '/'))?.[1];
     if (!mod) return !onboarded;
@@ -396,7 +397,7 @@ export default function TalentLayout({
     if (partnerLocked && ['/talent/my-clients', '/talent/squadhub'].includes(item.to)) {
       return { ...item, disabled: true, tooltip: 'Partner Program approval pending' };
     }
-    if (user.wants_jobs === false && item.to === '/talent/job-openings') {
+    if (!isSocialMediaCreator(user) && user.wants_jobs === false && item.to === '/talent/job-openings') {
       return { ...item, disabled: true, tooltip: 'Select Jobs in your basic profile to unlock' };
     }
     const isAlwaysAccessible = ALWAYS_ACCESSIBLE.some(

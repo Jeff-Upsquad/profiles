@@ -1,4 +1,6 @@
+import { isSocialMediaCreator } from '@/lib/creatorIdentity';
 import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
 import {
   useMyProfiles,
   useDeactivateProfile,
@@ -25,6 +27,7 @@ function tintFor(seed: string): string {
 }
 
 export default function ProfileList() {
+  const { user } = useAuth();
   const { data: profiles, isLoading } = useMyProfiles();
   const deactivate = useDeactivateProfile();
   const reactivate = useReactivateProfile();
@@ -98,6 +101,10 @@ export default function ProfileList() {
         </div>
       </section>
 
+      {isSocialMediaCreator(user) && <Link href="/talent/profiles/new" className="block rounded-2xl border border-[#E7E7EA] bg-white p-6">
+        <span className="text-2xl">🤳</span><h2 className="mt-2 text-lg font-semibold">Content Creation</h2>
+        <p className="mt-1 text-sm text-[#525252]">Create or manage your Social Media Creator job profile — channels, audience and brand collaborations.</p>
+      </Link>}
       <PendingApprovalBanner />
 
       {changesRequestedProfiles.length > 0 && (

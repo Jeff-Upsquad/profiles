@@ -139,7 +139,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               title: firstName.isEmpty ? 'Welcome back.' : 'Welcome back, ',
               titleHighlight: firstName.isEmpty ? null : '$firstName.',
             ),
-            if (progress != null && progress.showStrip && !stripDismissed) ...[
+            if (!(user?.isSocialMediaCreator ?? false) && progress != null && progress.showStrip && !stripDismissed) ...[
               const SizedBox(height: 16),
               _OnboardingJourney(
                 progress: progress,

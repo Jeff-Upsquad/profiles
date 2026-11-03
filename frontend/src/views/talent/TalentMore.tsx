@@ -1,5 +1,6 @@
 'use client';
 
+import { isSocialMediaCreator } from '@/lib/creatorIdentity';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useIncompleteTrainingCount, useModuleAccess } from '@/hooks/useTraining';
@@ -21,7 +22,7 @@ interface MoreItem {
 
 export default function TalentMore() {
   const { user } = useAuth();
-  const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
+  const onboarded = isSocialMediaCreator(user) || user?.onboarding_completed !== false || user?.skip_onboarding === true;
   const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
   const { data: incompleteTraining = 0 } = useIncompleteTrainingCount();
   const { hasAssignedCard } = useTalentHasAssignedCard();

@@ -5,10 +5,10 @@ import { REMAINING_ROLES } from './contentRoles';
 // Portfolio Updation stage. Used by the talent forms, the dashboard checklist,
 // the admin journey panel and the pipeline stage order.
 
-const NO_PORTFOLIO_SLUGS = new Set<string>(['sales', 'accountant', 'social-media-manager', ...REMAINING_ROLES.filter((r) => !r.portfolio).map((r) => r.slug)]);
+const NO_PORTFOLIO_SLUGS = new Set<string>(['sales', 'accountant', 'social-media-manager', 'social-media-creator', ...REMAINING_ROLES.filter((r) => !r.portfolio).map((r) => r.slug)]);
 
 /** Category slug → form_type is 1:1 for these, so one set covers both. */
-const NO_PORTFOLIO_FORM_TYPES = new Set<string>(['sales', 'accountant', 'social_media_manager', ...REMAINING_ROLES.filter((r) => !r.portfolio).map((r) => r.formType)]);
+const NO_PORTFOLIO_FORM_TYPES = new Set<string>(['sales', 'accountant', 'social_media_manager', 'social_media_creator', ...REMAINING_ROLES.filter((r) => !r.portfolio).map((r) => r.formType)]);
 
 /** True unless this category's job profile has no portfolio. Unknown → true. */
 export function categoryHasPortfolio(slug: string | null | undefined): boolean {

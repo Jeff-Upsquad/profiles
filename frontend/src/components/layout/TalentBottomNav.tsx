@@ -1,5 +1,6 @@
 'use client';
 
+import { isSocialMediaCreator } from '@/lib/creatorIdentity';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useConversationUnread } from '@/hooks/useConversations';
@@ -66,8 +67,8 @@ export default function TalentBottomNav() {
   const { user } = useAuth();
   const cancelled = !!user?.application_cancelled_at;
   const { anyPending } = useTalentPendingTasks({ enabled: !cancelled });
-  const partnerOnlyPending = user?.wants_jobs === false && user.partner_approval_status !== 'approved';
-  const onboarded = user?.onboarding_completed === true || user?.skip_onboarding === true;
+  const partnerOnlyPending = !isSocialMediaCreator(user) && user?.wants_jobs === false && user.partner_approval_status !== 'approved';
+  const onboarded = isSocialMediaCreator(user) || user?.onboarding_completed === true || user?.skip_onboarding === true;
   if (/^\/talent\/messages\/[^/]+/.test(pathname)) return null;
 
   const navItems: NavItem[] = [

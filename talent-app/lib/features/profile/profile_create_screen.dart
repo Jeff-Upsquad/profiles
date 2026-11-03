@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../models/talent_profile.dart';
 import '../../providers/talent_providers.dart';
+import '../../providers/providers.dart';
 import '../../widgets/shimmer_loading.dart';
 import '../../widgets/ui_kit.dart';
 
@@ -84,7 +85,12 @@ class _ProfileCreateScreenState extends ConsumerState<ProfileCreateScreen> {
               style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
             const SizedBox(height: 16),
-            for (final cat in items)
+            for (final cat in ([...items]..sort((a, b) {
+              if (!(ref.read(authProvider).user?.isSocialMediaCreator ?? false)) return 0;
+              if (a.slug == 'social-media-creator') return -1;
+              if (b.slug == 'social-media-creator') return 1;
+              return 0;
+            })))
               Card(
                 margin: const EdgeInsets.only(bottom: 10),
                 clipBehavior: Clip.antiAlias,

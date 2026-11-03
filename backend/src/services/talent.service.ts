@@ -1,3 +1,4 @@
+import { isSocialMediaCreator } from '../../../shared/src/creatorRoles.js';
 import { categoryHasPortfolio } from '../../../shared/src/portfolio.js';
 import { MIN_PORTFOLIO_ITEMS } from '../../../shared/src/contentRoles.js';
 import { supabaseAdmin } from '../config/supabase.js';
@@ -297,8 +298,9 @@ const BASIC_PROFILE_MANDATORY_COLUMNS =
 // agree on what "done" means.
 export function isBasicProfileMandatoryComplete(
   basic: Record<string, any> | null,
-  talent: { full_name: string | null; languages_spoken: unknown },
+  talent: { full_name: string | null; languages_spoken: unknown; signup_form_type?: string | null; signup_categories?: string[] | null },
 ): boolean {
+  if (isSocialMediaCreator(talent)) return true;
   if (!basic) return false;
 
   if (!talent.full_name || !talent.full_name.trim()) return false;
@@ -405,7 +407,7 @@ export async function computeOnboardingProgress(userId: string): Promise<{
 
   const { data: talent } = await supabaseAdmin
     .from('talent_users')
-    .select('id, full_name, languages_spoken, onboarding_completed, skip_onboarding')
+    .select('id, full_name, languages_spoken, onboarding_completed, skip_onboarding, signup_form_type, signup_categories')
     .eq('id', userId)
     .maybeSingle();
   if (!talent) return empty;
@@ -453,7 +455,7 @@ export async function computeOnboardingProgress(userId: string): Promise<{
     // without rewriting onboarding_completed.
     onboarding_completed: !!talent.onboarding_completed || !!talent.skip_onboarding,
     onboarding_bypassed: !!talent.skip_onboarding,
-    basic_profile_completed: isBasicProfileMandatoryComplete(basic, {
+    basic_profile_completed: isSocialMediaCreator(talent) || isBasicProfileMandatoryComplete(basic, {
       full_name: talent.full_name ?? null,
       languages_spoken: talent.languages_spoken,
     }),

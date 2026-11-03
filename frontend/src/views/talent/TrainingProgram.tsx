@@ -1,5 +1,6 @@
 'use client';
 
+import { isSocialMediaCreator } from '@/lib/creatorIdentity';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -637,7 +638,7 @@ function OnboardingTraining({ routeCourseId }: { routeCourseId: string | null })
 function TalentTrainingProgram() {
   const { user } = useAuth();
   const routeCourseId = (useParams()?.courseId as string | undefined) ?? null;
-  const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
+  const onboarded = isSocialMediaCreator(user) || user?.onboarding_completed !== false || user?.skip_onboarding === true;
   const { data, isLoading } = useMyTraining();
   const markComplete = useMarkLessonComplete();
   const markIncomplete = useMarkLessonIncomplete();

@@ -1,3 +1,4 @@
+import { isSocialMediaCreator } from '../../../shared/src/creatorRoles.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
@@ -370,11 +371,11 @@ export async function updatePageConfig(pageId: string, input: UpdatePageConfigIn
 async function isOnboardingBypassed(userId: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin
     .from('talent_users')
-    .select('skip_onboarding')
+    .select('skip_onboarding, signup_form_type, signup_categories')
     .eq('id', userId)
     .maybeSingle();
   if (error) return false;
-  return data?.skip_onboarding === true;
+  return data?.skip_onboarding === true || isSocialMediaCreator(data);
 }
 
 async function markOnboardingComplete(userId: string, message: string) {

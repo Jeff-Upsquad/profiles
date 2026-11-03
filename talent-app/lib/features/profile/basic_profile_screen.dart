@@ -24,6 +24,8 @@ class BasicProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
+  bool get _isCreator => ref.read(authProvider).user?.isSocialMediaCreator ?? false;
+
   BasicProfile _p = BasicProfile();
   final _fullName = TextEditingController();
   List<LanguageEntry> _languages = [];
@@ -115,7 +117,7 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
   /// completeness is only enforced while saving from the Address tab, exactly
   /// like the web's BasicProfileForm.
   String? _validateForSave({required bool addressSectionActive}) {
-    if (addressSectionActive) {
+    if (addressSectionActive && !_isCreator) {
       const missing =
           'Country, state, district and city are required for official address';
       if (_p.permanentCountry.trim().isEmpty ||
@@ -353,7 +355,9 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
           done: () => _p.resumeUrl?.isNotEmpty ?? false,
           optional: !resumeRequired,
         ),
-      ];
+      ].map((section) => _isCreator
+          ? _SectionSpec(label: section.label, icon: section.icon, build: section.build, done: section.done, optional: true)
+          : section).toList();
   }
 
   @override
@@ -397,7 +401,7 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
     final counted = sections.where((s) => !s.optional).toList();
     final doneCount = counted.where((s) => s.done()).length;
     final pct = counted.isEmpty
-        ? 0
+        ? 100
         : (doneCount / counted.length * 100).round();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -410,7 +414,7 @@ class _BasicProfileScreenState extends ConsumerState<BasicProfileScreen> {
         children: [
           Expanded(
             child: Text(
-              'Complete your profile.',
+              _isCreator ? 'Your profile (optional).' : 'Complete your profile.',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(

@@ -1,3 +1,4 @@
+import { isSocialMediaCreator } from '../../../shared/src/creatorRoles.js';
 // Onboarding stage timers → inactive → cancelled.
 //
 // Settings live in admin_settings.stage_timers (one block per module). Every
@@ -56,7 +57,7 @@ const SWEEP_EVERY_MS = 5 * 60 * 1000;
 let lastSweepAt = 0;
 
 export const TIMER_TALENT_COLUMNS =
-  'id, full_name, phone, tracks_linked, wants_jobs, partner_approval_status, pipeline_stage, jobs_pipeline_stage, ' +
+  'id, full_name, phone, signup_form_type, signup_categories, tracks_linked, wants_jobs, partner_approval_status, pipeline_stage, jobs_pipeline_stage, ' +
   'partner_stage_changed_at, jobs_stage_changed_at, application_cancellations, track_inactivity, stage_timer_state, ' +
   'crm_talent_stage_name, crm_jobs_stage_name, suspended, blacklisted';
 
@@ -283,6 +284,7 @@ export interface InactivitySummary {
 }
 
 export function inactivitySummary(t: TimerTalent, settings: StageTimerSettings, now = Date.now()): InactivitySummary[] {
+  if (isSocialMediaCreator(t)) return [];
   const out: InactivitySummary[] = [];
   for (const tr of TRACKS) {
     const inactivity = t.track_inactivity?.[tr];
@@ -384,6 +386,7 @@ export async function sweepStageTimers(now = Date.now()): Promise<void> {
 }
 
 async function stepTalent(t: any, settings: StageTimerSettings, underRc: boolean, now: number, needsYou: NeedsYouReason[]) {
+  if (isSocialMediaCreator(t)) return;
   const transition = stagePauseTransition(t.stage_timer_state ?? {}, needsYou, underRc, now);
   if (transition.changed) {
     const inactive = { ...(t.track_inactivity ?? {}) };

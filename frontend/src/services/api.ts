@@ -16,6 +16,7 @@ const PUBLIC_PATHS = [
   '/login/business',
   '/login/agency',
   '/signup/talent',
+  '/signup/social-media-creators',
   '/signup/business',
   '/forgot-password',
   '/apply/creative',

@@ -126,6 +126,14 @@ export const SERVICE_SQUADS: Squad[] = [
     tags: ['Digital', 'Offline', 'PR', 'Ads'],
     items: [
       {
+        id: 'social-media-creators',
+        name: 'Social Media Creators',
+        emoji: '🤳',
+        desc: 'Individuals and channels creating and publishing branded content across social platforms.',
+        status: 'live',
+        brief: 'social_media_creator',
+      },
+      {
         id: 'ad-specialists',
         name: 'Ad Specialists',
         emoji: '🎯',

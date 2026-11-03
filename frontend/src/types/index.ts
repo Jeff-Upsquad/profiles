@@ -25,6 +25,8 @@ export interface User {
   /** Programs locked because a stage time limit ran out (empty when active). */
   stage_inactivity?: StageInactivity[];
   skip_onboarding?: boolean;
+  signup_form_type?: string | null;
+  signup_categories?: string[];
   contact_person_name?: string;
   contact_email?: string;
   contact_phone?: string;

@@ -1,3 +1,4 @@
+import { isSocialMediaCreator } from '@/lib/creatorIdentity';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
@@ -46,7 +47,7 @@ export function useTalentPendingTasks({ enabled = true }: { enabled?: boolean } 
   // Never flag anything until the data is in — a flash of "Pending" on every
   // page load would be noise.
   const basicSections =
-    basicLoaded && meLoaded
+    !isSocialMediaCreator(user) && basicLoaded && meLoaded
       ? pendingBasicSections({
           fullName: talentMe?.full_name ?? user?.full_name,
           languages: talentMe?.languages_spoken,

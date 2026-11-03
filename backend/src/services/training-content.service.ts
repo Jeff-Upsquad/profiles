@@ -1,3 +1,4 @@
+import { isSocialMediaCreator } from '../../../shared/src/creatorRoles.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 
@@ -103,11 +104,11 @@ async function hasApprovedProfile(userId: string): Promise<boolean> {
 async function isOnboardingBypassed(userId: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin
     .from('talent_users')
-    .select('skip_onboarding')
+    .select('skip_onboarding, signup_form_type, signup_categories')
     .eq('id', userId)
     .maybeSingle();
   if (error) return false;
-  return data?.skip_onboarding === true;
+  return data?.skip_onboarding === true || isSocialMediaCreator(data);
 }
 
 /** Approved talents and admin-bypassed talents skip every lock. */
@@ -699,6 +700,9 @@ async function itemsForCategories(categoryIds: string[]): Promise<any[]> {
  */
 export async function getModuleAccess(userId: string, categoryIds: string[]) {
   const empty = { unlocked: [] as string[], locked: [] as any[] };
+  if (await isOnboardingBypassed(userId)) {
+    return { unlocked: ['basic-profile', 'profiles', 'subscriptions', 'assignments', 'jobs', 'settings', 'notifications'], locked: [] };
+  }
   if (categoryIds.length === 0) return empty;
 
   const items = await itemsForCategories(categoryIds);

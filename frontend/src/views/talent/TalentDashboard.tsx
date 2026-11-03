@@ -1,3 +1,4 @@
+import { isSocialMediaCreator } from '@/lib/creatorIdentity';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -181,12 +182,12 @@ export default function TalentDashboard() {
   const { data: onboardingProgress } = useMyOnboardingProgress();
   const { data: moduleAccess, isLoading: accessLoading } = useModuleAccess();
   const layout = useHomeLayout();
-  const onboarded = user?.onboarding_completed !== false || user?.skip_onboarding === true;
-  const partnerAvailable = user?.partner_approval_status === undefined || user.partner_approval_status === 'approved';
+  const onboarded = isSocialMediaCreator(user) || user?.onboarding_completed !== false || user?.skip_onboarding === true;
+  const partnerAvailable = isSocialMediaCreator(user) || user?.partner_approval_status === undefined || user.partner_approval_status === 'approved';
   // A talent who never asked for Jobs has no Jobs tab; everyone else keeps all
   // three, because Subscriptions and Assignments are now browsable (read-only)
   // even before Partner Program approval.
-  const wantsJobs = user?.wants_jobs !== false;
+  const wantsJobs = isSocialMediaCreator(user) || user?.wants_jobs !== false;
   const homeTabs: TalentHomeTab[] | undefined = wantsJobs
     ? undefined
     : ['subscriptions', 'assignments'];
@@ -208,7 +209,7 @@ export default function TalentDashboard() {
   };
 
   const showOnboardingStrip = (() => {
-    if (!onboardingProgress) return false;
+    if (isSocialMediaCreator(user) || !onboardingProgress) return false;
     if (!onboardingProgress.all_completed_at) return true;
     const completedMs = new Date(onboardingProgress.all_completed_at).getTime();
     return Date.now() - completedMs < SEVEN_DAYS_MS;

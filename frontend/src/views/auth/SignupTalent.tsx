@@ -87,13 +87,13 @@ interface CheckResult {
   prefilled_candidate: PrefilledCandidate | null;
 }
 
-export default function SignupTalent() {
+export default function SignupTalent({ creatorSignup = false }: { creatorSignup?: boolean }) {
   const { user, isLoading: authLoading, login } = useAuth();
   const router = useRouter();
 
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>(creatorSignup ? ['social-media-creator'] : []);
   const [categorySearch, setCategorySearch] = useState('');
-  const [expandedSquads, setExpandedSquads] = useState<string[]>(['content-creation']);
+  const [expandedSquads, setExpandedSquads] = useState<string[]>(creatorSignup ? ['marketing'] : ['content-creation']);
   const [categoryError, setCategoryError] = useState(false);
   const [loginFailed, setLoginFailed] = useState(false);
   const categoryQuery = categorySearch.trim().toLowerCase();
@@ -222,7 +222,8 @@ export default function SignupTalent() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!categories.length) {
+    const signupCategories = creatorSignup ? ['social-media-creator'] : categories;
+    if (!signupCategories.length) {
       setCategoryError(true);
       document.getElementById('signup-categories')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
@@ -242,7 +243,7 @@ export default function SignupTalent() {
         country: form.country || undefined,
         state: form.state || undefined,
         current_district: form.current_district || undefined,
-        signup_categories: categories,
+        signup_categories: signupCategories,
         signup_role: signupOrigin.role || undefined,
         signup_ref: signupOrigin.ref || undefined,
       });
@@ -310,14 +311,15 @@ export default function SignupTalent() {
           {view === 'form' && (
             <>
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Create Account</h2>
+                <h2 className="text-2xl font-bold text-gray-900">{creatorSignup ? 'Join as a Social Media Creator' : 'Create Account'}</h2>
                 <p className="mt-1 text-sm text-gray-500">
                   Showcase your skills and get discovered by businesses
                 </p>
               </div>
 
+              {creatorSignup && <p className="mb-4 rounded-xl bg-[#FFFAC2]/40 p-4 text-sm text-gray-700">For individuals and channels on Facebook, Instagram, TikTok, YouTube and more. Training and basic profile details are optional. Create your content creation profile and explore assignments and subscriptions.</p>}
               <form onSubmit={handleSubmit} className="space-y-4">
-                <section id="signup-categories" aria-labelledby="category-heading" className="pb-2">
+                {!creatorSignup && <section id="signup-categories" aria-labelledby="category-heading" className="pb-2">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <h3 id="category-heading" className="text-sm font-semibold text-gray-800">Applying Categories <span className="font-normal text-gray-500">(select all that apply)</span></h3>
                     <span className="text-xs text-gray-500" aria-live="polite">{categories.length} selected</span>
@@ -358,7 +360,7 @@ export default function SignupTalent() {
                   {!categoryGroups.length && <p className="mt-3 text-sm text-gray-500">No categories found. Try another search.</p>}
                   {!!categories.length && <p className="mt-3 text-xs leading-5 text-gray-500">Selected: {SIGNUP_CATEGORIES.filter((c) => categories.includes(c.value)).map((c) => c.label).join(', ')}</p>}
                   {categoryError && <p role="alert" className="mt-2 text-xs text-red-600">Choose at least one category to continue.</p>}
-                </section>
+                </section>}
                 {/* Email + Phone — account-exists check fires as they type. */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Input

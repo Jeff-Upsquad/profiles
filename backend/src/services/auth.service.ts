@@ -1,3 +1,4 @@
+import { isSocialMediaCreator } from '../../../shared/src/creatorRoles.js';
 import { supabaseAdmin, supabaseAnon } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { checkInvitation, markInvitationAccepted } from './invite.service.js';
@@ -85,6 +86,7 @@ export async function signupTalent(input: SignupTalentInput, application?: Creat
         // Both picked on one application → one pipeline journey, one message per stage.
         tracks_linked: intent!.jobs && intent!.partner,
       } : {}),
+      ...(isSocialMediaCreator({ signup_form_type: signupFormType, signup_categories }) ? { skip_onboarding: true } : {}),
       ...(signup_categories ? { signup_categories } : {}),
       ...(signupFormType
         ? { signup_form_type: signupFormType, signup_source: signupSource }

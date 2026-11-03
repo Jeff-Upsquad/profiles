@@ -38,6 +38,7 @@ export const PROFILE_SQUADS: ProfileSquad[] = [
     description: 'Growth-focused marketing support across digital, performance ads, SEO, and PR.',
     tags: ['Ads', 'Digital', 'SEO', 'PR'],
     categorySlugs: [
+      'social-media-creator',
       'ads-specialist',
       'seo-specialist',
       'digital-marketing-team',
