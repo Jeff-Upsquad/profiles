@@ -255,6 +255,14 @@ export default function JobCardDetail({ recipientId }: { recipientId: string }) 
           {content.job_profile?.work_mode && (
             <DetailRow label="Work mode">{content.job_profile.work_mode}</DetailRow>
           )}
+          {content.job_profile?.location && (
+            <DetailRow label="Work location">
+              {[content.job_profile.location.label, content.job_profile.location.address, content.job_profile.location.city, content.job_profile.location.district, content.job_profile.location.postal_code].filter(Boolean).join(', ')}
+            </DetailRow>
+          )}
+          {content.job_profile?.location?.description && (
+            <DetailRow label="Location details">{content.job_profile.location.description}</DetailRow>
+          )}
           {content.expected_joining_date && (
             <DetailRow label="Expected joining">{fmtDate(content.expected_joining_date)}</DetailRow>
           )}

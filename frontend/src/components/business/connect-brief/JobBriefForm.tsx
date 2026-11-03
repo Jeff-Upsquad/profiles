@@ -14,7 +14,7 @@ const newJob = (title: string, currency = 'INR'): Draft => ({ id: '', title, des
   working_days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], working_hours: { start: '', end: '', timezone: 'Asia/Kolkata' },
   salary_min: null, salary_max: null, salary_currency: currency, salary_period: 'monthly', benefits: [], growth_path: '',
   preference_rules: {}, squadhire_category_ids: [], location_id: null });
-const newLocation = (): Draft => ({ id: crypto.randomUUID(), label: '', address: '', city: '', region: '', postal_code: '', country_id: null, google_maps_url: '', is_primary: true });
+const newLocation = (): Draft => ({ id: crypto.randomUUID(), label: '', address: '', city: '', region: '', district: '', postal_code: '', description: '', country_id: null, google_maps_url: '', is_primary: true });
 const requiredBusinessFields = ['contact_name', 'contact_email', 'contact_phone', 'name', 'about', 'industry', 'company_size', 'website', 'founded_year'];
 const completeLocation = (profile: Draft) => ['label', 'address', 'city', 'region'].every((key) => str(profile[key]).trim());
 const newBrand = (): Draft => ({ id: '', name: '', about: '', industry: '', website: '', socials: {}, logo_url: '', photos: [] });
@@ -108,12 +108,12 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
 
   function changeBusiness(profile: Profile) {
     setBusiness(profile); setBusinessId(profile.id); setEditingBusiness(false);
-    setLocation(null); setInitialLocation(newLocation());
+    setInitialLocation(newLocation()); setLocation(null);
     setBrandId(''); setBrand(newBrand()); setEditingBrand(false); resetJob();
   }
   function resetJob() { setJobId(''); setJob({ ...newJob(categoryName, user?.default_currency || 'INR'), id: crypto.randomUUID(), squadhire_category_ids: list(job.squadhire_category_ids) }); setEditingJob(true); }
   function changeBrand(id: string) {
-    setBrandId(id); setBrand(bundle.brands.find((p) => p.id === id) || newBrand()); setEditingBrand(false); resetJob();
+    setBrandId(id); setBrand(bundle.brands.find((p) => p.id === id) || newBrand()); setEditingBrand(false); setLocation(null); resetJob();
   }
   async function save(kind: Kind, draft: Draft): Promise<Profile> {
     const id = str(draft.id) || crypto.randomUUID();
@@ -141,6 +141,9 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
   const updateJob = (key: string, value: unknown) => setJob((current) => ({ ...current, [key]: value }));
   const brands = bundle.brands.filter((p) => p.business_profile_id === businessId);
   const locations = bundle.locations.filter((p) => p.business_profile_id === businessId);
+  // '' = business-level (brand is the business itself); otherwise the brand's outlets.
+  const brandLocations = locations.filter((p) => (str(p.brand_profile_id) || '') === brandId);
+  const jobLocations = locations.filter((p) => !str(p.brand_profile_id) || str(p.brand_profile_id) === brandId);
   const selectedCategory = categories.find((c) => c.name.trim().toLowerCase().replace(/s$/, '') === categoryName.trim().toLowerCase().replace(/s$/, ''));
   const jobs = bundle.jobs.filter((p) => p.business_profile_id === businessId && (p.brand_profile_id || '') === brandId && p.status !== 'archived' && (!selectedCategory || list(p.squadhire_category_ids).includes(selectedCategory.id)));
   const businessComplete = requiredBusinessFields.every((key) => str(business[key]).trim());
@@ -166,7 +169,7 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
         {bundle.businesses.length > 0 && <Section title="Your business" hint="Select the same business profile used in SquadHub admin."><DescribedSelect label="Saved business profile" value={businessId || bundle.businesses[0].id} options={bundle.businesses.map((p) => ({ value: p.id, label: p.name, description: str(p.industry) || 'Saved business profile' }))} onChange={(id) => { const selected = bundle.businesses.find((p) => p.id === id); if (selected) changeBusiness(selected); }} /></Section>}
         {editingBusiness ? <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); void run(async () => {
           if (!businessComplete) throw new Error('Complete all required contact and business profile details.');
-          if (!hasLocation && !completeLocation(initialLocation)) throw new Error('Complete the location name, address, city, and state / region.');
+          if (!hasLocation && !completeLocation(initialLocation)) throw new Error('Complete the location name, address, city, and state.');
           const saved = await save('business', business); setBusiness(saved); setBusinessId(saved.id);
           if (!hasLocation) await save('location', { ...initialLocation, business_profile_id: saved.id });
           setEditingBusiness(false);
@@ -190,15 +193,7 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
           {businessId && <p className="text-xs text-[#7A7568]">Changes update the shared profile wherever it is used.</p>}
           <button className={primary} disabled={busy} type="submit">{busy ? 'Saving…' : 'Save business profile'}</button>
         </form> : <Section title={str(business.name)} hint={`${str(business.industry)}${business.company_size ? ` · ${str(business.company_size)} employees` : ''}`}><p className="whitespace-pre-wrap text-sm text-[#7A7568]">{str(business.about)}</p><button type="button" className={secondary} onClick={() => setEditingBusiness(true)}>Edit business profile</button></Section>}
-        {businessId && <Section title="Work & interview locations" hint="Saved venues are also available when scheduling physical interviews.">
-          {locations.map((p) => <div key={p.id} className="flex items-start justify-between gap-3 rounded-xl border border-[#E8E5DD] p-3"><div><p className="text-sm font-semibold">{str(p.label)}</p><p className="mt-1 text-xs text-[#7A7568]">{str(p.address)} {str(p.city)} {str(p.region)}</p></div><button type="button" className="text-xs font-semibold underline" onClick={() => setLocation(p)}>Edit location</button></div>)}
-          {!location && <button className={secondary} type="button" onClick={() => setLocation({ ...newLocation(), is_primary: locations.length === 0 })}>+ Add location</button>}
-          {location && <form className="space-y-4 rounded-xl border border-[#E8E5DD] p-4" onSubmit={(e) => { e.preventDefault(); void run(async () => { if (!completeLocation(location)) throw new Error('Complete the location name, address, city, and state / region.'); await save('location', { ...location, business_profile_id: businessId }); setLocation(null); }); }}>
-            <LocationFields value={location} onChange={setLocation} countries={countries} />
-            <div className="flex gap-3"><button type="submit" className={primary} disabled={busy}>Save location</button><button type="button" className={secondary} onClick={() => setLocation(null)}>Cancel</button></div>
-          </form>}
-        </Section>}
-        {businessId && !editingBusiness && !canContinue && <p className="text-sm text-[#7A7568]">{!businessComplete ? 'Edit your business profile to complete all required contact and business details.' : 'Add or edit a location with a city and state / region to continue.'}</p>}
+        {businessId && !editingBusiness && !canContinue && <p className="text-sm text-[#7A7568]">{!businessComplete ? 'Edit your business profile to complete all required contact and business details.' : 'Edit your business profile to add a location with a city and state.'}</p>}
         {businessId && !editingBusiness && <button type="button" disabled={!canContinue} className={primary} onClick={() => setStep(2)}>Continue to brand profile →</button>}
       </>}
       {step === 2 && <>
@@ -218,6 +213,14 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
           <SocialFields value={brand.socials} onChange={(v) => updateBrand('socials', v)} /><PhotoFields value={brand.photos} onChange={(v) => updateBrand('photos', v)} preview={preview} />
           <div className="flex gap-3"><button type="submit" className={primary} disabled={busy}>Save brand profile</button><button type="button" className={secondary} onClick={() => setEditingBrand(false)}>Cancel</button></div>
         </Section></form>}
+        {!editingBrand && <Section title={brandId ? `Locations for ${str(bundle.brands.find((p) => p.id === brandId)?.name) || 'this brand'}` : 'Business locations'} hint={brandId ? 'Outlets of this brand. The location chosen on a job profile is shown to candidates as the matching location.' : 'Locations shared across the business and its brands. The location chosen on a job profile is shown to candidates as the matching location.'}>
+          {brandLocations.map((p) => <div key={p.id} className="flex items-start justify-between gap-3 rounded-xl border border-[#E8E5DD] p-3"><div><p className="text-sm font-semibold">{str(p.label)}</p><p className="mt-1 text-xs text-[#7A7568]">{[str(p.address), str(p.city), str(p.district), str(p.region)].filter(Boolean).join(', ')}</p></div><button type="button" className="text-xs font-semibold underline" onClick={() => setLocation(p)}>Edit location</button></div>)}
+          {!location && <button className={secondary} type="button" onClick={() => setLocation({ ...newLocation(), is_primary: locations.length === 0 })}>+ Add location</button>}
+          {location && <form className="space-y-4 rounded-xl border border-[#E8E5DD] p-4" onSubmit={(e) => { e.preventDefault(); void run(async () => { if (!completeLocation(location)) throw new Error('Complete the location name, address, city, and state.'); await save('location', { ...location, business_profile_id: businessId, brand_profile_id: brandId || null }); setLocation(null); }); }}>
+            <LocationFields value={location} onChange={setLocation} countries={countries} />
+            <div className="flex gap-3"><button type="submit" className={primary} disabled={busy}>Save location</button><button type="button" className={secondary} onClick={() => setLocation(null)}>Cancel</button></div>
+          </form>}
+        </Section>}
         {!editingBrand && <button type="button" className={primary} onClick={() => setStep(3)}>Continue to job profile →</button>}
       </>}
       {step === 3 && <>
@@ -237,7 +240,7 @@ export default function JobBriefForm({ categoryName, preview, onClose }: { categ
           <Section title="Working arrangement"><div className="grid gap-4 sm:grid-cols-2">
             <DescribedSelect label="Employment type" value={str(job.employment_type)} onChange={(v) => updateJob('employment_type', v)} options={[{ value: 'full_time', label: 'Full-time', description: 'An ongoing role with regular full-time hours.' }, { value: 'part_time', label: 'Part-time', description: 'Fewer working hours or days each week.' }, { value: 'contract', label: 'Contract', description: 'A fixed period or a defined scope of work.' }, { value: 'internship', label: 'Internship', description: 'A role focused on learning and practical work experience.' }]} />
             <DescribedSelect label="Work mode" value={str(job.work_mode)} onChange={(v) => updateJob('work_mode', v)} options={[{ value: 'remote', label: 'Remote', description: 'Work away from the office, from an agreed location.' }, { value: 'hybrid', label: 'Hybrid', description: 'Split time between the office and remote work.' }, { value: 'onsite', label: 'On-site', description: 'Work in person at your specified location.' }]} />
-          </div><Field label="Work location" hint="Add or edit locations in Business profile."><select className={inputClass} value={str(job.location_id)} onChange={(e) => updateJob('location_id', e.target.value || null)} required={job.work_mode !== 'remote'}><option value="">No fixed location</option>{locations.map((p) => <option key={p.id} value={p.id}>{str(p.label)} · {str(p.city)}</option>)}</select></Field>
+          </div><Field label="Work location" hint={brandId ? "This brand's outlets plus shared business locations." : 'Locations saved for this business.'}><select className={inputClass} value={str(job.location_id)} onChange={(e) => updateJob('location_id', e.target.value || null)} required={job.work_mode !== 'remote'}><option value="">No fixed location</option>{jobLocations.map((p) => <option key={p.id} value={p.id}>{str(p.label)} · {str(p.city)}</option>)}</select></Field>
             <div><p className="text-xs font-semibold text-[#525252]">Working days</p><div className="mt-2 flex flex-wrap gap-2">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => <button key={day} type="button" aria-pressed={list(job.working_days).includes(day)} onClick={() => updateJob('working_days', list(job.working_days).includes(day) ? list(job.working_days).filter((v) => v !== day) : [...list(job.working_days), day])} className={`rounded-lg border px-3 py-2 text-xs ${list(job.working_days).includes(day) ? 'border-black bg-[#F2FCBC]' : 'border-[#D9D5C7]'}`}>{day}</button>)}</div></div>
             <div className="grid gap-4 sm:grid-cols-3"><TextField label="Start time" type="time" value={hours.start} onChange={(v) => updateJob('working_hours', { ...hours, start: v })} /><TextField label="End time" type="time" value={hours.end} onChange={(v) => updateJob('working_hours', { ...hours, end: v })} /><TextField label="Timezone" maxLength={60} value={hours.timezone} onChange={(v) => updateJob('working_hours', { ...hours, timezone: v })} /></div>
           </Section>
@@ -271,10 +274,12 @@ function LocationFields({ value, onChange, countries }: { value: Draft; onChange
     <TextField label="Address" required maxLength={1000} value={value.address} onChange={(v) => update('address', v)} />
     <div className="grid gap-4 sm:grid-cols-2">
       <TextField label="City" required value={value.city} onChange={(v) => update('city', v)} />
-      <TextField label="State / region" required value={value.region} onChange={(v) => update('region', v)} />
-      <TextField label="Postal code" maxLength={20} value={value.postal_code} onChange={(v) => update('postal_code', v)} />
+      <TextField label="State" required value={value.region} onChange={(v) => update('region', v)} />
+      <TextField label="District" maxLength={200} value={value.district} onChange={(v) => update('district', v)} />
+      <TextField label="Pin code" maxLength={20} value={value.postal_code} onChange={(v) => update('postal_code', v)} />
       <Field label="Country"><select className={inputClass} value={str(value.country_id)} onChange={(e) => update('country_id', e.target.value || null)}><option value="">Not specified</option>{countries.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
     </div>
+    <TextArea label="Description (optional)" maxLength={2000} hint="Shown to candidates as details of the matching location." value={value.description} onChange={(v) => update('description', v)} />
     <TextField label="Google Maps URL" type="url" maxLength={1000} value={value.google_maps_url} onChange={(v) => update('google_maps_url', v)} />
     <div className="grid gap-4 sm:grid-cols-2"><TextField label="Latitude (optional)" value={value.latitude} onChange={(v) => update('latitude', v)} /><TextField label="Longitude (optional)" value={value.longitude} onChange={(v) => update('longitude', v)} /></div>
     <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={Boolean(value.is_primary)} onChange={(e) => update('is_primary', e.target.checked)} />Primary location</label>

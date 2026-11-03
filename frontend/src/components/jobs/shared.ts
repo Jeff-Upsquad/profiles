@@ -8,7 +8,10 @@ export interface JobLocationSnapshot {
   label?: string | null;
   address?: string | null;
   city?: string | null;
+  district?: string | null;
   region?: string | null;
+  postal_code?: string | null;
+  description?: string | null;
   google_maps_url?: string | null;
 }
 
@@ -125,7 +128,7 @@ export function packageLabel(content: JobCardContentShape | undefined | null): s
 export function jobLocationLabel(content: JobCardContentShape | undefined | null): string | null {
   const loc = content?.job_profile?.location;
   if (!loc) return null;
-  return [loc.city, loc.region].filter(Boolean).join(', ') || loc.label || null;
+  return [loc.city, loc.district, loc.region].filter(Boolean).join(', ') || loc.label || null;
 }
 
 /** "15 Jul 2026" from an ISO date or timestamp. */
