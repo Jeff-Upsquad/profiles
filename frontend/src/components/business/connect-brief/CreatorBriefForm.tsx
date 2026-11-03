@@ -43,6 +43,7 @@ type FormState = {
   businessNature: string;
   businessNote: string;
   requirement: string;
+  referenceLinks: string[];
   platforms: string[];
   niches: string[];
   formats: string[];
@@ -105,13 +106,17 @@ const SERVICE_DESCRIPTIONS: Record<string, string> = Object.fromEntries(
 
 const emptyForm: FormState = {
   contactName: '', email: '', phone: '', brandName: '', businessNature: '', businessNote: '',
-  requirement: '', platforms: [], niches: [], formats: [], serviceType: '', serviceCount: '', levels: [], levelBudgets: {},
+  requirement: '', referenceLinks: [], platforms: [], niches: [], formats: [], serviceType: '', serviceCount: '', levels: [], levelBudgets: {},
   currency: 'INR', duration: '', startDate: '', deliveryDate: '',
   countryId: '', stateRegions: [], ageGroups: [], languages: ['English'],
   usageRights: '', paidAds: '', exclusivity: '', approvals: '', productDelivery: '',
 };
 
 const ROLE_NAME = 'Social Media Creator';
+
+// Reference links ride inside the brief's additional_requirements (string
+// values up to 1000 chars upstream) — cap the repeater to a tidy number.
+const MAX_REFERENCE_LINKS = 10;
 
 export default function CreatorBriefForm({ product = 'subscription', preview = false }: { product?: Product; preview?: boolean }) {
   const { user, refetchUser } = useAuth();
@@ -185,6 +190,18 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function setReferenceLink(index: number, value: string) {
+    setForm((current) => ({ ...current, referenceLinks: current.referenceLinks.map((link, i) => (i === index ? value : link)) }));
+  }
+
+  function addReferenceLink() {
+    setForm((current) => ({ ...current, referenceLinks: [...current.referenceLinks, ''] }));
+  }
+
+  function removeReferenceLink(index: number) {
+    setForm((current) => ({ ...current, referenceLinks: current.referenceLinks.filter((_, i) => i !== index) }));
   }
 
   function toggle(key: 'platforms' | 'niches' | 'formats' | 'levels' | 'stateRegions' | 'ageGroups' | 'languages', value: string) {
@@ -276,6 +293,7 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
         .filter(Boolean)
         .join(' ');
       const productDeliveryText = form.productDelivery.trim();
+      const referenceLinks = form.referenceLinks.map((link) => link.trim()).filter(Boolean);
 
       await api.post('/business/connect-brief', {
         service_types: ['social_media_creator'],
@@ -320,6 +338,7 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
               deliverables: [`Content formats: ${form.formats.join(', ')}.`, ...(form.serviceType ? [` Quantity: ${serviceCountValue} × ${form.serviceType}.`] : [])].join(''),
               usage_rights: [usageRightsText || 'Not specified'],
               ...(productDeliveryText ? { campaign_logistics: [productDeliveryText] } : {}),
+              ...(referenceLinks.length ? { reference_links: referenceLinks } : {}),
             },
           },
         },
@@ -386,6 +405,19 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
           <GroupHeader index={2} title={`${ROLE_NAME} requirement`} subtitle="The campaign scope and outcomes you need." />
           <Section id="brief-requirement" eyebrow="Requirement" title={`What should your ${ROLE_NAME} own?`} hint="Be specific about the campaign, deliverables and the commercial outcome.">
             <Field label="Describe your requirement" required><textarea className="shb-input min-h-32 resize-y" value={form.requirement} onChange={(e) => update('requirement', e.target.value)} placeholder="e.g. Partner with lifestyle creators to launch our new product line — intro reels, integration posts and UGC we can reuse on our own channels." /></Field>
+            <div>
+              <p className="mb-1 text-sm font-medium text-[#222]">Reference links <small className="ml-1 font-normal text-[#9C9486]">(optional)</small></p>
+              <p className="mb-2 text-xs leading-relaxed text-[#7A7568]">Links the creators should see — product pages, brand site, past campaigns or moodboards.</p>
+              <div className="space-y-2">
+                {form.referenceLinks.map((link, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <input type="url" inputMode="url" className="shb-input" value={link} onChange={(e) => setReferenceLink(index, e.target.value)} placeholder="https://…" />
+                    <button type="button" aria-label={`Remove reference link ${index + 1}`} onClick={() => removeReferenceLink(index)} className="shb-ref-link-remove">✕</button>
+                  </div>
+                ))}
+                {form.referenceLinks.length < MAX_REFERENCE_LINKS && <button type="button" onClick={addReferenceLink} className="shb-ref-link-add">+ Add link</button>}
+              </div>
+            </div>
             <AudioNote
               audioUrl={audioUrl}
               onChange={(blob, url) => {
@@ -646,6 +678,8 @@ const styles = `
 .shb-plan-note{display:flex;align-items:flex-start;gap:8px;margin-top:10px;border:1px solid #E8E5DD;border-radius:10px;background:#FBFAF6;padding:10px 12px;color:#7A7568;font-size:11px;line-height:1.5}.shb-plan-note strong{color:#3A3A3A}
 .shb-currency{width:146px;flex:none;padding-right:30px}
 .shb-audio-note{border:1px solid #E0DCCE;border-radius:12px;background:#FBFAF6;padding:12px}.shb-audio-primary,.shb-audio-secondary,.shb-audio-stop{display:flex;align-items:center;gap:7px;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:700}.shb-audio-primary{flex:1;border:1px dashed #9C9486;background:#fff;color:#3A3A3A}.shb-audio-primary span{margin-left:auto;border-radius:999px;background:#EFECE3;padding:2px 7px;font-size:9px;text-transform:uppercase}.shb-audio-secondary{border:1px solid #D9D5C7;background:#fff;color:#5C5C5C}.shb-audio-danger{color:#9B3D29}.shb-audio-stop{border:1px solid #0a0a0a;background:#0a0a0a;color:#fff}.shb-recording-dot{height:10px;width:10px;border-radius:999px;background:#D1573B;box-shadow:0 0 0 4px rgba(209,87,59,.16);animation:shb-pulse 1.15s ease-in-out infinite}@keyframes shb-pulse{50%{opacity:.4;transform:scale(.82)}}
+.shb-ref-link-remove{display:flex;height:44px;width:40px;flex:none;align-items:center;justify-content:center;border:1px solid #D9D5C7;border-radius:11px;background:#fff;font-size:13px;font-weight:700;color:#9C9486;transition:.15s}.shb-ref-link-remove:hover{border-color:#9B3D29;color:#9B3D29}
+.shb-ref-link-add{display:inline-flex;align-items:center;gap:6px;border:1px dashed #9C9486;border-radius:9px;background:#fff;padding:9px 14px;font-size:12px;font-weight:700;color:#3A3A3A;transition:.15s}.shb-ref-link-add:hover{border-color:#0a0a0a;background:#F9FDEB;color:#0a0a0a}
 .shb-submit-wrap{position:sticky;bottom:0;z-index:5;background:linear-gradient(transparent,#F7F4EC 28%);padding-top:22px}.shb-submit{width:100%;border:2px solid #0a0a0a;border-radius:11px;background:#0a0a0a;padding:12px 18px;font-size:14px;font-weight:700;color:white;box-shadow:3px 3px 0 #C6F24E}.shb-submit:hover{background:#252525}.shb-submit:disabled{opacity:.55}
 @media(max-width:640px){.shb-section{padding:19px}.shb-category{padding:14px}.shb-category button{padding:7px 10px}}
 `;
