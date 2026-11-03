@@ -1,3 +1,5 @@
+import { creatorMatchRules, isCreatorCard } from '../lib/creator-matching.js';
+import { findMatchingTalents } from './subscription-matcher.service.js';
 import { supabaseAdmin } from '../config/supabase.js';
 
 interface TalentSignals {
@@ -352,7 +354,7 @@ export async function backfillCardsForTalent(talentUserId: string): Promise<numb
   // Fetch eligible cards
   const { data: cards, error } = await supabaseAdmin
     .from('subscription_cards')
-    .select('id, match_rules, card_type, distribution, status, archived_at')
+    .select('id, content, match_rules, card_type, distribution, status, archived_at')
     .eq('status', 'active')
     .is('archived_at', null)
     .limit(5000);
@@ -372,7 +374,10 @@ export async function backfillCardsForTalent(talentUserId: string): Promise<numb
   for (const c of eligibleCards as any[]) {
     const rules = (c.match_rules ?? {}) as MatchRules;
     const cardType = (c.card_type ?? 'subscription') as string;
-    if (doesTalentMatchCard(signals, rules, cardType)) matchingCardIds.push(c.id as string);
+    if (isCreatorCard(rules) && cardType !== 'hiring') {
+      const matched = await findMatchingTalents(creatorMatchRules(rules, c.content), { cardType: c.card_type ?? 'subscription', talentUserId });
+      if (matched.includes(talentUserId)) matchingCardIds.push(c.id as string);
+    } else if (doesTalentMatchCard(signals, rules, cardType)) matchingCardIds.push(c.id as string);
   }
   if (matchingCardIds.length === 0) return 0;
 

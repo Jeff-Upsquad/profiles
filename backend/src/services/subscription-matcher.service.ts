@@ -1,3 +1,4 @@
+import { isCreatorCard, matchesCreatorAudience } from '../lib/creator-matching.js';
 import { supabaseAdmin } from '../config/supabase.js';
 
 /**
@@ -24,6 +25,8 @@ export interface MatchRules {
   // creator brief picks from the same vocabulary (frontend
   // constants/creator-profile.ts). Overlap-match: a creator qualifies when
   // they offer at least one of the requested values.
+  target_creator_levels?: string[];
+  target_creator_platforms?: string[];
   target_creator_services?: string[];
   target_creator_niches?: string[];
   target_creator_formats?: string[];
@@ -44,6 +47,8 @@ const KNOWN_RULE_KEYS = new Set<string>([
   'target_country_ids',
   'target_country_names',
   'target_regions',
+  'target_creator_levels',
+  'target_creator_platforms',
   'target_creator_services',
   'target_creator_niches',
   'target_creator_formats',
@@ -58,6 +63,8 @@ export interface FindMatchingTalentsOptions {
   // jobs-only steps (opt-in gate, age, gender, districts). Defaults to the
   // legacy subscription behaviour so existing call sites are unchanged.
   cardType?: 'subscription' | 'assignment' | 'hiring';
+  // Backfill checks one user without loading every creator in the category.
+  talentUserId?: string;
 }
 
 export async function findMatchingTalents(
@@ -100,6 +107,8 @@ export async function findMatchingTalents(
     .eq('talent_users.is_active', true)
     .in('category_id', categoryIds);
 
+  if (opts.talentUserId) qb = qb.eq('talent_user_id', opts.talentUserId);
+
   const minExp = Number(matchRules.min_experience_years) || 0;
   if (minExp > 0) {
     qb = qb.gte('field_data->>years_experience', String(minExp));
@@ -130,13 +139,14 @@ export async function findMatchingTalents(
   const tiers = Array.isArray(matchRules.target_tiers)
     ? matchRules.target_tiers.map((t) => String(t).toLowerCase()).filter(Boolean)
     : [];
-  if (tiers.length === 0 && opts.cardType !== 'hiring') {
+  const creator = isCreatorCard(matchRules) && opts.cardType !== 'hiring';
+  if (tiers.length === 0 && opts.cardType !== 'hiring' && !creator) {
     console.warn(
       '[subscription-matcher] refusing to match — match_rules.target_tiers is missing or empty; card would otherwise broadcast to every category-matching talent',
     );
     return [];
   }
-  if (tiers.length > 0) {
+  if (tiers.length > 0 && !creator) {
     const profileIds = rows.map((r) => r.id);
     // Case-insensitive tier match. The stored tier (v_talent_profile_tier.tier)
     // is PascalCase 'Top Talents' for the top bracket but lowercase for
@@ -158,6 +168,17 @@ export async function findMatchingTalents(
         .filter((r: any) => tierSet.has(String(r.tier ?? '').toLowerCase()))
         .map((r: any) => r.talent_profile_id as string),
     );
+    rows = rows.filter((r) => allowed.has(r.id));
+    if (rows.length === 0) return [];
+  }
+
+  if (creator) {
+    const { data, error } = await supabaseAdmin.from('talent_profiles')
+      .select('id, field_data').in('id', rows.map((r) => r.id));
+    if (error) throw error;
+    const allowed = new Set((data ?? [])
+      .filter((p: any) => matchesCreatorAudience(p.field_data ?? {}, matchRules))
+      .map((p: any) => p.id));
     rows = rows.filter((r) => allowed.has(r.id));
     if (rows.length === 0) return [];
   }
@@ -480,6 +501,14 @@ export async function checkTalentTierEligibility(
   const cardTiers = Array.isArray(matchRules.target_tiers)
     ? matchRules.target_tiers.filter((t): t is string => typeof t === 'string' && t.length > 0)
     : [];
+  if (isCreatorCard(matchRules)) {
+    const { data, error } = await supabaseAdmin.from('talent_profiles')
+      .select('field_data').eq('talent_user_id', talentUserId)
+      .eq('category_id', matchRules.category_ids![0]).eq('status', 'approved')
+      .eq('is_active', true).is('deleted_at', null);
+    if (error) throw error;
+    return { eligible: (data ?? []).some((p: any) => matchesCreatorAudience(p.field_data ?? {}, matchRules)), cardTiers: [], talentTiers: [] };
+  }
   if (cardTiers.length === 0) {
     return { eligible: true, cardTiers, talentTiers: [] };
   }

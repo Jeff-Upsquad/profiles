@@ -1,3 +1,4 @@
+import { creatorMatchRules } from '../lib/creator-matching.js';
 import crypto from 'node:crypto';
 import { supabaseAdmin } from '../config/supabase.js';
 import { getTalentMatchSignals, buildViewerMatch } from './viewer-match.js';
@@ -623,6 +624,7 @@ export async function ingestPendingBrief(
 }
 
 export async function ingestCard(input: IngestSubscriptionCardInput): Promise<IngestResult> {
+  input = { ...input, match_rules: creatorMatchRules(input.match_rules ?? {}, input.content as Record<string, unknown>) };
   // Hiring cards must carry content.job_profile.external_id (cross-repo
   // contract) — reject the whole ingest BEFORE any write so a malformed
   // publish never leaves a card without its job satellites.
@@ -2090,7 +2092,7 @@ export async function manualAssignTalent(
   // since been re-tiered.
   if (input.assigned !== true) {
     const tierCheck = await checkTalentTierEligibility(
-      ((card as any).match_rules ?? {}) as Record<string, unknown>,
+      creatorMatchRules((card as any).match_rules ?? {}, (card as any).content ?? {}),
       input.talent_id,
     );
     if (!tierCheck.eligible) {
