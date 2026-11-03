@@ -18,15 +18,15 @@ export interface MatchRules {
   target_languages?: string[];
   target_country_names?: string[];
   target_regions?: Array<{ country_name?: string; region: string }>;
-  // Creator catalog axes. The social-media-creator job profile stores these as
-  // jsonb string arrays in talent_profiles.field_data (content_niches /
-  // content_formats / collaboration_types), seeded from the same
-  // category_fields catalog the business creator-brief chips use.
-  // Overlap-match: a creator qualifies when they offer at least one of the
-  // requested values.
-  target_content_niches?: string[];
-  target_content_formats?: string[];
-  target_collaboration_types?: string[];
+  // Creator catalog axes. Social-media-creator job profiles store services in
+  // field_data.creator_services ([{ service }]) and per-platform niches/format
+  // in field_data.creator_platforms ([{ niches: [], format }]). The business
+  // creator brief picks from the same vocabulary (frontend
+  // constants/creator-profile.ts). Overlap-match: a creator qualifies when
+  // they offer at least one of the requested values.
+  target_creator_services?: string[];
+  target_creator_niches?: string[];
+  target_creator_formats?: string[];
   // Hiring-only axes (card_type='hiring') — evaluated only for job cards, so
   // a subscription card that starts carrying them is a no-op here.
   min_age?: number;
@@ -44,9 +44,9 @@ const KNOWN_RULE_KEYS = new Set<string>([
   'target_country_ids',
   'target_country_names',
   'target_regions',
-  'target_content_niches',
-  'target_content_formats',
-  'target_collaboration_types',
+  'target_creator_services',
+  'target_creator_niches',
+  'target_creator_formats',
   'min_age',
   'max_age',
   'target_genders',
@@ -163,35 +163,52 @@ export async function findMatchingTalents(
   }
 
   // Step 2b: Creator catalog filters — narrow by profile IDs. Each present
-  // rule (AND across rules, overlap within a rule) keeps only profiles whose
-  // field_data array offers at least one requested value. Only creator
-  // profiles carry these keys, so cards for other categories never set them.
-  const creatorCatalogRules: Array<{ rule: 'target_content_niches' | 'target_content_formats' | 'target_collaboration_types'; fieldKey: string }> = [
-    { rule: 'target_content_niches', fieldKey: 'content_niches' },
-    { rule: 'target_content_formats', fieldKey: 'content_formats' },
-    { rule: 'target_collaboration_types', fieldKey: 'collaboration_types' },
-  ];
-  for (const { rule, fieldKey } of creatorCatalogRules) {
-    const wanted = Array.isArray(matchRules[rule])
-      ? (matchRules[rule] as string[]).map((v) => String(v).trim()).filter(Boolean)
-      : [];
-    if (wanted.length === 0) continue;
+  // rule (AND across rules, overlap within a rule) keeps only creator
+  // profiles offering at least one requested value. Services live in
+  // field_data.creator_services; niches and format live per platform entry in
+  // field_data.creator_platforms. Only creator cards set these rules.
+  const wantedSet = (values: unknown): Set<string> =>
+    new Set((Array.isArray(values) ? values : []).map((v) => String(v ?? '').trim().toLowerCase()).filter(Boolean));
+  const creatorServices = wantedSet(matchRules.target_creator_services);
+  const creatorNiches = wantedSet(matchRules.target_creator_niches);
+  const creatorFormats = wantedSet(matchRules.target_creator_formats);
+  if (creatorServices.size > 0) {
     const profileIds = rows.map((r) => r.id);
-    const { data: fieldRows, error: fieldErr } = await supabaseAdmin
+    const { data: serviceRows, error: serviceErr } = await supabaseAdmin
       .from('talent_profiles')
-      .select(`id, field_data->${fieldKey}`)
+      .select('id, field_data->creator_services')
       .in('id', profileIds);
-    if (fieldErr) {
-      console.error(`[subscription-matcher] ${rule} query failed`, fieldErr);
-      throw fieldErr;
+    if (serviceErr) {
+      console.error('[subscription-matcher] target_creator_services query failed', serviceErr);
+      throw serviceErr;
     }
-    const wantedSet = new Set(wanted.map((v) => v.toLowerCase()));
     const allowed = new Set(
-      (fieldRows ?? [])
+      (serviceRows ?? [])
+        .filter((r: any) => Array.isArray(r.creator_services)
+          && r.creator_services.some((entry: { service?: unknown }) => creatorServices.has(String(entry?.service ?? '').trim().toLowerCase())))
+        .map((r: any) => r.id as string),
+    );
+    rows = rows.filter((r) => allowed.has(r.id));
+    if (rows.length === 0) return [];
+  }
+  if (creatorNiches.size > 0 || creatorFormats.size > 0) {
+    const profileIds = rows.map((r) => r.id);
+    const { data: platformRows, error: platformErr } = await supabaseAdmin
+      .from('talent_profiles')
+      .select('id, field_data->creator_platforms')
+      .in('id', profileIds);
+    if (platformErr) {
+      console.error('[subscription-matcher] creator platform query failed', platformErr);
+      throw platformErr;
+    }
+    const allowed = new Set(
+      (platformRows ?? [])
         .filter((r: any) => {
-          const values = r[fieldKey];
-          return Array.isArray(values)
-            && values.some((v: unknown) => wantedSet.has(String(v ?? '').trim().toLowerCase()));
+          const platforms: Array<{ niches?: unknown; format?: unknown }> = Array.isArray(r.creator_platforms) ? r.creator_platforms : [];
+          const nicheOk = creatorNiches.size === 0 || platforms.some((p) => Array.isArray(p.niches)
+            && p.niches.some((n: unknown) => creatorNiches.has(String(n ?? '').trim().toLowerCase())));
+          const formatOk = creatorFormats.size === 0 || platforms.some((p) => creatorFormats.has(String(p.format ?? '').trim().toLowerCase()));
+          return nicheOk && formatOk;
         })
         .map((r: any) => r.id as string),
     );

@@ -13,6 +13,16 @@ import { useAuth } from '@/context/AuthContext';
 import CurrencyField from '@/components/business/CurrencyField';
 import { isCurrencyCode, saveDefaultCurrency, type CurrencyCode } from '@/lib/currency';
 import SubmitErrorSummary, { showBriefErrors, type SubmitError } from './SubmitErrorSummary';
+// Same vocabulary the creator job profile renders from (constants/creator-profile):
+// services, niches, formats and platforms all live there, so a service
+// flipped to live (or a new niche) appears in both forms together.
+import {
+  CREATOR_SERVICE_OPTIONS,
+  LIVE_CREATOR_SERVICES,
+  CREATOR_NICHE_OPTIONS,
+  CREATOR_FORMAT_OPTIONS,
+  CREATOR_PLATFORM_OPTIONS,
+} from '@/constants/creator-profile';
 
 type Product = 'subscription' | 'assignment';
 type Country = { id: string; name: string; currency: string; sort_order: number };
@@ -87,30 +97,11 @@ const LANGUAGES = ['English', 'Hindi', 'Tamil', 'Telugu', 'Malayalam', 'Kannada'
 // the brief always sends the squad's standard Mon–Fri schedule.
 const DEFAULT_WORKING_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-// Static fallbacks mirror the seeded social-media-creator catalog
-// (20261103123903_social_media_creators.sql). They only render while the
-// catalog API is loading or unreachable — the live category_fields options
-// always win once loaded.
-const FALLBACK_CATALOG: Record<'platforms' | 'content_niches' | 'content_formats' | 'collaboration_types', string[]> = {
-  platforms: ['Instagram', 'Facebook', 'TikTok', 'YouTube', 'LinkedIn', 'X / Twitter', 'Other'],
-  content_niches: ['Lifestyle', 'Fashion / beauty', 'Food', 'Travel', 'Technology', 'Education', 'Fitness / wellness', 'Gaming', 'Entertainment', 'Business / finance', 'Other'],
-  content_formats: ['Reels / Shorts / TikToks', 'Long-form videos', 'Stories', 'Static posts / carousels', 'Live streams', 'Product reviews', 'UGC for brand channels', 'Other'],
-  collaboration_types: ['Sponsored posts', 'Brand ambassador', 'UGC production', 'Product reviews', 'Affiliate content', 'Event coverage', 'Live hosting', 'Other'],
-};
-
-// Service type chip descriptions. field_options has no description column
-// yet, so these live here keyed by the shared option value — options added in
-// admin without an entry render with the name only.
-const SERVICE_TYPE_DESCRIPTIONS: Record<string, string> = {
-  'Sponsored posts': 'Paid posts featuring your product on the creator’s channels.',
-  'Brand ambassador': 'Ongoing partnership with the creator representing your brand.',
-  'UGC production': 'Creator-made content you can reuse on your own channels.',
-  'Product reviews': 'Honest review, unboxing or demo of your product.',
-  'Affiliate content': 'Promo codes and tracking links on commission.',
-  'Event coverage': 'Creator attends and covers your event or launch.',
-  'Live hosting': 'Creator hosts a live stream for your brand.',
-  'Other': 'Something else — describe it in the brief.',
-};
+// Service cards mirror the creator job profile: only services the creator
+// form offers as live are selectable here, with the same descriptions.
+const SERVICE_DESCRIPTIONS: Record<string, string> = Object.fromEntries(
+  CREATOR_SERVICE_OPTIONS.map((s) => [s.service, s.description]),
+);
 
 const emptyForm: FormState = {
   contactName: '', email: '', phone: '', brandName: '', businessNature: '', businessNote: '',
@@ -133,7 +124,7 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
     contactName: 'Jeff', email: 'jeff@tagconnects.in', phone: '+91 9645545553',
     platforms: ['Instagram', 'YouTube'], niches: ['Education', 'Technology'],
     formats: ['Reels / Shorts / TikToks', 'Static posts / carousels'],
-    serviceType: 'Sponsored posts', serviceCount: '4',
+    serviceType: 'Brand promotion', serviceCount: '4',
     levels: ['10,000 to 25,000', '50,000 to 100k'], levelBudgets: { '10,000 to 25,000': '8000', '50,000 to 100k': '25000' },
     ageGroups: ['18-24', '25-34'],
     usageRights: 'Organic usage on the creator\'s channels for 6 months.',
@@ -146,43 +137,12 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [countries, setCountries] = useState<Country[]>(() => preview ? PREVIEW_COUNTRIES : []);
-  // Fallback options render only while the catalog loads or when it can't be
-  // reached. Once loaded, the form mirrors the catalog exactly — an
-  // inactive/empty field in the creator job profile shows as empty here too
-  // (fallbacks are non-empty, so empty options always means loaded-empty).
-  const [catalog, setCatalog] = useState<Record<'platforms' | 'content_niches' | 'content_formats' | 'collaboration_types', string[]>>(FALLBACK_CATALOG);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [contactAutoFilled, setContactAutoFilled] = useState(preview);
   const [brandAutoFilled, setBrandAutoFilled] = useState(preview);
   const [editingContact, setEditingContact] = useState(!preview);
   const [editingBrand, setEditingBrand] = useState(!preview);
   const audioBlobRef = useRef<Blob | null>(null);
-
-  // Creator niche / content format / publishing platform options come from the
-  // same category_fields catalog the creator job profile reads, so anything
-  // added there appears here and both forms match on one vocabulary.
-  useEffect(() => {
-    api.get('/public/categories/social-media-creator')
-      .then((res) => res.data?.category ?? res.data)
-      .then((category) => {
-        const fields: Array<{ field_key?: string; options?: Array<{ value?: string }>; field_options?: Array<{ value?: string }> }> = Array.isArray(category?.fields) ? category.fields : [];
-        const pick = (key: string): string[] => {
-          const field = fields.find((f) => f.field_key === key);
-          return (field?.options ?? field?.field_options ?? [])
-            .map((option) => String(option?.value ?? '').trim())
-            .filter(Boolean);
-        };
-        // Strict mirror of the live catalog: only ACTIVE options render, and
-        // an inactive/absent field renders empty — admin controls both forms.
-        setCatalog({
-          platforms: pick('platforms'),
-          content_niches: pick('content_niches'),
-          content_formats: pick('content_formats'),
-          collaboration_types: pick('collaboration_types'),
-        });
-      })
-      .catch(() => { /* catalog unreachable — fallbacks stay so the form works */ });
-  }, []);
 
   useEffect(() => {
     api.get('/business/connect-brief/countries')
@@ -268,11 +228,11 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
     if (!form.contactName.trim() || !form.email.trim() || !form.phone.trim()) validationErrors.push({ message: 'Add your contact name, email, and phone number in Customer details.', targetId: 'brief-contact' });
     if (!form.brandName.trim() || !form.businessNature.trim() || !form.businessNote.trim()) validationErrors.push({ message: 'Complete the brand details before submitting.', targetId: 'brief-brand' });
     if (!form.requirement.trim()) validationErrors.push({ message: `Describe what you need the ${ROLE_NAME} to own.`, targetId: 'brief-requirement' });
-    // Catalog-backed picks are only required while the catalog offers options.
-    if (catalog.platforms.length > 0 && form.platforms.length === 0) validationErrors.push({ message: 'Choose at least one publishing platform in Channel preferences.', targetId: 'brief-preferences' });
-    if (catalog.content_niches.length > 0 && form.niches.length === 0) validationErrors.push({ message: 'Choose at least one creator niche in Channel preferences.', targetId: 'brief-preferences' });
-    if (catalog.content_formats.length > 0 && form.formats.length === 0) validationErrors.push({ message: 'Choose at least one content format in Channel preferences.', targetId: 'brief-preferences' });
-    if (catalog.collaboration_types.length > 0 && !form.serviceType) validationErrors.push({ message: 'Choose a service type in Service type, levels & budget.', targetId: 'brief-plan' });
+    // Vocabulary-backed picks are required while options exist.
+    if (CREATOR_PLATFORM_OPTIONS.length > 0 && form.platforms.length === 0) validationErrors.push({ message: 'Choose at least one publishing platform in Channel preferences.', targetId: 'brief-preferences' });
+    if (CREATOR_NICHE_OPTIONS.length > 0 && form.niches.length === 0) validationErrors.push({ message: 'Choose at least one creator niche in Channel preferences.', targetId: 'brief-preferences' });
+    if (CREATOR_FORMAT_OPTIONS.length > 0 && form.formats.length === 0) validationErrors.push({ message: 'Choose at least one content format in Channel preferences.', targetId: 'brief-preferences' });
+    if (LIVE_CREATOR_SERVICES.length > 0 && !form.serviceType) validationErrors.push({ message: 'Choose a service type in Service type, levels & budget.', targetId: 'brief-plan' });
     if (form.levels.length === 0) validationErrors.push({ message: 'Select at least one creator level in Service type, levels & budget.', targetId: 'brief-plan' });
     if (form.languages.length === 0) validationErrors.push({ message: 'Choose at least one content language in Channel preferences.', targetId: 'brief-preferences' });
     if (validationErrors.length > 0) {
@@ -341,10 +301,10 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
             deadline: form.deliveryDate,
             additional_requirements: {
               channels: form.platforms,
-              content_niches: form.niches,
-              content_formats: form.formats,
+              creator_niches: form.niches,
+              creator_formats: form.formats,
               ...(form.serviceType
-                ? { collaboration_types: [form.serviceType], service_count: [`${form.serviceType} × ${serviceCountValue}`] }
+                ? { creator_services: [form.serviceType], service_count: [`${form.serviceType} × ${serviceCountValue}`] }
                 : {}),
               creator_levels: form.levels.map((level) => {
                 const amount = Number(form.levelBudgets[level]);
@@ -437,8 +397,8 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
 
           <Section id="brief-plan" eyebrow={isAssignment ? 'Assignment' : 'Subscription'} title="Service type, levels & budget" hint={isAssignment ? 'Pick the paid work you need, creator levels by follower count, and the project finish line.' : 'Pick the paid work you need and the follower levels to target.'}>
             <ServiceTypeSelector
-              options={catalog.collaboration_types}
-              descriptions={SERVICE_TYPE_DESCRIPTIONS}
+              options={LIVE_CREATOR_SERVICES}
+              descriptions={SERVICE_DESCRIPTIONS}
               selected={form.serviceType}
               count={serviceCountValue}
               onSelect={selectService}
@@ -452,9 +412,9 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
 
           <GroupHeader index={3} title="Channel preferences" subtitle="Channels, audience, language and content fit." />
           <Section id="brief-preferences" eyebrow="Matching" title="Which creators should we prioritise?" hint="These preferences drive creator matching — the options mirror what creators list on their profiles.">
-            <ChipField label="Publishing platforms" options={catalog.platforms} selected={form.platforms} onToggle={(value) => toggle('platforms', value)} hint="Where the sponsored content should be published." />
-            <ChipField label="Creator niche" options={catalog.content_niches} selected={form.niches} onToggle={(value) => toggle('niches', value)} hint="Same niches creators pick on their job profile — matching runs on these." />
-            <ChipField label="Content format" options={catalog.content_formats} selected={form.formats} onToggle={(value) => toggle('formats', value)} hint="Same formats creators offer on their job profile — matching runs on these." />
+            <ChipField label="Publishing platforms" options={CREATOR_PLATFORM_OPTIONS} selected={form.platforms} onToggle={(value) => toggle('platforms', value)} hint="Where the sponsored content should be published." />
+            <ChipField label="Creator niche" options={CREATOR_NICHE_OPTIONS} selected={form.niches} onToggle={(value) => toggle('niches', value)} hint="Same niches creators pick on their job profile — matching runs on these." />
+            <ChipField label="Content format" options={CREATOR_FORMAT_OPTIONS} selected={form.formats} onToggle={(value) => toggle('formats', value)} hint="Same formats creators offer on their job profile — matching runs on these." />
             <Field label="Audience location" optional>
               <select aria-label="Audience location" className="shb-input" value={form.countryId} onChange={(e) => changeCountry(e.target.value)}>
                 <option value="">Anywhere (no preference)</option>

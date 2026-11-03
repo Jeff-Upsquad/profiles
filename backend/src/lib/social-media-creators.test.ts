@@ -79,10 +79,10 @@ test('creator briefs carry follower levels with per-level budgets and shared cat
         deadline: '2026-12-08',
         additional_requirements: {
           channels: ['Instagram', 'YouTube'],
-          content_niches: ['Education', 'Technology'],
-          content_formats: ['Reels / Shorts / TikToks'],
-          collaboration_types: ['Sponsored posts'],
-          service_count: ['Sponsored posts × 4'],
+          creator_niches: ['Education', 'Technology'],
+          creator_formats: ['Reels / Shorts / TikToks'],
+          creator_services: ['Brand promotion'],
+          service_count: ['Brand promotion × 4'],
           creator_levels: ['10,000 to 25,000 (INR 8,000 / month)', '50,000 to 100k (INR 25,000 / month)'],
           desired_age: ['18-24', '25-34'],
           audience_location: ['India'],
@@ -98,10 +98,10 @@ test('creator briefs carry follower levels with per-level budgets and shared cat
   assert.deepEqual(requirement?.tiers, ['Custom']);
   assert.deepEqual(requirement?.tier_budgets, { '10,000 to 25,000': 8000, '50,000 to 100k': 25000 });
   assert.equal(requirement?.duration, '4 weeks');
-  assert.deepEqual(requirement?.additional_requirements?.content_niches, ['Education', 'Technology']);
-  assert.deepEqual(requirement?.additional_requirements?.content_formats, ['Reels / Shorts / TikToks']);
-  assert.deepEqual(requirement?.additional_requirements?.collaboration_types, ['Sponsored posts']);
-  assert.deepEqual(requirement?.additional_requirements?.service_count, ['Sponsored posts × 4']);
+  assert.deepEqual(requirement?.additional_requirements?.creator_niches, ['Education', 'Technology']);
+  assert.deepEqual(requirement?.additional_requirements?.creator_formats, ['Reels / Shorts / TikToks']);
+  assert.deepEqual(requirement?.additional_requirements?.creator_services, ['Brand promotion']);
+  assert.deepEqual(requirement?.additional_requirements?.service_count, ['Brand promotion × 4']);
   // Timeline fields are accepted on subscriptions too — creator campaigns are
   // deliverable-based even inside a monthly plan.
   const assignment = connectBriefSchema.parse({ ...brief, card_type: 'assignment', working_days: [] });
