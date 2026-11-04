@@ -2,10 +2,26 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { useMySubscriptionCards, type BusinessSubscriptionCardSummary } from '@/hooks/useBusiness';
+import { useMySubscriptionCards, useMyAssignmentCards, type BusinessSubscriptionCardSummary } from '@/hooks/useBusiness';
+import { useBusinessJobCards } from '@/hooks/useBusinessJobs';
+import { jobTitle, jobBusinessName, packageLabel } from '@/components/jobs/shared';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
 import { formatDate } from '@/lib/formatDate';
+
+interface DashboardCard {
+  id: string;
+  kind: 'Subscription' | 'Assignment' | 'Job';
+  title: string;
+  subtitle: string | null;
+  price: string | null;
+  published_at: string | null;
+  href: string;
+  bucket: 'open' | 'active' | 'paused' | 'cancelled';
+  responses: number;
+  responseLabel: 'accepted' | 'applicants';
+  shortlisted: number;
+}
 
 interface StatTile {
   label: string;
@@ -15,10 +31,10 @@ interface StatTile {
   icon: React.ReactNode;
 }
 
-function formatPrice(amount: number | null, currency: string | null): string | null {
+function formatPrice(amount: number | null, currency: string | null, recurring: boolean): string | null {
   if (amount == null) return null;
   const symbol = currency === 'INR' ? '₹' : currency ? `${currency} ` : '';
-  return `${symbol}${amount.toLocaleString()}/mo`;
+  return `${symbol}${amount.toLocaleString()}${recurring ? "/mo" : ""}`;
 }
 
 function formatPublishedAt(iso: string | null): string {
@@ -72,20 +88,44 @@ function tintFor(seed: string): string {
 
 export default function BusinessDashboard() {
   const { user } = useAuth();
-  const { data: cards, isLoading } = useMySubscriptionCards();
-
-  const allCards = cards ?? [];
-  // "Open" here means genuinely open — published/broadcast/selected cards
-  // awaiting review. Assigned (Active), Paused and Cancelled cards live on the
-  // My-subscription page, not this homepage list.
-  const open = allCards.filter((c) => classifyCard(c) === 'open');
-  const closed = allCards.filter((c) => classifyCard(c) === 'cancelled');
-
-  const totals = allCards.reduce(
-    (acc, c) => ({
-      accepted: acc.accepted + (c.counts?.accepted ?? 0),
-      shortlisted: acc.shortlisted + (c.counts?.shortlisted ?? 0),
+  const subscriptions = useMySubscriptionCards();
+  const assignments = useMyAssignmentCards();
+  const jobs = useBusinessJobCards();
+  const isLoading = subscriptions.isLoading || assignments.isLoading || jobs.isLoading;
+  const hasError = subscriptions.isError || assignments.isError || jobs.isError;
+  const serviceCards = [
+    ...(subscriptions.data ?? []).map((card) => ({ card, kind: 'Subscription' as const })),
+    ...(assignments.data ?? []).map((card) => ({ card, kind: 'Assignment' as const })),
+  ];
+  const allCards: DashboardCard[] = [
+    ...serviceCards.map(({ card, kind }): DashboardCard => {
+      const price = formatPrice(card.customer_monthly_price, card.currency, kind === 'Subscription');
+      return {
+        id: card.id, kind, title: cardTitle(card), subtitle: planSubtitle(card),
+        price: price && card.is_group ? `from ${price}` : price,
+        published_at: card.published_at,
+        href: kind === 'Assignment' ? `/business/assignments/${card.id}` : `/business/dashboard/cards/${card.id}`,
+        bucket: classifyCard(card), responses: card.counts.accepted,
+        responseLabel: 'accepted', shortlisted: card.counts.shortlisted,
+      };
     }),
+    ...(jobs.data ?? []).map((card): DashboardCard => ({
+      id: card.id, kind: 'Job',
+      title: `${jobBusinessName(card.content)} · ${jobTitle(card.content)}`,
+      subtitle: card.status === 'submitted' ? 'Submitted' : card.job_card?.hiring_stage ?? 'Sourcing',
+      price: packageLabel(card.content), published_at: card.published_at,
+      href: `/business/job-posts/${card.id}`,
+      bucket: card.status === 'archived' || card.job_card?.closed_at || card.job_card?.hiring_stage === 'closed'
+        ? 'cancelled' : card.status === 'assigned' ? 'active' : 'open',
+      responses: Object.values(card.funnel_counts ?? {}).reduce((total, count) => total + (count ?? 0), 0),
+      responseLabel: 'applicants', shortlisted: card.funnel_counts?.shortlisted ?? 0,
+    })),
+  ];
+  const open = allCards.filter((card) => card.bucket === 'open')
+    .sort((a, b) => (Date.parse(b.published_at ?? '') || 0) - (Date.parse(a.published_at ?? '') || 0));
+  const closed = allCards.filter((card) => card.bucket === 'cancelled');
+  const totals = allCards.reduce(
+    (acc, card) => ({ accepted: acc.accepted + card.responses, shortlisted: acc.shortlisted + card.shortlisted }),
     { accepted: 0, shortlisted: 0 },
   );
 
@@ -96,7 +136,7 @@ export default function BusinessDashboard() {
     {
       label: 'Open Cards',
       value: open.length,
-      hint: 'active subscriptions',
+      hint: 'subscriptions, assignments and jobs',
       tint: 'tint-purple',
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -105,9 +145,9 @@ export default function BusinessDashboard() {
       ),
     },
     {
-      label: 'Accepted',
+      label: 'Accepted / Applied',
       value: totals.accepted,
-      hint: 'talents onboarded',
+      hint: 'card acceptances and job applicants',
       tint: 'tint-green',
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -154,7 +194,7 @@ export default function BusinessDashboard() {
               Welcome back{firstWord ? <>, <span className="text-rainbow">{firstWord}</span></> : ''}.
             </h1>
             <p className="mt-1.5 font-[family-name:var(--font-jakarta)] text-sm text-[#525252] stagger-3">
-              Track your subscriptions, review talents, and manage your shortlists.
+              Track your subscriptions, assignments and jobs, review talents, and manage your shortlists.
             </p>
           </div>
 
@@ -199,17 +239,17 @@ export default function BusinessDashboard() {
         </div>
       )}
 
-      {/* ── Two-column: Subscription Cards + Quick Actions ── */}
+      {/* ── Two-column: Open Cards + Quick Actions ── */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Subscription cards — main column */}
+        {/* Open cards — main column */}
         <div className="lg:col-span-2 rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="flex items-center justify-between border-b border-[#E7E7EA] px-6 py-5">
             <div>
               <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold tracking-[-0.015em] text-[#0a0a0a]">
-                Open Subscription Cards
+                Open Cards
               </h2>
               <p className="mt-0.5 text-sm text-[#737373]">
-                Cards published to your account by SquadHub
+                Subscriptions, assignments and job cards across all categories
               </p>
             </div>
             {open.length > 0 && (
@@ -219,26 +259,31 @@ export default function BusinessDashboard() {
             )}
           </div>
 
+          {hasError && (
+            <p role="alert" className="px-6 py-4 text-sm text-red-700">
+              Some cards could not be loaded. Refresh the page to try again.
+            </p>
+          )}
           {isLoading ? (
             <div className="space-y-3 px-6 py-4">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="h-20 animate-pulse rounded-xl bg-[#f0f0f0]" />
               ))}
             </div>
-          ) : open.length === 0 ? (
+          ) : open.length === 0 && !hasError ? (
             <EmptyState hasNoCards={allCards.length === 0} />
           ) : (
             <ul className="divide-y divide-[#E7E7EA]">
               {open.map((card, i) => (
-                <SubscriptionCardRow
-                  key={card.id}
+                <DashboardCardRow
+                  key={`${card.kind}:${card.id}`}
                   card={card}
                   index={i}
                   tipSlot={
                     i === 0 && user?.id ? (
                       <FirstItemTip
                         storageKey={`squadhire:tip:dashboard-card:${user.id}`}
-                        message="Tap any subscription card to view available candidates and start shortlisting."
+                        message="Tap any card to review candidates and start shortlisting."
                       />
                     ) : null
                   }
@@ -283,10 +328,10 @@ export default function BusinessDashboard() {
 }
 
 function EmptyState({ hasNoCards }: { hasNoCards: boolean }) {
-  const heading = hasNoCards ? 'No subscription cards yet' : 'No open cards';
+  const heading = hasNoCards ? 'No cards yet' : 'No open cards';
   const description = hasNoCards
     ? "Cards will appear here once they're published to your account by SquadHub."
-    : 'Your open subscriptions will appear here.';
+    : 'Your open subscriptions, assignments and job cards will appear here.';
 
   return (
     <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
@@ -303,27 +348,25 @@ function EmptyState({ hasNoCards }: { hasNoCards: boolean }) {
   );
 }
 
-function SubscriptionCardRow({
+function DashboardCardRow({
   card,
   index,
   tipSlot,
 }: {
-  card: BusinessSubscriptionCardSummary;
+  card: DashboardCard;
   index: number;
   tipSlot?: React.ReactNode;
 }) {
-  const rawPrice = formatPrice(card.customer_monthly_price, card.currency);
-  // For a multi-tier brief the price is the lowest tier — label it "from".
-  const price = rawPrice && card.is_group ? `from ${rawPrice}` : rawPrice;
+  const price = card.price;
   const published = formatPublishedAt(card.published_at);
-  const accepted = card.counts.accepted;
-  const shortlisted = card.counts.shortlisted;
+  const accepted = card.responses;
+  const shortlisted = card.shortlisted;
   const tint = tintFor(card.id);
 
   return (
     <li className={`relative stagger-${Math.min(index + 1, 6)}`}>
       <Link
-        href={`/business/dashboard/cards/${card.id}`}
+        href={card.href}
         className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[#F5F5F6]"
       >
         <div
@@ -338,14 +381,15 @@ function SubscriptionCardRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate font-[family-name:var(--font-jakarta)] text-[15px] font-semibold text-[#0a0a0a]">
-              {cardTitle(card)}
+              {card.title}
             </p>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            {planSubtitle(card) && (
-              <span className="text-[#737373]">{planSubtitle(card)}</span>
+            <span className="rounded-full bg-[#F5F5F6] px-2 py-0.5 font-medium text-[#525252]">{card.kind}</span>
+            {card.subtitle && (
+              <span className="text-[#737373]">{card.subtitle}</span>
             )}
-            {planSubtitle(card) && (price || published) && (
+            {card.subtitle && (price || published) && (
               <span className="text-[#D4D4D8]">·</span>
             )}
             {price && <span className="font-medium text-[#0a0a0a]">{price}</span>}
@@ -361,7 +405,7 @@ function SubscriptionCardRow({
         <div className="hidden sm:flex flex-shrink-0 items-center gap-2 text-[11px]">
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
             <span>{accepted}</span>
-            <span className="text-emerald-500">accepted</span>
+            <span className="text-emerald-500">{card.responseLabel}</span>
           </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-[#F5F5F6] px-2 py-0.5 font-medium text-[#0a0a0a]">
             <span>{shortlisted}</span>
