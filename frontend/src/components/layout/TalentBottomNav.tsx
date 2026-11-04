@@ -1,5 +1,6 @@
 'use client';
 
+import CreatorProfileGuide from '@/components/talent/CreatorProfileGuide';
 import { isSocialMediaCreator } from '@/lib/creatorIdentity';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -20,8 +21,6 @@ interface NavItem {
   pending?: boolean;
   disabled?: boolean;
   tooltip?: string;
-  /** Raised primary action (creators' Create button) instead of a plain tab. */
-  accent?: boolean;
 }
 
 const HOME_PREFIXES = [
@@ -134,21 +133,6 @@ export default function TalentBottomNav() {
     });
   }
 
-  // Creators get a raised Create action in the middle of the bar — their
-  // profile is the main thing they build, so it shouldn't hide behind More.
-  if (isSocialMediaCreator(user)) {
-    navItems.splice(2, 0, {
-      href: '/talent/profiles/new',
-      label: 'Create',
-      accent: true,
-      icon: (
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-        </svg>
-      ),
-    });
-  }
-
   const visibleItems: NavItem[] = partnerOnlyPending ? [
     navItems[0],
     {
@@ -172,6 +156,9 @@ export default function TalentBottomNav() {
     <>
       <div className="h-[64px] md:hidden" />
       <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
+        <div className="absolute bottom-full right-3 mb-3 w-72 max-w-[calc(100vw-24px)]">
+          <CreatorProfileGuide step="navigation" mobile />
+        </div>
         <nav className="mx-auto flex max-w-lg items-center justify-around py-2">
           {visibleItems.map((item) => {
             const active = isActive(item.href, item.matchPrefixes);
@@ -208,20 +195,10 @@ export default function TalentBottomNav() {
                   active ? 'text-[#0a0a0a]' : 'text-zinc-500 hover:text-zinc-900'
                 }`}
               >
-                {item.accent ? (
-                  <span
-                    className={`-mt-5 flex h-11 w-11 items-center justify-center rounded-full text-white shadow-[0_6px_16px_-4px_rgba(0,0,0,0.35)] ring-4 ring-white transition-transform active:scale-90 ${
-                      active ? 'bg-[#0a0a0a]' : 'bg-gradient-to-br from-[#FFF27A] via-[#0a0a0a] to-[#525252]'
-                    }`}
-                  >
-                    {item.icon}
-                  </span>
-                ) : (
-                  <span className="relative">
-                    {item.icon}
-                    <NavBadge count={item.badge ?? 0} pending={item.pending} />
-                  </span>
-                )}
+                <span className="relative">
+                  {item.icon}
+                  <NavBadge count={item.badge ?? 0} pending={item.pending} />
+                </span>
                 {item.label}
               </Link>
             );

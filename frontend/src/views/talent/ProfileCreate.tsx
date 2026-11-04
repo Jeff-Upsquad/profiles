@@ -12,6 +12,7 @@ import DesignerExtras from '@/components/forms/DesignerExtras';
 import CreatorProfileDetails from '@/components/forms/CreatorProfileDetails';
 import { validateCreatorProfile } from '@/constants/creator-profile';
 import PortfolioUploader from '@/components/forms/PortfolioUploader';
+import CreatorProfileGuide from '@/components/talent/CreatorProfileGuide';
 import PortfolioMinimumNotice from '@/components/talent/PortfolioMinimumNotice';
 import { minPortfolioItems, pendingBasicSections } from '@/lib/talentCompletion';
 import LanguagePicker, { type LanguageEntry } from '@/components/forms/LanguagePicker';
@@ -472,6 +473,7 @@ export default function ProfileCreate() {
           <div className="space-y-6">
             {/* Search bar and Squad Tabs */}
             <div className="space-y-3.5">
+              <CreatorProfileGuide step="category" />
               {/* Search bar */}
               <div className="relative">
                 <svg

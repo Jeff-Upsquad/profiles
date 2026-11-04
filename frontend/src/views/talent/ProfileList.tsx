@@ -15,6 +15,7 @@ import { SkeletonCard } from '@/components/ui/Skeleton';
 import PendingApprovalBanner from '@/components/talent/PendingApprovalBanner';
 import { formatDate } from '@/lib/formatDate';
 import { minPortfolioItems, profilePendingState } from '@/lib/talentCompletion';
+import CreatorProfileGuide from '@/components/talent/CreatorProfileGuide';
 import PendingTag from '@/components/talent/PendingTag';
 import PortfolioMinimumNotice from '@/components/talent/PortfolioMinimumNotice';
 
@@ -100,6 +101,8 @@ export default function ProfileList() {
           </div>
         </div>
       </section>
+
+      <CreatorProfileGuide step="create" />
 
       {isSocialMediaCreator(user) && <Link href="/talent/profiles/new" className="block rounded-2xl border border-[#E7E7EA] bg-white p-6">
         <span className="text-2xl">🤳</span><h2 className="mt-2 text-lg font-semibold">Content Creation</h2>

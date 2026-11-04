@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useIncompleteTrainingCount, useModuleAccess } from '@/hooks/useTraining';
 import { useTalentHasAssignedCard } from '@/hooks/useMyClients';
+import CreatorProfileGuide from '@/components/talent/CreatorProfileGuide';
 import Badge from '@/components/ui/Badge';
 import PendingTag from '@/components/talent/PendingTag';
 import { useTalentPendingTasks } from '@/hooks/useTalentPendingTasks';
@@ -223,6 +224,9 @@ export default function TalentMore() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                     </svg>
                   </Link>
+                  {item.to === '/talent/profiles' && !locked && (
+                    <div className="px-5 pb-4"><CreatorProfileGuide step="profiles" /></div>
+                  )}
                 </li>
               );
             })}

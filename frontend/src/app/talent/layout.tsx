@@ -18,6 +18,7 @@ import ModuleUnlockGate from '@/components/training/ModuleUnlockGate';
 import { useTalentHasAssignedCard } from '@/hooks/useMyClients';
 import { useTalentPendingTasks } from '@/hooks/useTalentPendingTasks';
 import PendingTag from '@/components/talent/PendingTag';
+import CreatorProfileGuide from '@/components/talent/CreatorProfileGuide';
 import InactiveLockout from '@/components/talent/InactiveLockout';
 
 // When every application is cancelled, only support remains accessible.
@@ -462,6 +463,7 @@ export default function TalentLayout({
       hideNavbarOnMobile
     >
       <TalentTopBar />
+      {!cancelled && !inactive && <div className="hidden md:block"><CreatorProfileGuide step="navigation" /></div>}
       {content}
       <TalentBottomNav />
     </DashboardLayout>
