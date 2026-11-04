@@ -1,4 +1,5 @@
 import { startTalentCardDeliverySweeper } from './services/talent-card-delivery.service.js';
+import { startCreatorLiveNoticeSweeper } from './services/creator-live-notice.service.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -161,6 +162,7 @@ app.listen(env.PORT, () => {
   startCallbackSweeper();
   startJobsOutboxSweeper();
   startCardEventsOutboxSweeper();
+  startCreatorLiveNoticeSweeper();
   startInterviewSweeper();
   startCardPaymentsSweeper();
   startTrackCatchUpSweeper();

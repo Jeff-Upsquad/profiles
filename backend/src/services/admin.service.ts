@@ -1,4 +1,5 @@
 import { queueTalentCardCatchup } from './talent-card-delivery.service.js';
+import { isCreatorTalent, socialMediaCreatorIds } from './creator-routing.service.js';
 import { randomInt } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../config/supabase.js';
@@ -1074,10 +1075,12 @@ export async function updatePipelineStage(userId: string, stage: string, track: 
     .eq('id', userId)
     .single();
   if (!userData) throw new AppError(404, 'User not found');
+  const creator = await isCreatorTalent(userId);
+  if (creator && track === 'jobs') throw new AppError(400, 'Social media creators use the Partner Program');
   if (track === 'jobs' && !userData?.wants_jobs) {
     throw new AppError(400, 'This talent has not selected Jobs');
   }
-  if (track === 'partner' && userData?.partner_approval_status === null) {
+  if (track === 'partner' && userData?.partner_approval_status === null && !creator) {
     throw new AppError(400, 'This talent has not requested the Partner Program');
   }
 
@@ -1158,7 +1161,7 @@ export async function updatePipelineStage(userId: string, stage: string, track: 
   }
 
   // Applied together → the Jobs pipeline follows silently.
-  await mirrorCandidateStage(userId, 'partner', stage);
+  if (!creator) await mirrorCandidateStage(userId, 'partner', stage);
   return data;
 }
 
@@ -2180,7 +2183,32 @@ async function moduleEligibleIds(employmentType: string): Promise<Set<string>> {
   ]);
   if (live.error) throw new AppError(500, live.error.message);
   if (graduated.error) throw new AppError(500, graduated.error.message);
-  return new Set([...(live.data ?? []), ...(graduated.data ?? [])].map((r: any) => r.id as string));
+  const creators = await socialMediaCreatorIds();
+  const eligible = new Set([...(live.data ?? []), ...(graduated.data ?? [])]
+    .map((r: any) => r.id as string).filter((id) => !jobs || !creators.has(id)));
+  if (!jobs && creators.size) {
+    const { data, error } = await supabaseAdmin.from('talent_users').select('id')
+      .eq('pipeline_stage', 'live')
+      .or('partner_approval_status.is.null,partner_approval_status.neq.rejected');
+    if (error) throw new AppError(500, error.message);
+    for (const row of data ?? []) if (creators.has(row.id)) eligible.add(row.id);
+  }
+  return eligible;
+}
+
+async function moduleEmploymentRows(rows: Array<{ talent_user_id: string; employment_type: unknown }>, employmentType: string) {
+  if (employmentType === 'salary') return rows;
+  const rowsByUser = new Map(rows.map((row) => [row.talent_user_id, row]));
+  for (const id of await socialMediaCreatorIds()) {
+    const row = rowsByUser.get(id);
+    const types = employmentTypesOf(row?.employment_type);
+    // Creator basic profiles are optional. Default their work scope to both
+    // Partner offerings when no Partner preference has been selected yet.
+    if (!types.has('partner_program') && !types.has('freelance')) {
+      rowsByUser.set(id, { talent_user_id: id, employment_type: ['partner_program', 'freelance'] });
+    }
+  }
+  return [...rowsByUser.values()];
 }
 
 function partnerProgramCounts(value: unknown) {
@@ -2213,7 +2241,7 @@ export async function getTalentCategories(employmentType?: string, track?: Partn
       .select('talent_user_id, employment_type');
     if (basicErr) throw new AppError(500, basicErr.message);
     const eligible = await moduleEligibleIds(employmentType);
-    userIdsFilter = (basicRows ?? [])
+    userIdsFilter = (await moduleEmploymentRows(basicRows ?? [], employmentType))
       .filter((r) => eligible.has((r as any).talent_user_id))
       .filter((r) => matchesEmploymentScope((r as any).employment_type, employmentType, track))
       .map((r) => {
@@ -2320,7 +2348,7 @@ export async function getTalentProfilesByCategory(categoryId: string, search?: s
       .select('talent_user_id, employment_type');
     if (basicErr) throw new AppError(500, basicErr.message);
     const eligible = await moduleEligibleIds(employmentType);
-    userIdsFilter = (basicRows ?? [])
+    userIdsFilter = (await moduleEmploymentRows(basicRows ?? [], employmentType))
       .filter((r) => eligible.has((r as any).talent_user_id))
       .filter((r) => matchesEmploymentScope((r as any).employment_type, employmentType, track))
       .map((r) => (r as any).talent_user_id)

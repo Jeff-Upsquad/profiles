@@ -1,3 +1,4 @@
+import { isCreatorTalent } from './creator-routing.service.js';
 import { PORTFOLIO_FORM_TYPES } from '../../../shared/src/contentRoles.js';
 import { formTypeHasPortfolio } from '../../../shared/src/portfolio.js';
 import { supabaseAdmin } from '../config/supabase.js';
@@ -369,6 +370,28 @@ const STEP_STAGES: Array<[string, string]> = [
 export async function syncOnboardingStage(talentUserId: string, track?: 'partner' | 'jobs') {
   const cfg = await getConfig();
   if (!cfg.auto_advance_onboarding_stages) return;
+
+  // Creator profiles go directly to Partner Program after review. Their
+  // training exemption must not leave them in an onboarding or Jobs funnel.
+  if (await isCreatorTalent(talentUserId)) {
+    const { data: state, error: stateError } = await supabaseAdmin.from('talent_users')
+      .select('pipeline_stage, partner_approval_status, application_cancellations, suspended, blacklisted')
+      .eq('id', talentUserId).maybeSingle();
+    if (stateError) throw new Error(stateError.message);
+    if (!state || state.partner_approval_status === 'rejected' ||
+      ['rejected', 'no_response'].includes(state.pipeline_stage) || state.application_cancellations?.partner ||
+      state.suspended || state.blacklisted) return;
+    const { data: approved, error } = await supabaseAdmin.from('talent_profiles')
+      .select('id, categories!inner(slug)').eq('talent_user_id', talentUserId).eq('status', 'approved')
+      .eq('categories.slug', 'social-media-creator').is('deleted_at', null).limit(1);
+    if (error) throw new Error(error.message);
+    if (approved?.length) {
+      const { error: updateError } = await supabaseAdmin.from('talent_users')
+        .update({ pipeline_stage: 'live' }).eq('id', talentUserId);
+      if (updateError) throw new Error(updateError.message);
+    }
+    return;
+  }
 
   const { computeOnboardingProgress } = await import('./talent.service.js');
   const progress = await computeOnboardingProgress(talentUserId);

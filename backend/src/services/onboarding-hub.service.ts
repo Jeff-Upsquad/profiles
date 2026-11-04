@@ -1,3 +1,4 @@
+import { socialMediaCreatorIds } from './creator-routing.service.js';
 import { adminOnboardingNeedsYou } from './onboarding-needs-you.service.js';
 import { finalChecksFor } from './final-checks.service.js';
 // ---------------------------------------------------------------------------
@@ -618,7 +619,7 @@ export async function listHub(filters: HubListFilters) {
 
   // Id-set exclusions and restrictions are resolved up front so the talent
   // query can be built twice (see grouping below) without refetching them.
-  let excludeIds: string[] = [];
+  let excludeIds: string[] = [...await socialMediaCreatorIds()];
   if (view === 'active' && (filters.track === 'partner' || filters.track === 'jobs')) {
     // Graduated talents (talent-board "Onboarding completed") live in Partner
     // Program / Jobs now — keep the onboarding hub as the active queue.
@@ -904,6 +905,8 @@ export async function hubStats(category?: string, track?: 'partner' | 'jobs') {
     .not('suspended', 'is', true)
     .not('blacklisted', 'is', true);
   if (categoryIds) qb = qb.in('id', categoryIds);
+  const creatorIds = [...await socialMediaCreatorIds()];
+  if (creatorIds.length) qb = qb.not('id', 'in', `(${creatorIds.join(',')})`);
   if (track === 'partner') qb = qb.not('partner_approval_status', 'is', null);
   if (track === 'jobs') qb = qb.eq('wants_jobs', true);
   const [{ data: allRows, error }, open, timerSettings] = await Promise.all([qb, openChangeRequests(), getStageTimerSettings()]);

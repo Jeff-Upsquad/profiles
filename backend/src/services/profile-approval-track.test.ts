@@ -11,14 +11,17 @@ let linked = false;
 let profileStatus = 'pending_review';
 let hasPortfolio = false;
 let jobsOnly = false;
+let creator = false;
+let legacyCreator = false;
+let closedPartner = false;
 let writes: Array<{ table: string; body: Record<string, unknown> }> = [];
 let webhooks: Array<Record<string, unknown>> = [];
 const talent = () => ({
   id: '11111111-1111-4111-8111-111111111111', full_name: 'Test Talent', phone: '+910000000000',
-  wants_jobs: true, partner_approval_status: jobsOnly ? null : 'approved', tracks_linked: linked,
+  wants_jobs: true, partner_approval_status: closedPartner ? 'rejected' : jobsOnly ? null : 'approved', tracks_linked: linked,
   pipeline_stage: 'onboarding_course', jobs_pipeline_stage: 'final_review',
   partner_stage_changed_at: null, jobs_stage_changed_at: null,
-  onboarding_completed: true, application_cancellations: {}, signup_form_type: 'creative',
+  onboarding_completed: true, application_cancellations: {}, signup_form_type: creator ? 'social_media_creator' : 'creative',
 });
 const profile = () => ({
   id: 'profile', talent_user_id: '11111111-1111-4111-8111-111111111111', category_id: 'design', status: profileStatus,
@@ -53,7 +56,11 @@ before(async () => {
       } : {} }]);
     }
     if (table === 'talent_users') return json([talent()]);
-    if (table === 'talent_profiles') return json([profile()]);
+    if (table === 'talent_profiles') {
+      if (url.searchParams.has('categories.slug') && !creator && !legacyCreator) return json([]);
+      if (url.searchParams.get('status') === 'eq.approved' && profileStatus !== 'approved') return json([]);
+      return json([profile()]);
+    }
     if (table === 'portfolio_items') return json(hasPortfolio ? [{ created_at: '2026-09-26T00:00:00Z' }] : []);
     if (table === 'lead_submissions') return json(hasPortfolio ? [{ id: 'lead', form_type: 'creative', status: 'portfolio_updation', form_data: {} }] : []);
     if (table === 'categories' || table === 'talent_profiles_basic') return json([]);
@@ -68,6 +75,9 @@ function reset(isLinked = false) {
   profileStatus = 'pending_review';
   hasPortfolio = false;
   jobsOnly = false;
+  creator = false;
+  legacyCreator = false;
+  closedPartner = false;
   writes = [];
   webhooks = [];
 }
@@ -149,4 +159,31 @@ test('generic review of a Jobs-only talent still advances Jobs', async () => {
   assert.ok(writes.some(w => w.table === 'talent_users' && w.body.jobs_pipeline_stage === 'live'));
   assert.equal(webhooks.length, 1);
   assert.equal(webhooks[0].event, 'track_stage_changed');
+});
+
+
+test('creator approval goes directly to Partner Live even when reviewed from Jobs', async () => {
+  reset(); creator = true;
+  await admin.approveProfile('profile', 'admin', 'jobs');
+  assert.ok(writes.some(w => w.table === 'talent_users' && w.body.pipeline_stage === 'live'));
+  assert.ok(!writes.some(w => w.table === 'talent_users' && 'jobs_pipeline_stage' in w.body));
+  assert.equal(webhooks.length, 0, 'creator notice is independent of CRM stage automations');
+});
+
+test('legacy creator profile also goes directly to Partner Live', async () => {
+  reset(); legacyCreator = true;
+  await admin.approveProfile('profile', 'admin', 'partner');
+  assert.ok(writes.some(w => w.table === 'talent_users' && w.body.pipeline_stage === 'live'));
+});
+
+test('creator drafts do not go Live through progress sync', async () => {
+  reset(); creator = true; profileStatus = 'draft';
+  await automation.syncOnboardingStage('11111111-1111-4111-8111-111111111111');
+  assert.ok(!writes.some(w => w.table === 'talent_users' && w.body.pipeline_stage === 'live'));
+});
+
+test('creator progress cannot reinstate a rejected Partner application', async () => {
+  reset(); creator = true; profileStatus = 'approved'; closedPartner = true;
+  await automation.syncOnboardingStage('11111111-1111-4111-8111-111111111111');
+  assert.ok(!writes.some(w => w.table === 'talent_users' && w.body.pipeline_stage === 'live'));
 });
