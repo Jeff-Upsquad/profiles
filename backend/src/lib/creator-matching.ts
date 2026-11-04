@@ -50,3 +50,30 @@ export function matchesCreatorAudience(fieldData: Record<string, unknown>, rules
     });
   });
 }
+
+/** Creator cards use platform targeting from the job profile, never basic-profile data.
+ * Keep the shared language OR location policy, scoped to requested platforms. */
+export function matchesCreatorLanguageLocation(fieldData: Record<string, unknown>, rules: MatchRules): boolean {
+  const normalize = (value: unknown) => String(value ?? '').trim().toLowerCase();
+  const languages = (rules.target_languages ?? []).map(normalize).filter(Boolean);
+  const countries = (rules.target_country_names ?? []).map(normalize).filter(Boolean);
+  const regions = (rules.target_regions ?? []).filter((r) => r.country_name && r.region);
+  const hasLocation = countries.length > 0 || regions.length > 0;
+  if (!languages.length && !hasLocation) return true;
+  const platforms = (rules.target_creator_platforms ?? []).map(normalize);
+  const entries = Array.isArray(fieldData.creator_platforms) ? fieldData.creator_platforms : [];
+  return entries.some((entry) => {
+    if (!entry || typeof entry !== 'object') return false;
+    if (platforms.length && !platforms.includes(normalize(entry.platform))) return false;
+    const languageOk = languages.length > 0 && Array.isArray(entry.languages)
+      && entry.languages.some((language: unknown) => languages.includes(normalize(language)));
+    const country = normalize(entry.location?.country);
+    const state = normalize(entry.location?.state);
+    const countryRegions = regions.filter((r) => normalize(r.country_name) === country);
+    const locationOk = hasLocation && (entry.location_scope === 'global'
+      || (entry.location_scope === 'specific' && (countryRegions.length
+        ? countryRegions.some((r) => normalize(r.region) === state)
+        : countries.includes(country))));
+    return languageOk || locationOk;
+  });
+}

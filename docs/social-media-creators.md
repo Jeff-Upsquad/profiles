@@ -33,3 +33,14 @@ Deploy the SquadHub service support before enabling the Profiles business brief 
 - Flutter analysis of the changed screens/model passes.
 - All four shared role copies match. Both CRM sync tests and shared compilation pass.
 - SquadHub shared/server compilation and its shared-import guard pass. Local validation uses a packed Squad Bots dependency to avoid duplicate Supabase types from the development symlink.
+
+## Creator requirement matching
+
+Subscription and assignment creator cards match language and location against
+`field_data.creator_platforms` on the approved creator job profile, scoped to
+requested platforms. They never fall back to basic-profile languages or address.
+Language matches any selected language; a specific location matches country and,
+when targeted, state/region. An explicit Global location matches any targeted
+location. Missing location data does not imply Global. If both language and
+location are targeted, either may match, as with the existing shared policy.
+Other categories and hiring cards retain their existing basic-profile matching.

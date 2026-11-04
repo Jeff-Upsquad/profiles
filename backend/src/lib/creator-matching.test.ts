@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { creatorMatchRules, matchesCreatorAudience } from './creator-matching.js';
+import { creatorMatchRules, matchesCreatorAudience, matchesCreatorLanguageLocation } from './creator-matching.js';
 import { CREATOR_ROLES } from '../../../shared/src/creatorRoles.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { findMatchingTalents, checkTalentTierEligibility } from '../services/subscription-matcher.service.js';
@@ -25,12 +25,14 @@ test('legacy creator content supplies follower and platform rules with exact bou
 test('untiered creators receive matching subscriptions and assignments and pass hand-pick eligibility', async () => {
   const original = supabaseAdmin.from;
   const profiles = [
-    { id: 'matched', talent_user_id: 'creator', field_data: { creator_platforms: [{ platform: 'Instagram', followers: 500 }] }, creator_services: [{ service: 'Brand promotion' }] },
+    { id: 'matched', talent_user_id: 'creator', field_data: { creator_platforms: [{ platform: 'Instagram', followers: 500, languages: ['English'] }] }, creator_services: [{ service: 'Brand promotion' }] },
     { id: 'large', talent_user_id: 'large-creator', field_data: { creator_platforms: [{ platform: 'Instagram', followers: 20000 }] } },
   ];
   try {
     supabaseAdmin.from = ((table: string) => {
       assert.notEqual(table, 'v_talent_profile_tier');
+      assert.notEqual(table, 'talent_users');
+      assert.notEqual(table, 'talent_profiles_basic');
       let ids: string[] | undefined; let user: string | undefined;
       const query = {
         select() { return this; }, eq(c: string, v: string) { if (c === 'talent_user_id') user = v; return this; },
@@ -46,6 +48,8 @@ test('untiered creators receive matching subscriptions and assignments and pass 
     }) as unknown as typeof supabaseAdmin.from;
     for (const cardType of ['subscription', 'assignment'] as const) {
       assert.deepEqual(await findMatchingTalents(rules, { cardType }), ['creator']);
+      assert.deepEqual(await findMatchingTalents({ ...rules, target_languages: ['Hindi'] }, { cardType }), []);
+      assert.deepEqual(await findMatchingTalents({ ...rules, target_languages: [], target_country_names: ['India'] }, { cardType }), []);
       assert.deepEqual(await findMatchingTalents({ ...rules, target_tiers: ['Pro'] }, { cardType }), []);
       assert.deepEqual(await findMatchingTalents({ ...rules, target_creator_levels: [] }, { cardType }), []);
     }
@@ -59,7 +63,7 @@ test('backfill recovers legacy creator selections and excludes manual and tier s
   const original = supabaseAdmin.from;
   const inserted: unknown[] = [];
   const user = { id: 'creator', is_active: true, suspended: false, blacklisted: false, languages_spoken: [{ language: 'English' }] };
-  const profile = { id: 'p', category_id: CREATOR_ROLES[0].id, talent_user_id: 'creator', field_data: { creator_platforms: [{ platform: 'Instagram', followers: 100 }] }, creator_services: [{ service: 'Brand promotion' }] };
+  const profile = { id: 'p', category_id: CREATOR_ROLES[0].id, talent_user_id: 'creator', field_data: { creator_platforms: [{ platform: 'Instagram', followers: 100, languages: ['English'] }] }, creator_services: [{ service: 'Brand promotion' }] };
   const content = { additional_requirements: { channels: ['Instagram'], creator_levels: ['Below 5,000 (INR 500)'], creator_services: ['Brand promotion'] } };
   const base = { status: 'active', archived_at: null, card_type: 'assignment', content, match_rules: { category_ids: [CREATOR_ROLES[0].id], target_tiers: ['Custom'], target_languages: ['English'] } };
   try {
@@ -86,4 +90,26 @@ test('backfill recovers legacy creator selections and excludes manual and tier s
     assert.equal(await backfillCardsForTalent('creator'), 1);
     assert.deepEqual(inserted, [{ card_id: 'custom', talent_user_id: 'creator', status: 'pending' }]);
   } finally { supabaseAdmin.from = original; }
+});
+
+
+test('creator language and location come from requested platform entries only', () => {
+  const match = (entries: unknown[], targeting: Record<string, unknown>) => matchesCreatorLanguageLocation(
+    { creator_platforms: entries }, { target_creator_platforms: ['Instagram'], ...targeting });
+  const instagram = { platform: 'Instagram', languages: ['Hindi'], location_scope: 'specific', location: { country: 'India', state: 'Kerala' } };
+  const youtube = { platform: 'YouTube', languages: ['English'], location_scope: 'specific', location: { country: 'United States', state: 'California' } };
+  assert.equal(match([instagram, youtube], { target_languages: ['English'] }), false);
+  assert.equal(match([instagram], { target_languages: [' HINDI '] }), true);
+  assert.equal(match([instagram, youtube], { target_country_names: ['United States'] }), false);
+  assert.equal(match([instagram], { target_country_names: ['india'] }), true);
+  const location = { target_country_names: ['India'], target_regions: [{ country_name: 'India', region: 'Kerala' }] };
+  assert.equal(match([instagram], location), true);
+  assert.equal(match([{ ...instagram, location: { country: 'India', state: 'Tamil Nadu' } }], location), false);
+  assert.equal(match([{ ...instagram, location_scope: 'global', location: {} }], location), true);
+  assert.equal(match([instagram], { ...location, target_languages: ['English'] }), true);
+  assert.equal(match([instagram], { target_country_names: ['United States'], target_languages: ['Hindi'] }), true);
+  assert.equal(match([instagram], { target_country_names: ['United States'], target_languages: ['English'] }), false);
+  assert.equal(match([{ platform: 'Instagram' }], { target_languages: ['English'] }), false);
+  assert.equal(match([{ platform: 'Instagram' }], location), false);
+  assert.equal(match([], {}), true);
 });

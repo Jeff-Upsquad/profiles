@@ -1,4 +1,4 @@
-import { isCreatorCard, matchesCreatorAudience } from '../lib/creator-matching.js';
+import { isCreatorCard, matchesCreatorAudience, matchesCreatorLanguageLocation } from '../lib/creator-matching.js';
 import { supabaseAdmin } from '../config/supabase.js';
 
 /**
@@ -178,7 +178,8 @@ export async function findMatchingTalents(
       .select('id, field_data').in('id', rows.map((r) => r.id));
     if (error) throw error;
     const allowed = new Set((data ?? [])
-      .filter((p: any) => matchesCreatorAudience(p.field_data ?? {}, matchRules))
+      .filter((p: any) => matchesCreatorAudience(p.field_data ?? {}, matchRules)
+        && matchesCreatorLanguageLocation(p.field_data ?? {}, matchRules))
       .map((p: any) => p.id));
     rows = rows.filter((r) => allowed.has(r.id));
     if (rows.length === 0) return [];
@@ -264,7 +265,7 @@ export async function findMatchingTalents(
     : [];
   const hasLanguageRules = langs.length > 0;
 
-  if (hasLocationRules || hasLanguageRules) {
+  if (!creator && (hasLocationRules || hasLanguageRules)) {
     const talentUserIds = [...new Set(rows.map((r) => r.talent_user_id))];
     const locationMatchedUsers = new Set<string>();
     const languageMatchedUsers = new Set<string>();
