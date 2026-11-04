@@ -102,6 +102,7 @@ export async function findMatchingTalents(
     .select('id, talent_user_id, talent_users!inner(suspended, blacklisted, is_active)')
     .eq('status', 'approved')
     .eq('is_active', true)
+    .is('deleted_at', null)
     .eq('talent_users.suspended', false)
     .eq('talent_users.blacklisted', false)
     .eq('talent_users.is_active', true)

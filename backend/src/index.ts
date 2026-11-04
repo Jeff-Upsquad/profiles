@@ -1,3 +1,4 @@
+import { startTalentCardDeliverySweeper } from './services/talent-card-delivery.service.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -156,6 +157,7 @@ if (process.env.NODE_ENV === 'production') {
 app.listen(env.PORT, () => {
   console.log(`[SquadHire] Server running on port ${env.PORT}`);
   if (process.env.DISABLE_BACKGROUND_WORKERS === 'true') return;
+  startTalentCardDeliverySweeper();
   startCallbackSweeper();
   startJobsOutboxSweeper();
   startCardEventsOutboxSweeper();

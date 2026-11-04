@@ -67,6 +67,7 @@ test('backfill recovers legacy creator selections and excludes manual and tier s
       let single = false; let writes: unknown[] | undefined;
       const query = {
         select() { return this; }, eq() { return this; }, is() { return this; }, in() { return this; }, limit() { return this; },
+        order() { return this; }, range() { return this; },
         maybeSingle() { single = true; return this; },
         insert(rows: unknown[]) { writes = rows; inserted.push(...rows); return this; },
         then(resolve: (v: unknown) => unknown) {

@@ -37,7 +37,7 @@ test('Any removes only its creator matching restriction for subscriptions and as
       let ids: string[] | undefined;
       const query = {
         select() { return this; },
-        eq() { return this; },
+        eq() { return this; }, is() { return this; },
         in(column: string, values: string[]) { if (column === 'id') ids = values; return this; },
         limit() { return this; },
         then(resolve: (value: unknown) => unknown) {

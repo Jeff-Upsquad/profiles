@@ -1,3 +1,4 @@
+import { queueTalentCardCatchup } from './talent-card-delivery.service.js';
 import { randomInt } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../config/supabase.js';
@@ -1512,6 +1513,8 @@ export async function suspendUser(userId: string, suspend: boolean, reason?: str
     await syncCrmHold(userId, 'admin').catch((e) => console.error('[suspend] CRM hold sync failed:', e));
   }
 
+  if (!suspend && talentRows?.length) queueTalentCardCatchup(userId);
+
   return {
     message: suspend ? 'User suspended' : 'User unsuspended',
     suspended: suspend,
@@ -1548,6 +1551,8 @@ export async function blacklistUser(userId: string, blacklist: boolean, reason?:
     await syncCrmHold(userId, 'admin').catch((e) => console.error('[blacklist] CRM hold sync failed:', e));
   }
 
+  if (!blacklist && talentRows?.length) queueTalentCardCatchup(userId);
+
   return {
     message: blacklist ? 'User blacklisted' : 'User unblacklisted',
     blacklisted: blacklist,
@@ -1568,10 +1573,12 @@ export async function setProfileTier(
     .update({ tier, tier_custom: finalCustom })
     .eq('id', profileId)
     .is('deleted_at', null)
-    .select('id');
+    .select('id, talent_user_id');
 
   if (error) throw new AppError(500, error.message);
   if (!data?.length) throw new AppError(404, 'Profile not found');
+
+  queueTalentCardCatchup(data[0].talent_user_id);
 
   return {
     tier,
@@ -1623,6 +1630,7 @@ export async function setProfileActive(
     await syncGhostForTalent(current.talent_user_id);
   }
 
+  if (isActive) queueTalentCardCatchup(current.talent_user_id);
   return data;
 }
 
@@ -1701,6 +1709,7 @@ export async function setTalentUserActive(
       });
     }
   }
+  if (input.is_active) queueTalentCardCatchup(userId);
   return { ...data, delivery };
 }
 

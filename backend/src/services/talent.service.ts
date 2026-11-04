@@ -1,3 +1,4 @@
+import { queueTalentCardCatchup } from './talent-card-delivery.service.js';
 import { isSocialMediaCreator } from '../../../shared/src/creatorRoles.js';
 import { categoryHasPortfolio } from '../../../shared/src/portfolio.js';
 import { MIN_PORTFOLIO_ITEMS } from '../../../shared/src/contentRoles.js';
@@ -1218,6 +1219,7 @@ export async function reactivateProfile(profileId: string, userId: string) {
     await syncGhostForTalent(userId);
   }
 
+  if (nextStatus === 'approved') queueTalentCardCatchup(userId);
   return data;
 }
 
