@@ -9,6 +9,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import api from '@/services/api';
+import BusinessLinksDialog from '@/components/business/BusinessLinksDialog';
+import { businessProfileLinks, hasBusinessLink, type BusinessLinks } from '../../../../../shared/src/businessLinks';
 import { useAuth } from '@/context/AuthContext';
 import CurrencyField from '@/components/business/CurrencyField';
 import { isCurrencyCode, saveDefaultCurrency, type CurrencyCode } from '@/lib/currency';
@@ -139,6 +141,9 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
     businessNote: 'We help working professionals build practical growth and leadership skills through cohort-based programmes.',
     requirement: 'Partner with education creators to launch our new leadership cohort — intro reels, a YouTube integration and carousel posts linking to the cohort page.',
   } : { ...emptyForm });
+  const [clientLinks, setClientLinks] = useState<BusinessLinks>({});
+  const [linksOpen, setLinksOpen] = useState(false);
+  const [checkingLinks, setCheckingLinks] = useState(false);
   const [errors, setErrors] = useState<SubmitError[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -241,8 +246,9 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
     }));
   }
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  async function handleSubmit(event?: React.FormEvent, savedLinks?: BusinessLinks) {
+    event?.preventDefault();
+    if (submitting || checkingLinks) return;
     setErrors([]);
     const validationErrors: SubmitError[] = [];
     if (!form.contactName.trim() || !form.email.trim() || !form.phone.trim()) validationErrors.push({ message: 'Add your contact name, email, and phone number in Customer details.', targetId: 'brief-contact' });
@@ -259,6 +265,20 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
       showBriefErrors(validationErrors, setErrors);
       return;
     }
+
+    setCheckingLinks(true);
+    try {
+      let links = savedLinks ?? clientLinks;
+      if (!savedLinks && !preview) {
+        const { data } = await api.get('/business/me');
+        links = businessProfileLinks(data.business ?? data);
+      }
+      setClientLinks(links);
+      if (!hasBusinessLink(links)) { setLinksOpen(true); return; }
+    } catch {
+      showBriefErrors([{ message: 'Could not check your business links. Please try submitting again.' }], setErrors);
+      return;
+    } finally { setCheckingLinks(false); }
 
     if (preview) {
       setSubmitted(true);
@@ -355,6 +375,9 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
       setSubmitted(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (caught) {
+      if ((caught as { response?: { data?: { code?: string } } }).response?.data?.code === 'BUSINESS_LINK_REQUIRED') {
+        setClientLinks({}); setLinksOpen(true); return;
+      }
       const message = (caught as { response?: { data?: { error?: string } } })?.response?.data?.error;
       showBriefErrors(
         [{ message: message || 'Failed to submit. Please check the details and try again.' }],
@@ -371,10 +394,11 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
 
   return (
     <div className="shb-connect-bg min-h-full px-4 py-5 sm:py-7">
+      <BusinessLinksDialog open={linksOpen} initialLinks={clientLinks} preview={preview} onClose={() => setLinksOpen(false)} onSaved={links => { setClientLinks(links); setLinksOpen(false); void handleSubmit(undefined, links); }} />
       <div className="mx-auto max-w-[44rem]">
         <header className="mb-4 text-center"><h1 className="text-[18px] font-semibold tracking-tight text-[#222] sm:text-[20px]">Tell us about your brand</h1><p className="mt-1 text-[13px] text-[#5C5C5C]">A few quick details so we can match you with the right creators.</p></header>
 
-        <form onSubmit={handleSubmit} noValidate className="space-y-5 pb-8">
+        <form onSubmit={event => void handleSubmit(event)} noValidate className="space-y-5 pb-8">
           <CategoryBanner product={product} />
           {errors.length > 0 && <SubmitErrorSummary errors={errors} id="brief-errors-top" />}
 
@@ -472,7 +496,7 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
             <ChipField label="Content language" options={LANGUAGES} selected={form.languages} onToggle={(value) => toggle('languages', value)} hint="Select the languages the creators should be comfortable creating in." />
           </Section>
 
-          <div className="shb-submit-wrap"><SubmitErrorSummary errors={errors} id="brief-errors-submit" /><button type="submit" disabled={submitting} className="shb-submit">{submitting ? 'Submitting…' : `Submit ${product} brief`}</button></div>
+          <div className="shb-submit-wrap"><SubmitErrorSummary errors={errors} id="brief-errors-submit" /><button type="submit" disabled={submitting || checkingLinks} className="shb-submit">{submitting || checkingLinks ? 'Submitting…' : `Submit ${product} brief`}</button></div>
         </form>
       </div>
       <style>{styles}</style>

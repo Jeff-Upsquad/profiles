@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
+import { BusinessLinkFields } from '@/components/business/BusinessLinksDialog';
+import { businessProfileLinks, type BusinessLinks } from '../../../../shared/src/businessLinks';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
@@ -39,6 +41,7 @@ function splitPhone(stored: string | null | undefined): { code: string; number: 
 
 export default function BusinessSettings() {
   const { user, refetchUser } = useAuth();
+  const [publicLinks, setPublicLinks] = useState<BusinessLinks>({});
   const [loading, setLoading] = useState(false);
   // Which login detail (if any) is being changed via the WhatsApp-code flow.
   const [loginField, setLoginField] = useState<LoginField | null>(null);
@@ -47,7 +50,6 @@ export default function BusinessSettings() {
   const [loginPhone, setLoginPhone] = useState('');
   const [form, setForm] = useState({
     company_name: '',
-    company_website: '',
     industry: '',
     company_size: '',
     business_note: '',
@@ -63,12 +65,12 @@ export default function BusinessSettings() {
     try {
       const { data } = await api.get('/business/me');
       const info = data.business ?? data;
+      setPublicLinks(businessProfileLinks(info));
       const phone = splitPhone(info.contact_phone);
       setLoginEmail(info.contact_email ?? '');
       setLoginPhone(info.contact_phone ?? '');
       setForm({
         company_name: info.company_name ?? '',
-        company_website: info.company_website ?? '',
         industry: info.industry ?? '',
         company_size: info.company_size ?? '',
         business_note: info.business_note ?? '',
@@ -102,7 +104,8 @@ export default function BusinessSettings() {
         : '';
       await api.put('/business/me', {
         company_name: form.company_name,
-        company_website: form.company_website,
+        company_website: publicLinks.website || '',
+        social_links: Object.fromEntries(Object.entries(publicLinks).filter(([key]) => key !== 'website')),
         industry: form.industry,
         company_size: form.company_size || undefined,
         business_note: form.business_note,
@@ -167,6 +170,7 @@ export default function BusinessSettings() {
           </div>
 
           <div className="space-y-4">
+            <div className="rounded-xl border border-[#E7E7EA] p-4"><h3 className="mb-3 text-sm font-semibold">Website & social links</h3><BusinessLinkFields value={publicLinks} onChange={setPublicLinks} /><p className="mt-3 text-xs text-[#8a8095]">Add at least one link before submitting a social media creator requirement.</p></div>
             <Input
               label="Brand Name"
               value={form.company_name}
@@ -174,12 +178,6 @@ export default function BusinessSettings() {
               required
             />
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input
-                label="Company Website"
-                value={form.company_website}
-                onChange={(e) => setForm((p) => ({ ...p, company_website: e.target.value }))}
-                placeholder="https://example.com"
-              />
               <Input
                 label="Nature of Business"
                 value={form.industry}

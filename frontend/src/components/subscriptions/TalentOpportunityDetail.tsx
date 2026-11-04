@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { isCreatorAssignment } from './CreatorAssignmentBrief';
 import Badge from '@/components/ui/Badge';
 import AssignmentOfferActions from '@/components/subscriptions/AssignmentOfferActions';
 import SubscriptionCardContent from '@/components/subscriptions/SubscriptionCardContent';
@@ -56,7 +57,8 @@ export default function TalentOpportunityDetail({
   const role = text(content.subscription_name);
   const plan = text(content.plan_name);
   const serviceType = role || (type === 'assignment' ? 'Assignment' : 'Subscription');
-  const tint = tintFor(brand);
+  const creator = isCreatorAssignment({ ...content, card_type: type });
+  const tint = creator ? 'bg-[#f8f6ff]' : tintFor(brand);
   const pending = item.status === 'pending' && !item.cancelled_at;
   const inactive = user?.is_active === false;
 
@@ -97,13 +99,13 @@ export default function TalentOpportunityDetail({
               <dd className="mt-1 text-sm font-semibold leading-snug text-[#0a0a0a]">{serviceType}</dd>
             </div>
             <div className="min-w-0 border-l border-white px-3.5 py-3">
-              <dt className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#737373]">Plan name</dt>
-              <dd className="mt-1 text-sm font-semibold leading-snug text-[#0a0a0a]">{plan || '—'}</dd>
+              <dt className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#737373]">{creator ? 'Engagement' : 'Plan name'}</dt>
+              <dd className="mt-1 text-sm font-semibold leading-snug text-[#0a0a0a]">{creator ? 'One-time assignment' : plan || '—'}</dd>
             </div>
           </dl>
         </header>
         <div className="bg-white p-4 sm:p-5">
-          <SubscriptionCardContent content={content} hideIdentity polishedSections />
+          <SubscriptionCardContent content={{ ...content, card_type: type }} hideIdentity polishedSections />
         </div>
       </article>
 

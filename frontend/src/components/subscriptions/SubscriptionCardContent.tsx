@@ -1,5 +1,7 @@
 'use client';
 
+import { cardBusinessLinks } from '../../../../shared/src/businessLinks';
+import CreatorAssignmentBrief, { isCreatorAssignment } from './CreatorAssignmentBrief';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
 import type { SubscriptionCardContentShape } from '@/hooks/useSubscriptionCards';
 import {
@@ -64,6 +66,7 @@ function parseAdditionalRequirements(
   if (!raw || typeof raw !== 'object') return [];
   const out: { key: string; label: string; items: string[] }[] = [];
   for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
+    if (key === 'client_links') continue;
     const items = asStringArray(val);
     if (items.length) out.push({ key, label: arGroupLabel(key), items });
   }
@@ -81,6 +84,7 @@ function groupAdditionalMatches(
   const order: string[] = [];
   const byGroup = new Map<string, MatchItem[]>();
   for (const it of items) {
+    if (it.group === 'client_links') continue;
     if (!byGroup.has(it.group)) {
       byGroup.set(it.group, []);
       order.push(it.group);
@@ -335,6 +339,7 @@ interface Props {
 }
 
 export default function SubscriptionCardContent({ content, hideIdentity = false, polishedSections = false }: Props) {
+  if (isCreatorAssignment(content)) return <div className="space-y-4">{!hideIdentity && <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold">{asString(content.brand_name) || asString(content.title) || 'Creator assignment'}</h3>}<CreatorAssignmentBrief content={content} /></div>;
   const title = asString(content.title).trim();
   const imageUrl = asString(content.imageUrl).trim();
   const description = asString(content.description).trim();
@@ -418,7 +423,8 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
   // About the client = company context under a toggle (nature, location, notes).
   // Do not repeat requirement here — it lives only under Deliverables.
   const hasClientBrief = Boolean(brandName || subscriptionName || planName);
-  const hasAboutClient = Boolean(businessNature || customerLocation || notes);
+  const clientLinks = cardBusinessLinks(content);
+  const hasAboutClient = Boolean(businessNature || customerLocation || notes || clientLinks.length);
   const hasStructured =
     hoursLabel || capacityLabel || deliverablesLabel ||
     deliverables.length > 0 || priceFormatted || requestQuote ||
@@ -736,6 +742,7 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
                 {notes && (
                   <p className="whitespace-pre-line leading-relaxed text-[#525252]">{notes}</p>
                 )}
+                {clientLinks.length > 0 && <div className="flex flex-wrap gap-2 pt-2">{clientLinks.map(link => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-[#e5dfec] bg-white px-3 py-2 text-xs font-medium text-[#75518b] hover:bg-[#f5f0fa]">{link.label} ↗</a>)}</div>}
               </div>
             </div>
           )}

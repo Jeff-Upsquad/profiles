@@ -1,5 +1,6 @@
 import { creatorMatchRules } from '../lib/creator-matching.js';
 import crypto from 'node:crypto';
+import { businessProfileLinks } from '../../../shared/src/businessLinks.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { getTalentMatchSignals, buildViewerMatch } from './viewer-match.js';
 import { env } from '../config/env.js';
@@ -645,11 +646,16 @@ export async function ingestCard(input: IngestSubscriptionCardInput): Promise<In
   // them only when a separate /manual-assignments call hand-picks them.
   const skipAutoFanOut = input.distribution === 'manual';
 
-  const content = await withBusinessCurrency(
+  let content = await withBusinessCurrency(
     (input.content ?? {}) as Record<string, unknown>,
     businessUserId,
     input.card_type,
   );
+
+  if (businessUserId) {
+    const { data: business } = await supabaseAdmin.from('business_users').select('company_website, social_links').eq('id', businessUserId).maybeSingle();
+    if (business) content = { ...content, client_links: businessProfileLinks(business) };
+  }
 
   const row = {
     external_id: input.external_id,
@@ -1087,7 +1093,7 @@ export async function listForTalent(
   let q = supabaseAdmin
     .from('subscription_card_recipients')
     .select(
-      'id, status, responded_at, cancelled_at, selected_at, passed_over_at, created_at, viewed_at, subscription_cards!inner(id, external_id, content, match_rules, status, published_at, expires_at, archived_at, card_type)'
+      'id, status, responded_at, cancelled_at, selected_at, passed_over_at, created_at, viewed_at, subscription_cards!inner(id, external_id, content, match_rules, status, published_at, expires_at, archived_at, card_type, business_user_id)'
     )
     .eq('talent_user_id', talentUserId)
     .eq('subscription_cards.card_type', cardType)
@@ -1161,9 +1167,17 @@ export async function listForTalent(
   const rows = data ?? [];
   const signals = rows.length > 0 ? await getTalentMatchSignals(talentUserId) : null;
 
+  const businessIds = [...new Set<string>(rows.map((r: any) => r.subscription_cards?.business_user_id).filter(Boolean))];
+  const businessLinks = new Map();
+  if (businessIds.length) {
+    const { data: businesses } = await supabaseAdmin.from('business_users').select('id, company_website, social_links').in('id', businessIds);
+    for (const business of businesses ?? []) businessLinks.set(business.id, businessProfileLinks(business));
+  }
+
   return rows.map((r: any) => {
     const c = r.subscription_cards;
     let cardContent = c?.content ?? {};
+    if (businessLinks.has(c?.business_user_id)) cardContent = { ...cardContent, client_links: businessLinks.get(c.business_user_id) };
 
     // Compute partner (talent) price from margin fields so talent always sees
     // the correct pay figure, regardless of what SquadHub stamped into
@@ -1191,7 +1205,8 @@ export async function listForTalent(
               viewer_match: buildViewerMatch(c.content, c.match_rules, signals),
             },
           }
-        : c;
+        : c ? { ...c, content: cardContent } : c;
+    if (card) delete card.business_user_id;
     return {
       id: r.id,
       status: r.status,

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { businessProfileLinks, hasBusinessLink } from '../../../shared/src/businessLinks.js';
 import * as squadhubLeads from '../services/squadhub-leads.service.js';
 import * as businessService from '../services/business.service.js';
 import * as storageService from '../services/storage.service.js';
@@ -51,6 +52,12 @@ export async function submitBrief(req: Request, res: Response, next: NextFunctio
     const body = req.body as ConnectBriefInput;
     const account = await businessService.getBusinessUser(req.user!.id).catch(() => null);
 
+    const clientLinks = businessProfileLinks(account);
+    if (body.service_types.includes('social_media_creator') && !hasBusinessLink(clientLinks)) {
+      res.status(400).json({ error: 'Add a website or social media link to your business profile before submitting.', code: 'BUSINESS_LINK_REQUIRED' });
+      return;
+    }
+
     // Prefer account contact details; allow form values when the account is missing them.
     const contact_name = body.contact_name?.trim() || account?.contact_person_name?.trim() || '';
     const email =
@@ -88,7 +95,13 @@ export async function submitBrief(req: Request, res: Response, next: NextFunctio
     if (location) payload.business_location = location;
     if (body.requirement_voice_url) payload.requirement_voice_url = body.requirement_voice_url;
     if (body.role_requirements && Object.keys(body.role_requirements).length > 0) {
-      payload.role_requirements = body.role_requirements;
+      payload.role_requirements = { ...body.role_requirements };
+      if (body.service_types.includes('social_media_creator') && body.role_requirements.social_media_creator) {
+        payload.role_requirements = { ...body.role_requirements, social_media_creator: {
+          ...body.role_requirements.social_media_creator,
+          additional_requirements: { ...body.role_requirements.social_media_creator.additional_requirements, client_links: Object.values(clientLinks) },
+        } };
+      }
     }
 
     const result = await squadhubLeads.submitLandingBrief(payload);

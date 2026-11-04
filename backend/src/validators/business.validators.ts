@@ -1,8 +1,16 @@
 import { z } from 'zod';
+import { normalizeBusinessLink } from '../../../shared/src/businessLinks.js';
+
+const publicLink = z.string().trim().max(500).refine(value => !value || normalizeBusinessLink(value) !== null, 'Enter a valid website or social media URL.').transform(value => value ? normalizeBusinessLink(value)! : '');
+export const businessSocialLinksSchema = z.object({
+  instagram: publicLink.optional(), youtube: publicLink.optional(), facebook: publicLink.optional(),
+  linkedin: publicLink.optional(), x: publicLink.optional(), tiktok: publicLink.optional(), other: publicLink.optional(),
+}).strict();
 
 export const updateBusinessUserSchema = z.object({
   company_name: z.string().min(1).max(200).optional(),
-  company_website: z.string().url().max(500).optional().or(z.literal('')),
+  company_website: publicLink.optional(),
+  social_links: businessSocialLinksSchema.optional(),
   industry: z.string().max(200).optional(),
   company_size: z
     .enum(['1-10', '11-50', '51-200', '201-500', '500+'])
