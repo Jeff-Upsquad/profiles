@@ -8,12 +8,14 @@ export function whatsappDeepLink(message: string): string {
   return `https://wa.me/${SUPPORT_PHONE_DIGITS}?text=${encodeURIComponent(message)}`;
 }
 
-// Squad CRM business-support WhatsApp number. Used by the Business Portal login
-// (password-reset help) and any other business/employer-facing surface that
-// deeplinks the user to chat with the Squad CRM team. Distinct from the
-// talent-support number above.
-export const BUSINESS_SUPPORT_PHONE_DIGITS = '919995266385';
-export const BUSINESS_SUPPORT_PHONE_DISPLAY = '+91 99952 66385';
+// Keep the dedicated business number so it can be restored later.
+export const DEDICATED_BUSINESS_SUPPORT_PHONE_DIGITS = '919995266385';
+export const DEDICATED_BUSINESS_SUPPORT_PHONE_DISPLAY = '+91 99952 66385';
+
+// Temporarily route business/employer support to the talent-support number.
+// To restore separate routing, use the dedicated business constants above.
+export const BUSINESS_SUPPORT_PHONE_DIGITS = SUPPORT_PHONE_DIGITS;
+export const BUSINESS_SUPPORT_PHONE_DISPLAY = SUPPORT_PHONE_DISPLAY;
 
 export function businessWhatsappDeepLink(message: string): string {
   return `https://wa.me/${BUSINESS_SUPPORT_PHONE_DIGITS}?text=${encodeURIComponent(message)}`;
