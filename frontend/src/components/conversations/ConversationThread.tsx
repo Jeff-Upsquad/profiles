@@ -20,6 +20,10 @@ const FREEZE_COPY: Record<string, string> = {
   admin_closed: 'This conversation was closed by UpSquad.',
 };
 
+// Shown once per chatroom per viewer, on the first open only.
+const SAFETY_NOTICE_COPY =
+  'Avoid sharing contact details in chat. Use the bid option to negotiate price rather than in chat.';
+
 export default function ConversationThread({
   conversation,
   messages,
@@ -57,12 +61,28 @@ export default function ConversationThread({
 }) {
   const [draft, setDraft] = useState('');
   const [meetOpen, setMeetOpen] = useState(!!openMeetOnMount);
+  const [showSafetyNotice, setShowSafetyNotice] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
+
+  // First open of each chatroom shows the safety notice on top; mark it seen
+  // immediately so any later visit (new session, refresh, re-navigation) skips it.
+  useEffect(() => {
+    if (!conversation.id || !selfId) return;
+    const key = `squadhire_chat_safety_notice:${selfType}:${selfId}:${conversation.id}`;
+    let seen = false;
+    try {
+      seen = localStorage.getItem(key) === 'seen';
+      if (!seen) localStorage.setItem(key, 'seen');
+    } catch {
+      // Storage unavailable (e.g. private mode): show the notice anyway.
+    }
+    setShowSafetyNotice(!seen);
+  }, [conversation.id, selfId, selfType]);
 
   const counterpart =
     selfType === 'business' ? conversation.talent : conversation.business;
@@ -126,6 +146,15 @@ export default function ConversationThread({
       {conversation.frozen && conversation.frozen_reason && (
         <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
           {FREEZE_COPY[conversation.frozen_reason] ?? 'This conversation is read-only.'}
+        </div>
+      )}
+
+      {showSafetyNotice && (
+        <div
+          role="status"
+          className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800"
+        >
+          {SAFETY_NOTICE_COPY}
         </div>
       )}
 
