@@ -55,12 +55,12 @@ export interface CreatorServiceOption {
 export const CREATOR_SERVICE_OPTIONS: CreatorServiceOption[] = [
   {
     service: 'Brand promotion',
-    description: 'Promote the brand and its products through your own channels — dedicated videos, mentions or campaigns your audience sees.',
+    description: 'Promote the client\'s brand, product, or service directly by introducing its features and benefits, with mentions or collaborations featuring the brand\'s social media page or channel.',
     live: true,
   },
   {
     service: 'Creative promotion',
-    description: 'Create custom content for the brand to use — photos, videos, UGC-style assets for their own pages and ads.',
+    description: 'Promote the client\'s brand, product, or service through an original concept, engaging script, or creative storytelling developed and produced by the creator.',
     live: true,
   },
   {
@@ -162,6 +162,22 @@ export interface CreatorServiceEntry {
   service: string;
   /** Rates keyed by the platform entry's id they belong to. */
   rates: Record<string, CreatorRateEntry>;
+  /** Months the brand may reuse the content (usage rights). Defaults to 1 year. */
+  usage_rights_months?: number;
+  /** Months the brand may run the content as paid advertising. Defaults to 1 year. */
+  paid_ads_months?: number;
+}
+
+/** How long the brand can use the creator's content when the creator doesn't
+ * pick a custom period — 1 year. The business brief steppers start here too. */
+export const DEFAULT_USAGE_RIGHTS_MONTHS = 12;
+
+/** Clamp a stored months value back into the 1–60 range, falling back to the
+ * 1-year default for older rows that predate the months fields. */
+function coerceUsageMonths(value: unknown): number {
+  const months = Number(value);
+  if (!Number.isFinite(months) || months < 1) return DEFAULT_USAGE_RIGHTS_MONTHS;
+  return Math.min(60, Math.round(months));
 }
 
 export function newCreatorPlatform(): CreatorPlatformEntry {
@@ -200,7 +216,21 @@ export function coerceCreatorServices(value: unknown): CreatorServiceEntry[] {
   if (!Array.isArray(value)) return [];
   return value
     .filter((s): s is CreatorServiceEntry => !!s && typeof s === 'object' && !!s.service)
-    .map((s) => ({ ...s, rates: s.rates && typeof s.rates === 'object' ? s.rates : {} }));
+    .map((s) => ({
+      ...s,
+      rates: s.rates && typeof s.rates === 'object' ? s.rates : {},
+      usage_rights_months: coerceUsageMonths(s.usage_rights_months),
+      paid_ads_months: coerceUsageMonths(s.paid_ads_months),
+    }));
+}
+
+/** "12 months (1 year)"-style label for the usage period steppers. */
+export function usageMonthsLabel(months: number): string {
+  if (months % 12 === 0 && months >= 12) {
+    const years = months / 12;
+    return `${months} month${months === 1 ? '' : 's'} (${years} year${years === 1 ? '' : 's'})`;
+  }
+  return `${months} month${months === 1 ? '' : 's'}`;
 }
 
 /** Location display: "Global" or the selected country → city chain. */

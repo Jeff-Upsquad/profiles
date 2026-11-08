@@ -14,6 +14,8 @@ import {
   coerceCreatorPlatforms,
   coerceCreatorServices,
   newCreatorPlatform,
+  DEFAULT_USAGE_RIGHTS_MONTHS,
+  usageMonthsLabel,
   type CreatorPlatformEntry,
   type CreatorServiceEntry,
   type CreatorRateEntry,
@@ -87,15 +89,26 @@ export default function CreatorProfileDetails({ values, onChange, errors = {} }:
   };
 
   // Multiple services allowed — tapping toggles one on/off. A service starts
-  // with no rates; every platform the creator entered above is shown for it,
-  // each with its own rate field.
+  // with no rates and the 1-year default usage periods; every platform the
+  // creator entered above is shown for it, each with its own rate field.
   const toggleService = (service: string) => {
     if (services.some((s) => s.service === service)) {
       setServices(services.filter((s) => s.service !== service));
       return;
     }
-    setServices([...services, { service, rates: {} }]);
+    setServices([
+      ...services,
+      {
+        service,
+        rates: {},
+        usage_rights_months: DEFAULT_USAGE_RIGHTS_MONTHS,
+        paid_ads_months: DEFAULT_USAGE_RIGHTS_MONTHS,
+      },
+    ]);
   };
+
+  const patchService = (service: string, patch: Partial<CreatorServiceEntry>) =>
+    setServices(services.map((s) => (s.service === service ? { ...s, ...patch } : s)));
 
   const patchRate = (service: string, platformId: string, patch: Partial<CreatorRateEntry>) =>
     setServices(
@@ -487,6 +500,22 @@ export default function CreatorProfileDetails({ values, onChange, errors = {} }:
                         </p>
                       </div>
                     )}
+                    {/* How long the brand may use the content for this service.
+                        Defaults to 1 year; businesses can ask for more later. */}
+                    <div className="mt-3 space-y-3 rounded-lg bg-white/60 px-3 py-2.5">
+                      <MonthsStepper
+                        label="Usage rights"
+                        hint="How many months can the brand reuse your content on their website, social pages or marketing?"
+                        months={entry.usage_rights_months ?? DEFAULT_USAGE_RIGHTS_MONTHS}
+                        onChange={(months) => patchService(service, { usage_rights_months: months })}
+                      />
+                      <MonthsStepper
+                        label="Paid advertising"
+                        hint="How many months can the brand use your content in paid ads and promotional campaigns?"
+                        months={entry.paid_ads_months ?? DEFAULT_USAGE_RIGHTS_MONTHS}
+                        onChange={(months) => patchService(service, { paid_ads_months: months })}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -497,6 +526,48 @@ export default function CreatorProfileDetails({ values, onChange, errors = {} }:
           <p className="mt-2 text-sm text-red-600">{errors.creator_services}</p>
         )}
       </SectionCard>
+    </div>
+  );
+}
+
+/** − / + months picker for a service's usage periods (1–60 months, default
+ * 1 year). Mirrors the steppers the business brief uses for the same fields. */
+function MonthsStepper({ label, hint, months, onChange }: {
+  label: string;
+  hint: string;
+  months: number;
+  onChange: (months: number) => void;
+}) {
+  const value = Number.isFinite(months) && months >= 1 ? Math.min(60, Math.round(months)) : DEFAULT_USAGE_RIGHTS_MONTHS;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+      <div className="min-w-0">
+        <p className="font-[family-name:var(--font-inter)] text-[13px] font-medium text-[#3F3F46]">{label}</p>
+        <p className="text-[12px] leading-snug text-[#737373]">{hint}</p>
+      </div>
+      <div className="inline-flex flex-none items-center gap-1.5 rounded-lg border border-[#E7E7EA] bg-white p-1">
+        <button
+          type="button"
+          aria-label={`Decrease ${label} months`}
+          disabled={value <= 1}
+          onClick={() => onChange(Math.max(1, value - 1))}
+          className="flex h-7 w-7 items-center justify-center rounded-md border border-[#0a0a0a] bg-white text-sm font-extrabold text-[#0a0a0a] transition-colors hover:bg-[#FCF487] disabled:border-[#E7E7EA] disabled:text-[#C9C3B5] disabled:hover:bg-white"
+        >
+          −
+        </button>
+        <span aria-label={`${label} months`} className="min-w-[17ch] px-1 text-center text-[12px] font-semibold text-[#0a0a0a]">
+          {usageMonthsLabel(value)}
+        </span>
+        <button
+          type="button"
+          aria-label={`Increase ${label} months`}
+          disabled={value >= 60}
+          onClick={() => onChange(Math.min(60, value + 1))}
+          className="flex h-7 w-7 items-center justify-center rounded-md border border-[#0a0a0a] bg-white text-sm font-extrabold text-[#0a0a0a] transition-colors hover:bg-[#FCF487] disabled:border-[#E7E7EA] disabled:text-[#C9C3B5] disabled:hover:bg-white"
+        >
+          +
+        </button>
+      </div>
     </div>
   );
 }

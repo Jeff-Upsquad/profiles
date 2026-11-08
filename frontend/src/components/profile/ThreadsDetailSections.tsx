@@ -12,6 +12,8 @@ import {
   coerceCreatorServices,
   creatorLocationLabel,
   CREATOR_CURRENCY_SYMBOLS,
+  DEFAULT_USAGE_RIGHTS_MONTHS,
+  usageMonthsLabel,
 } from '@/constants/creator-profile';
 
 interface ThreadsDetailSectionsProps {
@@ -646,6 +648,9 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
                 ) : (
                   <span className="text-[12px] text-zinc-400">Rate on request</span>
                 )}
+                <span className="text-[12px] text-zinc-500">
+                  Usage rights {usageMonthsLabel(s.usage_rights_months ?? DEFAULT_USAGE_RIGHTS_MONTHS)} · Paid ads {usageMonthsLabel(s.paid_ads_months ?? DEFAULT_USAGE_RIGHTS_MONTHS)}
+                </span>
               </div>
             );
           })}

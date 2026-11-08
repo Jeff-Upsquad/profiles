@@ -25,6 +25,8 @@ import {
   CREATOR_NICHE_OPTIONS,
   CREATOR_FORMAT_OPTIONS,
   CREATOR_PLATFORM_OPTIONS,
+  DEFAULT_USAGE_RIGHTS_MONTHS,
+  usageMonthsLabel,
 } from '@/constants/creator-profile';
 
 type Product = 'subscription' | 'assignment';
@@ -62,10 +64,13 @@ type FormState = {
   stateRegions: string[];
   ageGroups: string[];
   languages: string[];
-  usageRights: string;
-  paidAds: string;
-  exclusivity: string;
-  approvals: string;
+  usageRightsOn: boolean;
+  usageRightsMonths: number;
+  paidAdsOn: boolean;
+  paidAdsMonths: number;
+  exclusivityOn: boolean;
+  exclusivityMonths: number;
+  contentApproval: boolean;
   productDelivery: string;
 };
 
@@ -112,7 +117,10 @@ const emptyForm: FormState = {
   requirement: '', referenceLinks: [], platforms: [], niches: [], formats: [], serviceType: '', serviceCount: '', levels: [], levelBudgets: {},
   currency: 'INR', duration: '', startDate: '', deliveryDate: '',
   countryId: '', stateRegions: [], ageGroups: [], languages: ['English'],
-  usageRights: '', paidAds: '', exclusivity: '', approvals: '', productDelivery: '',
+  usageRightsOn: false, usageRightsMonths: DEFAULT_USAGE_RIGHTS_MONTHS,
+  paidAdsOn: false, paidAdsMonths: DEFAULT_USAGE_RIGHTS_MONTHS,
+  exclusivityOn: false, exclusivityMonths: 0,
+  contentApproval: false, productDelivery: '',
 };
 
 const ROLE_NAME = 'Social Media Creator';
@@ -135,7 +143,7 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
     serviceType: 'Brand promotion', serviceCount: '4',
     levels: ['10,000 to 25,000', '50,000 to 100k'], levelBudgets: { '10,000 to 25,000': '8000', '50,000 to 100k': '25000' },
     ageGroups: ['18-24', '25-34'],
-    usageRights: 'Organic usage on the creator\'s channels for 6 months.',
+    usageRightsOn: true, exclusivityOn: true, exclusivityMonths: 6, contentApproval: true,
     productDelivery: 'Product shipped to the creator before the start date.',
     brandName: 'Northstar Learning', businessNature: 'Online education and professional upskilling',
     businessNote: 'We help working professionals build practical growth and leadership skills through cohort-based programmes.',
@@ -311,9 +319,18 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
       }));
       const levelBudgetValues = Object.values(levelBudgets);
       const legacyBudget = levelBudgetValues.length === 1 || levelBudgetValues.every((value) => value === levelBudgetValues[0]) ? levelBudgetValues[0] : undefined;
-      const usageRightsText = [form.usageRights, form.paidAds, form.exclusivity, form.approvals]
-        .map((value) => value.trim())
-        .filter(Boolean)
+      // Usage rights ride upstream as text — synthesize one line per ticked
+      // right so the requirement card reads like the checkbox list.
+      const monthsWord = (months: number) => `${months} month${months === 1 ? '' : 's'}`;
+      const usageRightsText = [
+        form.usageRightsOn && `Usage rights: the brand may reuse the creator's content on its own website, social media pages or other marketing channels for ${monthsWord(form.usageRightsMonths)}.`,
+        form.paidAdsOn && `Paid advertising: the brand may use the creator's content in paid advertisements and promotional campaigns for ${monthsWord(form.paidAdsMonths)}.`,
+        form.exclusivityOn && (form.exclusivityMonths > 0
+          ? `Exclusivity: the creator will not promote competing brands for ${monthsWord(form.exclusivityMonths)}.`
+          : 'Exclusivity: the creator will not promote competing brands — period to be agreed.'),
+        form.contentApproval && 'Content approval: the brand reviews and approves the content before the creator publishes it.',
+      ]
+        .filter((line): line is string => Boolean(line))
         .join(' ');
       const productDeliveryText = form.productDelivery.trim();
       const referenceLinks = form.referenceLinks.map((link) => link.trim()).filter(Boolean);
@@ -484,12 +501,42 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
             <ChipField label="Desired age" options={AGE_GROUPS} selected={form.ageGroups} onToggle={(value) => toggle('ageGroups', value)} required={false} hint="Age groups the creator's audience should cover." />
             <div className="rounded-xl border border-[#E0DCCE] bg-[#FBFAF6] p-4">
               <p className="mb-1 text-sm font-medium text-[#222]">Usage rights &amp; approvals <small className="ml-1 font-normal text-[#9C9486]">(optional)</small></p>
-              <p className="mb-3 text-xs leading-relaxed text-[#7A7568]">How your brand may reuse the creator's content. Leave anything blank to discuss it with the creator.</p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Usage rights" optional><input className="shb-input" value={form.usageRights} onChange={(e) => update('usageRights', e.target.value)} placeholder="e.g. Organic reuse on our channels for 6 months" /></Field>
-                <Field label="Paid ads" optional><input className="shb-input" value={form.paidAds} onChange={(e) => update('paidAds', e.target.value)} placeholder="e.g. Creator content allowed in Meta ads" /></Field>
-                <Field label="Exclusivity" optional><input className="shb-input" value={form.exclusivity} onChange={(e) => update('exclusivity', e.target.value)} placeholder="e.g. No competing brands for 60 days" /></Field>
-                <Field label="Approval requirements" optional><input className="shb-input" value={form.approvals} onChange={(e) => update('approvals', e.target.value)} placeholder="e.g. All content approved before publishing" /></Field>
+              <p className="mb-3 text-xs leading-relaxed text-[#7A7568]">How your brand may reuse the creator's content. Creators offer 1 year of usage rights and paid advertising by default — ask for more months if you need longer.</p>
+              <div className="space-y-2">
+                <RightsCheckbox
+                  checked={form.usageRightsOn}
+                  onToggle={() => update('usageRightsOn', !form.usageRightsOn)}
+                  title="Usage Rights"
+                  description="The brand can reuse the creator's content on its own website, social media pages, or other marketing channels."
+                  months={form.usageRightsMonths}
+                  onMonthsChange={(value) => update('usageRightsMonths', value)}
+                  monthsHint="Creators offer 1 year by default — ask for more if you need longer."
+                />
+                <RightsCheckbox
+                  checked={form.paidAdsOn}
+                  onToggle={() => update('paidAdsOn', !form.paidAdsOn)}
+                  title="Paid Advertising"
+                  description="The brand can use the creator's content in paid advertisements and promotional campaigns."
+                  months={form.paidAdsMonths}
+                  onMonthsChange={(value) => update('paidAdsMonths', value)}
+                  monthsHint="Creators offer 1 year by default — ask for more if you need longer."
+                />
+                <RightsCheckbox
+                  checked={form.exclusivityOn}
+                  onToggle={() => update('exclusivityOn', !form.exclusivityOn)}
+                  title="Exclusivity"
+                  description="The creator cannot promote competing brands for an agreed period."
+                  months={form.exclusivityMonths}
+                  minMonths={0}
+                  onMonthsChange={(value) => update('exclusivityMonths', value)}
+                  monthsHint="0 means the period will be agreed with the creator."
+                />
+                <RightsCheckbox
+                  checked={form.contentApproval}
+                  onToggle={() => update('contentApproval', !form.contentApproval)}
+                  title="Content Approval"
+                  description="The brand must review and approve the content before the creator publishes it."
+                />
               </div>
             </div>
             <Field label="Product delivery" optional><textarea className="shb-input min-h-20 resize-y" maxLength={1000} value={form.productDelivery} onChange={(e) => update('productDelivery', e.target.value)} placeholder="Product shipping, travel or reporting requirements for the creators." /></Field>
@@ -667,6 +714,36 @@ function ServiceTypeSelector({ options, descriptions, selected, count, onSelect,
     })}</div>}
   </div>;
 }
+// Usage rights tick-box — description as the business reads it; ticking a
+// right with a period opens the same −/+ stepper the service count uses.
+function RightsCheckbox({ checked, onToggle, title, description, months, minMonths = 1, onMonthsChange, monthsHint }: {
+  checked: boolean;
+  onToggle: () => void;
+  title: string;
+  description: string;
+  months?: number;
+  minMonths?: number;
+  onMonthsChange?: (value: number) => void;
+  monthsHint?: string;
+}) {
+  return <div className={`shb-right ${checked ? 'shb-right-on' : ''}`}>
+    <button type="button" role="checkbox" aria-checked={checked} onClick={onToggle} className="shb-right-toggle">
+      <span className="shb-right-check" aria-hidden="true">{checked ? '✓' : ''}</span>
+      <span><strong>{title}</strong><small>{description}</small></span>
+    </button>
+    {checked && months !== undefined && onMonthsChange && (
+      <div className="shb-right-months">
+        <span>How many months?</span>
+        <div className="shb-stepper">
+          <button type="button" aria-label={`Decrease ${title} months`} disabled={months <= minMonths} onClick={() => onMonthsChange(Math.max(minMonths, months - 1))}>−</button>
+          <strong aria-label={`${title} months`}>{months === 0 ? '0' : usageMonthsLabel(months)}</strong>
+          <button type="button" aria-label={`Increase ${title} months`} disabled={months >= 60} onClick={() => onMonthsChange(Math.min(60, months + 1))}>+</button>
+        </div>
+        {monthsHint && <small className="shb-right-months-hint">{monthsHint}</small>}
+      </div>
+    )}
+  </div>;
+}
 function CreatorLevelSelector({ product, currency, selected, values, onToggle, onBudgetChange }: {
   product: Product;
   currency: string;
@@ -674,8 +751,7 @@ function CreatorLevelSelector({ product, currency, selected, values, onToggle, o
   values: Record<string, string>;
   onToggle: (value: string) => void;
   onBudgetChange: (level: string, value: string) => void;
-}) {
-  const budgetLabel = product === 'assignment' ? 'Project budget amount' : 'Monthly budget amount';
+}) {  const budgetLabel = product === 'assignment' ? 'Project budget amount' : 'Monthly budget amount';
   return <div><p className="mb-1 text-sm font-medium text-[#222]">Creator level<b className="text-[#D04A2C]">*</b></p><p className="mb-3 text-xs leading-relaxed text-[#7A7568]">Select one or more follower-count levels. Each selected card opens an optional budget amount field.</p><div className="grid items-start gap-2 sm:grid-cols-2">{CREATOR_LEVELS.map((level) => { const on = selected.includes(level.value); return <div key={level.value} className={`shb-tier-card ${on ? 'shb-tier-card-on' : ''}`}><button type="button" aria-pressed={on} onClick={() => onToggle(level.value)} className="shb-tier-select"><span className="shb-tier-card-top"><span className="shb-tier-kicker">Followers</span><span className="shb-tier-check">{on ? '✓' : ''}</span></span><strong>{level.value}</strong><small>{level.desc}</small></button>{on && <label className="shb-tier-budget"><span>{budgetLabel} <em>Optional</em></span><span className="shb-budget-input"><b>{currency}</b><input aria-label={`${budgetLabel} for ${level.value} followers`} inputMode="numeric" placeholder="Enter amount" value={formatMoneyInput(values[level.value] ?? '', currency)} onChange={(e) => onBudgetChange(level.value, e.target.value)} /></span><small>Leave blank if you want our team to recommend a budget.</small></label>}</div>; })}</div></div>;
 }
 
@@ -707,6 +783,10 @@ const styles = `
 .shb-audio-note{border:1px solid #E0DCCE;border-radius:12px;background:#FBFAF6;padding:12px}.shb-audio-primary,.shb-audio-secondary,.shb-audio-stop{display:flex;align-items:center;gap:7px;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:700}.shb-audio-primary{flex:1;border:1px dashed #9C9486;background:#fff;color:#3A3A3A}.shb-audio-primary span{margin-left:auto;border-radius:999px;background:#EFECE3;padding:2px 7px;font-size:9px;text-transform:uppercase}.shb-audio-secondary{border:1px solid #D9D5C7;background:#fff;color:#5C5C5C}.shb-audio-danger{color:#9B3D29}.shb-audio-stop{border:1px solid #0a0a0a;background:#0a0a0a;color:#fff}.shb-recording-dot{height:10px;width:10px;border-radius:999px;background:#D1573B;box-shadow:0 0 0 4px rgba(209,87,59,.16);animation:shb-pulse 1.15s ease-in-out infinite}@keyframes shb-pulse{50%{opacity:.4;transform:scale(.82)}}
 .shb-ref-link-remove{display:flex;height:44px;width:40px;flex:none;align-items:center;justify-content:center;border:1px solid #D9D5C7;border-radius:11px;background:#fff;font-size:13px;font-weight:700;color:#9C9486;transition:.15s}.shb-ref-link-remove:hover{border-color:#9B3D29;color:#9B3D29}
 .shb-ref-link-add{display:inline-flex;align-items:center;gap:6px;border:1px dashed #9C9486;border-radius:9px;background:#fff;padding:9px 14px;font-size:12px;font-weight:700;color:#3A3A3A;transition:.15s}.shb-ref-link-add:hover{border-color:#0a0a0a;background:#F9FDEB;color:#0a0a0a}
+.shb-right{border:1px solid #D9D5C7;border-radius:13px;background:#fff;overflow:hidden;transition:.18s}.shb-right:hover{border-color:#0a0a0a}.shb-right-on{border:2px solid #0a0a0a;background:#F9FDEB;box-shadow:2px 2px 0 #C6F24E}
+.shb-right-toggle{display:flex;width:100%;gap:10px;padding:12px 13px;text-align:left}.shb-right-check{flex:none;display:flex;height:20px;width:20px;margin-top:1px;align-items:center;justify-content:center;border:1.5px solid #C9C3B5;border-radius:6px;background:#fff;font-size:11px;font-weight:800;color:#0a0a0a}.shb-right-on .shb-right-check{border-color:#0a0a0a;background:#FCF487}
+.shb-right-toggle strong{display:block;font-size:13.5px;color:#222}.shb-right-toggle small{display:block;margin-top:2px;font-size:11px;line-height:1.45;color:#7A7568}
+.shb-right-months{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #E0DCCE;padding:10px 13px;background:rgba(255,255,255,.68)}.shb-right-months>span:first-child{font-size:11px;font-weight:700;color:#3A3A3A}.shb-right-months-hint{flex-basis:100%;font-size:10px;line-height:1.4;color:#8B8374}
 .shb-submit-wrap{position:sticky;bottom:0;z-index:5;background:linear-gradient(transparent,#F7F4EC 28%);padding-top:22px}.shb-submit{width:100%;border:2px solid #0a0a0a;border-radius:11px;background:#0a0a0a;padding:12px 18px;font-size:14px;font-weight:700;color:white;box-shadow:3px 3px 0 #C6F24E}.shb-submit:hover{background:#252525}.shb-submit:disabled{opacity:.55}
 @media(max-width:640px){.shb-section{padding:19px}.shb-category{padding:14px}.shb-category button{padding:7px 10px}}
 `;
