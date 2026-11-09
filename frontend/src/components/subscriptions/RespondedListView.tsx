@@ -113,7 +113,7 @@ export default function RespondedListView({ items, initialOpenId = null, mode = 
           <h2 className="mb-3 font-[family-name:var(--font-inter)] text-[11px] font-semibold uppercase tracking-wider text-[#a3a3a3]">
             {group.label}
           </h2>
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3">
             {group.items.map((item) => {
               const title = heading(item);
               const type = item.card.card_type === 'assignment' ? 'assignment' : 'subscription';
@@ -124,7 +124,7 @@ export default function RespondedListView({ items, initialOpenId = null, mode = 
                   key={item.id}
                   id={`recipient-${item.id}`}
                   href={`/talent/opportunities/${item.id}?type=${type}`}
-                  className={`group block overflow-hidden rounded-2xl border bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] ${
+                  className={`group flex h-full flex-col overflow-hidden rounded-2xl border bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0a0a0a] focus-visible:ring-offset-2 ${
                     item.id === initialOpenId ? 'border-[#0a0a0a] ring-1 ring-[#0a0a0a]' : 'border-[#E7E7EA]'
                   }`}
                 >
@@ -146,7 +146,7 @@ export default function RespondedListView({ items, initialOpenId = null, mode = 
                       <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.06 10 7.23 6.29a.75.75 0 111.04-1.08l4.39 4.25a.75.75 0 010 1.08l-4.39 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
                     </svg>
                   </div>
-                  <div className="flex min-h-[52px] items-center justify-between gap-3 border-t border-[#E7E7EA] bg-[#FAFAFA] px-3 py-2.5">
+                  <div className="mt-auto flex min-h-[52px] items-center justify-between gap-3 border-t border-[#E7E7EA] bg-[#FAFAFA] px-3 py-2.5">
                     <div className="min-w-0">
                       <p className="text-[9px] font-semibold uppercase tracking-wide text-[#a3a3a3]">Price</p>
                       <p className={`mt-0.5 truncate text-[11px] font-semibold ${priceLabel ? 'text-[#1F7E36]' : 'text-[#737373]'}`}>
