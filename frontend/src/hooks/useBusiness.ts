@@ -174,6 +174,7 @@ export interface BusinessSubscriptionCardSummary {
 }
 
 export interface BusinessSubscriptionCardDetail {
+  client_links?: Record<string, unknown> | null;
   id: string;
   external_id: string;
   brand_name: string | null;

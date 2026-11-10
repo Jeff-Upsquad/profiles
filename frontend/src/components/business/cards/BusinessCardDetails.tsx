@@ -1,3 +1,6 @@
+import LinkifiedText from '@/components/LinkifiedText';
+import { cardBusinessLinks } from '../../../../../shared/src/businessLinks';
+import { ASAP_LABEL, ASAP_DESCRIPTION, isAsSoonAsPossible } from '@/lib/creatorTimeline';
 import type { BusinessSubscriptionCardDetail } from '@/hooks/useBusiness';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
 import { isPerUnitAssignment, singularUnit, pluralizeUnit, optionalAssignmentQuantity, type AssignmentPricingDetails } from '@/lib/assignmentPricing';
@@ -38,6 +41,8 @@ function fmtDate(s: string | null | undefined): string {
 }
 
 export default function BusinessCardDetails({ card, isAssignment = card.card_type === 'assignment' }: { card: BusinessSubscriptionCardDetail; isAssignment?: boolean }) {
+  const clientLinks = cardBusinessLinks({ ...card });
+  const asap = isAsSoonAsPossible(card.additional_requirements);
   const isSubmitted = card.status === 'submitted';
   const isClosed = card.status === 'archived' || !!card.recalled_at;
   const requirements = card.additional_requirements ?? {};
@@ -175,12 +180,12 @@ export default function BusinessCardDetails({ card, isAssignment = card.card_typ
                 {items.map((item, index) => {
                   let safe = false;
                   try { safe = ['https:', 'http:'].includes(new URL(item).protocol); } catch { /* Show invalid URLs as plain text. */ }
-                  return <li key={index} className="break-words">{safe ? <a href={item} target="_blank" rel="noopener noreferrer" className="text-[#0a0a0a] underline underline-offset-2">{item}</a> : item}</li>;
+                  return <li key={index} className="break-words">{safe ? <a href={item} target="_blank" rel="noopener noreferrer" className="text-[#0a0a0a] underline underline-offset-2">{item}</a> : <LinkifiedText text={item} />}</li>;
                 })}
               </ul>
             ) : (
               <ul className="space-y-1.5 text-sm text-[#525252]">
-                {items.map((item, index) => <li key={index} className="whitespace-pre-line break-words">{item}</li>)}
+                {items.map((item, index) => <li key={index} className="whitespace-pre-line break-words"><LinkifiedText text={item} /></li>)}
               </ul>
             )}
           </Section>
@@ -243,12 +248,13 @@ export default function BusinessCardDetails({ card, isAssignment = card.card_typ
         )}
 
         {/* === Timeline (assignments only) === */}
-        {isAssignment && timeline && (timeline.duration || timeline.start_date || timeline.deadline) && (
+        {(asap || (isAssignment && timeline && (timeline.duration || timeline.start_date || timeline.deadline))) && (
           <Section title="Timeline">
+            {asap && <div className="text-sm"><p className="font-medium">{ASAP_LABEL}</p><p className="mt-1 text-[#737373]">{ASAP_DESCRIPTION}</p></div>}
             <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
-              {timeline.duration && <DetailRow label="Duration">{timeline.duration}</DetailRow>}
-              {timeline.start_date && <DetailRow label="Start date">{fmtDate(timeline.start_date)}</DetailRow>}
-              {timeline.deadline && <DetailRow label="Deadline">{fmtDate(timeline.deadline)}</DetailRow>}
+              {timeline?.duration && <DetailRow label="Duration">{timeline.duration}</DetailRow>}
+              {!asap && timeline?.start_date && <DetailRow label="Start date">{fmtDate(timeline.start_date)}</DetailRow>}
+              {!asap && timeline?.deadline && <DetailRow label="Deadline">{fmtDate(timeline.deadline)}</DetailRow>}
             </dl>
           </Section>
         )}
@@ -256,13 +262,14 @@ export default function BusinessCardDetails({ card, isAssignment = card.card_typ
         {/* === Scope & deliverables (assignments) — the client's project brief === */}
         {isAssignment && card.description && (
           <Section title="Scope & deliverables">
-            <p className="whitespace-pre-line text-sm text-[#525252]">{card.description}</p>
+            <p className="whitespace-pre-line text-sm text-[#525252]"><LinkifiedText text={card.description} /></p>
           </Section>
         )}
 
         {/* === About the brand === customer's own brief */}
-        {(card.brand_name || card.business_nature || card.customer_location || (!isAssignment && card.description)) && (
+        {(clientLinks.length > 0 || card.brand_name || card.business_nature || card.customer_location || (!isAssignment && card.description)) && (
           <Section title="About the brand">
+            {clientLinks.length > 0 && <div className="mb-3 flex flex-wrap gap-2">{clientLinks.map(link => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-[#e5dfec] px-3 py-2 text-xs font-medium text-[#75518b] hover:bg-[#f5f0fa]">{link.label} ↗</a>)}</div>}
             <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
               {card.brand_name && card.brand_name !== card.customer_company && (
                 <DetailRow label="Brand">{card.brand_name}</DetailRow>
@@ -276,7 +283,7 @@ export default function BusinessCardDetails({ card, isAssignment = card.card_typ
             </dl>
             {!isAssignment && card.description && (
               <p className="mt-3 whitespace-pre-line text-sm text-[#525252]">
-                {card.description}
+                <LinkifiedText text={card.description} />
               </p>
             )}
           </Section>

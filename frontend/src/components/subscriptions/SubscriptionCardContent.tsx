@@ -1,5 +1,7 @@
 'use client';
 
+import LinkifiedText from '@/components/LinkifiedText';
+import { ASAP_LABEL, ASAP_DESCRIPTION, isAsSoonAsPossible } from '@/lib/creatorTimeline';
 import { cardBusinessLinks } from '../../../../shared/src/businessLinks';
 import CreatorAssignmentBrief, { isCreatorAssignment } from './CreatorAssignmentBrief';
 import { formatDate as formatLongDate } from '@/lib/formatDate';
@@ -66,7 +68,7 @@ function parseAdditionalRequirements(
   if (!raw || typeof raw !== 'object') return [];
   const out: { key: string; label: string; items: string[] }[] = [];
   for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
-    if (key === 'client_links') continue;
+    if (key === 'client_links' || key === 'delivery_timing') continue;
     const items = asStringArray(val);
     if (items.length) out.push({ key, label: arGroupLabel(key), items });
   }
@@ -84,7 +86,7 @@ function groupAdditionalMatches(
   const order: string[] = [];
   const byGroup = new Map<string, MatchItem[]>();
   for (const it of items) {
-    if (it.group === 'client_links') continue;
+    if (it.group === 'client_links' || it.group === 'delivery_timing') continue;
     if (!byGroup.has(it.group)) {
       byGroup.set(it.group, []);
       order.push(it.group);
@@ -113,7 +115,7 @@ function MatchChip({ item }: { item: MatchItem }) {
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
         )}
       </svg>
-      {item.label}
+      <LinkifiedText text={item.label} />
     </span>
   );
 }
@@ -374,6 +376,7 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
     isAssignment ? 'assignment' : 'subscription',
     content as Record<string, unknown>,
   );
+  const asap = isAsSoonAsPossible(content.additional_requirements);
   const assignmentDetails = (content.assignment_details ?? {}) as AssignmentPricingDetails;
   const assignmentDuration = asString(assignmentDetails.duration).trim();
   const assignmentStartDate = asString(assignmentDetails.start_date).trim();
@@ -471,7 +474,7 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
 
       {showDescription && (
         <p className="whitespace-pre-line text-sm text-[#525252] leading-relaxed">
-          {description}
+          <LinkifiedText text={description} />
         </p>
       )}
 
@@ -577,7 +580,7 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
                   <>
                     {deliverablesLabel && (
                       <p className="mt-1 font-[family-name:var(--font-inter)] text-sm font-medium" style={{ color: 'var(--tint-text)' }}>
-                        {deliverablesLabel}
+                        <LinkifiedText text={deliverablesLabel} />
                       </p>
                     )}
                     {deliverables.length > 0 && (
@@ -587,10 +590,10 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
                             <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ backgroundColor: 'var(--tint-icon)' }} />
                             <div className="flex flex-wrap items-baseline gap-x-1.5">
                               <span className="font-[family-name:var(--font-jakarta)] text-base font-semibold" style={{ color: 'var(--tint-text)' }}>
-                                {d.label}
+                                <LinkifiedText text={d.label} />
                               </span>
                               {d.description && (
-                                <span className="text-xs font-normal opacity-70">{d.description}</span>
+                                <span className="text-xs font-normal opacity-70"><LinkifiedText text={d.description} /></span>
                               )}
                             </div>
                           </li>
@@ -628,6 +631,8 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
         );
       })()}
 
+      {asap && <div className="rounded-xl border border-[#E5DEFA] bg-[#F8F6FF] p-3 text-sm"><p className="font-semibold">{ASAP_LABEL}</p><p className="mt-1 text-xs">{ASAP_DESCRIPTION}</p></div>}
+
       {/* Payment — green tint. Assignments can be fixed-price or priced per unit. */}
       {(priceFormatted || requestQuote) && (
         <div className={polishedSections ? 'tint-green rounded-2xl border border-[#D9EDDE] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]' : ''}>
@@ -659,8 +664,8 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
             <p className="mt-1 font-[family-name:var(--font-inter)] text-xs text-[#737373]">
               {[
                 assignmentDuration && `Duration: ${assignmentDuration}`,
-                assignmentStartDate && `Starts ${fmtDate(assignmentStartDate)}`,
-                assignmentDeadline && `Due ${fmtDate(assignmentDeadline)}`,
+                !asap && assignmentStartDate && `Starts ${fmtDate(assignmentStartDate)}`,
+                !asap && assignmentDeadline && `Due ${fmtDate(assignmentDeadline)}`,
               ].filter(Boolean).join('  ·  ')}
             </p>
           )}
@@ -740,7 +745,7 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
                   </p>
                 )}
                 {notes && (
-                  <p className="whitespace-pre-line leading-relaxed text-[#525252]">{notes}</p>
+                  <p className="whitespace-pre-line leading-relaxed text-[#525252]"><LinkifiedText text={notes} /></p>
                 )}
                 {clientLinks.length > 0 && <div className="flex flex-wrap gap-2 pt-2">{clientLinks.map(link => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-[#e5dfec] bg-white px-3 py-2 text-xs font-medium text-[#75518b] hover:bg-[#f5f0fa]">{link.label} ↗</a>)}</div>}
               </div>
@@ -811,7 +816,7 @@ export default function SubscriptionCardContent({ content, hideIdentity = false,
                         </p>
                         <div className="mt-1 flex flex-wrap gap-1.5">
                           {g.items.map((it, i) => (
-                            <Chip key={i}>{it}</Chip>
+                            <Chip key={i}><LinkifiedText text={it} /></Chip>
                           ))}
                         </div>
                       </div>

@@ -1340,6 +1340,7 @@ export async function getMySubscriptionCard(businessUserId: string, cardId: stri
   return {
     id: card.id as string,
     external_id: card.external_id as string,
+    client_links: content.client_links && typeof content.client_links === 'object' && !Array.isArray(content.client_links) ? content.client_links : null,
     brand_name: (content.brand_name as string) ?? null,
     subscription_name:
       (content.subscription_name as string) ?? (content.title as string) ?? null,

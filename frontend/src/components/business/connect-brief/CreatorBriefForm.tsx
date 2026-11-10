@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import api from '@/services/api';
+import { creatorTimelineFields } from '@/lib/creatorTimeline';
 import BusinessLinksDialog from '@/components/business/BusinessLinksDialog';
 import { businessProfileLinks, hasBusinessLink, type BusinessLinks } from '../../../../../shared/src/businessLinks';
 import { useAuth } from '@/context/AuthContext';
@@ -60,6 +61,7 @@ type FormState = {
   duration: string;
   startDate: string;
   deliveryDate: string;
+  asSoonAsPossible: boolean;
   countryId: string;
   stateRegions: string[];
   ageGroups: string[];
@@ -115,7 +117,7 @@ const SERVICE_DESCRIPTIONS: Record<string, string> = Object.fromEntries(
 const emptyForm: FormState = {
   contactName: '', email: '', phone: '', brandName: '', businessNature: '', businessNote: '',
   requirement: '', referenceLinks: [], platforms: [], niches: [], formats: [], serviceType: '', serviceCount: '', levels: [], levelBudgets: {},
-  currency: 'INR', duration: '', startDate: '', deliveryDate: '',
+  currency: 'INR', duration: '', startDate: '', deliveryDate: '', asSoonAsPossible: false,
   countryId: '', stateRegions: [], ageGroups: [], languages: ['English'],
   usageRightsOn: false, usageRightsMonths: DEFAULT_USAGE_RIGHTS_MONTHS,
   paidAdsOn: false, paidAdsMonths: DEFAULT_USAGE_RIGHTS_MONTHS,
@@ -335,6 +337,7 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
       const productDeliveryText = form.productDelivery.trim();
       const referenceLinks = form.referenceLinks.map((link) => link.trim()).filter(Boolean);
 
+      const timeline = creatorTimelineFields(form);
       await api.post('/business/connect-brief', {
         service_types: ['social_media_creator'],
         brand_name: form.brandName.trim(),
@@ -355,9 +358,10 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
             ...(Object.keys(levelBudgets).length ? { tier_budgets: levelBudgets } : {}),
             currency: form.currency,
             duration: form.duration.trim(),
-            start_date: form.startDate,
-            deadline: form.deliveryDate,
+            start_date: timeline.start_date,
+            deadline: timeline.deadline,
             additional_requirements: {
+              ...timeline.additional,
               channels: form.platforms,
               creator_niches: form.niches,
               creator_formats: form.formats,
@@ -483,7 +487,11 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
             <Field label="Budget currency" required><CurrencyField label="Budget currency" value={form.currency as CurrencyCode} onChange={(code) => { currencyTouchedRef.current = true; update('currency', code); }} accountDefault={user?.default_currency} saveDefault={saveDefaultCur} onSaveDefaultChange={setSaveDefaultCur} /></Field>
             <CreatorLevelSelector product={product} currency={form.currency} selected={form.levels} values={form.levelBudgets} onToggle={(value) => toggle('levels', value)} onBudgetChange={updateLevelBudget} />
             <Field label="Duration" optional><input className="shb-input" value={form.duration} onChange={(e) => update('duration', e.target.value)} placeholder="e.g. 4 weeks, 3 posts per creator" /></Field>
-            <div className="grid gap-4 sm:grid-cols-2"><Field label="Expected start date" optional><input type="date" className="shb-input" value={form.startDate} onChange={(e) => update('startDate', e.target.value)} /></Field><Field label="Delivery date" optional><input type="date" className="shb-input" value={form.deliveryDate} onChange={(e) => update('deliveryDate', e.target.value)} /></Field></div>
+            <div className="grid gap-4 sm:grid-cols-2"><Field label="Expected start date" optional><input type="date" disabled={form.asSoonAsPossible} className="shb-input" value={form.asSoonAsPossible ? '' : form.startDate} onChange={(e) => update('startDate', e.target.value)} /></Field><Field label="Delivery date" optional><input type="date" disabled={form.asSoonAsPossible} className="shb-input" value={form.asSoonAsPossible ? '' : form.deliveryDate} onChange={(e) => update('deliveryDate', e.target.value)} /></Field></div>
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#D9D5C7] p-3">
+              <input type="checkbox" checked={form.asSoonAsPossible} onChange={(event) => update('asSoonAsPossible', event.target.checked)} className="mt-1 h-4 w-4 accent-black" />
+              <span><strong className="block text-sm font-medium">As soon as possible</strong><small className="mt-1 block text-xs text-[#7A7568]">No specific start or delivery date. The creator should deliver as soon as they can.</small></span>
+            </label>
           </Section>
 
           <GroupHeader index={3} title="Channel preferences" subtitle="Channels, audience, language and content fit." />
@@ -771,7 +779,7 @@ const styles = `
 .shb-section{border:1px solid #E8E5DD;border-radius:18px;background:white;padding:24px;box-shadow:0 2px 5px rgba(41,38,31,.08)}
 .shb-eyebrow{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#8B8374}.shb-section h3{margin-top:4px;font-size:19px;font-weight:700;color:#222}.shb-hint{margin-top:3px;font-size:13px;line-height:1.5;color:#7A7568}
 .shb-section-compact{padding:14px 18px}.shb-section-compact h3{margin-top:2px;font-size:15px}.shb-edit-button{flex:none;border:1.5px solid #0a0a0a;border-radius:9px;background:#fff;padding:7px 13px;font-size:12px;font-weight:700;color:#222;box-shadow:2px 2px 0 #FCF487}.shb-edit-button:hover{background:#F9FDEB}.shb-compact-summary{margin-top:9px;border-top:1px solid #E8E5DD;padding-top:9px}.shb-compact-summary strong{display:block;font-size:14px;color:#222}.shb-compact-summary p{display:-webkit-box;overflow:hidden;margin-top:3px;color:#7A7568;font-size:12px;line-height:1.5;-webkit-box-orient:vertical;-webkit-line-clamp:2}
-.shb-input{width:100%;border:1px solid #D9D5C7;border-radius:11px;background:#fff;padding:11px 13px;font:inherit;font-size:14px;color:#222;outline:none}.shb-input:focus{border-color:#0a0a0a;box-shadow:0 0 0 3px rgba(252,244,135,.65)}
+.shb-input{width:100%;border:1px solid #D9D5C7;border-radius:11px;background:#fff;padding:11px 13px;font:inherit;font-size:14px;color:#222;outline:none}.shb-input:disabled{background:#F3F2EE;color:#9C9486;cursor:not-allowed}.shb-input:focus{border-color:#0a0a0a;box-shadow:0 0 0 3px rgba(252,244,135,.65)}
 .shb-readonly{min-height:46px;border:1px solid #E2DFD3;border-radius:11px;background:#F1EFE7;padding:12px 13px;font-size:14px;color:#5C5C5C}.shb-help{margin-top:5px;font-size:11px;color:#9C9486}
 .shb-chip{border:1px solid #D9D5C7;border-radius:999px;background:#fff;padding:7px 12px;font-size:12px;font-weight:600;color:#5C5C5C;transition:.15s}.shb-chip-on{border-color:#0a0a0a;background:#F2FCBC;color:#0a0a0a;box-shadow:1px 1px 0 #0a0a0a}
 .shb-service-select{min-height:0;padding:12px 13px}.shb-service-select strong{margin-top:8px;font-size:13.5px}.shb-service-count{display:flex;align-items:center;justify-content:space-between;gap:12px}.shb-service-count>span:first-child{margin:0;font-size:11px}

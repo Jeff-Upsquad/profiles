@@ -1,5 +1,7 @@
 'use client';
 
+import LinkifiedText from '@/components/LinkifiedText';
+import { ASAP_LABEL, ASAP_DESCRIPTION, isAsSoonAsPossible } from '@/lib/creatorTimeline';
 import { cardBusinessLinks } from '../../../../shared/src/businessLinks';
 import type { ReactNode } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -37,11 +39,12 @@ export default function CreatorAssignmentBrief({ content, previewAccounts }: { c
   const timeline = (content.assignment_details ?? {}) as Record<string, unknown>;
   const note = text(content.deliverables_label) || text(content.requirement_note);
   const usage = values('usage_rights').filter(item => !/^not specified$/i.test(item));
+  const asap = isAsSoonAsPossible(groups);
   const deadline = text(timeline.deadline);
-  const extras = Object.keys(groups).filter(key => !['channels', 'creator_formats', 'creator_services', 'service_count', 'creator_levels', 'creator_niches', 'creator_audience', 'audience_location', 'desired_age', 'deliverables', 'usage_rights', 'reference_links', 'client_links'].includes(key));
+  const extras = Object.keys(groups).filter(key => !['channels', 'creator_formats', 'creator_services', 'service_count', 'creator_levels', 'creator_niches', 'creator_audience', 'audience_location', 'desired_age', 'deliverables', 'usage_rights', 'reference_links', 'client_links', 'delivery_timing'].includes(key));
   const references = values('reference_links');
   const clientLinks = cardBusinessLinks(content);
-  const missing = [!deadline && 'Publishing deadline', !usage.length && 'Usage rights & paid ads', !hasMatchedRate && 'Payment amount'].filter(Boolean);
+  const missing = [!asap && !deadline && 'Publishing deadline', !usage.length && 'Usage rights & paid ads', !hasMatchedRate && 'Payment amount'].filter(Boolean);
   return (
     <div className="space-y-6 text-[#24252a]">
       <section className="rounded-2xl border border-[#e4e0f4] bg-[#f8f6ff] p-4 sm:p-5">
@@ -70,10 +73,10 @@ export default function CreatorAssignmentBrief({ content, previewAccounts }: { c
           ))}
           {!channels.length && <p className="text-sm text-[#777380]">Platform and rate to be confirmed with the client.</p>}
         </div>
-        {note && <div className="mt-3 rounded-xl bg-[#faf9f6] px-4 py-3"><p className="text-[10px] font-semibold uppercase tracking-wider text-[#929087]">Client’s brief</p><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6">{note}</p></div>}
-        {strings(content.custom_deliverables).map(item => <p key={item} className="mt-2 text-sm">{item}</p>)}
-        {content.custom_deliverables?.map((item, index) => typeof item === 'object' && item.kind !== 'hours' ? <p key={index} className="mt-2 text-sm">{item.label || item.name || item.title}{item.description ? ` — ${item.description}` : ''}</p> : null)}
-        {!services.length && values('deliverables').map(item => <p key={item} className="mt-2 text-sm leading-6">{item}</p>)}
+        {note && <div className="mt-3 rounded-xl bg-[#faf9f6] px-4 py-3"><p className="text-[10px] font-semibold uppercase tracking-wider text-[#929087]">Client’s brief</p><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6"><LinkifiedText text={note} /></p></div>}
+        {strings(content.custom_deliverables).map(item => <p key={item} className="mt-2 text-sm"><LinkifiedText text={item} /></p>)}
+        {content.custom_deliverables?.map((item, index) => typeof item === 'object' && item.kind !== 'hours' ? <p key={index} className="mt-2 text-sm"><LinkifiedText text={`${item.label || item.name || item.title || ''}${item.description ? ` — ${item.description}` : ''}`} /></p> : null)}
+        {!services.length && values('deliverables').map(item => <p key={item} className="mt-2 text-sm leading-6"><LinkifiedText text={item} /></p>)}
         {text(content.requirement_voice_url) && <audio controls preload="none" aria-label="Client’s recorded brief" className="mt-3 w-full" src={text(content.requirement_voice_url)} />}
       </Section>
 
@@ -86,14 +89,15 @@ export default function CreatorAssignmentBrief({ content, previewAccounts }: { c
       </Section>
 
       <Section number="03" title="Timeline & usage rights">
-        <dl className="grid grid-cols-2 gap-3"><Detail label="Publish by" value={deadline || 'To be confirmed'} /><Detail label="Campaign duration" value={text(timeline.duration) || 'To be confirmed'} />{text(timeline.start_date) && <Detail label="Start date" value={text(timeline.start_date)} />}</dl>
+        <dl className="grid grid-cols-2 gap-3"><Detail label="Publish by" value={asap ? ASAP_LABEL : deadline || 'To be confirmed'} /><Detail label="Campaign duration" value={text(timeline.duration) || 'To be confirmed'} />{!asap && text(timeline.start_date) && <Detail label="Start date" value={text(timeline.start_date)} />}</dl>
+        {asap && <p className="mt-3 text-sm leading-6">{ASAP_DESCRIPTION}</p>}
         {usage.length > 0 && <p className="mt-3 text-sm leading-6"><span className="font-semibold">Usage rights: </span>{usage.join(' ')}</p>}
         {missing.length > 0 && <div className="mt-3 flex gap-2.5 rounded-xl border border-[#f0e4c8] bg-[#fffbf2] p-3.5 text-[#8b6b32]"><Icon name="info" /><div><p className="text-xs font-semibold">A few details to clarify</p><p className="mt-1 text-xs leading-5">{missing.join(' · ')}. Ask the client before you accept.</p></div></div>}
       </Section>
 
       {references.length > 0 && <Section title="Reference & inspiration">{references.map((reference, index) => /^https?:\/\//i.test(reference) ? <a key={reference} href={reference} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-[#eae8ee] px-4 py-3 text-sm font-medium transition hover:bg-[#f8f6ff]"><span className="min-w-0"><span className="block">View client reference{references.length > 1 ? ` ${index + 1}` : ''}</span><span className="mt-0.5 block truncate text-xs font-normal text-[#8a8693]">{reference}</span></span><Icon name="arrow" /></a> : <p key={reference} className="break-words text-sm">{reference}</p>)}</Section>}
 
-      <details className="group border-t border-[#eceaf0] pt-4"><summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold">About the client<span className="text-lg font-normal text-[#96909f] group-open:rotate-45">+</span></summary><div className="mt-3 rounded-xl bg-[#f8f8fa] p-4 text-sm leading-6"><p className="font-semibold">{text(content.brand_name) || 'Client'}</p>{text(content.business_nature) && <p>{text(content.business_nature)}</p>}<p className="text-[#777380]">{text(content.notes) || 'No additional client information provided.'}</p>{text(content.customer_location) && <p>{text(content.customer_location)}</p>}<div className="mt-4 border-t border-[#e9e5ee] pt-4"><p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[#a092aa]">Website & social media</p>{clientLinks.length ? <div className="grid gap-2 sm:grid-cols-2">{clientLinks.map(link => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-[#e7dfed] bg-white px-3 py-2.5 text-[#725486] hover:bg-[#f4eef9]"><span className="min-w-0"><span className="block text-xs font-semibold">{link.label}</span><span className="block truncate text-[10px] text-[#a495ad]">{link.url.replace(/^https?:\/\/(www\.)?/, '')}</span></span><Icon name="arrow" /></a>)}</div> : <p className="text-xs text-[#9a8ba5]">The client hasn’t added any public links yet.</p>}</div></div></details>
+      <section className="border-t border-[#eceaf0] pt-4"><h2 className="text-sm font-semibold">About the client</h2><div className="mt-3 rounded-xl bg-[#f8f8fa] p-4 text-sm leading-6"><p className="font-semibold">{text(content.brand_name) || 'Client'}</p>{text(content.business_nature) && <p>{text(content.business_nature)}</p>}<p className="text-[#777380]"><LinkifiedText text={text(content.notes) || 'No additional client information provided.'} /></p>{text(content.customer_location) && <p>{text(content.customer_location)}</p>}<div className="mt-4 border-t border-[#e9e5ee] pt-4"><p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[#a092aa]">Website & social media</p>{clientLinks.length ? <div className="grid gap-2 sm:grid-cols-2">{clientLinks.map(link => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-[#e7dfed] bg-white px-3 py-2.5 text-[#725486] hover:bg-[#f4eef9]"><span className="min-w-0"><span className="block text-xs font-semibold">{link.label}</span><span className="block truncate text-[10px] text-[#a495ad]">{link.url.replace(/^https?:\/\/(www\.)?/, '')}</span></span><Icon name="arrow" /></a>)}</div> : <p className="text-xs text-[#9a8ba5]">The client hasn’t added any public links yet.</p>}</div></div></section>
       {text(content.expiresAt) && <p className="text-xs text-[#82808b]">Offer expires: {text(content.expiresAt)}</p>}
     </div>
   );
