@@ -115,6 +115,8 @@ export default function SpecialistBriefForm({ product = 'subscription', preview 
   const [editingContact, setEditingContact] = useState(!preview);
   const [editingBrand, setEditingBrand] = useState(!preview);
   const [comparePlanOpen, setComparePlanOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+  const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([0]));
   const audioBlobRef = useRef<Blob | null>(null);
 
   useEffect(() => {
@@ -280,16 +282,107 @@ export default function SpecialistBriefForm({ product = 'subscription', preview 
     return <div className="shb-connect-bg flex min-h-full items-center justify-center px-5 py-16"><div className="w-full max-w-md rounded-2xl border border-[#E8E5DD] bg-white p-8 text-center shadow-sm"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#F2FCBC]"><CheckIcon /></div><h1 className="mt-4 text-xl font-semibold text-[#222]">Requirement submitted</h1><p className="mt-2 text-sm leading-relaxed text-[#5C5C5C]">Your {roleName} {product} brief will be shared automatically with matching talent while our team reviews it.</p><button type="button" onClick={() => setSubmitted(false)} className="shb-submit mt-6">Back to brief</button></div><style>{styles}</style></div>;
   }
 
+  // ── Tab stepper ──────────────────────────────────────────────
+  const TABS = [
+    { label: 'Business', fullLabel: 'Business details', subtitle: 'Who you are and how we reach you.' },
+    { label: 'Requirement', fullLabel: `${roleName} requirement`, subtitle: 'The scope, outcomes and responsibilities you need.' },
+    { label: 'Budget', fullLabel: isAssignment ? 'Budget & timeline' : 'Plan, level & budget', subtitle: isAssignment ? 'Set a clear finish line.' : 'Capacity & tiers.' },
+    { label: 'Preferences', fullLabel: 'Talent preferences', subtitle: 'Skills, tools, language, and working fit.' },
+  ] as const;
+
+  function goToTab(index: number) {
+    if (index < 0 || index >= TABS.length) return;
+    setActiveTab(index);
+    setVisitedTabs((prev) => new Set(prev).add(index));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function validateTab(tabIndex: number): SubmitError[] {
+    const tabErrors: SubmitError[] = [];
+    if (tabIndex === 0) {
+      if (!form.contactName.trim() || !form.email.trim() || !form.phone.trim())
+        tabErrors.push({ message: 'Add your contact name, email, and phone number.', targetId: 'brief-contact' });
+      if (!form.brandName.trim() || !form.businessNature.trim() || !form.businessNote.trim())
+        tabErrors.push({ message: 'Complete the brand details before continuing.', targetId: 'brief-brand' });
+    } else if (tabIndex === 1) {
+      if (!form.requirement.trim())
+        tabErrors.push({ message: `Describe what you need the ${roleName} to own.`, targetId: 'brief-requirement' });
+    } else if (tabIndex === 2) {
+      if (!isAssignment && !form.plan)
+        tabErrors.push({ message: 'Select a monthly plan.', targetId: 'brief-plan' });
+      if (form.tiers.length === 0)
+        tabErrors.push({ message: 'Select at least one specialist tier.', targetId: 'brief-plan' });
+    }
+    return tabErrors;
+  }
+
+  function handleNext() {
+    const tabErrors = validateTab(activeTab);
+    if (tabErrors.length > 0) {
+      showBriefErrors(tabErrors, setErrors);
+      return;
+    }
+    setErrors([]);
+    goToTab(activeTab + 1);
+  }
+
+  const tabComplete = [
+    contactComplete && brandComplete,
+    Boolean(form.requirement.trim()),
+    (isAssignment || Boolean(form.plan)) && form.tiers.length > 0,
+    form.languages.length > 0 && (isAssignment || form.workingDays.length > 0),
+  ];
+
   return (
     <div className="shb-connect-bg min-h-full px-4 py-5 sm:py-7">
       <div className="mx-auto max-w-[44rem]">
         <header className="mb-4 text-center"><h1 className="text-[18px] font-semibold tracking-tight text-[#222] sm:text-[20px]">Tell us about your brand</h1><p className="mt-1 text-[13px] text-[#5C5C5C]">A few quick details so we can match you with the right {roleName}.</p></header>
 
+        {/* ── Compact Tab navigation ── */}
+        <div className="mb-4">
+          <nav className="shb-tab-nav" aria-label="Brief sections">
+            {TABS.map((tab, i) => {
+              const done = tabComplete[i];
+              const active = activeTab === i;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  aria-label={`${tab.fullLabel}${done ? ' (complete)' : ''}`}
+                  className={`shb-tab ${active ? 'shb-tab-active' : ''} ${done ? 'shb-tab-done' : ''}`}
+                  onClick={() => goToTab(i)}
+                >
+                  <span className="shb-tab-index">
+                    {done ? (
+                      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : i + 1}
+                  </span>
+                  <span className="shb-tab-label">{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+          <div className="shb-tab-progress">
+            <div className="shb-tab-progress-fill" style={{ width: `${((activeTab + 1) / TABS.length) * 100}%` }} />
+          </div>
+          <div className="flex items-center justify-between px-1 text-[11px] text-[#7A7568]">
+            <span className="font-semibold text-[#222]">
+              Step {activeTab + 1} of {TABS.length} · {TABS[activeTab].fullLabel}
+            </span>
+            <span>{TABS[activeTab].subtitle}</span>
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit} noValidate className="space-y-5 pb-8">
           <CategoryBanner product={product} roleName={roleName} />
           {errors.length > 0 && <SubmitErrorSummary errors={errors} id="brief-errors-top" />}
 
-          <GroupHeader index={1} title="Business details" subtitle="Who you are and how we reach you." />
+          {/* ── TAB 1: Business details ── */}
+          {activeTab === 0 && <>
           <Section
             id="brief-contact"
             eyebrow=""
@@ -315,10 +408,12 @@ export default function SpecialistBriefForm({ product = 'subscription', preview 
             <Field label="What does your business do?" required><input className="shb-input" value={form.businessNature} onChange={(e) => update('businessNature', e.target.value)} placeholder="e.g. Online education and professional upskilling" /></Field>
             <Field label="About the brand" required><textarea className="shb-input min-h-24 resize-y" value={form.businessNote} onChange={(e) => update('businessNote', e.target.value)} placeholder="Products, audience, positioning, and anything useful to know." /></Field>
           </Section>
+          </>}
 
-          <GroupHeader index={2} title={`${roleName} requirement`} subtitle="The scope, outcomes and responsibilities you need." />
+          {/* ── TAB 2: Requirement ── */}
+          {activeTab === 1 && <>
           <Section id="brief-requirement" eyebrow="Requirement" title={`What should your ${roleName} own?`} hint="Be specific about the commercial outcome and day-to-day responsibility.">
-            <Field label="Describe your requirement" required><textarea className="shb-input min-h-32 resize-y" value={form.requirement} onChange={(e) => update('requirement', e.target.value)} placeholder={contentRole?.briefHint ?? "e.g. Own our Meta and Google acquisition, improve qualified leads, and report weekly on CAC and revenue."} /></Field>
+            <Field label="Describe your requirement" required><textarea className="shb-input min-h-32 resize-y" value={form.requirement} onChange={(e) => update('requirement', e.target.value)} placeholder={contentRole?.briefHint ?? 'e.g. Own our Meta and Google acquisition, improve qualified leads, and report weekly on CAC and revenue.'} /></Field>
             <AudioNote
               audioUrl={audioUrl}
               onChange={(blob, url) => {
@@ -326,28 +421,13 @@ export default function SpecialistBriefForm({ product = 'subscription', preview 
                 setAudioUrl(url);
               }}
             />
-            <ChipField label={contentRole?.scopeLabel ?? 'Advertising channels'} options={contentRole ? [...contentRole.categories] : CHANNELS} selected={form.channels} onToggle={(value) => toggle('channels', value)} />
-            <ChipField label="Primary objectives" options={contentRole ? [...contentRole.objectives] : OBJECTIVES} selected={form.objectives} onToggle={(value) => toggle('objectives', value)} />
-            {(contentRole?.briefFields ?? []).map((field) => (
-              <div key={field.key} id={`brief-${field.key}`}>
-                <Field label={field.label} required={field.required}>
-                  <textarea className="shb-input min-h-20 resize-y" maxLength={1000} value={form.roleDetails[field.key] ?? ''} onChange={(e) => update('roleDetails', { ...form.roleDetails, [field.key]: e.target.value })} />
-                </Field>
-              </div>
-            ))}
-            {!contentRole && (
-            <div>
-              <p className="mb-1.5 text-sm font-medium text-[#222]">Current monthly ad spend<b className="text-[#D04A2C]">*</b></p>
-              <div className="grid grid-cols-[9rem_minmax(0,1fr)] gap-2">
-                <select aria-label="Ad spend currency" className="shb-input" value={form.mediaSpendCurrency} onChange={(e) => update('mediaSpendCurrency', e.target.value)}>
-                  {CURRENCIES.map((currency) => <option key={currency.code} value={currency.code}>{currency.code}</option>)}
-                </select>
-                <input aria-label="Current monthly ad spend amount" className="shb-input" inputMode="numeric" placeholder="Enter monthly amount" value={formatMoneyInput(form.mediaSpend, form.mediaSpendCurrency)} onChange={(e) => update('mediaSpend', e.target.value.replace(/[^0-9]/g, ''))} />
-              </div>
-            </div>
-            )}
+            <ChipField label={contentRole?.scopeLabel ?? 'Advertising channels'} options={contentRole ? [...contentRole.categories] : CHANNELS} selected={form.channels} onToggle={(value) => toggle('channels', value)} hint="Select one or more that the specialist should handle." />
+            <ChipField label="Target objectives" options={contentRole ? [...contentRole.objectives] : OBJECTIVES} selected={form.objectives} onToggle={(value) => toggle('objectives', value)} hint="Choose the primary outcomes you want to achieve." />
           </Section>
+          </>}
 
+          {/* ── TAB 3: Plan & budget ── */}
+          {activeTab === 2 && <>
           <Section id="brief-plan" eyebrow={isAssignment ? 'Assignment' : 'Subscription'} title={isAssignment ? 'Budget & timeline' : 'Plan, level & budget'} hint={isAssignment ? 'Set a clear project finish line.' : 'Choose how much specialist capacity you need each month.'}>
             {!isAssignment && <div><div className="mb-2 flex items-center justify-between gap-3"><p className="text-sm font-medium text-[#222]">Monthly plan<b className="text-[#D04A2C]">*</b></p><button type="button" onClick={() => setComparePlanOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border-2 border-[#0a0a0a] bg-[#F2FCBC] px-3 py-1.5 text-xs font-bold text-[#0a0a0a] shadow-[2px_2px_0_#0a0a0a]"><CompareIcon />Compare all plans</button></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-5">{PLANS.map((plan) => { const selected = form.plan === plan.name; return <button key={plan.name} type="button" aria-pressed={selected} onClick={() => update('plan', plan.name)} className={`shb-choice ${selected ? 'shb-choice-on' : ''}`}><strong>{plan.name}</strong><span className="shb-choice-daily">{plan.dailyHours} / day</span><span className="shb-choice-cap">{plan.weeklyMax} weekly max</span><span className="shb-choice-cap">{plan.monthlyMax} monthly max</span>{plan.recommended && <em>Popular</em>}</button>; })}</div><div className="shb-plan-note"><InfoIcon /><p><strong>Daily hours come first.</strong> Weekly and monthly figures are maximum caps, not saved-up balances. Unused time doesn&apos;t roll over.</p></div></div>}
             <Field label="Budget currency" required><CurrencyField label="Budget currency" value={form.currency as CurrencyCode} onChange={(code) => { currencyTouchedRef.current = true; update('currency', code); }} accountDefault={user?.default_currency} saveDefault={saveDefaultCur} onSaveDefaultChange={setSaveDefaultCur} /></Field>
@@ -355,8 +435,10 @@ export default function SpecialistBriefForm({ product = 'subscription', preview 
             {isAssignment && <Field label="Duration"><input className="shb-input" value={form.duration} onChange={(e) => update('duration', e.target.value)} /></Field>}
             {isAssignment && <div className="grid gap-4 sm:grid-cols-2"><Field label="Start date"><input type="date" className="shb-input" value={form.startDate} onChange={(e) => update('startDate', e.target.value)} /></Field><Field label="Deadline"><input type="date" className="shb-input" value={form.deadline} onChange={(e) => update('deadline', e.target.value)} /></Field></div>}
           </Section>
+          </>}
 
-          <GroupHeader index={3} title="Talent preferences" subtitle="Skills, tools, language, and working fit." />
+          {/* ── TAB 4: Talent preferences ── */}
+          {activeTab === 3 && <>
           <Section id="brief-preferences" eyebrow="Matching" title="Who you'd like to work with" hint="These preferences help us prioritise the best-fit profiles.">
             <Field label="Country" optional>
               <select aria-label="Country" className="shb-input" value={form.countryId} onChange={(e) => changeCountry(e.target.value)}>
@@ -377,8 +459,26 @@ export default function SpecialistBriefForm({ product = 'subscription', preview 
               }))}
             />
           </Section>
+          </>}
 
-          <div className="shb-submit-wrap"><SubmitErrorSummary errors={errors} id="brief-errors-submit" /><button type="submit" disabled={submitting} className="shb-submit">{submitting ? 'Submitting…' : `Submit ${product} brief`}</button></div>
+          {/* ── Tab navigation buttons ── */}
+          <div className="shb-tab-buttons">
+            {activeTab > 0 && (
+              <button type="button" onClick={() => goToTab(activeTab - 1)} className="shb-tab-back">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                Back
+              </button>
+            )}
+            <span className="flex-1" />
+            {activeTab < TABS.length - 1 ? (
+              <button type="button" onClick={handleNext} className="shb-tab-next">
+                Next: {TABS[activeTab + 1].label}
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              </button>
+            ) : (
+              <div className="shb-submit-wrap w-full"><SubmitErrorSummary errors={errors} id="brief-errors-submit" /><button type="submit" disabled={submitting} className="shb-submit">{submitting ? 'Submitting…' : `Submit ${product} brief`}</button></div>
+            )}
+          </div>
         </form>
       </div>
       {comparePlanOpen && <PlanCompareModal selectedPlan={form.plan} onSelect={(name) => update('plan', name)} onClose={() => setComparePlanOpen(false)} />}
@@ -616,4 +716,20 @@ const styles = `
 .shb-audio-note{border:1px solid #E0DCCE;border-radius:12px;background:#FBFAF6;padding:12px}.shb-audio-primary,.shb-audio-secondary,.shb-audio-stop{display:flex;align-items:center;gap:7px;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:700}.shb-audio-primary{flex:1;border:1px dashed #9C9486;background:#fff;color:#3A3A3A}.shb-audio-primary span{margin-left:auto;border-radius:999px;background:#EFECE3;padding:2px 7px;font-size:9px;text-transform:uppercase}.shb-audio-secondary{border:1px solid #D9D5C7;background:#fff;color:#5C5C5C}.shb-audio-danger{color:#9B3D29}.shb-audio-stop{border:1px solid #0a0a0a;background:#0a0a0a;color:#fff}.shb-recording-dot{height:10px;width:10px;border-radius:999px;background:#D1573B;box-shadow:0 0 0 4px rgba(209,87,59,.16);animation:shb-pulse 1.15s ease-in-out infinite}@keyframes shb-pulse{50%{opacity:.4;transform:scale(.82)}}
 .shb-submit-wrap{position:sticky;bottom:0;z-index:5;background:linear-gradient(transparent,#F7F4EC 28%);padding-top:22px}.shb-submit{width:100%;border:2px solid #0a0a0a;border-radius:11px;background:#0a0a0a;padding:12px 18px;font-size:14px;font-weight:700;color:white;box-shadow:3px 3px 0 #C6F24E}.shb-submit:hover{background:#252525}.shb-submit:disabled{opacity:.55}
 @media(max-width:640px){.shb-section{padding:19px}.shb-category{padding:14px}.shb-category button{padding:7px 10px}}
+.shb-tab-nav{display:flex;align-items:center;gap:3px;margin-bottom:6px;border:1px solid #E2DFD5;border-radius:10px;background:#EFECE6;padding:3px;box-shadow:inset 0 1px 2px rgba(0,0,0,.03)}
+.shb-tab{display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:1;min-width:0;padding:6px 6px;border:none;background:transparent;border-radius:7px;cursor:pointer;color:#7A7568;transition:.15s}
+.shb-tab:hover{color:#222;background:rgba(255,255,255,.45)}
+.shb-tab-active{background:#fff!important;color:#0a0a0a!important;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.shb-tab-index{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;flex:none;border-radius:999px;font-size:10px;font-weight:800;background:#DDD8CD;color:#635E54;transition:.15s}
+.shb-tab-active .shb-tab-index{background:#0a0a0a;color:#FCF487}
+.shb-tab-done .shb-tab-index{background:#C6F24E;color:#0a0a0a}
+.shb-tab-label{font-size:11.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shb-tab-progress{height:2px;background:#E2DFD5;border-radius:999px;margin-bottom:8px;overflow:hidden}
+.shb-tab-progress-fill{height:100%;background:#0a0a0a;transition:width .3s ease}
+.shb-tab-buttons{display:flex;align-items:center;gap:8px;position:sticky;bottom:0;z-index:5;background:linear-gradient(transparent,#F7F4EC 24%);padding-top:14px}
+.shb-tab-back{display:inline-flex;align-items:center;gap:5px;border:1.5px solid #0a0a0a;border-radius:9px;background:#fff;padding:8px 14px;font-size:13px;font-weight:700;color:#222;box-shadow:1.5px 1.5px 0 #E8E5DD;transition:.15s}.shb-tab-back:hover{background:#F9FDEB}
+.shb-tab-next{display:inline-flex;align-items:center;gap:6px;border:1.5px solid #0a0a0a;border-radius:9px;background:#0a0a0a;padding:8px 15px;font-size:13px;font-weight:700;color:white;box-shadow:2px 2px 0 #C6F24E;transition:.15s}.shb-tab-next:hover{background:#252525}
+.shb-category{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1.5px solid #0a0a0a;border-radius:11px;background:#fff;padding:10px 14px;box-shadow:2px 2px 0 #0a0a0a;margin-bottom:12px}
+.shb-category p{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#7A7568;font-weight:700;margin:0 0 3px}.shb-category span{display:inline-flex;border:1.5px solid #0a0a0a;border-radius:999px;background:#F2FCBC;padding:2px 9px;font-size:12.5px;font-weight:700}
+
 `;

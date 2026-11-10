@@ -164,6 +164,8 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
   const [editingContact, setEditingContact] = useState(!preview);
   const [editingBrand, setEditingBrand] = useState(!preview);
   const audioBlobRef = useRef<Blob | null>(null);
+  const [activeTab, setActiveTab] = useState(0);
+  const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([0]));
 
   useEffect(() => {
     api.get('/business/connect-brief/countries')
@@ -413,17 +415,108 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
     return <div className="shb-connect-bg flex min-h-full items-center justify-center px-5 py-16"><div className="w-full max-w-md rounded-2xl border border-[#E8E5DD] bg-white p-8 text-center shadow-sm"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#F2FCBC]"><CheckIcon /></div><h1 className="mt-4 text-xl font-semibold text-[#222]">Requirement submitted</h1><p className="mt-2 text-sm leading-relaxed text-[#5C5C5C]">Your {ROLE_NAME} {product} brief will be shared automatically with matching creators while our team reviews it.</p><button type="button" onClick={() => setSubmitted(false)} className="shb-submit mt-6">Back to brief</button></div><style>{styles}</style></div>;
   }
 
+  // ── Tab stepper ──────────────────────────────────────────────
+  const TABS = [
+    { label: 'Business', fullLabel: 'Business details', subtitle: 'Who you are and how we reach you.' },
+    { label: 'Requirement', fullLabel: `${ROLE_NAME} requirement`, subtitle: 'The campaign scope and outcomes you need.' },
+    { label: 'Budget', fullLabel: 'Service type, levels & budget', subtitle: 'Service type, creator levels and timeline.' },
+    { label: 'Preferences', fullLabel: 'Channel preferences', subtitle: 'Channels, audience, language and content fit.' },
+  ] as const;
+
+  function goToTab(index: number) {
+    if (index < 0 || index >= TABS.length) return;
+    setActiveTab(index);
+    setVisitedTabs((prev) => new Set(prev).add(index));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function validateTab(tabIndex: number): SubmitError[] {
+    const tabErrors: SubmitError[] = [];
+    if (tabIndex === 0) {
+      if (!form.contactName.trim() || !form.email.trim() || !form.phone.trim())
+        tabErrors.push({ message: 'Add your contact name, email, and phone number.', targetId: 'brief-contact' });
+      if (!form.brandName.trim() || !form.businessNature.trim() || !form.businessNote.trim())
+        tabErrors.push({ message: 'Complete the brand details before continuing.', targetId: 'brief-brand' });
+    } else if (tabIndex === 1) {
+      if (!form.requirement.trim())
+        tabErrors.push({ message: `Describe what you need the ${ROLE_NAME} to own.`, targetId: 'brief-requirement' });
+    } else if (tabIndex === 2) {
+      if (LIVE_CREATOR_SERVICES.length > 0 && !form.serviceType)
+        tabErrors.push({ message: 'Choose a service type.', targetId: 'brief-plan' });
+      if (form.levels.length === 0)
+        tabErrors.push({ message: 'Select at least one creator level.', targetId: 'brief-plan' });
+    }
+    return tabErrors;
+  }
+
+  function handleNext() {
+    const tabErrors = validateTab(activeTab);
+    if (tabErrors.length > 0) {
+      showBriefErrors(tabErrors, setErrors);
+      return;
+    }
+    setErrors([]);
+    goToTab(activeTab + 1);
+  }
+
+  const tabComplete = [
+    contactComplete && brandComplete,
+    Boolean(form.requirement.trim()),
+    Boolean(form.serviceType) && form.levels.length > 0,
+    form.platforms.length > 0 && form.niches.length > 0 && form.formats.length > 0 && form.languages.length > 0,
+  ];
+
   return (
     <div className="shb-connect-bg min-h-full px-4 py-5 sm:py-7">
       <BusinessLinksDialog open={linksOpen} initialLinks={clientLinks} preview={preview} onClose={() => setLinksOpen(false)} onSaved={links => { setClientLinks(links); setLinksOpen(false); void handleSubmit(undefined, links); }} />
       <div className="mx-auto max-w-[44rem]">
         <header className="mb-4 text-center"><h1 className="text-[18px] font-semibold tracking-tight text-[#222] sm:text-[20px]">Tell us about your brand</h1><p className="mt-1 text-[13px] text-[#5C5C5C]">A few quick details so we can match you with the right creators.</p></header>
 
+        {/* ── Compact Tab navigation ── */}
+        <div className="mb-4">
+          <nav className="shb-tab-nav" aria-label="Brief sections">
+            {TABS.map((tab, i) => {
+              const done = tabComplete[i];
+              const active = activeTab === i;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  aria-label={`${tab.fullLabel}${done ? ' (complete)' : ''}`}
+                  className={`shb-tab ${active ? 'shb-tab-active' : ''} ${done ? 'shb-tab-done' : ''}`}
+                  onClick={() => goToTab(i)}
+                >
+                  <span className="shb-tab-index">
+                    {done ? (
+                      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : i + 1}
+                  </span>
+                  <span className="shb-tab-label">{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+          <div className="shb-tab-progress">
+            <div className="shb-tab-progress-fill" style={{ width: `${((activeTab + 1) / TABS.length) * 100}%` }} />
+          </div>
+          <div className="flex items-center justify-between px-1 text-[11px] text-[#7A7568]">
+            <span className="font-semibold text-[#222]">
+              Step {activeTab + 1} of {TABS.length} · {TABS[activeTab].fullLabel}
+            </span>
+            <span>{TABS[activeTab].subtitle}</span>
+          </div>
+        </div>
+
         <form onSubmit={event => void handleSubmit(event)} noValidate className="space-y-5 pb-8">
           <CategoryBanner product={product} />
           {errors.length > 0 && <SubmitErrorSummary errors={errors} id="brief-errors-top" />}
 
-          <GroupHeader index={1} title="Business details" subtitle="Who you are and how we reach you." />
+          {/* ── TAB 1: Business details ── */}
+          {activeTab === 0 && <>
           <Section
             id="brief-contact"
             eyebrow=""
@@ -449,8 +542,10 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
             <Field label="What does your business do?" required><input className="shb-input" value={form.businessNature} onChange={(e) => update('businessNature', e.target.value)} placeholder="e.g. Online education and professional upskilling" /></Field>
             <Field label="About the brand" required><textarea className="shb-input min-h-24 resize-y" value={form.businessNote} onChange={(e) => update('businessNote', e.target.value)} placeholder="Products, audience, positioning, and anything useful to know." /></Field>
           </Section>
+          </>}
 
-          <GroupHeader index={2} title={`${ROLE_NAME} requirement`} subtitle="The campaign scope and outcomes you need." />
+          {/* ── TAB 2: Requirement ── */}
+          {activeTab === 1 && <>
           <Section id="brief-requirement" eyebrow="Requirement" title={`What should your ${ROLE_NAME} own?`} hint="Be specific about the campaign, deliverables and the commercial outcome.">
             <Field label="Describe your requirement" required><textarea className="shb-input min-h-32 resize-y" value={form.requirement} onChange={(e) => update('requirement', e.target.value)} placeholder="e.g. Partner with lifestyle creators to launch our new product line — intro reels, integration posts and UGC we can reuse on our own channels." /></Field>
             <div>
@@ -474,8 +569,11 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
               }}
             />
           </Section>
+          </>}
 
-          <Section id="brief-plan" eyebrow={isAssignment ? 'Assignment' : 'Subscription'} title="Service type, levels & budget" hint={isAssignment ? 'Pick the paid work you need, creator levels by follower count, and the project finish line.' : 'Pick the paid work you need and the follower levels to target.'}>
+          {/* ── TAB 3: Service & budget ── */}
+          {activeTab === 2 && <>
+          <Section id="brief-plan" eyebrow={isAssignment ? 'Assignment' : 'Subscription'} title="Service type, levels &amp; budget" hint={isAssignment ? 'Pick the paid work you need, creator levels by follower count, and the project finish line.' : 'Pick the paid work you need and the follower levels to target.'}>
             <ServiceTypeSelector
               options={LIVE_CREATOR_SERVICES}
               descriptions={SERVICE_DESCRIPTIONS}
@@ -493,8 +591,10 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
               <span><strong className="block text-sm font-medium">As soon as possible</strong><small className="mt-1 block text-xs text-[#7A7568]">No specific start or delivery date. The creator should deliver as soon as they can.</small></span>
             </label>
           </Section>
+          </>}
 
-          <GroupHeader index={3} title="Channel preferences" subtitle="Channels, audience, language and content fit." />
+          {/* ── TAB 4: Channel preferences ── */}
+          {activeTab === 3 && <>
           <Section id="brief-preferences" eyebrow="Matching" title="Which creators should we prioritise?" hint="These preferences drive creator matching — the options mirror what creators list on their profiles.">
             <ChipField label="Publishing platforms" options={CREATOR_PLATFORM_OPTIONS} selected={form.platforms} onToggle={(value) => toggle('platforms', value)} hint="Where the sponsored content should be published." />
             <ChipField label="Creator niche" options={[ANY_CREATOR_PREFERENCE, ...CREATOR_NICHE_OPTIONS]} selected={form.niches} onToggle={(value) => toggle('niches', value)} hint="Choose Any to match creators from any niche, or select specific niches." />
@@ -509,7 +609,7 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
             <ChipField label="Desired age" options={AGE_GROUPS} selected={form.ageGroups} onToggle={(value) => toggle('ageGroups', value)} required={false} hint="Age groups the creator's audience should cover." />
             <div className="rounded-xl border border-[#E0DCCE] bg-[#FBFAF6] p-4">
               <p className="mb-1 text-sm font-medium text-[#222]">Usage rights &amp; approvals <small className="ml-1 font-normal text-[#9C9486]">(optional)</small></p>
-              <p className="mb-3 text-xs leading-relaxed text-[#7A7568]">How your brand may reuse the creator's content. Creators offer 1 year of usage rights and paid advertising by default — ask for more months if you need longer.</p>
+              <p className="mb-3 text-xs leading-relaxed text-[#7A7568]">How your brand may reuse the creator&apos;s content. Creators offer 1 year of usage rights and paid advertising by default — ask for more months if you need longer.</p>
               <div className="space-y-2">
                 <RightsCheckbox
                   checked={form.usageRightsOn}
@@ -550,8 +650,26 @@ export default function CreatorBriefForm({ product = 'subscription', preview = f
             <Field label="Product delivery" optional><textarea className="shb-input min-h-20 resize-y" maxLength={1000} value={form.productDelivery} onChange={(e) => update('productDelivery', e.target.value)} placeholder="Product shipping, travel or reporting requirements for the creators." /></Field>
             <ChipField label="Content language" options={LANGUAGES} selected={form.languages} onToggle={(value) => toggle('languages', value)} hint="Select the languages the creators should be comfortable creating in." />
           </Section>
+          </>}
 
-          <div className="shb-submit-wrap"><SubmitErrorSummary errors={errors} id="brief-errors-submit" /><button type="submit" disabled={submitting || checkingLinks} className="shb-submit">{submitting || checkingLinks ? 'Submitting…' : `Submit ${product} brief`}</button></div>
+          {/* ── Tab navigation buttons ── */}
+          <div className="shb-tab-buttons">
+            {activeTab > 0 && (
+              <button type="button" onClick={() => goToTab(activeTab - 1)} className="shb-tab-back">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                Back
+              </button>
+            )}
+            <span className="flex-1" />
+            {activeTab < TABS.length - 1 ? (
+              <button type="button" onClick={handleNext} className="shb-tab-next">
+                Next: {TABS[activeTab + 1].label}
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              </button>
+            ) : (
+              <div className="shb-submit-wrap w-full"><SubmitErrorSummary errors={errors} id="brief-errors-submit" /><button type="submit" disabled={submitting || checkingLinks} className="shb-submit">{submitting || checkingLinks ? 'Submitting…' : `Submit ${product} brief`}</button></div>
+            )}
+          </div>
         </form>
       </div>
       <style>{styles}</style>
@@ -797,4 +915,19 @@ const styles = `
 .shb-right-months{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #E0DCCE;padding:10px 13px;background:rgba(255,255,255,.68)}.shb-right-months>span:first-child{font-size:11px;font-weight:700;color:#3A3A3A}.shb-right-months-hint{flex-basis:100%;font-size:10px;line-height:1.4;color:#8B8374}
 .shb-submit-wrap{position:sticky;bottom:0;z-index:5;background:linear-gradient(transparent,#F7F4EC 28%);padding-top:22px}.shb-submit{width:100%;border:2px solid #0a0a0a;border-radius:11px;background:#0a0a0a;padding:12px 18px;font-size:14px;font-weight:700;color:white;box-shadow:3px 3px 0 #C6F24E}.shb-submit:hover{background:#252525}.shb-submit:disabled{opacity:.55}
 @media(max-width:640px){.shb-section{padding:19px}.shb-category{padding:14px}.shb-category button{padding:7px 10px}}
+.shb-tab-nav{display:flex;align-items:center;gap:3px;margin-bottom:6px;border:1px solid #E2DFD5;border-radius:10px;background:#EFECE6;padding:3px;box-shadow:inset 0 1px 2px rgba(0,0,0,.03)}
+.shb-tab{display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:1;min-width:0;padding:6px 6px;border:none;background:transparent;border-radius:7px;cursor:pointer;color:#7A7568;transition:.15s}
+.shb-tab:hover{color:#222;background:rgba(255,255,255,.45)}
+.shb-tab-active{background:#fff!important;color:#0a0a0a!important;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.shb-tab-index{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;flex:none;border-radius:999px;font-size:10px;font-weight:800;background:#DDD8CD;color:#635E54;transition:.15s}
+.shb-tab-active .shb-tab-index{background:#0a0a0a;color:#FCF487}
+.shb-tab-done .shb-tab-index{background:#C6F24E;color:#0a0a0a}
+.shb-tab-label{font-size:11.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shb-tab-progress{height:2px;background:#E2DFD5;border-radius:999px;margin-bottom:8px;overflow:hidden}
+.shb-tab-progress-fill{height:100%;background:#0a0a0a;transition:width .3s ease}
+.shb-tab-buttons{display:flex;align-items:center;gap:8px;position:sticky;bottom:0;z-index:5;background:linear-gradient(transparent,#F7F4EC 24%);padding-top:14px}
+.shb-tab-back{display:inline-flex;align-items:center;gap:5px;border:1.5px solid #0a0a0a;border-radius:9px;background:#fff;padding:8px 14px;font-size:13px;font-weight:700;color:#222;box-shadow:1.5px 1.5px 0 #E8E5DD;transition:.15s}.shb-tab-back:hover{background:#F9FDEB}
+.shb-tab-next{display:inline-flex;align-items:center;gap:6px;border:1.5px solid #0a0a0a;border-radius:9px;background:#0a0a0a;padding:8px 15px;font-size:13px;font-weight:700;color:white;box-shadow:2px 2px 0 #C6F24E;transition:.15s}.shb-tab-next:hover{background:#252525}
+.shb-category{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1.5px solid #0a0a0a;border-radius:11px;background:#fff;padding:10px 14px;box-shadow:2px 2px 0 #0a0a0a;margin-bottom:12px}
+.shb-category p{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#7A7568;font-weight:700;margin:0 0 3px}.shb-category span{display:inline-flex;border:1.5px solid #0a0a0a;border-radius:999px;background:#F2FCBC;padding:2px 9px;font-size:12.5px;font-weight:700}
 `;
