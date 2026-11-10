@@ -5,7 +5,7 @@ import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import { markInvitationAccepted } from './invite.service.js';
 import { hashPassword, comparePassword, generateTempPassword } from '../lib/password.js';
-import { phoneMatchSuffix } from '../lib/phone.js';
+import { isTestPhone, phoneMatchSuffix } from '../lib/phone.js';
 import { pushCrmIdentityNames } from '../lib/crm-identity-names.js';
 
 const SESSION_DURATION_HOURS = 24;
@@ -296,8 +296,11 @@ export async function businessSignup(input: {
 
   // Resolve by email first, then phone, so an invite that only stored one
   // contact method still activates instead of creating a duplicate.
+  // Jeff's testing phone is exempt from the phone dedupe (mirrors the talent
+  // signup bypass in auth.service.ts) so it can open multiple business
+  // accounts; login, password reset and request-access still match on it.
   const byEmail = await findBusinessUser({ email });
-  const byPhone = await findBusinessUser({ phone });
+  const byPhone = isTestPhone(phone) ? null : await findBusinessUser({ phone });
   if (byEmail && byPhone && byEmail.id !== byPhone.id) {
     throw new AppError(
       409,

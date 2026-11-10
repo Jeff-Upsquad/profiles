@@ -20,3 +20,13 @@ export function phoneMatchSuffix(phone: string | null | undefined): string | nul
   if (!digits) return null;
   return digits.slice(-10);
 }
+
+// Jeff's testing number. Signup paths treat it as exempt from the duplicate
+// check so it can open multiple accounts (talent: auth.service.ts, business:
+// businessSignup); login, password reset and request-access still resolve it
+// normally via the trailing-10-digit match.
+export const TEST_PHONE_SUFFIX = '9645545553';
+
+export function isTestPhone(phone: string | null | undefined): boolean {
+  return phoneMatchSuffix(phone) === TEST_PHONE_SUFFIX;
+}

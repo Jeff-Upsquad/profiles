@@ -10,6 +10,7 @@ import { signupFormTypes } from '../../../shared/src/signupCategories.js';
 import { workIntent } from '../lib/work-intent.js';
 import { formTypeFromSignupHint } from '../lib/signup-category.js';
 import { roleFromAuthUser } from '../lib/auth-role.js';
+import { isTestPhone } from '../lib/phone.js';
 import type { UserRole } from '../../../shared/src/types/auth.js';
 
 export async function signupTalent(input: SignupTalentInput, application?: CreateLeadInput) {
@@ -372,7 +373,7 @@ export async function checkCandidateStatus(input: { email?: string; phone?: stri
 
   // Jeff's testing number may be reused for talent accounts. Still check the
   // email, and keep the real phone for lead matching and profile storage.
-  const accountPhone = normalizedPhone === '9645545553' ? null : normalizedPhone;
+  const accountPhone = isTestPhone(normalizedPhone) ? null : normalizedPhone;
 
   if (!normalizedEmail && !normalizedPhone) {
     return { has_invitation: false, has_account: false, submissions: [] };
