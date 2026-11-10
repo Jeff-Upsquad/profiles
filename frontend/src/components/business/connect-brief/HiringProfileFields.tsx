@@ -21,13 +21,22 @@ export function TextField({ label, value, onChange, required, type = 'text', max
 }) {
   return <Field label={label} required={required} hint={hint}><input className={inputClass} value={str(value)} onChange={(e) => onChange(e.target.value)} type={type} required={required} maxLength={maxLength} min={type === 'number' ? 0 : undefined} step={type === 'number' ? 1 : undefined} /></Field>;
 }
-export function TextArea({ label, value, onChange, maxLength = 8000, lines = false, required, hint }: {
-  label: string; value: unknown; onChange: (value: unknown) => void; maxLength?: number; lines?: boolean; required?: boolean; hint?: string;
+export function TextArea({ label, value, onChange, maxLength = 8000, lines = false, rows, required, hint }: {
+  label: string; value: unknown; onChange: (value: unknown) => void; maxLength?: number; lines?: boolean; rows?: number; required?: boolean; hint?: string;
 }) {
-  return <Field label={label} required={required} hint={hint || (lines ? 'One item per line.' : undefined)}><textarea className={inputClass} rows={3} required={required} maxLength={maxLength} value={lines ? list(value).join('\n') : str(value)} onChange={(e) => onChange(lines ? e.target.value.split('\n') : e.target.value)} /></Field>;
+  const lineCount = lines ? list(value).filter((v) => v.trim()).length : str(value).split('\n').length;
+  const rowCount = rows ?? Math.min(10, Math.max(3, lineCount + 1));
+  return <Field label={label} required={required} hint={hint || (lines ? 'One item per line.' : undefined)}><textarea className={inputClass} rows={rowCount} required={required} maxLength={maxLength} value={lines ? list(value).join('\n') : str(value)} onChange={(e) => onChange(lines ? e.target.value.split('\n') : e.target.value)} /></Field>;
 }
-export function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
-  return <section className="space-y-4 rounded-2xl border border-[#E8E5DD] bg-white p-5 shadow-sm"><div><h3 className="text-lg font-semibold">{title}</h3>{hint && <p className="mt-1 text-xs leading-relaxed text-[#7A7568]">{hint}</p>}</div>{children}</section>;
+export function Section({ eyebrow, title, hint, children }: { eyebrow?: string; title: string; hint?: string; children: React.ReactNode }) {
+  return <section className="rounded-2xl border border-[#E8E5DD] bg-white p-5 shadow-sm">
+    <div>
+      {eyebrow && <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#7A7568]">{eyebrow}</p>}
+      <h3 className="mt-1 text-lg font-semibold tracking-tight text-[#0a0a0a]">{title}</h3>
+      {hint && <p className="mt-1 text-xs leading-relaxed text-[#7A7568]">{hint}</p>}
+    </div>
+    <div className="mt-4 space-y-4">{children}</div>
+  </section>;
 }
 export function ImageField({ label, value, onChange, preview }: { label: string; value: string; onChange: (value: string) => void; preview: boolean }) {
   const [uploading, setUploading] = useState(false);
