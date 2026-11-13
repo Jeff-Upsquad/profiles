@@ -71,9 +71,10 @@ const envSchema = z.object({
   SQUAD_HIRING_BOT_SQUADBOT_ID: z.string().uuid().optional(),
 
   // Public origin of the SquadHub WEB app (not its API), used to build the
-  // auto-login hand-off link the business tab sends the browser to. Defaults to
-  // production; override for staging/local.
-  SQUADHUB_WEB_URL: z.string().url().default('https://squadhub.in'),
+  // auto-login hand-off link the business and talent tabs send the browser to.
+  // Businesses and talents use Squad Hub SaaS (app.squadhub.in), not the
+  // internal squadhub.in. Defaults to production; override for staging/local.
+  SQUADHUB_WEB_URL: z.string().url().default('https://app.squadhub.in'),
   // SquadHub Resources authoring is served by a separate admin origin.
   SQUADHUB_ADMIN_URL: z.string().url().default('https://admin.squadhub.in'),
 

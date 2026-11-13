@@ -7,7 +7,7 @@ import api from '@/services/api';
  * Auto-login bridge into SquadHub.
  *
  * "Log in via website" on the SquadHub tab opens this page in a new tab rather
- * than linking straight to squadhub.in: the code has to be minted with the
+ * than linking straight to app.squadhub.in: the code has to be minted with the
  * business's session, and minting it before the click would leak a live code
  * into the page for every visitor. Opening a real URL in a new tab (instead of
  * fetching first and calling window.open) is also what keeps popup blockers out
@@ -56,10 +56,10 @@ export default function SquadHubLaunchPage() {
         </p>
         {error && (
           <a
-            href="https://squadhub.in"
+            href="https://app.squadhub.in"
             className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[#0a0a0a] px-4 py-2 text-[13px] font-semibold text-white"
           >
-            Open squadhub.in
+            Open app.squadhub.in
           </a>
         )}
       </div>
