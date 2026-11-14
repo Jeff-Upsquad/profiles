@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
+import Link from 'next/link';
+import AgencyPortfolioGrid from '@/components/agency/AgencyPortfolioGrid';
 import { useRouter } from 'next/navigation';
 import ThreadsProfileShell from '@/components/profile/ThreadsProfileShell';
 import ThreadsTopBar from '@/components/profile/ThreadsTopBar';
 
-export default function AgencyPublicPreview({ data, isLoading, error, categoryId }: { data: any; isLoading: boolean; error: any; categoryId?: string }){
+export default function AgencyPublicPreview({ data, isLoading, error, categoryId, initialTab = 'All' }: { data: any; isLoading: boolean; error: any; categoryId?: string; initialTab?: 'All' | 'Individuals' }){
   const router=useRouter();
-  const [activeTab, setActiveTab]=useState<'All'|'Individuals'>('All');
+  const [activeTab, setActiveTab]=useState<'All'|'Individuals'>(initialTab);
 
   if(isLoading){
     return <div className="flex min-h-[60vh] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#0a0a0a] border-t-transparent" /></div>;
@@ -101,23 +103,14 @@ export default function AgencyPublicPreview({ data, isLoading, error, categoryId
                 <p className="text-sm text-zinc-500">No portfolio items for this category</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-0.5 mt-0.5 pb-0.5 px-0.5 bg-white">
-                {portfolioItems.map((item:any)=>(
-                  <div key={item.id} className="group relative aspect-square overflow-hidden bg-zinc-100">
-                    {item.file_type==='image' && item.file_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={item.file_url} alt={item.file_name} className="h-full w-full object-cover" />
-                    ) : item.thumbnail_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={item.thumbnail_url} alt={item.file_name} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs text-zinc-500">{item.file_name || 'Video'}</div>
-                    )}
-                    {item.member_name && <span className="absolute bottom-1 left-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-medium text-white">{item.member_name}</span>}
-                    {item.category_name && <span className="absolute top-1 left-1 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-medium text-[#0a0a0a]">{item.category_name}</span>}
-                  </div>
-                ))}
-              </div>
+              <AgencyPortfolioGrid
+                items={portfolioItems}
+                onMemberClick={memberId => {
+                  const params = new URLSearchParams({ from: 'preview', agencyId: agency.id });
+                  if (categoryId) { params.set('category_id', categoryId); params.set('preview_category_id', categoryId); }
+                  router.push(`/agency/squad/${memberId}?${params}`);
+                }}
+              />
             )}
           </div>
         )}
@@ -129,7 +122,11 @@ export default function AgencyPublicPreview({ data, isLoading, error, categoryId
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">
                 {individuals.map(({member, member_profile}:any)=>(
-                  <div key={member.id} className="flex items-center gap-3 rounded-xl border border-[#E7E7EA] bg-white p-3">
+                  <Link
+                    key={member_profile.id}
+                    href={{ pathname: `/agency/squad/${member.id}`, query: { from: 'preview', agencyId: agency.id, preview_category_id: categoryId, category_id: member_profile.category_id || categoryId || category?.id } }}
+                    className="flex items-center gap-3 rounded-xl border border-[#E7E7EA] bg-white p-3 text-left transition-colors hover:border-[#0a0a0a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a0a0a]"
+                  >
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-[#F5F5F6] border border-[#E7E7EA] flex items-center justify-center">
                       {member.profile_photo_url || member.profile_picture_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -143,7 +140,8 @@ export default function AgencyPublicPreview({ data, isLoading, error, categoryId
                       <div className="text-xs text-[#737373] truncate">{member.role_title || member.current_location || '—'}</div>
                       <div className="mt-1 inline-flex items-center rounded-full bg-[#FFFAC2] px-2 py-0.5 text-[11px] font-medium text-[#0a0a0a]">{member_profile.category?.name || category?.name || '—'}</div>
                     </div>
-                  </div>
+                    <svg aria-hidden="true" className="h-4 w-4 shrink-0 text-[#a3a3a3]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  </Link>
                 ))}
               </div>
             )}

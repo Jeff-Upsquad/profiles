@@ -5,12 +5,12 @@ import { agencyApi } from '@/services/agency-api';
 import ThreadsProfileView from '@/views/shared/ThreadsProfileView';
 import { useCategoryWithFields } from '@/hooks/useCategories';
 
-export default function SquadMemberPublicView({ memberId }: { memberId: string }){
+export default function SquadMemberPublicView({ memberId, categoryId, backHref }: { memberId: string; categoryId?: string; backHref?: string }){
   const router = useRouter();
   const { data: squad=[] } = useQuery({ queryKey:['agencySquad'], queryFn: agencyApi.listSquad });
   const member = (squad as any[]).find((m:any)=> m.id===memberId);
   const { data: profiles=[] } = useQuery({ queryKey:['agencyMemberProfiles'], queryFn: agencyApi.listMemberProfiles });
-  const memberProfiles = (profiles as any[]).filter((p:any)=> p.squad_member_id===memberId);
+  const memberProfiles = (profiles as any[]).filter((p:any)=> p.squad_member_id===memberId && (!categoryId || p.category_id===categoryId));
   // Use first job profile as primary for public view, like talent
   const primaryProfile = memberProfiles[0] || null;
   const { data: category } = useCategoryWithFields(primaryProfile?.category?.slug);
@@ -75,7 +75,7 @@ export default function SquadMemberPublicView({ memberId }: { memberId: string }
         mode="business"
         isLoading={false}
         error={undefined}
-        onBack={()=> router.push('/agency/squad')}
+        onBack={()=> router.push(backHref || '/agency/squad')}
         editProfileHref={`/agency/squad/${memberId}/edit`}
       />
       {/* Extra squad-specific job profiles grid below, like Instagram posts */}

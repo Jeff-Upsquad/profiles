@@ -20,7 +20,7 @@ function PreviewInner(){
 
   if(!effectiveAgencyId) return <div className="flex h-40 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#0a0a0a] border-t-transparent" /></div>;
 
-  return <AgencyPublicPreview data={data} isLoading={isLoading} error={error as any} categoryId={categoryId} />;
+  return <AgencyPublicPreview data={data} isLoading={isLoading} error={error as any} categoryId={categoryId} initialTab={sp.get('tab') === 'Individuals' ? 'Individuals' : 'All'} />;
 }
 
 export default function AgencyPreviewPage(){

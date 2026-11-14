@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAgencyPublicView } from '@/hooks/useAgencyPublicView';
 import ThreadsProfileShell from '@/components/profile/ThreadsProfileShell';
 import ThreadsTopBar from '@/components/profile/ThreadsTopBar';
-import ThreadsPortfolioFeed from '@/components/profile/ThreadsPortfolioFeed';
+import AgencyPortfolioGrid from '@/components/agency/AgencyPortfolioGrid';
 import ThreadsPortfolioTabBar from '@/components/profile/ThreadsPortfolioTabBar';
 
 interface Props {
@@ -19,7 +19,6 @@ export default function AgencyPublicView({ agencyId, initialCategoryId }: Props)
   const categoryId = initialCategoryId ?? searchParams.get('category_id') ?? searchParams.get('categoryId') ?? undefined;
   const { data, isLoading, error } = useAgencyPublicView(agencyId, categoryId);
   const [activeTab, setActiveTab] = useState<'All' | 'Individuals'>('All');
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
 
   // For portfolio lightbox: track which item's member to show
   const individuals = data?.individuals ?? [];
@@ -125,7 +124,7 @@ export default function AgencyPublicView({ agencyId, initialCategoryId }: Props)
                 {category && <p className="mt-1 text-xs text-zinc-400">Agency has no {category.name.toLowerCase()} work yet</p>}
               </div>
             ) : (
-              <AgencyAllPortfolioFeed
+              <AgencyPortfolioGrid
                 items={filteredForCategory}
                 onMemberClick={(memberId) => {
                   // Navigate to member profile within agency view
@@ -179,95 +178,5 @@ export default function AgencyPublicView({ agencyId, initialCategoryId }: Props)
         <div className="h-4" />
       </ThreadsProfileShell>
     </div>
-  );
-}
-
-// Custom feed for agency All tab — wraps ThreadsPortfolioFeed but adds member attribution
-function AgencyAllPortfolioFeed({ items, onMemberClick }: { items: any[]; onMemberClick: (memberId: string) => void }) {
-  // Reuse ThreadsPortfolioFeed for grid + lightbox, but we need to show member name in lightbox
-  // We'll render a custom lightbox that extends the feed
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const selectedItem = selectedIndex !== null ? items[selectedIndex] : null;
-
-  return (
-    <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-0.5 mt-0.5 pb-0.5 px-0.5 bg-white">
-        {items.map((item: any, idx: number) => (
-          <button
-            key={item.id}
-            onClick={() => setSelectedIndex(idx)}
-            className="group relative aspect-square overflow-hidden bg-zinc-100"
-          >
-            {item.file_type === 'image' && item.file_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={item.file_url} alt={item.file_name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
-            ) : item.thumbnail_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={item.thumbnail_url} alt={item.file_name} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-xs text-zinc-500">{item.file_name || 'Video'}</div>
-            )}
-            {/* Member attribution badge */}
-            {item.member_name && (
-              <span className="absolute bottom-1 left-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur">{item.member_name}</span>
-            )}
-            {item.category_name && (
-              <span className="absolute top-1 left-1 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-medium text-[#0a0a0a]">{item.category_name}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Lightbox */}
-      {selectedItem && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80" onClick={() => setSelectedIndex(null)}>
-          <button
-            onClick={() => setSelectedIndex(null)}
-            className="absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-          </button>
-          {selectedIndex! > 0 && (
-            <button onClick={(e) => { e.stopPropagation(); setSelectedIndex(selectedIndex! - 1); }} className="absolute left-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6" /></svg>
-            </button>
-          )}
-          {selectedIndex! < items.length - 1 && (
-            <button onClick={(e) => { e.stopPropagation(); setSelectedIndex(selectedIndex! + 1); }} className="absolute right-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
-            </button>
-          )}
-          <div className="absolute top-4 left-4 z-10 rounded-full bg-black/50 px-3 py-1 text-xs font-medium text-white/90">{selectedIndex! + 1} / {items.length}</div>
-          <div className="relative flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-            {selectedItem.file_type === 'image' && selectedItem.file_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={selectedItem.file_url} alt={selectedItem.file_name} className="max-h-[75vh] max-w-[85vw] rounded-lg object-contain" />
-            ) : selectedItem.file_type === 'video' && selectedItem.file_url ? (
-              <video src={selectedItem.file_url} controls autoPlay className="max-h-[75vh] max-w-[85vw] rounded-lg" />
-            ) : selectedItem.embed_url ? (
-              <iframe src={selectedItem.embed_url} title={selectedItem.file_name} className="h-[75vh] w-[90vw] max-w-[900px] rounded-lg bg-black" allow="autoplay; fullscreen" allowFullScreen />
-            ) : (
-              <div className="rounded-lg bg-white p-8 text-sm text-zinc-700">{selectedItem.file_name || 'Portfolio item'}</div>
-            )}
-            {/* Member attribution in lightbox */}
-            {selectedItem.member_name && selectedItem.member_id && (
-              <button
-                onClick={() => {
-                  setSelectedIndex(null);
-                  onMemberClick(selectedItem.member_id);
-                }}
-                className="mt-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-[#0a0a0a] hover:bg-[#FFFAC2] transition-colors"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {selectedItem.member_photo_url && <img src={selectedItem.member_photo_url} alt={selectedItem.member_name} className="h-6 w-6 rounded-full object-cover" />}
-                <span>{selectedItem.member_name}</span>
-                <svg className="h-3.5 w-3.5 text-[#737373]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-              </button>
-            )}
-            <p className="mt-2 text-center text-sm text-white/80">{selectedItem.file_name || ''}</p>
-          </div>
-        </div>
-      )}
-    </>
   );
 }
