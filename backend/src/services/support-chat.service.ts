@@ -1,3 +1,4 @@
+import { setChatBotSwitch } from './chat-bot-switch.service.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.middleware.js';
 import * as bot from './squad-bot.service.js';
@@ -31,8 +32,7 @@ export async function supportAction(id: string, action: 'reply' | 'instruct' | '
   await getSupportChat(id); // Reject WhatsApp-only conversations, including guessed IDs.
   if (action === 'hand-back') return bot.handBack(id, actor);
   if (action === 'takeover' || action === 'reply') {
-    const { error } = await supabaseAdmin.from('squad_bot_conversations').update({ status: 'handoff' }).eq('id', id);
-    if (error) throw new AppError(500, 'Could not pause the bot');
+    await setChatBotSwitch(await bot.getConversation(id) as any, false, actor);
   }
   if (action === 'takeover') {
     await bot.addMessage(id, { sender: 'system', channel: 'app', body: `${actor.name} took over the support chat.`, staff_user_id: actor.id, staff_name: actor.name });

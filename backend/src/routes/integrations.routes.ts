@@ -1,3 +1,4 @@
+import { chatBotSwitch } from '../controllers/chat-bot-switch.controller.js';
 import * as supportChatController from '../controllers/support-chat.controller.js';
 import { Router } from 'express';
 import * as integrationsController from '../controllers/integrations.controller.js';
@@ -36,6 +37,7 @@ import {
  */
 
 const router = Router();
+router.post('/squadcrm/bot-control', verifySquadcrmSecret, chatBotSwitch);
 
 // CRM's authenticated Support Chat module; uses the existing CRM shared secret.
 router.get('/squadcrm/support-chat', verifySquadcrmSecret, supportChatController.supportChats);
