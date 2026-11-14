@@ -26,6 +26,13 @@ export async function getAgencyTraining(agencyUserId: string): Promise<TalentIte
 
 /** A published, nonempty onboarding document must be completed before access opens. */
 export async function agencyTrainingStatus(agencyUserId: string) {
+  // Only administrators can set app_metadata. Never trust user_metadata for
+  // access overrides, since account holders can edit it themselves.
+  const { data, error } = await supabaseAdmin.auth.admin.getUserById(agencyUserId);
+  if (error) throw new AppError(500, 'Failed to check agency training access');
+  if (data.user?.app_metadata?.agency_training_exempt === true) {
+    return { completed: true, required: [] };
+  }
   const items = await getAgencyTraining(agencyUserId);
   const required = items.filter((item) => item.is_onboarding);
   const completed = agencyRequirementsComplete(required);
