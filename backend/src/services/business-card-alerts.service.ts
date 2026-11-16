@@ -228,6 +228,47 @@ async function loadBusiness(businessUserId: string): Promise<AlertBusiness | nul
   return { name: name || 'there', phone };
 }
 
+/** A talent accepted a priced business offer, rather than just a card invite.
+ * This is a negotiation response: send immediately without consuming or being
+ * suppressed by the new-applicant / bid alert budget.
+ */
+export async function notifyBusinessOfferAccepted(params: {
+  cardId: string;
+  talentName: string;
+}): Promise<void> {
+  try {
+    const card = await loadCard(params.cardId);
+    if (!card || !MARKETPLACE_CARD_TYPES.has(card.cardType)) return;
+    const business = await loadBusiness(card.businessUserId);
+    if (!business) return;
+    const { primaryCardId } = await resolveGroup(card);
+    const title = cardTitle(card.content, card.cardType);
+    const delivered = await deliverCrmSystemEvent({
+      audience: 'business',
+      event: 'business_assignment_offer_accepted',
+      name: business.name,
+      phone: business.phone,
+      data: {
+        business_name: business.name,
+        talent_name: params.talentName,
+        card_title: title,
+        card_id: primaryCardId,
+      },
+      bodyParams: [
+        sanitizeParam(business.name, 40),
+        sanitizeParam(params.talentName),
+        sanitizeParam(title),
+      ],
+      buttonUrlParam: primaryCardId,
+    });
+    if (delivered) {
+      console.info('[business-card-alerts] offer acceptance sent', { cardId: primaryCardId });
+    }
+  } catch (err) {
+    console.error('[business-card-alerts] offer acceptance failed', err);
+  }
+}
+
 /**
  * How many responses are sitting unattended right now. This is what the message
  * quotes, so it has to match what the business sees when they open the card —

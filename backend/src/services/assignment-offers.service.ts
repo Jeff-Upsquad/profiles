@@ -9,7 +9,7 @@ import {
   type JobsActor,
 } from './jobs.service.js';
 import { createBusinessNotification } from './business-notifications.service.js';
-import { notifyBusinessCardActivity } from './business-card-alerts.service.js';
+import { notifyBusinessCardActivity, notifyBusinessOfferAccepted } from './business-card-alerts.service.js';
 import { emitCardEvent } from './card-events-outbox.service.js';
 import { notifyAssignmentEvent } from './push.service.js';
 import { fireJobsCrmEvent } from './talent-whatsapp.service.js';
@@ -682,6 +682,10 @@ async function onOfferAccepted(
   // When the TALENT accepted the business's offer/counter, ping the business.
   if (actor.type === 'talent' && refs.businessUserId) {
     const names = await getTalentNames([offer.talent_user_id]);
+    void notifyBusinessOfferAccepted({
+      cardId: offer.card_id,
+      talentName: names.get(offer.talent_user_id) ?? 'A talent',
+    });
     await createBusinessNotification({
       businessUserId: refs.businessUserId,
       type: 'assignment_offer_accepted',
