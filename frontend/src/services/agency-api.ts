@@ -34,4 +34,9 @@ export const agencyApi = {
   respondOffer: (recipientId: string, data: any) => api.post(`/agency/cards/${recipientId}/offer/respond`, data).then(r => r.data),
   allOffers: () => api.get('/agency/offers').then(r => r.data as { offers: any[] }),
   backfillCards: () => api.post('/agency/cards/backfill').then(r => r.data as { inserted: number }),
+  listShareLinks: (params?: { category_id?: string }) => api.get('/agency/share-links', { params }).then(r => r.data as any[]),
+  createShareLink: (data: { category_id?: string | null; expires_at: string }) => api.post('/agency/share-links', data).then(r => r.data),
+  revokeShareLink: (id: string) => api.delete(`/agency/share-links/${id}`).then(r => r.data),
+  getPublicShare: (token: string) => api.get(`/public/agency-share/${token}`).then(r => r.data),
+  getPublicShareMember: (token: string, memberId: string) => api.get(`/public/agency-share/${token}/members/${memberId}`).then(r => r.data),
 };

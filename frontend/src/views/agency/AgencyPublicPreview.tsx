@@ -6,10 +6,12 @@ import AgencyPortfolioGrid from '@/components/agency/AgencyPortfolioGrid';
 import { useRouter } from 'next/navigation';
 import ThreadsProfileShell from '@/components/profile/ThreadsProfileShell';
 import ThreadsTopBar from '@/components/profile/ThreadsTopBar';
+import AgencyShareModal from '@/components/agency/AgencyShareModal';
 
 export default function AgencyPublicPreview({ data, isLoading, error, categoryId, initialTab = 'All' }: { data: any; isLoading: boolean; error: any; categoryId?: string; initialTab?: 'All' | 'Individuals' }){
   const router=useRouter();
   const [activeTab, setActiveTab]=useState<'All'|'Individuals'>(initialTab);
+  const [showShareModal, setShowShareModal]=useState(false);
 
   if(isLoading){
     return <div className="flex min-h-[60vh] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#0a0a0a] border-t-transparent" /></div>;
@@ -35,7 +37,13 @@ export default function AgencyPublicPreview({ data, isLoading, error, categoryId
   return (
     <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
       <ThreadsProfileShell
-        topBar={<ThreadsTopBar displayName={displayName} onBack={()=>router.push('/agency/profiles')} />}
+        topBar={
+          <ThreadsTopBar
+            displayName={displayName}
+            onBack={()=>router.push('/agency/profiles')}
+            menuItems={[{ label: 'Create Shareable Link', onClick: () => setShowShareModal(true) }]}
+          />
+        }
       >
         <div className="px-6 pt-6 pb-4 bg-white">
           <div className="flex gap-4">
@@ -80,8 +88,28 @@ export default function AgencyPublicPreview({ data, isLoading, error, categoryId
             <div className="mt-4 text-xs text-[#737373]">Preview — all categories • {portfolioItems.length} items • {individuals.length} members</div>
           )}
           <div className="mt-3 rounded-lg bg-[#FFFAC2] border border-[#F8E7B8] px-3 py-2 text-xs text-[#92400E]">This is how businesses will see your agency for {category ? category.name : 'all categories'}.</div>
-          <Link href="/agency/portfolio#manage-portfolio" className="mt-3 inline-flex rounded-lg border border-[#E7E7EA] px-3 py-2 text-xs font-semibold hover:bg-[#F5F5F6]">Manage portfolio order &amp; visibility</Link>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowShareModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#0a0a0a] px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              <span>Share public link</span>
+            </button>
+            <Link href="/agency/portfolio#manage-portfolio" className="inline-flex rounded-lg border border-[#E7E7EA] px-3 py-2 text-xs font-semibold hover:bg-[#F5F5F6]">Manage portfolio order &amp; visibility</Link>
+          </div>
         </div>
+
+        <AgencyShareModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          categoryId={categoryId || category?.id}
+          categoryName={category?.name}
+          agencyName={agency.agency_name}
+        />
 
         <div className="mt-1 bg-white">
           <div className="flex w-full border-b border-zinc-200 px-6 overflow-x-auto">

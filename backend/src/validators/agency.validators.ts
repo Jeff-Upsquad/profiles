@@ -136,7 +136,16 @@ export const agencyPortfolioCurationSchema = z.object({
   }
 });
 
+export const createAgencyShareLinkSchema = z.object({
+  category_id: z.string().uuid().nullable().optional(),
+  expires_at: z.string().refine(
+    (val) => !isNaN(Date.parse(val)) && new Date(val).getTime() > Date.now(),
+    { message: 'expires_at must be a valid future date' }
+  ),
+});
+
 export type UpdateAgencyUserInput = z.infer<typeof updateAgencyUserSchema>;
 export type UpdateAgencyProfileInput = z.infer<typeof updateAgencyProfileSchema>;
 export type CreateSquadMemberInput = z.infer<typeof createSquadMemberSchema>;
 export type UpdateSquadMemberInput = z.infer<typeof updateSquadMemberSchema>;
+export type CreateAgencyShareLinkInput = z.infer<typeof createAgencyShareLinkSchema>;

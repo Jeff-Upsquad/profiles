@@ -3,6 +3,7 @@ import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import * as ctrl from '../controllers/agency.controller.js';
+import * as shareLinkCtrl from '../controllers/agency-share-link.controller.js';
 import * as agencyTraining from '../services/agency-training.service.js';
 import { submitQuizSchema } from '../validators/training.validators.js';
 import {
@@ -16,6 +17,7 @@ import {
   updateAgencyGeneralPortfolioSchema,
   agencyPortfolioItemSchema,
   agencyPortfolioCurationSchema,
+  createAgencyShareLinkSchema,
 } from '../validators/agency.validators.js';
 
 const router = Router();
@@ -81,6 +83,12 @@ router.get('/total-portfolio', ctrl.getTotal);
 // Public preview for agency to see how they appear to businesses (category-filtered)
 router.get('/preview', ctrl.getPublicPreview);
 router.get('/public-view/:agencyId', ctrl.getPublicPreview);
+
+// Public share links with expiry date
+router.post('/share-links', validate({ body: createAgencyShareLinkSchema }), shareLinkCtrl.createLink);
+router.get('/share-links', shareLinkCtrl.listLinks);
+router.delete('/share-links/:id', shareLinkCtrl.revokeLink);
+router.patch('/share-links/:id/revoke', shareLinkCtrl.revokeLink);
 
 // ── Requirement cards for agency (mirrors talent subscriptions feed) ──
 router.get('/subscriptions', async (req, res, next) => {

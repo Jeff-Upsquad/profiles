@@ -1,8 +1,18 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import * as talentController from '../controllers/talent.controller.js';
+import * as shareLinkCtrl from '../controllers/agency-share-link.controller.js';
 import { supabaseAdmin } from '../config/supabase.js';
 
 const router = Router();
+
+const publicShareLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 60,
+  message: { error: 'Too many requests. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Template catalogs are the shared source for talent job-profile creation and
 // business brief forms. They are configuration, not user data, so they stay
@@ -70,5 +80,11 @@ router.get('/categories/:categoryId/portfolio-categories', async (req, res, next
     next(err);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Agency Public Share Links (time-limited public access)
+// ---------------------------------------------------------------------------
+router.get('/agency-share/:token', publicShareLimiter, shareLinkCtrl.getPublicShare);
+router.get('/agency-share/:token/members/:memberId', publicShareLimiter, shareLinkCtrl.getPublicShareMember);
 
 export default router;
