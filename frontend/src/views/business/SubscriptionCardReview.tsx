@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -17,9 +18,10 @@ import {
 import { FirstItemTip } from '@/components/ui/FirstItemTip';
 import BusinessAssignmentOffers from '@/components/subscriptions/BusinessAssignmentOffers';
 import BidActions from '@/components/subscriptions/BidActions';
+import OfferAmountStepperModal, { snapOfferAmount } from '@/components/subscriptions/OfferAmountStepper';
 import OpenIntroRoomButton from '@/components/conversations/OpenIntroRoomButton';
 import GroupMeetPanel from '@/components/group-meet/GroupMeetPanel';
-import { isOpenBusinessOffer, useBusinessAssignmentOffers, type BusinessAssignmentOffer } from '@/hooks/useBusinessAssignmentOffers';
+import { isOpenBusinessOffer, useBusinessAssignmentOffers, useBusinessSendOffer, type BusinessAssignmentOffer } from '@/hooks/useBusinessAssignmentOffers';
 import { useCardPayments, useStartCardPayment, type CardPayment, type CardGateway } from '@/hooks/useCardPayments';
 import BusinessCardDetails from '@/components/business/cards/BusinessCardDetails';
 import { evaluateRecipientMatches, flattenAdditionalReqs, type CriteriaMatchItem, type ReqItem } from '@/lib/reviewCriteria';
@@ -86,6 +88,8 @@ export default function SubscriptionCardReview({
   const { data: card, isLoading: cardLoading, error: cardError } = useMySubscriptionCard(cardId);
   const { data: recipients, isLoading: recipientsLoading } = useCardRecipients(cardId);
   const { data: offers } = useBusinessAssignmentOffers(cardId);
+  const sendOffer = useBusinessSendOffer(cardId);
+  const [counterRecipient, setCounterRecipient] = useState<CardRecipientForBusiness | null>(null);
   // The gateway sends the client back to ?payment=done. Captured once on mount so
   // the first read verifies against the gateway rather than our own (possibly
   // not-yet-updated) row; the param is then cleaned out of the URL.
@@ -322,6 +326,25 @@ export default function SubscriptionCardReview({
   const offerPeriod = isAssignment ? assignmentOfferPeriod(assignmentPricing) : 'per_month';
   const workQuantity = optionalAssignmentQuantity(assignmentPricing);
   const workUnit = singularUnit(assignmentPricing);
+  const counterPrice = counterRecipient ? resolveRecipientPrice(counterRecipient) : null;
+  const counterBaseline = counterPrice?.amount ?? card.customer_monthly_price ?? 500;
+
+  function reviewCounterButton(recipient: CardRecipientForBusiness) {
+    const offer = offerByRecipientId.get(recipient.recipient_id);
+    const status = offer?.status ?? recipient.offer_status;
+    const exhausted = offer?.business_offers_remaining === 0;
+    return (
+      <button
+        type="button"
+        disabled={sendOffer.isPending || reviewMutation.isPending || hasSelection || isClosed || isSubmitted || !!recipient.passed_over_at || status === 'pending_talent' || status === 'accepted' || exhausted}
+        title={exhausted ? 'No offers remaining on this card' : undefined}
+        onClick={() => setCounterRecipient(recipient)}
+        className="rounded-lg border border-[#E7E7EA] bg-white px-3 py-1.5 text-xs font-semibold text-[#0a0a0a] shadow-xs transition-colors hover:bg-[#F5F5F6] disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Counter{offer?.business_offers_remaining != null ? ` (${offer.business_offers_remaining})` : ''}
+      </button>
+    );
+  }
   // Assignment is per tier sibling (grouped briefs assign each tier
   // independently), so read activation per selected recipient — their own tier
   // card's subscription_activated_at — not the fetched card's. Activated =
@@ -680,7 +703,7 @@ export default function SubscriptionCardReview({
                               <RecipientAvatar recipient={r} />
                               <RecipientInfo recipient={r} isNew={isNewAcceptance(r)} />
                             </RecipientLink>
-                            <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0 pt-1 sm:pt-0">
+                            <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-end sm:gap-4 sm:pt-0">
                               <RecipientPrice
                                 recipient={r}
                                 listPrice={card.customer_monthly_price}
@@ -688,7 +711,8 @@ export default function SubscriptionCardReview({
                                 quantity={workQuantity}
                                 unit={workUnit}
                               />
-                              <div className="flex items-center gap-2 shrink-0">
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                {reviewCounterButton(r)}
                                 <button
                                   type="button"
                                   disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
@@ -757,7 +781,7 @@ export default function SubscriptionCardReview({
                               <RecipientAvatar recipient={r} />
                               <RecipientInfo recipient={r} isNew={isNewAcceptance(r)} />
                             </RecipientLink>
-                            <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0 pt-1 sm:pt-0">
+                            <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-end sm:gap-4 sm:pt-0">
                               <RecipientPrice
                                 recipient={r}
                                 listPrice={card.customer_monthly_price}
@@ -765,7 +789,8 @@ export default function SubscriptionCardReview({
                                 quantity={workQuantity}
                                 unit={workUnit}
                               />
-                              <div className="flex items-center gap-2 shrink-0">
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                {reviewCounterButton(r)}
                                 <button
                                   type="button"
                                   disabled={reviewMutation.isPending || hasSelection || isClosed || !!r.passed_over_at}
@@ -797,6 +822,34 @@ export default function SubscriptionCardReview({
 
         </>
       )}
+
+      <OfferAmountStepperModal
+        open={!!counterRecipient}
+        title={counterRecipient?.talent_name ? `Counter offer to ${counterRecipient.talent_name}` : 'Send a counter-offer'}
+        submitLabel="Send counter"
+        currency={counterPrice?.currency || card.currency || 'INR'}
+        period={offerPeriod}
+        quantity={counterRecipient?.offer_amount?.quantity ?? workQuantity}
+        unit={counterRecipient?.offer_amount?.unit ?? workUnit ?? undefined}
+        initialAmount={snapOfferAmount(counterBaseline)}
+        referenceAmount={counterBaseline}
+        referenceLabel={counterPrice?.fromBid ? "Talent's bid" : 'List price'}
+        pending={sendOffer.isPending}
+        onClose={() => { if (!sendOffer.isPending) setCounterRecipient(null); }}
+        onSubmit={(amount, note) => {
+          if (!counterRecipient || isClosed || isSubmitted || hasSelection) return;
+          sendOffer.mutate(
+            { recipientId: counterRecipient.recipient_id, amount, ...(note ? { note } : {}) },
+            {
+              onSuccess: () => {
+                setCounterRecipient(null);
+                toast.success('Counter offer sent');
+              },
+              onError: () => toast.error('Could not send counter offer. Please try again.'),
+            },
+          );
+        }}
+      />
 
       {/* Selection confirmation modal */}
       {confirmSelect && (
