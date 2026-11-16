@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { isAxiosError } from 'axios';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
@@ -839,13 +840,21 @@ export default function SubscriptionCardReview({
         onSubmit={(amount, note) => {
           if (!counterRecipient || isClosed || isSubmitted || hasSelection) return;
           sendOffer.mutate(
-            { recipientId: counterRecipient.recipient_id, amount, ...(note ? { note } : {}) },
+            {
+              recipientId: counterRecipient.recipient_id,
+              recipientCardId: counterRecipient.card_id,
+              amount,
+              ...(note ? { note } : {}),
+            },
             {
               onSuccess: () => {
                 setCounterRecipient(null);
                 toast.success('Counter offer sent');
               },
-              onError: () => toast.error('Could not send counter offer. Please try again.'),
+              onError: (error) => {
+                const message = isAxiosError(error) ? error.response?.data?.message : null;
+                toast.error(typeof message === 'string' && message ? message : 'Could not send counter offer. Please try again.');
+              },
             },
           );
         }}

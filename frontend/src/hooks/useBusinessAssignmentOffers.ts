@@ -64,10 +64,13 @@ export function useBusinessAssignmentOffers(cardId: string, enabled = true) {
 
 function useInvalidate(cardId: string) {
   const qc = useQueryClient();
-  return () => {
-    qc.invalidateQueries({ queryKey: ['business-assignment-offers', cardId] });
+  return (offer?: BusinessAssignmentOffer) => {
+    // A grouped review page may negotiate on a different tier's card.
+    for (const id of new Set([cardId, offer?.card_id].filter(Boolean))) {
+      qc.invalidateQueries({ queryKey: ['business-assignment-offers', id] });
+      qc.invalidateQueries({ queryKey: ['card-recipients', id] });
+    }
     // Accept shortlists — refresh recipients + the card lists too.
-    qc.invalidateQueries({ queryKey: ['card-recipients', cardId] });
     qc.invalidateQueries({ queryKey: ['my-assignment-cards'] });
     qc.invalidateQueries({ queryKey: ['my-subscription-cards'] });
   };
@@ -119,9 +122,9 @@ export function useBusinessDeclineOffer(cardId: string) {
 export function useBusinessSendOffer(cardId: string) {
   const invalidate = useInvalidate(cardId);
   return useMutation({
-    mutationFn: async (vars: { recipientId: string; amount: OfferAmount; note?: string }) => {
+    mutationFn: async (vars: { recipientId: string; recipientCardId?: string; amount: OfferAmount; note?: string }) => {
       const { data } = await api.post<{ offer: BusinessAssignmentOffer }>(
-        `${offersBase(cardId)}/send`,
+        `${offersBase(vars.recipientCardId || cardId)}/send`,
         {
           recipient_id: vars.recipientId,
           amount: vars.amount,
