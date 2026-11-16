@@ -15,6 +15,7 @@ import {
   createAgencyGeneralPortfolioSchema,
   updateAgencyGeneralPortfolioSchema,
   agencyPortfolioItemSchema,
+  agencyPortfolioCurationSchema,
 } from '../validators/agency.validators.js';
 
 const router = Router();
@@ -71,6 +72,7 @@ router.delete('/general-portfolios/:id', ctrl.deleteGeneral);
 // Portfolio items (for either member or general)
 router.get('/portfolio', ctrl.listPortfolio);
 router.post('/portfolio', validate({ body: agencyPortfolioItemSchema }), ctrl.addPortfolio);
+router.put('/portfolio/curation', validate({ body: agencyPortfolioCurationSchema }), ctrl.savePortfolioCuration);
 router.delete('/portfolio/:itemId', ctrl.deletePortfolio);
 
 // Total portfolio view

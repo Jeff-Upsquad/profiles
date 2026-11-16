@@ -20,6 +20,7 @@ export const agencyApi = {
   listPortfolio: (params?: any) => api.get('/agency/portfolio', { params }).then(r => r.data),
   addPortfolio: (data: any) => api.post('/agency/portfolio', data).then(r => r.data),
   deletePortfolio: (id: string) => api.delete(`/agency/portfolio/${id}`).then(r => r.data),
+  savePortfolioCuration: (items: { id: string; sort_order: number; hidden_from_agency: boolean }[]) => api.put('/agency/portfolio/curation', { items }).then(r => r.data),
   total: () => api.get('/agency/total-portfolio').then(r => r.data),
   preview: (params?: any) => api.get('/agency/preview', { params }).then(r => r.data),
   publicView: (agencyId: string, params?: any) => api.get(`/agency/public-view/${agencyId}`, { params }).then(r => r.data),

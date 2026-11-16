@@ -80,6 +80,7 @@ export default function AgencyPublicPreview({ data, isLoading, error, categoryId
             <div className="mt-4 text-xs text-[#737373]">Preview — all categories • {portfolioItems.length} items • {individuals.length} members</div>
           )}
           <div className="mt-3 rounded-lg bg-[#FFFAC2] border border-[#F8E7B8] px-3 py-2 text-xs text-[#92400E]">This is how businesses will see your agency for {category ? category.name : 'all categories'}.</div>
+          <Link href="/agency/portfolio#manage-portfolio" className="mt-3 inline-flex rounded-lg border border-[#E7E7EA] px-3 py-2 text-xs font-semibold hover:bg-[#F5F5F6]">Manage portfolio order &amp; visibility</Link>
         </div>
 
         <div className="mt-1 bg-white">

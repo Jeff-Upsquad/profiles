@@ -287,12 +287,22 @@ export async function deleteGeneralPortfolio(userId: string, id: string) {
 // ---------------------------------------------------------------------------
 export async function listPortfolioItems(userId: string, filters: { member_profile_id?: string; general_portfolio_id?: string }) {
   try {
-    let q = supabaseAdmin.from('agency_portfolio_items').select('*').eq('agency_user_id', userId).order('sort_order', { ascending: true });
-    if (filters.member_profile_id) q = q.eq('member_profile_id', filters.member_profile_id);
-    if (filters.general_portfolio_id) q = q.eq('general_portfolio_id', filters.general_portfolio_id);
-    const { data, error } = await q;
-    if (error) throw error;
-    return data ?? [];
+    const items: any[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      let q = supabaseAdmin.from('agency_portfolio_items').select('*')
+        .eq('agency_user_id', userId)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false })
+        .order('id')
+        .range(offset, offset + 999);
+      if (filters.member_profile_id) q = q.eq('member_profile_id', filters.member_profile_id);
+      if (filters.general_portfolio_id) q = q.eq('general_portfolio_id', filters.general_portfolio_id);
+      const { data, error } = await q;
+      if (error) throw error;
+      items.push(...(data ?? []));
+      if (!data || data.length < 1000) break;
+    }
+    return items;
   } catch (e: any) {
     if (isMissingTable(e)) {
       return memPortfolioItems.filter((it: any) => {
@@ -330,6 +340,11 @@ export async function addPortfolioItem(userId: string, input: { member_profile_i
   }
 }
 
+export async function savePortfolioCuration(userId: string, items: { id: string; sort_order: number; hidden_from_agency: boolean }[]) {
+  const { error } = await supabaseAdmin.rpc('save_agency_portfolio_curation', { p_agency_id: userId, p_items: items });
+  if (error) throw new AppError(error.code === '22023' ? 400 : 500, error.message);
+}
+
 export async function deletePortfolioItem(userId: string, itemId: string) {
   try {
     const { error } = await supabaseAdmin.from('agency_portfolio_items').delete().eq('id', itemId).eq('agency_user_id', userId);
@@ -354,12 +369,6 @@ export async function getTotalPortfolio(userId: string) {
     listMemberProfiles(userId),
     listGeneralPortfolios(userId),
   ]);
-  let items: any[] = [];
-  try {
-    const { data } = await supabaseAdmin.from('agency_portfolio_items').select('*').eq('agency_user_id', userId).order('created_at', { ascending: false }).limit(100);
-    items = data ?? [];
-  } catch (e: any) {
-    if (isMissingTable(e)) items = memPortfolioItems.filter((it: any) => it.agency_user_id === userId);
-  }
+  const items = await listPortfolioItems(userId, {});
   return { members, member_profiles: memberProfiles, general_portfolios: generalPortfolios, portfolio_items: items };
 }

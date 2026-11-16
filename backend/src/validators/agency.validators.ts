@@ -124,6 +124,18 @@ export const agencyPortfolioItemSchema = z.object({
   source_type: z.enum(['upload','link']).optional(),
 });
 
+export const agencyPortfolioCurationSchema = z.object({
+  items: z.array(z.object({
+    id: z.string().uuid(),
+    sort_order: z.number().int().min(0).max(2147483647),
+    hidden_from_agency: z.boolean(),
+  })).min(1).max(5000),
+}).superRefine(({ items }, ctx) => {
+  if (new Set(items.map(item => item.id)).size !== items.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Duplicate portfolio items' });
+  }
+});
+
 export type UpdateAgencyUserInput = z.infer<typeof updateAgencyUserSchema>;
 export type UpdateAgencyProfileInput = z.infer<typeof updateAgencyProfileSchema>;
 export type CreateSquadMemberInput = z.infer<typeof createSquadMemberSchema>;

@@ -99,7 +99,7 @@ export default function AgencyPortfolioGrid({ items, onMemberClick }: { items: a
 }
 
 // Only load video metadata near the viewport; portfolios can contain dozens of clips.
-function PortfolioThumbnail({ item }: { item: any }) {
+export function PortfolioThumbnail({ item }: { item: any }) {
   const container = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [failed, setFailed] = useState(false);

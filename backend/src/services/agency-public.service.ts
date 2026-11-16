@@ -51,19 +51,8 @@ export async function getAgencyPublicView(agencyId: string, opts: AgencyPublicVi
   const generalPortfolioIds = filteredGeneralPortfolios.map((p: any) => p.id);
 
   // Fetch portfolio items — filter in JS to avoid complex OR query
-  let allItems: any[] = [];
-  try {
-    const { data } = await supabaseAdmin
-      .from('agency_portfolio_items')
-      .select('*')
-      .eq('agency_user_id', agencyId)
-      .order('created_at', { ascending: false })
-      .limit(200);
-    allItems = data ?? [];
-  } catch (e: any) {
-    if (agencyService.isMissingTable(e)) allItems = [];
-    else throw e;
-  }
+  const allItems = (await agencyService.listPortfolioItems(agencyId, {}))
+    .filter(item => !item.hidden_from_agency);
 
   // Filter items to the requested category's portfolios
   const filteredItems = allItems.filter((it: any) => {
@@ -189,18 +178,9 @@ export async function getAgencyMemberPublicView(agencyId: string, memberId: stri
   const agencyUser = await agencyService.getAgencyUser(agencyId);
 
   // Portfolio items for this member
-  let items: any[] = [];
-  try {
-    const { data } = await supabaseAdmin
-      .from('agency_portfolio_items')
-      .select('*')
-      .eq('agency_user_id', agencyId)
-      .in('member_profile_id', profiles.map((p: any) => p.id))
-      .order('created_at', { ascending: false });
-    items = data ?? [];
-  } catch (e: any) {
-    if (!agencyService.isMissingTable(e)) throw e;
-  }
+  const profileIds = new Set(profiles.map((p: any) => p.id));
+  const items = (await agencyService.listPortfolioItems(agencyId, {}))
+    .filter(item => !item.hidden_from_agency && profileIds.has(item.member_profile_id));
 
   return {
     agency: {

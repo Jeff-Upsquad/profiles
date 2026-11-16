@@ -55,6 +55,9 @@ export async function listPortfolio(req: Request, res: Response, next: NextFunct
 export async function addPortfolio(req: Request, res: Response, next: NextFunction) {
   try { const data = await svc.addPortfolioItem(req.user!.id, req.body); res.status(201).json(data); } catch (e) { next(e); }
 }
+export async function savePortfolioCuration(req: Request, res: Response, next: NextFunction) {
+  try { await svc.savePortfolioCuration(req.user!.id, req.body.items); res.json({ message: 'Portfolio updated' }); } catch (e) { next(e); }
+}
 export async function deletePortfolio(req: Request, res: Response, next: NextFunction) {
   try { const data = await svc.deletePortfolioItem(req.user!.id, req.params.itemId as string); res.json(data); } catch (e) { next(e); }
 }

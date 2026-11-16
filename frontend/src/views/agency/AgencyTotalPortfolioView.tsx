@@ -6,6 +6,7 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import AgencyPortfolioManager from '@/components/agency/AgencyPortfolioManager';
 import toast from 'react-hot-toast';
 
 export default function AgencyTotalPortfolioView(){
@@ -13,7 +14,7 @@ export default function AgencyTotalPortfolioView(){
   const { data: squad=[] } = useQuery({queryKey:['agencySquad'], queryFn: agencyApi.listSquad});
   const { data: memberProfiles=[] } = useQuery({queryKey:['agencyMemberProfiles'], queryFn: agencyApi.listMemberProfiles});
   const { data: generalPortfolios=[] } = useQuery({queryKey:['agencyGeneral'], queryFn: agencyApi.listGeneral});
-  const { data: total } = useQuery({queryKey:['agencyTotal'], queryFn: agencyApi.total});
+  const { data: total, isLoading: totalLoading, error: totalError } = useQuery({queryKey:['agencyTotal'], queryFn: agencyApi.total});
   const [form,setForm]=useState({ title:'', file_url:'', target:'' });
   const add=useMutation({
     mutationFn:()=>{
@@ -76,19 +77,7 @@ export default function AgencyTotalPortfolioView(){
         </Card>
       </div>
 
-      <Card className="p-5">
-        <h3 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-[#0a0a0a]">Portfolio Items ({portfolioItems.length})</h3>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {portfolioItems.length===0 && <div className="text-sm text-[#737373]">No items yet — add one above.</div>}
-          {portfolioItems.map((it:any)=>(
-            <div key={it.id} className="rounded-lg border border-[#E7E7EA] p-3 bg-white">
-              <div className="text-sm font-medium truncate text-[#0a0a0a]">{it.title || it.file_name || 'Untitled'}</div>
-              <div className="text-xs text-[#737373] truncate">{it.file_url || it.external_url || '—'}</div>
-              <div className="mt-1 text-[11px] text-[#a3a3a3]">{it.member_profile_id ? 'Member portfolio' : 'General portfolio'}</div>
-            </div>
-          ))}
-        </div>
-      </Card>
+      {totalError ? <p role="alert" className="text-sm text-red-600">Could not load portfolio items. Please refresh to try again.</p> : totalLoading ? <p className="text-sm text-[#737373]">Loading portfolio…</p> : <AgencyPortfolioManager items={portfolioItems} />}
     </div>
   );
 }
