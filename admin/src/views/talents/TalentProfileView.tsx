@@ -15,6 +15,7 @@ import { coerceLeveledList, LEVEL_LABELS, type LeveledItem } from '../../../../s
 import { CRM_URL } from '@/lib/crmUrl';
 import { formatTotalExperience, type ExperienceRange } from '../../../../shared/src/experienceTotal';
 import TalentActiveToggle from '@/components/TalentActiveToggle';
+import CrmChatDrawer from '@/views/onboarding/CrmChatDrawer';
 
 type Tier = 'junior' | 'pro' | 'Top Talents' | 'custom';
 const TIER_OPTIONS: { value: Tier | null; label: string }[] = [
@@ -206,6 +207,7 @@ export default function TalentProfileView({
   const [pauseModalOpen, setPauseModalOpen] = useState(false);
   const [pauseReason, setPauseReason] = useState('');
   const [pauseNotify, setPauseNotify] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const setProfileActive = useMutation({
     mutationFn: async (vars: { isActive: boolean; reason?: string; send_notification?: boolean }) => {
@@ -427,6 +429,19 @@ export default function TalentProfileView({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {waPhone && (
+            <button
+              type="button"
+              onClick={() => setChatOpen(true)}
+              title="Chat with this talent via the CRM side panel"
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 shadow-sm hover:bg-emerald-100"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              CRM Chat
+            </button>
+          )}
           {whatsappHref && (
             <a
               href={whatsappHref}
@@ -862,6 +877,12 @@ export default function TalentProfileView({
           </div>
         </div>
       </Modal>
+
+      <CrmChatDrawer
+        phone={chatOpen ? waPhone || null : null}
+        name={talentUser?.full_name}
+        onClose={() => setChatOpen(false)}
+      />
     </div>
   );
 }

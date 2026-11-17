@@ -2409,7 +2409,7 @@ export async function getTalentProfilesByCategory(categoryId: string, search?: s
 
   let qb = supabaseAdmin
     .from('talent_profiles')
-    .select('*, talent_users!inner(full_name, profile_photo_url, current_location, is_active, inactive_reason, suspended, blacklisted), categories!inner(name, slug)')
+    .select('*, talent_users!inner(full_name, phone, profile_photo_url, current_location, is_active, inactive_reason, suspended, blacklisted), categories!inner(name, slug)')
     .eq('category_id', categoryId)
     .is('deleted_at', null)
     // Partner Program / Jobs lists show only active + inactive.

@@ -11,7 +11,9 @@ import DropdownMenu from '@/components/ui/DropdownMenu';
 import Modal from '@/components/ui/Modal';
 import { resolveLocation, COUNTRIES, INDIA_STATE_LABELS, UNKNOWN_STATE, type Country } from '@/lib/location';
 import { formatDate } from '@/lib/formatDate';
+import { cleanPhoneForLink } from '@/lib/phone';
 import TalentActiveToggle from '@/components/TalentActiveToggle';
+import CrmChatDrawer from '@/views/onboarding/CrmChatDrawer';
 
 interface TalentProfile {
   id: string;
@@ -21,6 +23,7 @@ interface TalentProfile {
   created_at: string;
   talent_users?: {
     full_name: string;
+    phone?: string;
     profile_photo_url?: string;
     current_location?: string;
     is_active?: boolean;
@@ -114,6 +117,7 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectingProfileId, setRejectingProfileId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [chat, setChat] = useState<{ phone: string; name: string } | null>(null);
   const linkQuery = employmentType
     ? `?type=${employmentType}${employmentTrack ? `&track=${employmentTrack}` : ''}`
     : '?type=partner_program';
@@ -724,6 +728,9 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
             <tbody className="divide-y divide-gray-200">
               {filteredProfiles.map((profile) => {
                 const isPending = profile.status === 'pending_review';
+                const chatPhone = cleanPhoneForLink(profile.talent_users?.phone);
+                const openCrmChat = () =>
+                  setChat({ phone: chatPhone, name: profile.talent_users?.full_name ?? 'Talent' });
                 return (
                   <tr key={profile.id} className="hover:bg-gray-50">
                     {hasPendingInView && (
@@ -825,6 +832,7 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
                               label: 'Review Details',
                               onClick: () => router.push(`/reviews/${profile.id}${approvalTrack ? `?track=${approvalTrack}` : ''}`),
                             },
+                            ...(chatPhone ? [{ label: 'CRM Chat', onClick: openCrmChat }] : []),
                             {
                               label: 'View Profile',
                               onClick: () => router.push(`/talents/${categoryId}/${profile.id}${linkQuery}`),
@@ -843,6 +851,18 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
                         />
                       ) : (
                         <div className="flex justify-end gap-1">
+                          {chatPhone && (
+                            <button
+                              type="button"
+                              onClick={openCrmChat}
+                              title="CRM chat"
+                              className="rounded-lg border border-gray-200 bg-white p-1.5 text-emerald-600 hover:bg-emerald-50"
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                              </svg>
+                            </button>
+                          )}
                           <Link href={`/talents/${categoryId}/${profile.id}${linkQuery}`}>
                             <Button variant="ghost" size="sm">View</Button>
                           </Link>
@@ -925,6 +945,8 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
           </div>
         </div>
       </Modal>
+
+      <CrmChatDrawer phone={chat?.phone ?? null} name={chat?.name} onClose={() => setChat(null)} />
     </div>
   );
 }
