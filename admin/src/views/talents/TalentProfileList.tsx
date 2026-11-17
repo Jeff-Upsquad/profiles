@@ -45,6 +45,7 @@ const statusVariant: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
   approved: 'green',
   pending_review: 'yellow',
   changes_requested: 'yellow',
+  paused: 'gray',
   rejected: 'red',
   draft: 'gray',
   inactive: 'gray',
@@ -55,9 +56,7 @@ const STATUS_TABS = [
   { key: 'approved', label: 'Approved' },
   { key: 'pending_review', label: 'Pending Review' },
   { key: 'changes_requested', label: 'Changes Requested' },
-  { key: 'rejected', label: 'Rejected' },
-  { key: 'draft', label: 'Draft' },
-  { key: 'inactive', label: 'Inactive' },
+  { key: 'paused', label: 'Paused' },
 ];
 
 const TIER_OPTIONS: { key: TierKey | ''; label: string }[] = [
@@ -92,7 +91,7 @@ function isBlockedProfile(p: TalentProfile): boolean {
   return p.talent_users?.suspended === true || p.talent_users?.blacklisted === true;
 }
 
-function isInactiveProfile(p: TalentProfile): boolean {
+function isPausedProfile(p: TalentProfile): boolean {
   return !p.is_active || p.status === 'inactive' || p.talent_users?.is_active === false;
 }
 
@@ -172,10 +171,10 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
 
     scopedProfiles.forEach((p, i) => {
       const tk = tierKeyOf(p);
-      if (isInactiveProfile(p)) {
-        sc.inactive = (sc.inactive ?? 0) + 1;
-        if (!mx.inactive) mx.inactive = { 'Top Talents': 0, pro: 0, junior: 0, custom: 0, none: 0 };
-        mx.inactive[tk]++;
+      if (isPausedProfile(p)) {
+        sc.paused = (sc.paused ?? 0) + 1;
+        if (!mx.paused) mx.paused = { 'Top Talents': 0, pro: 0, junior: 0, custom: 0, none: 0 };
+        mx.paused[tk]++;
         return;
       }
       tc[tk]++;
@@ -206,16 +205,16 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
   const filteredProfiles = useMemo(() => {
     let list = scopedProfiles;
     let locs = profileLocations;
-    if (statusFilter === 'inactive') {
-      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => isInactiveProfile(p));
+    if (statusFilter === 'paused') {
+      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => isPausedProfile(p));
       list = idx.map(([p]) => p);
       locs = idx.map(([, l]) => l);
     } else if (statusFilter) {
-      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => !isInactiveProfile(p) && p.status === statusFilter);
+      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => !isPausedProfile(p) && p.status === statusFilter);
       list = idx.map(([p]) => p);
       locs = idx.map(([, l]) => l);
     } else {
-      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => !isInactiveProfile(p));
+      const idx = list.map((p, i) => [p, locs[i]] as const).filter(([p]) => !isPausedProfile(p));
       list = idx.map(([p]) => p);
       locs = idx.map(([, l]) => l);
     }
@@ -337,7 +336,7 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
 
   const categoryName = profiles?.[0]?.categories?.name ?? 'Category';
   const decodedStateName = stateName ? decodeURIComponent(stateName) : null;
-  const total = scopedProfiles.filter((p) => p.is_active).length;
+  const total = scopedProfiles.filter((p) => !isPausedProfile(p)).length;
   const hasPendingInView = pendingInView.length > 0;
   const trackLabel = employmentTrack === 'both'
     ? 'Both Subscriptions & Assignments'
@@ -775,10 +774,16 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-1">
-                        <Badge variant={statusVariant[profile.status] ?? 'gray'}>
-                          {profile.status.replace('_', ' ')}
-                        </Badge>
-                        {!profile.is_active && <Badge variant="gray">Inactive</Badge>}
+                        {profile.status === 'inactive' ? (
+                          <Badge variant="gray">Paused</Badge>
+                        ) : (
+                          <Badge variant={statusVariant[profile.status] ?? 'gray'}>
+                            {profile.status.replace('_', ' ')}
+                          </Badge>
+                        )}
+                        {!profile.is_active && profile.status !== 'inactive' && (
+                          <Badge variant="gray">Paused</Badge>
+                        )}
                         {profile.talent_users?.is_active === false && (
                           <Badge variant="gray">Talent inactive</Badge>
                         )}
