@@ -1590,10 +1590,46 @@ export async function setProfileTier(
   };
 }
 
+// Insert a system notification for one talent plus its recipient row and
+// fire the push. Best-effort: returns false (never throws) when any step
+// fails, and removes the notification again when the recipient insert fails
+// so talents never see a notification that was not addressed to them.
+async function sendTalentSystemNotification(
+  talentUserId: string,
+  input: { system_type: string; title: string; body: string },
+): Promise<boolean> {
+  try {
+    const { data: notification, error: notificationError } = await supabaseAdmin
+      .from('notifications')
+      .insert([{ kind: 'system', system_type: input.system_type, title: input.title, body: input.body }])
+      .select('id')
+      .single();
+    if (notificationError || !notification) {
+      console.error(`[admin] ${input.system_type} notification insert failed`, notificationError);
+      return false;
+    }
+    const { error: recipientError } = await supabaseAdmin
+      .from('notification_recipients')
+      .insert([{ notification_id: notification.id, talent_user_id: talentUserId }]);
+    if (recipientError) {
+      console.error(`[admin] ${input.system_type} notification recipient failed`, recipientError);
+      await supabaseAdmin.from('notifications').delete().eq('id', notification.id);
+      return false;
+    }
+    void notifyBroadcast([talentUserId], { title: input.title, body: input.body, route: '/talent/notifications' })
+      .catch((err) => console.error(`[admin] ${input.system_type} push failed`, err));
+    return true;
+  } catch (err) {
+    console.error(`[admin] ${input.system_type} notification failed`, err);
+    return false;
+  }
+}
+
 // Admin pause / resume of a job profile.
 //
 // Pausing flips is_active only — status stays approved, so resuming never
-// forces re-approval — and records who paused it.
+// forces re-approval — and records who paused it. The talent is notified
+// in-app on both transitions, with the pause reason when one is given.
 //
 // Resuming also clears a talent self-pause (status='inactive', set by
 // talent.service deactivateProfile): the admin already vetted the profile, so
@@ -1602,10 +1638,11 @@ export async function setProfileActive(
   profileId: string,
   isActive: boolean,
   actor: talentService.ProfilePauseActor,
+  input: { reason?: string; send_notification?: boolean } = {},
 ) {
   const { data: current, error: fetchErr } = await supabaseAdmin
     .from('talent_profiles')
-    .select('id, status, talent_user_id, category_id')
+    .select('id, status, talent_user_id, category_id, category:categories(name)')
     .eq('id', profileId)
     .is('deleted_at', null)
     .maybeSingle();
@@ -1633,8 +1670,28 @@ export async function setProfileActive(
     await syncGhostForTalent(current.talent_user_id);
   }
 
+  const delivery = { notification_sent: false };
+  if (input.send_notification !== false) {
+    const categoryLabel = (current.category as { name?: string } | null | undefined)?.name;
+    const profileLabel = categoryLabel ? `Your ${categoryLabel} profile` : 'Your profile';
+    if (isActive) {
+      delivery.notification_sent = await sendTalentSystemNotification(current.talent_user_id, {
+        system_type: 'profile_resumed',
+        title: `${profileLabel} is active again`,
+        body: `${profileLabel} has been resumed and is visible on the platform again. You can now receive new requests.`,
+      });
+    } else {
+      const reason = input.reason?.trim();
+      delivery.notification_sent = await sendTalentSystemNotification(current.talent_user_id, {
+        system_type: 'profile_paused',
+        title: `${profileLabel} has been paused`,
+        body: `${profileLabel} has been paused${reason ? `. Reason: ${reason}` : ''}. It is hidden from public search until it is resumed.`,
+      });
+    }
+  }
+
   if (isActive) queueTalentCardCatchup(current.talent_user_id);
-  return data;
+  return { ...data, delivery };
 }
 
 export async function setTalentUserActive(
@@ -1657,6 +1714,7 @@ export async function setTalentUserActive(
       is_active: current.is_active,
       inactive_reason: current.inactive_reason,
       inactive_at: current.inactive_at,
+      unchanged: true,
       delivery: { notification_sent: false, whatsapp_sent: false },
     };
   }
@@ -1680,26 +1738,11 @@ export async function setTalentUserActive(
     const title = 'Your talent profile is inactive';
     const body = `Your talent profile has been marked inactive. Reason: ${reason}. You will not be shown on the platform or receive new subscription requests. Please contact support to resolve this.`;
     if (input.send_notification) {
-      const { data: notification, error: notificationError } = await supabaseAdmin
-        .from('notifications')
-        .insert({ kind: 'system', system_type: 'talent_marked_inactive', title, body })
-        .select('id')
-        .single();
-      if (notificationError || !notification) {
-        console.error('[admin] inactive notification insert failed', notificationError);
-      } else {
-        const { error: recipientError } = await supabaseAdmin
-          .from('notification_recipients')
-          .insert({ notification_id: notification.id, talent_user_id: userId });
-        if (recipientError) {
-          console.error('[admin] inactive notification recipient failed', recipientError);
-          await supabaseAdmin.from('notifications').delete().eq('id', notification.id);
-        } else {
-          delivery.notification_sent = true;
-          void notifyBroadcast([userId], { title, body, route: '/talent/notifications' })
-            .catch((err) => console.error('[admin] inactive push failed', err));
-        }
-      }
+      delivery.notification_sent = await sendTalentSystemNotification(userId, {
+        system_type: 'talent_marked_inactive',
+        title,
+        body,
+      });
     }
     if (input.send_whatsapp && current.phone) {
       delivery.whatsapp_sent = await deliverCrmSystemEvent({
@@ -1711,8 +1754,16 @@ export async function setTalentUserActive(
         bodyParams: [current.full_name || 'Talent', reason!],
       });
     }
+  } else {
+    // Reactivation always notifies so the talent knows they are visible on
+    // the platform again (mirrors the inactive notification).
+    delivery.notification_sent = await sendTalentSystemNotification(userId, {
+      system_type: 'talent_marked_active',
+      title: 'Your talent profile is active again',
+      body: 'Your talent profile has been marked active again. You are now visible on the platform and can receive new requests.',
+    });
+    queueTalentCardCatchup(userId);
   }
-  if (input.is_active) queueTalentCardCatchup(userId);
   return { ...data, delivery };
 }
 

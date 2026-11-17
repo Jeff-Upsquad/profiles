@@ -1070,6 +1070,7 @@ export async function setProfileActive(req: Request, res: Response, next: NextFu
       req.staff
         ? { role: 'staff', id: req.staff.id, name: req.staff.name }
         : { role: 'admin', id: req.user?.id ?? null, name: req.user?.email ?? null },
+      { reason: req.body.reason, send_notification: req.body.send_notification },
     );
     res.json(result);
   } catch (err) {

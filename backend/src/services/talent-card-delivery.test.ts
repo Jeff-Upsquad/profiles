@@ -8,7 +8,7 @@ function fixture() {
   const users: Row[] = ['language', 'location', 'neither'].map((id) => ({ id, is_active: true, suspended: false, blacklisted: false, languages_spoken: [id === 'language' ? 'English' : 'Hindi'] }));
   const profiles: Row[] = users.map((u) => ({ id: 'p-' + u.id, talent_user_id: u.id, category_id: 'design', status: 'approved', is_active: true, deleted_at: null, tier: 'pro', field_data: {} }));
   const card: Row = { id: 'card', business_user_id: 'business', card_type: 'subscription', status: 'active', distribution: 'auto', archived_at: null, expires_at: null, content: {}, match_rules: { category_ids: ['design'], target_tiers: ['Pro'], target_languages: ['English'], target_regions: [{ country_name: 'India', region: 'Kerala' }] } };
-  const tables: Record<string, Row[]> = { talent_users: users, talent_profiles: profiles, talent_profiles_basic: users.map((u) => ({ talent_user_id: u.id, country: 'India', state: u.id === 'location' ? 'Kerala' : 'Maharashtra' })), talent_job_preferences: [], subscription_cards: [card], subscription_card_recipients: [] };
+  const tables: Record<string, Row[]> = { talent_users: users, talent_profiles: profiles, talent_profiles_basic: users.map((u) => ({ talent_user_id: u.id, country: 'India', state: u.id === 'location' ? 'Kerala' : 'Maharashtra' })), talent_job_preferences: [], subscription_cards: [card], subscription_card_recipients: [], notifications: [], notification_recipients: [] };
   const original = supabaseAdmin.from; let conflict = false;
   supabaseAdmin.from = ((table: string) => {
     const filters: Array<(row: Row) => boolean> = []; let single = false, bounds: [number, number] | undefined, inserts: Row[] | undefined, update: Row | undefined;

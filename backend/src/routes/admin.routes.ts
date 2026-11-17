@@ -38,6 +38,7 @@ import {
   adminReviewPortfolioItemSchema,
   setTalentOnboardingBypassSchema,
   setTalentUserActiveSchema,
+  setProfileActiveSchema,
 } from '../validators/admin.validators.js';
 import { updateBasicProfileSchema } from '../validators/talent.validators.js';
 import {
@@ -300,7 +301,11 @@ router.get('/talents/categories', adminController.getTalentCategories);
 router.get('/talents/blocked-profiles', adminController.getBlockedTalentProfiles);
 router.get('/talents/categories/:categoryId/profiles', adminController.getTalentProfilesByCategory);
 router.get('/talents/profiles/:profileId', adminController.getTalentProfile);
-router.patch('/talents/profiles/:profileId/active', adminController.setProfileActive);
+router.patch(
+  '/talents/profiles/:profileId/active',
+  validate({ body: setProfileActiveSchema }),
+  adminController.setProfileActive,
+);
 router.patch(
   '/talents/profiles/:profileId/tier',
   validate({ body: setProfileTierSchema }),

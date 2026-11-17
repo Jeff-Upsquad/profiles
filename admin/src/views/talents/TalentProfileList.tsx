@@ -70,8 +70,10 @@ const TIER_OPTIONS: { key: TierKey | ''; label: string }[] = [
 
 // `tier` on the card is the raw value to send back to the API when an
 // admin clicks the card. We send 'Top Talents' (the canonical value) for
-// the renamed bucket.
-const TIER_CARDS: { key: TierKey; label: string; tier: 'Top Talents' | 'pro' | 'junior' | null; borderColor: string }[] = [
+// the renamed bucket. The leading 'all' card clears the tier filter so
+// every level shows at once.
+const TIER_CARDS: { key: TierKey | 'all'; label: string; tier: 'Top Talents' | 'pro' | 'junior' | null; borderColor: string }[] = [
+  { key: 'all', label: 'All', tier: null, borderColor: 'border-indigo-200' },
   { key: 'Top Talents', label: 'Top Talents', tier: 'Top Talents', borderColor: 'border-indigo-300' },
   { key: 'pro', label: 'Pro', tier: 'pro', borderColor: 'border-green-300' },
   { key: 'junior', label: 'Junior', tier: 'junior', borderColor: 'border-gray-300' },
@@ -371,22 +373,24 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
 
       {/* Tier stat cards */}
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="h-20 animate-pulse rounded-xl bg-gray-200" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {TIER_CARDS.map((card) => {
-            const count = card.key === 'none'
-              ? tierCounts.none
-              : tierCounts[card.key];
-            const isActive = tierFilter === card.key;
+            const count = card.key === 'all'
+              ? total
+              : card.key === 'none'
+                ? tierCounts.none
+                : tierCounts[card.key];
+            const isActive = card.key === 'all' ? tierFilter === '' : tierFilter === card.key;
             return (
               <button
                 key={card.key}
-                onClick={() => setTierFilter(isActive ? '' : card.key)}
+                onClick={() => setTierFilter(card.key === 'all' ? '' : isActive ? '' : card.key)}
                 className={`rounded-xl border bg-white p-4 text-left transition ${
                   isActive
                     ? `${card.borderColor} ring-2 ring-indigo-500 ring-offset-1`
@@ -397,7 +401,7 @@ export default function TalentProfileList({ categoryId, stateName, employmentTyp
                   {card.tier ? (
                     <TierBadge tier={card.tier} />
                   ) : (
-                    <span className="text-xs font-medium text-gray-400">{card.label}</span>
+                    <span className={`text-xs font-medium ${card.key === 'all' ? 'text-gray-600' : 'text-gray-400'}`}>{card.label}</span>
                   )}
                 </div>
                 <p className="mt-2 text-2xl font-bold text-gray-900">{count}</p>

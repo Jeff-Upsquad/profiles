@@ -7,6 +7,7 @@ import api from '@/services/api';
 import { TALENT_CATEGORY_OPTIONS } from '../../../../shared/src/contentRoles';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import Modal from '@/components/ui/Modal';
 import TierBadge from '@/components/ui/TierBadge';
 import { cleanPhoneForLink } from '@/lib/phone';
 import { formatDate } from '@/lib/formatDate';
@@ -202,14 +203,28 @@ export default function TalentProfileView({
   // (status 'inactive'). Mark Active clears both.
   const isPaused = !!profile && (!profile.is_active || profile.status === 'inactive');
 
+  const [pauseModalOpen, setPauseModalOpen] = useState(false);
+  const [pauseReason, setPauseReason] = useState('');
+  const [pauseNotify, setPauseNotify] = useState(true);
+
   const setProfileActive = useMutation({
-    mutationFn: async (isActive: boolean) => {
-      await api.patch(`/admin/talents/profiles/${profileId}/active`, { is_active: isActive });
+    mutationFn: async (vars: { isActive: boolean; reason?: string; send_notification?: boolean }) => {
+      const { data } = await api.patch(`/admin/talents/profiles/${profileId}/active`, {
+        is_active: vars.isActive,
+        ...(!vars.isActive ? { reason: vars.reason, send_notification: vars.send_notification } : {}),
+      });
+      return data as { delivery?: { notification_sent: boolean } };
     },
-    onSuccess: (_data, isActive) => {
+    onSuccess: (data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['talent-profile', profileId] });
       queryClient.invalidateQueries({ queryKey: ['talent-profiles'] });
-      toast.success(isActive ? 'Profile visible to public' : 'Profile hidden from public');
+      setPauseModalOpen(false);
+      setPauseReason('');
+      if (vars.send_notification !== false && !data.delivery?.notification_sent) {
+        toast.error(vars.isActive ? 'Profile resumed, but notification delivery did not complete' : 'Profile paused, but notification delivery did not complete');
+        return;
+      }
+      toast.success(vars.isActive ? 'Profile visible to public' : 'Profile hidden from public');
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to update visibility');
@@ -449,7 +464,9 @@ export default function TalentProfileView({
             variant={isPaused ? 'primary' : 'secondary'}
             size="sm"
             loading={setProfileActive.isPending}
-            onClick={() => setProfileActive.mutate(isPaused)}
+            onClick={() => (isPaused
+              ? setProfileActive.mutate({ isActive: true })
+              : setPauseModalOpen(true))}
           >
             {isPaused ? 'Resume Profile' : 'Pause Profile'}
           </Button>
@@ -803,6 +820,48 @@ export default function TalentProfileView({
           )}
         </>
       )}
+
+      <Modal
+        isOpen={pauseModalOpen}
+        onClose={() => !setProfileActive.isPending && setPauseModalOpen(false)}
+        title="Pause profile"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            This hides the profile from public search and pauses new subscription requests for
+            it until the profile is resumed.
+          </p>
+          <label className="block text-sm font-medium text-gray-700">
+            Reason for pausing
+            <textarea
+              value={pauseReason}
+              onChange={(event) => setPauseReason(event.target.value)}
+              maxLength={1000}
+              rows={4}
+              required
+              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              placeholder="Explain what the Talent needs to resolve"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={pauseNotify} onChange={(event) => setPauseNotify(event.target.checked)} />
+            Send message to notification panel
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setPauseModalOpen(false)}>Cancel</Button>
+            <Button
+              variant="danger"
+              size="sm"
+              loading={setProfileActive.isPending}
+              disabled={!pauseReason.trim()}
+              onClick={() => setProfileActive.mutate({ isActive: false, reason: pauseReason.trim(), send_notification: pauseNotify })}
+            >
+              Pause Profile
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

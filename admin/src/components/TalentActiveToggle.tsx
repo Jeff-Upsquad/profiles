@@ -30,7 +30,7 @@ export default function TalentActiveToggle({ userId, name, isActive, inactiveRea
           send_whatsapp: sendWhatsapp,
         } : {}),
       });
-      return data as { delivery?: { notification_sent: boolean; whatsapp_sent: boolean } };
+      return data as { unchanged?: boolean; delivery?: { notification_sent: boolean; whatsapp_sent: boolean } };
     },
     onSuccess: (data, active) => {
       queryClient.invalidateQueries({ queryKey: ['talent-profiles'] });
@@ -41,7 +41,11 @@ export default function TalentActiveToggle({ userId, name, isActive, inactiveRea
       setOpen(false);
       setReason('');
       if (active) {
-        toast.success('Talent marked active');
+        if (!data.unchanged && !data.delivery?.notification_sent) {
+          toast.error('Talent marked active, but notification delivery did not complete');
+        } else {
+          toast.success('Talent marked active');
+        }
         return;
       }
       const failed = [

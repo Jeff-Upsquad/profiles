@@ -528,8 +528,12 @@ export default function TalentJourneyPanel({
   const resumeProfileMut = useMutation({
     mutationFn: async (profileId: string) =>
       (await api.patch(`/admin/talents/profiles/${profileId}/active`, { is_active: true })).data,
-    onSuccess: () => {
-      toast.success('Job profile is active again');
+    onSuccess: (data) => {
+      if (data?.delivery && data.delivery.notification_sent === false) {
+        toast.error('Job profile is active again, but notification delivery did not complete');
+      } else {
+        toast.success('Job profile is active again');
+      }
       refresh();
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to reactivate profile'),

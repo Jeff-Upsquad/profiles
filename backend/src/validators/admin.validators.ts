@@ -11,6 +11,16 @@ export const setTalentUserActiveSchema = z.object({
   }
 });
 
+export const setProfileActiveSchema = z.object({
+  is_active: z.boolean(),
+  reason: z.string().trim().min(1).max(1000).optional(),
+  send_notification: z.boolean().optional(),
+}).superRefine((value, ctx) => {
+  if (!value.is_active && !value.reason) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['reason'], message: 'Reason is required when pausing a profile' });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Category schemas
 // ---------------------------------------------------------------------------
