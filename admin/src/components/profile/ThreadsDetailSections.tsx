@@ -1,11 +1,20 @@
 'use client';
 
+import { createContext, useContext } from 'react';
 import type { CategoryField } from '@/types';
 import {
   coerceLeveledList,
   LEVEL_LABELS,
   type LeveledItem,
 } from '../../../../shared/src/types/talent';
+import {
+  coerceCreatorPlatforms,
+  coerceCreatorServices,
+  creatorLocationLabel,
+  CREATOR_CURRENCY_SYMBOLS,
+  DEFAULT_USAGE_RIGHTS_MONTHS,
+  usageMonthsLabel,
+} from '@/constants/creator-profile';
 
 interface ThreadsDetailSectionsProps {
   fields: CategoryField[];
@@ -18,6 +27,87 @@ interface ThreadsDetailSectionsProps {
    * into Categories.
    */
   categorySlug?: string;
+  /**
+   * Optional name → group lookups for skills/tools/AI tools. When any item
+   * resolves to a non-empty group, that section is rendered with subheadings
+   * (e.g. "DESIGNER" / "EDITOR" inside CORE SKILLS). Falls back to flat
+   * rendering when no item carries a group.
+   *
+   * `groupOrder` controls the display order of groups (e.g., ['Designer',
+   * 'Editor']). Groups not listed are appended at the end.
+   */
+  groupMaps?: {
+    skills?: Record<string, string | null>;
+    tools?: Record<string, string | null>;
+    aiTools?: Record<string, string | null>;
+    groupOrder?: string[];
+  };
+  /**
+   * inline — stacked inside the profile card (ghost profiles).
+   * rail   — one card per section, for the desktop right-hand column.
+   * sheet  — stacked with light headings, for the mobile Skills & tools sheet.
+   * rail/sheet omit Experience (the header fact strip shows it) and gather
+   * plain label/value fields into a single "Details" section.
+   */
+  variant?: SectionVariant;
+}
+
+export type SectionVariant = 'inline' | 'rail' | 'sheet';
+
+const VariantContext = createContext<SectionVariant>('inline');
+
+const HEADING_CLASS: Record<SectionVariant, string> = {
+  inline: 'text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5',
+  rail: 'text-[15px] font-bold text-zinc-950 mb-3.5',
+  sheet: 'text-[13px] font-semibold text-zinc-500 mb-2.5',
+};
+
+function Section({ label, delay, children }: { label: string; delay: number; children: React.ReactNode }) {
+  const variant = useContext(VariantContext);
+  return (
+    <section
+      className={`animate-fade-up ${variant === 'rail' ? 'rounded-[20px] border border-zinc-200 bg-white p-5' : ''}`}
+      style={{ animationDelay: `${delay}s` }}
+    >
+      <h3 className={HEADING_CLASS[variant]}>{label}</h3>
+      {children}
+    </section>
+  );
+}
+
+function groupItemsByName<T>(
+  items: T[],
+  getName: (item: T) => string,
+  groupMap: Record<string, string | null> | undefined,
+  groupOrder?: string[]
+): { groups: Map<string, T[]>; hasNamedGroups: boolean } {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const key = (groupMap?.[getName(item)] ?? '') || '';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(item);
+  }
+  const hasNamedGroups = Array.from(groups.keys()).some((k) => k !== '');
+
+  if (groupOrder?.length) {
+    const ordered = new Map<string, T[]>();
+    for (const g of groupOrder) {
+      if (groups.has(g)) ordered.set(g, groups.get(g)!);
+    }
+    for (const [g, list] of groups.entries()) {
+      if (!ordered.has(g)) ordered.set(g, list);
+    }
+    return { groups: ordered, hasNamedGroups };
+  }
+  return { groups, hasNamedGroups };
+}
+
+function GroupSubHeading({ name }: { name: string }) {
+  return (
+    <h4 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-2 mt-1">
+      {name}
+    </h4>
+  );
 }
 
 function isEmpty(value: any): boolean {
@@ -44,21 +134,31 @@ function SkillRow({ skill, level, maxLevel = 5 }: { skill: string; level: number
       ? Math.max(1, Math.min(5, Math.ceil(level / 2)))
       : Math.max(1, Math.min(5, Math.round(level)));
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-[14px] font-medium text-zinc-800">{skill}</span>
-      <div className="flex items-center gap-2">
-        <div className="flex gap-0.5">
+    <div className="flex items-center justify-between gap-2.5">
+      <span className="min-w-0 flex-1 text-[14px] text-zinc-950">{skill}</span>
+      <div className="flex shrink-0 items-center gap-2.5">
+        <div className="flex gap-[3px]" aria-label={`${dots} of 5`} role="img">
           {[1, 2, 3, 4, 5].map((l) => (
-            <div
+            <span
               key={l}
-              className={`w-3 h-3 rounded-full ${l <= dots ? 'bg-zinc-800' : 'bg-zinc-200'}`}
+              className={`h-1.5 w-1.5 rounded-full ${l <= dots ? 'bg-zinc-950' : 'bg-zinc-300'}`}
             />
           ))}
         </div>
-        <span className="text-[12px] text-zinc-500 w-24 text-right">
+        <span className="w-[76px] text-right text-[13px] text-zinc-500">
           {getLevelLabel(dots)}
         </span>
       </div>
+    </div>
+  );
+}
+
+function SkillRowList({ skills, maxLevel = 5 }: { skills: { skill: string; level: number }[]; maxLevel?: number }) {
+  return (
+    <div className="flex flex-col gap-2.5">
+      {skills.map((s) => (
+        <SkillRow key={s.skill} skill={s.skill} level={s.level} maxLevel={maxLevel} />
+      ))}
     </div>
   );
 }
@@ -67,87 +167,151 @@ function SkillsSection({
   label,
   skills,
   delay,
+  groupMap,
+  groupOrder,
   maxLevel = 5,
 }: {
   label: string;
   skills: { skill: string; level: number }[];
   delay: number;
+  groupMap?: Record<string, string | null>;
+  groupOrder?: string[];
   maxLevel?: number;
 }) {
+  const { groups, hasNamedGroups } = groupItemsByName(skills, (s) => s.skill, groupMap, groupOrder);
+
   return (
-    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
-      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
-        {label}
-      </h3>
-      <div className="flex flex-col gap-3">
-        {skills.map((s) => (
-          <SkillRow key={s.skill} skill={s.skill} level={s.level} maxLevel={maxLevel} />
-        ))}
-      </div>
+    <Section label={label} delay={delay}>
+      {hasNamedGroups ? (
+        <div className="space-y-4">
+          {Array.from(groups.entries()).map(([groupName, list]) => (
+            <div key={groupName || '_ungrouped'}>
+              {groupName && <GroupSubHeading name={groupName} />}
+              <SkillRowList skills={list} maxLevel={maxLevel} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <SkillRowList skills={skills} maxLevel={maxLevel} />
+      )}
+    </Section>
+  );
+}
+
+function TagChips({ tags }: { tags: string[] }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="rounded-full border border-zinc-200 bg-white px-2.5 py-1.5 text-[13px] font-medium text-zinc-950"
+        >
+          {tag}
+        </span>
+      ))}
     </div>
   );
 }
 
-function TagSection({ label, tags, delay }: { label: string; tags: string[]; delay: number }) {
+/** Tag chip with a "Name · Level" suffix for items carrying a proficiency. */
+function LeveledTagChips({ items }: { items: LeveledItem[] }) {
   return (
-    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
-      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
-        {label}
-      </h3>
-      <div className="flex flex-wrap gap-2">
-        {tags.map((tag) => (
-          <span
-            key={tag}
-            className="px-3 py-1.5 bg-white border border-zinc-200 rounded-[10px] text-[13px] font-medium text-zinc-800 shadow-sm"
-          >
-            {tag}
+    <div className="flex flex-wrap gap-1.5">
+      {items.map((it) => (
+        <span
+          key={it.name}
+          className="rounded-full border border-zinc-200 bg-white px-2.5 py-1.5 text-[13px] font-medium text-zinc-950"
+        >
+          {it.name}
+          <span className="ml-1.5 text-zinc-500 font-normal">
+            · {LEVEL_LABELS[it.level] ?? 'Intermediate'}
           </span>
-        ))}
-      </div>
+        </span>
+      ))}
     </div>
   );
 }
 
-function LeveledTagSection({ label, items, delay }: { label: string; items: LeveledItem[]; delay: number }) {
+function TagSection({
+  label,
+  tags,
+  delay,
+  groupMap,
+  groupOrder,
+}: {
+  label: string;
+  tags: string[];
+  delay: number;
+  groupMap?: Record<string, string | null>;
+  groupOrder?: string[];
+}) {
+  const { groups, hasNamedGroups } = groupItemsByName(tags, (t) => t, groupMap, groupOrder);
+
   return (
-    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
-      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
-        {label}
-      </h3>
-      <div className="flex flex-wrap gap-2">
-        {items.map((it) => (
-          <span
-            key={it.name}
-            className="px-3 py-1.5 bg-white border border-zinc-200 rounded-[10px] text-[13px] font-medium text-zinc-800 shadow-sm"
-          >
-            {it.name}
-            <span className="ml-1.5 text-zinc-500 font-normal">
-              · {LEVEL_LABELS[it.level] ?? 'Intermediate'}
-            </span>
-          </span>
-        ))}
-      </div>
-    </div>
+    <Section label={label} delay={delay}>
+      {hasNamedGroups ? (
+        <div className="space-y-3">
+          {Array.from(groups.entries()).map(([groupName, list]) => (
+            <div key={groupName || '_ungrouped'}>
+              {groupName && <GroupSubHeading name={groupName} />}
+              <TagChips tags={list} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <TagChips tags={tags} />
+      )}
+    </Section>
+  );
+}
+
+function LeveledTagSection({
+  label,
+  items,
+  delay,
+  groupMap,
+  groupOrder,
+}: {
+  label: string;
+  items: LeveledItem[];
+  delay: number;
+  groupMap?: Record<string, string | null>;
+  groupOrder?: string[];
+}) {
+  const { groups, hasNamedGroups } = groupItemsByName(items, (i) => i.name, groupMap, groupOrder);
+
+  return (
+    <Section label={label} delay={delay}>
+      {hasNamedGroups ? (
+        <div className="space-y-3">
+          {Array.from(groups.entries()).map(([groupName, list]) => (
+            <div key={groupName || '_ungrouped'}>
+              {groupName && <GroupSubHeading name={groupName} />}
+              <LeveledTagChips items={list} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <LeveledTagChips items={items} />
+      )}
+    </Section>
   );
 }
 
 function LanguagesSection({ languages, delay }: { languages: { language: string; proficiency: string }[]; delay: number }) {
   return (
-    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
-      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
-        Languages
-      </h3>
-      <div className="flex flex-wrap gap-2">
+    <Section label="Languages" delay={delay}>
+      <div className="flex flex-wrap gap-1.5">
         {languages.map((lang) => (
           <span
             key={lang.language}
-            className="px-3 py-1.5 bg-zinc-100/80 border border-zinc-200 rounded-[10px] text-[13px] font-medium text-zinc-800 shadow-sm"
+            className="rounded-full border border-zinc-200 bg-white px-2.5 py-1.5 text-[13px] font-medium text-zinc-950"
           >
             {lang.language} <span className="text-zinc-500 font-normal">&middot; {lang.proficiency}</span>
           </span>
         ))}
       </div>
-    </div>
+    </Section>
   );
 }
 
@@ -172,14 +336,11 @@ function formatExperience(value: unknown): string | null {
 
 function TextBlock({ label, text, delay }: { label: string; text: string; delay: number }) {
   return (
-    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
-      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-        {label}
-      </h3>
+    <Section label={label} delay={delay}>
       <p className="text-[14.5px] leading-relaxed text-zinc-800 whitespace-pre-line">
         {text}
       </p>
-    </div>
+    </Section>
   );
 }
 
@@ -187,10 +348,7 @@ function FileLink({ label, url, delay }: { label: string; url: string; delay: nu
   const isImage = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
 
   return (
-    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
-      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-        {label}
-      </h3>
+    <Section label={label} delay={delay}>
       {isImage ? (
         <a href={url} target="_blank" rel="noopener noreferrer">
           <img
@@ -214,7 +372,7 @@ function FileLink({ label, url, delay }: { label: string; url: string; delay: nu
           View File
         </a>
       )}
-    </div>
+    </Section>
   );
 }
 
@@ -233,28 +391,32 @@ function IndustryExperienceSection({
   delay: number;
 }) {
   return (
-    <div className="animate-fade-up" style={{ animationDelay: `${delay}s` }}>
-      <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
-        Industry Experience
-      </h3>
+    <Section label="Industry experience" delay={delay}>
       <div className="flex flex-col gap-2">
         {items.map((it, idx) => {
           const range = [formatExpMonth(it.from ?? ''), it.current ? 'Present' : formatExpMonth(it.to ?? '')]
             .filter(Boolean)
             .join(' – ');
           return (
-            <div key={`${it.industry}-${it.from}-${idx}`} className="flex items-center justify-between gap-3">
+            <div
+              key={`${it.industry}-${it.from}-${idx}`}
+              className="flex items-center justify-between gap-3"
+            >
               <span className="text-[14px] font-medium text-zinc-800">{it.industry}</span>
               {range && <span className="text-[12px] text-zinc-500">{range}</span>}
             </div>
           );
         })}
       </div>
-    </div>
+    </Section>
   );
 }
 
-export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, languages, categorySlug }: ThreadsDetailSectionsProps) {
+export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, languages, categorySlug, groupMaps, variant = 'inline' }: ThreadsDetailSectionsProps) {
+  const gatherRows = variant !== 'inline';
+  // Plain label/value rows; inline mode renders them in place, rail/sheet
+  // gather them into one "Details" section at the end.
+  const detailRows: React.ReactNode[] = [];
   const categoriesLabel = categorySlug === 'designer' ? 'Categories and Skills' : 'Categories';
   const activeFields = fields
     .filter((f) => f.is_active)
@@ -279,9 +441,10 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   const categories: { skill: string; level: number }[] = rawCategories
     .map((c) => {
       if (typeof c === 'string') return { skill: c, level: 3 };
+      const lvl = c.level ?? c.skill ? c.level : undefined;
       return {
         skill: c.category ?? c.skill ?? '',
-        level: Math.max(1, Math.min(5, Math.round(Number(c.level ?? 3)))),
+        level: Math.max(1, Math.min(5, Math.round(Number(lvl ?? 3)))),
       };
     })
     .filter((c) => c.skill)
@@ -300,13 +463,16 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
   // Built-in Experience pseudo-field (always present on job profiles).
   // Rendered first so the talent's total experience reads as the headline
   // fact at the top, above categories / skills / tools / languages.
-  const experienceLabel = formatExperience(fieldData?._experience);
+  const experienceLabel = gatherRows ? null : formatExperience(fieldData?._experience);
   if (experienceLabel) {
     const delay = sectionIndex * 0.04;
     sections.push(<FieldRow key="_experience" label="Experience" value={experienceLabel} delay={delay} />);
     sectionIndex++;
   }
 
+  // Categories section (dot indicators, like Skills) — rendered above Core
+  // Skills, mirroring the edit form's section ordering. Categories use the
+  // 1-5 scale (post this upgrade), same as skills.
   if (categories.length > 0) {
     const delay = sectionIndex * 0.04;
     sections.push(
@@ -320,14 +486,24 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
     sectionIndex++;
   }
 
+  // Skills section (dot indicators)
   if (skills.length > 0) {
     const delay = sectionIndex * 0.04;
     sections.push(
-      <SkillsSection key="_skills" label="Core Skills" skills={skills} delay={delay} />
+      <SkillsSection
+        key="_skills"
+        label="Core Skills"
+        skills={skills}
+        delay={delay}
+        groupMap={groupMaps?.skills}
+        groupOrder={groupMaps?.groupOrder}
+      />
     );
     sectionIndex++;
   }
 
+  // Industry Experience section — rendered between Skills and Tools, mirroring
+  // the edit form's section ordering.
   if (industryExperience.length > 0) {
     const delay = sectionIndex * 0.04;
     sections.push(
@@ -336,36 +512,160 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
     sectionIndex++;
   }
 
+  // Accounting Software section (outlined tags with level badge) — accountant category, rendered before Tools
   if (accountingSoftware.length > 0) {
     const delay = sectionIndex * 0.04;
     sections.push(
-      <LeveledTagSection key="_accounting_software" label="Accounting Software" items={accountingSoftware} delay={delay} />
+      <LeveledTagSection
+        key="_accounting_software"
+        label="Accounting Software"
+        items={accountingSoftware}
+        delay={delay}
+      />
     );
     sectionIndex++;
   }
 
+  // Tools section (outlined tags with level badge)
   if (tools.length > 0) {
     const delay = sectionIndex * 0.04;
-    sections.push(<LeveledTagSection key="_tools" label={toolsLabel} items={tools} delay={delay} />);
+    sections.push(
+      <LeveledTagSection
+        key="_tools"
+        label={toolsLabel}
+        items={tools}
+        delay={delay}
+        groupMap={groupMaps?.tools}
+        groupOrder={groupMaps?.groupOrder}
+      />
+    );
     sectionIndex++;
   }
 
+  // AI Tools section (outlined tags with level badge)
   if (aiTools.length > 0) {
     const delay = sectionIndex * 0.04;
-    sections.push(<LeveledTagSection key="_ai_tools" label="AI Tools" items={aiTools} delay={delay} />);
+    sections.push(
+      <LeveledTagSection
+        key="_ai_tools"
+        label="AI Tools"
+        items={aiTools}
+        delay={delay}
+        groupMap={groupMaps?.aiTools}
+        groupOrder={groupMaps?.groupOrder}
+      />
+    );
     sectionIndex++;
   }
 
+  // Languages section
   if (languages && languages.length > 0) {
     const delay = sectionIndex * 0.04;
     sections.push(<LanguagesSection key="_languages" languages={languages} delay={delay} />);
     sectionIndex++;
   }
 
+  // Social Media Creator: structured platforms and services live in field_data
+  // (no category_fields rows), so render them here.
+  const creatorPlatforms = coerceCreatorPlatforms(fieldData?.creator_platforms);
+  if (creatorPlatforms.length > 0) {
+    const delay = sectionIndex * 0.04;
+    sections.push(
+      <Section key="_creator_platforms" label="Platforms" delay={delay}>
+        <div className="flex flex-col gap-3">
+          {creatorPlatforms.map((p) => {
+            const meta = [
+              (p.languages ?? []).join(', '),
+              creatorLocationLabel(p.location_scope, p.location),
+              (p.formats ?? []).join(', '),
+            ].filter(Boolean).join(' · ');
+            return (
+              <div key={p.id} className="rounded-xl border border-zinc-200 px-3.5 py-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[14px] font-medium text-zinc-800">
+                    {p.platform || 'Platform'}
+                    {p.profile_url ? (
+                      <a
+                        href={p.profile_url.startsWith('http') ? p.profile_url : undefined}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 text-[12px] font-normal text-zinc-400 underline decoration-zinc-300 underline-offset-2 hover:text-zinc-600"
+                      >
+                        profile
+                      </a>
+                    ) : null}
+                  </span>
+                  {p.followers !== '' && p.followers !== undefined && (
+                    <span className="whitespace-nowrap text-[12px] text-zinc-500">
+                      {Number(p.followers).toLocaleString()} {p.platform === 'YouTube' ? 'subscribers' : 'followers'}
+                    </span>
+                  )}
+                </div>
+                {meta && <p className="mt-1 text-[12px] text-zinc-500">{meta}</p>}
+                {(p.niches ?? []).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {p.niches.map((n) => (
+                      <span key={n} className="rounded-full border border-zinc-200 px-2 py-0.5 text-[11px] text-zinc-600">
+                        {n}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Section>
+    );
+    sectionIndex++;
+  }
+
+  const creatorServices = coerceCreatorServices(fieldData?.creator_services);
+  if (creatorServices.length > 0) {
+    const delay = sectionIndex * 0.04;
+    sections.push(
+      <Section key="_creator_services" label="Services and rates" delay={delay}>
+        <div className="flex flex-col gap-3">
+          {creatorServices.map((s) => {
+            const rates = creatorPlatforms
+              .map((p) => {
+                const rate = s.rates?.[p.id];
+                const amount = Number(rate?.amount);
+                if (!rate || !rate.currency || !Number.isFinite(amount) || amount <= 0) return null;
+                const symbol = CREATOR_CURRENCY_SYMBOLS[rate.currency] ?? `${rate.currency} `;
+                return `${symbol}${amount.toLocaleString()} · ${p.platform || 'Platform'}`;
+              })
+              .filter((r): r is string => !!r);
+            return (
+              <div key={s.service} className="flex flex-col gap-1">
+                <span className="text-[14px] font-medium text-zinc-800">{s.service}</span>
+                {rates.length > 0 ? (
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    {rates.map((r) => (
+                      <span key={r} className="text-[12px] text-zinc-500">{r}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-[12px] text-zinc-400">Rate on request</span>
+                )}
+                <span className="text-[12px] text-zinc-500">
+                  Usage rights {usageMonthsLabel(s.usage_rights_months ?? DEFAULT_USAGE_RIGHTS_MONTHS)} · Paid ads {usageMonthsLabel(s.paid_ads_months ?? DEFAULT_USAGE_RIGHTS_MONTHS)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </Section>
+    );
+    sectionIndex++;
+  }
+
+  // Dynamic form fields
   for (const field of activeFields) {
     const value = fieldData?.[field.field_key];
     if (isEmpty(value)) continue;
     if (field.field_key === bioFieldKey) continue;
+    if (field.field_key === 'years_experience') continue;
 
     const delay = sectionIndex * 0.04;
 
@@ -394,13 +694,13 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
         break;
       }
       case 'currency': {
-        sections.push(
+        (gatherRows ? detailRows : sections).push(
           <FieldRow key={field.id} label={field.field_label} value={`₹${Number(value).toLocaleString()}`} delay={delay} />
         );
         break;
       }
       default: {
-        sections.push(
+        (gatherRows ? detailRows : sections).push(
           <FieldRow key={field.id} label={field.field_label} value={String(value)} delay={delay} />
         );
         break;
@@ -410,7 +710,45 @@ export default function ThreadsDetailSections({ fields, fieldData, bioFieldKey, 
     sectionIndex++;
   }
 
+  if (detailRows.length > 0) {
+    sections.push(
+      <Section key="_details" label="Details" delay={sectionIndex * 0.04}>
+        <div className="flex flex-col gap-2.5">{detailRows}</div>
+      </Section>
+    );
+  }
+
   if (sections.length === 0) return null;
 
-  return <div className="mt-6 px-6 space-y-5">{sections}</div>;
+  const wrapperClass =
+    variant === 'rail'
+      ? 'flex flex-col gap-3'
+      : variant === 'sheet'
+        ? 'flex flex-col gap-[22px]'
+        : 'mt-6 px-6 space-y-5';
+
+  return (
+    <VariantContext.Provider value={variant}>
+      <div className={wrapperClass}>{sections}</div>
+    </VariantContext.Provider>
+  );
+}
+
+function countOf(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+/** "7 core skills · 11 tools" — the summary line under the mobile Skills & tools row. */
+export function summarizeDetailSections(fieldData: Record<string, any>): string {
+  const categories = countOf(fieldData?._categories);
+  const parts: [number, string, string][] = [
+    [categories, 'category', 'categories'],
+    [countOf(fieldData?._skills), 'core skill', 'core skills'],
+    [countOf(fieldData?._accounting_software) + countOf(fieldData?._tools), 'tool', 'tools'],
+    [countOf(fieldData?._ai_tools), 'AI tool', 'AI tools'],
+  ];
+  return parts
+    .filter(([n]) => n > 0)
+    .map(([n, one, many]) => `${n} ${n === 1 ? one : many}`)
+    .join(' · ');
 }

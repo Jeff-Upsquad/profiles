@@ -61,6 +61,8 @@ export interface Profile {
   updated_at: string;
   is_ghost?: boolean;
   source_profiles?: GhostSourceProfile[];
+  tier?: 'junior' | 'pro' | 'Top Talents' | 'custom' | null;
+  tier_custom?: string | null;
 }
 
 export interface PortfolioItem {
@@ -68,9 +70,12 @@ export interface PortfolioItem {
   profile_id: string;
   skill_name: string;
   file_url: string;
-  file_type: 'image' | 'pdf' | 'video';
+  /** 'text' = a text-only post; its body is in `caption` and file_url is empty. */
+  file_type: 'image' | 'pdf' | 'video' | 'text';
   file_name: string;
   sort_order: number;
+  /** Optional caption shown with the work in the profile feed. */
+  caption?: string | null;
   category_name?: string | null;
   skills?: string[];
   source_type?: 'upload' | 'link';

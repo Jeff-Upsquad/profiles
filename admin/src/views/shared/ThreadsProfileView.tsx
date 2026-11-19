@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { Profile, CategoryWithFields, PortfolioItem, CategoryField } from '@/types';
-import Modal from '@/components/ui/Modal';
 import ThreadsProfileShell from '@/components/profile/ThreadsProfileShell';
 import ThreadsTopBar from '@/components/profile/ThreadsTopBar';
 import ThreadsProfileHeader from '@/components/profile/ThreadsProfileHeader';
-import ThreadsDetailSections from '@/components/profile/ThreadsDetailSections';
+import ThreadsDetailSections, { summarizeDetailSections } from '@/components/profile/ThreadsDetailSections';
+import ThreadsSkillsSheet from '@/components/profile/ThreadsSkillsSheet';
 import ThreadsPortfolioTabBar from '@/components/profile/ThreadsPortfolioTabBar';
 import ThreadsPortfolioFeed from '@/components/profile/ThreadsPortfolioFeed';
 import ThreadsProfileSkeleton from '@/components/profile/ThreadsProfileSkeleton';
+import { useCategoryTemplateGroups } from '@/hooks/useCategories';
 
 interface TalentUser {
   full_name: string;
@@ -18,6 +19,10 @@ interface TalentUser {
   languages_spoken?: { language: string; proficiency: string }[];
   age?: number | null;
   gender?: string | null;
+  country?: string | null;
+  state?: string | null;
+  current_district?: string | null;
+  city?: string | null;
 }
 
 interface ThreadsProfileViewProps {
@@ -25,12 +30,8 @@ interface ThreadsProfileViewProps {
   talentUser: TalentUser;
   category: CategoryWithFields | null;
   portfolioItems?: PortfolioItem[];
-  mode: 'business' | 'talent' | 'admin';
-  onShortlist?: () => void;
-  shortlistLoading?: boolean;
-  onSendInterest?: (message: string) => void;
-  interestLoading?: boolean;
-  editProfileHref?: string;
+  /** Admin previews are read-only. */
+  mode: 'admin';
   isLoading: boolean;
   error?: string;
   onBack: () => void;
@@ -52,25 +53,35 @@ export default function ThreadsProfileView({
   category,
   portfolioItems,
   mode,
-  onShortlist,
-  shortlistLoading,
-  onSendInterest,
-  interestLoading,
-  editProfileHref,
   isLoading,
   error,
   onBack,
   onShare,
 }: ThreadsProfileViewProps) {
-  const [interestModalOpen, setInterestModalOpen] = useState(false);
-  const [interestMessage, setInterestMessage] = useState('');
-  const [activeTab, setActiveTab] = useState('All');
+  const [activeTab, setActiveTab] = useState('Feed');
+
+  const { skillGroups, toolGroups, aiToolGroups, skillGroupOrder } =
+    useCategoryTemplateGroups(category?.id);
 
   const portfolioTabs = useMemo(() => {
     if (!portfolioItems || portfolioItems.length === 0) return [];
-    const skills = [...new Set(portfolioItems.map((i) => i.skill_name))];
-    return ['All', ...skills];
+    // Tabs are driven by category_name. Items with no category fall under
+    // "Other" so legacy uploads stay visible.
+    const named = new Set<string>();
+    let hasUncategorized = false;
+    for (const item of portfolioItems) {
+      if (item.category_name) named.add(item.category_name);
+      else hasUncategorized = true;
+    }
+    const tabs = ['Feed', ...Array.from(named)];
+    if (hasUncategorized) tabs.push('Other');
+    return tabs;
   }, [portfolioItems]);
+
+  const groupOrder = useMemo(
+    () => (skillGroupOrder ?? []).filter((g) => g !== ''),
+    [skillGroupOrder]
+  );
 
   const fields = useMemo(
     () => (category?.fields ?? []).filter((f) => f.is_active).sort((a, b) => a.sort_order - b.sort_order),
@@ -82,16 +93,11 @@ export default function ThreadsProfileView({
     [fields, profile]
   );
 
-  const handleSendInterest = () => {
-    if (!interestMessage.trim() || !onSendInterest) return;
-    onSendInterest(interestMessage);
-    setInterestModalOpen(false);
-    setInterestMessage('');
-  };
+  const pageClass = '-m-6 min-h-full bg-white sm:bg-[#FAFAFA]';
 
   if (isLoading) {
     return (
-      <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
+      <div className={pageClass}>
         <ThreadsProfileSkeleton />
       </div>
     );
@@ -99,7 +105,7 @@ export default function ThreadsProfileView({
 
   if (error || !profile) {
     return (
-      <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
+      <div className={pageClass}>
         <ThreadsProfileShell
           topBar={<ThreadsTopBar displayName="" onBack={onBack} onShare={onShare} />}
         >
@@ -126,33 +132,55 @@ export default function ThreadsProfileView({
     );
   }
 
-  const hasPortfolio = portfolioItems && portfolioItems.length > 0;
+  const hasPortfolio = !!portfolioItems && portfolioItems.length > 0;
+  const worksCount = (portfolioItems ?? []).filter((i) => i.file_type !== 'text').length;
+
+  const detailProps = {
+    fields,
+    fieldData: profile.field_data,
+    bioFieldKey,
+    languages: talentUser.languages_spoken,
+    categorySlug: category?.slug,
+    groupMaps: {
+      skills: skillGroups,
+      tools: toolGroups,
+      aiTools: aiToolGroups,
+      groupOrder,
+    },
+  };
+  const detailSummary = summarizeDetailSections(profile.field_data ?? {});
+  const hasDetailSections =
+    !!detailSummary || fields.length > 0 || (talentUser.languages_spoken?.length ?? 0) > 0;
 
   return (
-    <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
+    <div className={pageClass}>
       <ThreadsProfileShell
-        topBar={<ThreadsTopBar displayName={talentUser.full_name} onBack={onBack} onShare={onShare} />}
+        topBar={
+          <ThreadsTopBar
+            displayName={talentUser.full_name}
+            title="Profile"
+            subtitle={category?.name}
+            onBack={onBack}
+            onShare={onShare}
+          />
+        }
+        rail={hasDetailSections ? <ThreadsDetailSections {...detailProps} variant="rail" /> : undefined}
       >
         <ThreadsProfileHeader
           profile={profile}
           talentUser={talentUser}
           category={category}
           mode={mode}
-          onShortlist={onShortlist}
-          shortlistLoading={shortlistLoading}
-          onSendInterest={() => setInterestModalOpen(true)}
-          interestLoading={interestLoading}
-          editProfileHref={editProfileHref}
+          worksCount={worksCount}
         />
 
-        <ThreadsDetailSections
-          fields={fields}
-          fieldData={profile.field_data}
-          bioFieldKey={bioFieldKey}
-          languages={talentUser.languages_spoken}
-          categorySlug={category?.slug}
-        />
+        {hasDetailSections && (
+          <ThreadsSkillsSheet summary={detailSummary}>
+            <ThreadsDetailSections {...detailProps} variant="sheet" />
+          </ThreadsSkillsSheet>
+        )}
 
+        {/* Portfolio feed */}
         {hasPortfolio && (
           <>
             <ThreadsPortfolioTabBar
@@ -164,61 +192,13 @@ export default function ThreadsProfileView({
             <ThreadsPortfolioFeed
               items={portfolioItems!}
               activeTab={activeTab}
+              authorName={talentUser.full_name}
             />
           </>
         )}
 
-        {mode === 'talent' && !hasPortfolio && (
-          <>
-            <div className="flex flex-col items-center justify-center py-16 px-5">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a3a3a3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <polyline points="21 15 16 10 5 21" />
-                </svg>
-              </div>
-              <p className="mt-3 text-[14px] text-zinc-500">No portfolio items yet</p>
-            </div>
-          </>
-        )}
-
-        <div className="h-4" />
+        {!hasPortfolio && <div className="h-5" />}
       </ThreadsProfileShell>
-
-      <Modal
-        isOpen={interestModalOpen}
-        onClose={() => setInterestModalOpen(false)}
-        title="Send Interest Request"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Send a message to this talent to express your interest in hiring them.
-          </p>
-          <textarea
-            rows={4}
-            value={interestMessage}
-            onChange={(e) => setInterestMessage(e.target.value)}
-            placeholder="Tell the talent about the opportunity..."
-            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500"
-          />
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => setInterestModalOpen(false)}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSendInterest}
-              disabled={!interestMessage.trim() || interestLoading}
-              className="rounded-lg bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-            >
-              {interestLoading ? 'Sending...' : 'Send Interest'}
-            </button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

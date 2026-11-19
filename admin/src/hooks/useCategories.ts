@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -49,6 +50,110 @@ export function useCategories() {
       return data.categories || data;
     },
   });
+}
+
+export interface TemplateItem {
+  id: string;
+  name: string;
+  /** Optional grouping label (e.g. "Designer" / "Editor"). */
+  group?: string | null;
+  sort_order?: number;
+}
+
+function uniq<T>(arr: T[]): T[] {
+  const seen = new Set<T>();
+  const out: T[] = [];
+  for (const v of arr) {
+    if (!seen.has(v)) {
+      seen.add(v);
+      out.push(v);
+    }
+  }
+  return out;
+}
+
+/**
+ * Fetches the per-category template categories/skills/tools/AI-tools and
+ * exposes a name → group lookup for each. Categories whose templates carry
+ * no group value return empty maps, so callers fall back to flat rendering.
+ *
+ * Mirrors the public/business profile hook so the admin preview renders the
+ * same grouped skill sections as the live profile.
+ */
+export function useCategoryTemplateGroups(categoryId: string | undefined) {
+  const categoriesQ = useQuery<TemplateItem[]>({
+    queryKey: ['templateCategories', categoryId],
+    queryFn: async () => {
+      const { data } = await api.get(`/public/categories/${categoryId}/portfolio-categories`);
+      return data.portfolio_categories ?? data;
+    },
+    enabled: !!categoryId,
+  });
+
+  const skillsQ = useQuery<TemplateItem[]>({
+    queryKey: ['templateSkills', categoryId],
+    queryFn: async () => {
+      const { data } = await api.get(`/public/categories/${categoryId}/skills`);
+      return data.skills ?? data;
+    },
+    enabled: !!categoryId,
+  });
+
+  const toolsQ = useQuery<TemplateItem[]>({
+    queryKey: ['templateTools', categoryId],
+    queryFn: async () => {
+      const { data } = await api.get(`/public/categories/${categoryId}/tools`);
+      return data.tools ?? data;
+    },
+    enabled: !!categoryId,
+  });
+
+  const aiToolsQ = useQuery<TemplateItem[]>({
+    queryKey: ['templateAiTools', categoryId],
+    queryFn: async () => {
+      const { data } = await api.get(`/public/categories/${categoryId}/ai-tools`);
+      return data.ai_tools ?? data;
+    },
+    enabled: !!categoryId,
+  });
+
+  const categories = categoriesQ.data ?? [];
+  const skills = skillsQ.data ?? [];
+  const tools = toolsQ.data ?? [];
+  const aiTools = aiToolsQ.data ?? [];
+
+  const skillGroups = useMemo(
+    () => Object.fromEntries(skills.map((s) => [s.name, s.group ?? null])) as Record<string, string | null>,
+    [skills]
+  );
+  const toolGroups = useMemo(
+    () => Object.fromEntries(tools.map((t) => [t.name, t.group ?? null])) as Record<string, string | null>,
+    [tools]
+  );
+  const aiToolGroups = useMemo(
+    () => Object.fromEntries(aiTools.map((a) => [a.name, a.group ?? null])) as Record<string, string | null>,
+    [aiTools]
+  );
+
+  // Group order = order of first occurrence in the templates (already sorted
+  // server-side by sort_order, with Designer rows before Editor).
+  const skillGroupOrder = useMemo(() => uniq(skills.map((s) => s.group || '')), [skills]);
+
+  const isLoading =
+    !!categoryId &&
+    (categoriesQ.isLoading || skillsQ.isLoading || toolsQ.isLoading || aiToolsQ.isLoading);
+
+  return {
+    categories,
+    skills,
+    tools,
+    aiTools,
+    skillGroups,
+    toolGroups,
+    aiToolGroups,
+    skillGroupOrder,
+    isLoading,
+  };
 }
 
 export function useCreateCategory() {

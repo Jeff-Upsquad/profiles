@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
 import type {
@@ -10,7 +10,6 @@ import type {
   PortfolioItem,
   Profile,
 } from '@/types';
-import Modal from '@/components/ui/Modal';
 import ThreadsProfileShell from '@/components/profile/ThreadsProfileShell';
 import ThreadsTopBar from '@/components/profile/ThreadsTopBar';
 import ThreadsProfileHeader from '@/components/profile/ThreadsProfileHeader';
@@ -18,6 +17,7 @@ import ThreadsDetailSections from '@/components/profile/ThreadsDetailSections';
 import ThreadsPortfolioTabBar from '@/components/profile/ThreadsPortfolioTabBar';
 import ThreadsPortfolioFeed from '@/components/profile/ThreadsPortfolioFeed';
 import ThreadsProfileSkeleton from '@/components/profile/ThreadsProfileSkeleton';
+import { useCategoryTemplateGroups } from '@/hooks/useCategories';
 
 interface TalentUser {
   full_name: string;
@@ -26,39 +26,42 @@ interface TalentUser {
   languages_spoken?: { language: string; proficiency: string }[];
   age?: number | null;
   gender?: string | null;
+  country?: string | null;
+  state?: string | null;
+  current_district?: string | null;
+  city?: string | null;
 }
 
 interface GhostProfileViewProps {
   ghostProfile: Profile | null;
   sourceProfiles: GhostSourceProfile[];
   talentUser: TalentUser;
-  mode: 'business' | 'talent' | 'admin';
-  onShortlist?: () => void;
-  shortlistLoading?: boolean;
-  onSendInterest?: (message: string) => void;
-  interestLoading?: boolean;
+  /** Admin previews are read-only. */
+  mode: 'admin';
   isLoading: boolean;
   error?: string;
   onBack: () => void;
   onShare?: () => void;
 }
 
+/**
+ * View for a ghost "Designer + Editor" profile.
+ *
+ * The ghost row carries no field_data of its own — it points to two source
+ * profiles (Designer and Video Editor). This view shows the talent's basic
+ * info once, then exposes the two source profiles via tabs so the viewer
+ * can switch between them.
+ */
 export default function GhostProfileView({
   ghostProfile,
   sourceProfiles,
   talentUser,
   mode,
-  onShortlist,
-  shortlistLoading,
-  onSendInterest,
-  interestLoading,
   isLoading,
   error,
   onBack,
   onShare,
 }: GhostProfileViewProps) {
-  const [interestModalOpen, setInterestModalOpen] = useState(false);
-  const [interestMessage, setInterestMessage] = useState('');
   const [activeSourceIndex, setActiveSourceIndex] = useState(0);
   const [activePortfolioTab, setActivePortfolioTab] = useState('All');
 
@@ -72,6 +75,9 @@ export default function GhostProfileView({
     },
     enabled: !!activeSource?.category_id,
   });
+
+  const { skillGroups, toolGroups, aiToolGroups, skillGroupOrder } =
+    useCategoryTemplateGroups(activeSource?.category_id);
 
   const fields = useMemo(
     () =>
@@ -90,41 +96,47 @@ export default function GhostProfileView({
       is_active: true,
       created_at: '',
       updated_at: '',
-      fields: fields,
+      fields,
     };
   }, [activeSource, fields]);
 
   const bioFieldKey = useMemo(() => {
     if (!activeSource) return undefined;
     const textareaField = fields
-      .filter((f) => f.field_type === 'textarea')
+      .filter((f) => f.is_active && f.field_type === 'textarea')
       .sort((a, b) => a.sort_order - b.sort_order)[0];
     if (!textareaField) return undefined;
     const val = activeSource.field_data?.[textareaField.field_key];
     return val && typeof val === 'string' ? textareaField.field_key : undefined;
   }, [fields, activeSource]);
 
+  const groupOrder = useMemo(
+    () => (skillGroupOrder ?? []).filter((g) => g !== ''),
+    [skillGroupOrder]
+  );
+
   const portfolioTabs = useMemo(() => {
-    if (!activeSource || !activeSource.portfolio_items?.length) return [];
-    const skills = [...new Set(activeSource.portfolio_items.map((i: PortfolioItem) => i.skill_name))];
-    return ['All', ...skills];
+    if (!activeSource || activeSource.portfolio_items.length === 0) return [];
+    const named = new Set<string>();
+    let hasUncategorized = false;
+    for (const item of activeSource.portfolio_items) {
+      if (item.category_name) named.add(item.category_name);
+      else hasUncategorized = true;
+    }
+    const tabs = ['All', ...Array.from(named)];
+    if (hasUncategorized) tabs.push('Other');
+    return tabs;
   }, [activeSource]);
 
+  // Reset portfolio sub-tab when switching source.
   const handleSourceChange = (idx: number) => {
     setActiveSourceIndex(idx);
     setActivePortfolioTab('All');
   };
 
-  const handleSendInterest = () => {
-    if (!interestMessage.trim() || !onSendInterest) return;
-    onSendInterest(interestMessage);
-    setInterestModalOpen(false);
-    setInterestMessage('');
-  };
-
   if (isLoading) {
     return (
-      <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
+      <div className="-m-6 min-h-full bg-white sm:bg-[#FAFAFA]">
         <ThreadsProfileSkeleton />
       </div>
     );
@@ -132,7 +144,7 @@ export default function GhostProfileView({
 
   if (error || !ghostProfile || sourceProfiles.length === 0) {
     return (
-      <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
+      <div className="-m-6 min-h-full bg-white sm:bg-[#FAFAFA]">
         <ThreadsProfileShell topBar={<ThreadsTopBar displayName="" onBack={onBack} onShare={onShare} />}>
           <div className="flex flex-col items-center justify-center py-20 px-5">
             <p className="mt-4 text-[15px] font-medium text-zinc-950">
@@ -150,30 +162,42 @@ export default function GhostProfileView({
     );
   }
 
+  // Build a synthetic profile object that ThreadsProfileHeader can render.
+  // Header shows the active source's field_data so bio + website pull from
+  // the currently-selected source.
   const headerProfile: Profile = {
     ...ghostProfile,
     field_data: activeSource?.field_data ?? {},
   };
 
-  const hasPortfolio = activeSource && activeSource.portfolio_items?.length > 0;
+  const hasPortfolio = !!activeSource && activeSource.portfolio_items.length > 0;
+  const worksCount = (activeSource?.portfolio_items ?? []).filter(
+    (i: PortfolioItem) => i.file_type !== 'text'
+  ).length;
 
   return (
-    <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
+    <div className="-m-6 min-h-full bg-white sm:bg-[#FAFAFA]">
       <ThreadsProfileShell
-        topBar={<ThreadsTopBar displayName={talentUser.full_name} onBack={onBack} onShare={onShare} />}
+        topBar={
+          <ThreadsTopBar
+            displayName={talentUser.full_name}
+            title="Profile"
+            subtitle={activeCategory?.name}
+            onBack={onBack}
+            onShare={onShare}
+          />
+        }
       >
         <ThreadsProfileHeader
           profile={headerProfile}
           talentUser={talentUser}
           category={activeCategory}
           mode={mode}
-          onShortlist={onShortlist}
-          shortlistLoading={shortlistLoading}
-          onSendInterest={() => setInterestModalOpen(true)}
-          interestLoading={interestLoading}
+          worksCount={worksCount}
         />
 
-        {/* Source switcher: Designer / Video Editor */}
+        {/* Source switcher: lets the viewer flip between Designer and
+            Video Editor sub-profiles for the same talent. */}
         <div className="border-b border-zinc-200 bg-white px-5">
           <div className="flex gap-1">
             {sourceProfiles.map((sp, i) => (
@@ -198,6 +222,12 @@ export default function GhostProfileView({
           bioFieldKey={bioFieldKey}
           languages={talentUser.languages_spoken}
           categorySlug={activeSource?.category.slug}
+          groupMaps={{
+            skills: skillGroups,
+            tools: toolGroups,
+            aiTools: aiToolGroups,
+            groupOrder,
+          }}
         />
 
         {hasPortfolio && (
@@ -210,46 +240,13 @@ export default function GhostProfileView({
             <ThreadsPortfolioFeed
               items={activeSource!.portfolio_items}
               activeTab={activePortfolioTab}
+              authorName={talentUser.full_name}
             />
           </>
         )}
 
         <div className="h-4" />
       </ThreadsProfileShell>
-
-      <Modal
-        isOpen={interestModalOpen}
-        onClose={() => setInterestModalOpen(false)}
-        title="Send Interest Request"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Send a message to this talent to express your interest in hiring them.
-          </p>
-          <textarea
-            rows={4}
-            value={interestMessage}
-            onChange={(e) => setInterestMessage(e.target.value)}
-            placeholder="Tell the talent about the opportunity..."
-            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500"
-          />
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => setInterestModalOpen(false)}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSendInterest}
-              disabled={!interestMessage.trim() || interestLoading}
-              className="rounded-lg bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-            >
-              {interestLoading ? 'Sending...' : 'Send Interest'}
-            </button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

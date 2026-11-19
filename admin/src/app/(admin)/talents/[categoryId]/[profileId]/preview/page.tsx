@@ -26,6 +26,8 @@ interface AdminProfileResponse {
   talent_user_id?: string;
   is_ghost?: boolean;
   source_profiles?: GhostSourceProfile[];
+  tier?: Profile['tier'];
+  tier_custom?: string | null;
   talent_users?: {
     full_name: string;
     phone?: string;
@@ -33,6 +35,10 @@ interface AdminProfileResponse {
     gender?: string;
     current_location?: string;
     native_place?: string;
+    country?: string | null;
+    state?: string | null;
+    current_district?: string | null;
+    city?: string | null;
     languages_spoken?: { language: string; proficiency: string }[];
     profile_photo_url?: string;
   };
@@ -76,6 +82,8 @@ export default function TalentProfilePreviewPage(props: {
       rejection_reason: profileRaw.rejection_reason,
       created_at: profileRaw.created_at,
       updated_at: profileRaw.updated_at,
+      tier: profileRaw.tier,
+      tier_custom: profileRaw.tier_custom,
     };
   }, [profileRaw]);
 
@@ -95,6 +103,10 @@ export default function TalentProfilePreviewPage(props: {
   const talentUser = {
     full_name: profileRaw?.talent_users?.full_name ?? 'Unknown',
     current_location: profileRaw?.talent_users?.current_location,
+    country: profileRaw?.talent_users?.country,
+    state: profileRaw?.talent_users?.state,
+    current_district: profileRaw?.talent_users?.current_district,
+    city: profileRaw?.talent_users?.city,
     profile_photo_url: profileRaw?.talent_users?.profile_photo_url,
     languages_spoken: profileRaw?.talent_users?.languages_spoken,
     age: profileRaw?.talent_users?.age,
