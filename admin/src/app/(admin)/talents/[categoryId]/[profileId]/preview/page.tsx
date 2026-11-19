@@ -1,11 +1,12 @@
 'use client';
 
-import { use, useMemo } from 'react';
+import { use, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
 import ThreadsProfileView from '@/views/shared/ThreadsProfileView';
 import GhostProfileView from '@/views/shared/GhostProfileView';
+import ShareProfileModal from '@/components/profile/ShareProfileModal';
 import type {
   CategoryField,
   CategoryWithFields,
@@ -44,6 +45,7 @@ export default function TalentProfilePreviewPage(props: {
 }) {
   const params = use(props.params);
   const router = useRouter();
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const { data: profileRaw, isLoading: profileLoading, error: profileError } = useQuery<AdminProfileResponse>({
     queryKey: ['talent-profile', params.profileId],
@@ -111,15 +113,24 @@ export default function TalentProfilePreviewPage(props: {
       ),
     }));
     return (
-      <GhostProfileView
-        ghostProfile={profile}
-        sourceProfiles={visibleSourceProfiles}
-        talentUser={talentUser}
-        mode="admin"
-        isLoading={profileLoading}
-        error={profileError ? 'Failed to load profile' : undefined}
-        onBack={() => router.push(`/talents/${params.categoryId}/${params.profileId}`)}
-      />
+      <>
+        <GhostProfileView
+          ghostProfile={profile}
+          sourceProfiles={visibleSourceProfiles}
+          talentUser={talentUser}
+          mode="admin"
+          isLoading={profileLoading}
+          error={profileError ? 'Failed to load profile' : undefined}
+          onBack={() => router.push(`/talents/${params.categoryId}/${params.profileId}`)}
+          onShare={() => setShareModalOpen(true)}
+        />
+        <ShareProfileModal
+          isOpen={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+          profileId={params.profileId}
+          talentName={talentUser?.full_name}
+        />
+      </>
     );
   }
 
@@ -130,15 +141,24 @@ export default function TalentProfilePreviewPage(props: {
   );
 
   return (
-    <ThreadsProfileView
-      profile={profile}
-      talentUser={talentUser}
-      category={category}
-      portfolioItems={visiblePortfolioItems}
-      mode="admin"
-      isLoading={profileLoading || (!!profileRaw?.category_id && fieldsLoading)}
-      error={profileError ? 'Failed to load profile' : undefined}
-      onBack={() => router.push(`/talents/${params.categoryId}/${params.profileId}`)}
-    />
+    <>
+      <ThreadsProfileView
+        profile={profile}
+        talentUser={talentUser}
+        category={category}
+        portfolioItems={visiblePortfolioItems}
+        mode="admin"
+        isLoading={profileLoading || (!!profileRaw?.category_id && fieldsLoading)}
+        error={profileError ? 'Failed to load profile' : undefined}
+        onBack={() => router.push(`/talents/${params.categoryId}/${params.profileId}`)}
+        onShare={() => setShareModalOpen(true)}
+      />
+      <ShareProfileModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        profileId={params.profileId}
+        talentName={talentUser?.full_name}
+      />
+    </>
   );
 }

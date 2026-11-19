@@ -16,6 +16,7 @@ import * as savedFilterController from '../controllers/saved-filter.controller.j
 import * as notificationsController from '../controllers/notifications.controller.js';
 import * as appInstallController from '../controllers/app-install.controller.js';
 import * as staffAdminController from '../controllers/staff-admin.controller.js';
+import * as profileShareLinkCtrl from '../controllers/profile-share-link.controller.js';
 import agencyAdminRouter from './agency-admin.routes.js';
 import {
   requireAdminOrStaff,
@@ -39,6 +40,7 @@ import {
   setTalentOnboardingBypassSchema,
   setTalentUserActiveSchema,
   setProfileActiveSchema,
+  createProfileShareLinkSchema,
 } from '../validators/admin.validators.js';
 import { updateBasicProfileSchema } from '../validators/talent.validators.js';
 import {
@@ -312,6 +314,21 @@ router.patch(
   adminController.setProfileTier,
 );
 router.delete('/talents/profiles/:profileId', adminController.softDeleteTalentProfile);
+
+// Profile public share links (time-limited shareable access)
+router.post(
+  '/talents/profiles/:profileId/share-links',
+  validate({ body: createProfileShareLinkSchema }),
+  profileShareLinkCtrl.createLink,
+);
+router.get(
+  '/talents/profiles/:profileId/share-links',
+  profileShareLinkCtrl.listLinks,
+);
+router.delete(
+  '/talents/profiles/:profileId/share-links/:linkId',
+  profileShareLinkCtrl.revokeLink,
+);
 
 // Admin edit (status preserved, full parity with talent self-edit)
 router.put(

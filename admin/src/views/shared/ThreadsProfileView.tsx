@@ -34,6 +34,7 @@ interface ThreadsProfileViewProps {
   isLoading: boolean;
   error?: string;
   onBack: () => void;
+  onShare?: () => void;
 }
 
 function findBioFieldKey(fields: CategoryField[], fieldData: Record<string, any>): string | undefined {
@@ -59,6 +60,7 @@ export default function ThreadsProfileView({
   isLoading,
   error,
   onBack,
+  onShare,
 }: ThreadsProfileViewProps) {
   const [interestModalOpen, setInterestModalOpen] = useState(false);
   const [interestMessage, setInterestMessage] = useState('');
@@ -99,7 +101,7 @@ export default function ThreadsProfileView({
     return (
       <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
         <ThreadsProfileShell
-          topBar={<ThreadsTopBar displayName="" onBack={onBack} />}
+          topBar={<ThreadsTopBar displayName="" onBack={onBack} onShare={onShare} />}
         >
           <div className="flex flex-col items-center justify-center py-20 px-5">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100">
@@ -129,7 +131,7 @@ export default function ThreadsProfileView({
   return (
     <div className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-[#FAFAFA]">
       <ThreadsProfileShell
-        topBar={<ThreadsTopBar displayName={talentUser.full_name} onBack={onBack} />}
+        topBar={<ThreadsTopBar displayName={talentUser.full_name} onBack={onBack} onShare={onShare} />}
       >
         <ThreadsProfileHeader
           profile={profile}

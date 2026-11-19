@@ -21,6 +21,10 @@ export const setProfileActiveSchema = z.object({
   }
 });
 
+export const createProfileShareLinkSchema = z.object({
+  expires_at: z.string().datetime({ offset: true }).or(z.string().min(1)),
+});
+
 // ---------------------------------------------------------------------------
 // Category schemas
 // ---------------------------------------------------------------------------

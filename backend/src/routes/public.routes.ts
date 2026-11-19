@@ -2,6 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import * as talentController from '../controllers/talent.controller.js';
 import * as shareLinkCtrl from '../controllers/agency-share-link.controller.js';
+import * as profileShareLinkCtrl from '../controllers/profile-share-link.controller.js';
 import { supabaseAdmin } from '../config/supabase.js';
 
 const router = Router();
@@ -86,5 +87,10 @@ router.get('/categories/:categoryId/portfolio-categories', async (req, res, next
 // ---------------------------------------------------------------------------
 router.get('/agency-share/:token', publicShareLimiter, shareLinkCtrl.getPublicShare);
 router.get('/agency-share/:token/members/:memberId', publicShareLimiter, shareLinkCtrl.getPublicShareMember);
+
+// ---------------------------------------------------------------------------
+// Talent Profile Public Share Links (time-limited public access)
+// ---------------------------------------------------------------------------
+router.get('/profile-share/:token', publicShareLimiter, profileShareLinkCtrl.getPublicShare);
 
 export default router;

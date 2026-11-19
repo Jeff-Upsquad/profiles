@@ -16,6 +16,7 @@ import { CRM_URL } from '@/lib/crmUrl';
 import { formatTotalExperience, type ExperienceRange } from '../../../../shared/src/experienceTotal';
 import TalentActiveToggle from '@/components/TalentActiveToggle';
 import CrmChatDrawer from '@/views/onboarding/CrmChatDrawer';
+import ShareProfileModal from '@/components/profile/ShareProfileModal';
 
 type Tier = 'junior' | 'pro' | 'Top Talents' | 'custom';
 const TIER_OPTIONS: { value: Tier | null; label: string }[] = [
@@ -208,6 +209,7 @@ export default function TalentProfileView({
   const [pauseReason, setPauseReason] = useState('');
   const [pauseNotify, setPauseNotify] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const setProfileActive = useMutation({
     mutationFn: async (vars: { isActive: boolean; reason?: string; send_notification?: boolean }) => {
@@ -533,6 +535,17 @@ export default function TalentProfileView({
               {talentUser.blacklisted ? 'Unblacklist' : 'Blacklist'}
             </Button>
           )}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setShareModalOpen(true)}
+            className="inline-flex items-center gap-1.5"
+          >
+            <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+            </svg>
+            Share Profile
+          </Button>
           <button
             onClick={() => router.push(`/talents/${categoryId}/${profileId}/preview`)}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
@@ -882,6 +895,13 @@ export default function TalentProfileView({
         phone={chatOpen ? waPhone || null : null}
         name={talentUser?.full_name}
         onClose={() => setChatOpen(false)}
+      />
+
+      <ShareProfileModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        profileId={profileId}
+        talentName={talentUser?.full_name}
       />
     </div>
   );
